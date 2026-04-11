@@ -25,10 +25,10 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
-- `npm run wasm:build:rule-engine` — compile `wasm/rule_engine` and regenerate `src/lib/wasm/generated/*` bindings
+- `npm run wasm:build:rule-engine` — compile `wasm/rule_engine_wasm` (targeting `wasm32-unknown-unknown`) and regenerate `src/lib/wasm/generated/*` bindings via `wasm-bindgen`
 - `npm run wasm:ensure:rule-engine` — rebuild `src/lib/wasm/generated/*` only when relevant Rust/domain inputs are newer than generated outputs
 - `npm run check:wasm-toolchain` — validate `rustc`, `cargo`, `rustup`, `wasm-bindgen`, and installed target `wasm32-unknown-unknown`
-- `npm run ensure:wasm-toolchain` — run the same checks plus auto-fix (`cargo install wasm-bindgen-cli --version 0.2.108` and `rustup target add wasm32-unknown-unknown`) when needed
+- `npm run ensure:wasm-toolchain` — run the same checks plus auto-fix (`cargo install wasm-bindgen-cli --version 0.2.114` and `rustup target add wasm32-unknown-unknown`) when needed
 - `npm run test:unit` — compile + run node:test + SFC fixture runner
 - `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
@@ -43,9 +43,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Committed (source) scripts live under `scripts/` and are grouped by purpose:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
 - `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
-- `scripts/tooling/build-rule-engine-wasm.mjs` — builds the experimental Rust matcher crate (`wasm/rule_engine`) for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
-- `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale.
-- `scripts/tooling/run-dev-with-wasm-watch.mjs` — dev orchestrator used by `npm run dev`; runs an initial ensure, starts `npm run dev:vite`, and polls Rust/domain source inputs (`wasm/rule_engine/src/**`, `Cargo.toml`, `Cargo.lock`, `shared/domain-constants.json`) to trigger incremental ensure checks during active development.
+- `scripts/tooling/build-rule-engine-wasm.mjs` — builds the `wasm/rule_engine_wasm` cdylib crate for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
+- `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale.
+- `scripts/tooling/run-dev-with-wasm-watch.mjs` — dev orchestrator used by `npm run dev`; runs an initial ensure, starts `npm run dev:vite`, and polls Rust/domain source inputs (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, `shared/domain-constants.json`) to trigger incremental ensure checks during active development.
 - `scripts/tooling/check-rust-wasm-toolchain.mjs` — verifies required Rust/WASM binaries and target installation for the current platform; with `--fix`, it auto-installs missing `wasm-bindgen-cli` and wasm target when possible.
 - `postinstall` runs `npm run ensure:wasm-toolchain` before Playwright browser installation.
 - `dev` now runs an initial `npm run wasm:ensure:rule-engine` pass and then keeps polling Rust/domain inputs so follow-up edits trigger fresh ensure checks while Vite stays running.
@@ -102,7 +102,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 - No duplication of logic or data. Centralize and import instead of re-encoding knowledge in multiple files.
 - Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
-- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**`, `wasm/rule_engine/src/**`, or `wasm/rule_engine_native/src/**`, and never hand-edit generated constant files.
+- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**`, `wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, or `wasm/rule_engine_native/src/**`, and never hand-edit generated constant files.
   - Sections in `domain-constants.json`: artifact type IDs, stat IDs, rarity codes, rank codes, level sentinels and milestones, substat slot count and max rolls per slot, StatVariant bit encoding, auto-rarity schedule arrays, safeguard activation/match tokens, faction IDs and names, artifact type display names, stat variant display labels, allowed mains/subs per slot, substat minima by star rank.
   - `shared/sfc-label-test-vectors.json` holds canonical input/expected-output pairs for label parsers; consumed by both Rust `#[test]` (in `sfc_reader.rs`) and Jest (`tests/unit/sfc-label-symmetry.test.ts`). Update it whenever a label mapping changes, not after the fact.
 - HSF schema and stat converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
@@ -187,6 +187,31 @@ The WASM crate uses `#[wasm_bindgen]` and `JsValue`; the native crate uses
 `extern "C"` and JSON strings.  The SFC label-parser module (`sfc_reader`) and
 recipe normalizer (`recipe_builder`) live in `rule_engine_core` so both
 compilation targets share the same parsing logic without duplication.
+
+### WASM Linear Memory Management
+
+WASM linear memory is a flat address space managed by `dlmalloc`. Pages grow on demand but never shrink; freed allocations return to `dlmalloc`'s free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process. The three mitigations applied to `rule_engine_core` address the three dominant allocation sources:
+
+**1. Drop-before-allocate in `configure_engine`** (`lib.rs`)
+
+`configure_engine` rebuilds `BucketedRules` on every pipeline run. The old code built the new `BucketedRules` while the previous `EngineState` (containing the old rules) was still live, creating a double-allocation window. The fix extracts and drops the previous `EngineState` — including its `stored_rows` Vec — before calling `BucketedRules::from_rules`, so `dlmalloc` can recycle the freed blocks for the new allocation instead of growing the heap. The `stored_rows` payload is preserved across the drop and re-attached to the new `EngineState`.
+
+**2. Lazy merge in `BucketedRules`** (`matcher_evaluator.rs`)
+
+Rules partition into two groups at `from_rules` time: `shared` (empty `artifact_types` — applicable to every slot) and `per_slot` (slot-specific, keyed by slot id). The old design pre-merged shared rules into every slot's `Vec` at configure time, so with 9 slots and a significant shared fraction the stored rule count was 3–5× the input. The new design stores each group exactly once and merges them lazily inside `evaluate_item` via a zero-copy two-pointer sorted merge (both slices are in `original_index` order from enumeration at configure time). This reduces `BucketedRules` peak memory from ~3–5× input to ~1× input.
+
+**3. Undo-redo in `compute_probability`** (`safeguards/improvement_chance.rs`)
+
+The improvement-chance pass runs `compute_probability` for each of ~7 000+ viable artifacts. The old code called `apply_state_delta` on every recursive branch, cloning the `HashMap<i64,i64>` substat state (up to 4 entries) before each recursive call. With millions of branches across all artifacts, `dlmalloc` allocated and freed millions of small HashMap backing tables; fragmentation raised the heap high-water mark by 50–70 MiB per pipeline run. The fix replaces all `apply_state_delta` calls with in-place mutation + undo: before each recursive call the relevant key is updated directly in the live `state` map, and after the call returns the original value is restored. The `initial_state` HashMap allocated once per artifact now serves the entire recursion tree with zero clones.
+
+Three additional allocation reductions accompany fix 3:
+- **`StateKey` struct** replaces the String-keyed memo: each recursive call previously allocated a `Vec<(i64,i64)>` + multiple `String` segments for the memo key; the new `StateKey` is a stack-allocated struct `{ event_idx: u8, len: u8, entries: [(i64,i64); 4] }` — zero heap allocation per call.
+- **Stack buffers for candidates/variants**: the `candidates` and `variants` Vecs are replaced by `[0i64; 12]` / `[0i64; 4]` stack arrays since both are bounded (≤11 legal pool entries, ≤4 substat slots).
+- **Reusable memo HashMap**: a single `HashMap<StateKey, f64>` is allocated before the outer artifact loop and cleared (not reallocated) between artifacts, eliminating 7 000+ HashMap lifecycle alloc/free cycles per run.
+
+**Warmup-promise hardening** (`wasmRuleEngine.ts`, `ruleCacheWorker.ts`, `dungeonSimulatorWorker.ts`)
+
+If `initRuleEngineWasm()` (or `warmupWasmRuleEngine()`) rejects, the cached promise was previously permanent — every subsequent WASM call would reject forever until the worker process was replaced. The fix wraps the `await` in a `try/catch` that nulls the cached promise on failure, allowing the next pipeline request to retry initialization.
 
 ### Build Output (Single File)
 

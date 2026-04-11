@@ -198,13 +198,21 @@ const toEvaluateOptionsPayload = (
 
 // Ensure the WASM binary is instantiated exactly once for this JS context.
 // The generated binding no-ops after first init, so repeated calls stay cheap.
+// On failure the cached promise is cleared so the next caller can retry rather
+// than every future call rejecting from the same permanently-stuck promise.
 const ensureWasmInitialized = async (): Promise<void> => {
   if (!wasmInitPromise) {
     wasmInitPromise = initRuleEngineWasm().then(() => {
       wasmInitialized = true
     })
   }
-  await wasmInitPromise
+  try {
+    await wasmInitPromise
+  } catch (error) {
+    // Clear so the next pipeline request can attempt re-initialization.
+    wasmInitPromise = null
+    throw error
+  }
 }
 
 // Warmup helper allows callers with async control flow to preload the wasm

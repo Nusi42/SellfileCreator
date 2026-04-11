@@ -517,30 +517,33 @@ fn compute_score_from_state(
     if total.is_finite() { total } else { 0.0 }
 }
 
-fn build_state_key(state: &HashMap<i64, i64>, event_idx: usize) -> String {
-    // Stable memo key: event index | sorted variant:value pairs.
-    // Matches TS buildRecursionStateKey format exactly.
-    let mut entries: Vec<(i64, i64)> = state.iter().map(|(&v, &val)| (v, val)).collect();
-    entries.sort_unstable_by_key(|(v, _)| *v);
-    let encoded = entries
-        .iter()
-        .map(|(v, val)| format!("{v}:{val}"))
-        .collect::<Vec<_>>()
-        .join("|");
-    format!("{event_idx}|{encoded}")
+// Compact stack-allocated memo key: avoids all heap allocation vs. the old String approach.
+// State has at most MAX_SUBSTAT_SLOTS (4) entries; event_idx is bounded by milestone count (≤8).
+#[derive(Hash, Eq, PartialEq)]
+struct StateKey {
+    event_idx: u8,
+    len: u8,
+    // Sorted (variant, scaled_value) pairs; zero-filled past `len`.
+    entries: [(i64, i64); 4],
 }
 
-fn apply_state_delta(
-    state: &HashMap<i64, i64>,
-    variant: i64,
-    delta: i64,
-) -> HashMap<i64, i64> {
-    // Clone state and add delta to one variant (non-negative floor).
-    let mut next = state.clone();
-    let current = next.get(&variant).copied().unwrap_or(0);
-    next.insert(variant, (current + delta).max(0));
-    next
+fn make_state_key(state: &HashMap<i64, i64>, event_idx: usize) -> StateKey {
+    // Collect into a fixed-size array; sort the live prefix in place.
+    let mut entries = [(0i64, 0i64); 4];
+    let mut len = 0usize;
+    for (&v, &val) in state.iter() {
+        entries[len] = (v, val);
+        len += 1;
+    }
+    entries[..len].sort_unstable_by_key(|(v, _)| *v);
+    StateKey { event_idx: event_idx as u8, len: len as u8, entries }
 }
+
+// apply_state_delta removed: compute_probability now mutates state in-place and
+// restores it after each recursive call (undo-redo pattern).  This eliminates
+// the HashMap clone that the old function performed on every recursive branch —
+// previously the dominant source of dlmalloc fragmentation during the 7432-artifact
+// improvement-chance pass, which grew WASM linear memory by 50–70 MiB per run.
 
 fn resolve_expected_gain(
     variant: i64,
@@ -746,11 +749,16 @@ fn is_state_selected_by_any_scenario(
 
 // ─── recursion ────────────────────────────────────────────────────────────────
 
+// Memoized DP over the upgrade event sequence.
+// `state` is mutated in place and restored after each recursive branch (undo-redo)
+// so no HashMap is ever cloned — one allocation serves the entire recursion tree.
+// `memo` is a caller-owned scratch map cleared between artifacts; it maps a compact
+// StateKey (stack-allocated, no heap) to the cached probability for that node.
 fn compute_probability(
     ctx: &RecursionContext<'_>,
-    state: &HashMap<i64, i64>,
+    state: &mut HashMap<i64, i64>,
     event_idx: usize,
-    memo: &mut HashMap<String, f64>,
+    memo: &mut HashMap<StateKey, f64>,
 ) -> f64 {
     // Base case: no more milestones; evaluate the final projected state.
     if event_idx >= ctx.milestones.len() {
@@ -760,7 +768,8 @@ fn compute_probability(
             0.0
         };
     }
-    let key = build_state_key(state, event_idx);
+    // Capture key BEFORE any mutation so memo lookup/insert use the same state.
+    let key = make_state_key(state, event_idx);
     if let Some(&cached) = memo.get(&key) {
         return cached;
     }
@@ -770,21 +779,25 @@ fn compute_probability(
     let is_addition = ctx.addition_milestones.contains(&milestone) && state.len() < MAX_SUBSTAT_SLOTS;
     let result = if is_addition {
         // Addition: choose one missing legal substat uniformly at random.
-        let candidates: Vec<i64> = ctx
-            .legal_addition_pool
-            .iter()
-            .filter(|&&v| !state.contains_key(&v))
-            .copied()
-            .collect();
+        // The legal pool has at most 11 entries (armor slots); a stack buffer avoids heap.
+        let mut candidate_buf = [0i64; 12];
+        let mut candidate_count = 0usize;
+        for &v in ctx.legal_addition_pool.iter() {
+            if !state.contains_key(&v) {
+                candidate_buf[candidate_count] = v;
+                candidate_count += 1;
+            }
+        }
+        let candidates = &candidate_buf[..candidate_count];
         if candidates.is_empty() {
             // No missing pool candidates; advance without an addition.
             compute_probability(ctx, state, event_idx + 1, memo)
         } else {
-            let p = 1.0 / candidates.len() as f64;
+            let p = 1.0 / candidate_count as f64;
             // Early milestones use single average gain; later ones branch Q1/Q3.
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = 0.0;
-            for variant in candidates {
+            for &variant in candidates {
                 let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
                 if low <= 0 && high <= 0 {
@@ -792,54 +805,70 @@ fn compute_probability(
                 }
                 if use_two_value && low != high {
                     // Two-value branching: Q1 (low) and Q3 (high), each 50% probability.
+                    // Mutate state in-place, recurse, then remove the key to undo.
                     if low > 0 {
-                        let next_low = apply_state_delta(state, variant, low);
-                        total += p * 0.5 * compute_probability(ctx, &next_low, event_idx + 1, memo);
+                        state.insert(variant, low);
+                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        state.remove(&variant);
                     }
                     if high > 0 {
-                        let next_high = apply_state_delta(state, variant, high);
-                        total += p * 0.5 * compute_probability(ctx, &next_high, event_idx + 1, memo);
+                        state.insert(variant, high);
+                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        state.remove(&variant);
                     }
                 } else {
                     // Single average gain: (low + high) / 2.
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
                     if avg <= 0 { continue; }
-                    let next = apply_state_delta(state, variant, avg);
-                    total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                    state.insert(variant, avg);
+                    total += p * compute_probability(ctx, state, event_idx + 1, memo);
+                    state.remove(&variant);
                 }
             }
             total
         }
     } else {
         // Roll: choose one existing substat uniformly at random.
-        let mut variants: Vec<i64> = state.keys().copied().collect();
-        variants.sort_unstable();
+        // State has at most MAX_SUBSTAT_SLOTS (4) entries; a stack buffer avoids heap.
+        let mut variant_buf = [0i64; 4];
+        let mut variant_count = 0usize;
+        for &k in state.keys() {
+            variant_buf[variant_count] = k;
+            variant_count += 1;
+        }
+        variant_buf[..variant_count].sort_unstable();
+        let variants = &variant_buf[..variant_count];
         if variants.is_empty() {
             compute_probability(ctx, state, event_idx + 1, memo)
         } else {
-            let p = 1.0 / variants.len() as f64;
+            let p = 1.0 / variant_count as f64;
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = 0.0;
-            for variant in variants {
+            for &variant in variants {
                 let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
                 if low <= 0 && high <= 0 {
                     continue;
                 }
+                // Save current value so we can restore it (undo) after the recursive call.
+                let current = *state.get(&variant).unwrap_or(&0);
                 if use_two_value && low != high {
                     if low > 0 {
-                        let next_low = apply_state_delta(state, variant, low);
-                        total += p * 0.5 * compute_probability(ctx, &next_low, event_idx + 1, memo);
+                        *state.get_mut(&variant).unwrap() = (current + low).max(0);
+                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        *state.get_mut(&variant).unwrap() = current;
                     }
                     if high > 0 {
-                        let next_high = apply_state_delta(state, variant, high);
-                        total += p * 0.5 * compute_probability(ctx, &next_high, event_idx + 1, memo);
+                        *state.get_mut(&variant).unwrap() = (current + high).max(0);
+                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        *state.get_mut(&variant).unwrap() = current;
                     }
                 } else {
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
                     if avg <= 0 { continue; }
-                    let next = apply_state_delta(state, variant, avg);
-                    total += p * compute_probability(ctx, &next, event_idx + 1, memo);
+                    *state.get_mut(&variant).unwrap() = (current + avg).max(0);
+                    total += p * compute_probability(ctx, state, event_idx + 1, memo);
+                    *state.get_mut(&variant).unwrap() = current;
                 }
             }
             total
@@ -906,9 +935,13 @@ fn artifact_matches_substats(
 
 // ─── per-artifact chance computation ─────────────────────────────────────────
 
+// `memo` is a caller-owned scratch map; cleared here before use so the same
+// allocation is reused across all artifacts in the outer loop without leaking
+// stale entries between artifacts (context changes per artifact).
 fn compute_artifact_chance_percent(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
+    memo: &mut HashMap<StateKey, f64>,
 ) -> f64 {
     if scenarios.is_empty() {
         return 0.0;
@@ -916,7 +949,8 @@ fn compute_artifact_chance_percent(
     let artifact_id = artifact.id.unwrap_or(0);
     let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
     let milestones = resolve_remaining_milestones(level);
-    let initial_state = build_initial_scaled_state(artifact);
+    // mut: compute_probability mutates state in-place (undo-redo) and restores it on return.
+    let mut initial_state = build_initial_scaled_state(artifact);
     // Artifact already at +16: check current state directly without recursion.
     if milestones.is_empty() {
         let ctx = RecursionContext {
@@ -958,7 +992,12 @@ fn compute_artifact_chance_percent(
         expected_gain,
         fallback_gain,
     };
-    let prob = compute_probability(&ctx, &initial_state, 0, &mut HashMap::new());
+    // Clear the scratch memo before this artifact's recursion tree; reusing the
+    // allocation across artifacts eliminates repeated HashMap construction/destruction.
+    memo.clear();
+    // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
+    // restored by the time compute_probability returns — callers see no net change.
+    let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
     // One decimal place (e.g. 47.3) — round to nearest tenth.
     (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
 }
@@ -1262,15 +1301,15 @@ fn resolve_most_likely_scenario_idx<'a>(
     if viable.len() == 1 {
         return Some(0);
     }
-    // Compute per-scenario chance in isolation.
-    let chances: Vec<f64> = viable
-        .iter()
-        .map(|&s| {
-            // Wrap single reference in a one-element array slice for the shared signature.
-            let single = [s];
-            compute_artifact_chance_percent(artifact, &single)
-        })
-        .collect();
+    // Compute per-scenario chance in isolation; reuse one memo across all inner
+    // calls so N single-scenario invocations share one HashMap instead of N.
+    let mut memo: HashMap<StateKey, f64> = HashMap::new();
+    let mut chances: Vec<f64> = Vec::with_capacity(viable.len());
+    for &s in viable.iter() {
+        // Wrap single reference in a one-element array slice for the shared signature.
+        let single = [s];
+        chances.push(compute_artifact_chance_percent(artifact, &single, &mut memo));
+    }
     let &best_chance = chances.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
     let best_idxs: Vec<usize> = chances
         .iter()
@@ -1412,6 +1451,10 @@ pub fn compute_improvement_chance_core(
     }
     let source_count = rows.len() as u32;
     let mut output = Vec::<ImprovementChanceEntry>::new();
+    // Single scratch memo reused across all per-artifact compute_probability calls.
+    // compute_artifact_chance_percent calls memo.clear() at the start of each artifact,
+    // so stale entries from the previous artifact never leak into the next one.
+    let mut impr_memo: HashMap<StateKey, f64> = HashMap::new();
     // Perf counters — only accumulated when debug=true so the hot path is unaffected.
     let mut artifacts_with_scenarios = 0u32;
     let mut artifacts_viable = 0u32;
@@ -1456,7 +1499,7 @@ pub fn compute_improvement_chance_core(
             continue;
         }
         if debug { artifacts_viable += 1; }
-        let chance = compute_artifact_chance_percent(&row.artifact, &viable);
+        let chance = compute_artifact_chance_percent(&row.artifact, &viable, &mut impr_memo);
         let preferred_idx = resolve_most_likely_scenario_idx(&row.artifact, &viable);
         let preferred = preferred_idx.map(|i| viable[i]);
         let debug_snapshot = preferred.map(|s| {

@@ -955,15 +955,21 @@ pub fn finalize_builder_rules_core(
 // Rules are prepared then immediately bucketed by artifact slot so hot-path
 // evaluate_item calls only iterate rules relevant to each item's slot.
 pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
+    // Drop the old EngineState (and its BucketedRules + stored_rows) BEFORE building the
+    // new BucketedRules. This lets dlmalloc recycle the freed blocks immediately rather
+    // than holding old + new simultaneously, which would force memory.grow and is the
+    // primary cause of STATUS_ACCESS_VIOLATION in V8 on Windows near the commit limit.
+    let existing_rows = ENGINE_STATE.with(|state| {
+        state.borrow_mut().take().and_then(|s| s.stored_rows)
+    });
+    // Old BucketedRules is now freed; allocate the new one into the recycled space.
     let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     ENGINE_STATE.with(|state| {
-        // Preserve stored_rows across reconfigures — artifact table changes independently
-        // of rule changes and callers re-store rows explicitly when the DB changes.
-        let existing_rows = state.borrow_mut().take().and_then(|s| s.stored_rows);
         *state.borrow_mut() = Some(EngineState {
             bucketed_rules,
             recipe_modes,
+            // Restore stored_rows so the next evaluate+collect call still has artifact data.
             stored_rows: existing_rows,
         });
     });
@@ -1038,10 +1044,12 @@ pub fn evaluate_engine(
         let mut scratch = EvaluateItemScratch::new();
         let mut results = Vec::with_capacity(items.len());
         for entry in &items {
-            // Derive the merged rule slice for this item's slot; zero allocation per-item.
-            let rules = engine.bucketed_rules.rules_for_slot(entry.item.slot);
+            // Derive shared + slot-specific rule slices for this item's slot.
+            // Both borrows are valid for the full item scope; evaluate_item merges lazily.
+            let (shared, slot_rules) = engine.bucketed_rules.rules_for_slot(entry.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                rules,
+                shared,
+                slot_rules,
                 &engine.recipe_modes,
                 &entry.item,
                 &prepared_options,
@@ -1067,7 +1075,8 @@ pub fn evaluate_engine(
                 if needs_baseline {
                     // Second call overwrites scratch; recipe data already extracted above.
                     let (_, baseline_non_excluded) = evaluate_item(
-                        rules,
+                        shared,
+                        slot_rules,
                         &engine.recipe_modes,
                         &entry.item,
                         baseline,
@@ -1163,10 +1172,12 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
         let mut evaluate_results = Vec::<EvaluateItemResult>::with_capacity(collect_rows.len());
 
         for row in collect_rows.iter() {
-            // Derive the merged rule slice for this item's slot; zero allocation per-item.
-            let rules = engine.bucketed_rules.rules_for_slot(row.item.slot);
+            // Derive shared + slot-specific rule slices for this item's slot.
+            // Both borrows are valid for the full row scope; evaluate_item merges lazily.
+            let (shared, slot_rules) = engine.bucketed_rules.rules_for_slot(row.item.slot);
             let (first_match, first_non_excluded) = evaluate_item(
-                rules,
+                shared,
+                slot_rules,
                 &engine.recipe_modes,
                 &row.item,
                 &prepared_options,
@@ -1194,7 +1205,8 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
                     first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     let (_, baseline_non_excluded) = evaluate_item(
-                        rules,
+                        shared,
+                        slot_rules,
                         &engine.recipe_modes,
                         &row.item,
                         baseline,

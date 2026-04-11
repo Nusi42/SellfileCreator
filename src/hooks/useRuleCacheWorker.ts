@@ -196,6 +196,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           return
         }
         case 'pipeline:done': {
+          // DEV: if this line appears the large structured-clone was fully deserialized on
+          // the main thread. If it does NOT appear after a worker "postMessage-sent" trace,
+          // the crash is happening during structured-clone deserialization.
+          if (import.meta.env.DEV) {
+            console.log(
+              `[sfc-trace] main pipeline:done id=${data.id}` +
+              ` rules=${data.payload.mergedRules?.length ?? 'null'}` +
+              ` matches=${data.payload.matches.length}`,
+            )
+          }
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
@@ -249,8 +259,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         }
         case 'diagnostic': {
           // Accumulate [sfc-diag] text on window.__sfcDiag so Playwright tests can read
-          // it via page.evaluate. console.log is stripped in production builds (terser
-          // drop_console), and worker console.log does not fire page.on('console').
+          // it via page.evaluate. Also echo to console so the message is visible in
+          // DevTools during manual debugging (worker console.log does not fire
+          // page.on('console'), and these messages are only sent in dev builds).
+          console.log(data.text)
           const diag = (window as Window & { __sfcDiag?: string[] }).__sfcDiag
           if (diag) {
             diag.push(data.text)

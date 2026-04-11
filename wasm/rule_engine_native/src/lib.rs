@@ -13,6 +13,7 @@
 // Build as Linux .so for WSL testing:
 //   cargo build -p rule_engine_native
 
+use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char};
 use serde::{Deserialize, Serialize};
 
@@ -262,6 +263,7 @@ fn run(input_json: &str) -> Result<String, String> {
             None,                           // expected_payload
             true,
             0.0,                            // now (timestamp; not used for rule logic)
+            HashMap::new(),                 // improvement_chances: empty = threshold gating disabled
         ).map_err(|e| format!("Safeguard detection error: {e}"))?;
         Some(combined.detection)
     } else {
@@ -284,10 +286,13 @@ fn run(input_json: &str) -> Result<String, String> {
 
     // 8. Compute per-artifact improvement-chance percentages.
     //    Returns an empty vec when safeguards are disabled or no rules/rows are present.
-    let improvement_chances: Vec<ImprovementChanceEntry> = compute_improvement_chance_core(
+    //    debug=false: the DLL output schema carries only the entry vec; perf diagnostics
+    //    are discarded (they are dev-only instrumentation used by the WASM worker).
+    let (improvement_chances, _diag) = compute_improvement_chance_core(
         &rows,
         parsed.safeguard_rules,
         parsed.safeguards_enabled,
+        false,
     );
 
     // 9. Serialise and return the output as a JSON string.

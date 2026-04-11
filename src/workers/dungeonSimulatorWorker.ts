@@ -17,6 +17,9 @@ import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress
 
 declare const self: DedicatedWorkerGlobalScope
 
+// Compile-time flag — same pattern as ruleCacheWorker.ts; dead-code eliminated in prod.
+const IS_DEV = import.meta.env.DEV
+
 // Track the active run so newer requests can preempt older ones.
 let activeRunId = 0
 // Keep the latest session around for detail queries.
@@ -25,11 +28,17 @@ let cachedSession: ReturnType<typeof createDungeonSimSpotlightSession> | null = 
 let wasmWarmupPromise: Promise<void> | null = null
 
 // Ensure sync rule evaluation can run inside dungeon simulation batches.
+// On failure the cached promise is cleared so the next sim request can retry.
 const ensureWasmWorkerReady = async (): Promise<void> => {
   if (!wasmWarmupPromise) {
     wasmWarmupPromise = warmupWasmRuleEngine()
   }
-  await wasmWarmupPromise
+  try {
+    await wasmWarmupPromise
+  } catch (error) {
+    wasmWarmupPromise = null
+    throw error
+  }
 }
 
 // Determine whether any non-dirty dungeon still has remaining runs.
@@ -62,8 +71,10 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   const { id, payload } = message
   // Mark the newest run as active so earlier runs can self-abort.
   activeRunId = id
+  if (IS_DEV) console.log(`[sfc-dsim] sim start id=${id} rules=${payload.rules.length} runs=${payload.runs}`)
   // Warm up WASM before any sync matcher calls happen in the simulation loop.
   await ensureWasmWorkerReady()
+  if (IS_DEV) console.log(`[sfc-dsim] wasm ready id=${id}`)
   // Guard against invalid batch sizes that would stall the loop.
   const batchSize = Number.isFinite(payload.batchSize)
     ? Math.max(1, Math.floor(payload.batchSize))
@@ -131,6 +142,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   }
   // Abort if another request superseded this one.
   if (activeRunId !== id) return
+  if (IS_DEV) console.log(`[sfc-dsim] sim done id=${id}`)
   // Emit a final "done" snapshot for the resolved promise.
   const doneResponse: DungeonSimulatorWorkerResponse = {
     id,

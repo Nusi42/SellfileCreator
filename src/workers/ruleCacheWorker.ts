@@ -250,9 +250,16 @@ const postPipelineProgress = (id: number, payload: { completed: number; total: n
 }
 
 // Warmup is mandatory because configure/evaluate run through loaded wasm state.
+// On failure the cached promise is cleared so the next pipeline request can retry
+// rather than getting stuck on a permanently-rejected promise for the worker's lifetime.
 const ensureWasmWorkerReady = async (): Promise<void> => {
   if (!wasmWarmupPromise) wasmWarmupPromise = warmupWasmRuleEngine()
-  await wasmWarmupPromise
+  try {
+    await wasmWarmupPromise
+  } catch (error) {
+    wasmWarmupPromise = null
+    throw error
+  }
 }
 
 // Worker-only finalizer delegates branch-rule post-processing to wasm.
@@ -421,6 +428,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
   try {
     devLog(`[sfc-trace] pipeline start id=${id} recipes=${payload.recipes.length} artifacts=${payload.artifacts.length}`)
+    // Yield so the trace above is delivered to the main thread before the first WASM
+    // allocation. If the process crashes inside a WASM call, the last trace that arrived
+    // on the main thread tells us exactly where the crash occurred.
+    if (IS_DEV) await yieldWorkerMacrotask()
     const doneState = devTimer('buildPipelineState')
     const { state: pipelineState } = buildPipelineState(payload)
     doneState()
@@ -477,6 +488,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Populated inside needsDetection branch when payload.computeImprovementChance is true.
     let improvementChanceEntries: ImprovementChanceWasmEntry[] | null = null
     if (needsDetection) {
+      // Trace + yield before the first WASM allocation so a crash inside configure is visible.
+      devLog(`[sfc-trace] configure-baseline id=${id} rules=${mergedRulesBaseline.length}`)
+      if (IS_DEV) await yieldWorkerMacrotask()
       // Configure baseline rules so the combined WASM evaluate+collect call uses them.
       await configureWasmRuleEngine({
         rules: mergedRulesBaseline,
@@ -497,6 +511,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const rowsAreStale = storeFingerprint !== lastArtifactStoreFingerprint
       if (rowsAreStale) {
         const detectionRows = artifactEntries.map(([, artifact]) => toWasmArtifactStoreRow(artifact))
+        // Trace + yield so a crash inside storeArtifactRows is distinguishable from configure.
+        devLog(`[sfc-trace] store-rows-call id=${id} count=${detectionRows.length}`)
+        if (IS_DEV) await yieldWorkerMacrotask()
         storeArtifactRows(detectionRows)
         lastArtifactStoreFingerprint = storeFingerprint
         const storedMsg = `[sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
@@ -519,6 +536,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       )
       const needsImprovementChance = hasThreshold || payload.computeImprovementChance
       if (needsImprovementChance) {
+        // Trace + yield so a crash inside computeImprovementChance is distinguishable.
+        devLog(`[sfc-trace] compute-impr-chance id=${id}`)
+        if (IS_DEV) await yieldWorkerMacrotask()
         const doneImprovChance = devTimer('computeImprovementChance')
         const improvResult = computeImprovementChanceWithLoadedWasm({
           rules: payload.safeguards.rules,
@@ -543,6 +563,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
+      // Trace + yield so a crash inside evaluateAndCollectSafeguardProtection is distinguishable.
+      devLog(`[sfc-trace] eval-collect id=${id}`)
+      if (IS_DEV) await yieldWorkerMacrotask()
       // Supply pre-computed entries so evaluateAndCollectSafeguardProtection skips its
       // internal improvement-chance fallback (prevents a second WASM call + allocation).
       const detectionResult = evaluateAndCollectSafeguardProtection({
@@ -607,6 +630,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
     } else {
       const finalProgressRef = { value: completed }
+      // Trace + yield so a crash inside the final match pass is distinguishable from eval-collect.
+      devLog(`[sfc-trace] match-pass id=${id} artifacts=${artifactEntries.length} rules=${mergedRulesFinal.length}`)
+      if (IS_DEV) await yieldWorkerMacrotask()
       const doneMatchPass = devTimer(`matchPass artifacts=${artifactEntries.length} rules=${mergedRulesFinal.length}`)
       matches = await buildPipelineMatches(
         mergedRulesFinal,
@@ -694,6 +720,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       )
     }
     self.postMessage(response)
+    // If this line logs, the crash is NOT during self.postMessage (structured clone).
+    // If it never appears after the "postMessage id=N" line, the crash is inside postMessage.
+    devLog(`[sfc-trace] postMessage-sent id=${id}`)
   } catch (error) {
     if (runIsStale()) return
     postError(id, error)
