@@ -163,7 +163,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   // STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
   // the only defence is staying below the ~160 MiB grow-rejection threshold.
   const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-  const PIPELINE_RESTART_INTERVAL = 1               // restart every 1 completed pipeline (test)
+  const PIPELINE_RESTART_INTERVAL = 5               // restart worker every 5 completed pipelines
   const completedPipelineCountRef = useRef(0)
   const lastWasmLinearBytesRef = useRef(0)
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
