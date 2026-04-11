@@ -1119,17 +1119,6 @@ export default function PreviewHeaderActions(props: {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
-                {/* Always show Save-as so users can start capturing filter presets immediately. */}
-                {onSaveFilterPreset ? (
-                  <MenuItem
-                    onClick={() => {
-                      closeFilterMenu()
-                      openSavePresetDialog()
-                    }}
-                  >
-                    {t('filterPresetsSaveAs')}
-                  </MenuItem>
-                ) : null}
                 {/* Saved presets: built-ins first, then user-defined with move/delete controls. */}
                 {filterPresets.length > 0 ? (
                   filterPresets.map((preset, index) => (
@@ -1217,6 +1206,18 @@ export default function PreviewHeaderActions(props: {
                     {t('filterSyncViews')}
                   </MenuItem>
                 ) : null}
+                {/* Save-as is always last and non-reorderable — it is structural, not a stored preset. */}
+                {onSaveFilterPreset ? (
+                  <MenuItem
+                    onClick={() => {
+                      closeFilterMenu()
+                      openSavePresetDialog()
+                    }}
+                    sx={{ fontStyle: 'italic' }}
+                  >
+                    {t('filterPresetsSaveAs')}
+                  </MenuItem>
+                ) : null}
               </Menu>
             ) : null}
             <Dialog open={savePresetOpen} onClose={closeSavePresetDialog} maxWidth="xs" fullWidth>
@@ -1280,16 +1281,6 @@ export default function PreviewHeaderActions(props: {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
-                {onSaveSortPreset ? (
-                  <MenuItem
-                    onClick={() => {
-                      closeSortPresetMenu()
-                      openSaveSortPresetDialog()
-                    }}
-                  >
-                    {t('sortPresetsSaveAs')}
-                  </MenuItem>
-                ) : null}
                 {sortPresets.length > 0 ? (
                   sortPresets.map((preset, index) => (
                     <MenuItem
@@ -1360,6 +1351,18 @@ export default function PreviewHeaderActions(props: {
                 ) : (
                   <MenuItem disabled>{t('sortPresetsEmpty')}</MenuItem>
                 )}
+                {/* Save-as is always last and non-reorderable — it is structural, not a stored preset. */}
+                {onSaveSortPreset ? (
+                  <MenuItem
+                    onClick={() => {
+                      closeSortPresetMenu()
+                      openSaveSortPresetDialog()
+                    }}
+                    sx={{ fontStyle: 'italic' }}
+                  >
+                    {t('sortPresetsSaveAs')}
+                  </MenuItem>
+                ) : null}
               </Menu>
             ) : null}
             <Dialog open={saveSortPresetOpen} onClose={closeSaveSortPresetDialog} maxWidth="xs" fullWidth>
