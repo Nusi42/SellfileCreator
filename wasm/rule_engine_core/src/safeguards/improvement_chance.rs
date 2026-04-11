@@ -36,7 +36,7 @@ use crate::{
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -1214,23 +1214,30 @@ fn build_scenarios(
     // HashMap requires on resize (which can fail on V8/Windows when the heap is fragmented).
     let mut scenarios = Vec::<UpgradeScenario>::new();
     let mut idx_by_id: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
+    // Reuse a single Vec across all rule iterations. Vec::with_capacity pre-allocates
+    // ONE small contiguous block (≈64 KB for 7982 i64) while the heap is still fresh,
+    // and Vec::clear() retains that backing allocation — so no rule iteration after
+    // the first triggers a memory.grow. Vec<i64> is chosen over HashSet<i64> because
+    // HashSet needs a hash-table backing array that may require a large contiguous
+    // block on first grow; Vec<i64> is a plain [i64] slice. The previous approach
+    // (a fresh BTreeSet<i64> per rule) freed ~726 scattered B-tree nodes per iteration,
+    // which talc could not always coalesce, leaving the heap progressively fragmented
+    // — the suspected trigger of infrequent RESULT_CODE_KILLED_BAD_MESSAGE crashes.
+    let mut applicable_ids: Vec<i64> = Vec::with_capacity(rows.len());
     for rule in rules {
         // Find which artifacts pass this rule's non-substat combination filters.
-        // BTreeSet: up to 7982 entries, built once per rule — same fragmentation rationale.
-        let applicable_ids: BTreeSet<i64> = rows
-            .iter()
-            .filter_map(|row| {
-                let id = row.artifact.id?;
-                if upgrade_rule_applies_to_artifact(rule, &row.artifact) {
-                    Some(id)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        applicable_ids.clear();
+        applicable_ids.extend(rows.iter().filter_map(|row| {
+            let id = row.artifact.id?;
+            if upgrade_rule_applies_to_artifact(rule, &row.artifact) { Some(id) } else { None }
+        }));
         if applicable_ids.is_empty() {
             continue;
         }
+        // Sort + dedup so `contains` below can use binary search (O(log N) vs O(N)).
+        // dedup requires a sorted slice; rows should have unique ids but dedup is cheap insurance.
+        applicable_ids.sort_unstable();
+        applicable_ids.dedup();
         for def in expand_rule_scenarios(rule) {
             // Use SafeguardCountKey directly: stack-allocated enum avoids String heap allocs.
             let mut challengers_by_key = HashMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
@@ -1238,7 +1245,8 @@ fn build_scenarios(
                 let Some(art_id) = row.artifact.id else {
                     continue;
                 };
-                if !applicable_ids.contains(&art_id) {
+                // Binary search on sorted Vec: O(log N) membership test, no hashing.
+                if applicable_ids.binary_search(&art_id).is_err() {
                     continue;
                 }
                 // Challenger must currently match the scenario's substat gate.
