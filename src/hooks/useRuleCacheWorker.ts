@@ -151,18 +151,19 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
   })
 }
 
+// Proactive worker restart thresholds: terminate + respawn the worker before a pipeline run
+// when either the WASM heap has grown large (memory.grow failure risk on V8/Windows)
+// or every N pipelines as a blanket hedge against accumulating fragmentation.
+// STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
+// the only defence is staying below the ~160 MiB grow-rejection threshold.
+const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
+const PIPELINE_RESTART_INTERVAL = 3               // restart worker every 3 completed pipelines
+
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   // Generation ids let worker runs drop stale responses safely.
   const pipelineGenerationRef = useRef(0)
-  // Proactive worker restart: terminate + respawn the worker before a pipeline run
-  // when either the WASM heap has grown large (memory.grow failure risk on V8/Windows)
-  // or every N pipelines as a blanket hedge against accumulating fragmentation.
-  // STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
-  // the only defence is staying below the ~160 MiB grow-rejection threshold.
-  const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-  const PIPELINE_RESTART_INTERVAL = 3               // restart worker every 3 completed pipelines
   const completedPipelineCountRef = useRef(0)
   const lastWasmLinearBytesRef = useRef(0)
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
