@@ -18,6 +18,8 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import { ts } from '../lib/logTimestamp'
+import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
 
 type PipelineParams = {
   recipes: BuilderRecipe[]
@@ -170,6 +172,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     mergedRules: HsfRuleWithRecipe[]
     keys: string[]
   } | null>(null)
+  // Tracks whether the most recent completed pipeline produced new rules (mergedRules !== null)
+  // or was an artifact-only burst (mergedRules === null → rules unchanged).
+  // Read by promoteQueuedPipeline's .finally() to pass the correct flag to signalPipelineDone.
+  const rulesChangedRef = useRef(false)
 
   // Browser builds must use worker execution; no in-thread fallback path exists.
   const rejectWhenWorkerUnavailable = useCallback(<T,>(signal: AbortSignal | null): Promise<T> => {
@@ -201,7 +207,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           // the crash is happening during structured-clone deserialization.
           if (import.meta.env.DEV) {
             console.log(
-              `[sfc-trace] main pipeline:done id=${data.id}` +
+              `${ts()} [sfc-trace] main pipeline:done id=${data.id}` +
               ` rules=${data.payload.mergedRules?.length ?? 'null'}` +
               ` matches=${data.payload.matches.length}`,
             )
@@ -220,7 +226,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const state = toStateSnapshotFromWorker(data.payload, lastRulesRef.current)
           // Update the ref only when full data was received, so it always holds the
           // most recently valid rule set without being clobbered by null-skipped runs.
-          if (data.payload.mergedRules !== null) {
+          // mergedRules non-null = full pipeline (rules changed); null = artifact-only burst (rules same).
+          const rulesChanged = data.payload.mergedRules !== null
+          rulesChangedRef.current = rulesChanged
+          if (rulesChanged) {
             lastRulesRef.current = {
               rulesByRecipe: state.rulesByRecipe,
               mergedRules: state.mergedRules,
@@ -347,6 +356,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     params: PipelineParams,
     onProgress: PipelineProgressHandler | undefined,
   ): ActivePipelineRun => {
+    // Soft-pause all live dungeon-sim workers before the pipeline allocates its
+    // own WASM peak memory — prevents both WASM linear heaps existing simultaneously.
+    // Sends 'cancel' (not terminate) so cachedSession is preserved for resume after pipeline.
+    pauseAllDsimWorkers()
     const worker = workerRef.current
     if (!supportsWorkerEnv || !worker) {
       // Callers should pre-check availability, but keep this deterministic.
@@ -447,6 +460,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // Promote the next queued run once this one settles.
       if (activePipelineRunRef.current === activeRun) activePipelineRunRef.current = null
       promoteQueuedPipelineRef.current()
+      // Signal the dsim to restart only when the queue is fully drained.
+      // If promoteQueuedPipelineRef started another run, activePipelineRunRef is
+      // non-null and we skip the signal so the dsim doesn't restart mid-batch.
+      // Pass rulesChanged so each dsim hook can decide whether to resume or restart.
+      if (!activePipelineRunRef.current) signalPipelineDone(rulesChangedRef.current)
     })
   }, [startPipelineRunOnWorker])
 

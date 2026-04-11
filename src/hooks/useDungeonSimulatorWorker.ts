@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import DungeonSimulatorWorker from '../workers/dungeonSimulatorWorker?worker&inline'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
@@ -32,6 +32,7 @@ import type {
 } from '../workers/dungeonSimulatorWorkerTypes'
 import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
+import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot'
 
 type UseDungeonSimulatorWorkerParams = {
   rules: HsfRuleWithRecipe[]
@@ -190,6 +191,16 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const safeBatchSize = Number.isFinite(batchSize)
     ? Math.max(1, Math.floor(batchSize))
     : DUNGEON_SIM_BATCH_SIZE
+  // Mutable refs so the [] mount-effect closure can read the latest values when
+  // the onPipelineDone callback fires (which may be many renders after mount).
+  const safeBatchSizeRef = useRef(safeBatchSize)
+  const throttleMsRef = useRef(throttleMs)
+  // useLayoutEffect (no deps) keeps the refs current on every render without
+  // mutating them directly during the render phase (which the lint rule forbids).
+  useLayoutEffect(() => {
+    safeBatchSizeRef.current = safeBatchSize
+    throttleMsRef.current = throttleMs
+  })
   // Default to the current spotlight if no preference is supplied.
   const selectedSpotlight = spotlight ?? EVENT_SPOTLIGHT_DEFAULT
   // Results + progress snapshots drive the UI table updates.
@@ -203,6 +214,10 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   // Running + error state lets the caller show fallback UI if desired.
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Incremented by the rule-cache pipeline slot (wasmWorkerSlot.ts) after the pipeline
+  // queue drains and the dsim was evicted.  Forces the sim effect to re-run even when
+  // the rules reference is unchanged (e.g. artifact-only pipeline).
+  const [evictToken, setEvictToken] = useState(0)
   // Ref-based setters so async worker/fallback callbacks avoid the set-state-in-effect lint rule.
   const setResultsBySpotlightRef = useRef(setResultsBySpotlight)
   const setProgressBySpotlightRef = useRef(setProgressBySpotlight)
@@ -238,6 +253,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     mode?: DungeonSimMode
     refreshToken?: number
     runs: number
+    evictToken: number
   } | null>(null)
 
   useEffect(() => {
@@ -249,6 +265,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     if (!supportsWorkerEnv) return
     // Terminate the current worker and resolve all pending requests to null.
     // Called by the idle timer and on unmount; safe to call when no worker exists.
+    // Register this instance's terminator so the rule-cache pipeline can evict the
+    // dsim worker before its own WASM peak allocations — prevents both heaps coexisting.
     const terminateWorkerNow = () => {
       if (idleTimerRef.current !== null) {
         clearTimeout(idleTimerRef.current)
@@ -269,6 +287,48 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       for (const resolve of genericResolversRef.current.values()) resolve(null)
       genericResolversRef.current.clear()
     }
+    // Soft-pause: send 'cancel' to the live worker, preserving cachedSession for resume.
+    // Called by the rule-cache pipeline before its own WASM peak allocations.
+    const pauseWorker = () => {
+      const w = workerRef.current
+      if (!w) return
+      // Use the current request id so the worker's cancel guard matches.
+      const id = activeRequestRef.current
+      w.postMessage({ id, kind: 'cancel' } satisfies DungeonSimulatorWorkerRequest)
+      setRunningRef.current(false)
+    }
+    // Called once the pipeline queue fully drains.
+    const onPipelineDone = (rulesChanged: boolean) => {
+      const w = workerRef.current
+      if (!w) {
+        // Worker was idle-terminated before the pipeline finished.
+        // Always bump evictToken so the sim effect creates a fresh worker:
+        // — rules-unchanged: evictToken is the only trigger (rules prop won't change)
+        // — rules-changed:   redundant but harmless; sim also restarts via fullReset
+        //                    when the new rules prop arrives, but evictToken ensures
+        //                    restart even if the dialog is open before the prop update
+        void rulesChanged  // used for symmetry; both paths need the bump
+        setEvictToken((n) => n + 1)
+        return
+      }
+      if (rulesChanged) {
+        // Paused session is stale; terminate so the sim effect restarts cleanly
+        // when the new rules prop arrives.
+        terminateWorkerNow()
+        return
+      }
+      // Rules unchanged: resume from where the session stopped.
+      const id = activeRequestRef.current
+      w.postMessage({
+        id,
+        kind: 'resume',
+        payload: { batchSize: safeBatchSizeRef.current, throttleMs: throttleMsRef.current },
+      } satisfies DungeonSimulatorWorkerRequest)
+      setRunningRef.current(true)
+    }
+    // Register so the rule-cache pipeline can coordinate with this hook instance.
+    // setEvictToken is a stable React setter — safe to capture in the [] mount effect.
+    registerDsimCallbacks(pauseWorker, onPipelineDone)
     // Schedule idle-termination after inactivity; resets on each completed sim or detail response.
     // Keeping the window at DSIM_WORKER_IDLE_MS lets the user view detail stats before WASM is freed.
     const scheduleIdle = () => {
@@ -362,14 +422,20 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       } catch {
         return null
       }
+      // Handlers are removed by terminateWorkerNow (via messageHandlerRef / errorHandlerRef).
+      // The lint rule cannot trace through that closure, so suppress the false-positive here.
+      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
       w.addEventListener('message', handleMessage)
+      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
       w.addEventListener('error', handleError)
+      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
       w.addEventListener('messageerror', handleError)
       workerRef.current = w
       return w
     }
     return () => {
-      // Unmount: immediately terminate and release WASM memory.
+      // Unmount: deregister this hook's callbacks first, then terminate and release WASM memory.
+      clearDsimCallbacks(pauseWorker)
       terminateWorkerNow()
     }
   }, [])
@@ -382,13 +448,16 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     const hasSnapshot = Boolean(lastSnapshotRef.current.results) || Boolean(lastSnapshotRef.current.progress)
     // A refresh bump forces a full resimulation even when inputs match.
     const refreshBump = prevInputs?.refreshToken !== refreshToken
+    // An evict bump fires when the rule-cache pipeline evicted the worker and the
+    // queue has now drained — restart even if all other inputs are unchanged.
+    const evictBump = prevInputs ? prevInputs.evictToken !== evictToken : false
     const fullReset = !prevInputs
       || prevInputs.rules !== rules
       || prevInputs.substatTargets !== substatTargets
       || prevInputs.runs !== runs
       // Mode changes must resimulate every dungeon.
       || prevInputs.mode !== mode
-    const shouldRunAll = fullReset || refreshBump || !hasSnapshot
+    const shouldRunAll = fullReset || refreshBump || evictBump || !hasSnapshot
     const dirtyDungeons = shouldRunAll
       ? []
       : resolveDirtyDungeons({
@@ -406,6 +475,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       ...(mode ? { mode } : {}),
       // Track refresh bumps so future comparisons can detect them.
       refreshToken,
+      // Track evict bumps so pipeline-driven restarts only trigger once per signal.
+      evictToken,
       ...(selections ? { selections } : {}),
       ...(boosts ? { boosts } : {}),
     }
@@ -589,7 +660,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         }
       }
     }
-  }, [rules, substatTargets, selections, boosts, mode, refreshToken, runs, safeBatchSize, throttleMs])
+  }, [rules, substatTargets, selections, boosts, mode, refreshToken, runs, safeBatchSize, throttleMs, evictToken])
 
   // Return only the spotlight-selected slice to keep the UI lean.
   const results = resultsBySpotlight?.[selectedSpotlight] ?? null

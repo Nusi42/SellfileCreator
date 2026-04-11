@@ -21,6 +21,7 @@ import type {
   DungeonSimulatorWorkerResponse,
 } from '../workers/dungeonSimulatorWorkerTypes'
 import { PROGRESS_THROTTLE_MS, createProgressThrottler } from '../types/progress'
+import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot'
 
 // ─── Note-sim constants ───────────────────────────────────────────────────────
 
@@ -357,7 +358,29 @@ export function useDungeonNoteSimulator(
     worker.addEventListener('error', handleError)
     worker.addEventListener('messageerror', handleError)
 
+    // Soft-pause: send cancel to the worker immediately.
+    // This fires synchronously in pauseAllDsimWorkers() — before React has propagated
+    // pipelineRunning=true — so the worker stops before the pipeline's WASM peak.
+    // Restart is handled by the enabled=!pipelineRunning prop: when pipelineRunning
+    // becomes false, the control effect re-enables the sim and restarts from config 0.
+    const pauseNoteSim = () => {
+      const w = workerRef.current
+      if (!w) return
+      const id = activeRequestRef.current
+      w.postMessage({ id, kind: 'cancel' } satisfies DungeonSimulatorWorkerRequest)
+      setRunningRef.current(false)
+    }
+
+    // No-op: the enabled=!pipelineRunning prop already handles restart after the pipeline.
+    // Implementing resume here would conflict with the reenabled path in the control effect.
+    const onPipelineDone = (_rulesChanged: boolean) => {}
+
+    // Register with the mutual-exclusion slot so the rule-cache pipeline can
+    // pause this sim before its own WASM peak allocations.
+    registerDsimCallbacks(pauseNoteSim, onPipelineDone)
+
     return () => {
+      clearDsimCallbacks(pauseNoteSim)
       worker.removeEventListener('message', handleMessage)
       worker.removeEventListener('error', handleError)
       worker.removeEventListener('messageerror', handleError)

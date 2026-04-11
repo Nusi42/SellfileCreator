@@ -254,6 +254,7 @@ import { useRecipeSelection } from './hooks/useRecipeSelection'
 import { useSafeguardSelection } from './hooks/useSafeguardSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import type { PipelineResult } from './hooks/useRuleCacheWorker'
+import { ts } from './lib/logTimestamp'
 import { useGearInspectorItemsActions } from './hooks/useGearInspectorItemsActions'
 import {
   resolveArtifactItemIdWithFallback,
@@ -7311,11 +7312,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushToast = 'success'
           setLastExportSig(hsfExportStateSig)
         } else {
-          console.error(`[push] endpoint error: ${JSON.stringify(response.error)}`)
+          console.error(`${ts()} [push] endpoint error: ${JSON.stringify(response.error)}`)
           pushToast = 'failure'
         }
       } catch (err) {
-        console.error(`[push] WebSocket error: ${err instanceof Error ? err.message : String(err)}`)
+        console.error(`${ts()} [push] WebSocket error: ${err instanceof Error ? err.message : String(err)}`)
         updatePushEndpointReachable(false)
         pushToast = 'failure'
       } finally {

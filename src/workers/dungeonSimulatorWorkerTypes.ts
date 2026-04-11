@@ -50,8 +50,11 @@ export type DungeonSimulatorWorkerProgressPayload = {
 export type DungeonSimulatorWorkerRequest =
   // Start a new simulation run.
   | { id: number; kind: 'simulate'; payload: DungeonSimulatorWorkerRunPayload }
-  // Cancel the matching run id.
+  // Cancel the matching run id; preserves cachedSession for a later resume.
   | { id: number; kind: 'cancel' }
+  // Resume the most-recently paused session from where it stopped.
+  // Only valid when cachedSession is non-null and not yet complete in the worker.
+  | { id: number; kind: 'resume'; payload: { batchSize: number; throttleMs?: number } }
   // Query cached detail stats for a slot/main/substat selection.
   | { id: number; kind: 'detail:query'; payload: DungeonSimDetailQuery }
   // Query cached generic substat stats for a slot/main selection.

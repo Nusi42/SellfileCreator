@@ -35,6 +35,7 @@ import {
 } from '../lib/wasm/wasmRuleEngine'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler } from '../types/progress'
+import { ts } from '../lib/logTimestamp'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -215,8 +216,10 @@ const postDiagnostic = (text: string): void => {
 // No-ops in production builds (IS_DEV is a Vite compile-time constant → dead code).
 const devLog = IS_DEV
   ? (msg: string): void => {
-    console.log(msg)
-    postDiagnostic(msg)
+    // Prepend the wall-clock time so log lines are correlatable across workers.
+    const line = `${ts()} ${msg}`
+    console.log(line)
+    postDiagnostic(line)
   }
   : (msg: string): void => { void msg /* stripped in prod by Vite dead-code elimination */ }
 
@@ -516,12 +519,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         if (IS_DEV) await yieldWorkerMacrotask()
         storeArtifactRows(detectionRows)
         lastArtifactStoreFingerprint = storeFingerprint
-        const storedMsg = `[sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        const storedMsg = `${ts()} [sfc-diag] store-rows count=${detectionRows.length} (stored) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
         // Both: DevTools visibility for manual debugging + postMessage relay for Playwright.
         console.log(storedMsg)
         postDiagnostic(storedMsg)
       } else {
-        const skippedMsg = `[sfc-diag] store-rows count=${artifactEntries.length} (skipped-unchanged) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
+        const skippedMsg = `${ts()} [sfc-diag] store-rows count=${artifactEntries.length} (skipped-unchanged) wasm-linear-mem=${(getWasmLinearMemoryBytes() / 1048576).toFixed(2)}MiB`
         console.log(skippedMsg)
         postDiagnostic(skippedMsg)
       }
@@ -674,7 +677,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       keysEqual(lastSentKeys, pipelineState.keys)
 
     if (rulesUnchanged) {
-      const skipMsg = `[sfc-diag] rules-clone skipped merged-count=${mergedRulesFinal.length}`
+      const skipMsg = `${ts()} [sfc-diag] rules-clone skipped merged-count=${mergedRulesFinal.length}`
       console.log(skipMsg)
       postDiagnostic(skipMsg)
     } else {
@@ -684,7 +687,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentRecipeKey = recipeKey
       lastSentDetectionKey = detectionKey
       lastSentMergedCount = mergedRulesFinal.length
-      const sentMsg = `[sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
+      const sentMsg = `${ts()} [sfc-diag] rules-clone sent merged-count=${mergedRulesFinal.length}`
       console.log(sentMsg)
       postDiagnostic(sentMsg)
     }

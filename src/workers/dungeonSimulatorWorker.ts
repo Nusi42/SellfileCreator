@@ -14,6 +14,7 @@ import type {
   DungeonSimulatorWorkerResponse,
 } from './dungeonSimulatorWorkerTypes'
 import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
+import { ts } from '../lib/logTimestamp'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -71,10 +72,10 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   const { id, payload } = message
   // Mark the newest run as active so earlier runs can self-abort.
   activeRunId = id
-  if (IS_DEV) console.log(`[sfc-dsim] sim start id=${id} rules=${payload.rules.length} runs=${payload.runs}`)
+  if (IS_DEV) console.log(`${ts()} [sfc-dsim] sim start id=${id} rules=${payload.rules.length} runs=${payload.runs}`)
   // Warm up WASM before any sync matcher calls happen in the simulation loop.
   await ensureWasmWorkerReady()
-  if (IS_DEV) console.log(`[sfc-dsim] wasm ready id=${id}`)
+  if (IS_DEV) console.log(`${ts()} [sfc-dsim] wasm ready id=${id}`)
   // Guard against invalid batch sizes that would stall the loop.
   const batchSize = Number.isFinite(payload.batchSize)
     ? Math.max(1, Math.floor(payload.batchSize))
@@ -112,6 +113,18 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   cachedSession = session
   // Throttle progress messages to once per second by default.
   const throttleMs = payload.throttleMs ?? PROGRESS_THROTTLE_MS
+  await runSessionToCompletion(id, session, batchSize, throttleMs, runTargets)
+}
+
+// Shared batch loop used by both runSimulation (fresh session) and the resume handler
+// (existing cachedSession).  Streams progress until the session completes or is preempted.
+const runSessionToCompletion = async (
+  id: number,
+  session: ReturnType<typeof createDungeonSimSpotlightSession>,
+  batchSize: number,
+  throttleMs: number,
+  runTargets?: string[],
+): Promise<void> => {
   // Progress throttler coalesces batches into a single UI update.
   const forwardProgress = createProgressThrottler((_snapshot) => {
     if (activeRunId !== id) return
@@ -128,7 +141,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   }, { throttleMs })
   while (activeRunId === id && !session.isComplete()) {
     // Run the next batch and emit throttled progress.
-    session.runBatch(batchSize, runTargets)
+    session.runBatch(batchSize, runTargets as import('../lib/dungeonSimulator').DungeonId[] | undefined)
     // Sample progress from any spotlight to drive the throttler clock.
     const progressBySpotlight = session.getProgressBySpotlight()
     const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
@@ -142,8 +155,8 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   }
   // Abort if another request superseded this one.
   if (activeRunId !== id) return
-  if (IS_DEV) console.log(`[sfc-dsim] sim done id=${id}`)
-  // Emit a final "done" snapshot for the resolved promise.
+  if (IS_DEV) console.log(`${ts()} [sfc-dsim] sim done id=${id}`)
+  // Emit a final "done" snapshot.
   const doneResponse: DungeonSimulatorWorkerResponse = {
     id,
     kind: 'simulate:done',
@@ -153,6 +166,24 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
     },
   }
   self.postMessage(doneResponse)
+}
+
+// Resume a previously paused cachedSession from where it stopped.
+// Only runs if the session is still alive and has remaining work.
+const runResumedSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { kind: 'resume' }>) => {
+  const { id, payload } = message
+  const session = cachedSession
+  if (!session || session.isComplete()) {
+    // Nothing to resume; hook treats a missing simulate:done as still-paused.
+    return
+  }
+  // Mark as the active run so the batch loop guard stays consistent.
+  activeRunId = id
+  if (IS_DEV) console.log(`${ts()} [sfc-dsim] resume id=${id}`)
+  const batchSize = Number.isFinite(payload.batchSize) ? Math.max(1, Math.floor(payload.batchSize)) : 1
+  const throttleMs = payload.throttleMs ?? PROGRESS_THROTTLE_MS
+  // Continue the existing session — no new session is created.
+  await runSessionToCompletion(id, session, batchSize, throttleMs)
 }
 
 self.onmessage = (event: MessageEvent<DungeonSimulatorWorkerRequest>) => {
@@ -168,6 +199,18 @@ self.onmessage = (event: MessageEvent<DungeonSimulatorWorkerRequest>) => {
   if (message.kind === 'simulate') {
     // Run the simulation async so the worker can yield between batches.
     runSimulation(message).catch((error) => {
+      if (activeRunId !== message.id) return
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+      self.postMessage(response)
+    })
+  }
+  if (message.kind === 'resume') {
+    // Resume the paused session; reuses cachedSession without creating a new one.
+    runResumedSimulation(message).catch((error) => {
       if (activeRunId !== message.id) return
       const response: DungeonSimulatorWorkerResponse = {
         id: message.id,

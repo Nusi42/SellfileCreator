@@ -6,11 +6,11 @@
 // +16 scores rather than current-level scores, making the comparison fair.
 use super::{
     // Pub structs declared in mod.rs.
-    SafeguardWasmArtifactIn, SafeguardWasmCombination, SafeguardWasmCountMode,
+    SafeguardCountKey, SafeguardWasmArtifactIn, SafeguardWasmCombination, SafeguardWasmCountMode,
     SafeguardWasmRuleIn,
     // Functions made pub(super) for this submodule.
     glyph_average_for_variant,
-    safeguard_compute_score, safeguard_count_key_from_parts, safeguard_count_key_to_string,
+    safeguard_compute_score, safeguard_count_key_from_parts,
     safeguard_is_activation_off, safeguard_matches_selection,
     safeguard_normalize_substat_value, safeguard_percent_to_flat_main,
     safeguard_split_set_selections, safeguard_substat_max6_by_variant,
@@ -157,15 +157,14 @@ struct UpgradeScenario {
     rule_selected_substats: Vec<i64>,
     // Original match mode before per-substat expansion.
     rule_substat_match: String,
-    // Artifact ids that pass this rule's non-substat combination filters.
-    applicable_artifact_ids: HashSet<i64>,
     selected_substats: Vec<i64>,
     substat_match: String,
     required_per_group: i64,
     count_mode: SafeguardWasmCountMode,
     weights: HashMap<i64, f64>,
-    // Challengers pre-bucketed by count-key string for fast per-artifact lookup.
-    challengers_by_count_key: HashMap<String, Vec<StaticChallenger>>,
+    // Challengers pre-bucketed by typed count key for fast per-artifact lookup.
+    // SafeguardCountKey is stack-allocated (no heap per entry, unlike String keys).
+    challengers_by_count_key: HashMap<SafeguardCountKey, Vec<StaticChallenger>>,
 }
 
 // Single challenger entry; projected_score fixes the apples-to-oranges Bug 2.
@@ -695,10 +694,9 @@ fn is_state_selected_by_any_scenario(
 ) -> bool {
     // Test whether the projected state is safeguard-selected by any scenario.
     // Mirrors isStateSelectedByAnyScenario in TS.
+    // ctx.scenarios is pre-filtered to scenarios applicable to ctx.artifact_id (via scenarios_by_id
+    // index built in compute_improvement_chance), so no applicability check is needed here.
     for scenario in ctx.scenarios {
-        if !scenario.applicable_artifact_ids.contains(&ctx.artifact_id) {
-            continue;
-        }
         if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
             continue;
         }
@@ -707,17 +705,16 @@ fn is_state_selected_by_any_scenario(
             continue;
         }
         // Build the count-key for this artifact and look up the challenger bucket.
-        let key_raw = safeguard_count_key_from_parts(
+        let key = safeguard_count_key_from_parts(
             ctx.artifact_slot,
             ctx.artifact_set,
             ctx.artifact_faction,
             ctx.artifact_main_stat,
             scenario.count_mode,
         );
-        let key_str = safeguard_count_key_to_string(&key_raw);
         let challengers = scenario
             .challengers_by_count_key
-            .get(&key_str)
+            .get(&key)
             .map(|v| v.as_slice())
             .unwrap_or(&[]);
         // Count challengers strictly better than the projected state score.
@@ -1207,9 +1204,12 @@ fn expand_rule_scenarios(rule: &PreparedUpgradeRule) -> Vec<ScenarioDef> {
 fn build_scenarios(
     rows: &[SafeguardCollectRowIn],
     rules: &[PreparedUpgradeRule],
-) -> Vec<UpgradeScenario> {
+) -> (Vec<UpgradeScenario>, HashMap<i64, Vec<usize>>) {
     // Builds shared challenger scenarios; mirrors buildRuleScenarios.
+    // Returns scenarios plus an artifact-id → scenario-index map so callers do not need
+    // to store applicable_artifact_ids inside each UpgradeScenario (~64 KB × N scenarios).
     let mut scenarios = Vec::<UpgradeScenario>::new();
+    let mut idx_by_id: HashMap<i64, Vec<usize>> = HashMap::new();
     for rule in rules {
         // Find which artifacts pass this rule's non-substat combination filters.
         let applicable_ids: HashSet<i64> = rows
@@ -1227,7 +1227,8 @@ fn build_scenarios(
             continue;
         }
         for def in expand_rule_scenarios(rule) {
-            let mut challengers_by_key = HashMap::<String, Vec<StaticChallenger>>::new();
+            // Use SafeguardCountKey directly: stack-allocated enum avoids String heap allocs.
+            let mut challengers_by_key = HashMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
             for row in rows {
                 let Some(art_id) = row.artifact.id else {
                     continue;
@@ -1252,16 +1253,15 @@ fn build_scenarios(
                 if !(proj_score > 0.0) {
                     continue;
                 }
-                let key_raw = safeguard_count_key_from_parts(
+                let key = safeguard_count_key_from_parts(
                     row.artifact.slot,
                     row.artifact.set,
                     row.artifact.faction,
                     row.artifact.main_stat,
                     rule.count_mode,
                 );
-                let key_str = safeguard_count_key_to_string(&key_raw);
                 challengers_by_key
-                    .entry(key_str)
+                    .entry(key)
                     .or_default()
                     .push(StaticChallenger {
                         artifact_id: art_id,
@@ -1270,12 +1270,12 @@ fn build_scenarios(
                         main_stat: row.artifact.main_stat,
                     });
             }
+            let scenario_idx = scenarios.len();
             scenarios.push(UpgradeScenario {
                 rule_order: rule.rule_order,
                 rule_id: rule.rule_id.clone(),
                 rule_selected_substats: rule.selected_substats.clone(),
                 rule_substat_match: rule.substat_match.clone(),
-                applicable_artifact_ids: applicable_ids.clone(),
                 selected_substats: def.selected_substats,
                 substat_match: def.substat_match,
                 required_per_group: rule.required_per_group,
@@ -1283,9 +1283,14 @@ fn build_scenarios(
                 weights: rule.weights.clone(),
                 challengers_by_count_key: challengers_by_key,
             });
+            // Index this scenario under every applicable artifact id so the caller can look up
+            // applicable scenarios per artifact without retaining the per-scenario HashSets.
+            for &art_id in &applicable_ids {
+                idx_by_id.entry(art_id).or_default().push(scenario_idx);
+            }
         }
     }
-    scenarios
+    (scenarios, idx_by_id)
 }
 
 // ─── scenario selection for debug / click-through ────────────────────────────
@@ -1367,17 +1372,16 @@ fn build_chance_debug(
     // Current score (not projected) for the "betterCount" display in the tooltip.
     let candidate_score =
         safeguard_compute_score(artifact, &scenario.selected_substats, &scenario.weights);
-    let key_raw = safeguard_count_key_from_parts(
+    let key = safeguard_count_key_from_parts(
         artifact.slot,
         artifact.set,
         artifact.faction,
         artifact.main_stat,
         scenario.count_mode,
     );
-    let key_str = safeguard_count_key_to_string(&key_raw);
     let challengers = scenario
         .challengers_by_count_key
-        .get(&key_str)
+        .get(&key)
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
     let mut bucket_count = 0u32;
@@ -1438,16 +1442,15 @@ pub fn compute_improvement_chance_core(
     if prepared.is_empty() {
         return (vec![], None);
     }
-    let scenarios = build_scenarios(rows, &prepared);
+    let (scenarios, idx_by_id) = build_scenarios(rows, &prepared);
     if scenarios.is_empty() {
         return (vec![], None);
     }
-    // Index applicable scenario references per artifact id for fast lookup.
-    let mut scenarios_by_id: HashMap<i64, Vec<&UpgradeScenario>> = HashMap::new();
-    for scenario in &scenarios {
-        for &art_id in &scenario.applicable_artifact_ids {
-            scenarios_by_id.entry(art_id).or_default().push(scenario);
-        }
+    // Convert the artifact-id → index map into artifact-id → scenario-reference map.
+    // Done after scenarios is stable (finalized Vec) so references are valid for the loop below.
+    let mut scenarios_by_id: HashMap<i64, Vec<&UpgradeScenario>> = HashMap::with_capacity(idx_by_id.len());
+    for (art_id, indices) in &idx_by_id {
+        scenarios_by_id.insert(*art_id, indices.iter().map(|&i| &scenarios[i]).collect());
     }
     let source_count = rows.len() as u32;
     let mut output = Vec::<ImprovementChanceEntry>::new();
