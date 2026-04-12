@@ -478,7 +478,7 @@ fn rule_substats_signature_key(substats: Option<&Vec<RuleSubRaw>>) -> Vec<Builde
         .map(|entry| BuilderSubstatSignatureKey {
             id: entry.ID.unwrap_or(STAT_ID_ANY),
             flat_true: entry.IsFlat.unwrap_or(false),
-            condition: entry.Condition.unwrap_or_default(),
+            condition: entry.Condition.as_deref().unwrap_or_default().to_owned(),
             value_bits: normalize_f64_bits(entry.Value.unwrap_or(0.0)),
         })
         .collect::<Vec<_>>()

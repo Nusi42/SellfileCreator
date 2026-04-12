@@ -691,7 +691,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     }
     self.postMessage(response)
     // True heap resets happen in the main thread via cycleWorkerProactively
-    // (PIPELINE_RESTART_INTERVAL=3) which terminates and respawns the worker.
+    // (PIPELINE_RESTART_INTERVAL=5) which terminates and respawns the worker.
     // An in-worker resetWasmInstance() call cannot produce a clean heap because
     // wasm-bindgen's initRuleEngineWasm is idempotent — it returns the cached
     // instance without re-instantiating it.

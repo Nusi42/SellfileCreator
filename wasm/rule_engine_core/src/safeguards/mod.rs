@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
 
@@ -1373,28 +1374,28 @@ pub fn safeguard_clone_any_substats() -> Vec<RuleSubRaw> {
             Value: Some(0.0),
             IsFlat: Some(true),
             NotAvailable: Some(false),
-            Condition: Some(String::new()),
+            Condition: Some(Arc::from("")),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
             IsFlat: Some(true),
             NotAvailable: Some(false),
-            Condition: Some(String::new()),
+            Condition: Some(Arc::from("")),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
             IsFlat: Some(true),
             NotAvailable: Some(false),
-            Condition: Some(String::new()),
+            Condition: Some(Arc::from("")),
         },
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
             IsFlat: Some(true),
             NotAvailable: Some(false),
-            Condition: Some(String::new()),
+            Condition: Some(Arc::from("")),
         },
     ]
 }
@@ -1423,7 +1424,7 @@ fn safeguard_build_substats_for_artifact(substats: &[SafeguardWasmSubstatOut]) -
             Value: Some(value),
             IsFlat: Some(is_flat),
             NotAvailable: Some(false),
-            Condition: Some(">=".to_string()),
+            Condition: Some(Arc::from(">=")),
         };
         idx += 1;
     }
@@ -1444,7 +1445,7 @@ fn safeguard_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
         Value: Some(1.0),
         IsFlat: Some(is_flat),
         NotAvailable: Some(false),
-        Condition: Some(">=".to_string()),
+        Condition: Some(Arc::from(">=")),
     };
     cloned
 }
@@ -1492,7 +1493,7 @@ fn safeguard_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRa
             Value: Some(1.0),
             IsFlat: Some(is_flat),
             NotAvailable: Some(false),
-            Condition: Some(">=".to_string()),
+            Condition: Some(Arc::from(">=")),
         };
         idx += 1;
     }
@@ -1549,7 +1550,7 @@ fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
                     id: sub.ID.unwrap_or(STAT_ID_ANY),
                     is_flat: sub.IsFlat.unwrap_or(false),
                     not_available: sub.NotAvailable.unwrap_or(false),
-                    condition: sub.Condition.clone().unwrap_or_default(),
+                    condition: sub.Condition.as_deref().unwrap_or_default().to_owned(),
                     value_bits: safeguard_normalize_f64_bits(sub.Value.unwrap_or(0.0), 0.0),
                 })
                 .collect::<Vec<_>>()
@@ -1574,12 +1575,14 @@ fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
     }
 }
 
-fn safeguard_trim_name(name: &str) -> Option<String> {
+// Returns Arc<str> so callers can .clone() the result O(1) times across a loop
+// (each clone is a refcount bump, not a string copy).
+fn safeguard_trim_name(name: &str) -> Option<Arc<str>> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         None
     } else {
-        Some(trimmed.to_string())
+        Some(Arc::from(trimmed))
     }
 }
 
@@ -1705,7 +1708,7 @@ fn safeguard_build_placeholder_base_rules(
                     let (main_id, main_f) = safeguard_variant_to_main(*main_variant);
                     let safeguard_rule = RuleRaw {
                         RecipeID: Some(recipe_id),
-                        RecipeName: normalized_name.map(|value| value.to_string()),
+                        RecipeName: normalized_name.map(Arc::from),
                         Keep: Some(true),
                         IsRuleTypeAND: Some(false),
                         Use: Some(true),
@@ -1726,7 +1729,7 @@ fn safeguard_build_placeholder_base_rules(
                         LVLForCheck: Some(LEVEL_ANY_SENTINEL),
                         Faction: Some(*faction),
                         Substats: Some(safeguard_clone_any_substats()),
-                        source: Some(RULE_SOURCE_SAFEGUARDS.to_string()),
+                        source: Some(Arc::from(RULE_SOURCE_SAFEGUARDS)),
                         line_idx: None,
                         all_known_sets: None,
                         rank_mask: None,
@@ -1762,9 +1765,9 @@ fn safeguard_apply_rule_meta(
     entry: &SafeguardWasmEntryOut,
     scanned_at: Option<f64>,
 ) {
-    safeguard_rule.safeguard_rule_id = Some(rule_id.to_string());
+    safeguard_rule.safeguard_rule_id = Some(Arc::from(rule_id));
     safeguard_rule.safeguard_rule_ordinal = Some(rule_ordinal);
-    safeguard_rule.safeguard_hash = Some(hash.to_string());
+    safeguard_rule.safeguard_hash = Some(Arc::from(hash));
     safeguard_rule.safeguard_required = Some(entry.required_count);
     safeguard_rule.safeguard_projected = Some(entry.projected_count);
     safeguard_rule.safeguard_deficit = Some(entry.deficit);
@@ -2061,14 +2064,14 @@ pub fn build_safeguard_rules_core(
                         LVLForCheck: Some(level),
                         Faction: Some(artifact.faction),
                         Substats: Some(safeguard_build_substats_for_artifact(&artifact.substats)),
-                        source: Some(RULE_SOURCE_SAFEGUARDS.to_string()),
+                        source: Some(Arc::from(RULE_SOURCE_SAFEGUARDS)),
                         line_idx: None,
                         all_known_sets: None,
                         rank_mask: None,
                         rarity_mask: None,
-                        safeguard_rule_id: Some(rule_id.clone()),
+                        safeguard_rule_id: Some(Arc::from(rule_id.as_str())),
                         safeguard_rule_ordinal: Some(safeguard_rule_ordinal),
-                        safeguard_hash: Some(rule_hash.clone()),
+                        safeguard_hash: Some(Arc::from(rule_hash.as_str())),
                         safeguard_required: Some(entry.required_count),
                         safeguard_scan_ms: Some(detection_snapshot.scanned_at),
                         safeguard_projected: Some(entry.projected_count),

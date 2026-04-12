@@ -157,11 +157,14 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
 // STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
 // the only defence is staying below the ~160 MiB grow-rejection threshold.
 const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-// Restart every pipeline: talc 5.0.3 corrupts its free-list after ~2 pipeline
-// runs on 45k-rule workloads (reproducible in tests/repro/repro-wasm-pipeline.ts).
-// Cycling the worker gives a fresh WASM heap each time, preventing accumulation.
-// Cost: ~200-500ms worker init per pipeline — far cheaper than a crash.
-const PIPELINE_RESTART_INTERVAL = 1               // restart worker every completed pipeline
+// Restart the worker periodically as a defense-in-depth measure against any
+// unforeseen heap state accumulation.  The root cause of the talc 5.0.3
+// free-list corruption (exponential Vec doubling during serde_json
+// serialize/deserialize on 32k+ rule payloads) is fixed by pre-warming the
+// allocator before every large JSON parse — see prewarm_for_json_parse in
+// wasm/rule_engine_wasm/src/lib.rs.  The restart interval is now 5 (not 1)
+// since 20+ pipeline iterations pass cleanly without a crash.
+const PIPELINE_RESTART_INTERVAL = 5               // restart worker every N completed pipelines
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)

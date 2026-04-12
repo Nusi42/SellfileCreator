@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -176,7 +177,8 @@ thread_local! {
 #[allow(non_snake_case)]
 pub struct RuleRaw {
     pub RecipeID: Option<i64>,
-    pub RecipeName: Option<String>,
+    // Arc<str> so cloning a rule is O(1) for this field (ref-count bump, no allocation).
+    pub RecipeName: Option<Arc<str>>,
     pub Keep: Option<bool>,
     pub IsRuleTypeAND: Option<bool>,
     pub Use: Option<bool>,
@@ -190,8 +192,9 @@ pub struct RuleRaw {
     pub LVLForCheck: Option<i64>,
     pub Faction: Option<i64>,
     pub Substats: Option<Vec<RuleSubRaw>>,
+    // Arc<str> for the same reason as RecipeName — O(1) clone.
     #[serde(default, rename = "__source")]
-    pub source: Option<String>,
+    pub source: Option<Arc<str>>,
     #[serde(default, rename = "__lineIdx")]
     pub line_idx: Option<i64>,
     #[serde(default, rename = "__allKnownSets")]
@@ -201,11 +204,11 @@ pub struct RuleRaw {
     #[serde(default, rename = "__rarityMask")]
     pub rarity_mask: Option<i64>,
     #[serde(default, rename = "__safeguardRuleId")]
-    pub safeguard_rule_id: Option<String>,
+    pub safeguard_rule_id: Option<Arc<str>>,
     #[serde(default, rename = "__safeguardRuleOrdinal")]
     pub safeguard_rule_ordinal: Option<i64>,
     #[serde(default, rename = "__safeguardHash")]
-    pub safeguard_hash: Option<String>,
+    pub safeguard_hash: Option<Arc<str>>,
     #[serde(default, rename = "__safeguardRequired")]
     pub safeguard_required: Option<i64>,
     #[serde(default, rename = "__safeguardScanMs")]
@@ -231,7 +234,8 @@ pub struct RuleSubRaw {
     // TS type is `boolean`; concrete bool avoids serde_json::Value AST per substat.
     pub IsFlat: Option<bool>,
     pub NotAvailable: Option<bool>,
-    pub Condition: Option<String>,
+    // Arc<str> so cloning a rule with substats doesn't copy string data.
+    pub Condition: Option<Arc<str>>,
 }
 
 // Top-level item payload passed from worker evaluate calls.
@@ -1434,7 +1438,7 @@ fn emit_hsf_padded_substats(mut substats: Vec<RuleSubRaw>) -> Vec<RuleSubRaw> {
             ID: Some(STAT_ID_ANY),
             Value: Some(0.0),
             IsFlat: Some(true),
-            Condition: Some(String::new()),
+            Condition: Some(Arc::from("")),
             NotAvailable: Some(false),
         });
     }
@@ -1524,7 +1528,7 @@ pub fn emit_hsf_rules_for_distributions_core(
                     ID: Some(input.substats[idx].id),
                     Value: Some(value),
                     IsFlat: Some(input.substats[idx].is_flat),
-                    Condition: Some(condition.to_string()),
+                    Condition: Some(Arc::from(condition)),
                     NotAvailable: Some(false),
                 }
             })

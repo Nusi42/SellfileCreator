@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats};
 
 // Safeguard-injected keep dedupe mirrors TS semantics with typed keys:
@@ -148,7 +149,7 @@ pub fn build_final_sell_rules_core(
                 LVLForCheck: Some(level),
                 Faction: Some(0),
                 Substats: Some(safeguard_clone_any_substats()),
-                source: Some(RULE_SOURCE_FINAL_SELL.to_string()),
+                source: Some(Arc::from(RULE_SOURCE_FINAL_SELL)),
                 line_idx: None,
                 all_known_sets: None,
                 rank_mask: None,
@@ -196,14 +197,14 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
     let mut base_rules = base_rules;
     for rule in &mut base_rules {
         if rule.source.is_none() {
-            rule.source = Some(RULE_SOURCE_HSF.to_string());
+            rule.source = Some(Arc::from(RULE_SOURCE_HSF));
         }
     }
     // Custom rows default to sfc source for downstream chip rendering.
     let mut custom_rules = custom_rules;
     for rule in &mut custom_rules {
         if rule.source.is_none() {
-            rule.source = Some(RULE_SOURCE_SFC.to_string());
+            rule.source = Some(Arc::from(RULE_SOURCE_SFC));
         }
     }
 

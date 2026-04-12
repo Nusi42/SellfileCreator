@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 
 // Rules bucketed by artifact slot for fast per-item evaluation.
 // from_rules partitions the flat rule list into shared (any-type) and per-slot buckets.
@@ -80,7 +81,8 @@ pub struct PreparedRule {
     pub substats: Vec<PreparedRuleSub>,
     pub recipe_idx: Option<i64>,
     pub source_bits: u8,
-    pub source_fallback: Option<String>,
+    // Arc<str> matches RuleRaw.source — clone is O(1).
+    pub source_fallback: Option<Arc<str>>,
     pub safeguard_item_key: Option<i64>,
     pub rank_mask: u8,
     pub rarity_mask: u8,

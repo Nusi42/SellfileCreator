@@ -17,6 +17,7 @@
 //
 // Conversion impls translate to/from the canonical core types so the core
 // compute_merged_rules_core function is unchanged.
+use std::sync::Arc;
 use crate::{
     ComputeMergedRulesIn, FinalSellRemainderIn, RuleRaw, RuleSubRaw,
     SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
@@ -41,8 +42,8 @@ pub struct RuleSubRawWire {
 }
 
 impl From<RuleSubRaw> for RuleSubRawWire {
-    // Move fields into the wire form one-for-one; no allocations other than
-    // the String inside `Condition` (which is reused, not cloned).
+    // Move fields into the wire form.  Condition is Arc<str> in canonical form;
+    // convert to String for JSON serialization.
     // NaN/Infinity values in `Value` are filtered to None because serde_json
     // cannot represent non-finite f64 in JSON (the old serde_wasm_bindgen path
     // passed them as JS NaN, but JSON has no NaN literal).
@@ -52,20 +53,20 @@ impl From<RuleSubRaw> for RuleSubRawWire {
             value: sub.Value.filter(|v| v.is_finite()),
             is_flat: sub.IsFlat,
             not_available: sub.NotAvailable,
-            condition: sub.Condition,
+            condition: sub.Condition.map(|s| String::from(&*s)),
         }
     }
 }
 
 impl From<RuleSubRawWire> for RuleSubRaw {
-    // Reverse direction: unwrap wire -> canonical struct, again move semantics.
+    // Reverse: wire String → canonical Arc<str> for O(1) future clones.
     fn from(sub: RuleSubRawWire) -> Self {
         Self {
             ID: sub.id,
             Value: sub.value,
             IsFlat: sub.is_flat,
             NotAvailable: sub.not_available,
-            Condition: sub.condition,
+            Condition: sub.condition.map(Arc::from),
         }
     }
 }
@@ -136,13 +137,12 @@ pub struct RuleRawWire {
 }
 
 impl From<RuleRaw> for RuleRawWire {
-    // Move each canonical field into the wire struct.  The Substats Vec
-    // is rebuilt via map() so each RuleSubRaw is moved into RuleSubRawWire
-    // without cloning (the inner Option<String>'s allocation is reused).
+    // Move each canonical field into the wire struct.  Arc<str> fields are
+    // converted to owned String for the wire (serde_json needs String).
     fn from(rule: RuleRaw) -> Self {
         Self {
             recipe_id: rule.RecipeID,
-            recipe_name: rule.RecipeName,
+            recipe_name: rule.RecipeName.map(|s| String::from(&*s)),
             keep: rule.Keep,
             is_rule_type_and: rule.IsRuleTypeAND,
             use_flag: rule.Use,
@@ -157,14 +157,14 @@ impl From<RuleRaw> for RuleRawWire {
             substats: rule
                 .Substats
                 .map(|subs| subs.into_iter().map(RuleSubRawWire::from).collect()),
-            source: rule.source,
+            source: rule.source.map(|s| String::from(&*s)),
             line_idx: rule.line_idx,
             all_known_sets: rule.all_known_sets,
             rank_mask: rule.rank_mask,
             rarity_mask: rule.rarity_mask,
-            safeguard_rule_id: rule.safeguard_rule_id,
+            safeguard_rule_id: rule.safeguard_rule_id.map(|s| String::from(&*s)),
             safeguard_rule_ordinal: rule.safeguard_rule_ordinal,
-            safeguard_hash: rule.safeguard_hash,
+            safeguard_hash: rule.safeguard_hash.map(|s| String::from(&*s)),
             safeguard_required: rule.safeguard_required,
             safeguard_scan_ms: rule.safeguard_scan_ms.filter(|v| v.is_finite()),
             safeguard_projected: rule.safeguard_projected,
@@ -177,11 +177,12 @@ impl From<RuleRaw> for RuleRawWire {
 }
 
 impl From<RuleRawWire> for RuleRaw {
-    // Reverse direction: wire form to canonical, move semantics throughout.
+    // Reverse direction: wire form to canonical.  Wire String fields are
+    // converted to Arc<str> so later RuleRaw clones cost only a refcount bump.
     fn from(wire: RuleRawWire) -> Self {
         Self {
             RecipeID: wire.recipe_id,
-            RecipeName: wire.recipe_name,
+            RecipeName: wire.recipe_name.map(Arc::from),
             Keep: wire.keep,
             IsRuleTypeAND: wire.is_rule_type_and,
             Use: wire.use_flag,
@@ -196,14 +197,14 @@ impl From<RuleRawWire> for RuleRaw {
             Substats: wire
                 .substats
                 .map(|subs| subs.into_iter().map(RuleSubRaw::from).collect()),
-            source: wire.source,
+            source: wire.source.map(Arc::from),
             line_idx: wire.line_idx,
             all_known_sets: wire.all_known_sets,
             rank_mask: wire.rank_mask,
             rarity_mask: wire.rarity_mask,
-            safeguard_rule_id: wire.safeguard_rule_id,
+            safeguard_rule_id: wire.safeguard_rule_id.map(Arc::from),
             safeguard_rule_ordinal: wire.safeguard_rule_ordinal,
-            safeguard_hash: wire.safeguard_hash,
+            safeguard_hash: wire.safeguard_hash.map(Arc::from),
             safeguard_required: wire.safeguard_required,
             safeguard_scan_ms: wire.safeguard_scan_ms,
             safeguard_projected: wire.safeguard_projected,

@@ -157,7 +157,7 @@ fn normalize_substats_for_builder_pruning(subs: Option<&Vec<RuleSubRaw>>) -> Vec
         if id == STAT_ID_ANY {
             continue;
         }
-        let condition = sub.Condition.clone().unwrap_or_default();
+        let condition: String = sub.Condition.as_deref().unwrap_or_default().to_owned();
         if condition.is_empty() {
             continue;
         }
