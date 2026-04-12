@@ -190,7 +190,11 @@ compilation targets share the same parsing logic without duplication.
 
 ### WASM Linear Memory Management
 
-WASM linear memory is a flat address space managed by `talc` (with a `WasmBulkGrow` wrapper that rounds every `memory.grow` request up to `MIN_GROWTH_PAGES = 256` pages / 16 MiB). Pages grow on demand but never shrink; freed allocations return to talc's free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process.
+WASM linear memory is a flat address space managed by `talc` (using the built-in `WasmDynamicTalc` allocator with `WasmGrowAndClaim` source). Pages grow on demand but never shrink; freed allocations return to talc's free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process. To mitigate this, `pre_grow_memory_value` is called at warmup time to pre-commit WASM pages in 16 MiB chunks up to 256 MiB, so the allocator rarely needs to call `memory.grow` during the pipeline hot path.
+
+Additionally, talc 5.0.3 exhibits free-list corruption after ~2 pipeline iterations on 45k-rule workloads (reproducible in `tests/repro/repro-wasm-pipeline.ts`). The mitigation is `PIPELINE_RESTART_INTERVAL = 1`: each pipeline spawns a fresh worker so the WASM instance resets before corruption can accumulate.
+
+**Minified JSON wire format** — The heavy-payload WASM exports (`compute_merged_rules_value`, `configure_value`, `store_artifact_rows_value`, `flatten_rule_batches_with_total_limit_value`, `finalize_generated_rules_value`) take and return JSON strings via `serde_json` instead of `JsValue` via `serde_wasm_bindgen`. For 45k-rule workloads the serde_wasm_bindgen path exhausted the externref table. Rule fields are minified using the SSOT at `shared/wasm-rule-wire-fields.json` (generator: `scripts/tooling/generate-wasm-rule-wire-fields.mjs`; Rust wire types: `wasm/rule_engine_core/src/wasm_merged_rules_wire_format.rs`; TS helpers: `src/lib/generated/wasmRuleWireFields.ts`). Non-finite f64 values (NaN, Infinity) are filtered to `None` in the wire conversion since JSON cannot represent them.
 
 **Rust-side structural fixes** (`rule_engine_core`)
 
@@ -212,7 +216,7 @@ Rules partition into `shared` (no slot constraint) and `per_slot` (slot-specific
 | `HashMap<i64, i64>` (recursion state) | `BTreeMap<i64, i64>` | ≤4 entries | small, consistent |
 | `HashMap<i64, Vec<usize>>` (`idx_by_id`) | `BTreeMap<i64, Vec<usize>>` | up to 7 982 entries (~290 KB contiguous) | high |
 | `HashMap<i64, Vec<&UpgradeScenario>>` (`scenarios_by_id`) | `BTreeMap<i64, Vec<&…>>` | up to 7 982 entries | high |
-| `HashSet<i64>` (`applicable_ids`) | `BTreeSet<i64>` | up to 7 982 entries, built once per rule | medium |
+| `HashSet<i64>` (`applicable_ids`) | `Vec<i64>` (sorted, binary_search) | up to 7 982 entries, reused via clear+extend | medium |
 
 `BTreeMap`/`BTreeSet` allocate individual B-tree nodes (each a few hundred bytes), so growth never requires a single large contiguous block. `HashMap` entries that are bounded-small and outside the hot path (`weights`, `challengers_by_count_key`, `expected_gain`, `fallback_gain`) are left as `HashMap`.
 
@@ -226,8 +230,9 @@ The old code cloned the `HashMap<i64,i64>` substat state before each recursive c
 
 - **Heap prewarm before improvement-chance**: `preWarmHeapWithLoadedWasm(N)` allocates and immediately frees an `N`-byte Vec, forcing any needed `memory.grow` calls to happen outside the critical path. `N = ceil(artifactCount × 4096 / 16 MiB) × 16 MiB` (32 MiB for ~7 982 items).
 - **clearStoredRows after eval-collect**: drops the 7 970-item `stored_rows` Vec (~16–20 MiB) before `computeMergedRulesFromComponents`, giving talc headroom for the contiguous rules Vec.
-- **OOM recovery**: a caught `RuntimeError: unreachable` (WASM OOM abort) is detected by `isWasmOom()` in the worker catch block and by the `case 'error'` handler in `useRuleCacheWorker.ts`. The worker resets its WASM init flags; the main thread calls `replaceWorkerAfterRuntimeError()` so the next pipeline starts with a fresh, zero-fragmentation heap.
-- **Proactive worker cycling**: `useRuleCacheWorker` tracks `completedPipelineCountRef` and `lastWasmLinearBytesRef`. When `completedCount >= PIPELINE_RESTART_INTERVAL` or `heapBytes >= WASM_HEAP_RESTART_BYTES` (150 MiB), `cycleWorkerProactively()` terminates the old worker and spawns a fresh one before the next pipeline.
+- **Fatal trap recovery**: a caught `RuntimeError` matching `unreachable` (WASM OOM abort) or `out of bounds` (allocator metadata corruption) is detected by `isWasmFatalTrap()` in the worker catch block and by the `case 'error'` handler in `useRuleCacheWorker.ts`. The worker resets its WASM init flags; the main thread calls `replaceWorkerAfterRuntimeError()` so the next pipeline starts with a fresh heap.
+- **Proactive worker cycling**: `useRuleCacheWorker` tracks `completedPipelineCountRef` and `lastWasmLinearBytesRef`. When `completedCount >= PIPELINE_RESTART_INTERVAL` (1) or `heapBytes >= WASM_HEAP_RESTART_BYTES` (150 MiB), `cycleWorkerProactively()` terminates the old worker and spawns a fresh one. The counter increments even for JS-side aborted pipelines (the worker still ran them), preventing dirty heaps from carrying over on rapid-fire requests.
+- **Diagnostics**: `log_talc_counters(label)` WASM export logs timestamped talc allocation stats (allocs, live, available, fragments, heaps, claimed) to the worker console. `heap_integrity_check()` exercises the allocator with a 4 KiB canary alloc+verify+drop cycle.
 
 **Warmup-promise hardening** (`wasmRuleEngine.ts`, `ruleCacheWorker.ts`, `dungeonSimulatorWorker.ts`)
 
