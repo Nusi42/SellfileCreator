@@ -10,5 +10,6 @@ module.exports = {
     'scripts/.tmp/',
     'docs/reference/',
     'src/lib/wasm/generated/',
+    'wasm/target/',
   ],
 }
