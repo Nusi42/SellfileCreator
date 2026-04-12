@@ -1439,6 +1439,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               })
               .catch((error: unknown) => {
                 if (isAbortError(error)) return
+                // Retry failed for reasons other than caller abort — surface it so we
+                // can see why the recovery path didn't populate rules either.
+                console.error(`${ts()} [pipeline] retry worker rejected:`, error)
               })
             return
           }
@@ -1464,7 +1467,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
         })
         .catch((error: unknown) => {
+          // Aborts are expected control flow during rapid edit bursts — stay silent.
           if (isAbortError(error)) return
+          // Any other rejection means the worker pipeline failed (WASM trap, merge error,
+          // invalid payload, etc). Surface it to the console so the developer sees why
+          // no rules were produced instead of a silent progress-bar disappearance.
+          console.error(`${ts()} [pipeline] worker rejected:`, error)
         })
         .finally(() => {
           if (requestToken !== rulesBuildingTokenRef.current) return

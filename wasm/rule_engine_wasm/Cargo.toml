@@ -9,6 +9,13 @@ crate-type = ["cdylib"]
 [dependencies]
 rule_engine_core = { path = "../rule_engine_core" }
 serde = { version = "1.0", features = ["derive"] }
+# serde_json is used for compute_merged_rules_value and other heavy-payload exports.
+# For very large inputs (tens of thousands of rules, ~30 MiB of data), passing a
+# single UTF-8 string + serde_json::from_str is dramatically faster and safer than
+# serde_wasm_bindgen's JsValue-by-JsValue deserialization path, which hammers the
+# wasm externref table and can trigger "table index is out of bounds" traps on
+# realistic workloads (e.g. 45k+ merged rules with 29 fields each).
+serde_json = "1.0"
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"
 # Replace dlmalloc (default WASM allocator) with talc, which coalesces free blocks

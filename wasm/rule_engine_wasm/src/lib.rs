@@ -675,12 +675,22 @@ pub fn build_final_sell_rules_value(
 }
 
 // Merged-rule orchestration delegates to the postprocess module.
+//
+// Takes/returns JSON strings instead of JsValue because the merge payload can be
+// huge (users with 190+ recipes generate ~45k rules × ~30 fields per rule). At
+// that scale, serde_wasm_bindgen's JsValue-by-JsValue deserializer hammers the
+// wasm externref table and triggers "table index is out of bounds" traps; a
+// single UTF-8 string + serde_json::from_str is dramatically faster and stays
+// in linear memory the whole time — no externref handles at all.
+//
+// Caller is responsible for JSON.stringify on the way in and JSON.parse on the
+// way out; both are cheap in V8 compared to the serde_wasm_bindgen cost.
 #[wasm_bindgen]
-pub fn compute_merged_rules_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: ComputeMergedRulesIn = from_js_value(payload)
+pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
+    let input: ComputeMergedRulesIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid compute-merged-rules payload: {error}")))?;
     let result = compute_merged_rules_core(input);
-    to_js_value(&result)
+    serde_json::to_string(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize merged rules: {error}")))
 }
 

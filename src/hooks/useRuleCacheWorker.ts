@@ -266,12 +266,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
             countMap.delete(data.id)
             if (!aborted) countPending.reject(new Error(data.error))
           }
-          // A WASM OOM abort propagates as a caught RuntimeError: unreachable.  The
-          // worker sends it via postError rather than letting it go unhandled, so the
-          // standard worker 'error' event never fires.  Detect it here and replace the
-          // worker so the next pipeline starts with a fresh heap instead of re-entering
-          // the corrupted WASM linear memory.
-          if (data.error.includes('unreachable')) {
+          // WASM traps propagate as caught RuntimeError and the worker sends them
+          // via postError rather than letting them go unhandled, so the standard
+          // worker 'error' event never fires. Per the WASM spec, any trap leaves
+          // the module instance in an undefined state — subsequent calls are UB.
+          // We must replace the worker so the next pipeline starts on a fresh instance.
+          // Recognised traps:
+          //   "unreachable" — Rust panic / OOM abort
+          //   "out of bounds" — memory access fault (allocator corruption, use-after-free)
+          if (data.error.includes('unreachable') || data.error.includes('out of bounds')) {
             replaceWorkerAfterRuntimeError()
           }
           return

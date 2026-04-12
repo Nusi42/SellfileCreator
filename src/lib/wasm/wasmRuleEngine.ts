@@ -730,7 +730,8 @@ export const computeMergedRulesWithLoadedWasm = (params: {
   safeguardRecipeIdBase: number
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  const result = computeMergedRulesWasmValueBinding({
+  // Build the full payload object.
+  const payloadObject = {
     baseRules: params.baseRules,
     customRules: params.customRules,
     finalSellRemainder: params.finalSellRemainder ?? null,
@@ -742,9 +743,21 @@ export const computeMergedRulesWithLoadedWasm = (params: {
     safeguardRules: resolveRulesForWasm(params.safeguardRules),
     safeguardDetection: params.safeguardDetection ?? null,
     safeguardRecipeIdBase: Math.floor(params.safeguardRecipeIdBase),
-  })
-  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
-  throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
+  }
+  // WASM expects a JSON string instead of a JsValue. At scale (45k+ merged rules
+  // with 29 fields each) serde_wasm_bindgen's JsValue-by-JsValue deserializer
+  // triggers "table index is out of bounds" traps by hammering the externref
+  // table. JSON.stringify + serde_json::from_str in Rust stays in linear memory
+  // and avoids the externref path entirely. JSON.stringify is O(n) and fast in
+  // V8; serde_json is one of the fastest JSON parsers available.
+  const payloadJson = JSON.stringify(payloadObject)
+  const resultJson = computeMergedRulesWasmValueBinding(payloadJson)
+  if (typeof resultJson !== 'string') {
+    throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
+  }
+  const parsed = JSON.parse(resultJson)
+  if (Array.isArray(parsed)) return parsed as HsfRuleWithRecipe[]
+  throw new Error('WASM merged-rule orchestrator returned a non-array payload.')
 }
 
 // Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one

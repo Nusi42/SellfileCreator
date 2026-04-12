@@ -1221,8 +1221,7 @@ fn build_scenarios(
     // HashSet needs a hash-table backing array that may require a large contiguous
     // block on first grow; Vec<i64> is a plain [i64] slice. The previous approach
     // (a fresh BTreeSet<i64> per rule) freed ~726 scattered B-tree nodes per iteration,
-    // which talc could not always coalesce, leaving the heap progressively fragmented
-    // — the suspected trigger of infrequent RESULT_CODE_KILLED_BAD_MESSAGE crashes.
+    // which talc could not always coalesce, leaving the heap progressively fragmented.
     let mut applicable_ids: Vec<i64> = Vec::with_capacity(rows.len());
     for rule in rules {
         // Find which artifacts pass this rule's non-substat combination filters.
@@ -1235,7 +1234,6 @@ fn build_scenarios(
             continue;
         }
         // Sort + dedup so `contains` below can use binary search (O(log N) vs O(N)).
-        // dedup requires a sorted slice; rows should have unique ids but dedup is cheap insurance.
         applicable_ids.sort_unstable();
         applicable_ids.dedup();
         for def in expand_rule_scenarios(rule) {

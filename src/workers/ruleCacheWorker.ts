@@ -209,14 +209,17 @@ const notePipelineGeneration = (generation: number): void => {
 
 const pipelineGenerationIsStale = (generation: number): boolean => generation < latestPipelineGeneration
 
-// Returns true when err is a WASM OOM abort (unreachable instruction trap).
-// V8: "RuntimeError: unreachable"   SpiderMonkey: "RuntimeError: unreachable executed"
-// When this fires the WASM linear heap is corrupted — every subsequent call also fails.
-// Caller must call resetWasmInstance() so the next pipeline starts with a fresh heap.
-const isWasmOom = (err: unknown): boolean =>
-  err instanceof Error &&
-  err.constructor.name === 'RuntimeError' &&
-  err.message.includes('unreachable')
+// Returns true when err is a fatal WASM trap. Per the WASM spec, any trap leaves
+// the module instance in an undefined state — subsequent calls are UB. The caller
+// must call resetWasmInstance() so the next pipeline starts on a fresh instance.
+// Currently recognised traps:
+//   - "unreachable" — Rust panic compiles to the unreachable instruction (also OOM aborts).
+//   - "memory access out of bounds" — linear-memory load/store at an address ≥ memory.size;
+//     can be triggered by allocator bookkeeping faults or use-after-free.
+const isWasmFatalTrap = (err: unknown): boolean => {
+  if (!(err instanceof Error) || err.constructor.name !== 'RuntimeError') return false
+  return err.message.includes('unreachable') || err.message.includes('out of bounds')
+}
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -683,13 +686,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // wasm-bindgen's initRuleEngineWasm is idempotent — it returns the cached
     // instance without re-instantiating it.
   } catch (error) {
-    if (isWasmOom(error)) {
-      // WASM heap is corrupted after an OOM abort (RuntimeError: unreachable).
-      // Reset both the init flags and the warmup promise so ensureWasmWorkerReady()
-      // fully reinitializes on the next pipeline.  The main thread will typically
-      // replace this worker upon receiving the postError below, making these resets
-      // redundant; they are a fallback for the stale-run path where postError is
-      // skipped and the worker would otherwise sit with wasmInitialized=false.
+    // Log before postMessage so the worker-side stack trace is visible in DevTools.
+    // The main thread only receives error.message (structured-clone-safe), which drops
+    // the stack and makes diagnosing which WASM call threw impossible otherwise.
+    console.error('[rule-cache-worker] pipeline failed:', error)
+    if (isWasmFatalTrap(error)) {
+      // WASM instance is in an undefined state after any trap — reinitialize on the
+      // next pipeline. The main thread will typically replace this worker upon
+      // receiving the postError below; these resets are the fallback for the
+      // stale-run path where postError is skipped.
       resetWasmInstance()
       wasmWarmupPromise = null
     }
