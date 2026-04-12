@@ -216,8 +216,22 @@ for (const [sectionName, mapping] of Object.entries(sections)) {
 await fs.mkdir(path.dirname(TS_OUT_PATH), { recursive: true })
 await fs.mkdir(path.dirname(RUST_OUT_PATH), { recursive: true })
 
-await fs.writeFile(TS_OUT_PATH, `${tsLines.join('\n')}\n`, 'utf8')
-await fs.writeFile(RUST_OUT_PATH, `${rustLines.join('\n')}\n`, 'utf8')
+// Dirty-check write: skip the write (and mtime bump) when content is unchanged.
+// Mirrors the pattern in generate-domain-constants.mjs to prevent cascading
+// ensure triggers — see that script for the full explanation.
+const writeIfChanged = async (filePath, newContent) => {
+  try {
+    const existing = await fs.readFile(filePath, 'utf8')
+    if (existing === newContent) {
+      console.log(`Unchanged ${path.relative(REPO_ROOT, filePath)}`)
+      return
+    }
+  } catch {
+    // File does not exist yet — fall through to write.
+  }
+  await fs.writeFile(filePath, newContent, 'utf8')
+  console.log(`Generated ${path.relative(REPO_ROOT, filePath)}`)
+}
 
-console.log(`Generated ${path.relative(REPO_ROOT, TS_OUT_PATH)}`)
-console.log(`Generated ${path.relative(REPO_ROOT, RUST_OUT_PATH)}`)
+await writeIfChanged(TS_OUT_PATH, `${tsLines.join('\n')}\n`)
+await writeIfChanged(RUST_OUT_PATH, `${rustLines.join('\n')}\n`)

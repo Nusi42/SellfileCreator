@@ -700,10 +700,24 @@ rustLines.push(
 await fs.mkdir(path.dirname(TS_OUT_PATH), { recursive: true })
 await fs.mkdir(path.dirname(RUST_OUT_PATH), { recursive: true })
 
-// Write deterministic trailing newline output for clean diffs.
-await fs.writeFile(TS_OUT_PATH, `${tsLines.join('\n')}\n`, 'utf8')
-await fs.writeFile(RUST_OUT_PATH, `${rustLines.join('\n')}\n`, 'utf8')
+// Dirty-check write: only write (and bump mtime) when content actually changed.
+// This prevents a second ensure run (e.g. wasm:ensure:rule-engine-dsim after
+// wasm:ensure:rule-engine) from touching generated Rust sources in
+// wasm/rule_engine_core/src/, which would make the rule-engine outputs look
+// stale and force an unnecessary full Rust recompile on the next build.
+const writeIfChanged = async (filePath, newContent) => {
+  try {
+    const existing = await fs.readFile(filePath, 'utf8')
+    if (existing === newContent) {
+      console.log(`Unchanged ${path.relative(REPO_ROOT, filePath)}`)
+      return
+    }
+  } catch {
+    // File does not exist yet — fall through to write.
+  }
+  await fs.writeFile(filePath, newContent, 'utf8')
+  console.log(`Generated ${path.relative(REPO_ROOT, filePath)}`)
+}
 
-// Keep script output concise so CI logs still show what was generated.
-console.log(`Generated ${path.relative(REPO_ROOT, TS_OUT_PATH)}`)
-console.log(`Generated ${path.relative(REPO_ROOT, RUST_OUT_PATH)}`)
+await writeIfChanged(TS_OUT_PATH, `${tsLines.join('\n')}\n`)
+await writeIfChanged(RUST_OUT_PATH, `${rustLines.join('\n')}\n`)
