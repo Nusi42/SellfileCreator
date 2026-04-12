@@ -145,6 +145,47 @@ tsLines.push('  return top')
 tsLines.push('}')
 tsLines.push('')
 
+// Specialised helper for artifact rows (store_artifact_rows_value). The shape
+// has three nested levels:
+//   row → SafeguardCollectRowFastIn
+//     row.artifact → SafeguardWasmArtifactRawIn
+//       row.artifact.substats → SafeguardWasmSubstatRawIn[]
+//       row.artifact.gearInspectorItem → TestItemRaw
+//       row.artifact.mainStat → may be a number (not an object) — leave alone
+//     row.item → TestItemRaw (optional, usually absent for store path)
+tsLines.push('// Minify a SafeguardCollectRowFastIn artifact row to the wire form.  Handles')
+tsLines.push('// nested SafeguardWasmArtifactRawIn (+ its Substats and gearInspectorItem),')
+tsLines.push('// and optional top-level item (TestItemRaw).  Used by storeArtifactRows path.')
+tsLines.push('export const minifySafeguardCollectRowFastInForWire = (row: object): Record<string, unknown> => {')
+tsLines.push('  const top = renameKeys(row, SafeguardCollectRowFastIn_LONG_TO_SHORT)')
+tsLines.push('  const artifactShortKey = SafeguardCollectRowFastIn_LONG_TO_SHORT.artifact')
+tsLines.push('  const artifact = top[artifactShortKey]')
+tsLines.push('  if (artifact && typeof artifact === "object") {')
+tsLines.push('    const artifactMin = renameKeys(artifact as object, SafeguardWasmArtifactRawIn_LONG_TO_SHORT)')
+tsLines.push('    // Substats inside artifact: array of SafeguardWasmSubstatRawIn.')
+tsLines.push('    const substatsShortKey = SafeguardWasmArtifactRawIn_LONG_TO_SHORT.substats')
+tsLines.push('    const subs = artifactMin[substatsShortKey]')
+tsLines.push('    if (Array.isArray(subs)) {')
+tsLines.push('      artifactMin[substatsShortKey] = subs.map((sub) => renameKeys(sub as object, SafeguardWasmSubstatRawIn_LONG_TO_SHORT))')
+tsLines.push('    }')
+tsLines.push('    // gearInspectorItem inside artifact: single TestItemRaw object.')
+tsLines.push('    const giiShortKey = SafeguardWasmArtifactRawIn_LONG_TO_SHORT.gearInspectorItem')
+tsLines.push('    const gii = artifactMin[giiShortKey]')
+tsLines.push('    if (gii && typeof gii === "object") {')
+tsLines.push('      artifactMin[giiShortKey] = renameKeys(gii as object, TestItemRaw_LONG_TO_SHORT)')
+tsLines.push('    }')
+tsLines.push('    top[artifactShortKey] = artifactMin')
+tsLines.push('  }')
+tsLines.push('  // Optional top-level item (rarely set from TS store path, but handle anyway).')
+tsLines.push('  const itemShortKey = SafeguardCollectRowFastIn_LONG_TO_SHORT.item')
+tsLines.push('  const item = top[itemShortKey]')
+tsLines.push('  if (item && typeof item === "object") {')
+tsLines.push('    top[itemShortKey] = renameKeys(item as object, TestItemRaw_LONG_TO_SHORT)')
+tsLines.push('  }')
+tsLines.push('  return top')
+tsLines.push('}')
+tsLines.push('')
+
 // ── Rust output ──────────────────────────────────────────────────────────
 
 const rustLines = []

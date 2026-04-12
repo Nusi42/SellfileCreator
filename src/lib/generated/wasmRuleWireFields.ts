@@ -56,6 +56,48 @@ export const ComputeMergedRulesIn_LONG_TO_SHORT = {
   "safeguardRecipeIdBase": "srb",
 } as const
 
+export const SafeguardWasmArtifactRawIn_LONG_TO_SHORT = {
+  "id": "i",
+  "slot": "s",
+  "set": "st",
+  "rank": "rk",
+  "rarity": "ra",
+  "level": "l",
+  "exactLevel": "el",
+  "faction": "f",
+  "mainStat": "ms",
+  "substats": "ss",
+  "equippedChampionLocation": "ecl",
+  "gearInspectorItem": "gii",
+} as const
+
+export const SafeguardWasmSubstatRawIn_LONG_TO_SHORT = {
+  "variant": "v",
+  "isFlat": "if",
+  "value": "vl",
+  "totalValue": "tv",
+  "rolls": "rl",
+} as const
+
+export const SafeguardCollectRowFastIn_LONG_TO_SHORT = {
+  "artifact": "a",
+  "item": "i",
+  "baseMatchDefined": "bmd",
+  "baseMatch": "bm",
+} as const
+
+export const TestItemRaw_LONG_TO_SHORT = {
+  "slot": "s",
+  "set": "st",
+  "rank": "rk",
+  "rarity": "ra",
+  "level": "l",
+  "faction": "f",
+  "main": "m",
+  "subValues": "sv",
+  "previewExtras": "pe",
+} as const
+
 export const RuleRaw_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
   Object.entries(RuleRaw_LONG_TO_SHORT).map(([long, short]) => [short, long]),
 )
@@ -66,6 +108,22 @@ export const RuleSubRaw_SHORT_TO_LONG: Record<string, string> = Object.fromEntri
 
 export const ComputeMergedRulesIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
   Object.entries(ComputeMergedRulesIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
+)
+
+export const SafeguardWasmArtifactRawIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
+  Object.entries(SafeguardWasmArtifactRawIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
+)
+
+export const SafeguardWasmSubstatRawIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
+  Object.entries(SafeguardWasmSubstatRawIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
+)
+
+export const SafeguardCollectRowFastIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
+  Object.entries(SafeguardCollectRowFastIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
+)
+
+export const TestItemRaw_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
+  Object.entries(TestItemRaw_LONG_TO_SHORT).map(([long, short]) => [short, long]),
 )
 
 // Build a new object with top-level keys renamed via the supplied map.
@@ -100,6 +158,38 @@ export const expandRuleRawFromWire = (rule: object): Record<string, unknown> => 
   const subs = top.Substats
   if (Array.isArray(subs)) {
     top.Substats = subs.map((sub) => renameKeys(sub as object, RuleSubRaw_SHORT_TO_LONG))
+  }
+  return top
+}
+
+// Minify a SafeguardCollectRowFastIn artifact row to the wire form.  Handles
+// nested SafeguardWasmArtifactRawIn (+ its Substats and gearInspectorItem),
+// and optional top-level item (TestItemRaw).  Used by storeArtifactRows path.
+export const minifySafeguardCollectRowFastInForWire = (row: object): Record<string, unknown> => {
+  const top = renameKeys(row, SafeguardCollectRowFastIn_LONG_TO_SHORT)
+  const artifactShortKey = SafeguardCollectRowFastIn_LONG_TO_SHORT.artifact
+  const artifact = top[artifactShortKey]
+  if (artifact && typeof artifact === "object") {
+    const artifactMin = renameKeys(artifact as object, SafeguardWasmArtifactRawIn_LONG_TO_SHORT)
+    // Substats inside artifact: array of SafeguardWasmSubstatRawIn.
+    const substatsShortKey = SafeguardWasmArtifactRawIn_LONG_TO_SHORT.substats
+    const subs = artifactMin[substatsShortKey]
+    if (Array.isArray(subs)) {
+      artifactMin[substatsShortKey] = subs.map((sub) => renameKeys(sub as object, SafeguardWasmSubstatRawIn_LONG_TO_SHORT))
+    }
+    // gearInspectorItem inside artifact: single TestItemRaw object.
+    const giiShortKey = SafeguardWasmArtifactRawIn_LONG_TO_SHORT.gearInspectorItem
+    const gii = artifactMin[giiShortKey]
+    if (gii && typeof gii === "object") {
+      artifactMin[giiShortKey] = renameKeys(gii as object, TestItemRaw_LONG_TO_SHORT)
+    }
+    top[artifactShortKey] = artifactMin
+  }
+  // Optional top-level item (rarely set from TS store path, but handle anyway).
+  const itemShortKey = SafeguardCollectRowFastIn_LONG_TO_SHORT.item
+  const item = top[itemShortKey]
+  if (item && typeof item === "object") {
+    top[itemShortKey] = renameKeys(item as object, TestItemRaw_LONG_TO_SHORT)
   }
   return top
 }

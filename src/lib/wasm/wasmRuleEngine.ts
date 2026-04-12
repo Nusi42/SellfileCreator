@@ -579,9 +579,14 @@ export const storeArtifactRowsWithLoadedWasm = (params: {
   rows: readonly WasmArtifactStoreRow[]
 }): number => {
   assertWasmInitializedSync()
-  // Compact rows contain only the fields WASM reads; extra properties have been stripped
-  // on the JS side to avoid serde_wasm_bindgen iterating ignored fields in Firefox.
-  return storeArtifactRowsWasmValueBinding(params.rows) as number
+  // Pass as a JSON string instead of JsValue for the same reason as
+  // compute_merged_rules_value and configure_value: ~8k deeply-nested rows
+  // (artifact + gearInspectorItem + substats array each) would otherwise
+  // hammer serde_wasm_bindgen's externref path, contributing to latent talc
+  // heap corruption that surfaces as OOB crashes in later WASM calls.
+  const payloadJson = JSON.stringify(params.rows)
+  const result = storeArtifactRowsWasmValueBinding(payloadJson)
+  return typeof result === 'number' ? result : 0
 }
 
 // Drops the stored artifact rows from ENGINE_STATE, releasing their heap allocation

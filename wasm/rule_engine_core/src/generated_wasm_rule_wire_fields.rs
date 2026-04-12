@@ -58,3 +58,45 @@ pub const COMPUTE_MERGED_RULES_IN_FIELD_MAP: &[(&str, &str)] = &[
     ("safeguardRecipeIdBase", "srb"),
 ];
 
+pub const SAFEGUARD_WASM_ARTIFACT_RAW_IN_FIELD_MAP: &[(&str, &str)] = &[
+    ("id", "i"),
+    ("slot", "s"),
+    ("set", "st"),
+    ("rank", "rk"),
+    ("rarity", "ra"),
+    ("level", "l"),
+    ("exactLevel", "el"),
+    ("faction", "f"),
+    ("mainStat", "ms"),
+    ("substats", "ss"),
+    ("equippedChampionLocation", "ecl"),
+    ("gearInspectorItem", "gii"),
+];
+
+pub const SAFEGUARD_WASM_SUBSTAT_RAW_IN_FIELD_MAP: &[(&str, &str)] = &[
+    ("variant", "v"),
+    ("isFlat", "if"),
+    ("value", "vl"),
+    ("totalValue", "tv"),
+    ("rolls", "rl"),
+];
+
+pub const SAFEGUARD_COLLECT_ROW_FAST_IN_FIELD_MAP: &[(&str, &str)] = &[
+    ("artifact", "a"),
+    ("item", "i"),
+    ("baseMatchDefined", "bmd"),
+    ("baseMatch", "bm"),
+];
+
+pub const TEST_ITEM_RAW_FIELD_MAP: &[(&str, &str)] = &[
+    ("slot", "s"),
+    ("set", "st"),
+    ("rank", "rk"),
+    ("rarity", "ra"),
+    ("level", "l"),
+    ("faction", "f"),
+    ("main", "m"),
+    ("subValues", "sv"),
+    ("previewExtras", "pe"),
+];
+

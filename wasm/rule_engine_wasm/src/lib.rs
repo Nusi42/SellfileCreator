@@ -792,15 +792,25 @@ pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
 // Must be called after configure_value and before evaluate_and_collect_safeguard_protection_value.
 // Re-call whenever the artifact DB changes (not just when rules change).
 // Returns the number of rows stored as a JS number.
+//
+// Takes a JSON string (not JsValue) for the same reason as compute_merged_rules_value
+// and configure_value: ~8k artifact rows with deeply-nested structure (each has
+// an artifact, a gearInspectorItem, a substats array) hammer serde_wasm_bindgen's
+// externref path and allocator, contributing to the latent heap corruption that
+// eventually surfaces as a talc OOB crash several calls later.  A single UTF-8
+// string parsed by serde_json stays in linear memory and avoids externref entirely.
+//
+// Payload shape: the same camelCase JSON that SafeguardCollectRowFastIn already
+// deserialises from (no minification yet — serde_json::from_str alone is
+// sufficient to eliminate the serde_wasm_bindgen bottleneck).
 #[wasm_bindgen]
-pub fn store_artifact_rows_value(rows: JsValue) -> Result<JsValue, JsValue> {
-    // Parse compact fast-path rows; same format as the former rows param.
-    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
+pub fn store_artifact_rows_value(payload: &str) -> Result<JsValue, JsValue> {
+    let fast_rows: Vec<SafeguardCollectRowFastIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid artifact rows payload: {error}")))?;
     let count = store_artifact_rows_engine(fast_rows)
         .map_err(|error| JsValue::from_str(&error))?;
-    to_js_value(&count)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize stored row count: {error}")))
+    // Return JsValue::from_f64 directly; numeric return avoids to_js_value overhead.
+    Ok(JsValue::from_f64(count as f64))
 }
 
 // Releases the stored artifact rows from ENGINE_STATE, returning their heap allocation

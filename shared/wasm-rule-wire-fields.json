@@ -52,5 +52,47 @@
     "safeguardRules": "sr",
     "safeguardDetection": "sd",
     "safeguardRecipeIdBase": "srb"
+  },
+
+  "SafeguardWasmArtifactRawIn": {
+    "id": "i",
+    "slot": "s",
+    "set": "st",
+    "rank": "rk",
+    "rarity": "ra",
+    "level": "l",
+    "exactLevel": "el",
+    "faction": "f",
+    "mainStat": "ms",
+    "substats": "ss",
+    "equippedChampionLocation": "ecl",
+    "gearInspectorItem": "gii"
+  },
+
+  "SafeguardWasmSubstatRawIn": {
+    "variant": "v",
+    "isFlat": "if",
+    "value": "vl",
+    "totalValue": "tv",
+    "rolls": "rl"
+  },
+
+  "SafeguardCollectRowFastIn": {
+    "artifact": "a",
+    "item": "i",
+    "baseMatchDefined": "bmd",
+    "baseMatch": "bm"
+  },
+
+  "TestItemRaw": {
+    "slot": "s",
+    "set": "st",
+    "rank": "rk",
+    "rarity": "ra",
+    "level": "l",
+    "faction": "f",
+    "main": "m",
+    "subValues": "sv",
+    "previewExtras": "pe"
   }
 }
