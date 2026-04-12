@@ -19,11 +19,15 @@ export const getRslHelperPort = (): number => {
 
 // Build the deep-link URL that opens the app pre-connected to a local RSL Helper instance.
 // Strips any existing query string so the result is predictable regardless of current state.
+// Uses the URL API instead of origin+pathname because window.location.origin is the
+// string "null" for file:// URLs in Firefox, which would produce an invalid URL.
 // Accepts an explicit port override; falls back to the persisted value or the default.
 export const buildRslHelperConnectUrl = (port?: number): string => {
-  const base = window.location.origin + window.location.pathname
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.hash = ''
   const resolvedPort = port ?? getRslHelperPort()
-  return `${base}?endpoint=ws://localhost:${resolvedPort}/`
+  return `${url.href}?endpoint=ws://localhost:${resolvedPort}/`
 }
 
 // JSON-RPC 2.0 is the sole supported wire protocol.
