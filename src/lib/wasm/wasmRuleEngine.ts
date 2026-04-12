@@ -734,19 +734,33 @@ export const buildFinalSellRulesWithLoadedWasm = (params: {
 
 // Custom-rule batch flattening + total-limit gating runs in Rust so merge.ts
 // keeps one source for add-batch overflow behavior.
+// JSON string path — same rationale as compute_merged_rules_value: the batches
+// payload (Vec<Vec<RuleRaw>>) with 32k+ rules hammers serde_wasm_bindgen's
+// externref table, causing "table index is out of bounds".
 export const flattenRuleBatchesWithTotalLimitWithLoadedWasm = (params: {
   baseCount: number
   totalLimit: number | null
   batches: ReadonlyArray<ReadonlyArray<HsfRuleWithRecipe>>
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  const result = flattenRuleBatchesWithTotalLimitWasmValueBinding(
-    BigInt(Math.max(0, Math.floor(params.baseCount))),
-    BigInt(params.totalLimit != null ? Math.floor(params.totalLimit) : -1),
-    params.batches,
+  const payloadJson = JSON.stringify({
+    baseCount: Math.max(0, Math.floor(params.baseCount)),
+    totalLimit: params.totalLimit != null ? Math.floor(params.totalLimit) : -1,
+    batches: params.batches.map((batch) =>
+      batch.map(minifyRuleRawForWire),
+    ),
+  })
+  const resultJson = flattenRuleBatchesWithTotalLimitWasmValueBinding(payloadJson)
+  if (typeof resultJson !== 'string') {
+    throw new Error('WASM custom-rule batch flattener returned an invalid payload.')
+  }
+  const parsed = JSON.parse(resultJson)
+  if (!Array.isArray(parsed)) {
+    throw new Error('WASM custom-rule batch flattener returned a non-array payload.')
+  }
+  return (parsed as Array<Record<string, unknown>>).map((rule) =>
+    expandRuleRawFromWire(rule) as unknown as HsfRuleWithRecipe,
   )
-  if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
-  throw new Error('WASM custom-rule batch flattener returned an invalid payload.')
 }
 
 // Merge orchestration combines base/custom/final-sell/safeguard rows and

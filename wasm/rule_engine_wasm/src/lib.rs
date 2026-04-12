@@ -7,13 +7,36 @@ use rule_engine_core::*;
 // so the consistency test can run via `cargo test` on the host target.
 use rule_engine_core::wasm_merged_rules_wire_format::{ComputeMergedRulesInWire, RuleRawWire};
 
-// Allocator: talc with its built-in WasmGrowAndClaim source.  talc is fast and
-// coalesces free blocks (preventing HashMap 2× contiguous-resize failure).
-// Known issue: talc 5.0.3 corrupts its free-list bookkeeping after ~2–13
-// pipeline iterations on our 45k-rule workload (reproducible in
-// tests/repro/repro-wasm-pipeline.ts).  Mitigation: the worker cycles
-// (PIPELINE_RESTART_INTERVAL=1 in useRuleCacheWorker.ts) so the WASM instance
-// resets to a clean heap before corruption can accumulate.
+// wasm-bindgen console.log binding for diagnostic output from Rust.
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+// Allocator: talc with a fixed 256 MiB static arena.  This pre-allocates all
+// memory upfront so talc NEVER calls memory.grow at runtime.  Benefits:
+// - No V8/Windows STATUS_BREAKPOINT from rejected runtime memory.grow calls
+// - No WasmGrowAndClaim/WasmGrowAndExtend source complexity
+// - talc operates on one contiguous block from module init → no multi-segment
+//   bookkeeping that was suspected (though not confirmed) of contributing to
+//   the free-list corruption observed in tests/repro/repro-wasm-pipeline.ts
+//
+// Allocator: talc with dynamic WasmGrowAndClaim source.  talc is fast and
+// coalesces free blocks (preventing the HashMap 2× contiguous-resize failure
+// that caused the original STATUS_ACCESS_VIOLATION on V8/Windows).
+//
+// Known issue: talc 5.0.3 corrupts its free-list bookkeeping after the first
+// full pipeline iteration on 45k-rule workloads, crashing inside
+// talc::deallocate with OOB on subsequent iterations.  Reproduced in
+// tests/repro/repro-wasm-pipeline.ts (dlmalloc runs clean for 15+ iterations
+// on the same workload; arena talc with ≤128 MiB OOMs; ≥256 MiB crashes
+// rustc during compilation).
+//
+// Mitigation: PIPELINE_RESTART_INTERVAL=1 in useRuleCacheWorker.ts — every
+// pipeline spawns a fresh worker so the WASM instance resets before talc's
+// corruption can accumulate.  Iter 1 always succeeds; the bug only manifests
+// on iter 2+.  With interval=1 there is no iter 2 in the same WASM instance.
 //
 // The pre_grow_memory_value export below pre-commits WASM pages in 16 MiB
 // chunks at warmup time so talc rarely needs to call memory.grow during the
@@ -22,6 +45,34 @@ use rule_engine_core::wasm_merged_rules_wire_format::{ComputeMergedRulesInWire, 
 #[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
 #[global_allocator]
 static TALC: talc::wasm::WasmDynamicTalc = talc::wasm::new_wasm_dynamic_allocator();
+
+// Log talc allocator counters to the JS console for heap-pressure diagnosis.
+// Uses the "counters" feature (always enabled in our talc dep).  The arena
+// allocator (WasmArenaTalc) wraps TalcSyncCell which wraps TalcCell; we
+// reinterpret-cast to reach the inner Talc's counters() method.
+#[wasm_bindgen]
+pub fn log_talc_counters(label: &str) {
+    #[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
+    {
+        // SAFETY: TalcSyncCell(TalcCell) is a single-field newtype at offset 0.
+        // Single-threaded WASM — no aliasing risk.
+        let c = unsafe {
+            let inner = &TALC as *const talc::wasm::WasmDynamicTalc
+                as *const talc::cell::TalcCell<talc::wasm::WasmGrowAndClaim, talc::wasm::WasmBinning>;
+            (*inner).counters()
+        };
+        log(&format!(
+            "[talc] {} allocs={} live={}KiB avail={}KiB frags={} heaps={} claimed={}KiB",
+            label,
+            c.allocation_count,
+            c.allocated_bytes / 1024,
+            c.available_bytes / 1024,
+            c.fragment_count,
+            c.heap_count,
+            c.claimed_bytes / 1024,
+        ));
+    }
+}
 
 // Minimal inbound representation of a pre-computed improvement-chance entry.
 // Only the two fields needed for threshold gating are deserialized; the full
@@ -547,15 +598,39 @@ pub fn find_obsolete_value(rules: JsValue) -> Result<JsValue, JsValue> {
 // Builder-postprocess exports are delegated to core functions so lib.rs stays
 // primarily about shared types, engine wiring, and wasm export entrypoints.
 #[wasm_bindgen]
+// Takes a JSON string for the batches payload — same rationale as
+// compute_merged_rules_value: Vec<Vec<RuleRaw>> with 32k+ rules hammers
+// serde_wasm_bindgen's externref table, triggering "table index is out of
+// bounds" in __wbindgen_object_clone_ref.  The JSON string path stays in
+// linear memory and avoids externref entirely.
+//
+// Payload shape: { "baseCount": i64, "totalLimit": i64, "batches": [[RuleRawWire...], ...] }
 pub fn flatten_rule_batches_with_total_limit_value(
-    base_count: i64,
-    total_limit: i64,
-    batches: JsValue,
-) -> Result<JsValue, JsValue> {
-    let parsed_batches: Vec<Vec<RuleRaw>> = from_js_value(batches)
+    payload: &str,
+) -> Result<String, JsValue> {
+    #[derive(serde::Deserialize)]
+    struct FlattenPayload {
+        #[serde(rename = "baseCount")]
+        base_count: i64,
+        #[serde(rename = "totalLimit")]
+        total_limit: i64,
+        batches: Vec<Vec<RuleRawWire>>,
+    }
+    let parsed: FlattenPayload = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid flatten-rule-batches payload: {error}")))?;
-    let result = flatten_rule_batches_with_total_limit_core(base_count, total_limit, parsed_batches);
-    to_js_value(&result)
+    // Convert wire-form batches to canonical RuleRaw for the core function.
+    let canonical_batches: Vec<Vec<RuleRaw>> = parsed.batches
+        .into_iter()
+        .map(|batch| batch.into_iter().map(RuleRaw::from).collect())
+        .collect();
+    let result = flatten_rule_batches_with_total_limit_core(
+        parsed.base_count,
+        parsed.total_limit,
+        canonical_batches,
+    );
+    // Convert result back to wire form for compact output.
+    let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
+    serde_json::to_string(&wire_result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize flattened rule batches: {error}")))
 }
 
