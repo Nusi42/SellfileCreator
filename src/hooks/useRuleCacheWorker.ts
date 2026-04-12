@@ -158,12 +158,11 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
 // the only defence is staying below the ~160 MiB grow-rejection threshold.
 const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
 // Restart the worker periodically as a defense-in-depth measure against any
-// unforeseen heap state accumulation.  The root cause of the talc 5.0.3
-// free-list corruption (exponential Vec doubling during serde_json
-// serialize/deserialize on 32k+ rule payloads) is fixed by pre-warming the
-// allocator before every large JSON parse — see prewarm_for_json_parse in
-// wasm/rule_engine_wasm/src/lib.rs.  The restart interval is now 5 (not 1)
-// since 20+ pipeline iterations pass cleanly without a crash.
+// unforeseen heap state accumulation.  The talc 5.0.3 free-list corruption
+// is fixed at the Rust level (StabilityAllocator + Arc<str> on RuleRaw string
+// fields + prewarm_for_json_parse/serialize_json_prealloc — see
+// wasm/rule_engine_wasm/src/lib.rs).  20+ pipeline iterations pass cleanly;
+// the interval is 5 rather than the old crash-mitigation value of 1.
 const PIPELINE_RESTART_INTERVAL = 5               // restart worker every N completed pipelines
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {

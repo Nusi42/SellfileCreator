@@ -132,25 +132,16 @@ mod fence_alloc {
 #[global_allocator]
 static TALC: fence_alloc::StabilityAllocator = fence_alloc::StabilityAllocator::new();
 
-// Log talc allocator counters to the JS console for heap-pressure diagnosis.
-// Uses the "counters" feature (always enabled in our talc dep).
+// Emit a timestamped pipeline phase marker to the worker console.  Useful for
+// correlating log output with the stages visible in the repro harness.
+// Named log_talc_counters for API compatibility; counters() is not exposed by
+// StabilityAllocator (WasmDynamicTalc wraps TalcSyncCell whose counters() method
+// is on the inner TalcCell and not reachable through the GlobalAlloc trait).
 #[wasm_bindgen]
 pub fn log_talc_counters(label: &str) {
-    // WasmDynamicTalc is TalcSyncCell which does not expose a counters() method
-    // directly (counters() lives on the inner TalcCell).  Log the label as a
-    // timestamped pipeline phase marker — still useful for correlating worker
-    // console output with the pipeline stages.
     log(&format!("{} [talc] {}", ts(), label));
 }
 
-// Pre-allocated JSON serialization helper.  serde_json::to_string grows an
-// internal Vec<u8> from ~256 bytes via ~17 sequential doublings for a 16 MiB
-// output.  Each doubling does alloc→copy→free-old, producing many freed blocks
-// of exponentially increasing sizes.  This fragmented free-list pattern triggers
-// a corruption bug in talc 5.0.3's block-splitting/coalescing logic.
-//
-// By pre-allocating the Vec<u8> to an estimated size, we skip most doublings
-// and only do 0–1 reallocs, dramatically reducing free-list churn.
 // Pre-warm the allocator before a large JSON deserialization.  Allocates a
 // single contiguous block of `bytes` and immediately drops it.  This gives
 // talc a fresh large free chunk that satisfies the initial Vec capacity
@@ -173,6 +164,11 @@ fn prewarm_for_json_parse(payload_bytes: usize) {
     drop(v);
 }
 
+// Pre-allocated JSON serialization helper.  serde_json::to_string grows an
+// internal Vec<u8> from ~256 bytes via ~17 sequential doublings for a 16 MiB
+// output.  Each doubling does alloc→copy→free-old, producing many freed blocks
+// of exponentially increasing sizes.  By pre-allocating the Vec<u8> to an
+// estimated size, we skip most doublings and do 0–1 reallocs instead.
 fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usize) -> Result<String, String> {
     // ~500 bytes per item is a conservative estimate for minified RuleRawWire JSON.
     let estimated_bytes = (estimated_items * 500).max(4096);
