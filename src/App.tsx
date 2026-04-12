@@ -4239,11 +4239,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Collect existing items for part types not yet received so the diff treats
     // them as "desired" and never removes gear loaded from file or autosave while
     // the per-type endpoint burst is still in flight.
+    //
+    // Artifacts and champions are NEVER legitimately empty — an account always has
+    // gear and champions.  An empty array for these types means "the endpoint hasn't
+    // sent this data yet", so we retain existing items from autosave / file import.
+    // inboxArtifacts CAN be legitimately empty (user claimed everything), so only
+    // null (not yet received) triggers retention for inbox.
     const current = gearInspectorItemsRef.current
-    const retainItems = (parts.artifacts === null || parts.inboxArtifacts === null)
+    const hasNoArtifacts = !parts.artifacts || parts.artifacts.length === 0
+    const hasNoInbox = !parts.inboxArtifacts  // null only — empty [] is valid for inbox
+    const retainItems = (hasNoArtifacts || hasNoInbox)
       ? current.filter((item) => (
-          (parts.artifacts === null && item.previewExtras?.source === 'artifacts')
-          || (parts.inboxArtifacts === null && item.previewExtras?.source === 'inbox')
+          (hasNoArtifacts && item.previewExtras?.source === 'artifacts')
+          || (hasNoInbox && item.previewExtras?.source === 'inbox')
         ))
       : undefined
     handleGearDbRawSnapshot(syntheticSnapshot, retainItems)
