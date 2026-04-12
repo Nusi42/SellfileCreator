@@ -69,6 +69,11 @@ if (!wasmBindgenBin) {
 
 // Regenerate shared constants first so TS and Rust sentinels stay in sync.
 run(process.execPath, [path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs')])
+// Regenerate the wasm-rule wire-format field maps (TS helpers + Rust consts)
+// from shared/wasm-rule-wire-fields.json.  The Rust unit test in the
+// wire_format module uses these consts to verify the hand-written
+// #[serde(rename)] attrs did not drift from the SSOT.
+run(process.execPath, [path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-wasm-rule-wire-fields.mjs')])
 
 // Build crate for wasm32 using selected profile and deterministic strip default.
 // Run from workspace root so the shared Cargo.toml profile overrides take effect.

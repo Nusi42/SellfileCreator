@@ -10,6 +10,15 @@ mod generated_domain_constants;
 // Re-export all domain constants so the wasm crate and any other consumers
 // can import them without duplicating the generated_domain_constants module.
 pub use generated_domain_constants::*;
+// Field-name map SSOT for the compute_merged_rules_value wire format.  Used by
+// the wire-format unit test to verify the hand-written #[serde(rename)]
+// attributes match shared/wasm-rule-wire-fields.json.
+mod generated_wasm_rule_wire_fields;
+pub use generated_wasm_rule_wire_fields::*;
+// Minified wire-format structs (RuleRawWire, ComputeMergedRulesInWire) used
+// only at the compute_merged_rules_value boundary.  Kept in rule_engine_core
+// so the consistency test can run natively (cargo test).
+pub mod wasm_merged_rules_wire_format;
 // SFC (Sellfile Record) reader: converts human-readable SFC JSON to numeric codes.
 pub mod sfc_reader;
 // Recipe builder: ports the TS hsfBuilder preprocessing pipeline to Rust.

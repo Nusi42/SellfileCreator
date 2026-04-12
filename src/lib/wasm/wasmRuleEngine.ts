@@ -53,6 +53,12 @@ import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import type { TestItem } from '../ruleEval'
+// Minified wire-format field maps for compute_merged_rules_value.  Generated
+// from shared/wasm-rule-wire-fields.json to keep TS and Rust in sync.
+import {
+  minifyRuleRawForWire,
+  expandRuleRawFromWire,
+} from '../generated/wasmRuleWireFields'
 
 // Compact WASM substat input — only the fields SafeguardWasmSubstatRawIn reads.
 // Trimmed from NormalizedStat (9+ fields) to eliminate serde_wasm_bindgen overhead
@@ -730,34 +736,45 @@ export const computeMergedRulesWithLoadedWasm = (params: {
   safeguardRecipeIdBase: number
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  // Build the full payload object.
+  // Minify rule arrays to short wire-format keys (SSOT at
+  // shared/wasm-rule-wire-fields.json). At 45k-rule scale this cuts the JSON
+  // payload by ~40% (~27 MiB → ~17 MiB), which avoids talc deallocate OOB
+  // crashes triggered by allocator pressure from back-to-back large string
+  // passes through wasm-bindgen's passStringToWasm0 realloc sequence.
+  // Smaller supporting fields (finalSellRemainder, safeguards, etc) stay in
+  // their native shape — the dominant cost is the two rule vecs.
   const payloadObject = {
-    baseRules: params.baseRules,
-    customRules: params.customRules,
-    finalSellRemainder: params.finalSellRemainder ?? null,
-    allKnownSetIds: params.allKnownSetIds,
-    omitDisabledBeforeSafeguards: params.omitDisabledBeforeSafeguards === true,
-    dedupeBeforeSafeguards: params.dedupeBeforeSafeguards === true,
+    br: params.baseRules.map(minifyRuleRawForWire),
+    cr: params.customRules.map(minifyRuleRawForWire),
+    fsr: params.finalSellRemainder ?? null,
+    aksi: params.allKnownSetIds,
+    oms: params.omitDisabledBeforeSafeguards === true,
+    dds: params.dedupeBeforeSafeguards === true,
     // Rust uses canonical safeguard payload keys for merged-rule orchestration.
-    safeguardEnabled: params.safeguardEnabled === true,
-    safeguardRules: resolveRulesForWasm(params.safeguardRules),
-    safeguardDetection: params.safeguardDetection ?? null,
-    safeguardRecipeIdBase: Math.floor(params.safeguardRecipeIdBase),
+    se: params.safeguardEnabled === true,
+    sr: resolveRulesForWasm(params.safeguardRules),
+    sd: params.safeguardDetection ?? null,
+    srb: Math.floor(params.safeguardRecipeIdBase),
   }
-  // WASM expects a JSON string instead of a JsValue. At scale (45k+ merged rules
-  // with 29 fields each) serde_wasm_bindgen's JsValue-by-JsValue deserializer
-  // triggers "table index is out of bounds" traps by hammering the externref
-  // table. JSON.stringify + serde_json::from_str in Rust stays in linear memory
-  // and avoids the externref path entirely. JSON.stringify is O(n) and fast in
-  // V8; serde_json is one of the fastest JSON parsers available.
+  // JSON.stringify + serde_json::from_str stays in linear memory and avoids
+  // the externref path entirely. JSON.stringify is O(n) and fast in V8;
+  // serde_json is one of the fastest JSON parsers available.
   const payloadJson = JSON.stringify(payloadObject)
   const resultJson = computeMergedRulesWasmValueBinding(payloadJson)
   if (typeof resultJson !== 'string') {
     throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
   }
   const parsed = JSON.parse(resultJson)
-  if (Array.isArray(parsed)) return parsed as HsfRuleWithRecipe[]
-  throw new Error('WASM merged-rule orchestrator returned a non-array payload.')
+  if (!Array.isArray(parsed)) {
+    throw new Error('WASM merged-rule orchestrator returned a non-array payload.')
+  }
+  // Expand minified keys (including nested Substats) back to canonical
+  // HsfRuleWithRecipe shape. Each rule has ~13 populated fields on average,
+  // so the rename pass is cheap.
+  const expanded = (parsed as Array<Record<string, unknown>>).map((rule) =>
+    expandRuleRawFromWire(rule) as unknown as HsfRuleWithRecipe,
+  )
+  return expanded
 }
 
 // Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one

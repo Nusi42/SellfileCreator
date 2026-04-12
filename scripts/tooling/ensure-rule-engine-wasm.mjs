@@ -34,7 +34,12 @@ const DIRECT_RELEVANT_SOURCES = [
   path.join(WORKSPACE_DIR, 'rule_engine_core', 'Cargo.toml'),
   path.join(WORKSPACE_DIR, 'rule_engine_wasm', 'Cargo.toml'),
   path.join(REPO_ROOT, 'shared', 'domain-constants.json'),
+  // Wire-format SSOT for compute_merged_rules_value minification.  Changes
+  // here must re-trigger a wasm rebuild so the hand-written serde rename
+  // attrs stay in sync via the generated field-map consistency test.
+  path.join(REPO_ROOT, 'shared', 'wasm-rule-wire-fields.json'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs'),
+  path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-wasm-rule-wire-fields.mjs'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.mjs'),
 ]
 

@@ -23,10 +23,19 @@ serde-wasm-bindgen = "0.6"
 # under the mixed small/large allocation pattern produced by the improvement-chance
 # phase followed by eval-collect, causing STATUS_ACCESS_VIOLATION on ~8 000-row
 # artifact sets.  TalckWasm is purpose-built for wasm32-unknown-unknown.
-# Always enable counters: the overhead is minimal (a few atomic increments per
-# alloc/free) and the data is available to get_allocator_counters_value() when
-# the dev-diagnostics feature is active (WASM_DEV_DIAGNOSTICS=1 in the build script).
-talc = { version = "5", default-features = false, features = ["counters"] }
+# Features:
+# - counters: minimal overhead (a few atomic increments per alloc/free); the data
+#   is exposed via get_allocator_counters_value() when the dev-diagnostics feature
+#   is active (WASM_DEV_DIAGNOSTICS=1 in the build script).
+# - disable-grow-in-place / disable-realloc-in-place: force every reallocation
+#   through alloc→copy→free. wasm-bindgen's passStringToWasm0 path for very
+#   large UTF-8 payloads (27 MB+ JSON from compute_merged_rules_value on 45k-
+#   rule workloads) issues malloc → realloc(grow) → realloc(shrink) in quick
+#   succession. Any bug in talc's in-place realloc fast paths corrupts block
+#   metadata, producing "memory access out of bounds" on a later deallocate
+#   (e.g. inside prewarm_heap_value) — the symptom observed across multiple
+#   pipeline runs once the heap has seen a handful of large string passes.
+talc = { version = "5", default-features = false, features = ["counters", "disable-grow-in-place", "disable-realloc-in-place"] }
 
 [features]
 # Enable extra wasm_bindgen exports for dev-time heap diagnostics.

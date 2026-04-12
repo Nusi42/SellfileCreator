@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
+// Minified wire format for compute_merged_rules_value — lives in rule_engine_core
+// so the consistency test can run via `cargo test` on the host target.
+use rule_engine_core::wasm_merged_rules_wire_format::{ComputeMergedRulesInWire, RuleRawWire};
 
 // Replace the default dlmalloc with talc.  dlmalloc fragments badly under the
 // mixed small/large allocation pattern produced by the pipeline (many small Vecs
@@ -677,20 +680,37 @@ pub fn build_final_sell_rules_value(
 // Merged-rule orchestration delegates to the postprocess module.
 //
 // Takes/returns JSON strings instead of JsValue because the merge payload can be
-// huge (users with 190+ recipes generate ~45k rules × ~30 fields per rule). At
+// huge (users with 190+ recipes generate ~45k rules × ~29 fields per rule). At
 // that scale, serde_wasm_bindgen's JsValue-by-JsValue deserializer hammers the
 // wasm externref table and triggers "table index is out of bounds" traps; a
 // single UTF-8 string + serde_json::from_str is dramatically faster and stays
 // in linear memory the whole time — no externref handles at all.
 //
-// Caller is responsible for JSON.stringify on the way in and JSON.parse on the
+// The JSON uses a MINIFIED field format (see wire_format module + the SSOT at
+// shared/wasm-rule-wire-fields.json). Short keys like "r_id" / "_spm" cut the
+// payload size by ~40% (from ~27 MiB → ~17 MiB on 45k-rule workloads),
+// relieving allocator pressure that manifested as talc deallocate OOB crashes
+// after a few pipeline runs. Long-form keys still deserialise via serde
+// aliases for forward/backward compatibility.
+//
+// Caller is responsible for JSON.stringify on the way in (with the TS-side
+// minify helpers from wasmRuleWireFields.ts) and JSON.parse + expand on the
 // way out; both are cheap in V8 compared to the serde_wasm_bindgen cost.
 #[wasm_bindgen]
 pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
-    let input: ComputeMergedRulesIn = serde_json::from_str(payload)
+    // Deserialise the wire envelope (short keys), then convert to the canonical
+    // core type that compute_merged_rules_core consumes.
+    let wire_input: ComputeMergedRulesInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid compute-merged-rules payload: {error}")))?;
+    let input: ComputeMergedRulesIn = wire_input.into();
+    // Run the merge core on canonical types so the postprocess module stays
+    // unchanged and all other wasm exports keep their existing behaviour.
     let result = compute_merged_rules_core(input);
-    serde_json::to_string(&result)
+    // Wrap the canonical result in wire-form so the JSON output uses short
+    // keys too.  collect() moves each RuleRaw into a RuleRawWire without
+    // cloning the inner String/Vec allocations.
+    let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
+    serde_json::to_string(&wire_result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize merged rules: {error}")))
 }
 
