@@ -218,6 +218,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
+          // Track heap size and pipeline count BEFORE the abort check — the
+          // WORKER ran the full pipeline even if the JS side superseded it.
+          // Without this, the cycling logic sees counter=0 after an aborted
+          // pipeline and doesn't cycle, leaving the next pipeline on a dirty
+          // heap where talc's free-list has accumulated corruption.
+          lastWasmLinearBytesRef.current = data.payload.wasmLinearBytes
+          completedPipelineCountRef.current += 1
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
           const entries = data.payload.improvementChanceEntries
@@ -232,9 +239,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           // mergedRules non-null = full pipeline (rules changed); null = artifact-only burst (rules same).
           const rulesChanged = data.payload.mergedRules !== null
           rulesChangedRef.current = rulesChanged
-          // Track heap size and pipeline count for proactive restart decisions.
-          lastWasmLinearBytesRef.current = data.payload.wasmLinearBytes
-          completedPipelineCountRef.current += 1
           if (rulesChanged) {
             lastRulesRef.current = {
               rulesByRecipe: state.rulesByRecipe,
