@@ -22,7 +22,10 @@
 
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
-use rule_engine_core::{configure_engine, evaluate_engine, RuleRaw, EvaluateItemRaw, EvaluateOptionsRaw};
+use rule_engine_core::{
+    configure_engine, evaluate_engine, EvaluateItemRaw, EvaluateOptionsRaw, RuleRaw,
+};
+use rule_engine_core::wasm_merged_rules_wire_format::RuleRawWire;
 
 // Expose a version token so diagnostics can confirm the lean dsim binary is loaded
 // rather than the full pipeline binary.
@@ -36,16 +39,29 @@ pub fn version() -> String {
 // Mirrors the configure_value export in rule_engine_wasm exactly so the shared
 // TS wrapper in wasmDsimRuleEngine.ts can call it with the same serialization.
 //
+// Takes a JSON string in the same minified wire format used by the full
+// rule_engine_wasm binary: `{ "rules": [RuleRawWire...], "recipeModes": [...] }`.
+// See wasm/rule_engine_core/src/wasm_merged_rules_wire_format.rs for the
+// format definition and conversion impls.
+//
 // Must be called before evaluate_value.  Re-calling drops the old BucketedRules
 // and allocates a fresh one from the recycled heap space.
 #[wasm_bindgen]
-pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsValue> {
-    let raw_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid rules value: {error}")))?;
-    let parsed_recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid recipeModes value: {error}")))?;
-    configure_engine(raw_rules, parsed_recipe_modes);
-    Ok(())
+pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
+    #[derive(serde::Deserialize)]
+    struct ConfigurePayload {
+        #[serde(default)]
+        rules: Vec<RuleRawWire>,
+        #[serde(default, rename = "recipeModes")]
+        recipe_modes: Vec<String>,
+    }
+    let parsed: ConfigurePayload = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid configure payload: {error}")))?;
+    let raw_rules: Vec<RuleRaw> = parsed.rules.into_iter().map(RuleRaw::from).collect();
+    configure_engine(raw_rules, parsed.recipe_modes);
+    // wasm-bindgen doesn't allow Result<(), JsValue> combined with non-JsValue
+    // inputs; return JsValue::UNDEFINED so the binding signature is well-typed.
+    Ok(JsValue::UNDEFINED)
 }
 
 // Evaluate a batch of items against the configured rules.

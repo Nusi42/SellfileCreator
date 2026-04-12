@@ -230,6 +230,18 @@ export const warmupWasmRuleEngine = async (): Promise<void> => {
   await ensureWasmInitialized()
 }
 
+// Build the minified JSON configure payload. Rules are minified via the wire
+// helpers (same format as compute_merged_rules_value) so Rust's serde_json
+// path stays in linear memory and avoids the serde_wasm_bindgen externref /
+// Vec::grow_one / realloc path that triggers talc deallocate OOB crashes.
+const buildConfigurePayload = (
+  rules: HsfRuleWithRecipe[],
+  recipeModes: SellfileExportMode[],
+): string => JSON.stringify({
+  rules: rules.map(minifyRuleRawForWire),
+  recipeModes,
+})
+
 // Configure the WASM engine with the merged rules + recipe mode visibility.
 // This must run before evaluate, matching the existing worker configure flow.
 export const configureWasmRuleEngine = async (params: {
@@ -239,7 +251,7 @@ export const configureWasmRuleEngine = async (params: {
   // Ensure module init before invoking wasm configure binding.
   await ensureWasmInitialized()
   // Configure shared matcher state used by subsequent evaluate calls.
-  configureRuleEngineWasmValueBinding(params.rules, params.recipeModes)
+  configureRuleEngineWasmValueBinding(buildConfigurePayload(params.rules, params.recipeModes))
 }
 
 // Evaluate a batch of Gear Inspector items through the WASM matcher implementation.
@@ -269,7 +281,7 @@ export const configureWasmRuleEngineWithLoadedWasm = (params: {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Configure matcher state for sync callers that cannot await.
-  configureRuleEngineWasmValueBinding(params.rules, params.recipeModes)
+  configureRuleEngineWasmValueBinding(buildConfigurePayload(params.rules, params.recipeModes))
 }
 
 // Sync evaluate helper mirrors the async wrapper but skips init checks.

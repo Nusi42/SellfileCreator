@@ -21,6 +21,9 @@ import type { HsfRuleWithRecipe } from '../merge'
 import type { SellfileExportMode } from '../hsfBuilder'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { WasmRuleEngineEvaluateOptions } from './wasmRuleEngine'
+// Shared wire-format minify helper — same SSOT used by the full rule_engine_wasm
+// binary.  Required to match the configure_value payload shape the dsim binary expects.
+import { minifyRuleRawForWire } from '../generated/wasmRuleWireFields'
 
 // -- Init state --
 
@@ -74,6 +77,8 @@ export const warmupDsimWasmRuleEngine = async (): Promise<void> => {
 
 // Sync configure: set the rule engine state for the current batch.
 // Must be called after warmupDsimWasmRuleEngine.
+// Payload is a JSON string in the same minified wire format the full
+// rule_engine_wasm binary uses — see wasmRuleEngine.ts buildConfigurePayload.
 export const configureDsimRuleEngineWithLoadedWasm = (params: {
   rules: HsfRuleWithRecipe[]
   recipeModes: SellfileExportMode[]
@@ -81,7 +86,11 @@ export const configureDsimRuleEngineWithLoadedWasm = (params: {
   if (!dsimWasmInitialized) {
     throw new Error('dsim WASM is not initialized — call warmupDsimWasmRuleEngine first.')
   }
-  configureDsimRuleEngineWasmValueBinding(params.rules, params.recipeModes)
+  const payload = JSON.stringify({
+    rules: params.rules.map(minifyRuleRawForWire),
+    recipeModes: params.recipeModes,
+  })
+  configureDsimRuleEngineWasmValueBinding(payload)
 }
 
 // Sync evaluate: evaluate a batch of items against the configured rules.

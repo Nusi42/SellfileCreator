@@ -90,6 +90,7 @@ dependencies = [
  "rule_engine_core",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
 ]
 

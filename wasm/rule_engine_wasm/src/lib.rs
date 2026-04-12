@@ -757,17 +757,34 @@ pub fn finalize_generated_rules_value(
 
 // --- Engine configure/evaluate exports ---
 
-// Configure rules + recipe modes once per pipeline run.
+// Configure the rule engine with a new rule set and per-recipe mode list.
 // The worker calls this before evaluating one or more item batches.
-// Fast configure variant accepts JS objects directly (no JSON stringify).
+//
+// Takes a JSON string instead of JsValue for the same reason as
+// compute_merged_rules_value: the rules payload can be ~45k × 29 fields =
+// ~27 MiB, and serde_wasm_bindgen's Vec growth path hammers talc's realloc,
+// producing "memory access out of bounds" inside talc::deallocate.  A single
+// JSON string parsed by serde_json stays in linear memory the whole time.
+//
+// Payload shape: { "rules": [minified RuleRawWire...], "recipeModes": [...] }
+// Caller is responsible for the minify+stringify (TS-side helpers in
+// wasmRuleWireFields.ts) and must send short-key wire-format rules.
 #[wasm_bindgen]
-pub fn configure_value(rules: JsValue, recipe_modes: JsValue) -> Result<(), JsValue> {
-    let raw_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid rules value: {error}")))?;
-    let parsed_recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid recipeModes value: {error}")))?;
-    configure_engine(raw_rules, parsed_recipe_modes);
-    Ok(())
+pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
+    #[derive(serde::Deserialize)]
+    struct ConfigurePayload {
+        #[serde(default)]
+        rules: Vec<RuleRawWire>,
+        #[serde(default, rename = "recipeModes")]
+        recipe_modes: Vec<String>,
+    }
+    let parsed: ConfigurePayload = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid configure payload: {error}")))?;
+    let raw_rules: Vec<RuleRaw> = parsed.rules.into_iter().map(RuleRaw::from).collect();
+    configure_engine(raw_rules, parsed.recipe_modes);
+    // wasm-bindgen doesn't allow Result<(), JsValue> combined with non-JsValue
+    // inputs; return JsValue::UNDEFINED so the binding signature is well-typed.
+    Ok(JsValue::UNDEFINED)
 }
 
 // Store pre-parsed artifact rows in ENGINE_STATE so the combined evaluate+collect
