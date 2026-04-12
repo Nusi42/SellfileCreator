@@ -259,6 +259,32 @@ impl From<ComputeMergedRulesInWire> for ComputeMergedRulesIn {
     }
 }
 
+// Wire form of GeneratedRuleEntryIn — used by finalize_generated_rules_value.
+// The `rule` field uses RuleRawWire for compact JSON; metadata fields are small
+// enough to keep their original camelCase names.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct GeneratedRuleEntryInWire {
+    pub rule: RuleRawWire,
+    #[serde(alias = "branchOrder")]
+    pub branch_order: i64,
+    #[serde(alias = "branchSeq")]
+    pub branch_seq: i64,
+    #[serde(alias = "originalIdx")]
+    pub original_idx: i64,
+}
+
+impl From<GeneratedRuleEntryInWire> for crate::GeneratedRuleEntryIn {
+    fn from(wire: GeneratedRuleEntryInWire) -> Self {
+        Self {
+            rule: RuleRaw::from(wire.rule),
+            branch_order: wire.branch_order,
+            branch_seq: wire.branch_seq,
+            original_idx: wire.original_idx,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

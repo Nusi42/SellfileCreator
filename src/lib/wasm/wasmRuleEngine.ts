@@ -342,13 +342,6 @@ export const getWasmLinearMemoryBytes = (): number => {
 type WasmObsoleteEntry = { index: number; coveredBy: number; reason: string }
 type WasmObsoleteReport = { obsolete: WasmObsoleteEntry[] }
 
-type WasmGeneratedEntry = {
-  rule: HsfRuleWithRecipe
-  branchOrder: number
-  branchSeq: number
-  originalIdx: number
-}
-
 type WasmSafeguardCountModePayload = {
   perRule: boolean
   perSet: boolean
@@ -395,15 +388,34 @@ export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithRecipe[]
 
 // Synchronous finalizer mirrors merge.ts post-build collapse/prune/sort logic.
 // Worker warm paths call this after async warmup so no extra await is required.
+// JSON string path — called ~192 times per pipeline (once per recipe key), each
+// with ~170 rules.  The old JsValue path produced ~1M externref accesses total,
+// triggering "table index is out of bounds" in __wbindgen_object_clone_ref.
 export const finalizeGeneratedRulesWithLoadedWasm = (params: {
   entries: readonly GeneratedBranchRuleEntry[]
   applyObsoletePruning: boolean
 }): HsfRuleWithRecipe[] | null => {
   assertWasmInitializedSync()
-  const payload = params.entries as WasmGeneratedEntry[]
-  const result = finalizeGeneratedRulesWasmValueBinding(payload, params.applyObsoletePruning) as HsfRuleWithRecipe[]
-  if (Array.isArray(result)) return result
-  throw new Error('WASM finalize-generated-rules returned an invalid payload.')
+  // Minify each entry's `rule` field via the wire format; the metadata fields
+  // (branchOrder, branchSeq, originalIdx) stay as-is since they're small.
+  const minified = params.entries.map((entry) => ({
+    rule: minifyRuleRawForWire(entry.rule),
+    branchOrder: entry.branchOrder,
+    branchSeq: entry.branchSeq,
+    originalIdx: entry.originalIdx,
+  }))
+  const payloadJson = JSON.stringify(minified)
+  const resultJson = finalizeGeneratedRulesWasmValueBinding(payloadJson, params.applyObsoletePruning)
+  if (typeof resultJson !== 'string') {
+    throw new Error('WASM finalize-generated-rules returned an invalid payload.')
+  }
+  const parsed = JSON.parse(resultJson)
+  if (!Array.isArray(parsed)) {
+    throw new Error('WASM finalize-generated-rules returned a non-array payload.')
+  }
+  return (parsed as Array<Record<string, unknown>>).map((rule) =>
+    expandRuleRawFromWire(rule) as unknown as HsfRuleWithRecipe,
+  )
 }
 
 /** Prepares safeguard rules for a WASM call by resolving per-level threshold inheritance.

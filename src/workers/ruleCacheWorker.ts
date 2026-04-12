@@ -37,6 +37,9 @@ import {
   warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import {
+  log_talc_counters as logTalcCounters,
+} from '../lib/wasm/generated/rule_engine.js'
 import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -417,7 +420,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const runIsStale = (): boolean => pipelineGenerationIsStale(pipelineGeneration)
 
   try {
+    logTalcCounters(`pipeline-start id=${id}`)
     const { state: pipelineState } = buildPipelineState(payload)
+    logTalcCounters(`after-buildPipelineState id=${id}`)
     const prebuiltCustomRules = pipelineState.rulesByRecipe
     const hasActiveSafeguards = hasActiveSafeguardRules(payload.safeguards)
     const baseSafeguards = hasActiveSafeguards
@@ -459,6 +464,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ...mergeParams,
       safeguards: baseSafeguards,
     })
+    logTalcCounters(`after-mergedRulesBaseline id=${id} rules=${mergedRulesBaseline.length}`)
 
     // ignoreSafeguardRecipeIndices is needed by both detection and final passes.
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
@@ -472,6 +478,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         rules: mergedRulesBaseline,
         recipeModes: Array.isArray(payload.recipeModes) ? payload.recipeModes : [],
       })
+      logTalcCounters(`after-configure(baseline) id=${id}`)
       if (!wasmVersionLogged) {
         await getWasmRuleEngineVersion()
         wasmVersionLogged = true
@@ -520,6 +527,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
         // Store entries for the payload (null when caller didn't opt in).
         improvementChanceEntries = payload.computeImprovementChance ? (improvResult?.entries ?? null) : null
+        logTalcCounters(`after-improvementChance id=${id}`)
         if (runIsStale()) return
       }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
@@ -557,6 +565,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         })
       }
       safeguardDetectionSnapshot = detectionResult.detection
+      logTalcCounters(`after-evalCollect id=${id}`)
       completed = warmTotal + artifactEntries.length
       emitPipelineProgress?.({ completed, total })
     } else {
@@ -590,6 +599,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         detection: safeguardDetectionSnapshot,
       },
     })
+    logTalcCounters(`after-mergedRulesFinal id=${id} rules=${mergedRulesFinal.length}`)
 
     // Optimisation: when detection found nothing to protect (no injected safeguard
     // rules), the final merged rules are functionally identical to baseline and the

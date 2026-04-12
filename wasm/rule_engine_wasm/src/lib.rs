@@ -5,13 +5,29 @@ use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
 // Minified wire format for compute_merged_rules_value — lives in rule_engine_core
 // so the consistency test can run via `cargo test` on the host target.
-use rule_engine_core::wasm_merged_rules_wire_format::{ComputeMergedRulesInWire, RuleRawWire};
+use rule_engine_core::wasm_merged_rules_wire_format::{
+    ComputeMergedRulesInWire, GeneratedRuleEntryInWire, RuleRawWire,
+};
 
 // wasm-bindgen console.log binding for diagnostic output from Rust.
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+    // performance.now() for timestamps in diagnostic logs.
+    #[wasm_bindgen(js_namespace = performance)]
+    fn now() -> f64;
+}
+
+// Format a wall-clock timestamp for diagnostic log lines (HH:MM:SS.mmm).
+fn ts() -> String {
+    let ms = now();
+    let total_secs = (ms / 1000.0) as u64;
+    let h = (total_secs / 3600) % 24;
+    let m = (total_secs / 60) % 60;
+    let s = total_secs % 60;
+    let frac = (ms % 1000.0) as u32;
+    format!("{:02}:{:02}:{:02}.{:03}", h, m, s, frac)
 }
 
 // Allocator: talc with a fixed 256 MiB static arena.  This pre-allocates all
@@ -62,7 +78,8 @@ pub fn log_talc_counters(label: &str) {
             (*inner).counters()
         };
         log(&format!(
-            "[talc] {} allocs={} live={}KiB avail={}KiB frags={} heaps={} claimed={}KiB",
+            "{} [talc] {} allocs={} live={}KiB avail={}KiB frags={} heaps={} claimed={}KiB",
+            ts(),
             label,
             c.allocation_count,
             c.allocated_bytes / 1024,
@@ -720,16 +737,24 @@ pub fn dedupe_hsf_rules_for_export_value(rules: JsValue) -> Result<JsValue, JsVa
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize deduped hsf rules: {error}")))
 }
 
-// Generated-rule finalization also delegates to the postprocess module.
+// Generated-rule finalization — JSON string path like the other hot exports.
+// Called ~192 times per pipeline (once per unique recipe key), each with a
+// batch of ~170 rules.  192 × 170 × 29 fields = ~1M externref accesses with
+// the old JsValue path, enough to trigger "table index is out of bounds".
 #[wasm_bindgen]
 pub fn finalize_generated_rules_value(
-    entries: JsValue,
+    payload: &str,
     apply_obsolete_pruning: bool,
-) -> Result<JsValue, JsValue> {
-    let parsed_entries: Vec<GeneratedRuleEntryIn> = from_js_value(entries)
+) -> Result<String, JsValue> {
+    let wire_entries: Vec<GeneratedRuleEntryInWire> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid finalize-generated-rules payload: {error}")))?;
+    let parsed_entries: Vec<GeneratedRuleEntryIn> = wire_entries
+        .into_iter()
+        .map(GeneratedRuleEntryIn::from)
+        .collect();
     let result = finalize_generated_rules_core(parsed_entries, apply_obsolete_pruning);
-    to_js_value(&result)
+    let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
+    serde_json::to_string(&wire_result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize finalized generated rules: {error}")))
 }
 
