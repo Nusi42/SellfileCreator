@@ -85,11 +85,7 @@ const cargoArgs =
   PROFILE === 'release'
     ? ['build', '--release', '--target', REQUIRED_TARGET, '-p', CRATE_NAME]
     : ['build', '--target', REQUIRED_TARGET, '-p', CRATE_NAME]
-// Enable get_allocator_counters_value() and AllocatorCounters in the WASM binary.
-// Useful for diagnosing heap fragmentation without a full profiler.
-if (process.env.WASM_DEV_DIAGNOSTICS === '1') {
-  cargoArgs.push('--features', 'rule_engine_wasm/dev-diagnostics')
-}
+// (dev-diagnostics feature removed with the talc-specific allocator counters.)
 run(cargoBin, cargoArgs, { cwd: WORKSPACE_DIR, env: cargoEnv })
 
 // Regenerate wasm-bindgen outputs consumed by TS imports/runtime.

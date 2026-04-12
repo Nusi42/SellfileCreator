@@ -157,7 +157,11 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
 // STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
 // the only defence is staying below the ~160 MiB grow-rejection threshold.
 const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-const PIPELINE_RESTART_INTERVAL = 3               // restart worker every 3 completed pipelines
+// Restart every pipeline: talc 5.0.3 corrupts its free-list after ~2 pipeline
+// runs on 45k-rule workloads (reproducible in tests/repro/repro-wasm-pipeline.ts).
+// Cycling the worker gives a fresh WASM heap each time, preventing accumulation.
+// Cost: ~200-500ms worker init per pipeline — far cheaper than a crash.
+const PIPELINE_RESTART_INTERVAL = 1               // restart worker every completed pipeline
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)

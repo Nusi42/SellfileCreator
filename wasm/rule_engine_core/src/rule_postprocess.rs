@@ -4,7 +4,9 @@ use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats
 // Safeguard-injected keep dedupe mirrors TS semantics with typed keys:
 // canonical for non-safeguard rows, placeholder canonical for synthetic rows,
 // and item+level for concrete safeguard item projections.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// Ord is derived so the enum can be used as a BTreeSet key (avoids hashing
+// and contiguous-backing-array growth of HashSet).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum SafeguardInjectedKeepKey {
     Canonical(rule_dedupe::CollapseCanonicalKey),
     // Rarity is included alongside the canonical key so same-rank placeholder
@@ -242,9 +244,14 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
             Vec::<RuleRaw>::new()
         };
         // Base already includes custom/final rows after transforms, so one input is sufficient.
+        // Pass base_without_keep by REFERENCE — merge_safeguard_injected_rules_core only
+        // reads it to build a dedup key set.  Previously this path did a second clone
+        // of the entire 45k-rule Vec, adding ~27 MiB of transient allocation on every
+        // final-merge call and pushing talc into the fragmentation regime that eventually
+        // produced `memory access out of bounds` during later drop_in_place<RuleRaw>.
         let sorted_keep_rules = merge_safeguard_injected_rules_core(
-            base_without_keep.clone(),
-            Vec::<RuleRaw>::new(),
+            &base_without_keep,
+            &[],
             candidate_keep_rules,
         );
         let mut with_keep = sorted_keep_rules;
@@ -261,13 +268,23 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
 }
 
 // Safeguard merge helper mirrors merge.ts injected-rule filtering/sorting.
+//
+// base_rules and custom_rules are borrowed because the function only READS
+// them — it builds a dedup key set from their Keep=true entries.  Taking them
+// as slices avoids a duplicate 45k-rule clone in the caller path
+// (compute_merged_rules_core) which was the dominant transient allocation in
+// the final merge phase on large rule sets.  candidate_keep_rules stays owned
+// because we iterate it into the returned Vec.
 fn merge_safeguard_injected_rules_core(
-    base_rules: Vec<RuleRaw>,
-    custom_rules: Vec<RuleRaw>,
+    base_rules: &[RuleRaw],
+    custom_rules: &[RuleRaw],
     candidate_keep_rules: Vec<RuleRaw>,
 ) -> Vec<RuleRaw> {
     // Remove previously injected safeguard rows from base key collection.
-    let mut base_custom_keep_keys = HashSet::<rule_dedupe::CollapseCanonicalKey>::new();
+    // BTreeSet (not HashSet) to keep the hot-path dedup off a contiguous hash
+    // table backing array — same fragmentation-avoidance rationale as the
+    // BTreeMap memos in improvement_chance.rs.
+    let mut base_custom_keep_keys = BTreeSet::<rule_dedupe::CollapseCanonicalKey>::new();
     for rule in base_rules
         .iter()
         .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_SAFEGUARDS))
@@ -277,14 +294,15 @@ fn merge_safeguard_injected_rules_core(
         }
     }
     // Custom keep rows also block injected duplicates.
-    for rule in &custom_rules {
+    for rule in custom_rules {
         if rule.Keep.unwrap_or(false) {
             base_custom_keep_keys.insert(rule_dedupe::collapse_canonical_key(rule));
         }
     }
 
     // Preserve TS dedupe key behavior for placeholders vs item+level rows.
-    let mut injected_keep_keys = HashSet::<SafeguardInjectedKeepKey>::new();
+    // BTreeSet keeps the injected-key dedup off a contiguous hash table.
+    let mut injected_keep_keys = BTreeSet::<SafeguardInjectedKeepKey>::new();
     let mut filtered = Vec::<RuleRaw>::new();
     for rule in candidate_keep_rules {
         let canonical = rule_dedupe::collapse_canonical_key(&rule);
@@ -362,12 +380,15 @@ fn merge_safeguard_injected_rules_core(
 }
 
 // Public merge helper — renamed from `merge_safeguard_injected_rules_value` (JsValue I/O removed).
+// Takes Vec<RuleRaw> for base/custom because the public wasm entry point still
+// receives owned Vecs from its JsValue deserialisation.  Internally we pass
+// them as slices to avoid any additional clone.
 pub fn merge_safeguard_injected_rules_core_fn(
     base_rules: Vec<RuleRaw>,
     custom_rules: Vec<RuleRaw>,
     candidate_keep_rules: Vec<RuleRaw>,
 ) -> Vec<RuleRaw> {
-    merge_safeguard_injected_rules_core(base_rules, custom_rules, candidate_keep_rules)
+    merge_safeguard_injected_rules_core(&base_rules, &custom_rules, candidate_keep_rules)
 }
 
 // Export dedupe — renamed from `dedupe_hsf_rules_for_export_value`.

@@ -38,6 +38,7 @@ import initRuleEngineWasm, {
   score_safeguard_candidates_value as scoreSafeguardCandidatesWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
   wasm_linear_memory_bytes as wasmLinearMemoryBytesBinding,
+  pre_grow_memory_value as preGrowMemoryWasmBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithRecipe } from '../merge'
 import type { HsfRule } from '../hsfTypes'
@@ -224,10 +225,21 @@ const ensureWasmInitialized = async (): Promise<void> => {
   }
 }
 
+// Pre-grow the WASM linear memory to a target size in 16 MiB chunks so
+// dlmalloc never needs to call memory.grow during the pipeline hot path.
+// V8/Windows rejects small incremental memory.grow calls under address-space
+// pressure → Rust OOM abort → STATUS_BREAKPOINT with no JS-visible error.
+// 256 MiB is enough headroom for ~45k merged rules + 8k artifacts + safeguards.
+const PRE_GROW_TARGET_BYTES = 256 * 1024 * 1024
+
 // Warmup helper allows callers with async control flow to preload the wasm
 // module so later sync helpers (e.g., obsolete pruning) can run in-process.
 export const warmupWasmRuleEngine = async (): Promise<void> => {
   await ensureWasmInitialized()
+  // Pre-commit WASM pages for the pipeline allocator.  The Rust side grows in
+  // 16 MiB chunks (V8/Windows' safe per-call ceiling) so a single large request
+  // won't be rejected outright.  Any pages V8 refuses are silently skipped.
+  preGrowMemoryWasmBinding(PRE_GROW_TARGET_BYTES)
 }
 
 // Build the minified JSON configure payload. Rules are minified via the wire

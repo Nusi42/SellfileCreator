@@ -29,6 +29,7 @@
                     "release-notes:catchup":  "bash ./scripts/release/run-release-notes-catchup.sh",
                     "test:unit":  "npm run wasm:ensure:rule-engine \u0026\u0026 cargo test --manifest-path wasm/rule_engine_core/Cargo.toml \u0026\u0026 node scripts/test/run-tests.mjs",
                     "bench:pipeline":  "npm run wasm:ensure:rule-engine \u0026\u0026 node node_modules/typescript/bin/tsc -p tsconfig.tests.json --noEmit false \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node --experimental-wasm-modules --import ./tmp/tsc/tests/tests/setup/wasm-warmup.js tmp/tsc/tests/tests/benchmarks/pipeline-perf.bench.js",
+                    "repro:wasm-pipeline":  "npm run wasm:ensure:rule-engine \u0026\u0026 node node_modules/typescript/bin/tsc -p tsconfig.tests.json --noEmit false \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node --experimental-wasm-modules --import ./tmp/tsc/tests/tests/setup/wasm-warmup.js tmp/tsc/tests/tests/repro/repro-wasm-pipeline.js",
                     "test:e2e:chromium":  "playwright test --project=chromium",
                     "test:e2e:firefox":  "playwright test --project=firefox",
                     "test:e2e":  "node scripts/test/run-e2e.mjs",
