@@ -43,10 +43,13 @@ pub struct RuleSubRawWire {
 impl From<RuleSubRaw> for RuleSubRawWire {
     // Move fields into the wire form one-for-one; no allocations other than
     // the String inside `Condition` (which is reused, not cloned).
+    // NaN/Infinity values in `Value` are filtered to None because serde_json
+    // cannot represent non-finite f64 in JSON (the old serde_wasm_bindgen path
+    // passed them as JS NaN, but JSON has no NaN literal).
     fn from(sub: RuleSubRaw) -> Self {
         Self {
             id: sub.ID,
-            value: sub.Value,
+            value: sub.Value.filter(|v| v.is_finite()),
             is_flat: sub.IsFlat,
             not_available: sub.NotAvailable,
             condition: sub.Condition,
@@ -163,7 +166,7 @@ impl From<RuleRaw> for RuleRawWire {
             safeguard_rule_ordinal: rule.safeguard_rule_ordinal,
             safeguard_hash: rule.safeguard_hash,
             safeguard_required: rule.safeguard_required,
-            safeguard_scan_ms: rule.safeguard_scan_ms,
+            safeguard_scan_ms: rule.safeguard_scan_ms.filter(|v| v.is_finite()),
             safeguard_projected: rule.safeguard_projected,
             safeguard_deficit: rule.safeguard_deficit,
             safeguard_item_key: rule.safeguard_item_key,
