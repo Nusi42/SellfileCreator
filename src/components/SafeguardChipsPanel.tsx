@@ -865,6 +865,10 @@ export default function SafeguardChipsPanel({
             ...(onSelectAll ? {
               selectAll: { handler: onSelectAll, disabled: visibleRuleCount === 0, labelKey: 'chipsMenuSelectAll' },
             } : {}),
+            // Clear Selection — mirrors Escape shortcut; available when items are selected.
+            ...(onClearSelection ? {
+              clearSelection: { handler: onClearSelection, disabled: selectedCount === 0, labelKey: 'chipsMenuClearSelection' },
+            } : {}),
             deleteAll: {
               // Prefer the parent-supplied handler (App.tsx can hook history/dialog).
               handler: onDeleteAll ?? (() => setPendingDeleteAll(true)),

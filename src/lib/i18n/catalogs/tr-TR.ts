@@ -1540,6 +1540,7 @@ const overrides: Catalog = {
   // Chips context menus
   chipsMenuSelectAll: "Tümünü seç",
   chipsMenuSelectVisible: "Görüneni seç",
+  chipsMenuClearSelection: "Seçimi temizle",
   chipsMenuCopyAllRecipes: "Tüm reçeteler kopyala",
   chipsMenuCopyAllSafeguards: "Tüm korumalar kopyala",
   chipsMenuPasteAtEnd: "Sona yapıştır",

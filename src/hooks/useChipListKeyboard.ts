@@ -64,6 +64,13 @@ export function useChipListKeyboard({
   const [showFocusRing, setShowFocusRing] = useState(false)
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
+    // Escape: clear selection when at least one item is selected.
+    if (e.key === 'Escape') {
+      if (selectedCount === 0) return
+      e.preventDefault()
+      onClearSelection()
+      return
+    }
     // Shift is used for range selection — hide the ring so it doesn't conflict.
     if (e.key === 'Shift') {
       setShowFocusRing(false)
@@ -83,7 +90,7 @@ export function useChipListKeyboard({
     if (e.target !== e.currentTarget) return
     e.preventDefault()
     if (visibleCount > 0) onSelectAll()
-  }, [onDeleteSelected, onSelectAll, selectedCount, visibleCount])
+  }, [onClearSelection, onDeleteSelected, onSelectAll, selectedCount, visibleCount])
 
   const handleFocus = useCallback((e: FocusEvent<HTMLElement>) => {
     // Only show the ring when the container itself (not a child) receives focus.

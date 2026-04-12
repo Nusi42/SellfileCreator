@@ -1563,6 +1563,7 @@ const enUS: Catalog = {
   // Chips context menus
   chipsMenuSelectAll: "Select All",
   chipsMenuSelectVisible: "Select Visible",
+  chipsMenuClearSelection: "Clear Selection",
   chipsMenuCopyAllRecipes: "Copy All Recipes",
   chipsMenuCopyAllSafeguards: "Copy All Safeguards",
   chipsMenuPasteAtEnd: "Paste at End",

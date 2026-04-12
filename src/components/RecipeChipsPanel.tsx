@@ -398,6 +398,7 @@ function RecipeChipsPanel(props: {
         actions={{
           pasteAtEnd: onPasteAtEnd,
           selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
+          clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
           copyAll: { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
           deleteAll: {
             handler: onDeleteAll,

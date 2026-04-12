@@ -79,6 +79,7 @@ export interface RecipeContextMenuActions {
   copyRecipeDev?: MenuClickHandler
   deleteRecipe?: MenuClickHandler
   selectAll?: SelectAllAction
+  clearSelection?: SelectAllAction
   copyAll?: { handler: MenuClickHandler; disabled: boolean; labelKey?: string }
   deleteAll?: HighlightableAction
 }
@@ -232,6 +233,17 @@ export function RecipeContextMenu({
         disabled={actions.selectAll.disabled}
       >
         {t(actions.selectAll.labelKey)}
+      </MenuItem>,
+    )
+  }
+  if (actions.clearSelection) {
+    secondaryItems.push(
+      <MenuItem
+        key="clearSelection"
+        onClick={wrapClick(onClose, actions.clearSelection.handler)}
+        disabled={actions.clearSelection.disabled}
+      >
+        {t(actions.clearSelection.labelKey)}
       </MenuItem>,
     )
   }

@@ -1539,6 +1539,7 @@ const overrides: Catalog = {
   // Chips context menus
   chipsMenuSelectAll: "Выбрать все",
   chipsMenuSelectVisible: "Выбрать видимые",
+  chipsMenuClearSelection: "Снять выделение",
   chipsMenuCopyAllRecipes: "Копировать все рецепты",
   chipsMenuCopyAllSafeguards: "Копировать все защиты",
   chipsMenuPasteAtEnd: "Вставить в конец",
