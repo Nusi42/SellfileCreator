@@ -26,6 +26,23 @@ pub use chunk::CHUNK_UNIT;
 /// Returns `true` only when the size is chunk-aligned, the computed end pointer lies within
 /// linear memory (on wasm32), and the base-size word matches the end-size word.  A real gap
 /// always satisfies all three; stale ABOVE_FREE almost certainly fails the size cross-check.
+///
+/// # Why this is needed (defense-in-depth)
+///
+/// talc 5.0.3 root bug: the tag byte at `gap.end-1` is the MSB of the 4-byte LE end-size word.
+/// For gaps ≥ 16 MiB the MSB has bit 0 (ALLOCATED_FLAG) set, so `is_allocated()` returns true
+/// on the tag of a FREE gap.  `deallocate` reads this stale tag via `end_to_tag(chunk_base)` and
+/// misidentifies the gap as an allocated chunk, skipping the below-coalesce.  The misidentified
+/// gap then has bit 1 (ABOVE_FREE_FLAG) spuriously SET via `set_above_free`.
+///
+/// The primary fix is in `tag.rs`: `clear_above_free` uses AND-NOT instead of XOR, making it
+/// idempotent.  Without it, a spurious clear (ABOVE_FREE already 0) would XOR the bit to 1,
+/// creating a false gap indication that causes the next `deallocate` to read garbage user-data
+/// as a gap size and trap with OOB.  The AND-NOT fix breaks that chain.
+///
+/// This cross-check guard is defense-in-depth: it catches any residual staleness (e.g. the
+/// temporary window where a ≥16 MiB gap's end-size MSB has ABOVE_FREE_FLAG set from the
+/// spurious `set_above_free` call) and prevents a crash if any new staleness path is missed.
 #[inline]
 unsafe fn talc_gap_looks_valid(base: *mut u8, above_size: usize) -> bool {
     // Size must be chunk-aligned and at least the minimum chunk unit.

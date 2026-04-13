@@ -16,8 +16,15 @@ opt-level = 2
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patch.
 # Fixes a talc 5.0.3 bug where the ABOVE_FREE flag can become stale, causing deallocate /
 # try_grow_in_place to read garbage user-data as a gap size and trap with OOB.
+# Root cause: tag byte at gap.end-1 overlaps with the end-size MSB; gaps ≥ 16 MiB have bit 0
+# set there, causing is_allocated() to return true on a free gap.  deallocate skips the
+# below-coalesce, a spurious set_above_free corrupts the gap's size MSB, and a subsequent
+# spurious clear_above_free (XOR) flips ABOVE_FREE 0→1, creating a false-positive that causes
+# the next deallocate to follow a garbage gap pointer → OOB trap.
 # Changes in vendor/talc vs upstream (grep TALC-PATCH):
+#   - clear_above_free: AND-NOT instead of XOR (root fix — makes spurious clears idempotent)
 #   - talc_gap_looks_valid() cross-check guard in deallocate / try_grow_in_place / shrink
+#     (defense-in-depth: blocks the OOB path even if ABOVE_FREE is transiently stale)
 #   - ABOVE_FREE preservation when writing the allocation tag (try_allocate / try_grow_in_place)
 #   - Non-panicking set_above_free / clear_above_free (removed debug_assert to prevent
 #     recursive-panic when the panic handler itself allocates)
