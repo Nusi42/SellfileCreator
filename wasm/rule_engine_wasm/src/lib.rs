@@ -30,113 +30,29 @@ fn ts() -> String {
     format!("{:02}:{:02}:{:02}.{:03}", h, m, s, frac)
 }
 
-// Allocator: WasmDynamicTalc wrapped in a shim that adds 8 bytes to every
-// allocation.  This serves two production purposes:
+// Allocator: vendored talc 5.0.3 with the ABOVE_FREE stale-flag patch applied.
 //
-// 1. Avoids talc 5.0.3's coalescing-path corruption bug.  The bug is triggered
-//    by serde_json's exponential Vec<T> doubling pattern on 32k+ rule payloads
-//    (each doubling frees a block that's a power-of-two bytes, producing ~15
-//    freed blocks of sizes 256→512→…→8 MiB in the free-list).  Adding 8 bytes
-//    shifts every block size by one, changing the bin indices that talc's
-//    coalesce/split code walks and routing execution away from the buggy path.
-//    Evidence: this shim + prewarm_for_json_parse → 20/20 clean harness iters;
-//    direct WasmDynamicTalc + prewarm crashes at iter 4 with corrupted JSON.
+// The original bug: talc 5.0.3 could incorrectly leave the ABOVE_FREE tag flag set
+// on an allocated chunk after the gap above it was consumed.  When that chunk was
+// later freed, deallocate() read gap_base_to_size(chunk_end) — now user data —
+// getting a huge garbage value, then called chunk_end.add(garbage), flying past WASM
+// linear memory and trapping with "memory access out of bounds".
 //
-// 2. Detects buffer overruns at runtime.  The 8 bytes are written with a
-//    sentinel value (0xDEAD_BEEF_CAFE_BABE); dealloc/realloc check it and log
-//    a [FENCE CORRUPT] warning before the corruption can propagate.  Zero
-//    fence violations observed across all test runs.
+// The fix lives in wasm/vendor/talc/src/base/mod.rs: talc_gap_looks_valid() cross-
+// checks the base-size word against the end-size word before trusting ABOVE_FREE.
+// A real gap always has both words equal; stale ABOVE_FREE produces a mismatch and
+// the coalesce is silently skipped (the allocation is freed as a smaller standalone
+// gap instead — no data loss, only a missed coalescing opportunity for that one free).
 //
-// Overhead: ~8 bytes/alloc (≈80 KiB for 10 k active allocs out of 200+ MiB),
-// plus one write and two reads per alloc/dealloc cycle — negligible against the
-// ~3500 ms pipeline hot path.
-//
-// The pre_grow_memory_value export below pre-commits WASM pages in 16 MiB
-// chunks at warmup time so talc rarely needs to call memory.grow during the
-// pipeline hot path (V8/Windows rejects small incremental grows under
-// address-space pressure → Rust OOM abort → STATUS_BREAKPOINT).
-#[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
-mod fence_alloc {
-    use core::alloc::{GlobalAlloc, Layout};
-
-    const FENCE: u64 = 0xDEAD_BEEF_CAFE_BABE;
-    const FENCE_SIZE: usize = 8;
-
-    pub struct StabilityAllocator {
-        inner: talc::wasm::WasmDynamicTalc,
-    }
-
-    impl StabilityAllocator {
-        pub const fn new() -> Self {
-            Self { inner: talc::wasm::new_wasm_dynamic_allocator() }
-        }
-    }
-
-    // SAFETY: delegates to talc which is safe for single-threaded WASM.
-    unsafe impl Sync for StabilityAllocator {}
-
-    unsafe impl GlobalAlloc for StabilityAllocator {
-        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            // Allocate extra bytes for the sentinel/bin-shift.
-            let total = layout.size() + FENCE_SIZE;
-            let inner_layout = Layout::from_size_align_unchecked(total, layout.align());
-            let ptr = self.inner.alloc(inner_layout);
-            if !ptr.is_null() {
-                // Write sentinel at the end of the user region.
-                let fence_ptr = ptr.add(layout.size()) as *mut u64;
-                fence_ptr.write_unaligned(FENCE);
-            }
-            ptr
-        }
-
-        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-            // Verify sentinel before freeing; log if corrupted.
-            let fence_ptr = ptr.add(layout.size()) as *mut u64;
-            let fence_val = fence_ptr.read_unaligned();
-            if fence_val != FENCE {
-                super::log(&format!(
-                    "{} [FENCE CORRUPT] dealloc ptr={} size={} align={} expected={:#x} got={:#x}",
-                    super::ts(), ptr as usize, layout.size(), layout.align(), FENCE, fence_val
-                ));
-            }
-            let total = layout.size() + FENCE_SIZE;
-            let inner_layout = Layout::from_size_align_unchecked(total, layout.align());
-            self.inner.dealloc(ptr, inner_layout);
-        }
-
-        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-            // Verify old sentinel before realloc.
-            let fence_ptr = ptr.add(layout.size()) as *mut u64;
-            let fence_val = fence_ptr.read_unaligned();
-            if fence_val != FENCE {
-                super::log(&format!(
-                    "{} [FENCE CORRUPT] realloc ptr={} old_size={} new_size={} expected={:#x} got={:#x}",
-                    super::ts(), ptr as usize, layout.size(), new_size, FENCE, fence_val
-                ));
-            }
-            let old_total = layout.size() + FENCE_SIZE;
-            let new_total = new_size + FENCE_SIZE;
-            let old_inner = Layout::from_size_align_unchecked(old_total, layout.align());
-            let new_ptr = self.inner.realloc(ptr, old_inner, new_total);
-            if !new_ptr.is_null() {
-                // Write new sentinel at the new end.
-                let new_fence_ptr = new_ptr.add(new_size) as *mut u64;
-                new_fence_ptr.write_unaligned(FENCE);
-            }
-            new_ptr
-        }
-    }
-}
-
+// Evidence: 10/10 harness iterations pass with plain WasmDynamicTalc + patched talc.
+// Previous workaround (StabilityAllocator + 8-byte bin-shift) is no longer needed.
 #[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
 #[global_allocator]
-static TALC: fence_alloc::StabilityAllocator = fence_alloc::StabilityAllocator::new();
+static TALC: talc::wasm::WasmDynamicTalc = talc::wasm::new_wasm_dynamic_allocator();
 
 // Emit a timestamped pipeline phase marker to the worker console.  Useful for
 // correlating log output with the stages visible in the repro harness.
-// Named log_talc_counters for API compatibility; counters() is not exposed by
-// StabilityAllocator (WasmDynamicTalc wraps TalcSyncCell whose counters() method
-// is on the inner TalcCell and not reachable through the GlobalAlloc trait).
+// Named log_talc_counters for API compatibility with existing TS callers.
 #[wasm_bindgen]
 pub fn log_talc_counters(label: &str) {
     log(&format!("{} [talc] {}", ts(), label));
