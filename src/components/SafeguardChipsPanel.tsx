@@ -767,6 +767,22 @@ export default function SafeguardChipsPanel({
     if (!ok) triggerCopyDialog(text)
   }, [rules])
 
+  // Copies a specific subset of rules (by index) as a flat array, preserving sort order.
+  // Used when the per-chip "Copy" action fires while a multi-selection of ≥2 chips is active
+  // and the right-clicked chip is included in that selection.
+  const handleCopySelectedRules = useCallback(async (indices: number[]) => {
+    // Sort so the clipboard payload reflects list order, not click order.
+    const sorted = indices.slice().sort((a, b) => a - b)
+    const entries = sorted
+      .map((i) => { const r = rules[i]; return r ? buildReadableSafeguardRuleEntry(r) : null })
+      .filter((e): e is ReturnType<typeof buildReadableSafeguardRuleEntry> => e !== null)
+    if (entries.length === 0) return
+    const payload = { kind: 'safeguardRule', rule: entries }
+    const text = JSON.stringify(payload, null, 2)
+    const ok = await writeTextSafe(text)
+    if (!ok) triggerCopyDialog(text)
+  }, [rules])
+
   // Copies all rules as an array using the same envelope format as handleCopyRule;
   // parseSafeguardClipboardRules already handles array payloads on paste.
   const handleCopyAllRules = useCallback(async () => {
@@ -854,7 +870,11 @@ export default function SafeguardChipsPanel({
               moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
               moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
               moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
-              copyRecipe: () => handleCopyRule(idx),
+              // When ≥2 chips are selected and the right-clicked chip is among them,
+              // copy the whole selection as a flat array; otherwise copy just this chip.
+              copyRecipe: selectedRuleIndices && selectedRuleIndices.length > 1 && selectedRuleIndices.includes(idx)
+                ? () => handleCopySelectedRules(selectedRuleIndices.slice())
+                : () => handleCopyRule(idx),
               pasteAfter: () => handlePasteAfterRule(idx),
               // Delete the chip; mirrors RecipeChip's deleteRecipe action.
               deleteRecipe: () => handleDeleteRule(idx),
