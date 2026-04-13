@@ -13,18 +13,22 @@ opt-level = 2
 [profile.release.package.wasm-bindgen]
 opt-level = 2
 
-# TALC-PATCH: use the vendored copy of talc so we can apply our correctness patch.
-# Fixes a talc 5.0.3 bug where the ABOVE_FREE flag can become stale, causing deallocate /
-# try_grow_in_place to read garbage user-data as a gap size and trap with OOB.
-# Root cause: tag byte at gap.end-1 overlaps with the end-size MSB; gaps ≥ 16 MiB have bit 0
-# set there, causing is_allocated() to return true on a free gap.  deallocate skips the
-# below-coalesce, a spurious set_above_free corrupts the gap's size MSB, and a subsequent
-# spurious clear_above_free (XOR) flips ABOVE_FREE 0→1, creating a false-positive that causes
-# the next deallocate to follow a garbage gap pointer → OOB trap.
+# TALC-PATCH: use the vendored copy of talc so we can apply our correctness patches.
+# Fixes a talc 5.0.3 bug where the ABOVE_FREE flag can become stale, causing deallocate to
+# read garbage user-data as a gap size and trap with OOB.
+#
+# Root cause: tag_byte(addr) = addr[-1] is the MSB of the 4-byte LE end-size word for any free
+# gap ending at `addr`.  For gaps in [16 MiB, 32 MiB) that MSB has bit 0 (ALLOCATED_FLAG) set
+# from the size value, so is_allocated() returns true on a FREE gap.  deallocate skips the
+# below-coalesce and calls set_above_free on the gap's end-size MSB, corrupting it.
+# Subsequent clear_above_free (original XOR) flips ABOVE_FREE 0→1 creating a false-positive
+# that causes the next deallocate to follow a garbage gap pointer → OOB trap.
+#
 # Changes in vendor/talc vs upstream (grep TALC-PATCH):
-#   - clear_above_free: AND-NOT instead of XOR (root fix — makes spurious clears idempotent)
-#   - talc_gap_looks_valid() cross-check guard in deallocate / try_grow_in_place / shrink
-#     (defense-in-depth: blocks the OOB path even if ABOVE_FREE is transiently stale)
+#   - clear_above_free: AND-NOT instead of XOR (root fix — spurious clears are idempotent)
+#   - talc_gap_looks_valid(): strengthened cross-check in deallocate / try_grow_in_place /
+#     shrink — adds Node.next_of_prev structural invariant + skips trivially self-matching
+#     size check for CHUNK_UNIT-sized gaps (where base-size and end-size fields overlap)
 #   - ABOVE_FREE preservation when writing the allocation tag (try_allocate / try_grow_in_place)
 #   - Non-panicking set_above_free / clear_above_free (removed debug_assert to prevent
 #     recursive-panic when the panic handler itself allocates)

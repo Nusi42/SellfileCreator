@@ -16,6 +16,7 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
 const WORKSPACE_DIR = path.join(REPO_ROOT, 'wasm')
 const RULE_ENGINE_CORE_SRC_DIR = path.join(WORKSPACE_DIR, 'rule_engine_core', 'src')
 const RULE_ENGINE_WASM_SRC_DIR = path.join(WORKSPACE_DIR, 'rule_engine_wasm', 'src')
+const VENDOR_TALC_SRC_DIR = path.join(WORKSPACE_DIR, 'vendor', 'talc', 'src')
 const GENERATED_OUT_DIR = path.join(REPO_ROOT, 'src', 'lib', 'wasm', 'generated')
 
 // Track all generated files required by TS imports/runtime wasm loading.
@@ -88,10 +89,12 @@ const ensureRuleEngineWasm = async () => {
     cargoTargetMissing = true
   }
 
-  // Collect Rust sources from both crates so any edit in core or the wasm shim triggers rebuild.
+  // Collect Rust sources from crates and vendored patches so any edit triggers rebuild.
+  // vendor/talc/ is our patched allocator — changes there must produce a new binary.
   const coreSources = await collectFilesRecursively(RULE_ENGINE_CORE_SRC_DIR)
   const wasmSources = await collectFilesRecursively(RULE_ENGINE_WASM_SRC_DIR)
-  const relevantSources = [...DIRECT_RELEVANT_SOURCES, ...coreSources, ...wasmSources]
+  const vendorTalcSources = await collectFilesRecursively(VENDOR_TALC_SRC_DIR)
+  const relevantSources = [...DIRECT_RELEVANT_SOURCES, ...coreSources, ...wasmSources, ...vendorTalcSources]
 
   // Fail early when a declared source vanished, because comparisons would be
   // misleading and we want deterministic rebuild decisions.
