@@ -26,47 +26,29 @@ pub use chunk::CHUNK_UNIT;
 /// Returns `true` only when ALL of the following hold:
 ///  - `above_size` is chunk-aligned and ≥ CHUNK_UNIT
 ///  - the computed end pointer lies within linear memory (wasm32)
-///  - base-size word == end-size word (for `above_size > CHUNK_UNIT`; see note below)
-///  - Node.next_of_prev points back to this node (linked-list structural invariant)
+///  - `gap_base_to_size(base)` == `gap_end_to_size_and_flag(above_end)` (size stored at both ends)
 ///
-/// A real registered free gap always satisfies all four conditions.  Stale ABOVE_FREE almost
+/// A real registered free gap always satisfies all three conditions.  Stale ABOVE_FREE almost
 /// certainly fails at least one of them.
 ///
-/// # Why the size cross-check is skipped for CHUNK_UNIT-sized gaps
+/// # Why the size cross-check is now reliable for ALL gap sizes (TALC-PATCH)
 ///
-/// `gap_base_to_size(base)` is at `base + 12`; `gap_end_to_size_and_flag(base + size)` is at
-/// `base + size - 4`.  When `size == CHUNK_UNIT == 16` both addresses equal `base + 12`, so
-/// the check becomes `*(base+12) == *(base+12)` — trivially true.  Any 4-byte user-owned
-/// value that happens to equal 16 (extremely common in JSON-derived rule data) would pass,
-/// making the check useless for minimum-size gaps.  We skip it for that case and rely solely
-/// on the Node structural invariant.
+/// In the old layout `gap_end_to_size_and_flag(end)` was at `end - 4`.  For a minimum 16-byte
+/// gap this coincided with `gap_base_to_size(base) = base + 12` — the same address — so the
+/// check was trivially self-matching and useless.  `set_above_free` also wrote to `end[-1]`
+/// which was the end-size MSB, corrupting the size field.
 ///
-/// # Why this is needed (and what the other TALC-PATCHes fix)
-///
-/// talc 5.0.3 root bug: `tag_byte(addr) = addr[-1]` is the MSB of the 4-byte LE end-size word
-/// for any free gap ending at `addr`.  For gaps in [16 MiB, 32 MiB) that MSB has bit 0
-/// (ALLOCATED_FLAG) set from the size value; `is_allocated()` returns true on a FREE gap.
+/// With the new layout (see chunk.rs) `gap_end_to_size_and_flag(end)` is at `end - 8`,
+/// and `end_to_tag(end)` is at `end[-1]` — a byte that register_gap explicitly zeroes and
+/// that `set_above_free` / `clear_above_free` manipulate independently of the size words.
 ///
 /// Consequences:
-///  1. `deallocate`: below-gap check misidentifies a ≥16 MiB gap as an allocated chunk,
-///     skips coalescing, and calls `set_above_free` on the gap's end-size MSB.  The ABOVE_FREE
-///     bit (bit 1) that gets OR'd into the end-size MSB causes this function's size cross-check
-///     to fail on subsequent calls (low-size S ≠ end-size S|0x02000000), safely preventing
-///     spurious coalescing.  **Primary fix** (`tag.rs`): AND-NOT in `clear_above_free` breaks
-///     the original crash chain (XOR 0→1 false positive).
-///
-///  2. `try_allocate` / `try_grow_in_place` exact-fit path: the existing byte at `end-1`
-///     (consumed gap's end-size MSB) is preserved as ABOVE_FREE hint.  This byte may have
-///     bit 1 set from a prior spurious `set_above_free`, causing ABOVE_FREE to be written on
-///     allocations where no gap exists above.  This function, called at deallocation time,
-///     guards against acting on that stale ABOVE_FREE.
-///
-///  3. `clear_above_free` used XOR, so a spurious call flipped 0→1.
-///     **Fix** (`tag.rs`): AND-NOT — idempotent, spurious clear leaves 0 as 0.
-///
-/// This guard is defense-in-depth: even if ABOVE_FREE becomes stale via any of the above
-/// mechanisms, the structural Node check makes a false coalesce effectively impossible in
-/// practice (user data would have to accidentally satisfy a two-level pointer invariant).
+///  - For a minimum 24-byte gap: `base+12` vs `base+16` — distinct addresses.  No trivial case.
+///  - `set_above_free` writes to `end[-1]` which is now padding, not the size MSB.
+///    The size cross-check is never corrupted by ABOVE_FREE manipulation.
+///  - No Node structural check is needed: size equality is a tight constraint that stale
+///    ABOVE_FREE cannot accidentally satisfy (the attacker would need user data at two
+///    non-overlapping locations to contain the same chunk-aligned size value).
 #[inline]
 unsafe fn talc_gap_looks_valid(base: *mut u8, above_size: usize) -> bool {
     // Size must be chunk-aligned and at least the minimum chunk unit.
@@ -79,41 +61,11 @@ unsafe fn talc_gap_looks_valid(base: *mut u8, above_size: usize) -> bool {
     if (above_end as usize) > core::arch::wasm32::memory_size::<0>() * 65536 {
         return false;
     }
-    // Size cross-check: register_gap stores the same size at both ends of the gap.
-    // EXCEPTION: when above_size == CHUNK_UNIT the two size fields are at the same address
-    // (base+12 == above_end-4), so this reduces to a trivial self-equality check and
-    // provides no filtering.  Skip it for minimum-size gaps; rely on the Node check below.
-    if above_size > CHUNK_UNIT {
-        let end_size = gap_end_to_size_and_flag(above_end).read() & !END_FLAG;
-        if end_size != above_size {
-            return false;
-        }
-    }
-    // Structural check: for any registered gap node N, N.next_of_prev points to the slot
-    // that holds Some(N) in the free list.  Stale gap structure left in user-owned memory
-    // after a gap was consumed cannot satisfy this invariant: it would require user data at
-    // node.next_of_prev to contain the exact heap address of `base`.
-    let gap_node_ptr = gap_base_to_node(base); // GAP_NODE_OFFSET == 0, so ptr == base
-    if gap_node_ptr.is_null() {
-        return false;
-    }
-    let gap_node_nn = NonNull::new_unchecked(gap_node_ptr);
-    let node: Node = gap_node_ptr.read();
-    let nop_addr = node.next_of_prev as usize;
-    let nop_sz = size_of::<Option<NonNull<Node>>>();
-    let nop_al = align_of::<Option<NonNull<Node>>>();
-    // Bounds-check next_of_prev before dereferencing to avoid OOB on garbage pointers.
-    #[cfg(target_arch = "wasm32")]
-    let nop_ok = nop_addr >= nop_al
-        && nop_addr % nop_al == 0
-        && nop_addr + nop_sz <= core::arch::wasm32::memory_size::<0>() * 65536;
-    #[cfg(not(target_arch = "wasm32"))]
-    let nop_ok = nop_addr != 0 && nop_addr % nop_al == 0;
-    if !nop_ok {
-        return false;
-    }
-    // Linked-list invariant: *next_of_prev must point back to this node.
-    *node.next_of_prev == Some(gap_node_nn)
+    // Size cross-check: register_gap writes `size` to both gap_base_to_size (base+12) and
+    // gap_end_to_size_and_flag (end-8).  With the new layout these are always distinct
+    // addresses (no trivial self-match for any valid gap size), so this is a genuine test.
+    let end_size = gap_end_to_size_and_flag(above_end).read() & !END_FLAG;
+    end_size == above_size
 }
 
 #[cfg(feature = "counters")]
@@ -321,18 +273,12 @@ impl<S: Source, B: Binning> Talc<S, B> {
         #[cfg(feature = "counters")]
         self.counters.account_alloc(layout.size());
 
-        // TALC-PATCH: preserve ABOVE_FREE when writing the allocation tag.
-        //
-        // The byte at `end - 1` (end_to_tag(end)) is also the MSB of the end-size field
-        // for any free gap that ends at `end`.  If such a gap exists in the free list,
-        // a prior deallocate may have called set_above_free on that byte (because for large
-        // gaps the MSB looks like an allocated-chunk tag, causing it to skip coalescing and
-        // instead set ABOVE_FREE on that byte).  If we write our new tag WITHOUT ABOVE_FREE,
-        // and there IS a registered free gap starting at `end`, we would silently lose the
-        // ABOVE_FREE invariant for that gap.  Preserving the existing bit keeps it intact
-        // (talc_gap_looks_valid in deallocate guards against acting on any stale bit).
-        let existing_tag = end_to_tag(end).read();
-        end_to_tag(end).write(Tag(tag.0 | (existing_tag.0 & Tag::ABOVE_FREE_FLAG)));
+        // With the new gap layout (TALC-PATCH in chunk.rs), end_to_tag(end) reads the
+        // dedicated tag byte at end[-1] — NOT the end-size MSB.  register_gap writes Tag(0)
+        // there, and only alloc/dealloc paths write non-zero values.  `tag` already encodes
+        // ABOVE_FREE when register_gap(end, chunk_end) was called above, so no read-modify-write
+        // is needed: write the computed tag directly.
+        end_to_tag(end).write(tag);
 
         Some(NonNull::new_unchecked(base))
     }
@@ -509,12 +455,10 @@ impl<S: Source, B: Binning> Talc<S, B> {
                     } else {
                         Tag::ALLOCATED
                     };
-                    // TALC-PATCH: preserve ABOVE_FREE when writing the allocation tag on exact-fit grow.
-                    // Same overlap issue as try_allocate: end_to_tag(new_end) is the MSB of the end-size
-                    // field for any gap whose end == new_end.  If a gap starts at new_end, its ABOVE_FREE
-                    // must survive the tag write or deallocate won't know to coalesce above.
-                    let existing_tag = end_to_tag(new_end).read();
-                    end_to_tag(new_end).write(Tag(tag.0 | (existing_tag.0 & Tag::ABOVE_FREE_FLAG)));
+                    // With the new gap layout (TALC-PATCH in chunk.rs) end_to_tag(new_end)
+                    // reads the dedicated tag byte — not the end-size MSB.  No read-modify-write
+                    // needed; write the computed tag directly (same reasoning as try_allocate).
+                    end_to_tag(new_end).write(tag);
                 }
 
                 #[cfg(feature = "counters")]
@@ -1162,6 +1106,10 @@ impl<S: Source, B: Binning> Talc<S, B> {
         gap_base_to_bin(base).write(bin);
         gap_base_to_size(base).write(size);
         gap_end_to_size_and_flag(end).write(size);
+        // TALC-PATCH: write the free-gap marker byte at end[-1] (the dedicated tag byte in the
+        // new layout).  This ensures is_allocated() returns false for ANY gap size, because
+        // end_to_tag(end) now reads this byte — not the end-size MSB.  Tag(0) has no flags set.
+        end_to_tag(end).write(Tag(0));
 
         debug_assert!((*bin_ptr).is_some());
 

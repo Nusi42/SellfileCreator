@@ -25,12 +25,56 @@ pub(crate) unsafe fn alloc_to_end(base: *mut u8, size: usize) -> *mut u8 {
 /// The minimum size and alignment that Talc will use for chunks.
 ///
 /// It may situationally take on other values in the future.
-pub const CHUNK_UNIT: usize = size_of::<usize>() * 4;
+///
+/// TALC-PATCH: was `size_of::<usize>() * 4` (= 16 on wasm32).  Increased to
+/// `size_of::<usize>() * 8` (= 32 on wasm32) for two reasons:
+///
+/// 1. **Power-of-2 requirement**: `align_up_by` / `align_down_by` / `required_chunk_size`
+///    all use bitmask arithmetic (`& !(CHUNK_UNIT - 1)`) which only works correctly when
+///    CHUNK_UNIT is a power of 2.  The minimum needed for the new end-structure is 24 bytes,
+///    but 24 is not a power of 2; the next valid value is 32.
+///
+/// 2. **Non-overlapping fields**: with the new end-structure, `gap_end_to_size_and_flag(end)`
+///    is at `end-8`.  For a minimum-size gap of 32 bytes:
+///    - `gap_base_to_size(base)` = `base+12`
+///    - `gap_end_to_size_and_flag(base+32)` = `base+24`
+///    These are distinct — no trivial self-match, no overlap with forward-structure fields.
+pub const CHUNK_UNIT: usize = size_of::<usize>() * 8;
 
+// TALC-PATCH (architectural layout): Separate the tag byte from the end-size word.
+//
+// Upstream layout (CHUNK_UNIT=16 on wasm32):
+//
+//   [base, base+16)    forward structure   (Node at +0, bin at +8, low_size at +12)
+//   [end-4, end)       end_size word       (4 bytes on wasm32)
+//                      end[-1]  also serves as tag_byte via end_to_tag(end)
+//
+//   BUG: for gaps ≥16 MiB, bit 0 (ALLOCATED_FLAG) of the end-size MSB (end[-1]) is set
+//   from the size value itself.  `is_allocated()` reads that byte and returns `true` on a
+//   FREE gap, causing deallocate to call set_above_free on what it thinks is an alloc tag —
+//   but is actually the end-size MSB — silently corrupting the size.
+//
+// Fixed layout (CHUNK_UNIT=32 on wasm32):
+//
+//   [base, base+16)    forward structure   (Node at +0, bin at +8, low_size at +12)
+//   [end-8, end-4)     end_size word       (4 bytes on wasm32, now separate from tag)
+//   [end-4, end-1)     unused padding      (3 bytes on wasm32)
+//   [end-1, end)       tag byte            (always Tag(0) for free gaps; written by register_gap)
+//
+//   With this layout `is_allocated()` reads end[-1], which is EITHER:
+//     • Tag(0)  — the dedicated free-gap marker written by register_gap
+//     • Tag(ALLOCATED | ...)  — an allocation tag written by try_allocate / try_grow_in_place
+//   It NEVER reads an end-size MSB again.  Zero false positives for ALL gap sizes 0–4 GiB.
+//
+//   set_above_free writes to end[-1].  With the old layout that also corrupted end[-1] which
+//   was part of end-size.  With the new layout end-size is at end[-8..end-4] — a completely
+//   different address — so set_above_free can never corrupt it.
 const GAP_NODE_OFFSET: usize = 0;
 const GAP_BIN_OFFSET: usize = size_of::<usize>() * 2;
 const GAP_LOW_SIZE_OFFSET: usize = size_of::<usize>() * 3;
-const GAP_HIGH_SIZE_OFFSET: usize = size_of::<usize>();
+// TALC-PATCH: was size_of::<usize>() (= 4 on wasm32); now size_of::<usize>() * 2 (= 8 on wasm32).
+// Moving end-size away from the last byte separates it from the tag byte.
+const GAP_HIGH_SIZE_OFFSET: usize = size_of::<usize>() * 2;
 
 pub const END_FLAG: usize = Tag::HEAP_END_FLAG as usize;
 

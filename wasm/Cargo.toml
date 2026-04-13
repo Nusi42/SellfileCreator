@@ -14,23 +14,24 @@ opt-level = 2
 opt-level = 2
 
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patches.
-# Fixes a talc 5.0.3 bug where the ABOVE_FREE flag can become stale, causing deallocate to
-# read garbage user-data as a gap size and trap with OOB.
+# Fixes a talc 5.0.3 bug where the tag byte overlaps the end-size MSB, causing is_allocated()
+# to misidentify free gaps ≥16 MiB as allocated chunks, ultimately corrupting the free list.
 #
-# Root cause: tag_byte(addr) = addr[-1] is the MSB of the 4-byte LE end-size word for any free
-# gap ending at `addr`.  For gaps in [16 MiB, 32 MiB) that MSB has bit 0 (ALLOCATED_FLAG) set
-# from the size value, so is_allocated() returns true on a FREE gap.  deallocate skips the
-# below-coalesce and calls set_above_free on the gap's end-size MSB, corrupting it.
-# Subsequent clear_above_free (original XOR) flips ABOVE_FREE 0→1 creating a false-positive
-# that causes the next deallocate to follow a garbage gap pointer → OOB trap.
+# Root cause: upstream tag_byte(addr) = addr[-1] is the MSB of the 4-byte LE end-size word.
+# For gaps in [16 MiB, 32 MiB) that MSB has ALLOCATED_FLAG set from the size value itself.
+# deallocate misreads the gap as allocated, calls set_above_free on the end-size MSB (corrupts
+# it), and clear_above_free (XOR) then flips ABOVE_FREE 0→1 → next dealloc reads garbage → OOB.
 #
 # Changes in vendor/talc vs upstream (grep TALC-PATCH):
-#   - clear_above_free: AND-NOT instead of XOR (root fix — spurious clears are idempotent)
-#   - talc_gap_looks_valid(): strengthened cross-check in deallocate / try_grow_in_place /
-#     shrink — adds Node.next_of_prev structural invariant + skips trivially self-matching
-#     size check for CHUNK_UNIT-sized gaps (where base-size and end-size fields overlap)
-#   - ABOVE_FREE preservation when writing the allocation tag (try_allocate / try_grow_in_place)
-#   - Non-panicking set_above_free / clear_above_free (removed debug_assert to prevent
-#     recursive-panic when the panic handler itself allocates)
+#   - Architectural layout fix (chunk.rs): GAP_HIGH_SIZE_OFFSET 4→8, CHUNK_UNIT 16→32 (wasm32).
+#     end-size word is now at end[-8..end-4]; tag byte stays at end[-1] but is now separate
+#     padding — never the end-size MSB.  register_gap writes Tag(0) at end[-1] so is_allocated()
+#     returns false for ANY gap size.  set_above_free can no longer corrupt end-size.
+#     This makes the is_allocated()/ABOVE_FREE corruption chain ARCHITECTURALLY IMPOSSIBLE.
+#   - clear_above_free: AND-NOT instead of XOR (tag.rs) — idempotent spurious clears are safe
+#   - talc_gap_looks_valid(): simplified size cross-check (mod.rs) — CHUNK_UNIT trivial-match
+#     exception and Node structural check no longer needed; size fields at distinct addresses
+#   - Non-panicking set_above_free / clear_above_free: removed debug_assert (tag.rs) to prevent
+#     recursive-panic when the panic handler itself allocates
 [patch.crates-io]
 talc = { path = "vendor/talc" }
