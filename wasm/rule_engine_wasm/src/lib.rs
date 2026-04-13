@@ -30,22 +30,28 @@ fn ts() -> String {
     format!("{:02}:{:02}:{:02}.{:03}", h, m, s, frac)
 }
 
-// Allocator: vendored talc 5.0.3 with the ABOVE_FREE stale-flag patch applied.
+// Allocator: vendored talc 5.0.3 with three correctness patches applied.
 //
-// The original bug: talc 5.0.3 could incorrectly leave the ABOVE_FREE tag flag set
-// on an allocated chunk after the gap above it was consumed.  When that chunk was
-// later freed, deallocate() read gap_base_to_size(chunk_end) — now user data —
-// getting a huge garbage value, then called chunk_end.add(garbage), flying past WASM
-// linear memory and trapping with "memory access out of bounds".
+// Root cause: in talc 5.0.3, the end-size field of a free gap is stored in the 4 bytes
+// immediately before the next chunk.  The last byte of that field overlaps with what would
+// be the allocation tag of a hypothetical chunk ending at that address.  For gaps ≥ 16 MiB
+// whose size has bit 24 set, the ALLOCATED flag bit appears set in that overlapping byte,
+// causing deallocate's below-gap check to misidentify the free gap as an allocated chunk.
+// This skips coalescing, leaves two adjacent free gaps in the free list, and eventually
+// causes an ABOVE_FREE flag to be cleared incorrectly, resulting in a later deallocate()
+// reading garbage user-data as a gap size and trapping with "memory access out of bounds".
 //
-// The fix lives in wasm/vendor/talc/src/base/mod.rs: talc_gap_looks_valid() cross-
-// checks the base-size word against the end-size word before trusting ABOVE_FREE.
-// A real gap always has both words equal; stale ABOVE_FREE produces a mismatch and
-// the coalesce is silently skipped (the allocation is freed as a smaller standalone
-// gap instead — no data loss, only a missed coalescing opportunity for that one free).
+// Patches (see grep TALC-PATCH in wasm/vendor/talc/src/base/):
+//   1. talc_gap_looks_valid(): cross-checks base-size vs end-size before trusting ABOVE_FREE.
+//      A real gap always has both equal; stale ABOVE_FREE produces a mismatch and the
+//      coalesce is silently skipped — no data loss, only a missed coalescing opportunity.
+//   2. ABOVE_FREE preservation in try_allocate / try_grow_in_place exact-fit path:
+//      when an allocation exactly fills a gap, the new tag write preserved any ABOVE_FREE
+//      that was legitimately set for an adjacent gap.
+//   3. Non-panicking set_above_free / clear_above_free: removed debug_assert! to prevent
+//      a recursive-panic crash when the panic handler itself allocates.
 //
-// Evidence: 10/10 harness iterations pass with plain WasmDynamicTalc + patched talc.
-// Previous workaround (StabilityAllocator + 8-byte bin-shift) is no longer needed.
+// 10/10 harness iterations pass with plain WasmDynamicTalc + all three patches.
 #[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
 #[global_allocator]
 static TALC: talc::wasm::WasmDynamicTalc = talc::wasm::new_wasm_dynamic_allocator();

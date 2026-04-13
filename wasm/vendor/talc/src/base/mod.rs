@@ -21,33 +21,24 @@ mod tag;
 
 pub use chunk::CHUNK_UNIT;
 
-// TALC-PATCH: Cross-validate a supposed free gap at [base, base+above_size) before trusting it.
-//
-// The bug: in talc 5.0.3 the ABOVE_FREE tag flag can become stale after certain alloc/free
-// sequences (exact trigger unknown; manifests as OOB trap in deallocate / try_grow_in_place).
-// When stale, gap_base_to_size(chunk_end) returns garbage user-data; chunk_end.add(garbage)
-// then flies past WASM linear memory, triggering a "memory access out of bounds" trap.
-//
-// This guard detects the stale case by cross-checking the base-size word against the
-// end-size word that register_gap writes at (base + above_size - 8).  A valid gap always
-// has both words equal; after the gap is consumed by an allocation those bytes become user
-// data and the cross-check almost certainly fails.
-//
-// Performance cost: two extra reads + comparisons on every deallocation of an allocation
-// that had a remainder gap above it.  Negligible for our workload.
+/// Cross-validate a supposed free gap at [base, base+above_size) before trusting ABOVE_FREE.
+///
+/// Returns `true` only when the size is chunk-aligned, the computed end pointer lies within
+/// linear memory (on wasm32), and the base-size word matches the end-size word.  A real gap
+/// always satisfies all three; stale ABOVE_FREE almost certainly fails the size cross-check.
 #[inline]
 unsafe fn talc_gap_looks_valid(base: *mut u8, above_size: usize) -> bool {
-    // TALC-PATCH: size must be chunk-aligned and at least the minimum chunk unit
+    // Size must be chunk-aligned and at least the minimum chunk unit.
     if above_size < CHUNK_UNIT || above_size % CHUNK_UNIT != 0 {
         return false;
     }
-    // TALC-PATCH: on wasm32 verify the computed end pointer lies within linear memory
+    // On wasm32: verify the computed end pointer lies within linear memory.
     let above_end = base.wrapping_add(above_size);
     #[cfg(target_arch = "wasm32")]
     if (above_end as usize) > core::arch::wasm32::memory_size::<0>() * 65536 {
         return false;
     }
-    // TALC-PATCH: cross-check — register_gap stores the same size at both ends of the gap;
+    // Cross-check: register_gap stores the same size at both ends of the gap;
     // if they disagree the gap header has been overwritten (stale ABOVE_FREE).
     let end_size = gap_end_to_size_and_flag(above_end).read() & !END_FLAG;
     end_size == above_size
@@ -258,7 +249,20 @@ impl<S: Source, B: Binning> Talc<S, B> {
         #[cfg(feature = "counters")]
         self.counters.account_alloc(layout.size());
 
-        end_to_tag(end).write(tag);
+        // TALC-PATCH: preserve ABOVE_FREE when writing the allocation tag.
+        //
+        // The byte at `end - 1` (end_to_tag(end)) is also the MSB of the end-size field
+        // for any free gap that ends at `end`.  If such a gap exists in the free list,
+        // deallocate may have previously set ABOVE_FREE on that MSB byte (because for large
+        // gaps the MSB byte looks like an allocated-chunk tag to deallocate's below-gap check,
+        // causing it to skip coalescing and instead call set_above_free on the byte).
+        //
+        // If we write our new tag WITHOUT ABOVE_FREE, and there IS a registered free gap
+        // starting at `end`, we would silently clear that gap's ABOVE_FREE invariant, leading
+        // to the spurious-clear corruption chain.  Preserving ABOVE_FREE here prevents the
+        // invariant from being broken even when the two gaps end up adjacent in the free list.
+        let existing_tag = end_to_tag(end).read();
+        end_to_tag(end).write(Tag(tag.0 | (existing_tag.0 & Tag::ABOVE_FREE_FLAG)));
 
         Some(NonNull::new_unchecked(base))
     }
@@ -435,7 +439,12 @@ impl<S: Source, B: Binning> Talc<S, B> {
                     } else {
                         Tag::ALLOCATED
                     };
-                    end_to_tag(new_end).write(tag);
+                    // TALC-PATCH: preserve ABOVE_FREE when writing the allocation tag on exact-fit grow.
+                    // Same overlap issue as try_allocate: end_to_tag(new_end) is the MSB of the end-size
+                    // field for any gap whose end == new_end. If a second gap ends here, its ABOVE_FREE
+                    // must survive the tag write or deregister_gap will see ABOVE_FREE=0 next use.
+                    let existing_tag = end_to_tag(new_end).read();
+                    end_to_tag(new_end).write(Tag(tag.0 | (existing_tag.0 & Tag::ABOVE_FREE_FLAG)));
                 }
 
                 #[cfg(feature = "counters")]

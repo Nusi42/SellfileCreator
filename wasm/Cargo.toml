@@ -14,7 +14,12 @@ opt-level = 2
 opt-level = 2
 
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patch.
-# The vendored copy adds talc_gap_looks_valid() guards in deallocate / try_grow_in_place / shrink
-# to prevent OOB access when the ABOVE_FREE flag becomes stale (talc 5.0.3 bug).
+# Fixes a talc 5.0.3 bug where the ABOVE_FREE flag can become stale, causing deallocate /
+# try_grow_in_place to read garbage user-data as a gap size and trap with OOB.
+# Changes in vendor/talc vs upstream (grep TALC-PATCH):
+#   - talc_gap_looks_valid() cross-check guard in deallocate / try_grow_in_place / shrink
+#   - ABOVE_FREE preservation when writing the allocation tag (try_allocate / try_grow_in_place)
+#   - Non-panicking set_above_free / clear_above_free (removed debug_assert to prevent
+#     recursive-panic when the panic handler itself allocates)
 [patch.crates-io]
 talc = { path = "vendor/talc" }

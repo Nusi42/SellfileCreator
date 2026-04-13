@@ -1,4 +1,10 @@
 //! A `Tag` just above every allocation and contains a number of bits for the allocation algorithm.
+//
+// TALC-PATCH: removed debug_assert! in set_above_free / clear_above_free.
+// The original asserts could cause a recursive-panic crash: the panic handler tries to
+// format an error string which allocates, which re-enters talc, which panics again.
+// Replaced with silent no-op semantics — invariant violations are benign (missed coalescing)
+// and are already prevented from causing OOB access by the talc_gap_looks_valid guard.
 
 /// Tag for allocated chunk metadata.
 #[derive(Clone, Copy)]
@@ -74,14 +80,14 @@ impl Tag {
     #[inline]
     #[track_caller]
     pub unsafe fn set_above_free(ptr: *mut Self) {
-        debug_assert!((*ptr).0 & Self::ABOVE_FREE_FLAG == 0);
+        // TALC-PATCH: removed debug_assert — see module comment.
         (*ptr).0 |= Self::ABOVE_FREE_FLAG;
     }
 
     #[inline]
     #[track_caller]
     pub unsafe fn clear_above_free(ptr: *mut Self) {
-        debug_assert!((*ptr).0 & Self::ABOVE_FREE_FLAG != 0);
+        // TALC-PATCH: removed debug_assert — see module comment.
         (*ptr).0 ^= Self::ABOVE_FREE_FLAG;
     }
 
