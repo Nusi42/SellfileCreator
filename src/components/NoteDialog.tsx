@@ -4027,7 +4027,6 @@ function NoteEditorContent({
       safeguardCommand,
       metasetCommand,
       recipeOverridesSampleCommand,
-      safeguardOverridesSampleCommand,
     ]
     // If there is no divider after the title group, add a trailing divider manually.
     if (idxDividerAfterTitle < 0 && idxLink >= 0) {
@@ -4041,7 +4040,6 @@ function NoteEditorContent({
     safeguardCommand,
     metasetCommand,
     recipeOverridesSampleCommand,
-    safeguardOverridesSampleCommand,
   ])
 
   return (
@@ -4206,15 +4204,14 @@ function NoteEditorContent({
                         l.includes('color') ? t('mdColor') : raw
                       )
                       const isRecipeOverridesSample = command?.keyCommand === RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY
-                      const isSafeguardOverridesSample = command?.keyCommand === SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY
                       // Capture execute so the EBNF popover's Insert buttons can trigger them without MDEditor state.
+                      // The safeguard-overrides command is not in the toolbar; use the same executeCommand captured
+                      // here to drive it from the EBNF popover button without needing a dedicated toolbar entry.
                       if (isRecipeOverridesSample) {
                         const cmd = command as ICommand
                         executeRecipeOverridesSampleRef.current = () => executeCommand?.(cmd, cmd.groupName)
-                      }
-                      if (isSafeguardOverridesSample) {
-                        const cmd = command as ICommand
-                        executeSafeguardOverridesSampleRef.current = () => executeCommand?.(cmd, cmd.groupName)
+                        const safeguardCmd = safeguardOverridesSampleCommand as ICommand
+                        executeSafeguardOverridesSampleRef.current = () => executeCommand?.(safeguardCmd, safeguardCmd.groupName)
                       }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
