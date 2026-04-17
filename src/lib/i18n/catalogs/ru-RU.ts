@@ -1390,6 +1390,7 @@ const overrides: Catalog = {
   noteInsertSafeguards: "Вставить сводку Safeguards",
   noteInsertMetasets: "Вставить список метасетов",
   noteInsertRecipeOverridesSample: "Вставить пример опросника",
+  noteInsertSafeguardOverridesSample: "Вставить пример переопределений охраны",
   noteRecipeOverridesChangedTooltip: "Маркеры опросника изменились в этом редактировании. Переключитесь на «Просмотреть заметку», чтобы проверить вопросы.",
   noteRecipeOverridesMenu: "Параметры рецепта",
   noteRecipeOverridesResetDefaults: "Сбросить параметры к значениям по умолчанию",

@@ -1093,6 +1093,8 @@ type ReadableSafeguardTuple = {
 
 export type ReadableSafeguardRuleEntry = {
   name?: string
+  // Tags for safeguard-overrides DSL targeting; omitted when empty.
+  tags?: string[]
   requiredCount: number
   activation: SafeguardRuleActivation
   countMode: SafeguardRule['countMode']
@@ -1197,6 +1199,9 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   }
   // Only persist a name when it is non-empty.
   if (trimmedName) entry.name = trimmedName
+  // Serialize tags when the rule has any; omit the key for backward-compat.
+  const normalizedTags = normalizeTagList(rule.tags)
+  if (normalizedTags && normalizedTags.length > 0) entry.tags = normalizedTags
   // Serialize per-level thresholds only when the feature is enabled (non-null).
   const thr = rule.improvementChanceThreshold
   if (thr !== null && thr !== undefined) {

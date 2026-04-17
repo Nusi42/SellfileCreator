@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, type MouseEve
 import {
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -59,6 +60,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { safeguardActivationColor, safeguardSummaryParts } from './safeguardSummaryParts'
 
 
@@ -151,6 +153,8 @@ type SafeguardChipProps = {
   showFactionIcons: boolean
   showSetIcons: boolean
   showSlotIcons: boolean
+  /** When true, show up to 3 inline tag chips below the summary line. */
+  showTagsChips: boolean
   t: (key: string, params?: Record<string, string | number>) => string
   lang: string
   onSelect: (ruleIndex: number) => void
@@ -172,6 +176,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   rule, ruleIndex, isSelected, isFirst, isLast, isEditing, pendingName,
   dndEnabled, isGhostDragging, hasActiveDrag,
   metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons,
+  showTagsChips,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
   onDeleteRequest, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
@@ -286,36 +291,50 @@ const SafeguardChip = React.memo(function SafeguardChip({
           </Box>
         </>
       ) : (
-        <Typography
-          variant="caption"
-          sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-        >
-          <Box component="span" sx={{ display: 'inline' }}>
-            {`${ruleIndex + 1}. `}
-            <Box
-              component="span"
-              onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.name ?? '') }}
-              onKeyDown={(e) => {
-                if (e.key !== 'F2') return
-                e.preventDefault(); e.stopPropagation()
-                onStartEdit(ruleIndex, rule.name ?? '')
-              }}
-              sx={{
-                fontStyle: rawName ? 'normal' : 'italic',
-                color: rawName
-                  ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
-                  : 'text.secondary',
-              }}
-            >
-              {displayName}
+        <Box sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
+          <Typography
+            variant="caption"
+            sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+          >
+            <Box component="span" sx={{ display: 'inline' }}>
+              {`${ruleIndex + 1}. `}
+              <Box
+                component="span"
+                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.name ?? '') }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'F2') return
+                  e.preventDefault(); e.stopPropagation()
+                  onStartEdit(ruleIndex, rule.name ?? '')
+                }}
+                sx={{
+                  fontStyle: rawName ? 'normal' : 'italic',
+                  color: rawName
+                    ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
+                    : 'text.secondary',
+                }}
+              >
+                {displayName}
+              </Box>
+              {' — '}
+              {/* Mode badge: activation label + quota + active per-dim glyphs. */}
+              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}</Box>
+              {summary ? <>{' | '}{summary}</> : null}
             </Box>
-            {' — '}
-            {/* Mode badge: activation label + quota + active per-dim glyphs. */}
-            <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}</Box>
-            {summary ? <>{' | '}{summary}</> : null}
-          </Box>
-        </Typography>
+          </Typography>
+        </Box>
       )}
+      {/* Inline tag chips — shown to the right of the text area, next to the mode flags,
+          when the preference is on. flexShrink: 0 keeps them from being squeezed by the name. */}
+      {!isEditing && showTagsChips && rule.tags && rule.tags.length > 0 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
+          {rule.tags.slice(0, 3).map((tag) => (
+            <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
+          ))}
+          {rule.tags.length > 3 ? (
+            <Chip size="small" label={`+${rule.tags.length - 3}`} sx={{ height: 16, fontSize: '0.65rem', opacity: 0.7, '& .MuiChip-label': { px: 0.75 } }} />
+          ) : null}
+        </Box>
+      ) : null}
       {/* Action buttons — directly in the row, matching RecipeChip */}
       <IconButton
         size="small"
@@ -400,6 +419,8 @@ export default function SafeguardChipsPanel({
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  // Read the shared tag-chip preference — same key as RecipeBuilderPanel / SafeguardBuilderPanel.
+  const [showTagsChips] = useShowTagsChipsPreference()
 
   // ── internal state ───────────────────────────────────────────────────────
   // Index of the rule whose inline name field is active; null when none.
@@ -1023,6 +1044,7 @@ export default function SafeguardChipsPanel({
                 showFactionIcons={showFactionIcons}
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}
+                showTagsChips={showTagsChips}
                 t={t}
                 lang={lang}
                 onSelect={onSelect}

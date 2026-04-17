@@ -7,7 +7,26 @@
 import type { BuilderRecipe, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
-import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
+import { normalizeTagValue } from './tagHelpers'
+import {
+  type Token,
+  type NoteQuestionGroupType,
+  type ParsedOverridesOption,
+  type ParsedOverridesQuestion,
+  TokenCursor,
+  NOTE_OVERRIDES_QUESTION_KEYWORDS,
+  NOTE_OVERRIDES_FALLBACK_KEYWORDS,
+  NOTE_OVERRIDES_GROUP_TYPE_MAP,
+  NOTE_OVERRIDES_CONSTRAINT_KEYWORDS,
+  NOTE_OVERRIDES_LOGIC_KEYWORDS,
+  NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
+  NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
+  stripCommentWrapper,
+  collectSelectorTokensAndOpenBlock,
+  parseOverridesMarkerBody,
+  buildGlobalExplicitTokenMap,
+  buildQuestionImplicitTokenMap,
+} from './noteOverridesParser'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { cloneSubstatTargets } from './substatTargets'
 import {
@@ -35,31 +54,26 @@ import {
 } from './recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
-// Supported group types in the note markers.
-export type NoteQuestionGroupType = 'single' | 'multi'
+// ── Backward-compatible NOTE_RECIPE_OVERRIDES_* aliases ──────────────────────
+// These names are preserved for the syntax highlighter (prismRecipeOverrides.ts)
+// and any other callers. The canonical definitions now live in noteOverridesParser.ts.
 
-// Marker option key for the card-width multiplier; a value ≥ 1 also enables
-// horizontal (grid) option layout. columns=0 (or omitted) = vertical layout.
-export const NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
-// Default columns value: 0 means vertical layout at standard card width.
-export const NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = 0
-
-// ── Keyword sets (single source of truth shared with the syntax highlighter) ──
-// Each array is the canonical list; prismRecipeOverrides.ts imports and builds
-// regex alternations from these so no keyword is duplicated across files.
-
-/** Keywords that open an interactive question block. */
-export const NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS = ['q', 'question'] as const
-/** Keywords that open a fallback / default-answer block. */
-export const NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS = ['fallback', 'else'] as const
-/** Canonical map from every group-type surface keyword to its logical type. */
-export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP: Record<string, NoteQuestionGroupType> = {
-  single: 'single', s: 'single', radiobutton: 'single', radio: 'single', rb: 'single',
-  multi:  'multi',  m: 'multi',  checkbox:    'multi',  check: 'multi',  cb: 'multi',
-}
-/** All surface keywords that denote a group type (derived from the map above). */
+/** @see NOTE_OVERRIDES_MARKER_COLUMNS_KEY */
+export const NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY = NOTE_OVERRIDES_MARKER_COLUMNS_KEY
+/** @see NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT */
+export const NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT
+/** @see NOTE_OVERRIDES_QUESTION_KEYWORDS */
+export const NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS = NOTE_OVERRIDES_QUESTION_KEYWORDS
+/** @see NOTE_OVERRIDES_FALLBACK_KEYWORDS */
+export const NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS = NOTE_OVERRIDES_FALLBACK_KEYWORDS
+/**
+ * Shared group-type map (now includes slider/range keywords from the shared module).
+ * @see NOTE_OVERRIDES_GROUP_TYPE_MAP
+ */
+export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP = NOTE_OVERRIDES_GROUP_TYPE_MAP
+/** All surface keywords that denote a group type (derived from the shared map). */
 export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS = (
-  Object.keys(NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP) as readonly string[]
+  Object.keys(NOTE_OVERRIDES_GROUP_TYPE_MAP) as readonly string[]
 )
 /** Rarity tier names accepted by the DSL (includes `any` and `auto`). */
 export const NOTE_RECIPE_OVERRIDES_RARITY_NAMES = [
@@ -75,12 +89,10 @@ export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
   'all', 'tagged', 'untagged', 'any', 'none',
 ] as const
-/** Word-form constraint keywords (symbolic forms ! + - ^ are handled separately). */
-export const NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS = [
-  'set', 'unset', 'only', 'excl',
-] as const
-/** Boolean logic connectors for compound selector expressions. */
-export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
+/** @see NOTE_OVERRIDES_CONSTRAINT_KEYWORDS */
+export const NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS = NOTE_OVERRIDES_CONSTRAINT_KEYWORDS
+/** @see NOTE_OVERRIDES_LOGIC_KEYWORDS */
+export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = NOTE_OVERRIDES_LOGIC_KEYWORDS
 /** Field names valid on the left-hand side of assignment blocks. */
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
   'export', 'rank', 'rarity', 'lvl', 'keep', 'autolate',
@@ -241,59 +253,6 @@ const QUESTION_MARKER_REGEX = new RegExp(
   `<!--\\s*(?:${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`,
   'gi',
 )
-
-// Token grammar matches recipe tag tokens so ids/exclusions stay aligned.
-const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
-// Leading asterisk marks default answers.
-const QUESTION_OPTION_DEFAULT_MARKER = '*'
-type TokenKind = 'word' | 'string' | 'symbol'
-
-type Token = {
-  kind: TokenKind
-  value: string
-  index: number
-}
-
-// Extract the inner text from an HTML comment.
-const stripCommentWrapper = (raw: string): string => (
-  raw.trim().replace(/^<!--\s*/, '').replace(/\s*-->$/, '')
-)
-
-// Collapse whitespace to keep IDs stable across formatting tweaks.
-const normalizeQuestionText = (value: string): string => (
-  value.trim().replace(/\s+/g, ' ')
-)
-
-// Lightweight hash to keep question IDs short but stable.
-const hashString = (value: string): string => {
-  // DJB2 hash to keep the output deterministic.
-  let hash = 5381
-  for (let idx = 0; idx < value.length; idx += 1) {
-    // Mix the next character in the buffer.
-    hash = ((hash << 5) + hash) + value.charCodeAt(idx)
-    // Force 32-bit integer math for consistency.
-    hash |= 0
-  }
-  // Return a base36 token to keep the ID readable.
-  return Math.abs(hash).toString(36)
-}
-
-// Normalize tag-style tokens for id/exclusion usage.
-const normalizeQuestionToken = (raw: string): string | null => {
-  // Trim whitespace before validation.
-  const trimmed = raw.trim()
-  // Ignore empty tokens.
-  if (!trimmed) return null
-  // Accept numeric tokens for implicit indices regardless of tag grammar.
-  if (/^\d+$/.test(trimmed)) {
-    const value = Number.parseInt(trimmed, 10)
-    return Number.isFinite(value) ? String(value) : null
-  }
-  // Reject tokens containing disallowed characters.
-  if (!QUESTION_TOKEN_REGEX.test(trimmed)) return null
-  // Normalize case to keep matching stable.
-  return trimmed.toLowerCase()
-}
 
 // Normalize an override operator into a shared token.
 const normalizeOverrideOp = (raw: string): TagOverrideOp | null => {
@@ -562,220 +521,6 @@ const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
     extras.push(prefix + next.value)
   }
   return extras
-}
-
-// Tokenize recipe overrides blocks for the parser.
-const tokenizeRecipeOverrides = (input: string): Token[] => {
-  const tokens: Token[] = []
-  let idx = 0
-  while (idx < input.length) {
-    const ch = input.charAt(idx)
-    // Skip whitespace.
-    if (/\s/.test(ch)) {
-      idx += 1
-      continue
-    }
-    // Skip single-line comments (// … end-of-line).
-    if (ch === '/' && input.charAt(idx + 1) === '/') {
-      const eol = input.indexOf('\n', idx)
-      idx = eol >= 0 ? eol + 1 : input.length
-      continue
-    }
-    // Skip block comments (/* … */); treat as whitespace.
-    if (ch === '/' && input.charAt(idx + 1) === '*') {
-      const close = input.indexOf('*/', idx + 2)
-      idx = close >= 0 ? close + 2 : input.length
-      continue
-    }
-    // Parse quoted strings.
-    if (ch === '"') {
-      let cursor = idx + 1
-      let value = ''
-      let closed = false
-      while (cursor < input.length) {
-        const next = input.charAt(cursor)
-        if (next === '"') {
-          closed = true
-          tokens.push({ kind: 'string', value, index: idx })
-          idx = cursor + 1
-          value = ''
-          break
-        }
-        // Support escape sequences so prompt text can embed newlines without
-        // requiring a literal newline in the source:
-        //   \n → newline   \t → tab   \r → carriage return   \\ → backslash
-        //   \" → quote (keeps the string open)   \<other> → literal char
-        if (next === '\\') {
-          const esc = input.charAt(cursor + 1)
-          if (esc === 'n') value += '\n'
-          else if (esc === 't') value += '\t'
-          else if (esc === 'r') value += '\r'
-          else if (esc === '\\') value += '\\'
-          else if (esc) value += esc
-          cursor += 2
-          continue
-        }
-        // Accumulate raw characters until we hit the closing quote.
-        value += next
-        cursor += 1
-      }
-      // Guard against unterminated strings: consume the rest so we never loop forever.
-      if (!closed) {
-        tokens.push({ kind: 'string', value, index: idx })
-        idx = input.length
-      }
-      continue
-    }
-    // Parse multi-character operators.
-    const nextTwo = input.slice(idx, idx + 2)
-    if (nextTwo === '>=' || nextTwo === '<=' || nextTwo === '&&' || nextTwo === '||') {
-      tokens.push({ kind: 'symbol', value: nextTwo, index: idx })
-      idx += 2
-      continue
-    }
-    // Parse single-character symbols.
-    if ('{}[](),*+@=<>!:^'.includes(ch)) {
-      tokens.push({ kind: 'symbol', value: ch, index: idx })
-      idx += 1
-      continue
-    }
-    // Parse word tokens up to the next separator.
-    let end = idx + 1
-    while (end < input.length) {
-      const next = input.charAt(end)
-      if (/\s/.test(next)) break
-      if ('{}[](),*+@=<>!:^'.includes(next)) break
-      if (next === '&' || next === '|') break
-      end += 1
-    }
-    const value = input.slice(idx, end)
-    tokens.push({ kind: 'word', value, index: idx })
-    idx = end
-  }
-  return tokens
-}
-
-class TokenCursor {
-  private index = 0
-  constructor(private tokens: Token[]) {}
-
-  peek(offset = 0): Token | null {
-    return this.tokens[this.index + offset] ?? null
-  }
-
-  next(): Token | null {
-    const token = this.tokens[this.index]
-    this.index += 1
-    return token ?? null
-  }
-
-  consumeSymbol(value: string): boolean {
-    const token = this.peek()
-    if (!token || token.kind !== 'symbol' || token.value !== value) return false
-    this.index += 1
-    return true
-  }
-
-  consumeWord(...values: string[]): Token | null {
-    const token = this.peek()
-    if (!token || token.kind !== 'word') return null
-    const match = values.some((entry) => entry.toLowerCase() === token.value.toLowerCase())
-    if (!match) return null
-    this.index += 1
-    return token
-  }
-
-  consumeString(): Token | null {
-    const token = this.peek()
-    if (!token || token.kind !== 'string') return null
-    this.index += 1
-    return token
-  }
-
-  consumeWordValue(): string | null {
-    const token = this.peek()
-    if (!token || token.kind !== 'word') return null
-    this.index += 1
-    return token.value
-  }
-}
-
-const isQuestionKeyword = (token: Token | null): boolean => (
-  Boolean(token && token.kind === 'word'
-    && (NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS as readonly string[]).includes(token.value.toLowerCase()))
-)
-
-const isFallbackKeyword = (token: Token | null): boolean => (
-  Boolean(token && token.kind === 'word'
-    && (NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS as readonly string[]).includes(token.value.toLowerCase()))
-)
-
-// Derive group type from the shared keyword map so no keyword list is duplicated.
-const parseGroupType = (raw: string): NoteQuestionGroupType | null => (
-  NOTE_RECIPE_OVERRIDES_GROUP_TYPE_MAP[raw.toLowerCase()] ?? null
-)
-
-const normalizeQuestionColumnsValue = (raw: string): number | null => {
-  // Parse an integer so marker options accept numeric literals.
-  const parsed = parseIntegerValue(raw)
-  // Reject non-numeric values so defaults remain stable.
-  if (parsed == null) return null
-  // Columns must be zero or positive to be meaningful.
-  if (parsed < 0) return null
-  return parsed
-}
-
-const parseQuestionMarkerOptions = (
-  cursor: TokenCursor,
-): { columns: number } => {
-  const token = cursor.peek()
-  // Return the default when no marker option block is present.
-  if (!token || token.kind !== 'symbol' || token.value !== '[') {
-    return { columns: NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT }
-  }
-  // Consume the opening bracket before reading option tokens.
-  cursor.next()
-  let columns = NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT
-  while (true) {
-    const next = cursor.peek()
-    // Stop if we hit the end of the token stream.
-    if (!next) break
-    // Close the marker options when the bracket ends.
-    if (next.kind === 'symbol' && next.value === ']') {
-      cursor.next()
-      break
-    }
-    // Abort option parsing when the question keyword appears early.
-    if (isQuestionKeyword(next)) break
-    // Skip commas between option tokens.
-    if (next.kind === 'symbol' && next.value === ',') {
-      cursor.next()
-      continue
-    }
-    if (next.kind === 'word') {
-      const word = next.value
-      // Parse column overrides when the marker option key is present.
-      if (word.toLowerCase() === NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY) {
-        cursor.next()
-        // Require an equals sign before the numeric value.
-        if (!cursor.consumeSymbol('=')) continue
-        const valueToken = cursor.peek()
-        // Only parse word/string tokens so malformed values do not crash parsing.
-        if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
-        cursor.next()
-        const parsedColumns = normalizeQuestionColumnsValue(valueToken.value)
-        // Apply the override only when the value is valid.
-        if (parsedColumns != null) columns = parsedColumns
-        continue
-      }
-      // Skip unknown marker words so the parser keeps moving.
-      cursor.next()
-      continue
-    }
-    // Consume unknown tokens to avoid infinite loops.
-    cursor.next()
-  }
-  return { columns }
 }
 
 const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null => {
@@ -1259,418 +1004,35 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverride
   return operations
 }
 
-type ParsedQuestionOption = {
-  id: string
-  legacyId: string
-  label: string
-  // Optional second string that becomes the value column in UI.
-  detail: string | null
-  blocks: RecipeOverridesSelectorBlock[]
-  fallbackBlocks: RecipeOverridesSelectorBlock[]
-  isDefault: boolean
-  explicitToken: string | null
-  implicitToken: string | null
-  setTokens: string[]
-  unsetTokens: string[]
-  excludedTokens: string[]
-  onlyTokens: string[]
-  groupType: NoteQuestionGroupType
-}
+// Recipe-specific parsed types — parameterized aliases of the shared generic types.
+type ParsedQuestionOption = ParsedOverridesOption<RecipeOverridesSelector, RecipeOverridesOperation>
+type ParsedQuestionDefinition = ParsedOverridesQuestion<RecipeOverridesSelector, RecipeOverridesOperation>
+// Parsed marker + index pairing so global IDs can resolve consistently.
+type ParsedQuestionEntry = { index: number; question: ParsedQuestionDefinition }
 
-// Parsed question content before tokens/exclusions are resolved globally.
-type ParsedQuestionDefinition = {
-  prompt: string
-  // columns ≥ 1 enables horizontal (grid) option layout; 0 = vertical.
-  layoutColumns: number
-  questionId: string
-  options: ParsedQuestionOption[]
-  fallback: NoteQuestionFallback | null
-}
-
-// Parse a single selector block after a leading "@".
+// Parse a single @selector { ... } block using the recipe-specific selector parser.
 function parseSelectorBlock(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
-  // Collect selector tokens until the selector block opens.
-  const selectorTokens: Token[] = []
-  while (true) {
-    const next = cursor.peek()
-    // Bail out when the stream ends unexpectedly.
-    if (!next) return null
-    // Stop once the selector block opens.
-    if (next.kind === 'symbol' && next.value === '{') break
-    // Store selector tokens verbatim for later parsing.
-    selectorTokens.push(next)
-    // Consume the token to advance the cursor.
-    cursor.next()
-  }
-  // Require the selector block to open before parsing operations.
-  if (!cursor.consumeSymbol('{')) {
-    // Guard: skip one token so we do not loop forever.
-    if (cursor.peek()) cursor.next()
-    return null
-  }
-  // Parse selector + operations for this block.
+  // Collect selector tokens until the opening brace.
+  const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
+  // Return null when no opening brace is found.
+  if (!selectorTokens) return null
+  // Parse the recipe-specific selector expression.
   const selector = parseSelectorTokens(selectorTokens)
+  // Parse the operation assignments inside the block.
   const operations = parseOperations(cursor, '}')
-  // Require both selector and operations to be valid.
+  // Require both a selector and at least one operation.
   if (!selector || operations.length === 0) return null
-  // Emit the parsed selector block once validated.
   return { selector, operations }
 }
 
-type ParsedGroupBlocks = {
-  blocks: RecipeOverridesSelectorBlock[]
-  fallbackBlocks: RecipeOverridesSelectorBlock[]
-}
-
-// Parse a group's selector blocks plus optional group-level fallback blocks.
-function parseGroupBlocks(cursor: TokenCursor): ParsedGroupBlocks {
-  // Track selector blocks in source order.
-  const blocks: RecipeOverridesSelectorBlock[] = []
-  // Track group-level fallback blocks in source order.
-  const fallbackBlocks: RecipeOverridesSelectorBlock[] = []
-  while (true) {
-    const token = cursor.peek()
-    // Exit when the token stream ends unexpectedly.
-    if (!token) break
-    // Close the group when the brace ends.
-    if (token.kind === 'symbol' && token.value === '}') {
-      cursor.next()
-      break
-    }
-    // Parse group-level fallback blocks when encountered.
-    if (isFallbackKeyword(token)) {
-      cursor.next()
-      // Require an opening brace for fallback content.
-      if (!cursor.consumeSymbol('{')) continue
-      // Parse the selector blocks inside the fallback braces.
-      const parsedBlocks = parseSelectorBlocks(cursor)
-      // Append only non-empty fallback blocks.
-      if (parsedBlocks.length > 0) fallbackBlocks.push(...parsedBlocks)
-      continue
-    }
-    // Parse selector blocks that start with "@...".
-    if (token.kind === 'symbol' && token.value === '@') {
-      // Consume the "@", then parse the selector content.
-      cursor.next()
-      const block = parseSelectorBlock(cursor)
-      // Keep only valid selector blocks.
-      if (block) blocks.push(block)
-      continue
-    }
-    // Skip unknown tokens to keep the cursor moving.
-    cursor.next()
-  }
-  return { blocks, fallbackBlocks }
-}
-
-const parseSelectorBlocks = (cursor: TokenCursor): RecipeOverridesSelectorBlock[] => {
-  const blocks: RecipeOverridesSelectorBlock[] = []
-  while (true) {
-    const token = cursor.peek()
-    // Exit when the token stream ends unexpectedly.
-    if (!token) break
-    if (token.kind === 'symbol' && token.value === '}') {
-      cursor.next()
-      break
-    }
-    // Skip non-selector tokens so malformed blocks do not stall.
-    if (!cursor.consumeSymbol('@')) {
-      cursor.next()
-      continue
-    }
-    // Parse a single selector block into a structured instruction.
-    const block = parseSelectorBlock(cursor)
-    // Keep only valid selector blocks with operations.
-    if (block) blocks.push(block)
-  }
-  return blocks
-}
-
-// Parse a single option block into label + selector blocks.
-const parseOptionBlock = (
-  cursor: TokenCursor,
-  optionIndex: number,
-  groupType: NoteQuestionGroupType,
-): ParsedQuestionOption | null => {
-  const labelToken = cursor.consumeString()
-  if (!labelToken) return null
-  const label = labelToken.value
-  // Capture a second string when provided to support label/value layouts.
-  const detailToken = cursor.peek()
-  const detail = detailToken && detailToken.kind === 'string'
-    ? detailToken.value
-    : null
-  if (detailToken && detailToken.kind === 'string') cursor.next()
-  let isDefault = false
-  let explicitToken: string | null = null
-  const setTokens: string[] = []
-  const unsetTokens: string[] = []
-  const excludedTokens: string[] = []
-  const onlyTokens: string[] = []
-  // Track header parsing order so constraints stay before the selector block.
-  let headerPhase: 'id' | 'default' | 'constraints' = 'id'
-  while (true) {
-    const token = cursor.peek()
-    if (!token) return null
-    // A selector block always starts with the opening brace.
-    if (token.kind === 'symbol' && token.value === '{') {
-      cursor.next()
-      break
-    }
-    // Default markers are only valid before constraints.
-    if (headerPhase !== 'constraints') {
-      // "*" toggles the default option for this group.
-      if (token.kind === 'symbol' && token.value === QUESTION_OPTION_DEFAULT_MARKER) {
-        isDefault = true
-        headerPhase = 'default'
-        cursor.next()
-        continue
-      }
-      // "default" is a word alias for the same intent.
-      if (token.kind === 'word' && token.value.toLowerCase() === 'default') {
-        isDefault = true
-        headerPhase = 'default'
-        cursor.next()
-        continue
-      }
-    }
-    // IDs must appear before constraints, but can follow default markers.
-    if (headerPhase !== 'constraints' && token.kind === 'word' && token.value.toLowerCase() === 'id') {
-      cursor.next()
-      // Require an explicit token for stable option references.
-      if (!cursor.consumeSymbol('=')) continue
-      const valueToken = cursor.peek()
-      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
-      cursor.next()
-      const candidate = normalizeQuestionToken(valueToken.value)
-      if (!candidate) continue
-      explicitToken = candidate
-      continue
-    }
-    // Constraints must live in the header, after default markers.
-    if (token.kind === 'symbol' && token.value === '!') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "!" excludes listed tokens from being selected together.
-      readTokenList(cursor, excludedTokens)
-      continue
-    }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'set') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "set" toggles listed tokens on when this option is selected.
-      readTokenList(cursor, setTokens)
-      continue
-    }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'unset') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "unset" toggles listed tokens off when this option is selected.
-      readTokenList(cursor, unsetTokens)
-      continue
-    }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'excl') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "excl" is an exclusion alias for option tokens.
-      readTokenList(cursor, excludedTokens)
-      continue
-    }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'only') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "only" defines an allow-list for mutual exclusions.
-      readTokenList(cursor, onlyTokens)
-      continue
-    }
-    if (token.kind === 'symbol' && token.value === '+') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "+" is an alias for "set" in constraint headers.
-      readTokenList(cursor, setTokens)
-      continue
-    }
-    if (token.kind === 'word' && token.value.startsWith('-')) {
-      headerPhase = 'constraints'
-      // Support compact "-token" syntax without changing tokenizer rules.
-      const compact = normalizeQuestionToken(token.value.slice(1))
-      cursor.next()
-      if (compact) unsetTokens.push(compact)
-      // Continue reading comma/space-separated follow-up ids.
-      readTokenList(cursor, unsetTokens)
-      continue
-    }
-    if (token.kind === 'symbol' && token.value === '^') {
-      headerPhase = 'constraints'
-      cursor.next()
-      // "^" is a compact alias for "only" allow-lists.
-      readTokenList(cursor, onlyTokens)
-      continue
-    }
-    // Skip any other header tokens to avoid infinite loops.
-    cursor.next()
-  }
-  // Parse the selector blocks and optional group fallback blocks.
-  const { blocks, fallbackBlocks } = parseGroupBlocks(cursor)
-  const baseLabel = normalizeQuestionText(label).toLowerCase()
-  const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
-  // Build the implicit token so numeric references stay stable.
-  const implicitToken = normalizeQuestionToken(String(optionIndex + 1))
-  return {
-    id,
-    legacyId: id,
-    label,
-    detail,
-    blocks,
-    fallbackBlocks,
-    isDefault,
-    explicitToken,
-    implicitToken,
-    setTokens,
-    unsetTokens,
-    excludedTokens,
-    onlyTokens,
-    groupType,
-  }
-}
-
-// Build a stable question id from prompt + option labels/group types.
-const buildQuestionKey = (
-  prompt: string,
-  options: Array<{ label: string; groupType: NoteQuestionGroupType }>,
-): string => {
-  // Normalize text so spacing tweaks keep IDs stable.
-  const key = {
-    prompt: normalizeQuestionText(prompt),
-    options: options.map((opt) => ({
-      label: normalizeQuestionText(opt.label),
-      group: opt.groupType,
-    })),
-  }
-  // Hash the normalized payload to keep IDs compact.
-  return `q_${hashString(JSON.stringify(key))}`
-}
-
-const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
-  while (true) {
-    const token = cursor.peek()
-    if (!token) break
-    if (token.kind === 'symbol' && token.value === ',') {
-      cursor.next()
-      continue
-    }
-    if (token.kind === 'word' && (isQuestionKeyword(token) || isFallbackKeyword(token))) break
-    if (token.kind === 'word' && parseGroupType(token.value)) break
-    if (token.kind === 'symbol' && token.value === '{') break
-    if (token.kind !== 'word' && token.kind !== 'string') break
-    cursor.next()
-    const normalized = normalizeQuestionToken(token.value)
-    if (normalized) sink.push(normalized)
-  }
-}
-
-const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => {
-  const tokens = tokenizeRecipeOverrides(inner)
-  const cursor = new TokenCursor(tokens)
-  if (!cursor.consumeWord(...NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS)) return null
-  // Capture marker-level layout hints before reading the question prompt.
-  const markerOptions = parseQuestionMarkerOptions(cursor)
-  const questionToken = cursor.consumeWord('q', 'question')
-  if (!questionToken) return null
-  const promptToken = cursor.consumeString()
-  if (!promptToken) return null
-  const prompt = promptToken.value
-  const parsedOptions: ParsedQuestionOption[] = []
-  let fallbackBlocks: RecipeOverridesSelectorBlock[] | null = null
-  while (true) {
-    const token = cursor.peek()
-    if (!token) break
-    if (token.kind !== 'word') {
-      cursor.next()
-      continue
-    }
-    if (isQuestionKeyword(token)) break
-    if (isFallbackKeyword(token)) {
-      cursor.next()
-      if (!cursor.consumeSymbol('{')) continue
-      const blocks = parseSelectorBlocks(cursor)
-      fallbackBlocks = blocks.length > 0 ? blocks : null
-      continue
-    }
-    const groupType = parseGroupType(token.value)
-    if (!groupType) {
-      cursor.next()
-      continue
-    }
-    cursor.next()
-    const parsed = parseOptionBlock(cursor, parsedOptions.length, groupType)
-    if (!parsed) {
-      // Guard: skip a token when the option block is malformed.
-      if (cursor.peek()) cursor.next()
-      continue
-    }
-    parsedOptions.push(parsed)
-  }
-  if (parsedOptions.length === 0) return null
-  // Compute a stable question id before scoping option ids.
-  const questionId = buildQuestionKey(
-    prompt,
-    parsedOptions.map((option) => ({ label: option.label, groupType: option.groupType })),
+// Parse a question marker body using the shared infrastructure with the recipe selector block parser.
+const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => (
+  parseOverridesMarkerBody<RecipeOverridesSelector, RecipeOverridesOperation>(
+    inner,
+    NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS,
+    parseSelectorBlock,
   )
-  // Scope option ids to the question so cross-question exclusions stay unique.
-  parsedOptions.forEach((option, index) => {
-    // Normalize the label so ids remain predictable for answer restores.
-    const baseLabel = normalizeQuestionText(option.label).toLowerCase()
-    // Prefix the per-question token to prevent collisions across markers.
-    option.id = baseLabel ? `${questionId}:${baseLabel}#${index}` : `${questionId}:option-${index}`
-  })
-  // Defer "only" handling until global token maps are available.
-  // Return the parsed question for global token resolution later.
-  return {
-    prompt,
-    layoutColumns: markerOptions.columns,
-    questionId,
-    options: parsedOptions,
-    fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
-  }
-}
-
-// Parsed marker + index pairing so global IDs can resolve consistently.
-type ParsedQuestionEntry = {
-  index: number
-  question: ParsedQuestionDefinition
-}
-
-// Build a global map of explicit tokens to option IDs (first mention wins).
-const buildGlobalExplicitTokenMap = (entries: ParsedQuestionEntry[]): Map<string, string> => {
-  // Preserve the first occurrence so duplicate IDs are deterministic.
-  const tokenToId = new Map<string, string>()
-  entries.forEach((entry) => {
-    // Scan options in note order so resolution is stable.
-    entry.question.options.forEach((option) => {
-      const token = option.explicitToken
-      // Ignore options without explicit IDs.
-      if (!token) return
-      // Keep the earliest option for each token.
-      if (!tokenToId.has(token)) tokenToId.set(token, option.id)
-    })
-  })
-  return tokenToId
-}
-
-// Build a question-scoped map of implicit numeric tokens to option IDs.
-const buildQuestionImplicitTokenMap = (options: ParsedQuestionOption[]): Map<string, string> => {
-  // Preserve the first occurrence so local indices stay stable.
-  const tokenToId = new Map<string, string>()
-  options.forEach((option) => {
-    const token = option.implicitToken
-    // Skip options that did not produce a numeric token.
-    if (!token) return
-    // Keep the earliest option for each token.
-    if (!tokenToId.has(token)) tokenToId.set(token, option.id)
-  })
-  return tokenToId
-}
+)
 
 // Resolve a constraint token using global explicit IDs first, then local numeric tokens.
 const resolveConstraintToken = (

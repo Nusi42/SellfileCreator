@@ -21,6 +21,7 @@ import { normalizeMetasetIcons } from '../lib/metasets'
 import type { LevelMilestone } from '../lib/types'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { NoteRecipeOverridesAnswers } from '../lib/noteRecipeOverrides'
+import type { NoteSafeguardOverridesAnswers } from '../lib/noteSafeguardOverrides'
 
 type AppState = {
   customRecipes: BuilderRecipe[]
@@ -39,6 +40,8 @@ type AppState = {
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   // Session-only flag to ignore recipe overrides prompts.
   noteRecipeOverridesDisabled: boolean
+  // Session-only safeguard-overrides answers keyed by question ID (slider values + checkbox states).
+  noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
 }
 
 type Updater<T> = T | ((prev: T) => T)
@@ -56,6 +59,7 @@ type Action =
   | { type: 'setSfcNote'; value: Updater<string | null> }
   | { type: 'setNoteRecipeOverridesAnswers'; value: Updater<NoteRecipeOverridesAnswers> }
   | { type: 'setNoteRecipeOverridesDisabled'; value: Updater<boolean> }
+  | { type: 'setNoteSafeguardOverridesAnswers'; value: Updater<NoteSafeguardOverridesAnswers> }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -122,6 +126,12 @@ function reducer(state: AppState, action: Action): AppState {
         : Boolean(action.value)
       return { ...state, noteRecipeOverridesDisabled: next }
     }
+    case 'setNoteSafeguardOverridesAnswers': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: NoteSafeguardOverridesAnswers) => NoteSafeguardOverridesAnswers)(state.noteSafeguardOverridesAnswers)
+        : action.value
+      return { ...state, noteSafeguardOverridesAnswers: next }
+    }
     default: return state
   }
 }
@@ -139,6 +149,7 @@ type AppDispatchers = {
   setSfcNote: (v: Updater<string | null>) => void
   setNoteRecipeOverridesAnswers: (v: Updater<NoteRecipeOverridesAnswers>) => void
   setNoteRecipeOverridesDisabled: (v: Updater<boolean>) => void
+  setNoteSafeguardOverridesAnswers: (v: Updater<NoteSafeguardOverridesAnswers>) => void
 }
 
 const AppStateContext = createContext<AppState | null>(null)
@@ -160,6 +171,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setSfcNote: (v) => dispatch({ type: 'setSfcNote', value: v }),
     setNoteRecipeOverridesAnswers: (v) => dispatch({ type: 'setNoteRecipeOverridesAnswers', value: v }),
     setNoteRecipeOverridesDisabled: (v) => dispatch({ type: 'setNoteRecipeOverridesDisabled', value: v }),
+    setNoteSafeguardOverridesAnswers: (v) => dispatch({ type: 'setNoteSafeguardOverridesAnswers', value: v }),
   }), [])
 
   return (
@@ -198,6 +210,8 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     noteRecipeOverridesAnswers: {},
     // Recipe overrides are enabled by default when a note includes markers.
     noteRecipeOverridesDisabled: false,
+    // Safeguard overrides answers: stored only in session; cleared on note change.
+    noteSafeguardOverridesAnswers: {},
     ...rest,
     metasets: normalizeMetasetIcons(metasets),
   }

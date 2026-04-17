@@ -56,6 +56,8 @@ export type SafeguardEditableFields = {
   ignorePreviousSafeguards: boolean
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
+  // Tags for safeguard-overrides DSL targeting
+  tags: string[]
   // Combination arrays (patched individually)
   slots: ArtifactTypeId[]
   sets: ArtifactSetSelectionEntry[]
@@ -79,6 +81,7 @@ export const SAFEGUARD_FIELD_KEYS = [
   'ignorePreviousSafeguards',
   'ignoreEquippedInCollection',
   'ignoreEquippedInVault',
+  'tags',
   'slots',
   'sets',
   'metaSetNames',
@@ -98,6 +101,7 @@ export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
 
 // Only array-valued fields carry a structured patch; scalars are replaced wholesale.
 type SafeguardFieldPatchByKey = {
+  tags: MultiEditArrayPatch<string>
   slots: MultiEditArrayPatch<ArtifactTypeId>
   sets: MultiEditArrayPatch<ArtifactSetSelectionEntry>
   metaSetNames: MultiEditArrayPatch<string>
@@ -188,6 +192,8 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
+    // Detach tags so multi-edit comparisons are not polluted by shared references.
+    tags: Array.isArray(rule.tags) ? [...rule.tags] : [],
     slots: Array.isArray(combo.slots) ? [...combo.slots] : [],
     sets: normalizeArtifactSetSelections(combo.sets ?? []).map((e) =>
       e.excluded ? { id: e.id, excluded: true } : { id: e.id },
@@ -257,6 +263,7 @@ export function areSafeguardFieldValuesEqual(
     case 'substats':
       // Simple number array comparison (order-sensitive as stored).
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
+    case 'tags':
     case 'metaSetNames':
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
     case 'sets':
@@ -322,6 +329,7 @@ export function cloneSafeguardFieldValue(key: SafeguardFieldKey, value: unknown)
     case 'mainStats':
     case 'factions':
     case 'substats':
+    case 'tags':
     case 'metaSetNames':
       return Array.isArray(value) ? [...value] : value
     case 'sets':
@@ -382,6 +390,7 @@ export function cloneSafeguardFieldPatch<K extends SafeguardFieldKey>(
     case 'factions':
     case 'substats':
       return cloneArrayPatchOf(patch as MultiEditArrayPatch<number>) as SafeguardMultiEditFieldPatch<K>
+    case 'tags':
     case 'metaSetNames':
       return cloneArrayPatchOf(patch as MultiEditArrayPatch<string>) as SafeguardMultiEditFieldPatch<K>
     default:
@@ -404,6 +413,7 @@ export function normalizeSafeguardFieldPatch<K extends SafeguardFieldKey>(
 ): SafeguardMultiEditFieldPatch<K> | null {
   if (!patch) return null
   switch (key) {
+    case 'tags':
     case 'slots':
     case 'sets':
     case 'metaSetNames':
@@ -627,6 +637,8 @@ function applyPatchForKey(
   patch: SafeguardMultiEditFieldPatch<SafeguardFieldKey>,
 ): SafeguardRule {
   switch (key) {
+    case 'tags':
+      return applyTagsPatch(rule, patch as MultiEditArrayPatch<string>)
     case 'slots':
       return applySlotsPatch(rule, patch as MultiEditArrayPatch<ArtifactTypeId>)
     case 'sets':
@@ -718,6 +730,15 @@ function applySetSelectionPatch(
   return normalizeArtifactSetSelections([...filtered, ...adds])
 }
 
+function applyTagsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<string>): SafeguardRule {
+  // Tags are order-preserving; use string-patch but without the locale sort to
+  // keep user-specified insertion order intact.
+  const current = Array.isArray(rule.tags) ? rule.tags.map(String) : []
+  const next = applyTagsStringPatch(current, patch)
+  if (arraysStrEqual(current, next)) return rule
+  return { ...rule, tags: next }
+}
+
 function applyMetaSetNamesPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<string>): SafeguardRule {
   const current = Array.isArray(rule.combination.metaSetNames) ? rule.combination.metaSetNames.map(String) : []
   const next = applyStringArrayPatch(current, patch)
@@ -755,6 +776,33 @@ function applyStringArrayPatch(
   return Array.from(set).sort((a, b) => a.localeCompare(b))
 }
 
+// Order-preserving variant used for tags (user-specified insertion order is meaningful).
+function applyTagsStringPatch(
+  source: readonly string[],
+  patch: MultiEditArrayPatch<string>,
+): string[] {
+  if (patch.clear) return []
+  if (patch.replace !== undefined) {
+    // Dedupe while preserving order of first appearance.
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const v of patch.replace) {
+      const s = String(v)
+      if (!seen.has(s)) { seen.add(s); out.push(s) }
+    }
+    return out
+  }
+  const removeSet = new Set<string>((patch.remove ?? []).map(String))
+  const filtered = source.filter((v) => !removeSet.has(String(v)))
+  const existingSet = new Set<string>(filtered.map(String))
+  const added: string[] = []
+  for (const v of (patch.add ?? [])) {
+    const s = String(v)
+    if (!existingSet.has(s)) { existingSet.add(s); added.push(s) }
+  }
+  return [...filtered, ...added]
+}
+
 function arraysNumEqual(a: readonly number[], b: readonly number[]): boolean {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i += 1) {
@@ -787,5 +835,7 @@ export function cloneSafeguardRuleForSelection(source: SafeguardRule): Safeguard
     countMode: { ...source.countMode },
     substats: [...(source.substats ?? [])],
     substatWeights: { ...(source.substatWeights ?? {}) },
+    // Detach tags so selection snapshots are isolated.
+    tags: [...(source.tags ?? [])],
   }
 }

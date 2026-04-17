@@ -1414,6 +1414,7 @@ const enUS: Catalog = {
   noteInsertSafeguards: "Insert Safeguards Summary",
   noteInsertMetasets: "Insert Metaset List",
   noteInsertRecipeOverridesSample: "Insert Sample Recipe Overrides",
+  noteInsertSafeguardOverridesSample: "Insert Sample Safeguard Overrides",
   noteRecipeOverridesChangedTooltip: "Recipe-override markers changed in this edit session. Switch to View Note to review the prompts.",
   noteRecipeOverridesMenu: "Recipe Overrides",
   noteRecipeOverridesResetDefaults: "Reset Options to Defaults",

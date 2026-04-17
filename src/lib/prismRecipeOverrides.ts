@@ -31,6 +31,12 @@ import {
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
 } from './noteRecipeOverrides';
+import {
+  NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
+  NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
+  NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
+} from './noteSafeguardOverrides';
 
 // Build a \b-bounded alternation regex from a keyword array.
 // Single source of truth: Prism patterns are derived from parser constants, not
@@ -60,12 +66,16 @@ function recipeOverrides(Prism: Refractor): void {
 
         // Opening/closing comment delimiters.  The `<!--` / `-->` scaffolding
         // is colored as a structural bracket; the directive keyword inside
-        // (recipe-overrides / config-options) gets the same hue as note-markers
-        // keywords so every block-trigger reads as one family.
+        // (recipe-overrides / safeguard-overrides / config-options) gets the same hue as
+        // note-markers keywords so every block-trigger reads as one family.
         'comment-delimiter': {
-            pattern: /^<!--\s*(?:recipe-overrides|config-options)\b|-->$/,
+            pattern: new RegExp(
+                `^<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b|-->$`
+            ),
             inside: {
-                'directive-kw': /(?:recipe-overrides|config-options)/,
+                'directive-kw': new RegExp(
+                    `(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)`
+                ),
             },
         },
 
@@ -160,7 +170,25 @@ function recipeOverrides(Prism: Refractor): void {
         'selector-field': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS),
 
         // Field names used on the left-hand side of rule assignments (SSOT).
-        'field': wordAlt(NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS),
+        // Combines recipe-overrides fields and safeguard-overrides fields so both grammars
+        // share the same `field` color when highlighted as recipe-overrides (the only grammar
+        // used for both block types in the editor backdrop and tooltip).
+        'field': wordAlt([
+            ...NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS,
+            ...NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+        ]),
+
+        // Safeguard-overrides activation keyword values (off / protect_existing / anticipate_gaps).
+        // Matches after `=` in `activation = <val>` context; rendered as boolean-val so they
+        // share the same warm amber hue as recipe-overrides enum values (on/off/toggle/etc.).
+        'sg-activation-val': wordAlt(NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS),
+
+        // Safeguard-overrides substat match values (1-4 / persubstat).
+        // Rendered as number/boolean-val so they blend with the existing numeric tokens.
+        'sg-match-val': wordAlt(NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS),
+
+        // `$value` placeholder used inside slider groups to reference the slider's current value.
+        'sg-value-ref': /\$value\b/,
 
         // `id=TOKEN` – defines a stable cross-question option identifier.
         // Split into three inner tokens so the `id` keyword joins the blue structural-keyword
@@ -310,9 +338,13 @@ const mdGrammar = refractor.languages.markdown;
 if (mdGrammar) {
     refractor.languages.markdown = Object.assign(
         {
-            // Matches the entire <!-- recipe-overrides … --> or <!-- config-options … --> block.
+            // Matches the entire <!-- recipe-overrides … -->, <!-- safeguard-overrides … -->,
+            // or <!-- config-options … --> block.  Both DSLs share the recipe-overrides grammar
+            // so token colors remain identical.
             'recipe-overrides-block': {
-                pattern: /<!--\s*(?:recipe-overrides|config-options)\b[\s\S]*?-->/,
+                pattern: new RegExp(
+                    `<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b[\\s\\S]*?-->`
+                ),
                 inside: refractor.languages['recipe-overrides'],
             },
             // Matches inline <!-- recipes: … --> / <!-- recipes-re: "…" --> /

@@ -1392,6 +1392,7 @@ const overrides: Catalog = {
   noteInsertSafeguards: "Вставити зведення Safeguards",
   noteInsertMetasets: "Вставити список метасетів",
   noteInsertRecipeOverridesSample: "Вставити зразок опитувальника",
+  noteInsertSafeguardOverridesSample: "Вставити приклад перевизначень охорони",
   noteRecipeOverridesChangedTooltip: "Маркери опитувальника змінилися в цьому редагуванні. Перейдіть до «Переглянути нотатку», щоб переглянути питання.",
   noteRecipeOverridesMenu: "Опції рецепта",
   noteRecipeOverridesResetDefaults: "Скинути опції до типових налаштувань",

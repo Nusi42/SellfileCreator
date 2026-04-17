@@ -332,6 +332,11 @@ import {
   type RecipeOverridesInstructions,
 } from './lib/noteRecipeOverrides'
 import {
+  applySafeguardOverrides,
+  resolveNoteSafeguardOverridesTags,
+  type SafeguardOverridesResolution,
+} from './lib/noteSafeguardOverrides'
+import {
   collectMetasetIds,
   collectRecipeMetasetIds,
   collectSafeguardMetasetIds,
@@ -430,6 +435,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     sfcNote,
     noteRecipeOverridesAnswers,
     noteRecipeOverridesDisabled,
+    noteSafeguardOverridesAnswers,
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
@@ -446,6 +452,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSfcNote,
     setNoteRecipeOverridesAnswers,
     setNoteRecipeOverridesDisabled,
+    setNoteSafeguardOverridesAnswers,
     setSafeguardRules,
     setSafeguardsEnabled,
     setRecipesEnabled,
@@ -632,6 +639,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
+  // Resolve safeguard overrides instructions from the current note + session answers.
+  const safeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(sfcNote ?? '', noteSafeguardOverridesAnswers),
+    [sfcNote, noteSafeguardOverridesAnswers],
+  )
+  // Apply safeguard overrides on top of the metaset-resolved rules for the worker pipeline.
+  // The SFC-stored rules are never mutated; this is a session-only view.
+  const effectiveSafeguardRules = useMemo(
+    () => applySafeguardOverrides(resolvedSafeguardRules, safeguardOverridesResolution.instructions),
+    [resolvedSafeguardRules, safeguardOverridesResolution.instructions],
+  )
   const safeguardsActive = safeguardsEnabled && resolvedSafeguardRules.length > 0
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
@@ -1058,6 +1076,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // them to the effect dep array — the effect already re-runs via ruleRecipes/recipeModes changes.
   const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
   const noteRecipeOverridesDisabledRef = useRef(noteRecipeOverridesDisabled)
+  // Ref-shadowed so launchPipeline can include safeguard overrides in the cache key without adding
+  // them to the dep array — changes re-run the effect via effectiveSafeguardRules dependency.
+  const noteSafeguardOverridesAnswersRef = useRef(noteSafeguardOverridesAnswers)
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the improvement-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -1140,10 +1161,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       })
 
-      // Safeguards payload seeds the worker with the current rule set.
+      // Safeguards payload seeds the worker with the current (overrides-applied) rule set.
+      // effectiveSafeguardRules has safeguard-overrides DSL applied on top of resolved rules.
       const safeguardsPayload = {
-        enabled: safeguardsEnabled && resolvedSafeguardRules.length > 0,
-        rules: resolvedSafeguardRules,
+        enabled: safeguardsEnabled && effectiveSafeguardRules.length > 0,
+        rules: effectiveSafeguardRules,
         detection: null as SafeguardDetectionSnapshot | null,
       }
       const toPreviewMatch = (
@@ -1202,6 +1224,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // as a cache hit to the first run after the swap — even when history and flags are identical.
       // Recipe overrides answers/disabled are session-only (not in the history CRC), so they must
       // be included explicitly — otherwise a stale cache hit serves the pre-override result.
+      // Safeguard overrides answers are likewise session-only and must also be included.
       // Null when no history entry exists yet.
       // Read via refs so this logic stays out of the effect dep array (avoids selection-only re-runs).
       const currentSig = currentEntrySignatureRef.current
@@ -1210,8 +1233,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const overridesKey = noteRecipeOverridesDisabledRef.current
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
+      const sgOverridesKey = JSON.stringify(noteSafeguardOverridesAnswersRef.current)
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}`
+        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
         : null
       const nowMs = Date.now()
       const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
@@ -1512,7 +1536,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     omitDisabledForExport,
     dedupeDefault,
     safeguardsEnabled,
-    resolvedSafeguardRules,
+    effectiveSafeguardRules,
     recipeModes,
     recipesEnabled,
     gearInspectorPreviewArtifacts,
@@ -1812,6 +1836,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
   useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
   useEffect(() => { noteRecipeOverridesDisabledRef.current = noteRecipeOverridesDisabled }, [noteRecipeOverridesDisabled])
+  // Keep safeguard overrides ref in sync so the debounced cache key uses up-to-date values.
+  useEffect(() => { noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers }, [noteSafeguardOverridesAnswers])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called
@@ -1883,6 +1909,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     describeNextChange(descriptor)
   }, [describeNextChange, selectedRecipeIdx, setBuilder, setCustomRecipesTransition])
+
+  // Stable callback for NoteDialog: receives the latest safeguard overrides resolution on every
+  // note or answer change. The resolution is already consumed via the effectiveSafeguardRules memo;
+  // this callback exists so the type contract is satisfied without routing state through an extra ref.
+  const handleSafeguardOverridesResolutionChange = useCallback((_resolution: SafeguardOverridesResolution) => {
+    // effectiveSafeguardRules is already derived from safeguardOverridesResolution in App.tsx, so
+    // there is nothing additional to propagate here — the memo handles it reactively.
+  }, [])
 
   // Builder and dialog both call through here so history/undo sees a single
   // cohesive change. While the dialog is open we aggregate edits until the
@@ -3231,6 +3265,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Prune or reset answers based on the new note content.
       return nextNormalized ? pruneNoteRecipeOverridesAnswers(nextNormalized, prev) : {}
     })
+    // Safeguard overrides answers are also session-only; clear them on any note change
+    // since question IDs can shift and stale answers would silently apply the wrong rules.
+    setNoteSafeguardOverridesAnswers({})
     const descriptor = createNoteChangeDescriptor({
       previous: prevNormalized,
       next: nextNormalized,
@@ -3266,7 +3303,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(aggregateDescriptor ?? descriptor)
     }
     return aggregateDescriptor ?? descriptor
-  }, [describeNextChange, sfcNote, noteMode, noteOpen, setSfcNote, setNoteRecipeOverridesAnswers])
+  }, [describeNextChange, sfcNote, noteMode, noteOpen, setSfcNote, setNoteRecipeOverridesAnswers, setNoteSafeguardOverridesAnswers])
 
 
   const tutorial = useTutorialCoachState({
@@ -6405,6 +6442,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteRecipeOverridesAnswers({})
     // SFC files never store the disabled flag, so re-enable parsing.
     setNoteRecipeOverridesDisabled(false)
+    // Safeguard overrides answers are session-only; clear on every SFC load.
+    setNoteSafeguardOverridesAnswers({})
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
@@ -6475,6 +6514,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasets,
     setNoteRecipeOverridesAnswers,
     setNoteRecipeOverridesDisabled,
+    setNoteSafeguardOverridesAnswers,
     substatTargets,
     syncSelectedRecipeIdx,
     setSelectedSafeguardRuleIdx,
@@ -6622,6 +6662,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Shift-load note import still resets recipe-overrides answers to canonical defaults.
       setNoteRecipeOverridesAnswers({})
       setNoteRecipeOverridesDisabled(false)
+      // Safeguard overrides answers are session-only; clear on shift-load too.
+      setNoteSafeguardOverridesAnswers({})
     }
     if (selection.safeguards) {
       if (modes.safeguards === 'replace') {
@@ -6682,6 +6724,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteAutoOpenedFromSfc,
     setNoteRecipeOverridesAnswers,
     setNoteRecipeOverridesDisabled,
+    setNoteSafeguardOverridesAnswers,
     setPendingSfcLoadImport,
     setSafeguardRules,
     setSafeguardsEnabled,
@@ -7953,6 +7996,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onRecipeOverridesDisabledChange={setNoteRecipeOverridesDisabled}
           // Apply recipe overrides instructions to stored recipes when requested by the note dialog.
           onApplyRecipeOverrides={applyRecipeOverridesToRecipes}
+          // Safeguard overrides answers are session-only; changes update app state directly.
+          safeguardOverridesAnswers={noteSafeguardOverridesAnswers}
+          onSafeguardOverridesAnswersChange={setNoteSafeguardOverridesAnswers}
+          onSafeguardOverridesResolutionChange={handleSafeguardOverridesResolutionChange}
           // Use recipe-overrides-resolved recipes so note chips mirror current answers.
           recipes={recipeOverridesRecipesForRules}
           metasets={metasets}

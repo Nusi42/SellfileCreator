@@ -1,6 +1,6 @@
 import React, { use, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -68,6 +68,16 @@ import {
   type NoteQuestionDefinition,
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
+import {
+  resolveNoteSafeguardOverridesTags,
+  NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
+  NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
+  NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
+  type NoteSafeguardOverridesAnswers,
+  type SafeguardNoteQuestionDefinition,
+  type SafeguardOverridesResolution,
+} from '../lib/noteSafeguardOverrides'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 
@@ -128,6 +138,10 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'punctuation':       '#abb2bf',
   // note-markers sub-tokens
   'marker-kw':         '#c678dd',
+  // safeguard-overrides specific tokens — reuse existing palette hues for consistency.
+  'sg-activation-val': '#d19a66',  // same as boolean-val (warm amber)
+  'sg-match-val':      '#d19a66',  // same as boolean-val (warm amber)
+  'sg-value-ref':      '#e06c75',  // same as default-kw (bright sigil marker)
 }
 
 // Recursively converts a refractor (HAST) node to React elements.
@@ -228,6 +242,18 @@ const QUESTION_GROUP_ELEMENT_TAG = 'note-recipe-overrides-group'
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
 // Backtick references like `\1` map to option labels by 1-based index.
 const QUESTION_PROMPT_REF_REGEX = /^\\(\d+)$/
+
+// ── Safeguard-overrides question marker tags ────────────────────────────────
+// Match HTML comment bodies that declare safeguard-overrides markers.
+const SG_QUESTION_COMMENT_REGEX = new RegExp(`^\\s*${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}\\b`, 'i')
+// Match raw HTML comment markers in the Markdown stream.
+const SG_QUESTION_MARKER_REGEX  = new RegExp(`<!--\\s*${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}\\b[\\s\\S]*?-->`, 'i')
+// Custom element tag used in sanitized Markdown output.
+const SG_QUESTION_ELEMENT_TAG = 'note-safeguard-overrides'
+// Wrapper tag used to group adjacent safeguard-overrides question markers into a flex row.
+const SG_QUESTION_GROUP_ELEMENT_TAG = 'note-safeguard-overrides-group'
+// Attribute used to map back to a parsed question definition.
+const SG_QUESTION_ELEMENT_INDEX_ATTR = 'data-sg-question-index'
 
 // ── Dungeon-simulator tag ────────────────────────────────────────────────────
 // Matches the body of <!-- dungeon-simulator --> HTML comment markers.
@@ -630,6 +656,14 @@ type NoteRenderContextValue = {
     question: NoteQuestionDefinition,
     nextAnswer: string[],
     preferredId?: string,
+  ) => void
+  // Safeguard overrides resolution map: marker index → question definition.
+  safeguardOverridesResolutions: Map<number, SafeguardNoteQuestionDefinition>
+  // True while the view mode dialog is open (safeguard-overrides questions are always editable in view mode).
+  safeguardOverridesEditable: boolean
+  onSafeguardOverridesAnswerChange: (
+    question: SafeguardNoteQuestionDefinition,
+    nextAnswer: string[],
   ) => void
   // Merged rules + substat targets forwarded from App for dungeon simulation.
   rules: HsfRuleWithRecipe[]
@@ -1037,6 +1071,104 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
           children: [],
         }
       }
+    }
+    transform(tree)
+  }
+}
+
+// ── safeguard-overrides rehype plugins ────────────────────────────────────────
+// Parallel to rehypeQuestionComments / rehypeQuestionGroups but for
+// <!-- safeguard-overrides … --> markers. Uses the SG_* element tag constants
+// so the two marker families stay completely independent in the HAST tree.
+
+const rehypeSafeguardOverridesComments: Pluggable = () => {
+  return (tree: Root) => {
+    // Increment separately from recipe-overrides so indices stay per-family.
+    let markerIndex = 0
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (let i = 0; i < nodeChildren.length; i++) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        if (child.type === 'comment') {
+          const value = (child as { value: string }).value
+          if (!SG_QUESTION_COMMENT_REGEX.test(value)) continue
+          const element: Element = {
+            type: 'element',
+            tagName: SG_QUESTION_ELEMENT_TAG,
+            properties: { [SG_QUESTION_ELEMENT_INDEX_ATTR]: String(markerIndex) },
+            children: [],
+          }
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        if (child.type === 'raw') {
+          const value = (child as { value: string }).value
+          if (!SG_QUESTION_MARKER_REGEX.test(value)) continue
+          const element: Element = {
+            type: 'element',
+            tagName: SG_QUESTION_ELEMENT_TAG,
+            properties: { [SG_QUESTION_ELEMENT_INDEX_ATTR]: String(markerIndex) },
+            children: [],
+          }
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+    }
+    transform(tree)
+  }
+}
+
+const rehypeSafeguardOverridesGroups: Pluggable = () => {
+  return (tree: Root) => {
+    const isSgElement = (node: RootContent): node is Element => (
+      node.type === 'element' && (node as Element).tagName === SG_QUESTION_ELEMENT_TAG
+    )
+    const isWhitespaceText = (node: RootContent): boolean => {
+      if (node.type !== 'text') return false
+      const value = (node as { value?: string }).value ?? ''
+      return value.trim().length === 0
+    }
+    const isBrElement = (node: RootContent): boolean => (
+      node.type === 'element' && (node as Element).tagName === 'br'
+    )
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (const child of nodeChildren) {
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+      const nextChildren: RootContent[] = []
+      for (let i = 0; i < nodeChildren.length; i += 1) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        if (!isSgElement(child)) { nextChildren.push(child); continue }
+        const grouped: Element[] = [child]
+        let cursor = i + 1
+        for (; cursor < nodeChildren.length; cursor += 1) {
+          const candidate = nodeChildren[cursor]
+          if (!candidate) continue
+          if (isSgElement(candidate)) { grouped.push(candidate); continue }
+          if (isWhitespaceText(candidate)) continue
+          if (isBrElement(candidate)) { cursor += 1 }
+          break
+        }
+        nextChildren.push({
+          type: 'element',
+          tagName: SG_QUESTION_GROUP_ELEMENT_TAG,
+          properties: {},
+          children: grouped,
+        })
+        i = cursor - 1
+      }
+      nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
     }
     transform(tree)
   }
@@ -1474,6 +1606,85 @@ const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
   p: '6px 8px',
   color: '#abb2bf',
 } satisfies Record<string, unknown>
+
+// ── Safeguard-overrides EBNF documentation ─────────────────────────────────
+const SAFEGUARD_OVERRIDES_EBNF_HEADER = 'Safeguard overrides syntax (EBNF):'
+const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER = 'Example:'
+
+// Inline the exported assignment field and value keyword lists so the EBNF is SSOT-derived.
+const _sgFields = NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS.join('" | "')
+const _sgActVals = NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS.join('" | "')
+const _sgMatchVals = NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS.join('" | "')
+
+// Static EBNF text for the safeguard-overrides DSL.
+// The statKey row is shared with recipe-overrides and shown as "(see recipe-overrides)" to avoid duplication.
+const SAFEGUARD_OVERRIDES_EBNF_TEXT =
+`marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] question "-->"
+markerOptions := "[" markerOption ("," markerOption)* "]"
+markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
+question      := ("q" | "question") string group+ [fallbackBlock]
+group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"checkbox"|"check")
+             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
+             | ("slider"|"range") string [headerToken {headerToken}] [constraints]
+               sliderParam {sliderParam} "{" selectorBlock+ [fallbackBlock] "}"
+sliderParam   := ("min" | "max" | "step" | "default") "=" number
+headerToken   := "id" "=" token | "*" | "default"
+selectorBlock := "@" selector "{" sgAssignment+ "}"
+selector      := "all" | "tagged" | "untagged" | expr
+expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
+notExpr       := ("not" | "!") notExpr | term
+term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
+sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
+             | "count" "=" (number | "$value")   // $value = current slider position
+             | ("ignprev"|"ignequipped_collection"|"ignequipped_vault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
+             | "substats" "=" prefixToken ("," prefixToken)*
+             | "substatmatch" "=" substatMatchVal
+             | "weight." statKey "=" number
+activationVal   := "${_sgActVals}"
+substatMatchVal := "${_sgMatchVals}"
+flexVal         := "on" | "off" | "true" | "false"
+fallbackBlock   := ("fallback" | "else") "{" selectorBlock+ "}"
+constraints     := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
+               | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+tokenList       := token ("," token)*
+prefixToken     := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
+statKey         := (see recipe-overrides EBNF)
+string          := '"' {char | escape} '"'
+token           := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/`
+
+const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
+  `<!-- ${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}`,
+  '// q introduces a question prompt shown above the option groups',
+  'q "Modify ring safeguard rules?"',
+  '// radio = single-choice; * marks the option selected by default',
+  'radio "Default (off)" * { @tag=rings { activation=off } }',
+  'radio "Protect existing" { @tag=rings { activation=protect_existing } }',
+  '// slider allows choosing a numeric value in a range',
+  'slider "Ring guard count" min=1 max=5 default=1 {',
+  '  @tag=rings { count=$value }',
+  '}',
+  '-->',
+].join('\n')
+
+// Keep EBNF tooltip styling consistent with recipe-overrides.
+const SAFEGUARD_OVERRIDES_TOOLTIP_WRAP_SX = RECIPE_OVERRIDES_TOOLTIP_WRAP_SX
+const SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX = RECIPE_OVERRIDES_TOOLTIP_CODE_SX
+
+// Toolbar command key for the safeguard-overrides sample insert.
+const SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-safeguardOverrides-sample'
+
+// Insertable sample block text for the toolbar command.
+const SAFEGUARD_OVERRIDES_SAMPLE_TEXT = [
+  `<!-- ${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}`,
+  'q "Override safeguard rules"',
+  'radio "Default (no change)" * { @all { activation=protect_existing } }',
+  'radio "Disable all safeguards" { @all { activation=off } }',
+  'radio "Disable ring safeguards" { @tag=rings { activation=off } }',
+  'slider "Ring guard required count" min=1 max=5 default=1 {',
+  '  @tag=rings { count=$value }',
+  '}',
+  '-->',
+].join('\n')
 
 function buildRecipeOverridesStatKeys(): string[] {
   // Enumerate supported stat variants in their canonical order.
@@ -2018,6 +2229,218 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
   )
 }
 
+// ── NoteSafeguardOverridesBlock ───────────────────────────────────────────────
+// Renders a `<!-- safeguard-overrides … -->` question card in view mode.
+// Supports single (radio), multi (checkbox), and slider group types.
+// Structurally mirrors NoteQuestionBlock with slider support added.
+
+type NoteSafeguardOverridesBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
+
+function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps): JSX.Element | null {
+  const { safeguardOverridesResolutions, safeguardOverridesEditable, onSafeguardOverridesAnswerChange } = useNoteRenderContext()
+  const theme = useTheme()
+  const rawIndexAttr = coerceFirstString(node?.properties?.[SG_QUESTION_ELEMENT_INDEX_ATTR])
+  let markerIndex: number | null = null
+  if (rawIndexAttr) {
+    const parsed = Number.parseInt(rawIndexAttr, 10)
+    if (Number.isFinite(parsed)) markerIndex = parsed
+  }
+  const question = markerIndex != null ? safeguardOverridesResolutions.get(markerIndex) : undefined
+  const promptParts = useMemo(
+    () => (question ? splitQuestionPrompt(question.prompt) : { title: '', subtext: null }),
+    [question],
+  )
+  // SafeguardNoteQuestionOption shares the label/detail/token shape with NoteQuestionOption;
+  // cast is safe because the prompt-token builder only reads those fields.
+  type LabelOption = NoteQuestionDefinition['options'][number]
+  const promptTokens = useMemo(
+    () => (question ? buildQuestionPromptTokens(promptParts.title, question.options as unknown as LabelOption[], true) : []),
+    [question, promptParts.title],
+  )
+  const promptSubtextTokens = useMemo(
+    () => (question && promptParts.subtext
+      ? buildQuestionPromptTokens(promptParts.subtext, question.options as unknown as LabelOption[], true)
+      : []),
+    [question, promptParts.subtext],
+  )
+  const promptChipSx = useMemo(() => buildNoteScopeChipSx(theme, true), [theme])
+  const promptLabelSx = useMemo(() => ({
+    ...NOTE_CARD_LABEL_TEXT_SX,
+    display: 'inline-flex',
+    alignItems: 'center',
+  }), [])
+  const questionOptions = useMemo(() => (question?.options ?? []), [question])
+  if (!question) return null
+  const isHorizontal = question.layoutColumns > 0
+  const selected = Array.isArray(question.answer) ? question.answer : []
+  const selectedSet = new Set<string>(selected)
+  const applyAnswer = (next: string[]) => {
+    onSafeguardOverridesAnswerChange(question, next)
+  }
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  const cols = Math.max(1, question.layoutColumns)
+  const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
+  const cardWidthSx = isHorizontal && cols > 1
+    ? {
+      flex: `1 1 ${cols * flexBasis + gapPx}px`,
+      minWidth: cols * minWidth + gapPx,
+      maxWidth: cols * maxWidth + gapPx,
+    }
+    : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+  const optionGroupSx = isHorizontal
+    ? buildNoteQuestionOptionGridSx(minWidth, 0, 'center')
+    : NOTE_QUESTION_OPTION_GROUP_STACK_SX
+  return (
+    <Box
+      sx={{
+        ...cardWidthSx,
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        p: NOTE_QUESTION_CARD_PADDING,
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Stack spacing={0}>
+        {/* Prompt title */}
+        <Typography
+          variant="subtitle2"
+          component="div"
+          sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1.1, fontSize: '0.9rem', display: 'block', m: 0, p: 0, whiteSpace: 'pre-line' }}
+        >
+          {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
+        </Typography>
+        {promptParts.subtext ? (
+          <Typography variant="caption" component="div" sx={{ ...NOTE_QUESTION_SUBTEXT_SX, whiteSpace: 'pre-line', mt: NOTE_QUESTION_TITLE_SUBTEXT_GAP, mb: 0, display: 'block' }}>
+            {renderQuestionTextTokens({ tokens: promptSubtextTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
+          </Typography>
+        ) : null}
+        {/* Option groups */}
+        <Stack spacing={0.35} sx={{ mt: NOTE_QUESTION_HEADER_OPTIONS_GAP }}>
+          {question.groups.map((group) => {
+            // ── Slider group ──────────────────────────────────────────────
+            if (group.type === 'slider') {
+              const sliderOpt = group.options[0]
+              if (!sliderOpt) return null
+              // Resolve current value from stored answers; fall back to sliderDefault.
+              const storedStr = question.answer.find((id) => group.options.some((o) => o.id === id))
+              const storedNumStr = storedStr
+                ? (question.options.find((o) => o.id === storedStr) ? (question.answer[0] ?? '') : '')
+                : ''
+              // Slider answer is stored as the numeric string in answers[questionId][0].
+              const storedValue = Number.parseFloat(
+                Array.isArray((question as { answer?: unknown }).answer)
+                  ? (question.answer.find((_) => true) ?? '')
+                  : '',
+              )
+              // The stored answer for a slider question contains the numeric value as the option id.
+              const numericValue = Number.parseFloat(selectedSet.values().next().value ?? '')
+              const sliderValue = Number.isFinite(numericValue)
+                ? numericValue
+                : (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1)
+              void storedStr; void storedNumStr; void storedValue
+              const min = sliderOpt.sliderMin ?? 1
+              const max = sliderOpt.sliderMax ?? 5
+              const step = sliderOpt.sliderStep ?? 1
+              return (
+                <Box key={group.id} sx={{ px: 0.5, pt: 0.5 }}>
+                  {/* Slider prompt label mirrors the group header label when present */}
+                  {sliderOpt.label ? (
+                    <Typography variant="caption" sx={{ ...NOTE_QUESTION_SUBTEXT_SX, display: 'block', mb: 0.5 }}>
+                      {renderQuestionTextTokens({ tokens: buildQuestionPromptTokens(sliderOpt.label, questionOptions as unknown as LabelOption[], false), chipSx: promptChipSx, labelSx: promptLabelSx })}
+                    </Typography>
+                  ) : null}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Slider
+                      size="small"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={sliderValue}
+                      marks
+                      disabled={!safeguardOverridesEditable}
+                      onChange={(_, value) => {
+                        if (!safeguardOverridesEditable) return
+                        const numVal = typeof value === 'number' ? value : Array.isArray(value) ? (value[0] ?? min) : min
+                        // Store the numeric value as the single selected option id string.
+                        applyAnswer([String(numVal)])
+                      }}
+                      valueLabelDisplay="auto"
+                      sx={{ flex: 1, color: 'primary.main' }}
+                    />
+                    <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                      {sliderValue}
+                    </Typography>
+                  </Box>
+                </Box>
+              )
+            }
+            // ── Single (radio) group ──────────────────────────────────────
+            if (group.type === 'single') {
+              const selectedOption = group.options.find((option) => selectedSet.has(option.id))
+              return (
+                <FormControl key={group.id} component="fieldset" variant="standard">
+                  <RadioGroup
+                    value={selectedOption?.id ?? ''}
+                    onChange={(_, value) => {
+                      if (!safeguardOverridesEditable) return
+                      const next = new Set(selectedSet)
+                      group.options.forEach((option) => next.delete(option.id))
+                      if (value) next.add(value)
+                      applyAnswer(Array.from(next))
+                    }}
+                    sx={optionGroupSx}
+                  >
+                    {group.options.map((option) => (
+                      <FormControlLabel
+                        key={option.id}
+                        value={option.id}
+                        control={<Radio size="small" disabled={!safeguardOverridesEditable} />}
+                        label={renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })}
+                        disabled={!safeguardOverridesEditable}
+                        sx={NOTE_QUESTION_OPTION_SX}
+                      />
+                    ))}
+                  </RadioGroup>
+                </FormControl>
+              )
+            }
+            // ── Multi (checkbox) group ────────────────────────────────────
+            return (
+              <FormGroup key={group.id} sx={optionGroupSx}>
+                {group.options.map((option) => {
+                  const checked = selectedSet.has(option.id)
+                  return (
+                    <FormControlLabel
+                      key={option.id}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={checked}
+                          disabled={!safeguardOverridesEditable}
+                          onChange={(_, next) => {
+                            if (!safeguardOverridesEditable) return
+                            const updated = new Set(selectedSet)
+                            if (next) { updated.add(option.id) } else { updated.delete(option.id) }
+                            applyAnswer(Array.from(updated))
+                          }}
+                        />
+                      }
+                      label={renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })}
+                      disabled={!safeguardOverridesEditable}
+                      sx={NOTE_QUESTION_OPTION_SX}
+                    />
+                  )
+                })}
+              </FormGroup>
+            )
+          })}
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}
+
 type SafeguardBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function SafeguardBlock({ node }: SafeguardBlockProps): JSX.Element | null {
@@ -2554,6 +2977,9 @@ export default function NoteDialog({
   recipeOverridesDisabled,
   onRecipeOverridesDisabledChange,
   onApplyRecipeOverrides,
+  safeguardOverridesAnswers,
+  onSafeguardOverridesAnswersChange,
+  onSafeguardOverridesResolutionChange,
   recipes,
   metasets,
   safeguardRules,
@@ -2578,6 +3004,11 @@ export default function NoteDialog({
   onRecipeOverridesDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
   // Optional callback for applying the current recipe overrides to stored recipes.
   onApplyRecipeOverrides: (instructions: RecipeOverridesInstructions) => void
+  // Safeguard overrides: stored answers and change notifications.
+  safeguardOverridesAnswers: NoteSafeguardOverridesAnswers
+  onSafeguardOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteSafeguardOverridesAnswers>>
+  // Notified each render with the latest resolved instructions (so App.tsx can apply them).
+  onSafeguardOverridesResolutionChange: (resolution: SafeguardOverridesResolution) => void
   recipes: BuilderRecipe[]
   metasets: Metaset[]
   safeguardRules: SafeguardRule[]
@@ -2762,6 +3193,50 @@ export default function NoteDialog({
       return normalized
     })
   }, [onRecipeOverridesAnswersChange, renderNote])
+  // Resolve safeguard overrides markers — produces both question definitions (for rendering)
+  // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange).
+  const safeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
+    [renderNote, safeguardOverridesAnswers],
+  )
+  // Build the marker index → question definition map for NoteSafeguardOverridesBlock.
+  const safeguardOverridesResolutions = useMemo(
+    () => {
+      const map = new Map<number, SafeguardNoteQuestionDefinition>()
+      safeguardOverridesResolution.questions.forEach((q) => map.set(q.index, q))
+      return map
+    },
+    [safeguardOverridesResolution],
+  )
+  // Notify the parent of resolution changes so App.tsx can apply them on each render.
+  React.useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-pass-data-to-parent
+    onSafeguardOverridesResolutionChange(safeguardOverridesResolution)
+  }, [onSafeguardOverridesResolutionChange, safeguardOverridesResolution])
+  // Handle answer changes from safeguard-overrides question blocks in view mode.
+  const handleSafeguardOverridesAnswerChange = React.useCallback((
+    question: SafeguardNoteQuestionDefinition,
+    nextSelection: string[],
+  ) => {
+    const defaultSet = new Set(question.defaultAnswer)
+    const nextSet = new Set(nextSelection)
+    const sameSize = defaultSet.size === nextSet.size
+    const matchesDefault = sameSize && Array.from(defaultSet).every((id) => nextSet.has(id))
+    // Keep answers ordered by option definition.
+    const orderedSelection = question.options
+      .filter((option) => nextSet.has(option.id))
+      .map((option) => option.id)
+    onSafeguardOverridesAnswersChange((prev) => {
+      const next = { ...prev }
+      // Default selections are omitted from storage (keeps the stored payload lean).
+      if (matchesDefault) {
+        delete next[question.id]
+      } else {
+        next[question.id] = orderedSelection
+      }
+      return next
+    })
+  }, [onSafeguardOverridesAnswersChange])
   // summaryProgressRatio > 0 signals that the rule cache pipeline is still rebuilding.
   const pipelineRunning = summaryProgressRatio > 0
   const contextValue = useMemo<NoteRenderContextValue>(
@@ -2777,6 +3252,9 @@ export default function NoteDialog({
       recipeOverridesEditable: mode === 'view' && !recipeOverridesDisabled,
       recipeOverridesDisabled,
       onRecipeOverridesAnswerChange: handleRecipeOverridesAnswerChange,
+      safeguardOverridesResolutions,
+      safeguardOverridesEditable: mode === 'view',
+      onSafeguardOverridesAnswerChange: handleSafeguardOverridesAnswerChange,
       // Forwarded to DungeonSimulatorNoteBlock via context.
       rules,
       substatTargets,
@@ -2794,6 +3272,8 @@ export default function NoteDialog({
       recipeOverridesDisabled,
       mode,
       handleRecipeOverridesAnswerChange,
+      safeguardOverridesResolutions,
+      handleSafeguardOverridesAnswerChange,
       rules,
       substatTargets,
       // pipelineRunning is derived from summaryProgressRatio in the same render, so tracking
@@ -2803,7 +3283,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -2833,6 +3313,11 @@ export default function NoteDialog({
       ...questionAttrs,
       QUESTION_ELEMENT_INDEX_ATTR,
     ]))
+    const sgQuestionAttrs: SanitizeProp[] = Array.isArray(baseAttrs[SG_QUESTION_ELEMENT_TAG]) ? baseAttrs[SG_QUESTION_ELEMENT_TAG] : []
+    const mergedSgQuestionAttrs = Array.from(new Set<SanitizeProp>([
+      ...sgQuestionAttrs,
+      SG_QUESTION_ELEMENT_INDEX_ATTR,
+    ]))
     return {
       ...defaultSchema,
       attributes: {
@@ -2841,8 +3326,19 @@ export default function NoteDialog({
         [RECIPE_ELEMENT_TAG]: mergedRecipeAttrs,
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
+        [SG_QUESTION_ELEMENT_TAG]: mergedSgQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', RECIPE_ELEMENT_TAG, SAFEGUARD_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG, DUNGEON_SIM_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([
+        ...(defaultSchema.tagNames ?? []),
+        'span',
+        RECIPE_ELEMENT_TAG,
+        SAFEGUARD_ELEMENT_TAG,
+        QUESTION_ELEMENT_TAG,
+        QUESTION_GROUP_ELEMENT_TAG,
+        SG_QUESTION_ELEMENT_TAG,
+        SG_QUESTION_GROUP_ELEMENT_TAG,
+        DUNGEON_SIM_ELEMENT_TAG,
+      ])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
@@ -2851,6 +3347,9 @@ export default function NoteDialog({
       rehypeSafeguardComments,
       rehypeQuestionComments,
       rehypeQuestionGroups,
+      // Transforms <!-- safeguard-overrides … --> blocks into note-safeguard-overrides elements.
+      rehypeSafeguardOverridesComments,
+      rehypeSafeguardOverridesGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
@@ -2861,6 +3360,9 @@ export default function NoteDialog({
     [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
+    // Renders safeguard-overrides question cards (single / multi / slider groups).
+    [SG_QUESTION_ELEMENT_TAG]: NoteSafeguardOverridesBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [SG_QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders a live dungeon simulation summary table from <!-- dungeon-simulator -->.
     [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
@@ -3044,6 +3546,7 @@ export default function NoteDialog({
             metasets={metasets}
             safeguardRules={safeguardRules}
             recipeOverridesAnswers={recipeOverridesAnswers}
+            safeguardOverridesAnswers={safeguardOverridesAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
             noteModeButtonMinWidth={noteModeButtonMinWidth}
@@ -3087,6 +3590,7 @@ function NoteEditorContent({
   metasets,
   safeguardRules,
   recipeOverridesAnswers,
+  safeguardOverridesAnswers,
   markdownComponents,
   allowElement,
   noteModeButtonMinWidth,
@@ -3110,6 +3614,7 @@ function NoteEditorContent({
   metasets: Metaset[]
   safeguardRules: SafeguardRule[]
   recipeOverridesAnswers: NoteRecipeOverridesAnswers
+  safeguardOverridesAnswers: NoteSafeguardOverridesAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
   // Match the view/edit button widths to keep the action row stable.
@@ -3129,6 +3634,8 @@ function NoteEditorContent({
   })
   // Captured each render so the popover's Insert button can call MDEditor's executeCommand.
   const executeRecipeOverridesSampleRef = useRef<(() => void) | null>(null)
+  // Captured each render so the popover's safeguard-overrides Insert button can trigger it.
+  const executeSafeguardOverridesSampleRef = useRef<(() => void) | null>(null)
   // Anchor the recipe overrides menu for edit-mode actions.
   const [editRecipeOverridesMenuAnchor, setEditRecipeOverridesMenuAnchor] = useState<HTMLElement | null>(null)
   // Track whether the edit-mode recipe overrides menu is open.
@@ -3232,6 +3739,20 @@ function NoteEditorContent({
     _nextAnswer: string[],
     _preferredId?: string,
   ) => {}, [])
+  const ignoreSafeguardOverridesAnswerChange = React.useCallback((
+    _question: SafeguardNoteQuestionDefinition,
+    _nextAnswer: string[],
+  ) => {}, [])
+  // Resolve safeguard overrides markers from the draft for the editor preview.
+  const editorSafeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(draft ?? '', safeguardOverridesAnswers),
+    [draft, safeguardOverridesAnswers],
+  )
+  const editorSafeguardOverridesResolutions = useMemo(() => {
+    const map = new Map<number, SafeguardNoteQuestionDefinition>()
+    editorSafeguardOverridesResolution.questions.forEach((q) => map.set(q.index, q))
+    return map
+  }, [editorSafeguardOverridesResolution])
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
       ...baseContext,
@@ -3241,6 +3762,10 @@ function NoteEditorContent({
       recipeOverridesResolutions: editorRecipeOverridesResolutions,
       recipeOverridesEditable: false,
       onRecipeOverridesAnswerChange: ignoreRecipeOverridesAnswerChange,
+      // Show safeguard-overrides question cards in edit mode as read-only previews.
+      safeguardOverridesResolutions: editorSafeguardOverridesResolutions,
+      safeguardOverridesEditable: false,
+      onSafeguardOverridesAnswerChange: ignoreSafeguardOverridesAnswerChange,
     }),
     [
       baseContext,
@@ -3249,6 +3774,8 @@ function NoteEditorContent({
       editorRecipeOverridesResolutions,
       safeguardRules,
       ignoreRecipeOverridesAnswerChange,
+      editorSafeguardOverridesResolutions,
+      ignoreSafeguardOverridesAnswerChange,
     ],
   )
 
@@ -3351,6 +3878,39 @@ function NoteEditorContent({
       const end = state.selection?.end ?? start
       const block = buildRecipeOverridesSampleBlock()
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
+      const nextState = api.replaceSelection(insert)
+      const nextPos = start + cursorOffset
+      api.setSelectionRange({ start: nextPos, end: nextPos })
+      setDraft(nextState.text)
+    },
+  }), [setDraft, t])
+
+  // Safeguard-overrides EBNF tooltip content (memoized; does not depend on state).
+  const safeguardOverridesTooltipContent = useMemo(() => (
+    <Box sx={SAFEGUARD_OVERRIDES_TOOLTIP_WRAP_SX}>
+      <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+        {SAFEGUARD_OVERRIDES_EBNF_HEADER}
+      </Typography>
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+        {SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
+      </Typography>
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+    </Box>
+  ), [])
+
+  // Toolbar command that inserts a ready-to-edit safeguard-overrides sample block.
+  const safeguardOverridesSampleCommand = useMemo<ICommand>(() => ({
+    name: SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY,
+    keyCommand: SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY,
+    groupName: 'note-inserts',
+    buttonProps: { 'aria-label': t('noteInsertSafeguardOverridesSample'), title: t('noteInsertSafeguardOverridesSample') },
+    icon: <StarsIcon fontSize="small" />,
+    execute: (state, api) => {
+      const text = state.text ?? ''
+      const start = state.selection?.start ?? 0
+      const end = state.selection?.end ?? start
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, SAFEGUARD_OVERRIDES_SAMPLE_TEXT)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
       api.setSelectionRange({ start: nextPos, end: nextPos })
@@ -3467,6 +4027,7 @@ function NoteEditorContent({
       safeguardCommand,
       metasetCommand,
       recipeOverridesSampleCommand,
+      safeguardOverridesSampleCommand,
     ]
     // If there is no divider after the title group, add a trailing divider manually.
     if (idxDividerAfterTitle < 0 && idxLink >= 0) {
@@ -3480,6 +4041,7 @@ function NoteEditorContent({
     safeguardCommand,
     metasetCommand,
     recipeOverridesSampleCommand,
+    safeguardOverridesSampleCommand,
   ])
 
   return (
@@ -3644,10 +4206,15 @@ function NoteEditorContent({
                         l.includes('color') ? t('mdColor') : raw
                       )
                       const isRecipeOverridesSample = command?.keyCommand === RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY
-                      // Capture execute so the EBNF popover's Insert button can trigger it without MDEditor state.
+                      const isSafeguardOverridesSample = command?.keyCommand === SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY
+                      // Capture execute so the EBNF popover's Insert buttons can trigger them without MDEditor state.
                       if (isRecipeOverridesSample) {
                         const cmd = command as ICommand
                         executeRecipeOverridesSampleRef.current = () => executeCommand?.(cmd, cmd.groupName)
+                      }
+                      if (isSafeguardOverridesSample) {
+                        const cmd = command as ICommand
+                        executeSafeguardOverridesSampleRef.current = () => executeCommand?.(cmd, cmd.groupName)
                       }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
@@ -3798,6 +4365,18 @@ function NoteEditorContent({
             }}>
               {t('noteInsertRecipeOverridesSample')}
             </Button>
+          </Box>
+          {/* Safeguard-overrides EBNF section — separated visually from recipe-overrides. */}
+          <Box sx={{ pt: 1.5, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
+            {safeguardOverridesTooltipContent}
+            <Box sx={{ pt: 1, mt: 0.5 }}>
+              <Button size="small" variant="outlined" onClick={() => {
+                executeSafeguardOverridesSampleRef.current?.()
+                handleEbnfPopoverClose()
+              }}>
+                {t('noteInsertSafeguardOverridesSample')}
+              </Button>
+            </Box>
           </Box>
         </Box>
       </Popover>

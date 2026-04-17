@@ -1391,6 +1391,7 @@ const overrides: Catalog = {
   noteInsertSafeguards: "Safeguards özetini ekle",
   noteInsertMetasets: "Metaset listesini ekle",
   noteInsertRecipeOverridesSample: "Örnek anket ekle",
+  noteInsertSafeguardOverridesSample: "Örnek koruma geçersiz kılma ekle",
   noteRecipeOverridesChangedTooltip: "Anket işaretleyicileri bu düzenlemede değişti. Soruları gözden geçirmek için «Notu görüntüle»ye geçin.",
   noteRecipeOverridesMenu: "Anket seçenekleri",
   noteRecipeOverridesResetDefaults: "Seçenekleri varsayılanlara sıfırla",

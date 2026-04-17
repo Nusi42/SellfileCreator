@@ -1389,6 +1389,7 @@ const catalog: Catalog = {
   noteInsertSafeguards: "Inserir resumo de Salvaguardas",
   noteInsertMetasets: "Inserir lista de meta-sets",
   noteInsertRecipeOverridesSample: "Inserir questionário de exemplo",
+  noteInsertSafeguardOverridesSample: "Inserir exemplo de substituições de guarda",
   noteRecipeOverridesChangedTooltip: "Os marcadores de opções de receita mudaram nesta edição. Vá para «Ver nota» para revisar as perguntas.",
   noteRecipeOverridesMenu: "Opções de receita",
   noteRecipeOverridesResetDefaults: "Redefinir opções para os padrões",

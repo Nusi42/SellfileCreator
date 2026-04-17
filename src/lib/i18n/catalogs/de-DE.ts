@@ -1387,6 +1387,7 @@ const overrides: Catalog = {
   noteInsertSafeguards: "Schutzmaßnahmen-Zusammenfassung einfügen",
   noteInsertMetasets: "Metaset-Liste einfügen",
   noteInsertRecipeOverridesSample: "Beispiel-Fragebogen einfügen",
+  noteInsertSafeguardOverridesSample: "Safeguard-Übersteuerungen einfügen",
   noteRecipeOverridesChangedTooltip: "Rezeptvorgaben-Markierungen wurden in dieser Bearbeitung geändert. Wechsle zu „Notiz ansehen“, um die Fragen zu prüfen.",
   noteRecipeOverridesMenu: "Rezeptvorgaben",
   noteRecipeOverridesResetDefaults: "Optionen auf Standardwerte zurücksetzen",

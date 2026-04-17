@@ -36,7 +36,7 @@ import type { Metaset } from './metasets'
 import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
-import { hasIgnoreSafeguardTag } from './tagHelpers'
+import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
 import type { TestItem } from './ruleEval'
 import type { ImprovementChanceWasmEntry, WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
 import {
@@ -410,6 +410,8 @@ export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   substatWeights: { ...(rule.substatWeights ?? {}) },
   // Preserve per-level thresholds; null means feature disabled.
   improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
+  // Detach tags array so edits to the clone do not mutate the source.
+  tags: [...(rule.tags ?? [])],
 })
 
 // cloneSafeguardRules clones a list into detached rule objects.
@@ -420,6 +422,8 @@ export const cloneSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardR
 
 export type SafeguardRule = {
   name: string
+  // Optional tags for identifying this rule in safeguard-overrides DSL and note display.
+  tags?: string[]
   combination: SafeguardCombination
   requiredCount: number
   activation: SafeguardRuleActivation
@@ -453,6 +457,8 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
 export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
   combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   name: '',
+  // Tags default to empty; users add them to enable safeguard-overrides targeting.
+  tags: [],
   requiredCount: 1,
   activation: SafeguardRuleActivation.ProtectExisting,
   countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
@@ -471,6 +477,8 @@ export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
 export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): SafeguardRule => ({
   combination: rule.combination,
   name: rule.name ?? '',
+  // Tags included so equality checks detect tag changes correctly.
+  tags: rule.tags ?? [],
   requiredCount: rule.requiredCount,
   activation: rule.activation,
   countMode: rule.countMode,
@@ -924,10 +932,13 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const improvementChanceThreshold = normalizeLegacyImprovementChanceThreshold(
     record.improvementChanceThreshold as number | SafeguardImprovementChanceLevelThresholds | null | undefined,
   )
+  // Normalize tags using the shared tag helper so invalid values are filtered out.
+  const tags = normalizeTagList(record.tags) ?? []
   // Run the substat-dependents gate so no caller receives a rule where
   // improvement-chance or weights are set without any substats to back them.
   return normalizeSafeguardSubstatDependents({
     name,
+    tags,
     combination,
     requiredCount,
     activation: normalizeSafeguardActivation(record.activation),
