@@ -456,6 +456,9 @@ export const README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'
 // re-opening it every time. Tied to APP_VERSION like README gating so new
 // versions can introduce updated tutorials when needed.
 export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
+// Stores the release tag the user last dismissed the update notice for.
+// Re-shows the banner if the fetched latest tag differs from this value.
+export const UPDATE_DISMISSED_VERSION_KEY = 'sellfileCreator.update.seen.version'
 // User-configurable default builder profile storage key. When present, the
 // builder's "Reset to defaults" uses this profile; otherwise it uses factory
 // defaults. Removing this key restores factory default behavior.
