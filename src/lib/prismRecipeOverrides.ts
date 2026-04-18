@@ -36,6 +36,7 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
+  NOTE_SAFEGUARD_OVERRIDES_IMPROVEMENT_CHANCE_KW_VALS,
 } from './noteSafeguardOverrides';
 
 // Build a \b-bounded alternation regex from a keyword array.
@@ -193,6 +194,11 @@ function recipeOverrides(Prism: Refractor): void {
         // Rendered as number/boolean-val so they blend with the existing numeric tokens.
         'sg-match-val': wordAlt(NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS),
 
+        // Safeguard-overrides improvchance disable keyword.
+        // `off`/`false` are already caught by boolean-val; this covers `disabled` specifically.
+        // Rendered in the same warm amber family as the other sg-*-val tokens.
+        'sg-improvementchance-val': wordAlt(NOTE_SAFEGUARD_OVERRIDES_IMPROVEMENT_CHANCE_KW_VALS),
+
         // `$value` / `$count` placeholders used inside slider groups to reference the slider's
         // current value. `$count.TOKEN` references another slider by its explicit id=TOKEN.
         // Both aliases are equal; `$count.TOKEN` cross-slider form is also matched here.
@@ -272,8 +278,9 @@ function recipeOverrides(Prism: Refractor): void {
         // Enumerated field values: export=, keep=, flex= (SSOT).
         'boolean-val': wordAlt(NOTE_RECIPE_OVERRIDES_ENUM_VALS),
 
-        // Stat key tokens including percentage variants.
-        'stat-key': /\b(?:HP%?|ATK%?|DEF%?|CR%|CDMG%|ACC|RES|SPD)\b/,
+        // Stat key tokens including percentage variants. Case-insensitive so
+        // `weight.spd` highlights the same as `weight.SPD` (parser lowercases).
+        'stat-key': /\b(?:HP%?|ATK%?|DEF%?|CR%|CDMG%|ACC|RES|SPD)\b/i,
 
         // Plain integer literals.
         'number': /\b\d+\b/,

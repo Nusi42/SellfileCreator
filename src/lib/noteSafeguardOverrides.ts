@@ -5,7 +5,8 @@
  * selectors to produce interactive safeguard rule property overrides.
  *
  * Mirrors the structure of noteRecipeOverrides.ts but targets SafeguardRule
- * fields (activation, count, countMode flags, boolean guards, substats, etc.).
+ * fields (activation, count, countMode flags, boolean guards, substats,
+ * improvementChance, etc.).
  *
  * Public surface:
  *   parseNoteSafeguardOverrides     — marker → question definitions
@@ -17,7 +18,7 @@
  */
 import type { StatVariant } from './types'
 import { variantFromLabel } from './types'
-import type { SafeguardRule } from './safeguards'
+import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
 import {
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
@@ -60,14 +61,25 @@ export const NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS = [
   '1', '2', '3', '4', 'persubstat',
 ] as const
 
+/**
+ * Non-numeric `improvchance =` keywords in the DSL (lowercase surface form).
+ * Excludes `on`/`off`/`true`/`false` which are handled by the shared boolean-val token.
+ * Only `disabled` is listed here; preset names are not accepted by the DSL.
+ */
+export const NOTE_SAFEGUARD_OVERRIDES_IMPROVEMENT_CHANCE_KW_VALS = [
+  'disabled',
+] as const
+
 /** Field names valid on the left-hand side of `@selector { … }` blocks. */
 export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'activation', 'count',
-  'ignprev', 'ignequipped_collection', 'ignequipped_vault',
+  'ignprev', 'igncoll', 'ignvault',
   'perfaction', 'permainstat', 'perslot', 'perset', 'perrule',
   'substats', 'substatmatch',
   // weight.<statKey> = number — prefix only; full keyword set is dynamic.
   'weight',
+  // improvchance = off | disabled | <number> [<number> [<number> [<number>]]]
+  'improvchance',
 ] as const
 
 // ── $count / $value expression AST ───────────────────────────────────────────
@@ -113,6 +125,8 @@ export type SafeguardOverridesOperation =
   | { kind: 'substats'; mode: 'mutate'; add: StatVariant[]; remove: StatVariant[] }
   | { kind: 'substatMatch'; value: SafeguardSubstatMatch }
   | { kind: 'substatWeight'; stat: StatVariant; value: number }
+  // null = disable the feature; non-null = enable with specific per-level thresholds.
+  | { kind: 'improvementChance'; value: SafeguardImprovementChanceLevelThresholds | null }
 
 /** A resolved selector + operations pair, ready for application. */
 export type SafeguardOverridesSelectorBlock = {
@@ -431,14 +445,14 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
     // ── boolean flag fields ───────────────────────────────────────────────────
     const boolValue = parseBooleanValue(valueLc)
     if (boolValue !== null) {
-      if (field === 'ignprev')                  { operations.push({ kind: 'ignPrev',             value: boolValue }); continue }
-      if (field === 'ignequipped_collection')   { operations.push({ kind: 'ignEquippedCollection', value: boolValue }); continue }
-      if (field === 'ignequipped_vault')        { operations.push({ kind: 'ignEquippedVault',      value: boolValue }); continue }
-      if (field === 'perfaction')               { operations.push({ kind: 'perFaction',   value: boolValue }); continue }
-      if (field === 'permainstat')              { operations.push({ kind: 'perMainStat',  value: boolValue }); continue }
-      if (field === 'perslot')                  { operations.push({ kind: 'perSlot',      value: boolValue }); continue }
-      if (field === 'perset')                   { operations.push({ kind: 'perSet',       value: boolValue }); continue }
-      if (field === 'perrule')                  { operations.push({ kind: 'perRule',      value: boolValue }); continue }
+      if (field === 'ignprev')     { operations.push({ kind: 'ignPrev',               value: boolValue }); continue }
+      if (field === 'igncoll')     { operations.push({ kind: 'ignEquippedCollection', value: boolValue }); continue }
+      if (field === 'ignvault')    { operations.push({ kind: 'ignEquippedVault',       value: boolValue }); continue }
+      if (field === 'perfaction')  { operations.push({ kind: 'perFaction',   value: boolValue }); continue }
+      if (field === 'permainstat') { operations.push({ kind: 'perMainStat',  value: boolValue }); continue }
+      if (field === 'perslot')     { operations.push({ kind: 'perSlot',      value: boolValue }); continue }
+      if (field === 'perset')      { operations.push({ kind: 'perSet',       value: boolValue }); continue }
+      if (field === 'perrule')     { operations.push({ kind: 'perRule',      value: boolValue }); continue }
     }
 
     // ── substats = [+|-]stat, … ───────────────────────────────────────────────
@@ -485,6 +499,43 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
         Math.min(SAFEGUARD_WEIGHT_MAX, Math.round(numeric / SAFEGUARD_WEIGHT_STEP) * SAFEGUARD_WEIGHT_STEP),
       )
       operations.push({ kind: 'substatWeight', stat: variant, value: clamped })
+      continue
+    }
+
+    // ── improvchance = off | disabled | <N> [<N4> [<N8> [<N12>]]] ──────────────
+    // Supported values:
+    //   off / false / disabled  → disable the feature (null)
+    //   1–4 space-separated numbers → thresholds for upgrade stages 0, 4, 8, 12.
+    //                                 Omitted stages inherit the previous stage's value (null).
+    if (field === 'improvchance') {
+      if (valueLc === 'off' || valueLc === 'false' || valueLc === 'disabled') {
+        operations.push({ kind: 'improvementChance', value: null })
+      } else {
+        const pct0 = Number.parseFloat(valueLc)
+        if (Number.isFinite(pct0)) {
+          const clampPct = (v: number) => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10
+          // Consume additional space-separated number tokens for level-4, 8, 12.
+          // Stop at any token that looks like a new field assignment (word followed by `=`).
+          const tryConsumePercent = (): number | null => {
+            const t = cursor.peek()
+            if (!t || t.kind !== 'word') return null
+            if (cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return null
+            const n = Number.parseFloat(t.value)
+            if (!Number.isFinite(n)) return null
+            cursor.next()
+            return n
+          }
+          const raw4 = tryConsumePercent()
+          const raw8 = raw4 !== null ? tryConsumePercent() : null
+          const raw12 = raw8 !== null ? tryConsumePercent() : null
+          operations.push({ kind: 'improvementChance', value: {
+            atLevel0:  clampPct(pct0),
+            atLevel4:  raw4  !== null ? clampPct(raw4)  : null,
+            atLevel8:  raw8  !== null ? clampPct(raw8)  : null,
+            atLevel12: raw12 !== null ? clampPct(raw12) : null,
+          } })
+        }
+      }
       continue
     }
   }
@@ -922,6 +973,9 @@ export const applySafeguardOverrides = (
             clone.substatWeights = pruneSafeguardsSubstatWeights(weights, clone.substats)
             break
           }
+          case 'improvementChance':
+            clone.improvementChanceThreshold = op.value
+            break
         }
       }
     })

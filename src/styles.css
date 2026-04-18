@@ -55,6 +55,7 @@ body.restrict-ui [data-allow-select="1"] {
 /* Safeguard-overrides enum values — warm amber matching boolean-val. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.sg-activation-val           { color: #d19a66; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.sg-match-val               { color: #d19a66; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.sg-improvementchance-val   { color: #d19a66; }
 /* $value / $count / $count.TOKEN — bright green to distinguish slider refs from plain numbers. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.sg-value-ref               { color: #98c379; }
 /* id=TOKEN: `id` keyword shares the blue structural-keyword family; defined name is bright amber. */

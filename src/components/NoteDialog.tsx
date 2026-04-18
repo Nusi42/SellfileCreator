@@ -1617,7 +1617,8 @@ const _sgActVals = NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS.join('" | "')
 const _sgMatchVals = NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS.join('" | "')
 
 // Static EBNF text for the safeguard-overrides DSL.
-// The statKey row is shared with recipe-overrides and shown as "(see recipe-overrides)" to avoid duplication.
+// Non-terminal names are kept to ≤13 chars. DSL field keywords are ≤13 chars.
+// The statKey row is shared with recipe-overrides and shown as "(case-insensitive; see recipe-overrides)" to avoid duplication.
 const SAFEGUARD_OVERRIDES_EBNF_TEXT =
 `marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] question "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
@@ -1636,21 +1637,24 @@ notExpr       := ("not" | "!") notExpr | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
 sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
              | "count" "=" (number | "$value")   // $value = current slider position
-             | ("ignprev"|"ignequipped_collection"|"ignequipped_vault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
+             | ("ignprev"|"igncoll"|"ignvault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
              | "substats" "=" prefixToken ("," prefixToken)*
-             | "substatmatch" "=" substatMatchVal
-             | "weight." statKey "=" number
-activationVal   := "${_sgActVals}"
-substatMatchVal := "${_sgMatchVals}"
-flexVal         := "on" | "off" | "true" | "false"
-fallbackBlock   := ("fallback" | "else") "{" selectorBlock+ "}"
-constraints     := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
-               | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
-tokenList       := token ("," token)*
-prefixToken     := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
-statKey         := (see recipe-overrides EBNF)
-string          := '"' {char | escape} '"'
-token           := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/`
+             | "substatmatch" "=" subMatchVal
+             | "weight." statKey "=" number   // statKey case-insensitive (spd = SPD)
+             | "improvchance" "=" impChanceVal
+activationVal := "${_sgActVals}"
+subMatchVal   := "${_sgMatchVals}"
+impChanceVal  := "off" | "disabled" | number [number [number [number]]]
+                 // 1–4 space-separated values set thresholds for upgrade level 0, 4, 8, 12
+flexVal       := "on" | "off" | "true" | "false"
+fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
+              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+tokenList     := token ("," token)*
+prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
+statKey       := (case-insensitive; see recipe-overrides EBNF)
+string        := '"' {char | escape} '"'
+token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/`
 
 const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
   `<!-- ${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}`,

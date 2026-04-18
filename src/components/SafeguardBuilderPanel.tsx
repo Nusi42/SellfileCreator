@@ -590,18 +590,20 @@ export default function SafeguardBuilderPanel({
   // Mixed indicator: true when selection has differing values not yet staged.
   const substatMatchMixed = multiEditActive && multiSubstatMatchField?.status === 'mixed' && !multiSubstatMatchField.dirty
   // Improvement-chance display and mixed state for multi-edit.
+  // Single-edit: use effectiveRule so the chip reflects the active override (effectiveRule equals
+  // the stored rule in multi-edit mode via empty instructions — guard lives in one place only).
   const displayImprovementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null = multiEditActive
     ? (multiImprovementChanceField?.value !== undefined && multiImprovementChanceField.value !== null
       ? (multiImprovementChanceField.value as SafeguardImprovementChanceLevelThresholds)
       : improvementChanceThreshold)
-    : improvementChanceThreshold
+    : effectiveRule.improvementChanceThreshold
   const improvementChanceMixed = multiEditActive && multiImprovementChanceField?.status === 'mixed' && !multiImprovementChanceField.dirty
   // In multi-edit, enabled = staged value is non-null (dirty) or any rule has it on (not yet staged).
   // Use the raw staged field value when dirty — displayImprovementChanceThreshold falls back to the
   // focused rule's threshold when the staged value is null, which would falsely report "enabled".
   const displayImprovementChanceEnabled = multiEditActive
     ? (multiImprovementChanceField?.dirty ? multiImprovementChanceField.value !== null : improvementChanceEnabled)
-    : improvementChanceEnabled
+    : (effectiveRule.improvementChanceThreshold !== null)
 
   // Keep the threshold ref current so handleImprovementChancePopoverClose persists
   // the latest value without a stale closure over displayImprovementChanceThreshold.
@@ -699,6 +701,18 @@ export default function SafeguardBuilderPanel({
         !== (eff[stat] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
     })
   })()
+  const improvementChanceOverrideActive = !multiEditActive && (() => {
+    const stored = rule.improvementChanceThreshold
+    const eff = effectiveRule.improvementChanceThreshold
+    if (stored === eff) return false                     // same reference — no override applied
+    if (stored === null || eff === null) return true     // enabled ↔ disabled
+    // Compare resolved values so that null-inheriting stages are treated as equivalent to
+    // explicit copies of the previous stage's value:
+    //   { atLevel0: 25, atLevel4: null } resolves the same as { atLevel0: 25, atLevel4: 25 }.
+    const [s0, s4, s8, s12] = resolveImprovementChanceThresholds(stored)
+    const [e0, e4, e8, e12] = resolveImprovementChanceThresholds(eff)
+    return s0 !== e0 || s4 !== e4 || s8 !== e8 || s12 !== e12
+  })()
 
   // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
   const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
@@ -731,6 +745,13 @@ export default function SafeguardBuilderPanel({
       .map((s) => `${t(statVariantI18nKey(s))} \u00d7${weights?.[s] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT}`)
     return parts.length > 0 ? parts.join(', ') : '\u2014'
   }, [t])
+
+  // Formats an improvement-chance threshold for override badge tooltips.
+  // Disabled (null) renders as an em dash; active thresholds reuse formatThresholdChipLabel.
+  // Plain function (not memoized) because formatThresholdChipLabel is also not memoized —
+  // wrapping in useCallback with an unstable dep would provide no benefit.
+  const improvementChanceLabel = (thr: SafeguardImprovementChanceLevelThresholds | null): string =>
+    thr === null ? '\u2014' : formatThresholdChipLabel(thr)
 
   // Builds the tooltip string for a safeguard override badge from stored/effective display strings.
   const buildSafeguardOverrideBadgeTooltip = React.useCallback(
@@ -2210,51 +2231,61 @@ export default function SafeguardBuilderPanel({
               Chip toggles the threshold on/off; button opens the percentile popover.
               Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('safeguardsImprovementChanceThresholdHint')} ellipsisTitle={t('safeguardsImprovementChanceThreshold')} ellipsisSelector=".MuiChip-label">
-              <Chip
-                size="small"
-                variant="filled"
-                label={improvementChanceMixed
-                  ? `${t('safeguardsImprovementChanceShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
-                  : (displayImprovementChanceEnabled && displayImprovementChanceThreshold
-                    ? formatThresholdChipLabel(displayImprovementChanceThreshold)
-                    : t('safeguardsImprovementChanceShort'))}
-                aria-label={t('safeguardsImprovementChanceThreshold')}
-                clickable
-                disabled={!hasSubstatSelection && !multiEditActive}
-                onClick={() => {
-                  if (!hasSubstatSelection && !multiEditActive) return
-                  if (multiEditActive && multiEdit) {
-                    // Toggle: null ↔ last-used-or-Lenient in multi-edit mode.
-                    const next = displayImprovementChanceEnabled
-                      ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
-                      : getImprovementChanceEnableDefault()
-                    multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
-                    return
-                  }
-                  // Single-edit toggle.
-                  updateRule((prev) => ({
-                    ...prev,
-                    improvementChanceThreshold: prev.improvementChanceThreshold !== null
-                      ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
-                      : getImprovementChanceEnableDefault(),
-                  }))
-                }}
-                sx={{
-                  // Show enabled (green) color when mixed — mirrors the flex chip pattern.
-                  ...builderStatusChipSx(displayImprovementChanceEnabled || improvementChanceMixed, { dimDisabled: true }),
-                  // Flatten right corners so the configure button fits flush.
-                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                  // Full mixed overlay: dashed border + hatched gradient + muted text.
-                  ...(improvementChanceMixed ? {
-                    borderStyle: 'dashed',
-                    borderColor: mixedBorderColor,
-                    color: mixedTextColor,
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                  } : {}),
-                }}
-              />
-            </MarkdownTooltip>
+            <Box sx={{ position: 'relative' }}>
+              <MarkdownTooltip markdown={t('safeguardsImprovementChanceThresholdHint')} ellipsisTitle={t('safeguardsImprovementChanceThreshold')} ellipsisSelector=".MuiChip-label">
+                <Chip
+                  size="small"
+                  variant="filled"
+                  label={improvementChanceMixed
+                    ? `${t('safeguardsImprovementChanceShort')}${NBSP}(${t('builderMultiEditMixedShort')})`
+                    : (displayImprovementChanceEnabled && displayImprovementChanceThreshold
+                      ? formatThresholdChipLabel(displayImprovementChanceThreshold)
+                      : t('safeguardsImprovementChanceShort'))}
+                  aria-label={t('safeguardsImprovementChanceThreshold')}
+                  clickable
+                  disabled={!hasSubstatSelection && !multiEditActive}
+                  onClick={() => {
+                    if (!hasSubstatSelection && !multiEditActive) return
+                    if (multiEditActive && multiEdit) {
+                      // Toggle: null ↔ last-used-or-Lenient in multi-edit mode.
+                      const next = displayImprovementChanceEnabled
+                        ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
+                        : getImprovementChanceEnableDefault()
+                      multiEdit.updateField('improvementChanceThreshold', { value: next, status: 'common' })
+                      return
+                    }
+                    // Single-edit toggle.
+                    updateRule((prev) => ({
+                      ...prev,
+                      improvementChanceThreshold: prev.improvementChanceThreshold !== null
+                        ? SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD
+                        : getImprovementChanceEnableDefault(),
+                    }))
+                  }}
+                  sx={{
+                    // Show enabled (green) color when mixed — mirrors the flex chip pattern.
+                    ...builderStatusChipSx(displayImprovementChanceEnabled || improvementChanceMixed, { dimDisabled: true }),
+                    // Flatten right corners so the configure button fits flush.
+                    borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                    // Full mixed overlay: dashed border + hatched gradient + muted text.
+                    ...(improvementChanceMixed ? {
+                      borderStyle: 'dashed',
+                      borderColor: mixedBorderColor,
+                      color: mixedTextColor,
+                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                    } : {}),
+                  }}
+                />
+              </MarkdownTooltip>
+              {/* Override badge — shown in single-edit when a safeguard-overrides DSL block
+                  has changed the improvement-chance threshold from its stored value. */}
+              {improvementChanceOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  improvementChanceLabel(rule.improvementChanceThreshold),
+                  improvementChanceLabel(effectiveRule.improvementChanceThreshold),
+                ),
+              )}
+            </Box>
             {/* Configure button — interactive when the floor is active or mixed across rules */}
             <IconButton
               size="small"
