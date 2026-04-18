@@ -654,6 +654,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => applySafeguardOverrides(resolvedSafeguardRules, safeguardOverridesResolution.instructions),
     [resolvedSafeguardRules, safeguardOverridesResolution.instructions],
   )
+  // Apply the same overrides to the raw (pre-metaset-resolution) rules for display purposes.
+  // resolvedSafeguardRules expands metaset names into individual sets, which would make chips
+  // show every constituent set instead of the metaset name. Overrides only touch scalar fields
+  // (requiredCount, activation, countMode, etc.) so applying them to safeguardRules is safe.
+  const displaySafeguardRules = useMemo(
+    () => applySafeguardOverrides(safeguardRules, safeguardOverridesResolution.instructions),
+    [safeguardRules, safeguardOverridesResolution.instructions],
+  )
   const safeguardsActive = safeguardsEnabled && resolvedSafeguardRules.length > 0
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
@@ -2210,13 +2218,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // SafeguardChipsPanel uses selectedRuleIndices (not selectedRuleIdx) when onRuleSelect is
     // provided, so the single-select scalar alone is not enough.
     setSelectedSafeguardRuleIndices([ruleIdx], { suppressWillChange: true })
-    // Use effective rules so the builder reflects any active session overrides.
-    const rule = effectiveSafeguardRules[ruleIdx]
+    // Use display rules so the builder reflects active session overrides with metaset names intact.
+    const rule = displaySafeguardRules[ruleIdx]
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
     // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
     const ordinal = ruleIdx + 1
     if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
-  }, [effectiveSafeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
+  }, [displaySafeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
@@ -6316,7 +6324,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // SafeguardChipsPanel — shown in place of RecipeChipsPanel when builderMode === 'safeguard'.
   const safeguardChipsPanelElement = (
     <SafeguardChipsPanel
-      rules={effectiveSafeguardRules as SafeguardRule[]}
+      rules={displaySafeguardRules as SafeguardRule[]}
       selectedRuleIdx={selectedSafeguardRuleIdx}
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next) => applySafeguardRulesChange(next)}
