@@ -187,6 +187,7 @@ const enUS: Catalog = {
   builderHistoryClear: "Clear History…",
   builderHistoryClearAction: "Clear History",
   gearDbHistoryHideToast: "Hide gear update message",
+  gearDbHistoryPauseUpdates: "Pause automatic update",
   restore: "Restore",
   dismiss: "Dismiss",
   startTutorial: "Start Tutorial",

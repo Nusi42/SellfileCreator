@@ -186,6 +186,7 @@ const overrides: Catalog = {
   builderHistoryClear: "Очистить историю…",
   builderHistoryClearAction: "Очистить историю",
   gearDbHistoryHideToast: "Скрыть сообщение об обновлении экипировки",
+  gearDbHistoryPauseUpdates: "Приостановить автоматическое обновление",
   restore: "Восстановить",
   dismiss: "Скрыть",
   startTutorial: "Запустить обучение",

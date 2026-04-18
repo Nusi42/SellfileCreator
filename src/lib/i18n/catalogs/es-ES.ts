@@ -186,6 +186,7 @@ const overrides: Catalog = {
   builderHistoryClear: "Borrar historial…",
   builderHistoryClearAction: "Borrar historial",
   gearDbHistoryHideToast: "Ocultar mensaje de actualización de equipo",
+  gearDbHistoryPauseUpdates: "Pausar actualización automática",
   restore: "Restaurar",
   dismiss: "Descartar",
   startTutorial: "Iniciar tutorial",

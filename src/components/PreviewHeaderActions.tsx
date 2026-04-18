@@ -168,6 +168,10 @@ export default function PreviewHeaderActions(props: {
   hideGearDbUpdateToast: boolean
   // Toggle the endpoint success toast visibility.
   onToggleHideGearDbUpdateToast: (next: boolean) => void
+  // Silently drops endpoint pushes while enabled; does not queue them for later.
+  pauseEndpointUpdates: boolean
+  // Toggle the endpoint push pause state.
+  onTogglePauseEndpointUpdates: (next: boolean) => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
@@ -238,6 +242,8 @@ export default function PreviewHeaderActions(props: {
     onClearGearDbHistory,
     hideGearDbUpdateToast,
     onToggleHideGearDbUpdateToast,
+    pauseEndpointUpdates,
+    onTogglePauseEndpointUpdates,
     filtersSynced = false,
     onToggleFiltersSynced,
     filterPresets = [],
@@ -571,6 +577,7 @@ export default function PreviewHeaderActions(props: {
   const filterToggleLabel = t('filterToggleLabel')
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
+  const gearDbHistoryPauseUpdatesLabel = t('gearDbHistoryPauseUpdates')
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
@@ -2251,6 +2258,18 @@ export default function PreviewHeaderActions(props: {
                     sx={{ mr: 1, p: 0.5 }}
                   />
                   {gearDbHistoryHideToastLabel}
+                </MenuItem>
+                {/* Checkbox pauses endpoint pushes; arriving commands are dropped, not queued. */}
+                <MenuItem
+                  onClick={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={pauseEndpointUpdates}
+                    onChange={(event) => onTogglePauseEndpointUpdates(Boolean(event.target.checked))}
+                    sx={{ mr: 1, p: 0.5 }}
+                  />
+                  {gearDbHistoryPauseUpdatesLabel}
                 </MenuItem>
               </Menu>
             </>

@@ -188,6 +188,8 @@ const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 const WORKLOAD_SPINNER_HANG_MS = 450 as const
 // Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
 const PIPELINE_DEBOUNCE_MS = 200 as const
+// Minimum gap between end of one endpoint apply+settle cycle and start of the next.
+const ENDPOINT_PUSH_COOLDOWN_MS = 5000 as const
 // Pipeline result cache: maximum number of entries kept in memory at once.
 const PIPELINE_CACHE_MAX = 10 as const
 // Pipeline result cache: entries older than this are considered stale and evicted.
@@ -2380,6 +2382,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Toggle helper keeps the checkbox handler stable for the header menu.
   const toggleHideGearDbUpdateToast = useCallback((next: boolean) => {
     setHideGearDbUpdateToast(next)
+  }, [])
+  // Pause toggle silently drops endpoint pushes for the session without queuing them.
+  const [pauseEndpointUpdates, setPauseEndpointUpdates] = useState(false)
+  // Toggle helper keeps the checkbox handler stable for the header menu.
+  const togglePauseEndpointUpdates = useCallback((next: boolean) => {
+    setPauseEndpointUpdates(next)
   }, [])
   const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
     const trimmed = (fileName ?? '').trim()
@@ -5649,6 +5657,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const endpointPushDrainInFlightRef = useRef(false)
   // Cleanup flag prevents post-unmount queue work.
   const endpointPushQueueClosedRef = useRef(false)
+  // Timestamp (ms) when the last apply+settle cycle completed; 0 = never.
+  const lastEndpointAppliedAtRef = useRef(0)
   // Animation-frame helper allows waiting for paint/commit boundaries.
   const waitForAnimationFrame = useCallback(() => (
     new Promise<void>((resolve) => {
@@ -5768,7 +5778,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               continue
             }
           }
+          // Enforce minimum gap between apply+settle cycles to avoid hammering the
+          // worker pipeline with back-to-back restarts under heavy endpoint traffic.
+          const elapsed = Date.now() - lastEndpointAppliedAtRef.current
+          const cooldownRemaining = lastEndpointAppliedAtRef.current === 0
+            ? 0
+            : Math.max(0, ENDPOINT_PUSH_COOLDOWN_MS - elapsed)
+          if (cooldownRemaining > 0) {
+            await new Promise<void>((resolve) => {
+              window.setTimeout(resolve, cooldownRemaining)
+            })
+          }
           await applyEndpointPushCommand(next)
+          lastEndpointAppliedAtRef.current = Date.now()
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to process endpoint push command', err)
@@ -5838,10 +5860,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
-    // Block gear-DB pushes while the tutorial is running.
+    // Block gear-DB pushes while the tutorial is running, the restore dialog is open,
+    // or the user has explicitly paused automatic updates.
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
+    // The restore dialog is presenting a snapshot to the user; applying a live update
+    // underneath it would silently discard whatever the user is about to decide.
     // selectRule (above) is left through since it only affects scroll position.
-    if (tutorialOpen) return
+    if (tutorialOpen || restoreDlgOpen || pauseEndpointUpdates) return
 
     if (cmd.kind === 'gearDbFileBinary') {
       enqueueEndpointPush(cmd)
@@ -5869,7 +5894,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [
     enqueueEndpointPush,
     focusRuleByIndex,
+    pauseEndpointUpdates,
     requestSelectionScroll,
+    restoreDlgOpen,
     tutorialOpen,
   ])
 
@@ -7854,6 +7881,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClearGearDbHistory={clearGearDbDiffHistory}
         hideGearDbUpdateToast={hideGearDbUpdateToast}
         onToggleHideGearDbUpdateToast={toggleHideGearDbUpdateToast}
+        pauseEndpointUpdates={pauseEndpointUpdates}
+        onTogglePauseEndpointUpdates={togglePauseEndpointUpdates}
       />
           {filterOpen && (
             <RulesFilterPanel
