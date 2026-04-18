@@ -2206,12 +2206,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // SafeguardChipsPanel uses selectedRuleIndices (not selectedRuleIdx) when onRuleSelect is
     // provided, so the single-select scalar alone is not enough.
     setSelectedSafeguardRuleIndices([ruleIdx], { suppressWillChange: true })
-    const rule = safeguardRules[ruleIdx]
+    // Use effective rules so the builder reflects any active session overrides.
+    const rule = effectiveSafeguardRules[ruleIdx]
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
     // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
     const ordinal = ruleIdx + 1
     if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
-  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
+  }, [effectiveSafeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
@@ -6311,7 +6312,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // SafeguardChipsPanel — shown in place of RecipeChipsPanel when builderMode === 'safeguard'.
   const safeguardChipsPanelElement = (
     <SafeguardChipsPanel
-      rules={safeguardRules}
+      rules={effectiveSafeguardRules as SafeguardRule[]}
       selectedRuleIdx={selectedSafeguardRuleIdx}
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next) => applySafeguardRulesChange(next)}
