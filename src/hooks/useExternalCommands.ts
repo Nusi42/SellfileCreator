@@ -216,7 +216,12 @@ export function useExternalCommands({
                   bytes,
                   contentType: meta.contentType ?? null,
                 })
-              }).catch(() => {})
+              }).catch(() => {
+                // If arrayBuffer() throws, pendingBinaryMetaRef stays non-null and
+                // blocks all subsequent binary transfers until the socket reconnects.
+                // Clear it so the next binary frame can pair with its own metadata.
+                pendingBinaryMetaRef.current = null
+              })
               return
             }
             raw.text().then((text) => {

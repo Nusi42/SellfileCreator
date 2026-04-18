@@ -230,7 +230,10 @@ const ensureWasmInitialized = async (): Promise<void> => {
 // V8/Windows rejects small incremental memory.grow calls under address-space
 // pressure → Rust OOM abort → STATUS_BREAKPOINT with no JS-visible error.
 // 256 MiB is enough headroom for ~45k merged rules + 8k artifacts + safeguards.
-const PRE_GROW_TARGET_BYTES = 256 * 1024 * 1024
+// Exported so useRuleCacheWorker can set its restart threshold above this level —
+// a normal pipeline always reports ~256 MiB (from the pre-grow); a threshold below
+// that causes the worker to cycle after every single pipeline instead of every N.
+export const PRE_GROW_TARGET_BYTES = 256 * 1024 * 1024
 
 // Warmup helper allows callers with async control flow to preload the wasm
 // module so later sync helpers (e.g., obsolete pruning) can run in-process.
