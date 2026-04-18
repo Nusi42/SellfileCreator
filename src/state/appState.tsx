@@ -38,8 +38,8 @@ type AppState = {
   sfcNote: string | null
   // Session-only recipeOverrides answers keyed by question ID.
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
-  // Session-only flag to ignore recipe overrides prompts.
-  noteRecipeOverridesDisabled: boolean
+  // Session-only flag to disable all dynamic overrides (recipe + safeguard) prompts.
+  noteOverridesDisabled: boolean
   // Session-only safeguard-overrides answers keyed by question ID (slider values + checkbox states).
   noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
 }
@@ -58,7 +58,7 @@ type Action =
   | { type: 'setSelectedRecipeIdx'; value: Updater<number | null> }
   | { type: 'setSfcNote'; value: Updater<string | null> }
   | { type: 'setNoteRecipeOverridesAnswers'; value: Updater<NoteRecipeOverridesAnswers> }
-  | { type: 'setNoteRecipeOverridesDisabled'; value: Updater<boolean> }
+  | { type: 'setNoteOverridesDisabled'; value: Updater<boolean> }
   | { type: 'setNoteSafeguardOverridesAnswers'; value: Updater<NoteSafeguardOverridesAnswers> }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -120,11 +120,11 @@ function reducer(state: AppState, action: Action): AppState {
         : action.value
       return { ...state, noteRecipeOverridesAnswers: next }
     }
-    case 'setNoteRecipeOverridesDisabled': {
+    case 'setNoteOverridesDisabled': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: boolean) => boolean)(state.noteRecipeOverridesDisabled)
+        ? (action.value as (p: boolean) => boolean)(state.noteOverridesDisabled)
         : Boolean(action.value)
-      return { ...state, noteRecipeOverridesDisabled: next }
+      return { ...state, noteOverridesDisabled: next }
     }
     case 'setNoteSafeguardOverridesAnswers': {
       const next = typeof action.value === 'function'
@@ -148,7 +148,7 @@ type AppDispatchers = {
   setSelectedRecipeIdx: (v: Updater<number | null>) => void
   setSfcNote: (v: Updater<string | null>) => void
   setNoteRecipeOverridesAnswers: (v: Updater<NoteRecipeOverridesAnswers>) => void
-  setNoteRecipeOverridesDisabled: (v: Updater<boolean>) => void
+  setNoteOverridesDisabled: (v: Updater<boolean>) => void
   setNoteSafeguardOverridesAnswers: (v: Updater<NoteSafeguardOverridesAnswers>) => void
 }
 
@@ -170,7 +170,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setSelectedRecipeIdx: (v) => dispatch({ type: 'setSelectedRecipeIdx', value: v }),
     setSfcNote: (v) => dispatch({ type: 'setSfcNote', value: v }),
     setNoteRecipeOverridesAnswers: (v) => dispatch({ type: 'setNoteRecipeOverridesAnswers', value: v }),
-    setNoteRecipeOverridesDisabled: (v) => dispatch({ type: 'setNoteRecipeOverridesDisabled', value: v }),
+    setNoteOverridesDisabled: (v) => dispatch({ type: 'setNoteOverridesDisabled', value: v }),
     setNoteSafeguardOverridesAnswers: (v) => dispatch({ type: 'setNoteSafeguardOverridesAnswers', value: v }),
   }), [])
 
@@ -208,8 +208,8 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     sfcNote: null,
     // Recipe overrides answers are stored only in autosave/session state.
     noteRecipeOverridesAnswers: {},
-    // Recipe overrides are enabled by default when a note includes markers.
-    noteRecipeOverridesDisabled: false,
+    // Dynamic overrides are enabled by default when a note includes markers.
+    noteOverridesDisabled: false,
     // Safeguard overrides answers: stored only in session; cleared on note change.
     noteSafeguardOverridesAnswers: {},
     ...rest,

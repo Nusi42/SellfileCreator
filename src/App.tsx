@@ -328,7 +328,7 @@ import {
   applyRecipeOverridesSubstatTargetsOverrides,
   buildRecipeOverridesExportModeResolution,
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
-  NOTE_RECIPE_OVERRIDES_DISABLED_KEY,
+  NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
   pruneNoteRecipeOverridesAnswers,
   resolveRecipeOverridesExportMode,
   resolveRecipeOverridesEffectiveRecipe,
@@ -438,7 +438,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     sfcNote,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     noteSafeguardOverridesAnswers,
     safeguardRules,
     safeguardsEnabled,
@@ -455,7 +455,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLogicHubDialogTab,
     setSfcNote,
     setNoteRecipeOverridesAnswers,
-    setNoteRecipeOverridesDisabled,
+    setNoteOverridesDisabled,
     setNoteSafeguardOverridesAnswers,
     setSafeguardRules,
     setSafeguardsEnabled,
@@ -479,7 +479,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Normalize the note text so recipe overrides parsing never sees null.
-  const recipeOverridesNoteText = (!noteRecipeOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
+  const recipeOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
   // Resolve recipe overrides tag actions based on the current note + answers.
   const recipeOverridesResolution = useMemo(
     () => resolveRecipeOverridesTags(recipeOverridesNoteText, noteRecipeOverridesAnswers),
@@ -1089,7 +1089,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Ref-shadowed so launchPipeline can include recipe overrides in the cache key without adding
   // them to the effect dep array — the effect already re-runs via ruleRecipes/recipeModes changes.
   const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
-  const noteRecipeOverridesDisabledRef = useRef(noteRecipeOverridesDisabled)
+  const noteOverridesDisabledRef = useRef(noteOverridesDisabled)
   // Ref-shadowed so launchPipeline can include safeguard overrides in the cache key without adding
   // them to the dep array — changes re-run the effect via effectiveSafeguardRules dependency.
   const noteSafeguardOverridesAnswersRef = useRef(noteSafeguardOverridesAnswers)
@@ -1244,7 +1244,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const currentSig = currentEntrySignatureRef.current
       // Snapshot at launch time so the key is stable for the lifetime of this pipeline call.
       const artifactCacheVersion = artifactCacheVersionRef.current
-      const overridesKey = noteRecipeOverridesDisabledRef.current
+      const overridesKey = noteOverridesDisabledRef.current
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
       const sgOverridesKey = JSON.stringify(noteSafeguardOverridesAnswersRef.current)
@@ -1849,7 +1849,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
   // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
   useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
-  useEffect(() => { noteRecipeOverridesDisabledRef.current = noteRecipeOverridesDisabled }, [noteRecipeOverridesDisabled])
+  useEffect(() => { noteOverridesDisabledRef.current = noteOverridesDisabled }, [noteOverridesDisabled])
   // Keep safeguard overrides ref in sync so the debounced cache key uses up-to-date values.
   useEffect(() => { noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers }, [noteSafeguardOverridesAnswers])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
@@ -3780,7 +3780,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedRecipeIndex: selectedRecipeIdx,
     note: sfcNote,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     filters: autosaveFiltersState,
     gearInspectorSort: gearInspectorSubstatSortPrefs.state,
     safeguardRules,
@@ -4587,14 +4587,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? noteRecipeOverridesAnswers
       : null
     // Persist recipe overrides disabled flag only when turned off.
-    const recipeOverridesDisabledPayload = noteRecipeOverridesDisabled ? true : null
+    const overridesDisabledPayload = noteOverridesDisabled ? true : null
     return {
       ...basePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(recipeOverridesPayload ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeOverridesPayload } : {}),
-      ...(recipeOverridesDisabledPayload ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
+      ...(overridesDisabledPayload ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(gearInspectorSortPayload ? { GearInspectorSort: gearInspectorSortPayload } : {}),
       // Capture current selections so they can be restored alongside their content.
@@ -4609,7 +4609,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     metasets,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     safeguardRules,
     recipesEnabled,
     safeguardsEnabled,
@@ -4634,7 +4634,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     safeguardsGridFilterMode,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     gearInspectorSort: gearInspectorSubstatSortPrefs.state,
   }), [
     autosaveFiltersState,
@@ -4643,7 +4643,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     metasets,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     safeguardRules,
     safeguardsEnabled,
     safeguardsGridFilterMode,
@@ -6492,7 +6492,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Non-history state — not part of the signature, safe outside the transition.
     setNoteRecipeOverridesAnswers({})
     // SFC files never store the disabled flag, so re-enable parsing.
-    setNoteRecipeOverridesDisabled(false)
+    setNoteOverridesDisabled(false)
     // Safeguard overrides answers are session-only; clear on every SFC load.
     setNoteSafeguardOverridesAnswers({})
 
@@ -6564,7 +6564,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLastExportSig,
     setMetasets,
     setNoteRecipeOverridesAnswers,
-    setNoteRecipeOverridesDisabled,
+    setNoteOverridesDisabled,
     setNoteSafeguardOverridesAnswers,
     substatTargets,
     syncSelectedRecipeIdx,
@@ -6712,7 +6712,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       // Shift-load note import still resets recipe-overrides answers to canonical defaults.
       setNoteRecipeOverridesAnswers({})
-      setNoteRecipeOverridesDisabled(false)
+      setNoteOverridesDisabled(false)
       // Safeguard overrides answers are session-only; clear on shift-load too.
       setNoteSafeguardOverridesAnswers({})
     }
@@ -6774,7 +6774,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasets,
     setNoteAutoOpenedFromSfc,
     setNoteRecipeOverridesAnswers,
-    setNoteRecipeOverridesDisabled,
+    setNoteOverridesDisabled,
     setNoteSafeguardOverridesAnswers,
     setPendingSfcLoadImport,
     setSafeguardRules,
@@ -8047,8 +8047,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onRequestView={openNoteViewerManual}
           recipeOverridesAnswers={noteRecipeOverridesAnswers}
           onRecipeOverridesAnswersChange={setNoteRecipeOverridesAnswers}
-          recipeOverridesDisabled={noteRecipeOverridesDisabled}
-          onRecipeOverridesDisabledChange={setNoteRecipeOverridesDisabled}
+          noteOverridesDisabled={noteOverridesDisabled}
+          onNoteOverridesDisabledChange={setNoteOverridesDisabled}
           // Apply recipe overrides instructions to stored recipes when requested by the note dialog.
           onApplyRecipeOverrides={applyRecipeOverridesToRecipes}
           // Safeguard overrides answers are session-only; changes update app state directly.
@@ -8218,7 +8218,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
                 const restoredAnswers = draft.NoteRecipeOverridesAnswers ?? {}
                 setNoteRecipeOverridesAnswers(pruneNoteRecipeOverridesAnswers(restoredNote, restoredAnswers))
-                setNoteRecipeOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
+                setNoteOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
               }
               if (selection.filters) {
                 // Restore view/filter state when the draft has changed filter content.

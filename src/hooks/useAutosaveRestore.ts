@@ -31,7 +31,7 @@ import type { SafeguardRule } from '../lib/safeguards'
 import { sanitizeSafeguardsGridFilterMode, type SafeguardsGridFilterMode } from '../state/safeguardsPreferences'
 import {
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
-  NOTE_RECIPE_OVERRIDES_DISABLED_KEY,
+  NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
   normalizeNoteRecipeOverridesAnswers,
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
@@ -385,13 +385,13 @@ function computeInitialAutosaveState(args: {
           ? payloadRecord[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]
           : null,
       )
-      const savedRecipeOverridesDisabled = payloadRecord
-        ? payloadRecord[NOTE_RECIPE_OVERRIDES_DISABLED_KEY] === true
+      const savedOverridesDisabled = payloadRecord
+        ? payloadRecord[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] === true
         : false
       // Consider either the note or recipe overrides answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
         || (savedRecipeOverridesAnswers && Object.keys(savedRecipeOverridesAnswers).length > 0)
-        || savedRecipeOverridesDisabled
+        || savedOverridesDisabled
       const payloadRecordForGridMode = entry.payload && typeof entry.payload === 'object'
         ? (entry.payload as Record<string, unknown>)
         : null
@@ -446,7 +446,7 @@ function computeInitialAutosaveState(args: {
             ...(savedSgSelIdx != null ? { SelectedSafeguardRuleIdx: savedSgSelIdx } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
-            ...(savedRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
+            ...(savedOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(savedGearInspectorSort ? { GearInspectorSort: savedGearInspectorSort } : {}),
@@ -479,7 +479,7 @@ export function useAutosaveRestore(opts: {
   selectedRecipeIndex: number | null
   note: string | null
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
-  noteRecipeOverridesDisabled: boolean
+  noteOverridesDisabled: boolean
   filters: AutosaveFiltersState
   gearInspectorSort: GearInspectorSubstatSortState
   safeguardRules: SafeguardRule[]
@@ -499,7 +499,7 @@ export function useAutosaveRestore(opts: {
     selectedRecipeIndex: _selectedRecipeIndex,
     note,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     filters,
     gearInspectorSort,
     safeguardRules,
@@ -557,7 +557,7 @@ export function useAutosaveRestore(opts: {
       ...(Object.keys(noteRecipeOverridesAnswers).length > 0
         ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: noteRecipeOverridesAnswers }
         : {}),
-      ...(noteRecipeOverridesDisabled ? { [NOTE_RECIPE_OVERRIDES_DISABLED_KEY]: true } : {}),
+      ...(noteOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
       ...(gearInspectorSortForSnapshot ? { GearInspectorSort: gearInspectorSortForSnapshot } : {}),
     }
@@ -570,7 +570,7 @@ export function useAutosaveRestore(opts: {
     finalSellRemainder,
     note,
     noteRecipeOverridesAnswers,
-    noteRecipeOverridesDisabled,
+    noteOverridesDisabled,
     filters,
     gearInspectorSort,
     safeguardRules,

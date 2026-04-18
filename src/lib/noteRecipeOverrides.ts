@@ -202,8 +202,9 @@ export type NoteQuestionDefinition = {
 
 // Autosave key for storing recipe overrides answers (session-only).
 export const NOTE_RECIPE_OVERRIDES_ANSWERS_KEY = 'NoteRecipeOverridesAnswers'
-// Autosave key for disabling recipe overrides parsing (session-only).
-export const NOTE_RECIPE_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
+// Autosave key for disabling dynamic overrides (recipe + safeguard) parsing (session-only).
+// Value kept as-is for backward-compatible autosave restore.
+export const NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
 // Marker keyword for recipe overrides in note comments.
 export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD = 'recipe-overrides'
 // Keep parsing the legacy marker silently for backward compatibility.

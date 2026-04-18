@@ -652,7 +652,7 @@ type NoteRenderContextValue = {
   safeguardMarkerResolutions: SafeguardMarkerMap
   recipeOverridesResolutions: Map<number, NoteQuestionDefinition>
   recipeOverridesEditable: boolean
-  recipeOverridesDisabled: boolean
+  noteOverridesDisabled: boolean
   onRecipeOverridesAnswerChange: (
     question: NoteQuestionDefinition,
     nextAnswer: string[],
@@ -1933,7 +1933,7 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull recipe overrides wiring from context.
-  const { recipeOverridesResolutions, recipeOverridesEditable, recipeOverridesDisabled, onRecipeOverridesAnswerChange } = useNoteRenderContext()
+  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -2035,7 +2035,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
       maxWidth: cols * maxWidth + gapPx,
     }
     : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
-  const cardOpacity = recipeOverridesDisabled ? 0.55 : 1
+  const cardOpacity = noteOverridesDisabled ? 0.55 : 1
   // Build per-option row styling so alignment can differ per label presence.
   const buildOptionRowSx = (): Record<string, unknown> => {
     if (isHorizontal) {
@@ -2237,7 +2237,7 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 type NoteSafeguardOverridesBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps): JSX.Element | null {
-  const { safeguardOverridesResolutions, safeguardOverridesEditable, onSafeguardOverridesAnswerChange } = useNoteRenderContext()
+  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange } = useNoteRenderContext()
   const theme = useTheme()
   const rawIndexAttr = coerceFirstString(node?.properties?.[SG_QUESTION_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
@@ -2290,6 +2290,8 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   const optionGroupSx = isHorizontal
     ? buildNoteQuestionOptionGridSx(minWidth, 0, 'center')
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
+  // Dim the card when dynamic overrides are disabled, matching the recipe overrides card behaviour.
+  const cardOpacity = noteOverridesDisabled ? 0.55 : 1
   return (
     <Box
       sx={{
@@ -2299,6 +2301,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
         borderColor: 'divider',
         p: NOTE_QUESTION_CARD_PADDING,
         bgcolor: 'background.paper',
+        opacity: cardOpacity,
       }}
     >
       <Stack spacing={0}>
@@ -2974,8 +2977,8 @@ export default function NoteDialog({
   onRequestView,
   recipeOverridesAnswers,
   onRecipeOverridesAnswersChange,
-  recipeOverridesDisabled,
-  onRecipeOverridesDisabledChange,
+  noteOverridesDisabled,
+  onNoteOverridesDisabledChange,
   onApplyRecipeOverrides,
   safeguardOverridesAnswers,
   onSafeguardOverridesAnswersChange,
@@ -3000,8 +3003,8 @@ export default function NoteDialog({
   onRequestView: () => void
   recipeOverridesAnswers: NoteRecipeOverridesAnswers
   onRecipeOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteRecipeOverridesAnswers>>
-  recipeOverridesDisabled: boolean
-  onRecipeOverridesDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
+  noteOverridesDisabled: boolean
+  onNoteOverridesDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
   // Optional callback for applying the current recipe overrides to stored recipes.
   onApplyRecipeOverrides: (instructions: RecipeOverridesInstructions) => void
   // Safeguard overrides: stored answers and change notifications.
@@ -3077,13 +3080,13 @@ export default function NoteDialog({
   // Safeguard overrides answers (sliders, radios) are reset alongside recipe overrides
   // so all question controls return to their default positions.
   const handleResetRecipeOverridesAnswers = React.useCallback(() => {
-    onRecipeOverridesDisabledChange(false)
+    onNoteOverridesDisabledChange(false)
     onRecipeOverridesAnswersChange(() => ({}))
     onSafeguardOverridesAnswersChange(() => ({}))
-  }, [onRecipeOverridesAnswersChange, onRecipeOverridesDisabledChange, onSafeguardOverridesAnswersChange])
+  }, [onRecipeOverridesAnswersChange, onNoteOverridesDisabledChange, onSafeguardOverridesAnswersChange])
   const handleEnableRecipeOverrides = React.useCallback(() => {
-    onRecipeOverridesDisabledChange(false)
-  }, [onRecipeOverridesDisabledChange])
+    onNoteOverridesDisabledChange(false)
+  }, [onNoteOverridesDisabledChange])
   // Anchor the recipe overrides action menu in view mode.
   const [viewRecipeOverridesMenuAnchor, setViewRecipeOverridesMenuAnchor] = useState<HTMLElement | null>(null)
   // Flag whether the view-mode recipe overrides menu is open.
@@ -3144,14 +3147,14 @@ export default function NoteDialog({
       onApplyRecipeOverrides(resolution.instructions)
     }
     // Disable recipe overrides parsing so markers are ignored.
-    onRecipeOverridesDisabledChange(true)
+    onNoteOverridesDisabledChange(true)
     // Close the confirm dialog after applying changes.
     setDisableRecipeOverridesContext(null)
   }, [
     recipeOverridesAnswers,
     disableRecipeOverridesContext,
     onApplyRecipeOverrides,
-    onRecipeOverridesDisabledChange,
+    onNoteOverridesDisabledChange,
   ])
   const handleRecipeOverridesAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
@@ -3271,11 +3274,11 @@ export default function NoteDialog({
       safeguardRules,
       safeguardMarkerResolutions,
       recipeOverridesResolutions,
-      recipeOverridesEditable: mode === 'view' && !recipeOverridesDisabled,
-      recipeOverridesDisabled,
+      recipeOverridesEditable: mode === 'view' && !noteOverridesDisabled,
+      noteOverridesDisabled,
       onRecipeOverridesAnswerChange: handleRecipeOverridesAnswerChange,
       safeguardOverridesResolutions,
-      safeguardOverridesEditable: mode === 'view',
+      safeguardOverridesEditable: mode === 'view' && !noteOverridesDisabled,
       onSafeguardOverridesAnswerChange: handleSafeguardOverridesAnswerChange,
       // Forwarded to DungeonSimulatorNoteBlock via context.
       rules,
@@ -3291,7 +3294,7 @@ export default function NoteDialog({
       safeguardRules,
       safeguardMarkerResolutions,
       recipeOverridesResolutions,
-      recipeOverridesDisabled,
+      noteOverridesDisabled,
       mode,
       handleRecipeOverridesAnswerChange,
       safeguardOverridesResolutions,
@@ -3513,7 +3516,7 @@ export default function NoteDialog({
                         aria-controls={viewRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-view' : undefined}
                         aria-expanded={viewRecipeOverridesMenuOpen ? 'true' : undefined}
                       >
-                        {t('noteRecipeOverridesMenu')}
+                        {t('noteDynamicOverridesMenu')}
                       </Button>
                       <Menu
                         id="note-recipe-overrides-menu-view"
@@ -3528,18 +3531,18 @@ export default function NoteDialog({
                             queueViewRecipeOverridesMenuAction({ kind: 'reset' })
                           }}
                         >
-                          {t('noteRecipeOverridesResetDefaults')}
+                          {t('noteDynamicOverridesResetDefaults')}
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
                             queueViewRecipeOverridesMenuAction(
-                              recipeOverridesDisabled
+                              noteOverridesDisabled
                                 ? { kind: 'enable' }
                                 : { kind: 'disable', noteText: note ?? '' },
                             )
                           }}
                         >
-                          {recipeOverridesDisabled ? t('noteRecipeOverridesEnable') : t('noteRecipeOverridesDisable')}
+                          {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
                         </MenuItem>
                       </Menu>
                     </>
@@ -3562,8 +3565,8 @@ export default function NoteDialog({
             onRequestView={onRequestView}
             onResetRecipeOverridesAnswers={handleResetRecipeOverridesAnswers}
             onOpenDisableRecipeOverridesDialog={openDisableRecipeOverridesDialog}
-            recipeOverridesDisabled={recipeOverridesDisabled}
-            onRecipeOverridesDisabledChange={onRecipeOverridesDisabledChange}
+            noteOverridesDisabled={noteOverridesDisabled}
+            onNoteOverridesDisabledChange={onNoteOverridesDisabledChange}
             recipes={recipes}
             metasets={metasets}
             safeguardRules={safeguardRules}
@@ -3576,18 +3579,18 @@ export default function NoteDialog({
         )}
       </Dialog>
       <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog}>
-        <DialogTitle>{t('noteRecipeOverridesDisableConfirmTitle')}</DialogTitle>
+        <DialogTitle>{t('noteDynamicOverridesDisableConfirmTitle')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('noteRecipeOverridesDisableConfirmBody')}</Typography>
+          <Typography variant="body2">{t('noteDynamicOverridesDisableConfirmBody')}</Typography>
         </DialogContent>
         <DialogActions>
           {/* Use uniform styling so color does not imply priority. */}
           <Button {...disableConfirmButtonProps} onClick={closeDisableRecipeOverridesDialog}>{t('cancel')}</Button>
           <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(false)}>
-            {t('noteRecipeOverridesDisableConfirmDisable')}
+            {t('noteDynamicOverridesDisableConfirmDisable')}
           </Button>
           <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(true)}>
-            {t('noteRecipeOverridesDisableConfirmApply')}
+            {t('noteDynamicOverridesDisableConfirmApply')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3606,8 +3609,8 @@ function NoteEditorContent({
   onRequestView,
   onResetRecipeOverridesAnswers,
   onOpenDisableRecipeOverridesDialog,
-  recipeOverridesDisabled,
-  onRecipeOverridesDisabledChange,
+  noteOverridesDisabled,
+  onNoteOverridesDisabledChange,
   recipes,
   metasets,
   safeguardRules,
@@ -3630,8 +3633,8 @@ function NoteEditorContent({
   // Open the disable-confirm dialog with a draft update hook.
   onOpenDisableRecipeOverridesDialog: (noteText: string) => void
   // Disable recipe overrides parsing without editing the note text.
-  recipeOverridesDisabled: boolean
-  onRecipeOverridesDisabledChange: (next: boolean) => void
+  noteOverridesDisabled: boolean
+  onNoteOverridesDisabledChange: (next: boolean) => void
   recipes: BuilderRecipe[]
   metasets: Metaset[]
   safeguardRules: SafeguardRule[]
@@ -3741,12 +3744,12 @@ function NoteEditorContent({
   const hasRecipeOverridesMarkers = recipeOverridesSignature !== '[]'
   // Reset answers without mutating the draft text.
   const handleResetRecipeOverrides = React.useCallback(() => {
-    onRecipeOverridesDisabledChange(false)
+    onNoteOverridesDisabledChange(false)
     onResetRecipeOverridesAnswers()
-  }, [onRecipeOverridesDisabledChange, onResetRecipeOverridesAnswers])
+  }, [onNoteOverridesDisabledChange, onResetRecipeOverridesAnswers])
   const handleEnableRecipeOverrides = React.useCallback(() => {
-    onRecipeOverridesDisabledChange(false)
-  }, [onRecipeOverridesDisabledChange])
+    onNoteOverridesDisabledChange(false)
+  }, [onNoteOverridesDisabledChange])
   // Apply the queued edit-mode action after the menu finishes closing.
   const handleEditRecipeOverridesMenuExited = React.useCallback(() => {
     // Run the action only once when the menu has fully unmounted.
@@ -4288,7 +4291,7 @@ function NoteEditorContent({
               invisible={!recipeOverridesChanged}
               sx={warningBadgeSx}
               badgeContent={renderWarningBadgeContent(
-                t('noteRecipeOverridesChangedTooltip'),
+                t('noteDynamicOverridesChangedTooltip'),
                 !recipeOverridesChanged,
               )}
             >
@@ -4317,7 +4320,7 @@ function NoteEditorContent({
                 aria-controls={editRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-edit' : undefined}
                 aria-expanded={editRecipeOverridesMenuOpen ? 'true' : undefined}
               >
-                {t('noteRecipeOverridesMenu')}
+                {t('noteDynamicOverridesMenu')}
               </Button>
               <Menu
                 id="note-recipe-overrides-menu-edit"
@@ -4332,18 +4335,18 @@ function NoteEditorContent({
                     queueEditRecipeOverridesMenuAction({ kind: 'reset' })
                   }}
                 >
-                  {t('noteRecipeOverridesResetDefaults')}
+                  {t('noteDynamicOverridesResetDefaults')}
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
                     queueEditRecipeOverridesMenuAction(
-                      recipeOverridesDisabled
+                      noteOverridesDisabled
                         ? { kind: 'enable' }
                         : { kind: 'disable', noteText: draft ?? '' },
                     )
                   }}
                 >
-                  {recipeOverridesDisabled ? t('noteRecipeOverridesEnable') : t('noteRecipeOverridesDisable')}
+                  {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
                 </MenuItem>
               </Menu>
             </>
