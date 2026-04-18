@@ -945,16 +945,26 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
 /**
  * normalizeSafeguardSubstatDependents
  *
- * Clears improvement-chance, substat-match, and substat-weights when a rule has no
- * substats. This is the SSOT post-parse gate called by normalizeSafeguardRule
- * (covering all load paths) and re-used by the multi-edit apply pipeline in
- * safeguardMultiEditDraft.ts.
+ * Post-parse gate called by normalizeSafeguardRule (covering all load paths) and
+ * re-used by the multi-edit apply pipeline in safeguardMultiEditDraft.ts.
+ * - Zero substats: clears improvement-chance, substat-match, and substat-weights.
+ * - One substat: coerces Min2–Min4 to Min1 (impossible thresholds for a single substat).
  */
 export function normalizeSafeguardSubstatDependents(rule: SafeguardRule): SafeguardRule {
   const substats = rule.substats ?? []
-  // Nothing to do when substats are present — dependent fields are already valid.
-  if (substats.length > 0) return rule
   let next = rule
+
+  // With exactly one substat, Min2/Min3/Min4 can never be satisfied — coerce to Min1.
+  if (substats.length === 1) {
+    const m = next.substatMatch
+    if (m === SafeguardSubstatMatch.Min2 || m === SafeguardSubstatMatch.Min3 || m === SafeguardSubstatMatch.Min4) {
+      next = { ...next, substatMatch: SafeguardSubstatMatch.Min1 }
+    }
+    return next
+  }
+
+  // Nothing to do when multiple substats are present — dependent fields are already valid.
+  if (substats.length > 1) return next
   // Improvement-chance requires at least one substat to be meaningful.
   if (next.improvementChanceThreshold !== SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD) {
     next = { ...next, improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD }
