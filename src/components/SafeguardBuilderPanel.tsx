@@ -727,6 +727,7 @@ export default function SafeguardBuilderPanel({
   )
 
   // Renders a warning "!" badge absolutely positioned inside its relative-positioned parent.
+  // zIndex: 2 ensures the badge paints above sibling stacking contexts (e.g. MUI TextField).
   const renderSafeguardOverrideBadge = React.useCallback((tooltip: string) => (
     <MarkdownTooltip markdown={tooltip}>
       <Box
@@ -736,6 +737,7 @@ export default function SafeguardBuilderPanel({
           top: -6,
           left: '50%',
           transform: 'translate(-50%, -50%)',
+          zIndex: 2,
           ...buildWarningBadgeBase(theme),
         })}
       >
@@ -753,8 +755,11 @@ export default function SafeguardBuilderPanel({
     overrideBadge?: React.ReactNode,
   ) => (
     <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
-      {/* position:relative enables the absolute-positioned override badge to sit on the chip. */}
-      <span style={{ position: 'relative', display: 'inline-block' }}>
+      {/* position:relative enables the absolute-positioned override badge to sit on the chip.
+          alignSelf:flex-start prevents the span from stretching to full container width when
+          it is a direct child of a column-flex container — without it, left:'50%' on the badge
+          would be 50% of the whole column rather than 50% of the chip. */}
+      <span style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}>
         <KeepOverrideScopeChip
           scope={scope}
           label={label}
@@ -1210,7 +1215,10 @@ export default function SafeguardBuilderPanel({
             visual center aligns with the label — matching the recipe builder's action subgroup.
             The header row uses zIndex:1 to stay interactive on top of the bleed. */}
         <Collapse in={!builderCollapsed.action} timeout="auto" unmountOnExit>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflow: 'hidden', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
+        {/* overflowX:'clip' prevents horizontal layout bleed while leaving overflowY:'visible' so
+            absolutely-positioned override badges (top:-6) are not clipped by this flex row.
+            Using 'clip' (not 'hidden') avoids the CSS forced-auto promotion of overflow-y. */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflowX: 'clip', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
         {/* Mode toggle — label moved to header row above */}
         <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
 
@@ -2051,7 +2059,8 @@ export default function SafeguardBuilderPanel({
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
         {/* mt: 0.75 provides the same 6px spacing that the outer Box gap used to supply, but only
             while the Collapse is mounted — preventing phantom height when the section is collapsed. */}
-        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap', overflow: 'hidden', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
+        {/* Same overflowX:'clip' trick as the mode row — allows badge protrusion while clipping horizontal */}
+        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'nowrap', overflowX: 'clip', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX }}>
           {/* Min-count chips (≥1–≥4) + Per Substat chip + weights button.
               Clicking a count chip sets substatMatch to the corresponding threshold.
               Chips above the current substat selection count are disabled (can't be met).
