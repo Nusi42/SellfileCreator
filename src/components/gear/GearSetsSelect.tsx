@@ -678,11 +678,9 @@ export default function GearSetsSelect({
                             </Box>
                           </EllipsisTooltip>
                           {setNames.length > 0 ? (
-                            <EllipsisTooltip title={joined} wrap="block">
-                              <Box component="span" data-ellipsis-target sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
-                                {joined}
-                              </Box>
-                            </EllipsisTooltip>
+                            <Box component="span" sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}>
+                              {joined}
+                            </Box>
                           ) : null}
                         </Box>
                       </MenuItem>

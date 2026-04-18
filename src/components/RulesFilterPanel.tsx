@@ -2171,15 +2171,12 @@ function RulesFilterPanel({
                                 </Box>
                               </EllipsisTooltip>
                               {setNames.length > 0 && (
-                                <EllipsisTooltip title={joined} wrap="block">
-                                  <Typography
-                                    variant="caption"
-                                    data-ellipsis-target
-                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                                  >
-                                    {joined}
-                                  </Typography>
-                                </EllipsisTooltip>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}
+                                >
+                                  {joined}
+                                </Typography>
                               )}
                               </Box>
                             </MenuItem>

@@ -6882,18 +6882,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInRecipes', { n: usedMeta })}</Typography>
                                     </Box>
                                     {setNames.length > 0 && (
-                                      <EllipsisTooltip
-                                        title={joined}
-                                        selector=".MuiTypography-caption"
-                                        wrap="block"
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}
                                       >
-                                        <Typography
-                                          variant="caption"
-                                          sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                                        >
-                                          {joined}
-                                        </Typography>
-                                      </EllipsisTooltip>
+                                        {joined}
+                                      </Typography>
                                     )}
                                   </Box>
                                 </MenuItem>
