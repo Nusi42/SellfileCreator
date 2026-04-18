@@ -846,7 +846,7 @@ export default function SafeguardChipsPanel({
       <RecipeContextMenu
         open={Boolean(ruleMenu)}
         anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
-        onClose={() => setRuleMenu(null)}
+        onClose={() => { setRuleMenu(null); onHighlightDelete?.(false) }}
         paperRef={ruleMenuRef}
         paperDataTourId="keepuniques.rule-menu"
         onPaperContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
