@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import type { JSX } from 'react'
-import { Box, IconButton, Typography } from '@mui/material'
+import { Box, Chip, IconButton, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -158,6 +158,7 @@ interface RecipeChipProps {
   isDuplicate?: boolean
   duplicateOfIndex?: number
   onContextMenuHintSeen?: () => void
+  showTagsChips?: boolean
 }
 
 function RecipeChip({
@@ -199,6 +200,7 @@ function RecipeChip({
   isDuplicate,
   duplicateOfIndex,
   onContextMenuHintSeen,
+  showTagsChips,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
@@ -480,6 +482,17 @@ function RecipeChip({
           </Box>
         </Typography>
       )}
+      {/* Inline tag chips — mirrors SafeguardChipsPanel tag display, shown when preference is on. */}
+      {!isSeparator && showTagsChips && recipe.tags && recipe.tags.length > 0 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
+          {recipe.tags.slice(0, 3).map((tag) => (
+            <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
+          ))}
+          {recipe.tags.length > 3 ? (
+            <Chip size="small" label={`+${recipe.tags.length - 3}`} sx={{ height: 16, fontSize: '0.65rem', opacity: 0.7, '& .MuiChip-label': { px: 0.75 } }} />
+          ) : null}
+        </Box>
+      ) : null}
       {!isSeparator ? (
         <>
           <MarkdownTooltip
@@ -652,6 +665,7 @@ function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly
     && prev.onApplyAsSafeguard === next.onApplyAsSafeguard
     && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPasteAtEnd === next.onPasteAtEnd
+    && prev.showTagsChips === next.showTagsChips
 }
 
 export default memo(RecipeChip, areRecipeChipPropsEqual)

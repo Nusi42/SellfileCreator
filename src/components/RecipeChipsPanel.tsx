@@ -18,6 +18,7 @@ import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
+import { useShowTagsChipsPreference } from '../state/builderPreferences'
 
 // Shared localStorage key suffix for the Recipe Chips context-menu hint.
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
@@ -84,6 +85,7 @@ function RecipeChipsPanel(props: {
 }) {
   const { t } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
+  const [showTagsChips] = useShowTagsChipsPreference()
   const {
     containerRef,
     recipes,
@@ -381,6 +383,7 @@ function RecipeChipsPanel(props: {
                 dragEnabled={dragEnabled}
                 {...(pointerHandlers ?? {})}
                 ghostedWhileDragging={ghostedWhileDragging}
+                showTagsChips={showTagsChips}
               />
             )
           })

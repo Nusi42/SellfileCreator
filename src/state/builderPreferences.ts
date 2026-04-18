@@ -112,8 +112,7 @@ const showTagsStore = createLocalStorageStore<boolean>({
   key: BUILDER_SHOW_TAG_CHIPS_KEY,
   // Default off to keep the header compact until users opt in.
   fallback: false,
-  // Parse boolean-ish strings to support legacy storage tweaks.
-  parse: (raw) => raw === 'true' || raw === '1',
+  parse: (raw) => raw === 'true',
   // Store as a compact string for parity with other toggles.
   serialize: (value) => String(value),
 })
