@@ -3017,10 +3017,13 @@ export default function SafeguardBuilderPanel({
               </Typography>
             </MarkdownTooltip>
             {substatSelection.map((variant) => {
-              // In multi-edit mode, read staged weight from draft; fall back to rule's weight.
+              // In multi-edit mode, read staged weight from draft; in single-edit use the effective
+              // (overridden) weights so the slider reflects what will actually be evaluated.
+              // effectiveRule equals the stored rule in multi-edit mode (empty instructions), so
+              // no extra guard is needed here — consistent with other override display variables.
               const stagedWeights = multiEditActive && multiSubstatWeightsField?.dirty
                 ? (multiSubstatWeightsField.value as Partial<Record<StatVariant, number>> ?? {})
-                : (rule?.substatWeights ?? {})
+                : (effectiveRule.substatWeights ?? {})
               // Flag when the weight for this substat differs across the selection (and not yet staged).
               const weightMixed = multiEditActive
                 && multiSubstatWeightsField?.status === 'mixed'
