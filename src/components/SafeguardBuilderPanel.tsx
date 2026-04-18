@@ -754,12 +754,11 @@ export default function SafeguardBuilderPanel({
     mixed = false,
     overrideBadge?: React.ReactNode,
   ) => (
-    <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
-      {/* position:relative enables the absolute-positioned override badge to sit on the chip.
-          alignSelf:flex-start prevents the span from stretching to full container width when
-          it is a direct child of a column-flex container — without it, left:'50%' on the badge
-          would be 50% of the whole column rather than 50% of the chip. */}
-      <span style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}>
+    // key on the outer span so React can reconcile multiple scope chips correctly.
+    // MarkdownTooltip wraps only the chip, not the badge — hovering the badge must not
+    // simultaneously trigger the chip's explanation tooltip.
+    <span key={scope} style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}>
+      <MarkdownTooltip markdown={safeguardScopeChipTooltips[scope]}>
         <KeepOverrideScopeChip
           scope={scope}
           label={label}
@@ -768,9 +767,9 @@ export default function SafeguardBuilderPanel({
           disabled={disabledOverride}
           onToggle={handleScopeChipToggle}
         />
-        {overrideBadge}
-      </span>
-    </MarkdownTooltip>
+      </MarkdownTooltip>
+      {overrideBadge}
+    </span>
   )
 
   const setRuleCombination = (updater: (combination: SafeguardRule['combination']) => SafeguardRule['combination']) => {
@@ -2065,9 +2064,12 @@ export default function SafeguardBuilderPanel({
               Clicking a count chip sets substatMatch to the corresponding threshold.
               Chips above the current substat selection count are disabled (can't be met).
               Per Substat applies the quota independently to each substat and closes weights. */}
+          {/* Outer Box: position:relative anchors the substatMatch badge; MarkdownTooltip is moved
+              inside to wrap only the chips so hovering either override badge does not
+              simultaneously trigger the hint tooltip. */}
+          <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
           <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
-            {/* position:relative enables the substatMatch override badge to float over the chips row. */}
-            <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
               {SAFEGUARD_SUBSTAT_MIN_COUNTS.map((count) => {
                 const countNum = parseInt(count, 10)
                 // Chip is active when it matches the current (non-mixed) display mode.
@@ -2135,56 +2137,57 @@ export default function SafeguardBuilderPanel({
                   } : {}),
                 }}
               />
-              {/* Override badge on substat match chips: shown when a safeguard-overrides block changes the match mode. */}
-              {substatMatchOverrideActive && renderSafeguardOverrideBadge(
-                buildSafeguardOverrideBadgeTooltip(
-                  substatMatchLabel(rule.substatMatch),
-                  substatMatchLabel(effectiveRule.substatMatch),
-                ),
-              )}
-              {/* Weights configure button — attaches flush to the right of the chip row */}
-              {/* Relative wrapper so the substat-weights override badge can float above the button. */}
-              <Box sx={{ position: 'relative' }}>
-                <IconButton
-                  size="small"
-                  aria-label={t('safeguardsSubstatWeightsLabel')}
-                  disabled={!hasSubstatSelection && !multiEditActive}
-                  onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
-                  sx={(theme) => {
-                    const canInteract = hasSubstatSelection || multiEditActive
-                    const chipEnabled = hasSubstatSelection
-                    const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
-                    const color = chipEnabled
-                      ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
-                      : theme.palette.text.disabled
-                    return {
-                      height: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                      minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                      width: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                      borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                      backgroundColor: bg,
-                      color: canInteract ? color : alpha(color, 0.45),
-                      '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
-                      '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
-                      ...(substatMatchMixed ? {
-                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        color: mixedTextColor,
-                      } : {}),
-                    }
-                  }}
-                >
-                  <TuneIcon sx={{ fontSize: 14 }} />
-                </IconButton>
-                {/* Override badge: shown when a safeguard-overrides block changes substat weights. */}
-                {substatWeightsOverrideActive && renderSafeguardOverrideBadge(
-                  buildSafeguardOverrideBadgeTooltip(
-                    weightsLabel(rule.substatWeights, sortSafeguardSubstats(rule.substats ?? [])),
-                    weightsLabel(effectiveRule.substatWeights, sortSafeguardSubstats(effectiveRule.substats ?? [])),
-                  ),
-                )}
-              </Box>
             </Box>
           </MarkdownTooltip>
+          {/* Override badge on substat match chips: outside MarkdownTooltip so it has its own tooltip. */}
+          {substatMatchOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              substatMatchLabel(rule.substatMatch),
+              substatMatchLabel(effectiveRule.substatMatch),
+            ),
+          )}
+          {/* Weights configure button — attaches flush to the right of the chip row */}
+          {/* Relative wrapper so the substat-weights override badge can float above the button. */}
+          <Box sx={{ position: 'relative' }}>
+            <IconButton
+              size="small"
+              aria-label={t('safeguardsSubstatWeightsLabel')}
+              disabled={!hasSubstatSelection && !multiEditActive}
+              onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+              sx={(theme) => {
+                const canInteract = hasSubstatSelection || multiEditActive
+                const chipEnabled = hasSubstatSelection
+                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const color = chipEnabled
+                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                  : theme.palette.text.disabled
+                return {
+                  height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                  borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                  backgroundColor: bg,
+                  color: canInteract ? color : alpha(color, 0.45),
+                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                  ...(substatMatchMixed ? {
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                    color: mixedTextColor,
+                  } : {}),
+                }
+              }}
+            >
+              <TuneIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+            {/* Override badge: outside MarkdownTooltip so it has its own isolated tooltip. */}
+            {substatWeightsOverrideActive && renderSafeguardOverrideBadge(
+              buildSafeguardOverrideBadgeTooltip(
+                weightsLabel(rule.substatWeights, sortSafeguardSubstats(rule.substats ?? [])),
+                weightsLabel(effectiveRule.substatWeights, sortSafeguardSubstats(effectiveRule.substats ?? [])),
+              ),
+            )}
+          </Box>
+          </Box>{/* end outer position:relative anchor */}
           {/* Improvement-chance threshold chip woven with configure button.
               Chip toggles the threshold on/off; button opens the percentile popover.
               Same split-button pattern as Match: flat right side on chip, button attaches flush. */}
