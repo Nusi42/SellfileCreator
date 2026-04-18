@@ -2980,6 +2980,7 @@ export default function NoteDialog({
   noteOverridesDisabled,
   onNoteOverridesDisabledChange,
   onApplyRecipeOverrides,
+  onApplySafeguardOverrides,
   safeguardOverridesAnswers,
   onSafeguardOverridesAnswersChange,
   onSafeguardOverridesResolutionChange,
@@ -3005,8 +3006,10 @@ export default function NoteDialog({
   onRecipeOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteRecipeOverridesAnswers>>
   noteOverridesDisabled: boolean
   onNoteOverridesDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
-  // Optional callback for applying the current recipe overrides to stored recipes.
+  // Callback for applying the current recipe overrides to stored recipes.
   onApplyRecipeOverrides: (instructions: RecipeOverridesInstructions) => void
+  // Callback for writing the current display safeguard rules (overrides applied) back to stored rules.
+  onApplySafeguardOverrides: () => void
   // Safeguard overrides: stored answers and change notifications.
   safeguardOverridesAnswers: NoteSafeguardOverridesAnswers
   onSafeguardOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteSafeguardOverridesAnswers>>
@@ -3136,17 +3139,18 @@ export default function NoteDialog({
     openDisableRecipeOverridesDialog,
     viewRecipeOverridesMenuAction,
   ])
-  // Apply or discard recipe overrides before disabling them in the session.
-  const handleDisableRecipeOverridesConfirm = React.useCallback((applyToRecipes: boolean) => {
+  // Apply or discard all dynamic overrides (recipes + safeguards) before disabling them in the session.
+  const handleDisableRecipeOverridesConfirm = React.useCallback((applyOverrides: boolean) => {
     const context = disableRecipeOverridesContext
     if (!context) return
-    // Resolve instructions from the requested note snapshot + stored answers.
-    const resolution = resolveRecipeOverridesTags(context.noteText ?? '', recipeOverridesAnswers)
-    // Apply the overrides to stored recipes when requested.
-    if (applyToRecipes) {
+    if (applyOverrides) {
+      // Apply recipe override answers to stored recipes.
+      const resolution = resolveRecipeOverridesTags(context.noteText ?? '', recipeOverridesAnswers)
       onApplyRecipeOverrides(resolution.instructions)
+      // Apply the current display safeguard rules (overrides applied) back to stored rules.
+      onApplySafeguardOverrides()
     }
-    // Disable recipe overrides parsing so markers are ignored.
+    // Disable dynamic overrides parsing so both recipe and safeguard markers are ignored.
     onNoteOverridesDisabledChange(true)
     // Close the confirm dialog after applying changes.
     setDisableRecipeOverridesContext(null)
@@ -3154,6 +3158,7 @@ export default function NoteDialog({
     recipeOverridesAnswers,
     disableRecipeOverridesContext,
     onApplyRecipeOverrides,
+    onApplySafeguardOverrides,
     onNoteOverridesDisabledChange,
   ])
   const handleRecipeOverridesAnswerChange = React.useCallback((

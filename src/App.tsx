@@ -645,10 +645,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
+  // Normalize the safeguard overrides note text — mirrors the recipe overrides gate so disabling
+  // noteOverridesDisabled suppresses safeguard overrides from both display and the pipeline.
+  const safeguardOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
   // Resolve safeguard overrides instructions from the current note + session answers.
   const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(sfcNote ?? '', noteSafeguardOverridesAnswers),
-    [sfcNote, noteSafeguardOverridesAnswers],
+    () => resolveNoteSafeguardOverridesTags(safeguardOverridesNoteText, noteSafeguardOverridesAnswers),
+    [safeguardOverridesNoteText, noteSafeguardOverridesAnswers],
   )
   // Apply safeguard overrides on top of the metaset-resolved rules for the worker pipeline.
   // The SFC-stored rules are never mutated; this is a session-only view.
@@ -664,6 +667,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => applySafeguardOverrides(safeguardRules, safeguardOverridesResolution.instructions),
     [safeguardRules, safeguardOverridesResolution.instructions],
   )
+  // Keep a stable ref so applySafeguardOverridesToRules always reads the latest display rules
+  // even when the callback was memoized before the last override answer changed.
+  const displaySafeguardRulesRef = useRef(displaySafeguardRules)
+  useEffect(() => { displaySafeguardRulesRef.current = displaySafeguardRules }, [displaySafeguardRules])
   const safeguardsActive = safeguardsEnabled && resolvedSafeguardRules.length > 0
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
@@ -1247,7 +1254,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const overridesKey = noteOverridesDisabledRef.current
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
-      const sgOverridesKey = JSON.stringify(noteSafeguardOverridesAnswersRef.current)
+      // Mirror the recipe overrides gate: collapse to 'off' when dynamic overrides are disabled.
+      const sgOverridesKey = noteOverridesDisabledRef.current
+        ? 'off'
+        : JSON.stringify(noteSafeguardOverridesAnswersRef.current)
       const cacheKey = currentSig
         ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
         : null
@@ -1923,6 +1933,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     describeNextChange(descriptor)
   }, [describeNextChange, selectedRecipeIdx, setBuilder, setCustomRecipesTransition])
+
+  // Writes the current display safeguard rules (raw stored rules + override instructions applied)
+  // back as the new stored safeguard rules, mirroring the recipe overrides apply pattern.
+  const applySafeguardOverridesToRules = useCallback(() => {
+    // applySafeguardOverrides returns a readonly array; cast to mutable for state dispatch.
+    const next = displaySafeguardRulesRef.current as SafeguardRule[]
+    // Record the change in history before committing — mirrors applySafeguardRulesChange.
+    const descriptor = createSafeguardsRulesChangeDescriptor({
+      previous: safeguardRules,
+      next,
+      metasets,
+      mode: 'edit',
+    })
+    if (descriptor) describeNextChange(descriptor)
+    setSafeguardRulesTransition(next)
+  }, [describeNextChange, metasets, safeguardRules, setSafeguardRulesTransition])
 
   // Stable callback for NoteDialog: receives the latest safeguard overrides resolution on every
   // note or answer change. The resolution is already consumed via the effectiveSafeguardRules memo;
@@ -8051,6 +8077,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onNoteOverridesDisabledChange={setNoteOverridesDisabled}
           // Apply recipe overrides instructions to stored recipes when requested by the note dialog.
           onApplyRecipeOverrides={applyRecipeOverridesToRecipes}
+          // Apply display safeguard rules (overrides applied) back to stored rules when requested.
+          onApplySafeguardOverrides={applySafeguardOverridesToRules}
           // Safeguard overrides answers are session-only; changes update app state directly.
           safeguardOverridesAnswers={noteSafeguardOverridesAnswers}
           onSafeguardOverridesAnswersChange={setNoteSafeguardOverridesAnswers}
