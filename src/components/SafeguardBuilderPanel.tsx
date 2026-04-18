@@ -519,10 +519,23 @@ export default function SafeguardBuilderPanel({
     onChange((prev) => updater(prev))
   }, [onChange])
 
+  // Resolve effective rule up front — used both for override badge tooltips and for displaying
+  // effective values in controls when a safeguard-overrides block is active (consistent with the
+  // recipe builder). In multi-edit mode the instructions are ignored (overrides apply per-rule,
+  // not per-selection), so instructions default to an empty array.
+  const effectiveRule = useMemo(
+    () => resolveEffectiveSafeguardRule(rule, !multiEditActive ? (safeguardOverridesInstructions ?? []) : []),
+    [rule, multiEditActive, safeguardOverridesInstructions],
+  )
+
   const combination = rule.combination
   const activation = rule.activation
+  // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
+  // stored rule (empty instructions path above), so the guard lives in one place only.
+  const displayActivation = effectiveRule.activation
   // Mode label color: SSOT via safeguardActivationColor; only shown when collapsed.
-  const modeLabelColor = builderCollapsed.action ? safeguardActivationColor(activation) : undefined
+  // Uses displayActivation so the collapsed color reflects the override when one is active.
+  const modeLabelColor = builderCollapsed.action ? safeguardActivationColor(displayActivation) : undefined
 
   const slotSelection = combination.slots
   // Section dirty flag: shared by the label color and the X-clear button (SSOT).
@@ -546,15 +559,20 @@ export default function SafeguardBuilderPanel({
     slots: slotSelection,
     mainStats: mainStatSelection,
   })
-  const substatSelection = sortSafeguardSubstats((rule?.substats ?? []).filter((v) => allowedSubstatOptions.includes(v)))
+  // Use effectiveRule for all display-facing derived values — effectiveRule already equals the
+  // stored rule in multi-edit mode (empty instructions), so no per-variable guard is needed.
+  const substatSelection = sortSafeguardSubstats(
+    (effectiveRule.substats ?? []).filter((v) => allowedSubstatOptions.includes(v))
+  )
   const hasSubstatSelection = substatSelection.length > 0
   const effectiveSubstatMatch = hasSubstatSelection
-    ? normalizeSafeguardSubstatMatch(rule?.substatMatch)
+    ? normalizeSafeguardSubstatMatch(effectiveRule.substatMatch)
     : SafeguardSubstatMatch.Min1
-  const countMode = sanitizeSafeguardCountMode(rule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+  // Display count mode: derived from effectiveRule so scope chips reflect active overrides.
+  const displayCountMode = sanitizeSafeguardCountMode(effectiveRule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const effectiveCountMode = hasAccessorySlot
-    ? countMode
-    : sanitizeSafeguardCountMode({ ...countMode, perFaction: false })
+    ? displayCountMode
+    : sanitizeSafeguardCountMode({ ...displayCountMode, perFaction: false })
   const scopeActive = resolveKeepOverrideScopeActive(effectiveCountMode)
 
   const ignorePreviousSafeguards = rule?.ignorePreviousSafeguards !== false
@@ -646,11 +664,6 @@ export default function SafeguardBuilderPanel({
     }
   }, [multiEditActive, multiSelectedRules])
 
-  // Resolve effective rule for override badge display (skip in multi-edit; instructions default to empty).
-  const effectiveRule = useMemo(
-    () => resolveEffectiveSafeguardRule(rule, safeguardOverridesInstructions ?? []),
-    [rule, safeguardOverridesInstructions],
-  )
   // Override-active flags — each is true when the overrides DSL changes this field for the current rule.
   // All flags are suppressed in multi-edit mode since overrides apply per-rule, not per-selection.
   const activationOverrideActive = !multiEditActive && effectiveRule.activation !== rule.activation
@@ -1227,11 +1240,12 @@ export default function SafeguardBuilderPanel({
             size="small"
             exclusive
             // In multi-edit mode, show the staged value; null when mixed (no button highlighted).
+            // In single-edit mode, show the effective (overridden) activation when applicable.
             value={multiEditActive
               ? (activationMixed
                 ? null
                 : (multiActivationField?.value as SafeguardRuleActivation ?? activation))
-              : activation}
+              : displayActivation}
             onChange={(_event, next) => {
               if (!next) return
               if (multiEditActive && multiEdit) {
@@ -1317,7 +1331,8 @@ export default function SafeguardBuilderPanel({
               ? (multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
                 ? ''
                 : Number(multiRequiredCountField?.value ?? rule.requiredCount ?? 1))
-              : (rule.requiredCount ?? 1)}
+              // Single-edit: show effective count so the control reflects the active override.
+              : (effectiveRule.requiredCount ?? 1)}
             {...(multiEditActive && multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
               ? { placeholder: t('builderMultiEditMixedPlaceholder') }
               : {})}
@@ -1363,19 +1378,21 @@ export default function SafeguardBuilderPanel({
         <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '0 0 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           {/* Row 1: ignore previous safeguards */}
           {(() => {
-            // Derive effective value and mixed indicator for each ignore toggle.
+            // Derive display value and mixed indicator for each ignore toggle.
+            // Single-edit: use effective (overridden) value for chip color/state; stored value is
+            // still used in onClick handlers so toggling mutates the stored field correctly.
             const prevMixed = multiEditActive && multiIgnorePreviousField?.status === 'mixed' && !multiIgnorePreviousField.dirty
             const prevValue = multiEditActive
               ? Boolean(multiIgnorePreviousField?.value ?? ignorePreviousSafeguards)
-              : ignorePreviousSafeguards
+              : (effectiveRule.ignorePreviousSafeguards !== false)
             const collMixed = multiEditActive && multiIgnoreCollectionField?.status === 'mixed' && !multiIgnoreCollectionField.dirty
             const collValue = multiEditActive
               ? Boolean(multiIgnoreCollectionField?.value ?? ignoreEquippedInCollection)
-              : ignoreEquippedInCollection
+              : (effectiveRule.ignoreEquippedInCollection === true)
             const vaultMixed = multiEditActive && multiIgnoreVaultField?.status === 'mixed' && !multiIgnoreVaultField.dirty
             const vaultValue = multiEditActive
               ? Boolean(multiIgnoreVaultField?.value ?? ignoreEquippedInVault)
-              : ignoreEquippedInVault
+              : (effectiveRule.ignoreEquippedInVault === true)
             return (
               <>
                 {/* Row 1: ignore previous safeguards */}
