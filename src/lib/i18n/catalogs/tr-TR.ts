@@ -186,6 +186,7 @@ const overrides: Catalog = {
   builderHistoryClear: "Geçmişi temizle…",
   builderHistoryClearAction: "Geçmişi temizle",
   gearDbHistoryHideToast: "Ekipman güncelleme mesajını gizle",
+  gearDbHistoryPauseUpdates: "Otomatik güncellemeyi duraklat",
   restore: "Geri yükle",
   dismiss: "Gizle",
   startTutorial: "Öğreticiyi başlat",

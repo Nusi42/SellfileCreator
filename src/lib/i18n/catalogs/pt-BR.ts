@@ -186,6 +186,7 @@ const catalog: Catalog = {
   builderHistoryClear: "Limpar histórico…",
   builderHistoryClearAction: "Limpar histórico",
   gearDbHistoryHideToast: "Ocultar mensagem de atualização de gear",
+  gearDbHistoryPauseUpdates: "Pausar atualização automática",
   restore: "Restaurar",
   dismiss: "Descartar",
   startTutorial: "Iniciar tutorial",
