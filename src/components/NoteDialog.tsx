@@ -3073,10 +3073,13 @@ export default function NoteDialog({
     [recipeOverridesAnswers, renderNote],
   )
   // Reset answers by clearing stored overrides back to defaults and re-enabling parsing.
+  // Safeguard overrides answers (sliders, radios) are reset alongside recipe overrides
+  // so all question controls return to their default positions.
   const handleResetRecipeOverridesAnswers = React.useCallback(() => {
     onRecipeOverridesDisabledChange(false)
     onRecipeOverridesAnswersChange(() => ({}))
-  }, [onRecipeOverridesAnswersChange, onRecipeOverridesDisabledChange])
+    onSafeguardOverridesAnswersChange(() => ({}))
+  }, [onRecipeOverridesAnswersChange, onRecipeOverridesDisabledChange, onSafeguardOverridesAnswersChange])
   const handleEnableRecipeOverrides = React.useCallback(() => {
     onRecipeOverridesDisabledChange(false)
   }, [onRecipeOverridesDisabledChange])
