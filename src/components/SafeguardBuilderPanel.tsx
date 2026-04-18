@@ -702,6 +702,9 @@ export default function SafeguardBuilderPanel({
     })
   })()
   const improvementChanceOverrideActive = !multiEditActive && (() => {
+    // Improvement chance only matters when the effective rule has substats.
+    // If there are none, the threshold has no effect regardless of its value.
+    if (!hasSubstatSelection) return false
     const stored = rule.improvementChanceThreshold
     const eff = effectiveRule.improvementChanceThreshold
     if (stored === eff) return false                     // same reference — no override applied
