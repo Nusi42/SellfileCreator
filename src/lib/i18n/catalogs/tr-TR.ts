@@ -843,6 +843,7 @@ const overrides: Catalog = {
   builderExportModeSeparator: "Ayırıcı",
   builderExportModeSeparatorTooltip: "Ayırıcı reçeteler yalnızca SFC olarak dışa aktarılır.\nSellfile kuralları üretmezler ve # başlıkları veya [rrggbb] renk etiketlerini içerebilirler.",
   builderRecipeOverridesOverrideBadgeTooltip: "Reçete seçenekleri bu ayarı geçersiz kılar (kaydedilen: {stored}, geçerli: {effective}).",
+  builderSafeguardOverridesOverrideBadgeTooltip: "Koruma geçersizleştirmeleri bu ayarı değiştirir (kaydedilen: {stored}, geçerli: {effective}).",
   historyBuilderExportModeLabel: "Sellfile dışa aktarma modu",
   historyBuilderSavedTitle: "{label} kaydedildi",
   historyRecipeLabel: "Reçete #{n}",

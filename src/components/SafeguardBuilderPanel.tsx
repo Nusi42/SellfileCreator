@@ -162,6 +162,11 @@ import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/ta
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { buildWarningBadgeBase } from '../lib/badgeStyles'
+import {
+  resolveEffectiveSafeguardRule,
+  type SafeguardOverridesInstruction,
+} from '../lib/noteSafeguardOverrides'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -261,6 +266,9 @@ export type SafeguardBuilderPanelProps = {
   // When provided, candidates whose itemKey is absent from this set are dimmed in the list
   // (they are currently hidden by the Gear Inspector filter).
   visibleItemKeys?: ReadonlySet<number> | null
+  // Override instructions from the current note's safeguard-overrides block.
+  // Used to compare stored vs effective field values and show warning badges on overridden controls.
+  safeguardOverridesInstructions?: readonly SafeguardOverridesInstruction[] | null
 }
 
 export default function SafeguardBuilderPanel({
@@ -295,6 +303,7 @@ export default function SafeguardBuilderPanel({
   multiSelectedRules,
   onApplyMultiEdit,
   visibleItemKeys,
+  safeguardOverridesInstructions,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
   // ── multi-edit mode derived state ─────────────────────────────────────────
@@ -637,15 +646,115 @@ export default function SafeguardBuilderPanel({
     }
   }, [multiEditActive, multiSelectedRules])
 
+  // Resolve effective rule for override badge display (skip in multi-edit; instructions default to empty).
+  const effectiveRule = useMemo(
+    () => resolveEffectiveSafeguardRule(rule, safeguardOverridesInstructions ?? []),
+    [rule, safeguardOverridesInstructions],
+  )
+  // Override-active flags — each is true when the overrides DSL changes this field for the current rule.
+  // All flags are suppressed in multi-edit mode since overrides apply per-rule, not per-selection.
+  const activationOverrideActive = !multiEditActive && effectiveRule.activation !== rule.activation
+  const requiredCountOverrideActive = !multiEditActive
+    && (effectiveRule.requiredCount ?? 1) !== (rule.requiredCount ?? 1)
+  const ignPrevOverrideActive = !multiEditActive
+    && !!effectiveRule.ignorePreviousSafeguards !== !!rule.ignorePreviousSafeguards
+  const ignCollOverrideActive = !multiEditActive
+    && !!effectiveRule.ignoreEquippedInCollection !== !!rule.ignoreEquippedInCollection
+  const ignVaultOverrideActive = !multiEditActive
+    && !!effectiveRule.ignoreEquippedInVault !== !!rule.ignoreEquippedInVault
+  const perFactionOverrideActive = !multiEditActive
+    && !!effectiveRule.countMode?.perFaction !== !!rule.countMode?.perFaction
+  const perMainStatOverrideActive = !multiEditActive
+    && !!effectiveRule.countMode?.perMainStat !== !!rule.countMode?.perMainStat
+  const perSlotOverrideActive = !multiEditActive
+    && !!effectiveRule.countMode?.perSlot !== !!rule.countMode?.perSlot
+  const perSetOverrideActive = !multiEditActive
+    && !!effectiveRule.countMode?.perSet !== !!rule.countMode?.perSet
+  const substatsOverrideActive = !multiEditActive
+    && JSON.stringify([...(effectiveRule.substats ?? [])].sort())
+       !== JSON.stringify([...(rule.substats ?? [])].sort())
+  const substatMatchOverrideActive = !multiEditActive && effectiveRule.substatMatch !== rule.substatMatch
+  const substatWeightsOverrideActive = !multiEditActive && (() => {
+    // Compare each substat's weight treating absent entries as the default (1×).
+    // Object.keys returns strings, so convert to the numeric StatVariant before indexing.
+    const stored = rule.substatWeights ?? {}
+    const eff = effectiveRule.substatWeights ?? {}
+    const allStats = new Set([...Object.keys(stored), ...Object.keys(eff)])
+    return [...allStats].some((k) => {
+      const stat = Number(k) as StatVariant
+      return (stored[stat] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+        !== (eff[stat] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+    })
+  })()
+
+  // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
+  const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
+    if (a === SafeguardRuleActivation.Off) return t('safeguardsRuleModeOffShort')
+    if (a === SafeguardRuleActivation.ProtectExisting) return t('safeguardsRuleModeProtectShort')
+    return t('safeguardsRuleModeAnticipateShort')
+  }, [t])
+
+  // Maps SafeguardSubstatMatch to a short label for override badge tooltips.
+  const substatMatchLabel = React.useCallback((m: SafeguardSubstatMatch | undefined): string => {
+    const normalized = normalizeSafeguardSubstatMatch(m)
+    if (normalized === SafeguardSubstatMatch.PerSubstat) return t('safeguardsSubstatRequirementPer')
+    return `\u2265${normalized}`
+  }, [t])
+
+  // Formats a substat array as a comma-separated stat-name list for badge tooltips.
+  const substatsLabel = React.useCallback((stats: readonly StatVariant[]): string => {
+    if (stats.length === 0) return '\u2014'
+    return stats.map((s) => t(statVariantI18nKey(s))).join(', ')
+  }, [t])
+
+  // Formats non-default substat weights as "STAT ×N, …" for badge tooltips.
+  // Only lists stats whose weight deviates from the default (1×); returns "—" when all are default.
+  const weightsLabel = React.useCallback((
+    weights: Partial<Record<StatVariant, number>> | undefined,
+    substats: readonly StatVariant[],
+  ): string => {
+    const parts = substats
+      .filter((s) => (weights?.[s] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) !== GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+      .map((s) => `${t(statVariantI18nKey(s))} \u00d7${weights?.[s] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT}`)
+    return parts.length > 0 ? parts.join(', ') : '\u2014'
+  }, [t])
+
+  // Builds the tooltip string for a safeguard override badge from stored/effective display strings.
+  const buildSafeguardOverrideBadgeTooltip = React.useCallback(
+    (stored: string, effective: string): string =>
+      t('builderSafeguardOverridesOverrideBadgeTooltip', { stored, effective }),
+    [t],
+  )
+
+  // Renders a warning "!" badge absolutely positioned inside its relative-positioned parent.
+  const renderSafeguardOverrideBadge = React.useCallback((tooltip: string) => (
+    <MarkdownTooltip markdown={tooltip}>
+      <Box
+        component="span"
+        sx={(theme) => ({
+          position: 'absolute',
+          top: -6,
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          ...buildWarningBadgeBase(theme),
+        })}
+      >
+        !
+      </Box>
+    </MarkdownTooltip>
+  ), [])
+
   const renderScopeChip = (
     scope: KeepOverrideScopeKey,
     label: string,
     active: boolean,
     disabledOverride = false,
     mixed = false,
+    overrideBadge?: React.ReactNode,
   ) => (
     <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
-      <span>
+      {/* position:relative enables the absolute-positioned override badge to sit on the chip. */}
+      <span style={{ position: 'relative', display: 'inline-block' }}>
         <KeepOverrideScopeChip
           scope={scope}
           label={label}
@@ -654,6 +763,7 @@ export default function SafeguardBuilderPanel({
           disabled={disabledOverride}
           onToggle={handleScopeChipToggle}
         />
+        {overrideBadge}
       </span>
     </MarkdownTooltip>
   )
@@ -1172,11 +1282,25 @@ export default function SafeguardBuilderPanel({
               pointerEvents: 'none', zIndex: 1,
             }} />
           )}
+          {/* Override badge: shown when a safeguard-overrides block changes the activation mode. */}
+          {activationOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              activationLabel(rule.activation),
+              activationLabel(effectiveRule.activation),
+            ),
+          )}
           </Box>
         </FormControl>
 
         {/* Required count */}
-        <Box sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        <Box sx={(theme) => ({ position: 'relative', flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+          {/* Override badge: shown when a safeguard-overrides block changes the required count. */}
+          {requiredCountOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              String(rule.requiredCount ?? 1),
+              String(effectiveRule.requiredCount ?? 1),
+            ),
+          )}
           <TextField
             size="small"
             type="number"
@@ -1247,7 +1371,8 @@ export default function SafeguardBuilderPanel({
               : ignoreEquippedInVault
             return (
               <>
-                <Box sx={{ display: 'flex' }}>
+                {/* Row 1: ignore previous safeguards */}
+                <Box sx={{ position: 'relative', display: 'flex' }}>
                   <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
                     <Chip
                       size="small"
@@ -1276,59 +1401,84 @@ export default function SafeguardBuilderPanel({
                       }}
                     />
                   </MarkdownTooltip>
+                  {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
+                  {ignPrevOverrideActive && renderSafeguardOverrideBadge(
+                    buildSafeguardOverrideBadgeTooltip(
+                      ignorePreviousSafeguards ? 'on' : 'off',
+                      effectiveRule.ignorePreviousSafeguards !== false ? 'on' : 'off',
+                    ),
+                  )}
                 </Box>
                 {/* Row 2: ignore equipped in collection + vault */}
                 <Box sx={{ display: 'flex', gap: 0.75 }}>
-                  <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
-                    <Chip
-                      size="small"
-                      variant="filled"
-                      label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
-                      aria-label={t('safeguardsIgnoreEquippedInCollection')}
-                      clickable
-                      onClick={() => {
-                        if (multiEditActive && multiEdit) {
-                          multiEdit.updateField('ignoreEquippedInCollection', { value: !collValue, status: 'common' })
-                        } else {
-                          updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
-                        }
-                      }}
-                      sx={{
-                        ...builderStatusChipSx(collValue || collMixed, { dimDisabled: true }),
-                        ...(collMixed ? {
-                          borderStyle: 'dashed',
-                          borderColor: mixedBorderColor,
-                          color: mixedTextColor,
-                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        } : {}),
-                      }}
-                    />
-                  </MarkdownTooltip>
-                  <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
-                    <Chip
-                      size="small"
-                      variant="filled"
-                      label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
-                      aria-label={t('safeguardsIgnoreEquippedInVault')}
-                      clickable
-                      onClick={() => {
-                        if (multiEditActive && multiEdit) {
-                          multiEdit.updateField('ignoreEquippedInVault', { value: !vaultValue, status: 'common' })
-                        } else {
-                          updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
-                        }
-                      }}
-                      sx={{
-                        ...builderStatusChipSx(vaultValue || vaultMixed, { dimDisabled: true }),
-                        ...(vaultMixed ? {
-                          borderStyle: 'dashed',
-                          borderColor: mixedBorderColor,
-                          color: mixedTextColor,
-                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        } : {}),
-                      }}
-                    />
-                  </MarkdownTooltip>
+                  <Box sx={{ position: 'relative' }}>
+                    <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
+                      <Chip
+                        size="small"
+                        variant="filled"
+                        label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
+                        aria-label={t('safeguardsIgnoreEquippedInCollection')}
+                        clickable
+                        onClick={() => {
+                          if (multiEditActive && multiEdit) {
+                            multiEdit.updateField('ignoreEquippedInCollection', { value: !collValue, status: 'common' })
+                          } else {
+                            updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
+                          }
+                        }}
+                        sx={{
+                          ...builderStatusChipSx(collValue || collMixed, { dimDisabled: true }),
+                          ...(collMixed ? {
+                            borderStyle: 'dashed',
+                            borderColor: mixedBorderColor,
+                            color: mixedTextColor,
+                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                          } : {}),
+                        }}
+                      />
+                    </MarkdownTooltip>
+                    {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
+                    {ignCollOverrideActive && renderSafeguardOverrideBadge(
+                      buildSafeguardOverrideBadgeTooltip(
+                        ignoreEquippedInCollection ? 'on' : 'off',
+                        effectiveRule.ignoreEquippedInCollection ? 'on' : 'off',
+                      ),
+                    )}
+                  </Box>
+                  <Box sx={{ position: 'relative' }}>
+                    <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
+                      <Chip
+                        size="small"
+                        variant="filled"
+                        label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
+                        aria-label={t('safeguardsIgnoreEquippedInVault')}
+                        clickable
+                        onClick={() => {
+                          if (multiEditActive && multiEdit) {
+                            multiEdit.updateField('ignoreEquippedInVault', { value: !vaultValue, status: 'common' })
+                          } else {
+                            updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
+                          }
+                        }}
+                        sx={{
+                          ...builderStatusChipSx(vaultValue || vaultMixed, { dimDisabled: true }),
+                          ...(vaultMixed ? {
+                            borderStyle: 'dashed',
+                            borderColor: mixedBorderColor,
+                            color: mixedTextColor,
+                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                          } : {}),
+                        }}
+                      />
+                    </MarkdownTooltip>
+                    {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
+                    {ignVaultOverrideActive && renderSafeguardOverrideBadge(
+                      buildSafeguardOverrideBadgeTooltip(
+                        ignoreEquippedInVault ? 'on' : 'off',
+                        effectiveRule.ignoreEquippedInVault ? 'on' : 'off',
+                      ),
+                    )}
+                  </Box>
                 </Box>
               </>
             )
@@ -1588,7 +1738,14 @@ export default function SafeguardBuilderPanel({
                 faction section does not inflate the grid row. MUI Collapse switches to
                 overflow:visible when fully open, letting the chip render past its boundary. */}
             <Box sx={{ mt: 0.75, mb: `-${BUILDER_STATUS_CHIP_HEIGHT_PX}px` }}>
-              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot, perScopeMixed.perFaction)}
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot, perScopeMixed.perFaction,
+                perFactionOverrideActive ? renderSafeguardOverrideBadge(
+                  buildSafeguardOverrideBadgeTooltip(
+                    rule.countMode?.perFaction ? 'on' : 'off',
+                    effectiveRule.countMode?.perFaction ? 'on' : 'off',
+                  ),
+                ) : undefined,
+              )}
             </Box>
           </Collapse>
         </FormControl>
@@ -1751,7 +1908,14 @@ export default function SafeguardBuilderPanel({
                   </>
                 )
               })()}
-              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, false, perScopeMixed.perMainStat)}
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, false, perScopeMixed.perMainStat,
+                perMainStatOverrideActive ? renderSafeguardOverrideBadge(
+                  buildSafeguardOverrideBadgeTooltip(
+                    rule.countMode?.perMainStat ? 'on' : 'off',
+                    effectiveRule.countMode?.perMainStat ? 'on' : 'off',
+                  ),
+                ) : undefined,
+              )}
             </Box>
           </Collapse>
         </FormControl>
@@ -1762,7 +1926,7 @@ export default function SafeguardBuilderPanel({
           The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
@@ -1780,6 +1944,13 @@ export default function SafeguardBuilderPanel({
               )
               : <Box sx={CLEAR_PLACEHOLDER_SX} />
             }
+            {/* Override badge: shown when a safeguard-overrides block changes the required substats. */}
+            {substatsOverrideActive && renderSafeguardOverrideBadge(
+              buildSafeguardOverrideBadgeTooltip(
+                substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
+                substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
+              ),
+            )}
           </Box>
           <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -1886,7 +2057,8 @@ export default function SafeguardBuilderPanel({
               Chips above the current substat selection count are disabled (can't be met).
               Per Substat applies the quota independently to each substat and closes weights. */}
           <MarkdownTooltip markdown={t('safeguardsSubstatRequirementHint')}>
-            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
+            {/* position:relative enables the substatMatch override badge to float over the chips row. */}
+            <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0, gap: 0.5 }}>
               {SAFEGUARD_SUBSTAT_MIN_COUNTS.map((count) => {
                 const countNum = parseInt(count, 10)
                 // Chip is active when it matches the current (non-mixed) display mode.
@@ -1954,37 +2126,54 @@ export default function SafeguardBuilderPanel({
                   } : {}),
                 }}
               />
+              {/* Override badge on substat match chips: shown when a safeguard-overrides block changes the match mode. */}
+              {substatMatchOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  substatMatchLabel(rule.substatMatch),
+                  substatMatchLabel(effectiveRule.substatMatch),
+                ),
+              )}
               {/* Weights configure button — attaches flush to the right of the chip row */}
-              <IconButton
-                size="small"
-                aria-label={t('safeguardsSubstatWeightsLabel')}
-                disabled={!hasSubstatSelection && !multiEditActive}
-                onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
-                sx={(theme) => {
-                  const canInteract = hasSubstatSelection || multiEditActive
-                  const chipEnabled = hasSubstatSelection
-                  const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
-                  const color = chipEnabled
-                    ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
-                    : theme.palette.text.disabled
-                  return {
-                    height: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                    minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                    width: BUILDER_STATUS_CHIP_HEIGHT_PX,
-                    borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                    backgroundColor: bg,
-                    color: canInteract ? color : alpha(color, 0.45),
-                    '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
-                    '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
-                    ...(substatMatchMixed ? {
-                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                      color: mixedTextColor,
-                    } : {}),
-                  }
-                }}
-              >
-                <TuneIcon sx={{ fontSize: 14 }} />
-              </IconButton>
+              {/* Relative wrapper so the substat-weights override badge can float above the button. */}
+              <Box sx={{ position: 'relative' }}>
+                <IconButton
+                  size="small"
+                  aria-label={t('safeguardsSubstatWeightsLabel')}
+                  disabled={!hasSubstatSelection && !multiEditActive}
+                  onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+                  sx={(theme) => {
+                    const canInteract = hasSubstatSelection || multiEditActive
+                    const chipEnabled = hasSubstatSelection
+                    const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                    const color = chipEnabled
+                      ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
+                      : theme.palette.text.disabled
+                    return {
+                      height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                      minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                      width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                      borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                      backgroundColor: bg,
+                      color: canInteract ? color : alpha(color, 0.45),
+                      '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
+                      '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                      ...(substatMatchMixed ? {
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        color: mixedTextColor,
+                      } : {}),
+                    }
+                  }}
+                >
+                  <TuneIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+                {/* Override badge: shown when a safeguard-overrides block changes substat weights. */}
+                {substatWeightsOverrideActive && renderSafeguardOverrideBadge(
+                  buildSafeguardOverrideBadgeTooltip(
+                    weightsLabel(rule.substatWeights, sortSafeguardSubstats(rule.substats ?? [])),
+                    weightsLabel(effectiveRule.substatWeights, sortSafeguardSubstats(effectiveRule.substats ?? [])),
+                  ),
+                )}
+              </Box>
             </Box>
           </MarkdownTooltip>
           {/* Improvement-chance threshold chip woven with configure button.
@@ -2230,7 +2419,14 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, false, perScopeMixed.perSlot)}
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, false, perScopeMixed.perSlot,
+                perSlotOverrideActive ? renderSafeguardOverrideBadge(
+                  buildSafeguardOverrideBadgeTooltip(
+                    rule.countMode?.perSlot ? 'on' : 'off',
+                    effectiveRule.countMode?.perSlot ? 'on' : 'off',
+                  ),
+                ) : undefined,
+              )}
             </Box>
           </Collapse>
         </FormControl>
@@ -2286,7 +2482,14 @@ export default function SafeguardBuilderPanel({
                 layoutVersion={1}
                 anyLabel={t('anySet')}
               />
-              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, false, perScopeMixed.perSet)}
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, false, perScopeMixed.perSet,
+                perSetOverrideActive ? renderSafeguardOverrideBadge(
+                  buildSafeguardOverrideBadgeTooltip(
+                    rule.countMode?.perSet ? 'on' : 'off',
+                    effectiveRule.countMode?.perSet ? 'on' : 'off',
+                  ),
+                ) : undefined,
+              )}
             </Box>
           </Collapse>
         </FormControl>

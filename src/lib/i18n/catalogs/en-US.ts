@@ -860,6 +860,7 @@ const enUS: Catalog = {
   builderExportModeSeparator: "Separator",
   builderExportModeSeparatorTooltip: "Separator recipes only export to recipe files (.sfc).\nThey generate no Sellfile rules and can include # headings or [rrggbb] color tags.",
   builderRecipeOverridesOverrideBadgeTooltip: "Recipe overrides change this setting (stored: {stored}, effective: {effective}).",
+  builderSafeguardOverridesOverrideBadgeTooltip: "Safeguard overrides change this setting (stored: {stored}, effective: {effective}).",
   historyBuilderExportModeLabel: "Sellfile Export Mode",
   historyBuilderSavedTitle: "Saved {label}",
   historyRecipeLabel: "#{n}",

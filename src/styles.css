@@ -50,6 +50,13 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.recipe-overrides-block .token.selector-builtin           { color: #61afef; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.selector-field             { color: #61afef; }
 .w-md-editor-text-pre .token.recipe-overrides-block .token.field                      { color: #56b6c2; }
+/* Slider group param keywords (min / max / step) — same teal as field names. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.slider-param-kw             { color: #56b6c2; }
+/* Safeguard-overrides enum values — warm amber matching boolean-val. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.sg-activation-val           { color: #d19a66; }
+.w-md-editor-text-pre .token.recipe-overrides-block .token.sg-match-val               { color: #d19a66; }
+/* $value / $count / $count.TOKEN — bright green to distinguish slider refs from plain numbers. */
+.w-md-editor-text-pre .token.recipe-overrides-block .token.sg-value-ref               { color: #98c379; }
 /* id=TOKEN: `id` keyword shares the blue structural-keyword family; defined name is bright amber. */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.id-assign                                { color: #f0a757; } /* fallback */
 .w-md-editor-text-pre .token.recipe-overrides-block .token.id-assign .token.id-kw                   { color: #7ab3d4; }

@@ -841,6 +841,7 @@ const overrides: Catalog = {
   builderExportModeSeparator: "Separador",
   builderExportModeSeparatorTooltip: "As receitas Separador são exportadas apenas para SFC.\nNão geram regras do Sellfile e podem incluir títulos com # ou etiquetas de cor [rrggbb].",
   builderRecipeOverridesOverrideBadgeTooltip: "As opções de receita substituem esta opção (armazenado: {stored}, efetivo: {effective}).",
+  builderSafeguardOverridesOverrideBadgeTooltip: "As substituições de proteção substituem esta opção (armazenado: {stored}, efetivo: {effective}).",
   historyBuilderExportModeLabel: "Modo de exportação do Sellfile",
   historyBuilderSavedTitle: "Gravou {label}",
   historyRecipeLabel: "Receita #{n}",

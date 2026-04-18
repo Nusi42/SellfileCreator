@@ -6077,6 +6077,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       multiEdit={safeguardMultiEditHandle}
       multiSelectedRules={multiSelectedSafeguardRules}
       onApplyMultiEdit={safeguardMultiselectActive ? applySafeguardMultiEditDraft : null}
+      safeguardOverridesInstructions={safeguardOverridesResolution.instructions}
     />
   )
 

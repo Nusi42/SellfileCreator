@@ -70,13 +70,37 @@ export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'weight',
 ] as const
 
+// ── $count / $value expression AST ───────────────────────────────────────────
+
+/**
+ * AST node for arithmetic expressions in `count = <expr>` assignments.
+ *
+ * Supported grammar (standard PEMDAS/BODMAS precedence):
+ *   expr       → addExpr
+ *   addExpr    → mulExpr  (('+' | '-') mulExpr)*
+ *   mulExpr    → unaryExpr (('*' | '/') unaryExpr)*
+ *   unaryExpr  → '-' unaryExpr | primary
+ *   primary    → '(' expr ')' | $count('.'TOKEN)? | $value | NUMBER
+ *
+ * Both `$count` and `$value` are equal aliases for the enclosing slider value.
+ * `$count.TOKEN` / `$value.TOKEN` references another slider by its id=TOKEN.
+ * The final numeric result is rounded and clamped to [1, 9999].
+ */
+export type SafeguardCountAstNode =
+  | { kind: 'literal'; value: number }
+  | { kind: 'ref'; sliderId: string | null }        // null = self, string = cross-slider
+  | { kind: 'binop'; op: '+' | '-' | '*' | '/';
+      left: SafeguardCountAstNode; right: SafeguardCountAstNode }
+  | { kind: 'unary'; op: '-'; operand: SafeguardCountAstNode }
+
 // ── Operation types ───────────────────────────────────────────────────────────
 
 /** A single override operation targeting one SafeguardRule field. */
 export type SafeguardOverridesOperation =
   | { kind: 'activation'; value: SafeguardRuleActivation }
-  // count: null means "use the enclosing slider's current value ($value).
-  | { kind: 'count'; value: number | null }
+  // count: null means "use the enclosing slider's current value ($count / $value).
+  // ast: if present, a full arithmetic expression to evaluate at resolve time.
+  | { kind: 'count'; value: number | null; ast?: SafeguardCountAstNode }
   | { kind: 'ignPrev'; value: boolean }
   | { kind: 'ignEquippedCollection'; value: boolean }
   | { kind: 'ignEquippedVault'; value: boolean }
@@ -197,6 +221,150 @@ const consumeStatListRemainder = (cursor: TokenCursor): string[] => {
   return extras
 }
 
+// ── $count / $value expression parser ────────────────────────────────────────
+
+// True when the cursor is at a hard stop that terminates an expression:
+//   `}` closes the current selector block; `,` is an operation separator;
+//   a word followed by `=` opens a new field assignment.
+const isCountExprStop = (cursor: TokenCursor): boolean => {
+  const t = cursor.peek()
+  if (!t) return true
+  if (t.kind === 'symbol' && (t.value === '}' || t.value === ',')) return true
+  // Word directly followed by `=` means a new assignment is starting.
+  if (t.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return true
+  return false
+}
+
+// addExpr → mulExpr (('+' | '-') mulExpr)*
+// '+' is a symbol; '-' arrives as a word token when space-separated.
+const parseCountAddExpr = (cursor: TokenCursor): SafeguardCountAstNode | null => {
+  let left = parseCountMulExpr(cursor)
+  if (!left) return null
+  while (!isCountExprStop(cursor)) {
+    const t = cursor.peek()
+    if (!t) break
+    const isPlus  = t.kind === 'symbol' && t.value === '+'
+    const isMinus = t.kind === 'word'   && t.value === '-'
+    if (!isPlus && !isMinus) break
+    cursor.next()
+    const right = parseCountMulExpr(cursor)
+    if (!right) break
+    left = { kind: 'binop', op: isPlus ? '+' : '-', left, right }
+  }
+  return left
+}
+
+// mulExpr → unaryExpr (('*' | '/') unaryExpr)*
+// '*' is a symbol; '/' arrives as a word token when space-separated.
+const parseCountMulExpr = (cursor: TokenCursor): SafeguardCountAstNode | null => {
+  let left = parseCountUnary(cursor)
+  if (!left) return null
+  while (!isCountExprStop(cursor)) {
+    const t = cursor.peek()
+    if (!t) break
+    const isMul = t.kind === 'symbol' && t.value === '*'
+    const isDiv = t.kind === 'word'   && t.value === '/'
+    if (!isMul && !isDiv) break
+    cursor.next()
+    const right = parseCountUnary(cursor)
+    if (!right) break
+    left = { kind: 'binop', op: isMul ? '*' : '/', left, right }
+  }
+  return left
+}
+
+// unaryExpr → '-' unaryExpr | primary
+// Unary minus appears as a standalone word token (space-separated), e.g. `- $count`.
+// Combined forms like `-2` are handled as negative literals in parsePrimary.
+const parseCountUnary = (cursor: TokenCursor): SafeguardCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  const t = cursor.peek()
+  if (!t) return null
+  if (t.kind === 'word' && t.value === '-') {
+    cursor.next()
+    const operand = parseCountUnary(cursor)
+    if (!operand) return null
+    return { kind: 'unary', op: '-', operand }
+  }
+  return parseCountPrimary(cursor)
+}
+
+// primary → '(' expr ')' | $count('.' TOKEN)? | $value('.' TOKEN)? | NUMBER
+const parseCountPrimary = (cursor: TokenCursor): SafeguardCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  const t = cursor.peek()
+  if (!t) return null
+  // Parenthesized sub-expression.
+  if (t.kind === 'symbol' && t.value === '(') {
+    cursor.next()
+    const inner = parseCountAddExpr(cursor)
+    cursor.consumeSymbol(')')   // tolerate missing close paren
+    return inner
+  }
+  // Only word tokens are valid primaries beyond parens.
+  if (t.kind !== 'word') return null
+  const lc = t.value.toLowerCase()
+  // $count / $value self-reference (no dot suffix).
+  if (lc === '$count' || lc === '$value') {
+    cursor.next()
+    return { kind: 'ref', sliderId: null }
+  }
+  // $count.TOKEN / $value.TOKEN cross-slider reference.
+  if (lc.startsWith('$count.') || lc.startsWith('$value.')) {
+    cursor.next()
+    const sliderId = t.value.slice(t.value.indexOf('.') + 1) || null
+    return { kind: 'ref', sliderId }
+  }
+  // Numeric literal (may be negative like '-2' as a single word token without spaces).
+  const n = Number(t.value)
+  if (Number.isFinite(n)) {
+    cursor.next()
+    return { kind: 'literal', value: n }
+  }
+  // Unknown token — stop without consuming (let outer loop handle it).
+  return null
+}
+
+/**
+ * Parse a full `count` expression from the cursor (cursor is positioned at the first
+ * value token, before it has been consumed). Handles literals, slider refs, arithmetic,
+ * and parentheses. Returns the AST node, or null if parsing fails.
+ */
+const parseCountExpression = (cursor: TokenCursor): SafeguardCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  return parseCountAddExpr(cursor)
+}
+
+// ── $count / $value expression evaluator ─────────────────────────────────────
+
+/**
+ * Evaluate a SafeguardCountAstNode to a number.
+ * @param selfValue  The enclosing slider's current numeric value (for bare $count/$value refs).
+ * @param tokenMap   Map from slider explicit-token → slider current value (for cross-slider refs).
+ */
+const evalCountAst = (
+  node: SafeguardCountAstNode,
+  selfValue: number,
+  tokenMap: ReadonlyMap<string, number>,
+): number => {
+  switch (node.kind) {
+    case 'literal': return node.value
+    case 'ref':     return node.sliderId === null
+      ? selfValue
+      : (tokenMap.get(node.sliderId) ?? 1)
+    case 'unary':   return -evalCountAst(node.operand, selfValue, tokenMap)
+    case 'binop': {
+      const l = evalCountAst(node.left,  selfValue, tokenMap)
+      const r = evalCountAst(node.right, selfValue, tokenMap)
+      if (node.op === '+') return l + r
+      if (node.op === '-') return l - r
+      if (node.op === '*') return l * r
+      // Division: guard zero denominator by returning the left operand unchanged.
+      return r !== 0 ? l / r : l
+    }
+  }
+}
+
 // ── Operations parser ─────────────────────────────────────────────────────────
 
 /** Parse safeguard-overrides operation assignments inside a `{ … }` block. */
@@ -214,6 +382,28 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
     cursor.next()
     // Require `=` after the field name.
     if (!cursor.consumeSymbol('=')) { if (cursor.peek()) cursor.next(); continue }
+
+    // ── count = <expr> (full expression parser, no pre-consumed value token) ───
+    // Intercept before the generic value-reading path so the expression parser
+    // sees the full token stream (including opening `(` and cross-slider refs).
+    if (field === 'count') {
+      const ast = parseCountExpression(cursor)
+      if (ast !== null) {
+        if (ast.kind === 'literal') {
+          // Plain numeric literal: apply rounding at parse time, clamp to ≥1.
+          const n = Math.max(1, Math.round(ast.value))
+          operations.push({ kind: 'count', value: n })
+        } else if (ast.kind === 'ref' && ast.sliderId === null) {
+          // Bare $count / $value self-reference: use legacy null form for compat.
+          operations.push({ kind: 'count', value: null })
+        } else {
+          // Complex expression or cross-slider ref: store AST for resolve-time eval.
+          operations.push({ kind: 'count', value: null, ast })
+        }
+      }
+      continue
+    }
+
     // `+` may prefix a value token (e.g. `substats = +ATK%`).
     let valueToken = cursor.peek()
     let valuePrefix = ''
@@ -235,18 +425,6 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
     if (field === 'activation') {
       const act = ACTIVATION_KEYWORD_MAP[valueLc]
       if (act) operations.push({ kind: 'activation', value: act })
-      continue
-    }
-
-    // ── count = <number> | $value ─────────────────────────────────────────────
-    if (field === 'count') {
-      if (valueLc === '$value') {
-        // Resolved at apply-time from the enclosing slider group's current value.
-        operations.push({ kind: 'count', value: null })
-      } else {
-        const numeric = Number.parseInt(valueLc, 10)
-        if (Number.isFinite(numeric) && numeric >= 1) operations.push({ kind: 'count', value: numeric })
-      }
       continue
     }
 
@@ -597,6 +775,18 @@ export const resolveNoteSafeguardOverridesTags = (
   answers?: NoteSafeguardOverridesAnswers | null,
 ): SafeguardOverridesResolution => {
   const questions = parseNoteSafeguardOverrides(note, answers)
+  // Build a token → current slider value map used by cross-slider $count.TOKEN references.
+  // Only sliders with an explicit id=TOKEN marker contribute to this map.
+  const sliderValueByToken = new Map<string, number>()
+  for (const question of questions) {
+    for (const option of question.options) {
+      if (option.groupType !== 'slider' || !option.token) continue
+      const raw = answers?.[question.id]?.[0] ?? ''
+      const val = Number.parseFloat(raw)
+      const def = option.sliderDefault ?? option.sliderMin ?? 1
+      sliderValueByToken.set(option.token, Number.isFinite(val) ? val : def)
+    }
+  }
   const instructions: SafeguardOverridesInstruction[] = []
   for (const question of questions) {
     const selected = new Set(question.answer)
@@ -612,7 +802,7 @@ export const resolveNoteSafeguardOverridesTags = (
     // Emit blocks from selected options; slider options are always active (their answer is numeric).
     for (const option of question.options) {
       if (option.groupType !== 'slider' && !selected.has(option.id)) continue
-      // For slider groups: resolve $value operations with the stored numeric answer.
+      // For slider groups: resolve $count / $value (and arithmetic ASTs) to numeric counts.
       if (option.groupType === 'slider') {
         const numericStr = answers?.[question.id]?.[0] ?? ''
         const sliderValue = Number.parseFloat(numericStr)
@@ -620,9 +810,14 @@ export const resolveNoteSafeguardOverridesTags = (
         const resolvedValue = Number.isFinite(sliderValue) ? sliderValue : defaultValue
         for (const block of option.blocks) {
           const resolvedOps = block.operations.map((op) => {
-            // Substitute $value (null) with the actual slider position.
+            // Resolve null-valued count ops: evaluate the AST if present, otherwise use
+            // the raw slider position (legacy $count / $value bare reference).
             if (op.kind === 'count' && op.value === null) {
-              return { ...op, value: Math.max(1, Math.round(resolvedValue)) }
+              const rawResult = op.ast
+                ? evalCountAst(op.ast, resolvedValue, sliderValueByToken)
+                : resolvedValue
+              // Emit a resolved count op with no ast — the expression has been evaluated to a literal.
+              return { kind: 'count' as const, value: Math.max(1, Math.min(9999, Math.round(rawResult))) }
             }
             return op
           })
@@ -735,6 +930,18 @@ export const applySafeguardOverrides = (
   // Build the output array, substituting clones where needed.
   return rules.map((rule, index) => cloned.get(index) ?? rule)
 }
+
+// ── Single-rule effective resolution (for builder UI diff) ───────────────────
+
+/**
+ * Resolve a single SafeguardRule against override instructions to produce the
+ * "effective" rule as it will behave at detection time. Used by SafeguardBuilderPanel
+ * to compare stored vs effective field values and show override warning badges.
+ */
+export const resolveEffectiveSafeguardRule = (
+  rule: SafeguardRule,
+  instructions: readonly SafeguardOverridesInstruction[],
+): SafeguardRule => applySafeguardOverrides([rule], instructions)[0]!
 
 // ── Signature ─────────────────────────────────────────────────────────────────
 

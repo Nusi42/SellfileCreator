@@ -843,6 +843,7 @@ const overrides: Catalog = {
   builderExportModeSeparator: "Розділювач",
   builderExportModeSeparatorTooltip: "Рецепти «Розділювач» експортуються лише в SFC.\nВони не створюють правил Sellfile і можуть містити заголовки з # або кольорові теги [rrggbb].",
   builderRecipeOverridesOverrideBadgeTooltip: "Опції рецепта перевизначають це налаштування (збережено: {stored}, застосовано: {effective}).",
+  builderSafeguardOverridesOverrideBadgeTooltip: "Замінники захисту перевизначають це налаштування (збережено: {stored}, застосовано: {effective}).",
   historyBuilderExportModeLabel: "Режим експорту Sellfile",
   historyBuilderSavedTitle: "Збережено {label}",
   historyRecipeLabel: "Рецепт №{n}",

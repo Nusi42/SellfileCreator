@@ -839,6 +839,7 @@ const overrides: Catalog = {
   builderExportModeSeparator: "Trenner",
   builderExportModeSeparatorTooltip: "Trenner-Rezepte werden nur in Rezeptdateien exportiert (.sfc).\nSie erzeugen keine Sellfile-Regeln und können Überschriften mit # oder [rrggbb]-Farb-Tags enthalten.",
   builderRecipeOverridesOverrideBadgeTooltip: "Rezeptvorgaben überschreiben diese Einstellung (gespeichert: {stored}, wirksam: {effective}).",
+  builderSafeguardOverridesOverrideBadgeTooltip: "Safeguard-Vorgaben überschreiben diese Einstellung (gespeichert: {stored}, wirksam: {effective}).",
   historyBuilderExportModeLabel: "Sellfile-Exportmodus",
   historyBuilderSavedTitle: "{label} gespeichert",
   historyRecipeLabel: "Rezept #{n}",

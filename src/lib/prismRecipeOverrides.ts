@@ -169,6 +169,12 @@ function recipeOverrides(Prism: Refractor): void {
         // Plain `tag` (without `=`/`:`) is handled here after `tag-comparison`.
         'selector-field': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS),
 
+        // Slider group parameter keywords (min / max / step).
+        // `default` is caught by the earlier `default-kw` token.
+        // Must precede `field` so these short keywords are colored distinctly rather than
+        // falling through to unstyled text (they are not valid assignment-field names).
+        'slider-param-kw': /\b(?:min|max|step)\b/,
+
         // Field names used on the left-hand side of rule assignments (SSOT).
         // Combines recipe-overrides fields and safeguard-overrides fields so both grammars
         // share the same `field` color when highlighted as recipe-overrides (the only grammar
@@ -187,8 +193,10 @@ function recipeOverrides(Prism: Refractor): void {
         // Rendered as number/boolean-val so they blend with the existing numeric tokens.
         'sg-match-val': wordAlt(NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS),
 
-        // `$value` placeholder used inside slider groups to reference the slider's current value.
-        'sg-value-ref': /\$value\b/,
+        // `$value` / `$count` placeholders used inside slider groups to reference the slider's
+        // current value. `$count.TOKEN` references another slider by its explicit id=TOKEN.
+        // Both aliases are equal; `$count.TOKEN` cross-slider form is also matched here.
+        'sg-value-ref': /\$(?:count(?:\.\w[\w-]*)?|value)\b/,
 
         // `id=TOKEN` – defines a stable cross-question option identifier.
         // Split into three inner tokens so the `id` keyword joins the blue structural-keyword
