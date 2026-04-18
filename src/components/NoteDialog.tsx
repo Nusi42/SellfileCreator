@@ -1871,25 +1871,20 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
             <RecipeChip
               index={id - 1}
               recipe={recipe}
-            gearSetCatalogVersion={gearSetCatalogVersion}
-            onDelete={noop}
-            onDuplicate={noop}
-            onMoveUp={noop}
-            onMoveDown={noop}
-            onMoveTop={noop}
-            onMoveBottom={noop}
-            onPasteAfter={noop}
-            onPasteAtEnd={noop}
-            selected={false}
-            onSelect={noop}
-            onCopy={noop}
-            isLast={idx === entries.length - 1}
-            // Render static builder-style chips so README notes match the in-app visuals.
-            visualVariant="static"
-            onHover={noop}
-            metasets={metasets}
-            substatColors={substatColors}
-          />
+              gearSetCatalogVersion={gearSetCatalogVersion}
+              onDelete={noop}
+              onDuplicate={noop}
+              onMoveUp={noop}
+              onMoveDown={noop}
+              selected={false}
+              onSelect={noop}
+              isLast={idx === entries.length - 1}
+              // Render static builder-style chips so README notes match the in-app visuals.
+              visualVariant="static"
+              onHover={noop}
+              metasets={metasets}
+              substatColors={substatColors}
+            />
         </Box>
       ))}
     </Box>

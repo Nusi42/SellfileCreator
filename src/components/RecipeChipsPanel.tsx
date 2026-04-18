@@ -86,8 +86,6 @@ function RecipeChipsPanel(props: {
   const { t } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
-  // Stable toggle callback shared across all chips — avoids per-render lambda per chip.
-  const toggleShowTagsInChips = React.useCallback(() => setShowTagsInChips((v) => !v), [setShowTagsInChips])
   const {
     containerRef,
     recipes,
@@ -128,10 +126,11 @@ function RecipeChipsPanel(props: {
     onReorderRecipes,
   } = props
 
-  const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
+  // Unified chip + background context menu state — chipIdx < 0 means background right-click.
+  const [chipMenu, setChipMenu] = React.useState<null | { chipIdx: number; x: number; y: number }>(null)
   const menuPaperRef = React.useRef<HTMLDivElement | null>(null)
   const closeMenu = React.useCallback(() => {
-    setMenu(null)
+    setChipMenu(null)
     onHighlightDelete(false)
   }, [onHighlightDelete])
   const handleMenuContextMenu = React.useCallback((event: React.MouseEvent) => {
@@ -140,7 +139,7 @@ function RecipeChipsPanel(props: {
   }, [])
   // Guard the menu so outside clicks cannot leave a stuck overlay.
   const { contextMenuGuard } = useContextMenuPaperGuard({
-    open: Boolean(menu?.open),
+    open: Boolean(chipMenu),
     onClose: closeMenu,
     menuRef: menuPaperRef,
   })
@@ -149,13 +148,15 @@ function RecipeChipsPanel(props: {
     markSeen: markContextHintSeen,
   } = useContextMenuHint(RECIPE_CHIPS_CONTEXT_HINT_ID)
   const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const hintActive = hintPos !== null && !menu?.open && shouldShowContextHint
+  const hintActive = hintPos !== null && !chipMenu && shouldShowContextHint
   const resetHint = React.useCallback(() => {
     setHintPos(null)
   }, [])
-  const handleRecipeChipsContextMenuHint = React.useCallback(() => {
+  // Chip right-click: delegate to panel-level menu with the chip's index.
+  const handleChipContextMenu = React.useCallback((e: React.MouseEvent, idx: number) => {
     markContextHintSeen()
     resetHint()
+    setChipMenu({ chipIdx: idx, x: e.clientX, y: e.clientY })
   }, [markContextHintSeen, resetHint])
   const hideTipsTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   React.useEffect(() => () => {
@@ -275,7 +276,7 @@ function RecipeChipsPanel(props: {
           markScrolling()
         }}
         onMouseMove={(e) => {
-          if (hasActiveDrag || menu?.open) return
+          if (hasActiveDrag || chipMenu) return
           if (shouldShowContextHint) {
             setHintPos({ x: e.clientX, y: e.clientY })
           } else if (hintPos) {
@@ -292,7 +293,8 @@ function RecipeChipsPanel(props: {
           } catch {}
           markContextHintSeen()
           resetHint()
-          setMenu({ open: true, x: e.clientX, y: e.clientY })
+          // chipIdx -1 signals background click (no chip selected).
+          setChipMenu({ chipIdx: -1, x: e.clientX, y: e.clientY })
         }}
         onClick={chipListHandleClick}
         onKeyDown={chipListHandleKeyDown}
@@ -362,31 +364,16 @@ function RecipeChipsPanel(props: {
                 onSelect={(e) => onSelect(e, idx)}
                 onDelete={() => onDelete(idx)}
                 onDuplicate={() => onDuplicate(idx)}
-                onPasteAfter={() => onPasteAfter(idx)}
-                onPasteAtEnd={onPasteAtEnd}
-                onCopy={() => onCopyRecipe(idx)}
-                {...(onCopyRecipeDev ? { onCopyDev: () => onCopyRecipeDev(idx) } : {})}
-                onSelectAll={onSelectAll}
-                selectAllLabelKey={selectAllLabelKey}
-                onCopyAllRecipes={onCopyAllRecipes}
-                onDeleteAllRecipes={onDeleteAll}
-                deleteAllDisabled={deleteAllDisabled}
-                {...(onInsertAsSafeguard ? { onInsertAsSafeguard: () => onInsertAsSafeguard(idx), insertAsSafeguardLabel } : {})}
-                {...(onApplyAsSafeguard ? { onApplyAsSafeguard: () => onApplyAsSafeguard(idx), applyAsSafeguardLabel } : {})}
                 onMoveUp={() => onMoveUp(idx)}
                 onMoveDown={() => onMoveDown(idx)}
-                onMoveTop={() => onMoveTop(idx)}
-                onMoveBottom={() => onMoveBottom(idx)}
                 isLast={idx === recipes.length - 1}
                 onHover={(enter) => onHoverIdx(enter ? idx : null)}
-                onContextMenuHintSeen={handleRecipeChipsContextMenuHint}
-                onHighlightDelete={onHighlightDelete}
+                onContextMenu={handleChipContextMenu}
                 hideTooltip={hasActiveDrag}
                 dragEnabled={dragEnabled}
                 {...(pointerHandlers ?? {})}
                 ghostedWhileDragging={ghostedWhileDragging}
                 showTagsChips={showTagsInChips}
-                onToggleShowTagsInChips={toggleShowTagsInChips}
               />
             )
           })
@@ -394,25 +381,42 @@ function RecipeChipsPanel(props: {
       </Box>
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive && !hasActiveDrag ? hintPos : null} />
       <RecipeContextMenu
-        open={Boolean(menu?.open)}
-        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
+        open={Boolean(chipMenu)}
+        anchorPosition={chipMenu ? { top: chipMenu.y, left: chipMenu.x } : null}
         onClose={closeMenu}
         paperRef={menuPaperRef}
         paperDataTourId="chips.menu"
         onPaperContextMenu={handleMenuContextMenu}
         contextMenuGuard={contextMenuGuard}
-        actions={{
-          pasteAtEnd: onPasteAtEnd,
-          selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
-          clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
-          copyAll: { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
-          toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
-          deleteAll: {
-            handler: onDeleteAll,
-            disabled: deleteAllDisabled,
-            onHighlightChange: onHighlightDelete,
-          },
-        }}
+        actions={(() => {
+          if (!chipMenu) return {}
+          const idx = chipMenu.chipIdx
+          // idx < 0 means background right-click — show list-level actions only.
+          const isChipMenu = idx >= 0
+          const isFirst = idx <= 0
+          const isLast = idx >= recipes.length - 1
+          return {
+            ...(isChipMenu ? {
+              duplicate:  () => onDuplicate(idx),
+              moveTop:    { handler: () => onMoveTop(idx),    disabled: isFirst },
+              moveUp:     { handler: () => onMoveUp(idx),     disabled: isFirst },
+              moveDown:   { handler: () => onMoveDown(idx),   disabled: isLast },
+              moveBottom: { handler: () => onMoveBottom(idx), disabled: isLast },
+              copyRecipe: () => onCopyRecipe(idx),
+              ...(onCopyRecipeDev ? { copyRecipeDev: () => onCopyRecipeDev(idx) } : {}),
+              pasteAfter: () => onPasteAfter(idx),
+              ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: () => onInsertAsSafeguard(idx), label: insertAsSafeguardLabel ?? '' } } : {}),
+              ...(onApplyAsSafeguard  ? { applyAsSafeguard:  { handler: () => onApplyAsSafeguard(idx),  label: applyAsSafeguardLabel  ?? '' } } : {}),
+              deleteRecipe: () => onDelete(idx),
+            } : {}),
+            pasteAtEnd:     onPasteAtEnd,
+            selectAll:      { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
+            clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
+            copyAll:        { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
+            toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
+            deleteAll: { handler: onDeleteAll, disabled: deleteAllDisabled, onHighlightChange: onHighlightDelete },
+          }
+        })()}
       />
     </>
   )

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import type React from 'react'
 import type { JSX } from 'react'
 import { Box, Chip, IconButton, Typography } from '@mui/material'
@@ -26,7 +26,6 @@ import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_A
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
 import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { FactionIcon } from './FactionIcon'
@@ -36,7 +35,6 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { RecipeContextMenu, buildChipContextMenuActions } from './RecipeContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
@@ -60,8 +58,6 @@ const clampAggregateRollDisplayValue = (value: unknown): number => {
   const rounded = Math.round(value)
   return Math.max(0, Math.min(5, rounded))
 }
-
-const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
 
 type SeparatorDividerDecoration = {
   displayName: string
@@ -133,34 +129,17 @@ interface RecipeChipProps {
   onDuplicate: () => void
   onMoveUp: () => void
   onMoveDown: () => void
-  onMoveTop: () => void
-  onMoveBottom: () => void
-  onPasteAfter: () => void
-  onPasteAtEnd: () => void
   selected: boolean
   onSelect: (e: React.MouseEvent) => void
-  onCopy: () => void
-  onCopyDev?: () => void
-  onSelectAll?: () => void
-  selectAllLabelKey?: string
-  onCopyAllRecipes?: () => void
-  onDeleteAllRecipes?: () => void
-  deleteAllDisabled?: boolean
-  onHighlightDelete?: (active: boolean) => void
-  onInsertAsSafeguard?: () => void
-  insertAsSafeguardLabel?: string
-  onApplyAsSafeguard?: () => void
-  applyAsSafeguardLabel?: string
   isLast: boolean
   onHover: (enter: boolean) => void
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   isDuplicate?: boolean
   duplicateOfIndex?: number
-  onContextMenuHintSeen?: () => void
   showTagsChips?: boolean
-  /** Called when the user toggles the "Show Tags on Chips" option from this chip's context menu. */
-  onToggleShowTagsInChips?: () => void
+  /** Panel-owned context menu: chip fires this on right-click; the panel opens its shared menu. */
+  onContextMenu?: (e: React.MouseEvent<HTMLDivElement>, idx: number) => void
 }
 
 function RecipeChip({
@@ -176,34 +155,17 @@ function RecipeChip({
   onDuplicate,
   onMoveUp,
   onMoveDown,
-  onMoveTop,
-  onMoveBottom,
-  onPasteAfter,
-  onPasteAtEnd,
   selected,
   visualVariant,
   onSelect,
-  onCopy,
-  onCopyDev,
-  onSelectAll,
-  selectAllLabelKey,
-  onCopyAllRecipes,
-  onDeleteAllRecipes,
-  deleteAllDisabled,
-  onHighlightDelete,
-  onInsertAsSafeguard,
-  insertAsSafeguardLabel,
-  onApplyAsSafeguard,
-  applyAsSafeguardLabel,
   isLast,
   onHover,
   metasets,
   substatColors,
   isDuplicate,
   duplicateOfIndex,
-  onContextMenuHintSeen,
   showTagsChips,
-  onToggleShowTagsInChips,
+  onContextMenu: onContextMenuProp,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
@@ -215,8 +177,6 @@ function RecipeChip({
     () => parseRecipeNameDirectives(recipe.name, primaryColor),
     [recipe.name, primaryColor],
   )
-  // Dev builds expose extra clipboard utilities via the chip context menu.
-  const isDev: boolean = isDevBuild
   // Allow callers to override the export mode for recipe overrides previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? recipe.exportMode
   const isSeparator = exportMode === 'separator'
@@ -256,24 +216,7 @@ function RecipeChip({
   // Dim the summary text when recipes export with Use = false.
   const summaryOpacity = isDisabled ? disabledOpacity : 1
   const showDuplicateFrame = !isSeparator && isDuplicate
-  const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
-  const menuPaperRef = useRef<HTMLDivElement | null>(null)
-  const closeMenu = useCallback(() => {
-    setMenu(null)
-    onHighlightDelete?.(false)
-  }, [onHighlightDelete])
-  // Guard the menu so outside clicks cannot leave a stuck overlay.
-  const { contextMenuGuard } = useContextMenuPaperGuard({
-    open: Boolean(menu?.open),
-    onClose: closeMenu,
-    menuRef: menuPaperRef,
-  })
-  const handleMenuContextMenu = useCallback((event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-  }, [])
   const backgroundMode = visualVariant ?? 'interactive'
-  const deleteAllDisabledFlag = Boolean(deleteAllDisabled)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
   // Suppress tooltips immediately when dragging begins so they do not reopen after drop.
@@ -367,13 +310,13 @@ function RecipeChip({
       onContextMenu={(e) => {
         try { e.preventDefault(); e.stopPropagation() } catch {}
         if (!isSeparator && !selected) {
-          // Align context-click with normal selection so menu actions target the right chip.
+          // Auto-select so the panel's context menu actions target the right chip.
           onSelect(e)
         }
-        onContextMenuHintSeen?.()
         onHover(false)
         setChipHover(false)
-        setMenu({ open: true, x: e.clientX, y: e.clientY })
+        // Delegate menu opening to the panel — it owns the shared RecipeContextMenu.
+        onContextMenuProp?.(e, index)
       }}
     >
       {isSeparator ? (
@@ -583,53 +526,6 @@ function RecipeChip({
           </MarkdownTooltip>
         </>
       ) : null}
-      <RecipeContextMenu
-        open={Boolean(menu?.open)}
-        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
-        onClose={closeMenu}
-        paperRef={menuPaperRef}
-        paperDataTourId="chip.menu"
-        onPaperContextMenu={handleMenuContextMenu}
-        contextMenuGuard={contextMenuGuard}
-        actions={{
-          ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: onInsertAsSafeguard, label: insertAsSafeguardLabel ?? '' } } : {}),
-          ...(onApplyAsSafeguard ? { applyAsSafeguard: { handler: onApplyAsSafeguard, label: applyAsSafeguardLabel ?? '' } } : {}),
-          // Common per-chip actions shared with safeguard chips via buildChipContextMenuActions.
-          ...buildChipContextMenuActions({
-            onDuplicate,
-            onMoveTop,
-            onMoveUp,
-            onMoveDown,
-            onMoveBottom,
-            onCopy,
-            onPasteAfter,
-            onDelete,
-            isFirst: index === 0,
-            isLast,
-          }),
-          pasteAtEnd: onPasteAtEnd,
-          ...(isDev && onCopyDev ? { copyRecipeDev: onCopyDev } : {}),
-          ...(onSelectAll ? {
-            selectAll: {
-              handler: onSelectAll,
-              disabled: false,
-              labelKey: selectAllLabelKey ?? 'chipsMenuSelectAll',
-            },
-          } : {}),
-          ...(onCopyAllRecipes ? { copyAll: { handler: onCopyAllRecipes, disabled: false } } : {}),
-          ...(onDeleteAllRecipes ? {
-            deleteAll: {
-              handler: onDeleteAllRecipes,
-              disabled: deleteAllDisabledFlag,
-              ...(onHighlightDelete ? { onHighlightChange: onHighlightDelete } : {}),
-            },
-          } : {}),
-          // Show Tags on Chips toggle — present whenever the panel passes the handler.
-          ...(onToggleShowTagsInChips ? {
-            toggleShowTagsInChips: { checked: Boolean(showTagsChips), handler: onToggleShowTagsInChips },
-          } : {}),
-        }}
-      />
     </Box>
   )
 
@@ -664,16 +560,8 @@ function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly
     && prev.duplicateOfIndex === next.duplicateOfIndex
     && prev.substatColors === next.substatColors
     && prev.metasets === next.metasets
-    && prev.selectAllLabelKey === next.selectAllLabelKey
-    && prev.onDeleteAllRecipes === next.onDeleteAllRecipes
-    && prev.onHighlightDelete === next.onHighlightDelete
-    && prev.onInsertAsSafeguard === next.onInsertAsSafeguard
-    && prev.insertAsSafeguardLabel === next.insertAsSafeguardLabel
-    && prev.onApplyAsSafeguard === next.onApplyAsSafeguard
-    && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
-    && prev.onPasteAtEnd === next.onPasteAtEnd
     && prev.showTagsChips === next.showTagsChips
-    && prev.onToggleShowTagsInChips === next.onToggleShowTagsInChips
+    && prev.onContextMenu === next.onContextMenu
 }
 
 export default memo(RecipeChip, areRecipeChipPropsEqual)
