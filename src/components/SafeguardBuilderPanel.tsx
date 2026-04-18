@@ -1052,7 +1052,7 @@ export default function SafeguardBuilderPanel({
         </Box>
 
         {/* Ignore chips — right of required count, stacked in 2 rows */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.75, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
           {/* Row 1: ignore previous safeguards */}
           {(() => {
             // Derive effective value and mixed indicator for each ignore toggle.
