@@ -158,7 +158,17 @@ export async function importGearDatabaseFromArrayBuffer(buffer: ArrayBufferLike,
       : []
     return { artifacts, inboxArtifacts }
   } finally {
+    // db.close() calls sqlite3_close_v2 + FS.unlink to free SQLite's internal pages
+    // and the emscripten file backing.  The WASM linear memory itself does not shrink.
     try { db?.close() } catch {}
+    // Release the module-level sql.js instance so its WASM linear memory (~200 MB for a
+    // 68 MB database) becomes GC-eligible.  dlmalloc fragmentation inside the emscripten
+    // heap means freed SQLite pages cannot always be reused for the next import, causing
+    // memory.grow on every call and permanent linear-memory growth across rapid imports.
+    // Dropping the reference lets Chrome GC the old WASM instance during the settle wait
+    // (30+ s) before the next import allocates a fresh, unfragmented module.
+    // wasmBinaryPromise is kept so the compiled module binary is not re-fetched.
+    sqlJsPromise = null
   }
 }
 

@@ -112,23 +112,41 @@ type WorkerStatePayload = RuleCachePipelineResponse['payload']
 const toStateSnapshotFromWorker = (
   payload: WorkerStatePayload,
   // Most recently received non-null rule data; supplied as fallback when the worker
-  // skipped the large clone (artifact-only burst → rulesByRecipeEntries/mergedRules/keys = null).
+  // skipped the large clone (artifact-only burst → all rule fields null).
   lastRules: { rulesByRecipe: Map<number, HsfRuleWithRecipe[]>; mergedRules: HsfRuleWithRecipe[]; keys: string[] } | null,
-): RuleCacheStateSnapshot => ({
-  // Fall back to last known rules when the worker sent null.
-  rulesByRecipe: payload.rulesByRecipeEntries !== null
-    ? new Map<number, HsfRuleWithRecipe[]>(payload.rulesByRecipeEntries)
-    : (lastRules?.rulesByRecipe ?? new Map()),
-  // countsByRecipe is always fresh — it depends on baseRuleCount from the HSF file,
-  // which can change independently of recipe content.
-  countsByRecipe: new Map<number, number>(payload.countsByRecipeEntries),
-  keys: payload.keys ?? lastRules?.keys ?? [],
-  substatTargetsKey: payload.substatTargetsKey,
-  mergedRules: payload.mergedRules ?? lastRules?.mergedRules ?? [],
-  truncatedRecipeIndices: payload.truncatedRecipeIndices,
-  totalLimitHit: payload.totalLimitHit,
-  excludedByTotalLimitIndices: payload.excludedByTotalLimitIndices,
-})
+): RuleCacheStateSnapshot => {
+  // Determine rulesByRecipe from whichever encoding the worker sent.
+  let rulesByRecipe: Map<number, HsfRuleWithRecipe[]>
+  if (payload.rulesByRecipeIndices !== null) {
+    // Compact path: indices into mergedRules — rule objects are shared with the mergedRules
+    // array (no copy), halving the per-pipeline V8 allocation vs. sending full rule objects.
+    const rules = payload.mergedRules ?? lastRules?.mergedRules ?? []
+    rulesByRecipe = new Map(
+      payload.rulesByRecipeIndices.map(([recipeIdx, indices]) => [
+        recipeIdx,
+        indices.map((i) => rules[i]).filter((r): r is HsfRuleWithRecipe => r !== undefined),
+      ]),
+    )
+  } else if (payload.rulesByRecipeEntries !== null) {
+    // Full path (dedupeBeforeSafeguards or omitDisabledBeforeSafeguards active): direct entries.
+    rulesByRecipe = new Map<number, HsfRuleWithRecipe[]>(payload.rulesByRecipeEntries)
+  } else {
+    // Artifact-only burst (rulesUnchanged): reuse last known map.
+    rulesByRecipe = lastRules?.rulesByRecipe ?? new Map()
+  }
+  return {
+    rulesByRecipe,
+    // countsByRecipe is always fresh — it depends on baseRuleCount which can change
+    // independently of recipe content.
+    countsByRecipe: new Map<number, number>(payload.countsByRecipeEntries),
+    keys: payload.keys ?? lastRules?.keys ?? [],
+    substatTargetsKey: payload.substatTargetsKey,
+    mergedRules: payload.mergedRules ?? lastRules?.mergedRules ?? [],
+    truncatedRecipeIndices: payload.truncatedRecipeIndices,
+    totalLimitHit: payload.totalLimitHit,
+    excludedByTotalLimitIndices: payload.excludedByTotalLimitIndices,
+  }
+}
 
 const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Promise<T> => {
   // No caller signal means there is nothing to wrap.
@@ -151,27 +169,32 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
   })
 }
 
-// Proactive worker restart thresholds: terminate + respawn the worker before a pipeline run
-// when either the WASM heap has grown large (memory.grow failure risk on V8/Windows)
-// or every N pipelines as a blanket hedge against accumulating fragmentation.
-// STATUS_ACCESS_VIOLATION is unrecoverable at the JS level (V8 OS-level crash), so
-// the only defence is staying below the ~160 MiB grow-rejection threshold.
-const WASM_HEAP_RESTART_BYTES = 150 * 1024 * 1024 // 150 MiB
-// Restart the worker periodically as a defense-in-depth measure against any
-// unforeseen heap state accumulation.  The talc 5.0.3 free-list corruption
-// is fixed at the Rust level (StabilityAllocator + Arc<str> on RuleRaw string
-// fields + prewarm_for_json_parse/serialize_json_prealloc — see
-// wasm/rule_engine_wasm/src/lib.rs).  20+ pipeline iterations pass cleanly;
-// the interval is 5 rather than the old crash-mitigation value of 1.
-const PIPELINE_RESTART_INTERVAL = 5               // restart worker every N completed pipelines
+// No proactive worker cycling.
+//
+// Earlier iterations cycled the worker when the WASM heap exceeded a threshold or
+// after every N pipelines.  Both strategies backfire:
+//
+// • The WASM heap (pre-grown to 256 MiB at startup) grows to 400–600 MiB on the
+//   first pipeline with a large rule set (32 000+ rules).  This one-time growth is
+//   the StabilityAllocator fitting the working set; subsequent pipelines on the SAME
+//   worker reuse those pages and the heap stays stable.
+// • Proactive cycling terminates that 400–600 MiB worker immediately after the first
+//   pipeline and spawns a replacement that will grow identically.  Chrome's major GC
+//   for Worker threads is lazy — the dead heap lingers until GC decides to run,
+//   stacking dead 400–600 MiB allocations and causing the multi-GB main-thread growth
+//   users observed.
+// • Without cycling, one worker heap grows once to ~460 MiB and remains stable; that
+//   is strictly better than N dead heaps accumulating faster than GC can free them.
+//
+// The runtime-error recovery path (replaceWorkerAfterRuntimeError) still handles
+// genuine WASM traps (unreachable / out-of-bounds) by replacing the worker.  That
+// path is the only necessary safeguard.
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   // Generation ids let worker runs drop stale responses safely.
   const pipelineGenerationRef = useRef(0)
-  const completedPipelineCountRef = useRef(0)
-  const lastWasmLinearBytesRef = useRef(0)
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
   const abortedIdsRef = useRef<Set<number>>(new Set())
@@ -220,13 +243,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
-          // Track heap size and pipeline count BEFORE the abort check — the
-          // WORKER ran the full pipeline even if the JS side superseded it.
-          // Without this, the cycling logic sees counter=0 after an aborted
-          // pipeline and doesn't cycle, leaving the next pipeline on a dirty
-          // heap where talc's free-list has accumulated corruption.
-          lastWasmLinearBytesRef.current = data.payload.wasmLinearBytes
-          completedPipelineCountRef.current += 1
+          if (import.meta.env.DEV) {
+            // Dev-only: log WASM heap after each pipeline to spot unexpected growth.
+            // Open Chrome DevTools → Console and look for [rule-cache-worker] lines.
+            const mainHeap = (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0
+            console.log(`[rule-cache-worker] pipeline-done id=${data.id} wasmHeapMB=${data.payload.wasmLinearBytes / 1024 / 1024 | 0} mainHeapMB=${mainHeap / 1024 / 1024 | 0}`)
+          }
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
           const entries = data.payload.improvementChanceEntries
@@ -317,22 +339,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       attachWorkerListeners(worker)
       workerRef.current = worker
     }
-    // Proactively terminate and respawn the worker to reset the WASM linear heap.
-    // Called before a pipeline when the heap is large or after N completed runs.
-    // Unlike replaceWorkerAfterRuntimeError this does not reject pending requests
-    // (there are none — it is always called between pipeline runs).
-    const cycleWorkerProactively = () => {
-      const oldWorker = workerRef.current
-      if (!oldWorker) return
-      workerAc.abort()
-      workerAc = new AbortController()
-      oldWorker.terminate()
-      workerRef.current = null
-      completedPipelineCountRef.current = 0
-      lastWasmLinearBytesRef.current = 0
-      spawnWorker()
-    }
-    cycleWorkerProactivelyRef.current = cycleWorkerProactively
     const replaceWorkerAfterRuntimeError = () => {
       // Runtime faults are recoverable by replacing the worker instance.
       rejectAllPending(createAbortError(), { markAborted: true })
@@ -385,13 +391,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     // own WASM peak memory — prevents both WASM linear heaps existing simultaneously.
     // Sends 'cancel' (not terminate) so cachedSession is preserved for resume after pipeline.
     pauseAllDsimWorkers()
-    // Proactively restart the worker when the WASM heap has grown large or after
-    // every Nth pipeline.  Must happen before reading workerRef so the fresh worker
-    // is used for this pipeline.
-    const shouldCycle =
-      completedPipelineCountRef.current >= PIPELINE_RESTART_INTERVAL ||
-      lastWasmLinearBytesRef.current >= WASM_HEAP_RESTART_BYTES
-    if (shouldCycle && workerRef.current) cycleWorkerProactivelyRef.current()
     const worker = workerRef.current
     if (!supportsWorkerEnv || !worker) {
       // Callers should pre-check availability, but keep this deterministic.
@@ -473,8 +472,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     return { promise, abort }
   }, [])
 
-  // Exposes cycleWorkerProactively to startPipelineRunOnWorker (separate useCallback).
-  const cycleWorkerProactivelyRef = useRef<() => void>(() => {})
   // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
   const promoteQueuedPipelineRef = useRef<() => void>(() => {})
 
