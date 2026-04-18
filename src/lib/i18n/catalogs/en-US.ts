@@ -1571,6 +1571,7 @@ const enUS: Catalog = {
   chipsMenuClearSelection: "Clear Selection",
   chipsMenuCopyAllRecipes: "Copy All Recipes",
   chipsMenuCopyAllSafeguards: "Copy All Safeguards",
+  chipsMenuShowTagsInChips: "Show Tags on Chips",
   chipsMenuPasteAtEnd: "Paste at End",
   chipsEmptyPasteHint: "No Recipes Yet — Right-Click to Paste",
   chipsFilteredEmpty: "No Recipes Match the Current Filters",

@@ -159,6 +159,8 @@ interface RecipeChipProps {
   duplicateOfIndex?: number
   onContextMenuHintSeen?: () => void
   showTagsChips?: boolean
+  /** Called when the user toggles the "Show Tags on Chips" option from this chip's context menu. */
+  onToggleShowTagsInChips?: () => void
 }
 
 function RecipeChip({
@@ -201,6 +203,7 @@ function RecipeChip({
   duplicateOfIndex,
   onContextMenuHintSeen,
   showTagsChips,
+  onToggleShowTagsInChips,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
@@ -621,6 +624,10 @@ function RecipeChip({
               ...(onHighlightDelete ? { onHighlightChange: onHighlightDelete } : {}),
             },
           } : {}),
+          // Show Tags on Chips toggle — present whenever the panel passes the handler.
+          ...(onToggleShowTagsInChips ? {
+            toggleShowTagsInChips: { checked: Boolean(showTagsChips), handler: onToggleShowTagsInChips },
+          } : {}),
         }}
       />
     </Box>
@@ -666,6 +673,7 @@ function areRecipeChipPropsEqual(prev: Readonly<RecipeChipProps>, next: Readonly
     && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPasteAtEnd === next.onPasteAtEnd
     && prev.showTagsChips === next.showTagsChips
+    && prev.onToggleShowTagsInChips === next.onToggleShowTagsInChips
 }
 
 export default memo(RecipeChip, areRecipeChipPropsEqual)

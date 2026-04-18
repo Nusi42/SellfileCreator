@@ -1547,6 +1547,7 @@ const overrides: Catalog = {
   chipsMenuClearSelection: "Seçimi temizle",
   chipsMenuCopyAllRecipes: "Tüm reçeteler kopyala",
   chipsMenuCopyAllSafeguards: "Tüm korumalar kopyala",
+  chipsMenuShowTagsInChips: "Chip'lerde etiketleri göster",
   chipsMenuPasteAtEnd: "Sona yapıştır",
   chipsEmptyPasteHint: "Henüz reçete yok — yapıştırmak için sağ tıklayın",
   chipsFilteredEmpty: "Mevcut filtrelere uyan reçete yok",

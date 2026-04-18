@@ -4,7 +4,7 @@
  * Builder-specific persisted preferences.
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY, BUILDER_RECIPE_COLLAPSED_KEY, BUILDER_SAFEGUARD_COLLAPSED_KEY } from '../lib/constants'
+import { BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY, BUILDER_SHOW_TAGS_IN_CHIPS_KEY, BUILDER_RECIPE_COLLAPSED_KEY, BUILDER_SAFEGUARD_COLLAPSED_KEY } from '../lib/constants'
 
 export const BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS = Object.freeze(['action', 'rank', 'rarity', 'faction', 'level', 'mainStat', 'substats', 'slots', 'sets', 'minRolls', 'requiredSubstats', 'milestoneThresholds'] as const)
 export type BuilderPanelCollapsibleSectionId = typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number]
@@ -107,7 +107,7 @@ const autoApplyStore = createLocalStorageStore<boolean>({
 /** Shared auto-apply toggle for both the recipe and safeguard builder panels. */
 export const useAutoApplyBuilderPreference = createLocalStorageStateHook(autoApplyStore)
 
-// Builder-only: control whether tag chips render beside the Tags button.
+// Builder-only: control whether tag chips render beside the Tags button in the form header.
 const showTagsStore = createLocalStorageStore<boolean>({
   key: BUILDER_SHOW_TAG_CHIPS_KEY,
   // Default off to keep the header compact until users opt in.
@@ -118,3 +118,15 @@ const showTagsStore = createLocalStorageStore<boolean>({
 })
 
 export const useShowTagsChipsPreference = createLocalStorageStateHook(showTagsStore)
+
+// Controls whether tags render inline on each chip in the chips list (both recipe and safeguard).
+// Separate from useShowTagsChipsPreference so builder-form and chip-list display are independent.
+// Toggled from the chips right-click context menu in both panels.
+const showTagsInChipsStore = createLocalStorageStore<boolean>({
+  key: BUILDER_SHOW_TAGS_IN_CHIPS_KEY,
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => String(value),
+})
+
+export const useShowTagsInChipsPreference = createLocalStorageStateHook(showTagsInChipsStore)

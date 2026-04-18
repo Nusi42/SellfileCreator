@@ -475,9 +475,13 @@ export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.auto
 // selected recipe after a short debounce. Default Off; stored separately so
 // users can keep the behavior between sessions.
 export const BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY = 'sellfileCreator.builder.autoApplySelectedRecipe.v1'
-// Builder: controls whether tag chips render next to the Tags button.
+// Builder: controls whether tag chips render next to the Tags button in the builder form.
 // Default Off so the chip row stays hidden until explicitly enabled.
 export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips.v1'
+// Builder: controls whether tags render inline on each chip in the chips list.
+// Separate from BUILDER_SHOW_TAG_CHIPS_KEY (builder form) so the two can be toggled independently.
+// Toggled from the chips right-click context menu in both recipe and safeguard panels.
+export const BUILDER_SHOW_TAGS_IN_CHIPS_KEY = 'sellfileCreator.builder.showTagsInChips.v1'
 // Builder: persisted collapsed state for the 7 per-group collapsible sections
 // in the recipe builder panel.
 export const BUILDER_RECIPE_COLLAPSED_KEY = 'sellfileCreator.builder.recipeCollapsed.v1'

@@ -18,7 +18,7 @@ import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
-import { useShowTagsChipsPreference } from '../state/builderPreferences'
+import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 
 // Shared localStorage key suffix for the Recipe Chips context-menu hint.
 // Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
@@ -85,7 +85,9 @@ function RecipeChipsPanel(props: {
 }) {
   const { t } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
-  const [showTagsChips] = useShowTagsChipsPreference()
+  const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
+  // Stable toggle callback shared across all chips — avoids per-render lambda per chip.
+  const toggleShowTagsInChips = React.useCallback(() => setShowTagsInChips((v) => !v), [setShowTagsInChips])
   const {
     containerRef,
     recipes,
@@ -383,7 +385,8 @@ function RecipeChipsPanel(props: {
                 dragEnabled={dragEnabled}
                 {...(pointerHandlers ?? {})}
                 ghostedWhileDragging={ghostedWhileDragging}
-                showTagsChips={showTagsChips}
+                showTagsChips={showTagsInChips}
+                onToggleShowTagsInChips={toggleShowTagsInChips}
               />
             )
           })
@@ -403,6 +406,7 @@ function RecipeChipsPanel(props: {
           selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
           clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
           copyAll: { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
+          toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
           deleteAll: {
             handler: onDeleteAll,
             disabled: deleteAllDisabled,

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Divider, Menu, MenuItem } from '@mui/material'
+import { Checkbox, Divider, Menu, MenuItem } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaperGuardToken } from './ContextMenuPaper'
 
@@ -82,6 +82,8 @@ export interface RecipeContextMenuActions {
   clearSelection?: SelectAllAction
   copyAll?: { handler: MenuClickHandler; disabled: boolean; labelKey?: string }
   deleteAll?: HighlightableAction
+  /** Toggle tag display on chips — does NOT close the menu so users can see the effect instantly. */
+  toggleShowTagsInChips?: { checked: boolean; handler: MenuClickHandler }
 }
 
 interface RecipeContextMenuProps {
@@ -262,6 +264,19 @@ export function RecipeContextMenu({
     secondaryItems.push(
       <MenuItem key="pasteAtEnd" onClick={wrapClick(onClose, actions.pasteAtEnd)}>
         {t('chipsMenuPasteAtEnd')}
+      </MenuItem>,
+    )
+  }
+  if (actions.toggleShowTagsInChips) {
+    const toggleAction = actions.toggleShowTagsInChips
+    secondaryItems.push(
+      // Does not close the menu on click so the user can see the effect immediately.
+      <MenuItem
+        key="toggleShowTagsInChips"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleAction.handler() }}
+      >
+        <Checkbox size="small" checked={toggleAction.checked} onChange={toggleAction.handler} sx={{ mr: 1, p: 0.5 }} />
+        {t('chipsMenuShowTagsInChips')}
       </MenuItem>,
     )
   }

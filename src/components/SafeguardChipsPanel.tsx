@@ -60,7 +60,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
-import { useShowTagsChipsPreference } from '../state/builderPreferences'
+import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 import { safeguardActivationColor, safeguardSummaryParts } from './safeguardSummaryParts'
 
 
@@ -154,7 +154,7 @@ type SafeguardChipProps = {
   showSetIcons: boolean
   showSlotIcons: boolean
   /** When true, show up to 3 inline tag chips below the summary line. */
-  showTagsChips: boolean
+  showTagsInChips: boolean
   t: (key: string, params?: Record<string, string | number>) => string
   lang: string
   onSelect: (ruleIndex: number) => void
@@ -176,7 +176,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   rule, ruleIndex, isSelected, isFirst, isLast, isEditing, pendingName,
   dndEnabled, isGhostDragging, hasActiveDrag,
   metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons,
-  showTagsChips,
+  showTagsInChips,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
   onDeleteRequest, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
@@ -325,7 +325,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
       )}
       {/* Inline tag chips — shown to the right of the text area, next to the mode flags,
           when the preference is on. flexShrink: 0 keeps them from being squeezed by the name. */}
-      {!isEditing && showTagsChips && rule.tags && rule.tags.length > 0 ? (
+      {!isEditing && showTagsInChips && rule.tags && rule.tags.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
           {rule.tags.slice(0, 3).map((tag) => (
             <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
@@ -419,8 +419,8 @@ export default function SafeguardChipsPanel({
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
-  // Read the shared tag-chip preference — same key as RecipeBuilderPanel / SafeguardBuilderPanel.
-  const [showTagsChips] = useShowTagsChipsPreference()
+  // Read the chips-list tag display preference — separate from the builder form inline display.
+  const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
 
   // ── internal state ───────────────────────────────────────────────────────
   // Index of the rule whose inline name field is active; null when none.
@@ -910,6 +910,7 @@ export default function SafeguardChipsPanel({
             ...(onClearSelection ? {
               clearSelection: { handler: onClearSelection, disabled: selectedCount === 0, labelKey: 'chipsMenuClearSelection' },
             } : {}),
+            toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
             deleteAll: {
               // Prefer the parent-supplied handler (App.tsx can hook history/dialog).
               handler: onDeleteAll ?? (() => setPendingDeleteAll(true)),
@@ -1044,7 +1045,7 @@ export default function SafeguardChipsPanel({
                 showFactionIcons={showFactionIcons}
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}
-                showTagsChips={showTagsChips}
+                showTagsInChips={showTagsInChips}
                 t={t}
                 lang={lang}
                 onSelect={onSelect}

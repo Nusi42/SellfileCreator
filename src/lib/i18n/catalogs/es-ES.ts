@@ -1545,6 +1545,7 @@ const overrides: Catalog = {
   chipsMenuClearSelection: "Deseleccionar todo",
   chipsMenuCopyAllRecipes: "Copiar todas las recetas",
   chipsMenuCopyAllSafeguards: "Copiar todas las protecciones",
+  chipsMenuShowTagsInChips: "Mostrar etiquetas en los chips",
   chipsMenuPasteAtEnd: "Pegar al final",
   chipsEmptyPasteHint: "Aún no hay recetas — clic derecho para pegar",
   chipsFilteredEmpty: "Ninguna receta coincide con los filtros actuales",

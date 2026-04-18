@@ -1548,6 +1548,7 @@ const overrides: Catalog = {
   chipsMenuClearSelection: "Зняти виділення",
   chipsMenuCopyAllRecipes: "Копіювати всі рецепти",
   chipsMenuCopyAllSafeguards: "Копіювати всі захисти",
+  chipsMenuShowTagsInChips: "Показати теги на картках",
   chipsMenuPasteAtEnd: "Вставити в кінець",
   chipsEmptyPasteHint: "Рецептів ще немає — клацніть правою кнопкою, щоб вставити",
   chipsFilteredEmpty: "Немає рецептів, що відповідають поточним фільтрам",
