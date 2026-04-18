@@ -5792,10 +5792,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
-    // Block gear-DB pushes while the tutorial is running.
+    // Block gear-DB pushes while the tutorial is running or the restore dialog is open.
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
+    // The restore dialog is presenting a snapshot to the user; applying a live update
+    // underneath it would silently discard whatever the user is about to decide.
     // selectRule (above) is left through since it only affects scroll position.
-    if (tutorialOpen) return
+    if (tutorialOpen || restoreDlgOpen) return
 
     if (cmd.kind === 'gearDbFileBinary') {
       enqueueEndpointPush(cmd)
@@ -5824,6 +5826,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     enqueueEndpointPush,
     focusRuleByIndex,
     requestSelectionScroll,
+    restoreDlgOpen,
     tutorialOpen,
   ])
 
