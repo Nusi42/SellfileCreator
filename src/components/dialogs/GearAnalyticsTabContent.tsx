@@ -745,18 +745,21 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           </Tooltip>
         )}
         <Tooltip title={t(canCopy ? 'gearAnalyticsCopySnapshotTip' : 'gearAnalyticsDownloadSnapshotTip')} arrow placement="top">
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleCopySnapshot}
-            disabled={copying}
-            startIcon={copying ? <CircularProgress size={12} /> : undefined}
-            sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 130 }}
-          >
-            {copyDone
-              ? t(canCopy ? 'gearAnalyticsCopied' : 'gearAnalyticsDownloaded')
-              : t(canCopy ? 'gearAnalyticsCopySnapshot' : 'gearAnalyticsDownloadSnapshot')}
-          </Button>
+          {/* span required: Tooltip needs events, disabled buttons don't fire them */}
+          <span>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleCopySnapshot}
+              disabled={copying}
+              startIcon={copying ? <CircularProgress size={12} /> : undefined}
+              sx={{ fontSize: '0.75rem', py: 0.5, minWidth: 130 }}
+            >
+              {copyDone
+                ? t(canCopy ? 'gearAnalyticsCopied' : 'gearAnalyticsDownloaded')
+                : t(canCopy ? 'gearAnalyticsCopySnapshot' : 'gearAnalyticsDownloadSnapshot')}
+            </Button>
+          </span>
         </Tooltip>
       </Box>
 

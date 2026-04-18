@@ -2825,14 +2825,17 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             </IconButton>
           </Tooltip>
           <Tooltip title={t('gearInspectorSelectionClearAll')}>
-            <IconButton
-              size="small"
-              onClick={() => onGearItemsSelect(new Set())}
-              disabled={!(selectedGearItemIds?.size)}
-              aria-label={t('gearInspectorSelectionClearAll')}
-            >
-              <PlaylistRemoveIcon fontSize="small" />
-            </IconButton>
+            {/* span required: Tooltip needs events, disabled buttons don't fire them */}
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onGearItemsSelect(new Set())}
+                disabled={!(selectedGearItemIds?.size)}
+                aria-label={t('gearInspectorSelectionClearAll')}
+              >
+                <PlaylistRemoveIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
       )}

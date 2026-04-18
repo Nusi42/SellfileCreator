@@ -613,9 +613,10 @@ export default function GearSetsSelect({
         }}
       >
         {menuOpen ? (
-          <>
-            {allowMetasets && metasetsMenu.length > 0 ? (
-              <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+          // Select doesn't accept Fragment children; use array instead
+          [
+            allowMetasets && metasetsMenu.length > 0 ? (
+              <Box key="metasets" component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                 <Box
                   component="ul"
                   ref={metasetsMenuListRef}
@@ -688,8 +689,8 @@ export default function GearSetsSelect({
                   })}
                 </Box>
               </Box>
-            ) : null}
-            <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+            ) : null,
+            <Box key="sets" component="div" sx={{ display: 'block', p: 0, m: 0 }}>
               <ListSubheader
                 component="div"
                 sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
@@ -745,8 +746,8 @@ export default function GearSetsSelect({
                   onContextMenuSet={handleContextMenuSet}
                 />
               </Box>
-            </Box>
-          </>
+            </Box>,
+          ]
         ) : closedMenuItems}
       </Select>
       <InlineSelectExtraBadge count={extraSelectionCount} />
