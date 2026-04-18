@@ -198,6 +198,10 @@ const enUS: Catalog = {
   gearInspectorItemsCountMany: "{n} Items",
   helpOpenLabel: "Help",
   helpOpenTooltip: "Open Help / README",
+  // Update-available notice shown in the header when a newer GitHub release is found
+  updateNoticeAvailable: "v{version} available",
+  updateNoticeDownload: "Download",
+  updateNoticeDismissAriaLabel: "Dismiss update notification",
   connectRslHelper: "Connect to RSL Helper",
   connectRslHelperPortHint: "_Right-click to configure the port._",
   rslHelperPortDialogTitle: "RSL Helper Port",

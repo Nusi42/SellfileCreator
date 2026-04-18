@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Typography } from '@mui/material'
 import { FONT_SIZE_HEADER_META_PX } from '../lib/constants'
+import { useI18n } from '../lib/i18n'
 import type { UpdateCheckResult } from '../hooks/useUpdateCheck'
 
 // Durations in ms — kept as named constants so they're easy to adjust.
@@ -26,6 +27,7 @@ export default function UpdateNoticeLine({
   update: UpdateCheckResult
   onDismiss: () => void
 }) {
+  const { t } = useI18n()
   const [phase, setPhase] = useState<Phase>('entering')
   // Prevents a second dismiss if the user clicks × while the exit is already running.
   const dismissingRef = useRef(false)
@@ -81,18 +83,18 @@ export default function UpdateNoticeLine({
         color: 'primary.main',
       }}
     >
-      v{update.latestVersion} available —{' '}
+      {t('updateNoticeAvailable', { version: update.latestVersion })} —{' '}
       <a
         href={update.releaseUrl}
         target="_blank"
         rel="noopener noreferrer"
         style={{ color: 'inherit', textDecoration: 'underline' }}
       >
-        Download
+        {t('updateNoticeDownload')}
       </a>
       <button
         onClick={handleDismiss}
-        aria-label="Dismiss update notification"
+        aria-label={t('updateNoticeDismissAriaLabel')}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1, opacity: 0.6, fontSize: 'inherit' }}
       >
         ×
