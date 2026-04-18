@@ -3218,6 +3218,25 @@ export default function NoteDialog({
     question: SafeguardNoteQuestionDefinition,
     nextSelection: string[],
   ) => {
+    // Slider questions store a raw numeric string — option-id filtering does not apply.
+    const sliderGroup = question.groups.find((g) => g.type === 'slider')
+    if (sliderGroup) {
+      const sliderOpt = sliderGroup.options[0]
+      const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
+      const numStr = nextSelection[0]
+      const numVal = numStr !== undefined ? Number.parseFloat(numStr) : NaN
+      const isDefault = Number.isFinite(numVal) && numVal === defaultNum
+      onSafeguardOverridesAnswersChange((prev) => {
+        const next = { ...prev }
+        if (!numStr || !Number.isFinite(numVal) || isDefault) {
+          delete next[question.id]
+        } else {
+          next[question.id] = [numStr]
+        }
+        return next
+      })
+      return
+    }
     const defaultSet = new Set(question.defaultAnswer)
     const nextSet = new Set(nextSelection)
     const sameSize = defaultSet.size === nextSet.size

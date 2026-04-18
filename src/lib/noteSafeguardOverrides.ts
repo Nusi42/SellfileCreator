@@ -488,9 +488,9 @@ const buildResolvedQuestion = (
       group.options.forEach((opt) => { if (opt.isDefault) defaultAnswer.push(opt.id) })
       return
     }
-    // Slider: always has a value; include the first option as the default.
+    // Slider: default answer is the numeric default value as a string, not the option id.
     const sliderOpt = group.options[0]
-    if (sliderOpt) defaultAnswer.push(sliderOpt.id)
+    if (sliderOpt) defaultAnswer.push(String(sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1))
   })
   const id = question.questionId
   const storedAnswer = answers ? answers[id] : undefined
@@ -519,9 +519,12 @@ const resolveAnswer = (
       return
     }
     if (group.type === 'slider') {
-      // Slider is always "active"; push the option id to mark it selected.
+      // Slider answer is a raw numeric string, not an option id — bypass id validation.
       const sliderOpt = group.options[0]
-      if (sliderOpt) next.push(sliderOpt.id)
+      if (!sliderOpt) return
+      const defaultNum = sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1
+      const rawNum = hasStored ? stored.find((v) => Number.isFinite(Number.parseFloat(v))) : undefined
+      next.push(rawNum !== undefined ? rawNum : String(defaultNum))
       return
     }
     // multi group
@@ -599,15 +602,16 @@ export const resolveNoteSafeguardOverridesTags = (
     const selected = new Set(question.answer)
     const groupFallbackApplied = new Set<string>()
     question.groups.forEach((group) => {
-      const hasSelection = group.options.some((opt) => selected.has(opt.id))
+      // Slider groups are always "selected"; only radio/checkbox groups need id matching.
+      const hasSelection = group.type === 'slider' || group.options.some((opt) => selected.has(opt.id))
       if (!hasSelection && group.fallback && !groupFallbackApplied.has(group.id)) {
         groupFallbackApplied.add(group.id)
         group.fallback.blocks.forEach((block) => instructions.push(block))
       }
     })
-    // Emit blocks from selected options (slider is always "selected").
+    // Emit blocks from selected options; slider options are always active (their answer is numeric).
     for (const option of question.options) {
-      if (!selected.has(option.id)) continue
+      if (option.groupType !== 'slider' && !selected.has(option.id)) continue
       // For slider groups: resolve $value operations with the stored numeric answer.
       if (option.groupType === 'slider') {
         const numericStr = answers?.[question.id]?.[0] ?? ''
