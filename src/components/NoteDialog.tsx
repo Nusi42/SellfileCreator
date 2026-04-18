@@ -70,6 +70,7 @@ import {
 } from '../lib/noteRecipeOverrides'
 import {
   resolveNoteSafeguardOverridesTags,
+  buildNoteSafeguardOverridesSignature,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
@@ -3688,8 +3689,18 @@ function NoteEditorContent({
     () => buildNoteRecipeOverridesSignature(draft ?? ''),
     [draft],
   )
-  // Flag when questions were added/removed/changed in the draft.
+  // Track safeguard overrides changes in parallel so the badge fires for both DSLs.
+  const baseSafeguardOverridesSignature = useMemo(
+    () => buildNoteSafeguardOverridesSignature(note ?? ''),
+    [note],
+  )
+  const draftSafeguardOverridesSignature = useMemo(
+    () => buildNoteSafeguardOverridesSignature(draft ?? ''),
+    [draft],
+  )
+  // Flag when questions were added/removed/changed in the draft (either DSL).
   const recipeOverridesChanged = baseRecipeOverridesSignature !== draftRecipeOverridesSignature
+    || baseSafeguardOverridesSignature !== draftSafeguardOverridesSignature
   // Keep warning badge tooltips attached to the badge itself.
   const renderWarningBadgeContent = React.useCallback((tooltip: string, disabled: boolean) => (
     <MarkdownTooltip markdown={tooltip} disableHoverListener={disabled}>
