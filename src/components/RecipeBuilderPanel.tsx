@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
-import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
@@ -6801,6 +6801,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               pr: `${MENU_SCROLL_GUTTER_PX}px`,
                               // Firefox manually pads here so Chrome keeps native scrollbar-gutter behavior.
                               ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                              ...visibleScrollbarTrack(),
                             }}
                             data-tour-id="menu.metasets.section"
                           >
@@ -6956,6 +6957,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             // remain visible and width does not change when scrollbars appear
                             pr: `${MENU_SCROLL_GUTTER_PX}px`,
                             ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                            ...(setsOrder !== 'icons' ? visibleScrollbarTrack() : {}),
                           }}
                         >
                         <SetMenuSection

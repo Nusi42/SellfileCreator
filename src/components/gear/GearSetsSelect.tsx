@@ -24,7 +24,7 @@ import {
   SETS_MENU_WIDTH_PX,
   SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
 } from '../../lib/constants'
-import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
+import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../../lib/scrollbar'
 import { measureCssWidth } from '../../lib/domMeasurements'
 import { pickEllipsisTarget } from '../../lib/ellipsis'
 import {
@@ -628,6 +628,7 @@ export default function GearSetsSelect({
                     overflowY: 'auto',
                     pr: `${MENU_SCROLL_GUTTER_PX}px`,
                     ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                    ...visibleScrollbarTrack(),
                   }}
                   data-tour-id="menu.metasets.section"
                 >
@@ -725,6 +726,8 @@ export default function GearSetsSelect({
                     : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX, height: MENU_MAX_HEIGHT_SETS_LIST_PX, overflowY: 'auto' }),
                   pr: `${MENU_SCROLL_GUTTER_PX}px`,
                   ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                  // Only apply the visible track when the list is actually scrollable (not the icon grid)
+                  ...(setsOrder !== 'icons' ? visibleScrollbarTrack() : {}),
                 }}
               >
                 <SetMenuSection

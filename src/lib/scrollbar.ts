@@ -18,6 +18,22 @@ export interface ScrollbarGutterOptions {
   firefoxGutterPx?: number
 }
 
+/**
+ * Applies a subtle contrasting scrollbar track so the scrollable area is
+ * recognisable before the user hovers the thumb. Use on any container whose
+ * background would otherwise blend with the default transparent track.
+ */
+export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
+  // Webkit: explicit track + thumb colours with a slim width
+  '&::-webkit-scrollbar': { width: 6 },
+  '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.06)', borderRadius: 3 },
+  '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.22)', borderRadius: 3 },
+  '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.38)' },
+  // Firefox: shorthand thumb/track colour + thin width
+  scrollbarColor: 'rgba(255,255,255,0.22) rgba(255,255,255,0.06)',
+  scrollbarWidth: 'thin',
+})
+
 export const reserveScrollbarGutterSpace = (options?: ScrollbarGutterOptions): SystemStyleObject<Theme> => {
   const {
     reserveStart = true,

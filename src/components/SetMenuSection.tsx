@@ -15,7 +15,6 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { Box, ListSubheader, MenuItem, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -375,14 +374,13 @@ export default function SetMenuSection({
                 )}
               </Box>
               {metaNames.length > 0 && (
-                <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                  >
-                    {t('setsInNames', { names: joined })}
-                  </Typography>
-                </EllipsisTooltip>
+                // Allow the metaset list to wrap — truncating causes a horizontal scrollbar on the parent list.
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}
+                >
+                  {t('setsInNames', { names: joined })}
+                </Typography>
               )}
             </Box>
           )
