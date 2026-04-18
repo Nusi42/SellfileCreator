@@ -318,6 +318,41 @@ const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): 
   return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
 }
 
+// Build a compact per-recipe index array into mergedRulesFinal.
+// Used instead of rulesByRecipeEntries when dedupeBeforeSafeguards and
+// omitDisabledBeforeSafeguards are both false — rules are identical between
+// prebuiltCustomRules and mergedRulesFinal in that case, so the receiver can
+// rebuild rulesByRecipe by indexing into the already-cloned mergedRules array.
+// Both RecipeID and __lineIdx survive the WASM wire round-trip (keys r_id / _li),
+// so (RecipeID, lineIdx) uniquely identifies each user-recipe rule.
+const buildRulesByRecipeIndices = (
+  prebuiltCustomRules: Map<number, HsfRuleWithRecipe[]>,
+  mergedRulesFinal: HsfRuleWithRecipe[],
+): Array<[number, number[]]> => {
+  // Build lookup: "RecipeID:lineIdx" → position in mergedRulesFinal.
+  // Skip safeguard rules (RecipeID <= 0) and base rules (RecipeID absent).
+  const positionMap = new Map<string, number>()
+  for (let i = 0; i < mergedRulesFinal.length; i++) {
+    const rule = mergedRulesFinal[i]!
+    const recipeId = rule.RecipeID
+    if (typeof recipeId !== 'number' || recipeId <= 0) continue
+    positionMap.set(`${recipeId}:${rule.__lineIdx ?? -1}`, i)
+  }
+  // For each recipe, resolve positions in mergedRulesFinal preserving prebuiltCustomRules order.
+  const result: Array<[number, number[]]> = []
+  for (const [recipeIdx, rules] of prebuiltCustomRules.entries()) {
+    const indices: number[] = []
+    for (const rule of rules) {
+      const recipeId = rule.RecipeID
+      if (typeof recipeId !== 'number' || recipeId <= 0) continue
+      const idx = positionMap.get(`${recipeId}:${rule.__lineIdx ?? -1}`)
+      if (idx !== undefined) indices.push(idx)
+    }
+    result.push([recipeIdx, indices])
+  }
+  return result
+}
+
 const buildPipelineMatches = async (
   mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
@@ -668,11 +703,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentMergedCount = mergedRulesFinal.length
     }
 
+    // Use compact indices when neither dedup nor omitDisabled is active: in that case
+    // the same rule objects appear in both mergedRulesFinal and prebuiltCustomRules,
+    // so structured clone produces one shared set instead of two independent copies.
+    const useIndexPath = !payload.dedupeBeforeSafeguards && !payload.omitDisabledBeforeSafeguards
     const response: RuleCacheWorkerResponse = {
       id,
       kind: 'pipeline:done',
       payload: {
-        rulesByRecipeEntries: rulesUnchanged ? null : Array.from(prebuiltCustomRules.entries()),
+        rulesByRecipeEntries: rulesUnchanged || useIndexPath ? null : Array.from(prebuiltCustomRules.entries()),
+        rulesByRecipeIndices: rulesUnchanged || !useIndexPath ? null : buildRulesByRecipeIndices(prebuiltCustomRules, mergedRulesFinal),
         countsByRecipeEntries: Array.from(pipelineState.countsByRecipe.entries()),
         keys: rulesUnchanged ? null : pipelineState.keys.slice(),
         substatTargetsKey: pipelineState.substatTargetsKey,
@@ -683,18 +723,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         matches,
         safeguardDetection: safeguardDetectionSnapshot,
         improvementChanceEntries,
-        // Snapshot taken after all WASM work completes; lets the hook decide when to
-        // proactively restart the worker to keep the heap from growing past the
-        // memory.grow failure threshold (~160+ MiB on V8/Windows).
+        // Snapshot taken after all WASM work completes; logged in DEV mode to
+        // verify the WASM heap is not growing across consecutive pipeline runs.
         wasmLinearBytes: getWasmLinearMemoryBytes(),
       },
     }
     self.postMessage(response)
-    // True heap resets happen in the main thread via cycleWorkerProactively
-    // (PIPELINE_RESTART_INTERVAL=5) which terminates and respawns the worker.
-    // An in-worker resetWasmInstance() call cannot produce a clean heap because
-    // wasm-bindgen's initRuleEngineWasm is idempotent — it returns the cached
-    // instance without re-instantiating it.
   } catch (error) {
     // Log before postMessage so the worker-side stack trace is visible in DevTools.
     // The main thread only receives error.message (structured-clone-safe), which drops

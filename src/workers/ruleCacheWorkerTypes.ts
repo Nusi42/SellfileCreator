@@ -52,10 +52,16 @@ export type RuleCachePipelineResponse = {
   id: number
   kind: 'pipeline:done'
   payload: {
-    // Null when the worker determined that per-recipe rules are identical to the last
-    // sent response (artifact-only burst). The receiver falls back to its lastRulesRef.
-    // Avoids structured-cloning ~50–100 MiB on every endpoint artifact push.
+    // Null when rules are unchanged (artifact-only burst) or when the compact index
+    // path is used instead. The receiver falls back to its lastRulesRef when both this
+    // and rulesByRecipeIndices are null (artifact-only burst).
     rulesByRecipeEntries: Array<[number, HsfRuleWithRecipe[]]> | null
+    // Compact alternative to rulesByRecipeEntries: per-recipe integer indices into
+    // mergedRules instead of full rule copies. Non-null only when dedupeBeforeSafeguards
+    // and omitDisabledBeforeSafeguards are both false — in that case the same rule objects
+    // appear in both mergedRules and the per-recipe groups, so structured clone produces
+    // one shared copy instead of two independent copies (halves per-pipeline V8 allocation).
+    rulesByRecipeIndices: Array<[number, number[]]> | null
     countsByRecipeEntries: Array<[number, number]>
     keys: string[] | null
     substatTargetsKey: string
@@ -69,7 +75,7 @@ export type RuleCachePipelineResponse = {
     // Receiver reconstructs Map<artifactId, entry> to avoid structured-clone Map issues.
     improvementChanceEntries: ImprovementChanceWasmEntry[] | null
     // WASM linear memory size at the end of this pipeline run, in bytes.
-    // Used by the hook to decide when to proactively restart the worker.
+    // Logged in DEV mode to spot unexpected WASM heap growth across pipelines.
     wasmLinearBytes: number
   }
 }

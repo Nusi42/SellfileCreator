@@ -5685,21 +5685,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Apply one queued endpoint push and wait for full pipeline/UI settle.
   const applyEndpointPushCommand = useCallback(async (cmd: EndpointPushCommand) => {
     if (cmd.kind === 'gearDbFileBinary') {
-      // Destructure before File construction so the local refs go out of scope
-      // at the end of this block — before the long settle wait begins.
-      const { name, bytes, contentType } = cmd
-      // File's ctor copies data into internal Blob storage; the original buffer
-      // is now redundant. Release the reference so GC can reclaim it during the
-      // settle wait instead of holding both copies alive for up to 15 s.
-      ;(cmd as { bytes: Uint8Array | null }).bytes = null
-      const file = createGearDbFileFromBytes(name, bytes, contentType)
-      if (!file) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to decode gear DB binary payload from external command.')
+      // Scope `bytes` and `file` to the import phase only by running them inside an
+      // async IIFE.  Before this change they were function-scoped consts, keeping the
+      // 68 MB Uint8Array AND the File/Blob copy alive for the entire settle wait (up
+      // to 60 s) — alongside the sql.js WASM copy (~200 MB) and the rule-cache
+      // pipeline (~256 MB pre-grow), totalling ~500+ MB in concurrent allocations.
+      // After the IIFE resolves, V8 can GC `bytes` and `file` before waiting.
+      const importSucceeded = await (async () => {
+        const { name, bytes, contentType } = cmd
+        // File's ctor copies data into internal Blob storage; the original buffer
+        // is now redundant. Null cmd.bytes early so the queued-command object no
+        // longer pins the Uint8Array (the IIFE's local `bytes` const still holds it
+        // temporarily until this scope exits, then it is GC-eligible).
+        ;(cmd as { bytes: Uint8Array | null }).bytes = null
+        const file = createGearDbFileFromBytes(name, bytes, contentType)
+        if (!file) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to decode gear DB binary payload from external command.')
+          }
+          return false
         }
-        return
-      }
-      await handleGearDbImport(file, { source: 'command' })
+        await handleGearDbImport(file, { source: 'command' })
+        return true
+        // `bytes` and `file` drop here — before the settle wait below begins.
+      })()
+      if (!importSucceeded) return
       await waitForEndpointPushSettle()
     }
     // Per-type partial messages — each one immediately synthesizes a snapshot from the
