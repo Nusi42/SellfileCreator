@@ -3029,10 +3029,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 onMouseLeave={handleTagsHintMouseLeave}
                 sx={{ display: 'inline-flex' }}
               >
-                <MarkdownTooltip
-                  markdown={tagsButtonLabel}
-                  placement="top"
-                >
+                <EllipsisTooltip title={tagsButtonLabel} selector="[data-ellipsis-target]">
                   <Button
                     size="small"
                     variant="outlined"
@@ -3050,7 +3047,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                       {tagsButtonLabel}
                     </Typography>
                   </Button>
-                </MarkdownTooltip>
+                </EllipsisTooltip>
               </Box>
               {/* Only show the clear affordance when tags exist for this recipe. */}
               {showTagsClear ? (

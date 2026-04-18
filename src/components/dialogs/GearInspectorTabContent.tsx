@@ -981,11 +981,11 @@ export function GearInspectorTabContent({
             >
               {showFactionChip ? (
                 showFactionIcon && factionIconNode ? (
-                  <MarkdownTooltip markdown={factionLabel}>
+                  <EllipsisTooltip title={factionLabel} selector=".MuiTypography-root">
                     <Box sx={{ minWidth: 0 }}>
                       <GearInspectorSummaryLabel label={factionChipLabel} icon={factionIconNode} />
                     </Box>
-                  </MarkdownTooltip>
+                  </EllipsisTooltip>
                 ) : (
                   <GearInspectorSummaryLabel label={factionChipLabel} />
                 )
