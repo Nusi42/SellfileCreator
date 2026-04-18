@@ -139,6 +139,7 @@ import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
 import { AppTitle } from './components/AppTitle'
+import UpdateNoticeLine from './components/UpdateNoticeLine'
 import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
 import SafeguardChipsPanel from './components/SafeguardChipsPanel'
 import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
@@ -292,6 +293,7 @@ import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from '.
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
+import { useUpdateCheck } from './hooks/useUpdateCheck'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useSfcHistory'
 import { createBuilderRecipeUpdateDescriptor } from './history/builderUpdateDescriptor'
 import {
@@ -458,6 +460,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setRecipesEnabled,
   } = useAppActions()
   const [safeguardsGridFilterMode, setSafeguardsGridFilterMode] = useSafeguardsGridFilterMode()
+  // Best-effort GitHub release check — silent on failure, session-dismissible banner.
+  const updateCheck = useUpdateCheck()
   const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   // These toggles now drive in-app rule transforms, not export-only behavior.
   const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
@@ -7600,6 +7604,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!
               </Typography>
+              {/* Update notice — animated entry/nag/exit handled inside the component */}
+              {updateCheck.update && (
+                <UpdateNoticeLine update={updateCheck.update} onDismiss={updateCheck.dismiss} />
+              )}
             </Box>
             <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <MarkdownTooltip markdown={t('helpOpenTooltip')}>
@@ -7620,8 +7628,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           </Box>
         </Box>
       </Box>
-
-      
 
       <Stack spacing={2}>
         {/* Layout container: stacks vertically in single-column mode, flex-row in side-by-side.

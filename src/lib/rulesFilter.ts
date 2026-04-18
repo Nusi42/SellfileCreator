@@ -898,6 +898,11 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
 
   const matchingRecipeIndices = new Set<number>()
   const selectedSources = new Set<GearInspectorSourceFilter>(f.gearInspectorSources?.selected ?? [])
+  const sourceScope = selectedSources.size > 0
+  // When sell + sources + context mode are all active, item-level filters (rank, rarity,
+  // level, substats, ascension, champions, last-used) are deferred to the second pass so
+  // keep-tagged companions of matching primaries are not discarded before grouping.
+  const deferItemFilters = contextModeActive && sellActive && sourceScope
   const chaosMode = f.gearInspectorChaos?.mode ?? 'any'
   const glyphMode = f.gearInspectorGlyphs?.mode ?? 'any'
   const ascensionStars = new Set<number>(f.gearInspectorAscension?.stars ?? [])
@@ -964,40 +969,46 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     }
     if (selectedSlots.size > 0 && !selectedSlots.has(slotId)) continue
 
-    const rankMode = f.rank?.anyMode ?? 'include'
-    const rank = Number(artifact.rank)
-    if (rankMode === 'only') {
-      continue
-    } else if (rankMode === 'off') {
-      // Rank is always specified for the Gear Inspector queue.
+    if (!deferItemFilters) {
+      const rankMode = f.rank?.anyMode ?? 'include'
+      const rank = Number(artifact.rank)
+      if (rankMode === 'only') {
+        continue
+      } else if (rankMode === 'off') {
+        // Rank is always specified for the Gear Inspector queue.
+      }
+      if (selectedRanks.size > 0 && !selectedRanks.has(rank as RankValue)) continue
     }
-    if (selectedRanks.size > 0 && !selectedRanks.has(rank as RankValue)) continue
 
-    const rarityMode = f.rarity?.anyMode ?? 'include'
-    const rarity = Number(artifact.rarity)
-    if (rarityMode === 'only') {
-      continue
-    } else if (rarityMode === 'off') {
-      // Rarity always specified.
+    if (!deferItemFilters) {
+      const rarityMode = f.rarity?.anyMode ?? 'include'
+      const rarity = Number(artifact.rarity)
+      if (rarityMode === 'only') {
+        continue
+      } else if (rarityMode === 'off') {
+        // Rarity always specified.
+      }
+      if (selectedRarities.size > 0 && !selectedRarities.has(rarity as RankValue)) continue
     }
-    if (selectedRarities.size > 0 && !selectedRarities.has(rarity as RankValue)) continue
 
-    const levelMode = f.level?.anyMode ?? 'include'
-    const level = Number(artifact.level)
-    if (levelMode === 'only') {
-      continue
-    } else if (levelMode === 'off') {
-      // Level always specified.
-    }
-    if (selectedLevels.size > 0 && !selectedLevels.has(level as LevelMilestone)) continue
-    const rawExactLevel = ((): number => {
-      const candidate = artifact.exactLevel
-      if (typeof candidate === 'number' && Number.isFinite(candidate)) return Number(candidate)
-      return level
-    })()
-    const exactLevel = clampGearInspectorLevelValue(rawExactLevel)
-    if (gearInspectorExactLevelRangeActive) {
-      if (exactLevel < gearInspectorLevelRange.min || exactLevel > gearInspectorLevelRange.max) continue
+    if (!deferItemFilters) {
+      const levelMode = f.level?.anyMode ?? 'include'
+      const level = Number(artifact.level)
+      if (levelMode === 'only') {
+        continue
+      } else if (levelMode === 'off') {
+        // Level always specified.
+      }
+      if (selectedLevels.size > 0 && !selectedLevels.has(level as LevelMilestone)) continue
+      const rawExactLevel = ((): number => {
+        const candidate = artifact.exactLevel
+        if (typeof candidate === 'number' && Number.isFinite(candidate)) return Number(candidate)
+        return level
+      })()
+      const exactLevel = clampGearInspectorLevelValue(rawExactLevel)
+      if (gearInspectorExactLevelRangeActive) {
+        if (exactLevel < gearInspectorLevelRange.min || exactLevel > gearInspectorLevelRange.max) continue
+      }
     }
 
     const mainMode = f.main?.anyMode ?? 'include'
@@ -1034,34 +1045,37 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       }
     }
     const hasSubstats = subVariants.size > 0
-    if (subWildcardMode === 'only') {
-      if (hasSubstats) continue
-    } else if (subWildcardMode === 'off') {
-      if (!hasSubstats) continue
-    }
-    if (selectedSubVariants.size > 0 || excludedSubVariants.size > 0) {
-      // "Must not have" is evaluated first: any overlap removes the row.
-      if (excludedSubVariants.size > 0) {
-        let hit = false
-        for (const variant of excludedSubVariants) {
-          if (subVariants.has(variant)) { hit = true; break }
-        }
-        if (hit) continue
+    if (!deferItemFilters) {
+      // subWildcardMode stays a first-pass gate (structural, not item-specific).
+      if (subWildcardMode === 'only') {
+        if (hasSubstats) continue
+      } else if (subWildcardMode === 'off') {
+        if (!hasSubstats) continue
       }
-      // "Must have" respects the existing match mode semantics.
-      if (selectedSubVariants.size > 0) {
-        if (subMode === 'all') {
-          let ok = true
-          for (const variant of selectedSubVariants) {
-            if (!subVariants.has(variant)) { ok = false; break }
+      if (selectedSubVariants.size > 0 || excludedSubVariants.size > 0) {
+        // "Must not have" is evaluated first: any overlap removes the row.
+        if (excludedSubVariants.size > 0) {
+          let hit = false
+          for (const variant of excludedSubVariants) {
+            if (subVariants.has(variant)) { hit = true; break }
           }
-          if (!ok) continue
-        } else {
-          let ok = false
-          for (const variant of selectedSubVariants) {
-            if (subVariants.has(variant)) { ok = true; break }
+          if (hit) continue
+        }
+        // "Must have" respects the existing match mode semantics.
+        if (selectedSubVariants.size > 0) {
+          if (subMode === 'all') {
+            let ok = true
+            for (const variant of selectedSubVariants) {
+              if (!subVariants.has(variant)) { ok = false; break }
+            }
+            if (!ok) continue
+          } else {
+            let ok = false
+            for (const variant of selectedSubVariants) {
+              if (subVariants.has(variant)) { ok = true; break }
+            }
+            if (!ok) continue
           }
-          if (!ok) continue
         }
       }
     }
@@ -1083,12 +1097,12 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       if (!selectedSources.has(category)) continue
     }
 
-    if (selectedChampionIds.size > 0) {
+    if (!deferItemFilters && selectedChampionIds.size > 0) {
       const championId = artifact.equippedToChampionId
       if (championId == null || !selectedChampionIds.has(Number(championId))) continue
     }
 
-    if (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive) {
+    if (!deferItemFilters && (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive)) {
       const timestamp = typeof artifact.lastUseLocalTimestamp === 'string' ? artifact.lastUseLocalTimestamp : null
       const hasTimestamp = Boolean(timestamp)
       const daysSince = hasTimestamp ? getDaysSince(timestamp) : null
@@ -1149,7 +1163,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       }
     }
 
-    if (ascensionStars.size > 0 || ascensionStats.size > 0) {
+    if (!deferItemFilters && (ascensionStars.size > 0 || ascensionStats.size > 0)) {
       const asc = artifact.ascension
       const starLevel = Math.max(0, Math.min(6, Math.round(asc?.rolls ?? 0)))
       if (ascensionStars.size > 0 && !ascensionStars.has(starLevel)) continue
@@ -1174,11 +1188,72 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   let contextGroupById: Map<number, GearInspectorContextGroup> | undefined
 
   if (contextModeActive) {
-    // When sources are selected, use them as a reference set: only sell-tagged items FROM
-    // reference sources anchor companion keys; items outside reference sources can appear
-    // as companions but never as primaries. When no sources are selected, all candidates
-    // qualify as reference (existing behaviour — sourceScope is false).
-    const sourceScope = selectedSources.size > 0
+    // sourceScope is hoisted above the first pass; companions may come from any source
+    // while only reference-source sell-tagged items anchor companion keys or act as primaries.
+
+    // Re-evaluates the item-level filters that were skipped in the first pass when
+    // deferItemFilters is true. Called only for sell-tagged reference-source items.
+    const passesDeferredFilters = (artifact: NormalizedGearArtifact): boolean => {
+      if (selectedRanks.size > 0 && !selectedRanks.has(Number(artifact.rank) as RankValue)) return false
+      if (selectedRarities.size > 0 && !selectedRarities.has(Number(artifact.rarity) as RankValue)) return false
+      const level = Number(artifact.level)
+      if (selectedLevels.size > 0 && !selectedLevels.has(level as LevelMilestone)) return false
+      if (gearInspectorExactLevelRangeActive) {
+        const rawExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
+          ? Number(artifact.exactLevel) : level
+        const exactLevel = clampGearInspectorLevelValue(rawExactLevel)
+        if (exactLevel < gearInspectorLevelRange.min || exactLevel > gearInspectorLevelRange.max) return false
+      }
+      if (selectedSubVariants.size > 0 || excludedSubVariants.size > 0) {
+        const subVars = new Set(
+          artifact.substats.filter(s => s.variant !== StatVariant.Any).map(s => Number(s.variant))
+        )
+        for (const v of excludedSubVariants) if (subVars.has(v)) return false
+        if (subMode === 'all') {
+          for (const v of selectedSubVariants) if (!subVars.has(v)) return false
+        } else if (selectedSubVariants.size > 0) {
+          let ok = false
+          for (const v of selectedSubVariants) if (subVars.has(v)) { ok = true; break }
+          if (!ok) return false
+        }
+      }
+      if (ascensionStars.size > 0 || ascensionStats.size > 0) {
+        const starLevel = Math.max(0, Math.min(6, Math.round(artifact.ascension?.rolls ?? 0)))
+        if (ascensionStars.size > 0 && !ascensionStars.has(starLevel)) return false
+        if (ascensionStats.size > 0) {
+          const variant = artifact.ascension?.variant
+          if (!variant || variant === StatVariant.Any || !ascensionStats.has(Number(variant))) return false
+        }
+      }
+      if (selectedChampionIds.size > 0) {
+        const championId = artifact.equippedToChampionId
+        if (championId == null || !selectedChampionIds.has(Number(championId))) return false
+      }
+      if (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive) {
+        const timestamp = typeof artifact.lastUseLocalTimestamp === 'string' ? artifact.lastUseLocalTimestamp : null
+        const hasTimestamp = Boolean(timestamp)
+        const daysSince = hasTimestamp ? getDaysSince(timestamp) : null
+        let presetMatch: boolean | null = null
+        if (gearInspectorLastUsePresetsActive) {
+          presetMatch = false
+          if (!hasTimestamp || daysSince == null) {
+            presetMatch = gearInspectorLastUsePresetSet.has('never')
+          } else {
+            for (const preset of gearInspectorLastUsePresetSet) {
+              if (preset === 'never') continue
+              if (matchesGearInspectorLastUsePreset(daysSince, preset)) { presetMatch = true; break }
+            }
+          }
+        }
+        let customMatch: boolean | null = null
+        if (gearInspectorLastUseCustomActive) {
+          if (!hasTimestamp || daysSince == null) customMatch = false
+          else customMatch = daysSince >= gearInspectorLastUseCustom.minDays && daysSince <= gearInspectorLastUseCustom.maxDays
+        }
+        if (!((presetMatch ?? false) || (customMatch ?? false))) return false
+      }
+      return true
+    }
 
     // Build companion keys from sell-tagged reference-source candidates only.
     const sellCompanionKeys = new Set<string>()
@@ -1186,6 +1261,8 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       if (row.match?.keep === false) {
         // Non-reference items don't anchor companion keys in source-scope mode.
         if (sourceScope && !selectedSources.has(determineGearInspectorSourceCategory(row.artifact))) continue
+        // Companion keys are anchored only by primaries that pass the deferred item filters.
+        if (deferItemFilters && !passesDeferredFilters(row.artifact)) continue
         const key = computeGearCompanionKey(row.artifact)
         if (key !== null) sellCompanionKeys.add(key)
       }
@@ -1204,10 +1281,13 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
       // In source-scope mode only reference-source items can be primary; outside-reference
       // items may still surface as companions if their set+slot matches a primary's key.
       const isInReference = !sourceScope || selectedSources.has(determineGearInspectorSourceCategory(row.artifact))
-      // Primary candidates are sell-tagged AND from the reference source set.
-      // They don't also act as companions of themselves, so cKey is null for them.
-      const isPrimaryCandidate = isSell && isInReference
-      const cKey = isPrimaryCandidate ? null : computeGearCompanionKey(row.artifact)
+      // In deferred-filter mode, primaries must also pass rank/rarity/level/substats/ascension/champions/last-use.
+      const isPrimaryCandidate = isSell && isInReference &&
+        (!deferItemFilters || passesDeferredFilters(row.artifact))
+      // Sell-tagged reference items that failed deferred filters are excluded entirely —
+      // not demoted to companion — to avoid semantic ambiguity.
+      const isExcludedPrimary = deferItemFilters && isSell && isInReference && !isPrimaryCandidate
+      const cKey = (isPrimaryCandidate || isExcludedPrimary) ? null : computeGearCompanionKey(row.artifact)
       const isCompanion = cKey !== null && sellCompanionKeys.has(cKey)
 
       let group: GearInspectorContextGroup
