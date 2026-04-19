@@ -1095,11 +1095,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const currentEntrySignatureRef = useRef<{ crc: string; size: number } | null>(null)
   // Ref-shadowed so launchPipeline can include recipe overrides in the cache key without adding
   // them to the effect dep array — the effect already re-runs via ruleRecipes/recipeModes changes.
+  // Updated during render (not via useEffect) so the ref is always current before effects fire.
   const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
+  noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers
   const noteOverridesDisabledRef = useRef(noteOverridesDisabled)
+  noteOverridesDisabledRef.current = noteOverridesDisabled
   // Ref-shadowed so launchPipeline can include safeguard overrides in the cache key without adding
   // them to the dep array — changes re-run the effect via effectiveSafeguardRules dependency.
+  // Updated during render so changes are visible to the pipeline effect in the same commit.
   const noteSafeguardOverridesAnswersRef = useRef(noteSafeguardOverridesAnswers)
+  noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the improvement-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -1857,11 +1862,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   describeNextChangeRef.current = describeNextChange
   // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
   useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
-  // Keep recipe overrides refs in sync so the debounced cache key uses up-to-date values.
-  useEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers }, [noteRecipeOverridesAnswers])
-  useEffect(() => { noteOverridesDisabledRef.current = noteOverridesDisabled }, [noteOverridesDisabled])
-  // Keep safeguard overrides ref in sync so the debounced cache key uses up-to-date values.
-  useEffect(() => { noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers }, [noteSafeguardOverridesAnswers])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called
