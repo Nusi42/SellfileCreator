@@ -1210,6 +1210,11 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
             setRowHintPos(null)
             return
           }
+          // Empty space below the rows has no context menu handler; suppress the hint there too.
+          if (target && !target.closest('tbody tr')) {
+            setRowHintPos(null)
+            return
+          }
           setHeaderHintPos(null)
           const container = tableContainerRef.current
           if (container) {
@@ -1287,11 +1292,11 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     onDrop={() => onHeaderDrop(realIdx)}
                     sx={{ width: c.width, fontWeight: 600, fontSize: FONT_SIZE_BASE_PX, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
-                    <MarkdownTooltip markdown={t('rulesHeaderHelp', { label: colHeaderLabel(c.key) })}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                      <MarkdownTooltip markdown={t('rulesHeaderHelp', { label: colHeaderLabel(c.key) })}>
                         <span>{colHeaderLabel(c.key)}</span>
-                      </Box>
-                    </MarkdownTooltip>
+                      </MarkdownTooltip>
+                    </Box>
                     <Box onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }} sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }} />
                   </TableCell>
                 )
