@@ -83,8 +83,10 @@ function recipeOverrides(Prism: Refractor): void {
         // Regex-literal notation used in the EBNF tooltip to express informal descriptions
         // without triggering keyword highlighting.  Consumed greedily so keywords inside
         // the slashes are not matched by any downstream token.
+        // The negative lookbehind (?<!\w) prevents arithmetic division expressions like
+        // `$value/8` from being swallowed as a regex-literal starting delimiter.
         'regex': {
-            pattern: /\/[^/\n]+\//,
+            pattern: /(?<!\w)\/[^/\n]+\//,
             greedy: true,
         },
 

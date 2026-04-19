@@ -900,6 +900,8 @@ pub fn resolve_safeguard_rules_with_metasets_core(
                 .collect::<HashMap<String, f64>>(),
             // Echo threshold back verbatim so TS preserves null-inheritance slots.
             improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
+            // Pass tags through unchanged so TS override selectors can match after expansion.
+            tags: rule.tags.clone().unwrap_or_default(),
         });
     }
     resolved

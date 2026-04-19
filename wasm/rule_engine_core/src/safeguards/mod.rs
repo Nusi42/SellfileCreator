@@ -266,6 +266,10 @@ pub struct SafeguardWasmRuleIn {
     // filtering is disabled and candidates are selected by standard top-N ranking only.
     #[serde(default)]
     pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
+    // Opaque string tags used by the safeguard-overrides DSL selector matching. Passed through
+    // unchanged so TS can apply selector-matched override instructions after metaset expansion.
+    #[serde(default)]
+    pub tags: Option<Vec<String>>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -286,6 +290,8 @@ pub struct SafeguardWasmResolvedRuleOut {
     pub substat_weights: HashMap<String, f64>,
     // Threshold echoed back verbatim so TS preserves null-inheritance slots (e.g. Lenient preset).
     pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
+    // Opaque string tags passed through from the input rule unchanged.
+    pub tags: Vec<String>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.

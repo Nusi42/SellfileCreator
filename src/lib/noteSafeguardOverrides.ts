@@ -269,7 +269,7 @@ const parseCountAddExpr = (cursor: TokenCursor): SafeguardCountAstNode | null =>
 }
 
 // mulExpr → unaryExpr (('*' | '/') unaryExpr)*
-// '*' is a symbol; '/' arrives as a word token when space-separated.
+// Both '*' and '/' are symbol tokens (with or without surrounding spaces).
 const parseCountMulExpr = (cursor: TokenCursor): SafeguardCountAstNode | null => {
   let left = parseCountUnary(cursor)
   if (!left) return null
@@ -277,7 +277,7 @@ const parseCountMulExpr = (cursor: TokenCursor): SafeguardCountAstNode | null =>
     const t = cursor.peek()
     if (!t) break
     const isMul = t.kind === 'symbol' && t.value === '*'
-    const isDiv = t.kind === 'word'   && t.value === '/'
+    const isDiv = t.kind === 'symbol' && t.value === '/'
     if (!isMul && !isDiv) break
     cursor.next()
     const right = parseCountUnary(cursor)

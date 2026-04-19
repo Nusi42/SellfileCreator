@@ -729,6 +729,12 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         .or_else(|| rec.get("combination"))
         .map(|raw_tuple| parse_sfc_safeguard_combination(raw_tuple));
 
+    // Tags: string array used by the safeguard-overrides DSL selector matching in TS.
+    let tags = rec.get("tags").and_then(|v| v.as_array()).map(|arr| {
+        arr.iter().filter_map(|v| v.as_str()).map(|s| s.to_string()).collect::<Vec<String>>()
+    });
+    let tags = if tags.as_ref().map(|v: &Vec<String>| v.is_empty()).unwrap_or(true) { None } else { tags };
+
     Ok(SafeguardWasmRuleIn {
         id,
         name: rec.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
@@ -743,6 +749,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         substat_match,
         substat_weights,
         improvement_chance_threshold,
+        tags,
     })
 }
 

@@ -82,7 +82,7 @@ export const tokenize = (input: string): Token[] => {
       continue
     }
     // Parse single-character symbols.
-    if ('{}[](),*+@=<>!:^'.includes(ch)) {
+    if ('{}[](),*+@=<>!:^/'.includes(ch)) {
       tokens.push({ kind: 'symbol', value: ch, index: idx })
       idx += 1
       continue
@@ -92,7 +92,7 @@ export const tokenize = (input: string): Token[] => {
     while (end < input.length) {
       const next = input.charAt(end)
       if (/\s/.test(next)) break
-      if ('{}[](),*+@=<>!:^'.includes(next)) break
+      if ('{}[](),*+@=<>!:^/'.includes(next)) break
       if (next === '&' || next === '|') break
       end += 1
     }
