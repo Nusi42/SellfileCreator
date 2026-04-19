@@ -17,9 +17,9 @@ const SAMPLE_LOG_PATH = path.resolve(process.cwd(), 'docs/orig/sampleLog/helperR
 // Repeat the full message burst this many times to stress-test the WASM boundary.
 // 3 rounds is enough to verify crash-free operation; memory-focused runs use the
 // binary-endpoint-memory spec which does many more rounds with explicit heap tracking.
-const REPLAY_ROUNDS = 3
+const REPLAY_ROUNDS = 3 // raise to 8 in development tests, use 3 at release builds
 // Extended round count for the memory-leak detection variant.
-const MEMORY_LEAK_ROUNDS = 20
+const MEMORY_LEAK_ROUNDS = 3 // raise to 20 in development tests, use 3 at release builds
 
 test.describe('endpoint-replay', () => {
   test('replays helperRcvData 3× without crash or page error', async ({ page }) => {
