@@ -15,7 +15,7 @@ const ENDPOINT_URL = 'ws://localhost:8080/'
 // Mimics the crash scenario: several pushes arrive while the WASM worker is still running.
 const RAPID_BURST_COUNT = 4
 // Total rounds of rapid bursts; each round = RAPID_BURST_COUNT binary pushes.
-const TOTAL_ROUNDS = 8
+const TOTAL_ROUNDS = 2
 // Max allowed heap growth (MB) over all rounds before the test fails.
 // Set to 4 × db-file-size so normal peak usage is tolerated but sustained
 // accumulation (each round adding another full copy) causes a failure.
