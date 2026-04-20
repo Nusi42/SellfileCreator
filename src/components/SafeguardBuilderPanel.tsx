@@ -53,6 +53,7 @@ import {
   normalizeSafeguardRule,
   pruneSafeguardsSubstatWeights,
   sanitizeSafeguardCountMode,
+  safeguardRedundantCountModeDimensions,
   scoreSafeguardCandidates,
   sortSafeguardCombination,
   sortSafeguardSubstats,
@@ -529,6 +530,8 @@ export default function SafeguardBuilderPanel({
   )
 
   const combination = rule.combination
+  // Which per-X scope chips are no-ops given the current combination filters.
+  const redundantDimensions = safeguardRedundantCountModeDimensions(combination)
   const activation = rule.activation
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
   // stored rule (empty instructions path above), so the guard lives in one place only.
@@ -1787,7 +1790,7 @@ export default function SafeguardBuilderPanel({
                 faction section does not inflate the grid row. MUI Collapse switches to
                 overflow:visible when fully open, letting the chip render past its boundary. */}
             <Box sx={{ mt: 0.75, mb: `-${BUILDER_STATUS_CHIP_HEIGHT_PX}px` }}>
-              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot, perScopeMixed.perFaction,
+              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot || redundantDimensions.perFaction, perScopeMixed.perFaction,
                 perFactionOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(
                     rule.countMode?.perFaction ? 'on' : 'off',
@@ -1957,7 +1960,7 @@ export default function SafeguardBuilderPanel({
                   </>
                 )
               })()}
-              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, false, perScopeMixed.perMainStat,
+              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, redundantDimensions.perMainStat, perScopeMixed.perMainStat,
                 perMainStatOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(
                     rule.countMode?.perMainStat ? 'on' : 'off',
@@ -2483,7 +2486,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, false, perScopeMixed.perSlot,
+              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, redundantDimensions.perSlot, perScopeMixed.perSlot,
                 perSlotOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(
                     rule.countMode?.perSlot ? 'on' : 'off',
@@ -2546,7 +2549,7 @@ export default function SafeguardBuilderPanel({
                 layoutVersion={1}
                 anyLabel={t('anySet')}
               />
-              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, false, perScopeMixed.perSet,
+              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, redundantDimensions.perSet, perScopeMixed.perSet,
                 perSetOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(
                     rule.countMode?.perSet ? 'on' : 'off',

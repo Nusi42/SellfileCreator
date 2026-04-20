@@ -367,24 +367,37 @@ export const normalizeSafeguardCountMode = (value: unknown): SafeguardRuleCountM
 export const isPerRuleCountMode = (mode: SafeguardRuleCountMode): boolean => mode.perRule
 export const sanitizeSafeguardCountMode = (mode: SafeguardRuleCountMode): SafeguardRuleCountMode => sanitizeCountMode(mode)
 
-// Returns a count mode with redundant per-X flags suppressed for display purposes.
-// A per-X flag is redundant when the combination already restricts that dimension to a single
+// Returns which per-X dimensions are no-ops for the given combination.
+// A dimension is redundant when the combination already restricts it to a single
 // value — the candidate pool is already uniform, so splitting by it changes nothing.
+// Used by safeguardEffectiveCountModeForDisplay (chip rendering) and the builder
+// panel (chip disabled state) so both surfaces share one definition.
+export function safeguardRedundantCountModeDimensions(combination: SafeguardCombination): {
+  perSlot: boolean; perSet: boolean; perFaction: boolean; perMainStat: boolean
+} {
+  const includedSets = splitArtifactSetSelections(combination.sets).included
+  return {
+    perSlot: combination.slots.length === 1,
+    perSet: includedSets.length === 1 && (combination.metaSetNames?.length ?? 0) === 0,
+    perFaction: combination.factions.length === 1,
+    perMainStat: combination.mainStats.length === 1,
+  }
+}
+
+// Returns a count mode with redundant per-X flags suppressed for display purposes.
 export function safeguardEffectiveCountModeForDisplay(
   combination: SafeguardCombination,
   countMode: SafeguardRuleCountMode,
 ): SafeguardRuleCountMode {
   const sanitized = sanitizeSafeguardCountMode(countMode)
-  // perSlot: no-op when exactly one slot is selected.
-  const perSlot = sanitized.perSlot && combination.slots.length !== 1
-  // perSet: no-op when exactly one set is included and no metasets (which may span multiple sets) are present.
-  const includedSets = splitArtifactSetSelections(combination.sets).included
-  const perSet = sanitized.perSet && !(includedSets.length === 1 && (combination.metaSetNames?.length ?? 0) === 0)
-  // perFaction: no-op when exactly one faction is selected.
-  const perFaction = sanitized.perFaction && combination.factions.length !== 1
-  // perMainStat: no-op when exactly one main stat is selected.
-  const perMainStat = sanitized.perMainStat && combination.mainStats.length !== 1
-  return { ...sanitized, perSlot, perSet, perFaction, perMainStat }
+  const redundant = safeguardRedundantCountModeDimensions(combination)
+  return {
+    ...sanitized,
+    perSlot: sanitized.perSlot && !redundant.perSlot,
+    perSet: sanitized.perSet && !redundant.perSet,
+    perFaction: sanitized.perFaction && !redundant.perFaction,
+    perMainStat: sanitized.perMainStat && !redundant.perMainStat,
+  }
 }
 
 export const cloneSafeguardCombination = (combination: SafeguardCombination): SafeguardCombination => ({
