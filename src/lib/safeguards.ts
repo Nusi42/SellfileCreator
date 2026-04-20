@@ -998,17 +998,16 @@ export function normalizeSafeguardSubstatDependents(rule: SafeguardRule): Safegu
   const substats = rule.substats ?? []
   let next = rule
 
-  // With exactly one substat, Min2/Min3/Min4 can never be satisfied — coerce to Min1.
-  if (substats.length === 1) {
-    const m = next.substatMatch
-    if (m === SafeguardSubstatMatch.Min2 || m === SafeguardSubstatMatch.Min3 || m === SafeguardSubstatMatch.Min4) {
-      next = { ...next, substatMatch: SafeguardSubstatMatch.Min1 }
+  // With N substats, a numeric threshold > N can never be satisfied — clamp to N.
+  // Covers all cases: 1 substat with >=2, 2 substats with >=3, etc.
+  // PerSubstat is a non-numeric token so Number() returns NaN and is left untouched.
+  if (substats.length >= 1) {
+    const threshold = Number(next.substatMatch)
+    if (Number.isFinite(threshold) && threshold > substats.length) {
+      next = { ...next, substatMatch: String(substats.length) as SafeguardSubstatMatch }
     }
     return next
   }
-
-  // Nothing to do when multiple substats are present — dependent fields are already valid.
-  if (substats.length > 1) return next
   // Improvement-chance requires at least one substat to be meaningful.
   if (next.improvementChanceThreshold !== SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD) {
     next = { ...next, improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD }

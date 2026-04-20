@@ -51,6 +51,7 @@ import {
   constrainSafeguardSubstats,
   normalizeSafeguardSubstatMatch,
   normalizeSafeguardRule,
+  normalizeSafeguardSubstatDependents,
   pruneSafeguardsSubstatWeights,
   sanitizeSafeguardCountMode,
   safeguardRedundantCountModeDimensions,
@@ -843,7 +844,8 @@ export default function SafeguardBuilderPanel({
     updateRule((prev) => {
       const nextMatch = sorted.length > 0 ? prev.substatMatch : SafeguardSubstatMatch.Min1
       const nextWeights = pruneSafeguardsSubstatWeights(prev.substatWeights, sorted)
-      return { ...prev, substats: sorted, substatMatch: nextMatch, substatWeights: nextWeights }
+      // Clamp substatMatch threshold when selected substat count drops below it.
+      return normalizeSafeguardSubstatDependents({ ...prev, substats: sorted, substatMatch: nextMatch, substatWeights: nextWeights })
     })
   }
 
