@@ -3151,6 +3151,7 @@ export default function SafeguardBuilderPanel({
               candidates={popoverCandidates}
               quota={rule?.requiredCount ?? 1}
               countMode={rule?.countMode}
+              combination={rule?.combination}
               artifactsByItemKey={artifactsByItemKey}
               substats={substatSelection}
               weights={rule?.substatWeights ?? {}}

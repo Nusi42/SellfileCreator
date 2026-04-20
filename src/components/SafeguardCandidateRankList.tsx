@@ -39,7 +39,7 @@ import { formatCircledDigit } from '../lib/gearInspectorPreviewFormatting'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
-import type { SafeguardRuleCountMode } from '../lib/safeguards'
+import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
@@ -113,6 +113,8 @@ export type SafeguardCandidateRankListProps = {
   quota: number
   // Count mode for the rule — used to label the cutoff with active grouping dimensions.
   countMode?: SafeguardRuleCountMode
+  // Combination for the rule — used to suppress per-X labels that are redundant given the selected filters.
+  combination?: SafeguardCombination
   // Artifact metadata keyed by itemKey, sourced from SafeguardDetectionEntry.artifacts.
   artifactsByItemKey: ReadonlyMap<number, SafeguardDetectionArtifact>
   // Substat variants selected in the rule — used for per-roll hints when no data.
@@ -166,6 +168,7 @@ export default function SafeguardCandidateRankList({
   ruleName,
   ruleOrdinal,
   countMode,
+  combination,
   substatColumnCount,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
@@ -257,12 +260,16 @@ export default function SafeguardCandidateRankList({
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
         <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
           {(() => {
+            // Suppress per-X labels that are no-ops given the selected combination filters.
+            const effectiveMode = (combination && countMode)
+              ? safeguardEffectiveCountModeForDisplay(combination, countMode)
+              : countMode
             // Collect active per-group dimensions in display order (slot → set → faction → main).
             const scopeParts: string[] = []
-            if (countMode?.perSlot) scopeParts.push(t('safeguardsCountModeScopeSlot'))
-            if (countMode?.perSet) scopeParts.push(t('safeguardsCountModeScopeSet'))
-            if (countMode?.perFaction) scopeParts.push(t('safeguardsCountModeScopeFaction'))
-            if (countMode?.perMainStat) scopeParts.push(t('safeguardsCountModeScopeMain'))
+            if (effectiveMode?.perSlot) scopeParts.push(t('safeguardsCountModeScopeSlot'))
+            if (effectiveMode?.perSet) scopeParts.push(t('safeguardsCountModeScopeSet'))
+            if (effectiveMode?.perFaction) scopeParts.push(t('safeguardsCountModeScopeFaction'))
+            if (effectiveMode?.perMainStat) scopeParts.push(t('safeguardsCountModeScopeMain'))
             return scopeParts.length > 0
               ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: scopeParts.join(' · ') })
               : t('safeguardsCandidateCutoff', { n: quota })

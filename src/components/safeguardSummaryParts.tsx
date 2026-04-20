@@ -33,7 +33,7 @@ import {
 } from '../lib/constants'
 
 const METASET_ICON_BOX_PX = 16
-import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay } from '../lib/safeguards'
 import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
@@ -96,9 +96,12 @@ export function safeguardSummaryParts(
   // Faction scope is only meaningful when the rule can include accessory slots.
   // Mirrors SafeguardBuilderPanel's effectiveCountMode gate (same SSOT rule).
   const hasAccessorySlot = slotSelectionAllowsAccessories(c.slots)
+  // Suppress per-X labels when the combination already restricts that dimension
+  // to a single value — the flag is a no-op and showing it misleads users.
+  const effectiveMode = safeguardEffectiveCountModeForDisplay(c, rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
 
   // ── Slots ─────────────────────────────────────────────────────────────────
-  const perSlot = rule.countMode?.perSlot ?? false
+  const perSlot = effectiveMode.perSlot
   if (c.slots && c.slots.length > 0) {
     const sorted = [...c.slots].sort(compareArtifactTypes)
     // "Per Slot: " prefix when this rule splits its quota by slot.
@@ -188,7 +191,7 @@ export function safeguardSummaryParts(
   // ── Factions ──────────────────────────────────────────────────────────────
   // Suppress perFaction when no accessory slots are in scope, matching the
   // builder's effectiveCountMode behaviour so the chip summary stays coherent.
-  const perFaction = hasAccessorySlot && (rule.countMode?.perFaction ?? false)
+  const perFaction = hasAccessorySlot && effectiveMode.perFaction
   if (c.factions && c.factions.length > 0) {
     // "Per Faction: " prefix when this rule splits its quota by faction.
     const factionLbl = perFaction ? `${opts.t ? opts.t('safeguardsCountModePerFaction') : 'Per Faction'}:${NBSP}` : ''
@@ -224,7 +227,7 @@ export function safeguardSummaryParts(
   }
 
   // ── Main stats ────────────────────────────────────────────────────────────
-  const perMainStat = rule.countMode?.perMainStat ?? false
+  const perMainStat = effectiveMode.perMainStat
   if (c.mainStats && c.mainStats.length > 0) {
     // "Per Mainstat: " prefix when this rule splits its quota by main stat.
     const mainLbl = perMainStat ? `${opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat'}:${NBSP}` : ''
@@ -356,7 +359,7 @@ export function safeguardSummaryParts(
   }
 
   // ── Sets + Metasets ───────────────────────────────────────────────────────
-  const perSet = rule.countMode?.perSet ?? false
+  const perSet = effectiveMode.perSet
   {
     const setSelection = splitArtifactSetSelections(c.sets)
     const setIdsSorted = setSelection.included.slice().sort((a, b) => Number(a) - Number(b))

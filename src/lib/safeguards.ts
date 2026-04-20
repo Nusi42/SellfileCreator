@@ -35,7 +35,7 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
 import type { TestItem } from './ruleEval'
 import type { ImprovementChanceWasmEntry, WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
@@ -366,6 +366,26 @@ export const normalizeSafeguardCountMode = (value: unknown): SafeguardRuleCountM
 
 export const isPerRuleCountMode = (mode: SafeguardRuleCountMode): boolean => mode.perRule
 export const sanitizeSafeguardCountMode = (mode: SafeguardRuleCountMode): SafeguardRuleCountMode => sanitizeCountMode(mode)
+
+// Returns a count mode with redundant per-X flags suppressed for display purposes.
+// A per-X flag is redundant when the combination already restricts that dimension to a single
+// value — the candidate pool is already uniform, so splitting by it changes nothing.
+export function safeguardEffectiveCountModeForDisplay(
+  combination: SafeguardCombination,
+  countMode: SafeguardRuleCountMode,
+): SafeguardRuleCountMode {
+  const sanitized = sanitizeSafeguardCountMode(countMode)
+  // perSlot: no-op when exactly one slot is selected.
+  const perSlot = sanitized.perSlot && combination.slots.length !== 1
+  // perSet: no-op when exactly one set is included and no metasets (which may span multiple sets) are present.
+  const includedSets = splitArtifactSetSelections(combination.sets).included
+  const perSet = sanitized.perSet && !(includedSets.length === 1 && (combination.metaSetNames?.length ?? 0) === 0)
+  // perFaction: no-op when exactly one faction is selected.
+  const perFaction = sanitized.perFaction && combination.factions.length !== 1
+  // perMainStat: no-op when exactly one main stat is selected.
+  const perMainStat = sanitized.perMainStat && combination.mainStats.length !== 1
+  return { ...sanitized, perSlot, perSet, perFaction, perMainStat }
+}
 
 export const cloneSafeguardCombination = (combination: SafeguardCombination): SafeguardCombination => ({
   slots: [...combination.slots],

@@ -49,6 +49,7 @@ import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   sanitizeSafeguardCountMode,
+  safeguardEffectiveCountModeForDisplay,
   type SafeguardRule,
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
@@ -2559,14 +2560,16 @@ function SafeguardSummaryCard({
   const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
   const countMode = sanitizeSafeguardCountMode(rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+  // Suppress per-X flags that are redundant given the selected combination filters.
+  const effectiveCountMode = safeguardEffectiveCountModeForDisplay(rule.combination, countMode)
   const scopeLegendLabel = t('noteSafeguardScopeLabel')
   // Scope chips mirror the dialog toggles so markdown exports stay aligned.
   const scopeFlags = [
-    { key: 'perRule', label: t('safeguardsCountModePerRule'), active: countMode.perRule },
-    { key: 'perSlot', label: t('safeguardsCountModePerSlot'), active: countMode.perSlot },
-    { key: 'perSet', label: t('safeguardsCountModePerSet'), active: countMode.perSet },
-    { key: 'perFaction', label: t('safeguardsCountModePerFaction'), active: countMode.perFaction },
-    { key: 'perMain', label: t('safeguardsCountModePerMain'), active: countMode.perMainStat },
+    { key: 'perRule', label: t('safeguardsCountModePerRule'), active: effectiveCountMode.perRule },
+    { key: 'perSlot', label: t('safeguardsCountModePerSlot'), active: effectiveCountMode.perSlot },
+    { key: 'perSet', label: t('safeguardsCountModePerSet'), active: effectiveCountMode.perSet },
+    { key: 'perFaction', label: t('safeguardsCountModePerFaction'), active: effectiveCountMode.perFaction },
+    { key: 'perMain', label: t('safeguardsCountModePerMain'), active: effectiveCountMode.perMainStat },
   ]
   const activeScopeFlags = scopeFlags.filter((flag) => flag.active)
   // Surface explicit names when present so ordered exports stay recognizable.

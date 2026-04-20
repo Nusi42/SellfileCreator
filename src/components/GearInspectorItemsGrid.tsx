@@ -68,6 +68,7 @@ import {
   SAFEGUARD_DEFAULT_COUNT_MODE,
   SafeguardSubstatMatch,
   sanitizeSafeguardCountMode,
+  safeguardEffectiveCountModeForDisplay,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
@@ -570,7 +571,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const tooltipRuleSuffix = tooltipRuleNameIndex >= 0
         ? tooltipRule.slice(tooltipRuleNameIndex + safeguardName.length)
         : ''
-      const normalizedCountMode = sanitizeSafeguardCountMode(matchedRule?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+      const normalizedCountMode = matchedRule
+        ? safeguardEffectiveCountModeForDisplay(matchedRule.combination, matchedRule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+        : sanitizeSafeguardCountMode(SAFEGUARD_DEFAULT_COUNT_MODE)
       const countModeScopeLabels: string[] = []
       if (normalizedCountMode.perSet) countModeScopeLabels.push(t('safeguardsCountModePerSet'))
       if (normalizedCountMode.perFaction) countModeScopeLabels.push(t('safeguardsCountModePerFaction'))
