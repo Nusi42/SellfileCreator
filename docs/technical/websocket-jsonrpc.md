@@ -48,7 +48,7 @@ Upload a generated sellfile.
 **Params**
 - `name` (string, optional): Suggested filename (the server appends `.hsf` if missing).
 - `contentType` (string, optional): MIME type (usually `application/json`).
-- `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk. Legacy string payloads are also accepted for backward compatibility.
+- `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk.
 
 **Result**
 - `ok` (boolean)
@@ -110,8 +110,7 @@ Push the SQLite DB as a binary WebSocket frame to avoid base64 overhead.
 - The next WebSocket frame must be binary and contains the raw SQLite bytes.
 - The binary frame is associated with the most recent `gearDbFileBinary` notification.
 
-RSL Helper pushes each table as a separate notification. The app merges them
-as they arrive — no fixed order or combined envelope is required.
+RSL Helper sends each data type as a separate notification; they may arrive in any order and are merged as received.
 
 ### artifacts
 
@@ -167,29 +166,34 @@ Gear sitting in the inbox (not yet moved to inventory). Same row schema as `arti
 
 ### champions
 
-Champion roster. Provides display names and equipped-slot context; the app
-correlates champions to artifacts via `cID`.
+Champion roster. Provides display names and equipped-slot context.
 
 **Params**
-- `champions` (array of champion rows) — selected fields used by the importer:
-  - `id` (number) — champion instance id (maps to SQL `ID`)
-  - `typeId` (number) — variant/ascension ID, identical to SQL `HeroID` (e.g. `2066`);
-    `BaseHeroID` is derived as `Math.floor(typeId / 10) * 10` (e.g. `2060`)
-  - `Name` (string) — champion name (capitalization matches SQL column; no alias needed)
-  - `Rarity` (number) — rarity tier 1–6 (capitalization matches SQL column; no alias needed)
-  - `grade` (number) — current star count; NOT the rarity tier — left unmapped since `Rarity` carries the correct value
-  - `inStorage` (boolean) — `true` if in vault (maps to SQL `Vault`)
-  - Additional fields (`level`, `empower`, `locked`, `artifacts`, `skills`, `mastery`, `doubleAscend`, etc.) are present in the payload but not currently consumed by the importer.
+- `champions` (array of champion rows) — fields consumed by the importer:
+  - `id` (number) — champion instance id
+  - `typeId` (number) — variant/ascension ID (e.g. `2066`); base hero ID is derived as `Math.floor(typeId / 10) * 10` (e.g. `2060`)
+  - `Name` (string) — champion name; present in the first send of each sync cycle, absent in the second (see double-send behaviour below)
+  - `Rarity` (number) — rarity tier 1–6; present in the first send, absent in the second
+  - `grade` (number) — current star count
+  - `inStorage` (boolean) — `true` if the champion is in the vault
+  - `artifacts` (object) — maps slot numbers (`"1"`–`"9"`) to the equipped artifact's instance id; used to resolve which artifact belongs to which champion. Empty slots are absent from the map.
+  - Additional fields (`level`, `empower`, `locked`, `skills`, `mastery`, etc.) are present in the payload but not used.
 
 **Example**
 ```json
 {"jsonrpc":"2.0","method":"champions","params":{"champions":[
-  {"id":37727,"typeId":2066,"grade":6,"level":60,"Name":"Warpriest","Rarity":3,"inStorage":true},
-  {"id":2742,"typeId":36,"grade":6,"level":60,"Name":"Athel","Rarity":5,"inStorage":false}
+  {
+    "id":37727,"typeId":2066,"grade":6,"level":60,"Name":"Warpriest","Rarity":3,
+    "inStorage":true,"artifacts":{"1":71830,"2":101913,"5":123429}
+  },
+  {
+    "id":2742,"typeId":36,"grade":6,"level":60,"Name":"Athel","Rarity":5,
+    "inStorage":false,"artifacts":{"1":235431,"3":312005}
+  }
 ]}}
 ```
 
-**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. The importer merges incoming rows against the previously stored champion list so that display metadata from the first message is never overwritten by the stripped second message.
+**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Incoming rows are merged against the previously received champion list so that display metadata from the first message is not overwritten by the second.
 
 See `docs/orig/sampleLog/helperRcvData.json` for a full captured session (all nine messages across `inboxArtifacts`, `champions`, and `artifacts`).
 
@@ -243,9 +247,8 @@ Fields present in every artifact row from RSL Helper:
 - `level` (number) — upgrade level of this stat
 - `isAbsolute` (number) — `1` = flat value, `0` = percent
 - `statValue` (number) — encoded value (integer, scale depends on stat)
-- `mValue` (number)
-- `glyphValue` (number)
-```
+- `mValue` (number) — myth enhancement value
+- `glyphValue` (number) — glyph enhancement value
 
 ## Error Codes
 
