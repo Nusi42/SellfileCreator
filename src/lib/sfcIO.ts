@@ -9,7 +9,7 @@
  * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets, countPositiveSubstats } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasets, type Metaset } from './metasets'
@@ -615,6 +615,13 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
     if (manualActive) {
       legacyManualMinValue = manualMinValue
     }
+  }
+
+  // Re-compute minCount when autoMinCount is true so stale stored values (written
+  // before "not" substats were excluded from the count) don't survive a reload.
+  if (normalized.autoMinCount) {
+    const positiveCount = countPositiveSubstats(normalized.substatsV, normalized.substatRollBoundsV as Record<number, { not?: boolean }>)
+    normalized.minCount = Math.min(4, Math.max(0, positiveCount)) as 0 | 1 | 2 | 3 | 4
   }
 
   if (!canEnableSubstatFlex(normalized)) {

@@ -81,6 +81,17 @@ export function normalizeAutoSubstatFlex<T extends FlexRecipeShape & Pick<Builde
   return recipe
 }
 
+// Count substats that are positive (not marked ¬). Used by autoMinCount logic so
+// "not" substats don't inflate the automatic minimum beyond the slot budget.
+export function countPositiveSubstats(
+  substatsV: ReadonlyArray<number> | undefined,
+  substatRollBoundsV: Record<number, { not?: boolean }> | undefined,
+): number {
+  if (!Array.isArray(substatsV) || substatsV.length === 0) return 0
+  const bounds = substatRollBoundsV ?? {}
+  return substatsV.filter(v => bounds[v]?.not !== true).length
+}
+
 export function isMilestoneThresholdsActive(recipe: Pick<BuilderRecipe, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
   try {
     if (hasSubstatThresholds(recipe)) return true

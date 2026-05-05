@@ -624,6 +624,20 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
     // Pre-build "not" substat entries once so every rule can clone them cheaply.
     let not_substat_entries: Vec<RuleSubRaw> = build_not_substat_entries(&input.not_substats_v);
 
+    // Enforce the 4-slot budget: "not" substats occupy wildcard slots.
+    // If "not" entries alone overflow 4 slots, no rule can be expressed.
+    let not_count = not_substat_entries.len();
+    if not_count > HSF_SUBSTAT_SLOT_COUNT {
+        return Ok(ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false });
+    }
+    let available_positive_slots = (HSF_SUBSTAT_SLOT_COUNT - not_count) as i32;
+    // If the minimum required positives can't fit alongside "not" substats, emit 0 rules.
+    if !input.selected_pool_v.is_empty() && input.min_target_count > available_positive_slots {
+        return Ok(ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false });
+    }
+    // Cap max_target_count to prevent flex combos from consuming "not" substat slots.
+    let effective_max_target_count = input.max_target_count.min(available_positive_slots);
+
     // Presence-only path still dedupes + finalizes so TS behavior remains stable.
     if input.selected_pool_v.is_empty() {
         let emitted = build_hsf_presence_only_rules_core(&BuildHsfPresenceOnlyRulesIn {
@@ -667,7 +681,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
         selected_pool_v: input.selected_pool_v.clone(),
         required_v: input.required_v.clone(),
         optional_pool_v: input.optional_pool_v.clone(),
-        max_target_count: input.max_target_count,
+        max_target_count: effective_max_target_count,
         aggregate_min_active: input.aggregate_min_active,
         aggregate_min_value: input.aggregate_min_value,
         aggregate_targets_locked: input.aggregate_targets_locked,
@@ -715,7 +729,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
         flex_active: input.flex_active,
         aggregate_min_active: input.aggregate_min_active,
         min_target_count: input.min_target_count,
-        max_target_count: input.max_target_count,
+        max_target_count: effective_max_target_count,
         aggregate_targets_locked: input.aggregate_targets_locked,
         aggregate_min_value: input.aggregate_min_value,
         locked_min_active: input.locked_min_active,

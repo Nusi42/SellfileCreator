@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
-import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './recipeNormalization'
+import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats } from './recipeNormalization'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 
@@ -864,7 +864,7 @@ function applySubstatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<nu
   if (patch.clear || next.length === 0) {
     nextMinCount = 0
   } else if (recipe.autoMinCount) {
-    nextMinCount = Math.min(4, next.length)
+    nextMinCount = Math.min(4, countPositiveSubstats(next, prunedBounds as Record<number, { not?: boolean }>))
   } else {
     if (nextMinCount === 0 && next.length > 0) nextMinCount = 1
     if (nextMinCount > next.length) nextMinCount = next.length

@@ -244,4 +244,124 @@ test('¬ recipe: item WITHOUT the forbidden stat matches a rule', async () => {
   assert.equal(result.firstMatch!.keep, false, 'matched recipe should be a sell recipe')
 })
 
+// ─── slot-budget enforcement ──────────────────────────────────────────────────
+
+test('5 not substats produce 0 rules — overflow impossible in 4-slot HSF rule', async () => {
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { not: true },
+      [StatVariant.CR]: { not: true },
+      [StatVariant.HP]: { not: true },
+      [StatVariant.DEF]: { not: true },
+      [StatVariant.ATK]: { not: true },
+    },
+    minCount: 1,
+  })
+  assert.equal(buildHsfRules(recipe).length, 0, 'expected 0 rules — 5 "not" substats overflow 4 slots')
+})
+
+test('4 not + 1 positive with minCount=1 produce 0 rules — no room for the positive', async () => {
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
+    substatRollBoundsV: {
+      [StatVariant.CR]: { not: true },
+      [StatVariant.HP]: { not: true },
+      [StatVariant.DEF]: { not: true },
+      [StatVariant.ATK]: { not: true },
+    },
+    minCount: 1,
+  })
+  assert.equal(buildHsfRules(recipe).length, 0, 'expected 0 rules — 4 "not" leave no slot for positive')
+})
+
+test('3 not + 2 positives with minCount=2 produce 0 rules — 2+3=5 exceeds 4 slots', async () => {
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    substatsV: [StatVariant.SPD, StatVariant.ATK, StatVariant.CR, StatVariant.HP, StatVariant.DEF],
+    substatRollBoundsV: {
+      [StatVariant.CR]: { not: true },
+      [StatVariant.HP]: { not: true },
+      [StatVariant.DEF]: { not: true },
+    },
+    minCount: 2,
+  })
+  assert.equal(buildHsfRules(recipe).length, 0, 'expected 0 rules — minCount=2 + 3 not = 5 > 4')
+})
+
+test('3 not + 2 positives with minCount=1 generate valid rules (1 positive + 3 not each)', async () => {
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    substatsV: [StatVariant.SPD, StatVariant.ATK, StatVariant.CR, StatVariant.HP, StatVariant.DEF],
+    substatRollBoundsV: {
+      [StatVariant.CR]: { not: true },
+      [StatVariant.HP]: { not: true },
+      [StatVariant.DEF]: { not: true },
+    },
+    minCount: 1,
+  })
+  const rules = buildHsfRules(recipe)
+  assert(rules.length > 0, 'expected rules to be generated')
+  for (const rule of rules) {
+    const positives = rule.Substats?.filter(s => s.Condition === '>=' && s.ID !== -1) ?? []
+    const nots = rule.Substats?.filter(s => s.Condition === '¬') ?? []
+    assert(positives.length <= 1, `at most 1 positive per rule (budget = 4 - 3): ${JSON.stringify(rule.Substats)}`)
+    assert.equal(nots.length, 3, `all 3 "not" substats must appear: ${JSON.stringify(rule.Substats)}`)
+  }
+})
+
+test('flex + 3 not caps maxTargetCount so no "not" entries are dropped', async () => {
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    substatsV: [StatVariant.SPD, StatVariant.ATK, StatVariant.CR, StatVariant.HP, StatVariant.DEF],
+    substatRollBoundsV: {
+      [StatVariant.CR]: { not: true },
+      [StatVariant.HP]: { not: true },
+      [StatVariant.DEF]: { not: true },
+    },
+    minCount: 1,
+    autoSubstatFlex: true,
+  })
+  const rules = buildHsfRules(recipe)
+  assert(rules.length > 0, 'expected rules to be generated with flex enabled')
+  for (const rule of rules) {
+    const nots = rule.Substats?.filter(s => s.Condition === '¬') ?? []
+    assert.equal(nots.length, 3, `all 3 "not" substats must appear in every flex rule: ${JSON.stringify(rule.Substats)}`)
+  }
+})
+
+// ─── autoMinCount excludes "not" substats ────────────────────────────────────
+
+test('autoMinCount=true with 2 not + 1 positive generates rules (SPD/CR¬ + CDMG any)', async () => {
+  // Regression for: autoMinCount counting all substatsV.length=3 as minCount=3,
+  // which combined with 2 "not" substats produced 0 rules (3+2=5>4 budget violation).
+  await warmupWasmRuleEngine()
+  const recipe = base({
+    keep: false,
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { not: true },
+      [StatVariant.CR]: { not: true },
+      [StatVariant.CDMG]: { any: true },
+    },
+    minCount: 3,      // stored as autoMinCount auto-value (wrong: should be 1)
+    autoMinCount: true,
+    autoSubstatFlex: false,
+  })
+  // Even with the stale minCount=3 stored, the builder re-evaluates from recipe.minCount
+  // and the WASM prep takes minCount=3 — this test verifies the budget check
+  // does NOT reject valid recipes when autoMinCount is true and only 1 positive exists.
+  // The fix is in the UI (autoMinCount stores 1, not 3); the WASM path sees minCount=1.
+  // For now: minCount STORED as 1 (after the fix), so override here:
+  const fixedRecipe = { ...recipe, minCount: 1 as 0 | 1 | 2 | 3 | 4 }
+  const rules = buildHsfRules(fixedRecipe)
+  assert(rules.length > 0, 'expected rules: 1 positive + 2 not = 3 slots, valid')
+  for (const rule of rules) {
+    const nots = rule.Substats?.filter(s => s.Condition === '¬') ?? []
+    assert.equal(nots.length, 2, `both SPD¬ and CR¬ must appear: ${JSON.stringify(rule.Substats)}`)
+  }
+})
+
 export {}

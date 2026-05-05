@@ -28,6 +28,7 @@ import {
   buildQuestionImplicitTokenMap,
 } from './noteOverridesParser'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
+import { countPositiveSubstats } from './recipeNormalization'
 import { cloneSubstatTargets } from './substatTargets'
 import {
   ArtifactType,
@@ -410,11 +411,12 @@ const resolveLockedSubstatCount = (recipe: Pick<BuilderRecipe, 'fixedSubstatsV'>
   Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV.length : 0
 )
 
-const resolveEffectiveMinCount = (recipe: Pick<BuilderRecipe, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
-  const selected = resolveSelectedSubstatCount(recipe)
+const resolveEffectiveMinCount = (recipe: Pick<BuilderRecipe, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV'>): number => {
   const locked = resolveLockedSubstatCount(recipe)
   if (recipe.autoMinCount) {
-    return Math.min(4, Math.max(0, selected))
+    // "Not" substats never count toward the positive minimum — exclude them.
+    const positiveCount = countPositiveSubstats(recipe.substatsV, recipe.substatRollBoundsV as Record<number, { not?: boolean }>)
+    return Math.min(4, Math.max(0, positiveCount))
   }
   const clamped = clampMinSubstats(Number(recipe.minCount ?? 0))
   return Math.min(4, Math.max(clamped, locked))

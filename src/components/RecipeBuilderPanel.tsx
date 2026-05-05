@@ -37,6 +37,7 @@ import {
 } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
+  countPositiveSubstats,
   deriveRollBaselineMode,
   isMilestoneThresholdsActive,
   normalizeAggregateRollTargets,
@@ -1228,9 +1229,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         for (const [k, v] of Object.entries(boundsV)) {
           if (keptVariants.has(Number(k))) prunedBoundsV[Number(k)] = v
         }
-        // minCount must not exceed the remaining substat count.
+        // minCount must not exceed the remaining positive substat count.
         const nextMin = (recipe.autoMinCount
-          ? Math.min(4, sanitizedSubstatsV.length)
+          ? Math.min(4, countPositiveSubstats(sanitizedSubstatsV, prunedBoundsV))
           : (recipe.minCount > sanitizedSubstatsV.length ? sanitizedSubstatsV.length : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
         prunedSubPatch.substatsV = sanitizedSubstatsV
         prunedSubPatch.fixedSubstatsV = sanitizedFixedV
@@ -4045,9 +4046,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   const prevV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
                   const nextV = [...prevV, vKey]
                   const nextLen = nextV.length
-                  const nextMin = (recipe.autoMinCount ? Math.min(4, nextLen) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
-                  const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
+                  const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
                   bVAll[vKey] = { any: true }
+                  const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextV, bVAll)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
                   onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
                   return
                 }
@@ -4057,10 +4058,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 const prevFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
                 const nextFixedV = prevFixedV.filter((v) => v !== vKey)
                 // prune bounds for substat (variant-keyed)
-                const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
+                const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
                 const { [vKey]: _omit, ...restV } = bVAll
-                const prunedV: Record<number, { min?: number; max?: number; any?: boolean }> = restV
-                const nextMin = (recipe.autoMinCount ? Math.min(4, nextSubsV.length) : (recipe.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
+                const prunedV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = restV
+                const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubsV, prunedV)) : (recipe.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
                 onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
               }
@@ -4075,8 +4076,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   const nextSubs = [...prevSubs, vKey]
                   const nextFixed = Array.from(new Set([...prevFixed, vKey]))
                   const nextLen = nextSubs.length
-                  const nextMin = (recipe.autoMinCount ? Math.min(4, nextLen) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : Math.min(recipe.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
-                  const nextBounds = { ...boundsSource, [vKey]: { any: true } }
+                  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = { ...(boundsSource as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>), [vKey]: { any: true } }
+                  const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubs, nextBounds)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : Math.min(recipe.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
                   const nextRecipe = normalizeKeepWithAuto({
                     ...recipe,
                     substatsV: nextSubs,
@@ -5686,8 +5687,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const autoState = getMinRequiredRollsTriState('auto')
                 // Warning text shown in the chip-like area below the toggle buttons.
                 // Moved here from the old standalone warning row so it collapses with Min Rolls.
-                const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const fixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const allSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const allFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                // "Not" substats carry a ¬ condition and are orthogonal to min-rolls warnings;
+                // exclude them so positive-substat-only counts feed all warning thresholds.
+                const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { not?: boolean }>
+                const subsV = allSubsV.filter(v => boundsV[v]?.not !== true)
+                const fixedV = allFixedV.filter(v => boundsV[v]?.not !== true)
                 const chosenCount = subsV.length
                 const fixedCount = fixedV.length
                 const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))

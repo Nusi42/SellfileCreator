@@ -371,11 +371,18 @@ export function buildHsfRules(
   // If the user explicitly selected substats but all are invalid for the slot/main,
   // emit no rules instead of falling back to presence-only behavior.
   if (prep.hadRequestedSubstats && selectedPoolV.length === 0 && notSubstatsV.length === 0) return []
+  // "Not" substats occupy HSF slots that would otherwise be wildcards; the effective
+  // positive-substat budget per rule is (4 - not_count). Reject impossible combinations
+  // so they surface as "0 rules" rather than silently dropping "not" constraints.
+  const availablePositiveSlots = 4 - notSubstatsV.length
+  if (availablePositiveSlots < 0) return []
+  if (prep.hadRequestedSubstats && selectedPoolV.length > 0 && prep.minTargetCount > availablePositiveSlots) return []
   const requiredV = prep.requiredV.filter(v => !isNotVariant(v))
   const optionalPoolV = prep.optionalPoolV.filter(v => !isNotVariant(v))
   const lockedCount = requiredV.length
   const minTargetCount = prep.minTargetCount
-  const maxTargetCount = prep.maxTargetCount
+  // Cap maxTargetCount so flex combos don't consume slots needed by "not" substats.
+  const maxTargetCount = Math.min(prep.maxTargetCount, availablePositiveSlots)
   // Flex mode only activates when both the recipe allows it and the toggle is on.
   const flexActive = recipe.autoSubstatFlex === true && flexEligible
   // Track whether any selected substat explicitly demands rolls.
