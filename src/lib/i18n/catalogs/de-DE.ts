@@ -781,6 +781,7 @@ const overrides: Catalog = {
   chipReq: "Erf.",
   chipMaxRolls: "Max. Rolls: {n}",
   chipMinRolls: "Min. Rolls: {n}",
+  chipNotSubstat: "Darf nicht vorhanden sein",
   // Header menu controls
   rulesMenuWrapRows: "Mehrzeilige Zeilen",
   rulesMenuSlotsAsIcons: "Slots als Symbole",
@@ -975,6 +976,8 @@ const overrides: Catalog = {
   builderSubstatMenuLockTooltip: "Sperre diesen Substat, damit er in jeder generierten Regel Pflicht bleibt. Hebe die Sperre auf, wenn der Builder ihn je nach Kombination austauschen darf.",
   builderSubstatMenuMinRolls: "Mindest-Roll-Anforderung",
   builderSubstatMenuMinRollsTooltip: "Legt fest, wie viele Aufwertungen dieser Substat mindestens haben muss, bevor der Gegenstand zählt.\n• \"Beliebig\" lässt jede Anzahl zu.\n• Die Zahlen 0-5 erzwingen genau so viele gelandete Rolls.",
+  builderSubstatMenuNot: "Nicht",
+  builderSubstatNotTooltip: "Diesen Substat als verboten markieren – das Item darf ihn gar nicht besitzen.\n• Die generierte Regel enthält eine ¬-Bedingung, sodass RSL Helper jedes Item ablehnt, das diesen Stat rollt.",
   builderSubstatMenuMaxRolls: "Roll-Obergrenze",
   builderSubstatMenuMaxRollsTooltip: "Begrenzt, wie viele Rolls dieser Substat erhalten darf, bevor das Item verworfen wird.\nSo stoppst du z. B. Quad-Rolls oder verhinderst überschüssige Aufwertungen auf gesperrten Stats.",
   builderSubstatMenuAny: "Beliebig",
@@ -1290,10 +1293,9 @@ const overrides: Catalog = {
   tutorialFinish: "Fertig",
 
   // Roll indicator help
-  rollIndicatorTip1: "Nutze den Roll-Indikator, um Aufwertungs-Rolls auf diesem Substat zu verlangen. Linksklick erhöht die Vorgabe; Rechtsklick senkt sie.",
-  rollIndicatorTip2: "Von ★ aus wechselt Links zur Mindestanforderung (0..5 Rolls) und Rechts zur Roll-Obergrenze (0..4).",
-  rollIndicatorTip3: "Bei einer Roll-Obergrenze senkt Links das Limit (1→0→★) und Rechts erhöht es (0→1→…→4→★).",
-  rollIndicatorTip4: "Grüne Zahlen zeigen Mindest-Rolls, die du verlangst; rote Zahlen erzwingen die Obergrenze über diesem Wert.",
+  rollIndicatorTip1: "Linksklick: schaltet durch Mindest-Rolls (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Rechtsklick: schaltet durch Ausschluss und Roll-Obergrenzen (★ → ¬ → max 0 → … → max 4 → ★).",
+  rollIndicatorTip3: "Grün = Mindest-Rolls; Rot = Roll-Obergrenze oder Substat darf nicht vorhanden sein (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Rezeptvorgaben-Override: Substat-Mindest-Rolls gelten für diesen Stat.",
 
   // Filter helpers

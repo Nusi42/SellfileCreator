@@ -785,6 +785,7 @@ const overrides: Catalog = {
   chipReq: "Gerek",
   chipMaxRolls: "Maks rulolar: {n}",
   chipMinRolls: "Min rulolar: {n}",
+    chipNotSubstat: "Mevcut olmamalıdır",
   // Header menu controls
   rulesMenuWrapRows: "Çok satırlı satırlar",
   rulesMenuSlotsAsIcons: "Yuvalar simge olarak",
@@ -979,6 +980,8 @@ const overrides: Catalog = {
   builderSubstatMenuLockTooltip: "Bu alt stati kilitleyerek her oluşturulan kuralda zorunlu kılarsın. Diğer permütasyonlar gerektiğinde builder'ın onu kaldırmasına veya değiştirmesine izin vermek için kilidi aç.",
   builderSubstatMenuMinRolls: "Minimum rulo gereksinimi",
   builderSubstatMenuMinRollsTooltip: "Bu alt statin geçerli sayılması için gereken minimum geliştirme sayısını belirler.\n• \"Herhangi\" değeri serbest bırakır.\n• 0-5 rakamları tam olarak o kadar başarılı ruloyu zorunlu kılar.",
+  builderSubstatMenuNot: "Değil",
+  builderSubstatNotTooltip: "Bu alt statı yasak olarak işaretle — eşyada hiç bulunmamalı.\n• Oluşturulan kural, bu statı ruloyan her eşyayı RSL Helper'ın reddetmesi için ¬ koşulu içerir.",
   builderSubstatMenuMaxRolls: "Üst rulo sınırı",
   builderSubstatMenuMaxRollsTooltip: "Bu alt stat kaç kez rulo alabileceğini sınırlar; aşılınca eşya elenir.\nQuad rollları durdurmak veya kilitli değerleri aşmamak için kullanın.",
   builderSubstatMenuAny: "Herhangi",
@@ -1294,10 +1297,9 @@ const overrides: Catalog = {
   tutorialFinish: "Bitti",
 
   // Roll indicator help
-  rollIndicatorTip1: "Bu alt statta yükseltme talep etmek için rulo göstergesini kullanın. Sol tık beklentiyi artırır; sağ tık azaltır.",
-  rollIndicatorTip2: "★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo üst sınırına (0..4) geçer.",
-  rollIndicatorTip3: "Rulo üst sınırındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).",
-  rollIndicatorTip4: "Yeşil sayılar istediğiniz minimum ruloları gösterir; kırmızılar bu üst sınırı uygular.",
+  rollIndicatorTip1: "Sol tık: minimum rulo gereksinimlerini döngüler (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Sağ tık: dışlama ve rulo üst sınırlarını döngüler (★ → ¬ → maks 0 → … → maks 4 → ★).",
+  rollIndicatorTip3: "Yeşil = minimum rulolar; kırmızı = rulo üst sınırı veya alt stat mevcut olmamalıdır (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Reçete seçenekleri geçersiz kılma: bu stat için alt stat minimum rulo sayıları uygulanır.",
 
   // Filter helpers

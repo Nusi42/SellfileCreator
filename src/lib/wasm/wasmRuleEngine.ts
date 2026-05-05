@@ -937,7 +937,7 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
   substatsV: ReadonlyArray<number> | Int32Array
   fixedSubstatsV: ReadonlyArray<number> | Int32Array
   allowedSubstats: ReadonlyArray<number> | Int32Array
-  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
+  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
   substatRollTargetsV?: Record<number, { base?: number; increments?: Array<number | null> }>
   substatTargetByVariant: Record<number, number>
   factoryBaseByVariantForStar: Record<number, number>
@@ -1148,6 +1148,7 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
   requiredV: ReadonlyArray<number> | Int32Array
   optionalPoolV: ReadonlyArray<number> | Int32Array
   selectedPoolV: ReadonlyArray<number> | Int32Array
+  notSubstatsV?: ReadonlyArray<number> | Int32Array
   flexActive: boolean
   aggregateMinActive: boolean
   minTargetCount: number
@@ -1156,7 +1157,7 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
   aggregateMinValue: number
   lockedMinActive: boolean
   lockedMinValue: number
-  substatRollBoundsV: Record<string, { min?: number; max?: number; any?: boolean }>
+  substatRollBoundsV: Record<string, { min?: number; max?: number; any?: boolean; not?: boolean }>
   targetEntriesByVariant: Record<number, { base?: number; increments?: Array<number | null> }>
   currentBaseByVariant: Record<number, number>
   factoryBaseByVariant: Record<number, number | null>
@@ -1189,6 +1190,7 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
     requiredV: Array.from(toFlooredI32(params.requiredV)),
     optionalPoolV: Array.from(toFlooredI32(params.optionalPoolV)),
     selectedPoolV: Array.from(toFlooredI32(params.selectedPoolV)),
+    ...(params.notSubstatsV != null ? { notSubstatsV: Array.from(toFlooredI32(params.notSubstatsV)) } : {}),
     flexActive: params.flexActive === true,
     aggregateMinActive: params.aggregateMinActive === true,
     minTargetCount: Math.floor(params.minTargetCount),

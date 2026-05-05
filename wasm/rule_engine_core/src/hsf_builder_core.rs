@@ -126,12 +126,15 @@ pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
 }
 
 // Per-variant roll-bound payload used for combo vector normalization.
+// When `not` is true the stat must be absent (HSF Condition "¬"); min/max/any are ignored.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildHsfComboBoundsIn {
     pub(crate) min: Option<f64>,
     pub(crate) max: Option<f64>,
     pub(crate) any: Option<bool>,
+    #[serde(default)]
+    pub(crate) not: Option<bool>,
 }
 
 // Per-variant target override payload aligned to combo index order.
@@ -921,9 +924,14 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
         if !factory_eligible {
             continue;
         }
+        let bounds = substat_roll_bounds_v.get(&variant_id);
+        // "Not" bounds disqualify factory collapse — the stat must be absent.
+        if bounds.and_then(|b| b.not).unwrap_or(false) {
+            factory_eligible = false;
+            continue;
+        }
         // Non-zero minimum bounds always disqualify factory collapse.
-        let min_bound = substat_roll_bounds_v
-            .get(&variant_id)
+        let min_bound = bounds
             .and_then(|entry| entry.min)
             .filter(|value| value.is_finite())
             .map(|value| value.floor() as i32)
@@ -934,8 +942,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
             continue;
         }
         // Any finite max bound disqualifies factory collapse too.
-        let has_finite_max = substat_roll_bounds_v
-            .get(&variant_id)
+        let has_finite_max = bounds
             .and_then(|entry| entry.max)
             .filter(|value| value.is_finite())
             .is_some();

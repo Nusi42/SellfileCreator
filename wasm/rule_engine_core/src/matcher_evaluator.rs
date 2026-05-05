@@ -117,6 +117,8 @@ pub enum PreparedRuleSubCondition {
     AtLeast,
     AtMost,
     Equal,
+    // "¬" — the stat must be absent from the item (no value present).
+    Not,
 }
 
 // Scratch buffers reused across items in evaluate_engine so each item avoids
@@ -315,6 +317,8 @@ fn parse_sub_condition(raw_condition: Option<&str>) -> PreparedRuleSubCondition 
         "<=" | "≤" => PreparedRuleSubCondition::AtMost,
         // Keep equality aliases mapped to exact-value comparisons.
         "==" | "=" => PreparedRuleSubCondition::Equal,
+        // "¬" means the stat must be absent from the item.
+        "¬" => PreparedRuleSubCondition::Not,
         // Treat all other tokens as `>=` to preserve fallback semantics.
         _ => PreparedRuleSubCondition::AtLeast,
     }
@@ -466,6 +470,15 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         let raw_value = read_sub_value(&item.sub_values, sub.variant);
         let has_value = raw_value.is_some_and(|v| v.is_finite() && v > 0.0);
         let have = raw_value.unwrap_or(0.0);
+
+        // "¬" passes only when the stat is absent; always short-circuit here.
+        if sub.condition == PreparedRuleSubCondition::Not {
+            if has_value {
+                return false;
+            }
+            continue;
+        }
+
         let needs_presence = sub.condition == PreparedRuleSubCondition::AtMost;
 
         if needs_presence && !has_value {
@@ -476,6 +489,7 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
             PreparedRuleSubCondition::AtLeast => have >= sub.value,
             PreparedRuleSubCondition::AtMost => have <= sub.value,
             PreparedRuleSubCondition::Equal => (have - sub.value).abs() < f64::EPSILON,
+            PreparedRuleSubCondition::Not => true, // handled above
         };
 
         if !ok {

@@ -102,6 +102,8 @@ fn canon_array_key(values: Option<&Vec<i64>>) -> Option<Vec<i64>> {
 }
 
 // Parse supported conditions from substat rows.
+// "¬" is intentionally excluded — it makes the domination check return None (no dom),
+// so rules with ¬ substats are never pruned by the domination step.
 fn parse_sub_cond(value: Option<&str>) -> Option<SubCond> {
     let trimmed = value.unwrap_or("").trim();
     match trimmed {
@@ -185,11 +187,13 @@ fn normalize_substats_for_builder_pruning(subs: Option<&Vec<RuleSubRaw>>) -> Vec
 }
 
 // Builder condition coverage mirrors hsfBuilder.ts::conditionValueCovers.
+// "¬" entries always cover each other — two identical ¬ constraints are equal.
 fn builder_condition_value_covers(condition: &str, base_value: f64, candidate_value: f64) -> bool {
     match condition {
         ">=" => candidate_value >= base_value,
         "<=" => candidate_value <= base_value,
         "=" => candidate_value == base_value,
+        "¬" => candidate_value == base_value,
         _ => false,
     }
 }
@@ -454,12 +458,15 @@ pub(crate) fn collect_builder_pruning_obsolete_entries(rules: &[RuleRaw]) -> Vec
     obsolete
 }
 
-// Export dedupe normalizes only the three comparison operators supported by TS.
+// Export dedupe normalizes only the supported comparison operators.
+// Not (¬) entries participate in the signature key so two rules that differ
+// only by their ¬ constraints are not collapsed into one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ExportDedupeCondition {
     Gte,
     Lte,
     Eq,
+    Not,
 }
 
 // Normalized substat tuple mirrors src/lib/hsfDeduplicate.ts comparison shape.
@@ -506,16 +513,18 @@ fn parse_export_dedupe_condition(value: Option<&str>) -> Option<ExportDedupeCond
         ">=" => Some(ExportDedupeCondition::Gte),
         "<=" => Some(ExportDedupeCondition::Lte),
         "=" | "==" => Some(ExportDedupeCondition::Eq),
+        "¬" => Some(ExportDedupeCondition::Not),
         _ => None,
     }
 }
 
-// Keep TS sort order (`<=`, `=`, `>=`) so signatures stay deterministic.
+// Keep TS sort order (`<=`, `=`, `>=`, `¬`) so signatures stay deterministic.
 fn export_dedupe_condition_order(value: ExportDedupeCondition) -> i32 {
     match value {
         ExportDedupeCondition::Lte => 0,
         ExportDedupeCondition::Eq => 1,
         ExportDedupeCondition::Gte => 2,
+        ExportDedupeCondition::Not => 3,
     }
 }
 
@@ -658,6 +667,10 @@ fn export_dedupe_substats_cover(looser: &[ExportDedupeSubstat], stricter: &[Expo
                     return false;
                 }
             }
+            // "¬" entries are identical when they target the same variant.
+            // The counterpart lookup already matched on (variant, condition),
+            // so reaching here means both sides have Not for this variant.
+            ExportDedupeCondition::Not => {}
         }
     }
     true

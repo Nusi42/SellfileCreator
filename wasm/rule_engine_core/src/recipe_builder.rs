@@ -215,9 +215,11 @@ fn clamp_roll_requirement(v: i64) -> i64 {
     v.clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT)
 }
 
-/// True when per-substat roll bounds set any explicit floor (mirrors hasSubstatThresholds).
+/// True when per-substat roll bounds set any explicit floor or "not" constraint (mirrors hasSubstatThresholds).
 fn has_substat_thresholds(bounds: &HashMap<i64, BuildHsfComboBoundsIn>) -> bool {
-    bounds.values().any(|b| b.min.map(|m| m > 0.0).unwrap_or(false))
+    bounds.values().any(|b| {
+        b.min.map(|m| m > 0.0).unwrap_or(false) || b.not.unwrap_or(false)
+    })
 }
 
 /// True when the user set a manual aggregate roll floor (mirrors hasManualAggregateMin).
@@ -304,8 +306,13 @@ pub(crate) fn can_enable_substat_flex(recipe: &ReadableRecipeParsed) -> bool {
     // Flex requires at least one optional slot beyond the required set.
     if recipe.substats_v.len() as i64 <= effective_required { return false; }
 
+    // "Not" substats are excluded from flex consideration — they carry Condition "¬"
+    // and are never part of the positive combination rotation.
     let optional: Vec<i64> = recipe.substats_v.iter().copied()
-        .filter(|v| !fixed_set.contains(v))
+        .filter(|v| {
+            !fixed_set.contains(v)
+            && !recipe.substat_roll_bounds_v.get(v).and_then(|b| b.not).unwrap_or(false)
+        })
         .collect();
 
     // At least one optional must be a pure wildcard (no min, no max).
@@ -486,7 +493,21 @@ pub fn build_hsf_rules_for_recipe(
         }))
         .collect();
 
-    // 12. Call the full builder runtime (preflight + rarity branches + emission).
+    // 12. Split "not" variants from the combination pool before calling the runtime.
+    let not_substats_v: Vec<i32> = prep.selected_pool_v.iter().copied()
+        .filter(|&v| recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+        .collect();
+    let positive_selected_pool_v: Vec<i32> = prep.selected_pool_v.iter().copied()
+        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+        .collect();
+    let positive_required_v: Vec<i32> = prep.required_v.iter().copied()
+        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+        .collect();
+    let positive_optional_pool_v: Vec<i32> = prep.optional_pool_v.iter().copied()
+        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+        .collect();
+
+    // 13. Call the full builder runtime (preflight + rarity branches + emission).
     let runtime_out = build_hsf_rules_runtime_core_fn(&BuildHsfRulesRuntimeIn {
         recipe_id,
         keep:                          Some(recipe.keep),
@@ -503,9 +524,10 @@ pub fn build_hsf_rules_for_recipe(
         suppress_roll_thresholds,
         level_window_min:              recipe.min_level,
         level_window_max:              recipe.max_level,
-        required_v:                    prep.required_v.clone(),
-        optional_pool_v:               prep.optional_pool_v.clone(),
-        selected_pool_v:               prep.selected_pool_v.clone(),
+        required_v:                    positive_required_v,
+        optional_pool_v:               positive_optional_pool_v,
+        selected_pool_v:               positive_selected_pool_v,
+        not_substats_v,
         flex_active:                   recipe.auto_substat_flex && flex_eligible,
         aggregate_min_active,
         min_target_count:              prep.min_target_count,

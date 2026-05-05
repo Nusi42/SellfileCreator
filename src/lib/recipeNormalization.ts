@@ -41,8 +41,10 @@ export function canEnableSubstatFlex(recipe: FlexRecipeShape): boolean {
     const effectiveRequired = Math.max(minCount, lockedCount)
     if (selected.length <= effectiveRequired) return false
 
-    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-    const optional = selected.filter(v => !fixedSet.has(v))
+    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
+    // "Not" substats are excluded from the flexible pool — they carry a ¬ condition,
+    // not a roll count, and don't participate in combination rotation.
+    const optional = selected.filter(v => !fixedSet.has(v) && bounds[Number(v)]?.not !== true)
 
     const hasPureWildcardOptional = optional.some(v => {
       const b = bounds[Number(v)]
@@ -77,6 +79,17 @@ export function normalizeAutoSubstatFlex<T extends FlexRecipeShape & Pick<Builde
     return { ...recipe, autoSubstatFlex: false } as T
   }
   return recipe
+}
+
+// Count substats that are positive (not marked ¬). Used by autoMinCount logic so
+// "not" substats don't inflate the automatic minimum beyond the slot budget.
+export function countPositiveSubstats(
+  substatsV: ReadonlyArray<number> | undefined,
+  substatRollBoundsV: Record<number, { not?: boolean }> | undefined,
+): number {
+  if (!Array.isArray(substatsV) || substatsV.length === 0) return 0
+  const bounds = substatRollBoundsV ?? {}
+  return substatsV.filter(v => bounds[v]?.not !== true).length
 }
 
 export function isMilestoneThresholdsActive(recipe: Pick<BuilderRecipe, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
@@ -243,8 +256,8 @@ export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 
 }
 
 const hasSubstatThresholds = (recipe: Pick<BuilderRecipe, 'substatRollBoundsV'>): boolean => {
-  const bV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-  return Object.values(bV).some((b) => typeof b?.min === 'number' && (b.min ?? 0) > 0)
+  const bV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
+  return Object.values(bV).some((b) => (typeof b?.min === 'number' && (b.min ?? 0) > 0) || b?.not === true)
 }
 
 const hasManualAggregateMin = (recipe: Pick<BuilderRecipe, 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean => (

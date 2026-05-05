@@ -13,7 +13,7 @@ export interface MultiEditSummary {
   total: number
   mainCounts: Map<number, number>
   subCounts: Map<number, { present: number; locked: number }>
-  rollSummary: Map<number, { any: number; minValues: Set<number>; maxValues: Set<number> }>
+  rollSummary: Map<number, { any: number; notCount: number; minValues: Set<number>; maxValues: Set<number> }>
   slotCounts: Map<number, number>
   setCounts: Map<number, number>
   metaCounts: Map<string, number>
@@ -28,8 +28,8 @@ export const useMultiEditSummary = (
   const total = multiSourceRecipes.length
   const mainCounts = new Map<number, number>()
   const subCounts = new Map<number, { present: number; locked: number }>()
-  // Roll summary retains both wildcard counts and min/max sets for each stat.
-  const rollSummary = new Map<number, { any: number; minValues: Set<number>; maxValues: Set<number> }>()
+  // Roll summary retains wildcard/not counts and min/max sets for each stat.
+  const rollSummary = new Map<number, { any: number; notCount: number; minValues: Set<number>; maxValues: Set<number> }>()
   const slotCounts = new Map<number, number>()
   const setCounts = new Map<number, number>()
   const metaCounts = new Map<string, number>()
@@ -41,18 +41,21 @@ export const useMultiEditSummary = (
     }
     const substats = Array.isArray(recipe.substatsV) ? recipe.substatsV : []
     const fixed = new Set<number>(Array.isArray(recipe.fixedSubstatsV) ? recipe.fixedSubstatsV : [])
-    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+    const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
     for (const variant of substats) {
       const entry = subCounts.get(variant) ?? { present: 0, locked: 0 }
       entry.present += 1
       if (fixed.has(variant)) entry.locked += 1
       subCounts.set(variant, entry)
-      const roll = rollSummary.get(variant) ?? { any: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
+      const roll = rollSummary.get(variant) ?? { any: 0, notCount: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
       const b = bounds[variant]
       const hasMin = typeof b?.min === 'number'
       const hasMax = typeof b?.max === 'number'
-      const isWildcard = !b || b.any || (!hasMin && !hasMax)
-      if (isWildcard) {
+      const isNot = b?.not === true
+      const isWildcard = !b || b.any || (!hasMin && !hasMax && !isNot)
+      if (isNot) {
+        roll.notCount += 1
+      } else if (isWildcard) {
         roll.any += 1
       }
       if (hasMin) roll.minValues.add(Math.max(0, Math.min(5, Number(b!.min))))

@@ -4,7 +4,9 @@ import type { StatVariant } from '../../lib/types'
 
 // Bound state mirrors the serialized BuilderRecipe structure so callers can
 // hydrate menu drafts without performing extra object shape conversions.
-export type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean }
+// `not: true` means the substat must be absent from the item (HSF Condition "¬").
+// Mutually exclusive with min/max/any.
+export type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean; not?: boolean }
 
 export type SubstatMenuInfo = {
   variant: StatVariant
@@ -15,14 +17,16 @@ export type SubstatMenuInfo = {
   minMixed: boolean
   maxMixed: boolean
   wildcard: boolean
-  rollKind: 'none' | 'any' | 'min' | 'max' | 'mixed'
+  rollKind: 'none' | 'any' | 'min' | 'max' | 'not' | 'mixed'
 }
 
 // Local draft for the currently-open substat context menu. Tracks staged
 // min/max edits plus all roll target overrides until the user commits.
+// `not` shadows min/max when true — the stat must be absent.
 export type SubstatMenuDraftState = {
   min: number | null
   max: number | null
+  not?: boolean
   targetBase: number | null
   targetRolls: Array<number | null>
 }
@@ -32,8 +36,12 @@ export const clampRollMax = (value: number): number => Math.max(0, Math.min(4, M
 
 // Bounds normalization trims NaN payloads, clamps min/max to legal ranges, and
 // normalizes wildcard entries back to `{ any: true }` for consistent diffs.
+// `not: true` takes precedence — it clears all other fields and is mutually exclusive.
 export const normalizeRollBoundsEntry = (entry: SubstatRollBoundsEntry | null | undefined): SubstatRollBoundsEntry | null => {
   if (!entry) return null
+  // `not` is mutually exclusive with min/max/any; a truthy value wins immediately.
+  if (entry.not === true) return { not: true }
+  // Explicitly false not-flag is irrelevant — treat as absent.
   const next: SubstatRollBoundsEntry = {}
   const hasMin = typeof entry.min === 'number' && Number.isFinite(entry.min)
   const hasMax = typeof entry.max === 'number' && Number.isFinite(entry.max)
@@ -52,6 +60,7 @@ export const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRoll
   ((a?.min ?? null) === (b?.min ?? null))
   && ((a?.max ?? null) === (b?.max ?? null))
   && (Boolean(a?.any) === Boolean(b?.any))
+  && (Boolean(a?.not) === Boolean(b?.not))
 )
 
 export const normalizeRollTargetEntry = (

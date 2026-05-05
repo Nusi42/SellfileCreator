@@ -802,6 +802,7 @@ const enUS: Catalog = {
   chipReq: "Req",
   chipMaxRolls: "Max Rolls: {n}",
   chipMinRolls: "Min Rolls: {n}",
+  chipNotSubstat: "Must be absent",
   // Header menu controls
   rulesMenuWrapRows: "Multi-line Rows",
   rulesMenuSlotsAsIcons: "Slots as Icons",
@@ -997,6 +998,8 @@ const enUS: Catalog = {
   builderSubstatMenuLockTooltip: "Lock this substat to keep it mandatory in every generated rule. Unlock it to let the builder drop or swap it when other permutations make more sense.",
   builderSubstatMenuMinRolls: "Min Roll Requirement",
   builderSubstatMenuMinRollsTooltip: "Require a minimum number of upgrades on this substat before the item qualifies.\n• \"Any\" keeps it flexible.\n• Numbers 0-5 enforce that many landed rolls before rules pass.",
+  builderSubstatMenuNot: "Not",
+  builderSubstatNotTooltip: "Mark this substat as forbidden — the item must not have it at all.\n• The generated sell-file rule includes a ¬ condition so RSL Helper rejects any item that rolls this stat.",
   builderSubstatMenuMaxRolls: "Roll Upper Limit",
   builderSubstatMenuMaxRollsTooltip: "Cap how many rolls this substat may gain before the item is rejected.\nUse it to stop quad rolls when you only need early spikes or to keep locked stats from overshooting.",
   builderSubstatMenuAny: "Any",
@@ -1317,10 +1320,9 @@ const enUS: Catalog = {
   tutorialFinish: "Finish",
 
   // Roll indicator help
-  rollIndicatorTip1: "Use the roll indicator to demand upgrade rolls on that substat. Left‑click raises the expectation; Right‑click lowers it.",
-  rollIndicatorTip2: "Starting from ★, Left switches to a Min requirement (0..5 rolls) and Right switches to a Roll Upper Limit (0..4).",
-  rollIndicatorTip3: "On a Roll Upper Limit, Left lowers the limit (1→0→★) and Right raises it (0→1→…→4→★).",
-  rollIndicatorTip4: "Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value.",
+  rollIndicatorTip1: "Left‑click: steps through min roll requirements (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Right‑click: steps through exclusion and roll caps (★ → ¬ → max 0 → … → max 4 → ★).",
+  rollIndicatorTip3: "Green = min rolls required; red = roll cap or substat must be absent (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Recipe overrides: substat minimum rolls are applied for this stat.",
 
   // Filter helpers

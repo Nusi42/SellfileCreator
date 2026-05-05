@@ -324,6 +324,9 @@ pub struct ReadableSubstatBoundsEntry {
     pub max: Option<f64>,
     #[serde(rename = "any", default)]
     pub any_flag: Option<bool>,
+    // When true, the substat must be absent (HSF Condition "¬").
+    #[serde(default)]
+    pub not: Option<bool>,
 }
 
 /// Artifact set entry: either { id } (numeric) or just an id number.
@@ -560,7 +563,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
                 // Merge roll_bounds object with legacy flat fields.
                 let eff_bounds = roll_bounds.clone().or_else(|| {
                     if legacy_min.is_some() || legacy_max.is_some() || legacy_any.is_some() {
-                        Some(ReadableSubstatBoundsEntry { min: *legacy_min, max: *legacy_max, any_flag: *legacy_any })
+                        Some(ReadableSubstatBoundsEntry { min: *legacy_min, max: *legacy_max, any_flag: *legacy_any, not: None })
                     } else {
                         None
                     }
@@ -576,6 +579,17 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
             fixed_substats_v.push(variant);
         }
         if let Some(b) = bounds_opt {
+            let not_flag = b.not.unwrap_or(false);
+            // "not" is mutually exclusive: when set, record only the not flag.
+            if not_flag {
+                substat_roll_bounds_v.insert(variant, BuildHsfComboBoundsIn {
+                    min: None,
+                    max: None,
+                    any: None,
+                    not: Some(true),
+                });
+                continue;
+            }
             let min_val = b.min.map(|v| v.max(0.0).min(5.0).floor());
             let max_val = b.max.map(|v| v.max(0.0).min(4.0).floor());
             let any_flag = b.any_flag.unwrap_or(false);
@@ -585,6 +599,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
                     min: min_val,
                     max: max_val,
                     any: if any_flag { Some(true) } else { None },
+                    not: None,
                 });
             }
         }

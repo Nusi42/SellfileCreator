@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { buildSfcPayload, parseSfcObject } from '../../src/lib/sfcIO.js'
 import { parseHsfFile } from '../../src/lib/hsfIO.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
+import { StatVariant } from '../../src/lib/types.js'
 
 const buildRecipe = (name: string): BuilderRecipe => ({
   name,
@@ -198,4 +199,62 @@ test('SFC writer canonicalizes legacy safeguard-ignore aliases from runtime reci
   assert(recipe, 'expected exported recipe')
   // Write boundary should emit canonical wording even for legacy runtime aliases.
   assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
+})
+
+test('SFC round-trip preserves not:true rollBounds for substat', () => {
+  // User-provided SFC shape that uses the ¬ (not-present) condition.
+  const sfc = {
+    Version: '1.0.7-dev',
+    Metasets: [],
+    Recipes: [{
+      name: '',
+      keep: false,
+      SellfileVisibility: 'Active',
+      Rank: 'Any',
+      Rarity: 'Auto',
+      mainStats: [],
+      substats: [{ stat: 'SPD', rollBounds: { not: true } }],
+      minCount: 1,
+      autoMinCount: true,
+      minRequiredRolls: 0,
+      autoMinRequiredRolls: true,
+      lockedMinRequiredRolls: 0,
+      artifactTypeNames: [],
+      artifactSetNames: [],
+      artifactMetaSetNames: [],
+    }],
+  }
+  const { recipes } = parseSfcObject(sfc, { metasets: [], substatTargets: defaultSubstatTargets() })
+  assert(recipes.length === 1, 'expected one recipe')
+  const r = recipes[0]!
+  assert(r.substatsV?.length === 1, 'SPD should be in substatsV')
+  const spdVariant = r.substatsV![0]!
+  const bounds = r.substatRollBoundsV?.[spdVariant]
+  assert.deepEqual(bounds, { not: true }, `expected not:true bound for SPD, got: ${JSON.stringify(bounds)}`)
+})
+
+test('SFC writer emits not:true rollBounds and reader restores it', () => {
+  const recipe: BuilderRecipe = {
+    ...buildRecipe('not-substat-round-trip'),
+    keep: false,
+    substatsV: [StatVariant.SPD],
+    fixedSubstatsV: [],
+    substatRollBoundsV: { [StatVariant.SPD]: { not: true } },
+  }
+  const payload = buildSfcPayload({
+    version: '1.0.7-dev',
+    metasets: [],
+    substatTargets: defaultSubstatTargets(),
+    recipes: [recipe],
+  }) as Record<string, unknown>
+  const rawRecipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
+  assert(rawRecipe, 'expected exported recipe')
+  const subs = rawRecipe['substats'] as unknown[]
+  assert(Array.isArray(subs) && subs.length === 1, 'expected one substat entry')
+  const sub = subs[0] as Record<string, unknown>
+  assert.deepEqual(sub['rollBounds'], { not: true }, 'writer should emit not:true rollBounds')
+  // Round-trip: parse the emitted payload back.
+  const { recipes: parsed } = parseSfcObject(payload, { metasets: [], substatTargets: defaultSubstatTargets() })
+  const parsedBounds = parsed[0]?.substatRollBoundsV?.[StatVariant.SPD]
+  assert.deepEqual(parsedBounds, { not: true }, 'parsed recipe should have not:true for SPD')
 })

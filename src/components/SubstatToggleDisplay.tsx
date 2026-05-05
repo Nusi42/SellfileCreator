@@ -28,6 +28,8 @@ export interface SubstatToggleIndicatorState {
   wildcard: boolean
   min?: number
   max?: number
+  // When true, the substat must be absent (HSF Condition "¬").
+  not?: boolean
   tooltip?: string
 }
 
@@ -73,6 +75,7 @@ export function SubstatToggleDisplay({
   onInteractiveHoverChange,
 }: SubstatToggleDisplayProps) {
   const wildcard = indicator?.wildcard === true
+  const notSub = indicator?.not === true
   const min = typeof indicator?.min === 'number' ? Math.max(0, Math.min(5, indicator!.min!)) : undefined
   const max = typeof indicator?.max === 'number' ? Math.max(0, Math.min(4, indicator!.max!)) : undefined
   const hasMin = typeof min === 'number'
@@ -83,6 +86,7 @@ export function SubstatToggleDisplay({
   const showIndicatorWarning = indicatorWarning && (selected || indicatorMixed)
   const indicatorLabel = (() => {
     if (indicatorMixed) return ''
+    if (notSub) return '¬'
     if (hasMax) return String(max)
     if (wildcard) return '★'
     if (hasMin) return String(min)
@@ -259,19 +263,20 @@ export function SubstatToggleDisplay({
               theme.palette.text.primary,
               theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light,
             )
+            const isRedVariant = hasMax || notSub
             const borderColor = indicatorMixed
               ? mixedBorder
-              : (hasMax
+              : (isRedVariant
                 ? theme.palette.error.main
                 : (wildcard || hasMin ? theme.palette.success.main : theme.palette.text.secondary))
             const textColor = indicatorMixed
               ? mixedText
-              : (hasMax
+              : (isRedVariant
                 ? theme.palette.error.contrastText
                 : (wildcard || hasMin ? theme.palette.common.white : theme.palette.text.secondary))
             const backgroundColor = indicatorMixed
               ? mixedBg
-              : (hasMax
+              : (isRedVariant
                 ? theme.palette.error.main
                 : (wildcard || hasMin ? theme.palette.success.main : 'transparent'))
             const hoverGlow = alpha(

@@ -9,7 +9,7 @@
  * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './recipeNormalization'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets, countPositiveSubstats } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasets, type Metaset } from './metasets'
@@ -78,6 +78,7 @@ type ReadableSubstatBounds = {
   min?: number
   max?: number
   any?: boolean
+  not?: boolean
 }
 
 // Each array element mirrors one selected substat with optional flags/bounds.
@@ -223,6 +224,11 @@ function parseReadableSubstatBounds(value: unknown): ReadableSubstatBounds | und
   if (!value || typeof value !== 'object') return undefined
   const rec = value as Record<string, unknown>
   const bounds: ReadableSubstatBounds = {}
+  // `not` is mutually exclusive with min/max/any; check it first.
+  if (rec.not === true) {
+    bounds.not = true
+    return bounds
+  }
   const minRaw = rec.min
   const maxRaw = rec.max
   const anyRaw = rec.any
@@ -557,12 +563,18 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
     const fixedV: number[] = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.slice() : []
     // Ensure fixed are included in selected
     const union = Array.from(new Set<number>([...subsV, ...fixedV]))
-    const bV: Record<number, { min?: number; max?: number; any?: boolean }> = { ...(normalized.substatRollBoundsV ?? {}) }
+    const bV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = { ...(normalized.substatRollBoundsV ?? {}) }
     // Sanitize each bounds entry
     for (const [k, raw] of Object.entries(bV)) {
       const v = Number(k)
       const m = raw ?? {}
-      const out: { min?: number; max?: number; any?: boolean } = {}
+      const out: { min?: number; max?: number; any?: boolean; not?: boolean } = {}
+      // `not` is mutually exclusive; when set, preserve only it.
+      if ((m as { not?: boolean }).not === true) {
+        out.not = true
+        bV[v] = out
+        continue
+      }
       if (typeof m.min === 'number' && Number.isFinite(m.min)) out.min = Math.max(0, Math.min(5, Math.floor(m.min)))
       if (typeof m.max === 'number' && Number.isFinite(m.max)) out.max = Math.max(0, Math.min(4, Math.floor(m.max)))
       // Drop 'any' when min/max present; keep only one form to avoid ambiguous states.
@@ -603,6 +615,13 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
     if (manualActive) {
       legacyManualMinValue = manualMinValue
     }
+  }
+
+  // Re-compute minCount when autoMinCount is true so stale stored values (written
+  // before "not" substats were excluded from the count) don't survive a reload.
+  if (normalized.autoMinCount) {
+    const positiveCount = countPositiveSubstats(normalized.substatsV, normalized.substatRollBoundsV as Record<number, { not?: boolean }>)
+    normalized.minCount = Math.min(4, Math.max(0, positiveCount)) as 0 | 1 | 2 | 3 | 4
   }
 
   if (!canEnableSubstatFlex(normalized)) {
@@ -692,17 +711,22 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
     if (!subV.length) return entries
     const sortedVariants = subV.slice().sort(compareVariants)
     const fixedSet = new Set<number>(fixedV)
-    const boundsMap = (recipe as (BuilderRecipe & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
+    const boundsMap = (recipe as (BuilderRecipe & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> })).substatRollBoundsV ?? {}
     for (const variant of sortedVariants) {
       const entry: ReadableSubstatEntry = { stat: labelOfVariant(variant) }
       if (fixedSet.has(variant)) entry.fixed = true
       const maybeBounds = boundsMap[variant]
       if (maybeBounds) {
-        const normalized: ReadableSubstatBounds = {}
-        if (typeof maybeBounds.min === 'number' && Number.isFinite(maybeBounds.min)) normalized.min = maybeBounds.min
-        if (typeof maybeBounds.max === 'number' && Number.isFinite(maybeBounds.max)) normalized.max = maybeBounds.max
-        if (maybeBounds.any) normalized.any = true
-        if (normalized.min !== undefined || normalized.max !== undefined || normalized.any) entry.rollBounds = normalized
+        // `not` is mutually exclusive; emit only it when set.
+        if (maybeBounds.not === true) {
+          entry.rollBounds = { not: true }
+        } else {
+          const normalized: ReadableSubstatBounds = {}
+          if (typeof maybeBounds.min === 'number' && Number.isFinite(maybeBounds.min)) normalized.min = maybeBounds.min
+          if (typeof maybeBounds.max === 'number' && Number.isFinite(maybeBounds.max)) normalized.max = maybeBounds.max
+          if (maybeBounds.any) normalized.any = true
+          if (normalized.min !== undefined || normalized.max !== undefined || normalized.any) entry.rollBounds = normalized
+        }
       }
       entries.push(entry)
     }

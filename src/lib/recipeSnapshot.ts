@@ -41,24 +41,30 @@ const sortStrings = (values?: readonly string[]): string[] => {
 }
 
 const normalizeBounds = (
-  source?: Record<number, { min?: number; max?: number; any?: boolean }>,
-): Record<string, { min?: number; max?: number; any?: boolean }> => {
+  source?: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>,
+): Record<string, { min?: number; max?: number; any?: boolean; not?: boolean }> => {
   if (!source) return {}
   const entries = Object.entries(source)
     .map(([variant, payload]) => {
-      const normalized: { min?: number; max?: number; any?: boolean } = {}
+      const normalized: { min?: number; max?: number; any?: boolean; not?: boolean } = {}
+      // `not` is mutually exclusive; when set, record only it for the fingerprint.
+      if ((payload as { not?: boolean })?.not === true) {
+        normalized.not = true
+        return [Number(variant), normalized] as [number, typeof normalized]
+      }
       if (typeof payload?.min === 'number') normalized.min = Math.max(0, Math.floor(payload.min))
       if (typeof payload?.max === 'number') normalized.max = Math.max(0, Math.floor(payload.max))
       if (payload?.any === true) normalized.any = true
-      return [Number(variant), normalized] as [number, { min?: number; max?: number; any?: boolean }]
+      return [Number(variant), normalized] as [number, typeof normalized]
     })
     .filter(([, normalized]) => (
       normalized.min !== undefined
       || normalized.max !== undefined
       || normalized.any !== undefined
+      || normalized.not !== undefined
     ))
   entries.sort((a, b) => a[0] - b[0])
-  const result: Record<string, { min?: number; max?: number; any?: boolean }> = {}
+  const result: Record<string, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
   for (const [variant, payload] of entries) {
     result[String(variant)] = payload
   }
