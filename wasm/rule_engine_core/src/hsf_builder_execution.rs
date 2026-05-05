@@ -14,6 +14,7 @@ use crate::finalize_builder_rules_core;
 use crate::hsf_branch_execution::execute_hsf_branch_runtime_core;
 use crate::hsf_branch_execution::ExecuteHsfBranchRuntimeIn;
 use crate::level_order_value;
+use crate::safeguards::safeguard_variant_to_sub;
 use crate::sort_artifact_types_in_place;
 use crate::BuildHsfComboBoundsIn;
 use crate::BuildHsfComboTargetEntryIn;
@@ -24,6 +25,37 @@ use crate::RuleSubRaw;
 use crate::HSF_SUBSTAT_SLOT_COUNT;
 use crate::LEVEL_ANY_SENTINEL;
 use crate::STAT_ID_ANY;
+
+// Build the RuleSubRaw entries for "not" substats once per runtime call.
+fn build_not_substat_entries(not_substats_v: &[i32]) -> Vec<RuleSubRaw> {
+    not_substats_v.iter().map(|&variant| {
+        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(variant as i64);
+        RuleSubRaw {
+            ID: Some(sub_id),
+            Value: Some(0.0),
+            IsFlat: Some(sub_is_flat),
+            NotAvailable: Some(false),
+            Condition: Some(std::sync::Arc::from("¬")),
+        }
+    }).collect()
+}
+
+// Place "not" substat entries into a rule by replacing wildcard slots (ID == -1).
+// HSF rules have exactly 4 substat slots; appending beyond that produces invalid
+// rules that RSL Helper ignores. Each ¬ entry consumes one wildcard slot in-order.
+fn append_not_substats(rule: &mut RuleRaw, entries: &[RuleSubRaw]) {
+    if entries.is_empty() {
+        return;
+    }
+    let substats = rule.Substats.get_or_insert_with(Vec::new);
+    for entry in entries {
+        // Replace the first remaining wildcard slot so the total stays at ≤ 4.
+        if let Some(pos) = substats.iter().position(|s| s.ID.unwrap_or(-1) == -1) {
+            substats[pos] = entry.clone();
+        }
+        // No wildcard available — the rule is already at capacity; skip silently.
+    }
+}
 
 // Builder prep payload moves selected/fixed pool normalization and base-target map
 // preparation out of hsfBuilder.ts so TS no longer loops large variant sets.
@@ -322,6 +354,9 @@ pub struct BuildHsfRulesRuntimeIn {
     pub(crate) required_v: Vec<i32>,
     pub(crate) optional_pool_v: Vec<i32>,
     pub(crate) selected_pool_v: Vec<i32>,
+    // Substats that must be absent from the item (Condition "¬"). Always appended to every rule.
+    #[serde(default)]
+    pub(crate) not_substats_v: Vec<i32>,
     pub(crate) flex_active: bool,
     pub(crate) aggregate_min_active: bool,
     pub(crate) min_target_count: i32,
@@ -586,6 +621,9 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
     // Normalize positive limits once; non-positive values mean "no limit".
     let emission_limit = input.emission_limit.filter(|value| *value > 0);
 
+    // Pre-build "not" substat entries once so every rule can clone them cheaply.
+    let not_substat_entries: Vec<RuleSubRaw> = build_not_substat_entries(&input.not_substats_v);
+
     // Presence-only path still dedupes + finalizes so TS behavior remains stable.
     if input.selected_pool_v.is_empty() {
         let emitted = build_hsf_presence_only_rules_core(&BuildHsfPresenceOnlyRulesIn {
@@ -598,7 +636,8 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
         let mut rules = Vec::<RuleRaw>::new();
         let mut emission_meta = Vec::<BuilderFinalizeEmissionMetaIn>::new();
         let mut next_seq = 0i64;
-        for rule in emitted {
+        for mut rule in emitted {
+            append_not_substats(&mut rule, &not_substat_entries);
             let limit_hit = push_builder_runtime_rule(
                 rule,
                 0,
@@ -663,7 +702,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
     } else {
         "strict".to_string()
     };
-    execute_hsf_builder_runtime_core(&ExecuteHsfBuilderRuntimeIn {
+    let mut result = execute_hsf_builder_runtime_core(&ExecuteHsfBuilderRuntimeIn {
         rarity_branches,
         baseline: input.baseline.clone(),
         effective_start: input.effective_start,
@@ -692,7 +731,14 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
         effective_mode,
         early_mode: input.early_mode.clone(),
         emission_limit,
-    })
+    })?;
+    // Append "not" substats (Condition "¬") to every generated rule.
+    if !not_substat_entries.is_empty() {
+        for rule in &mut result.rules {
+            append_not_substats(rule, &not_substat_entries);
+        }
+    }
+    Ok(result)
 }
 
 // Exposed for wasm crate: run the full runtime from a typed input.

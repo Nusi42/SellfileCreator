@@ -423,6 +423,7 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 // Typed auto-flex bounds carry only the three fields the builder uses.
 // serde_wasm_bindgen does not support #[serde(flatten)] for HashMap fields;
 // extra bound keys (if any) are silently dropped here and do not affect logic.
+// `not` must be included so branches round-trip it back to TS without stripping it.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoFlexRarityBoundsIn {
@@ -432,6 +433,8 @@ pub struct AutoFlexRarityBoundsIn {
     pub max: Option<f64>,
     #[serde(default)]
     pub any: Option<bool>,
+    #[serde(default)]
+    pub not: Option<bool>,
 }
 
 // Typed auto-flex recipe shape carries only the fields that the branch splitter

@@ -783,6 +783,7 @@ const overrides: Catalog = {
   chipReq: "Requer.",
   chipMaxRolls: "Tiradas máx.: {n}",
   chipMinRolls: "Tiradas mín.: {n}",
+  chipNotSubstat: "Debe estar ausente",
   // Header menu controls
   rulesMenuWrapRows: "Filas multi‑línea",
   rulesMenuSlotsAsIcons: "Ranuras como iconos",
@@ -977,6 +978,8 @@ const overrides: Catalog = {
   builderSubstatMenuLockTooltip: "Bloquea esta substat para que sea obligatoria en cada regla generada. Desbloquéala para que el builder pueda quitarla o sustituirla cuando otras permutaciones lo requieran.",
   builderSubstatMenuMinRolls: "Requisito mínimo de tiradas",
   builderSubstatMenuMinRollsTooltip: "Exige un número mínimo de mejoras en este substat antes de que el objeto cuente.\n• \"Cualquiera\" lo deja abierto.\n• Los valores 0-5 obligan a tener esa cantidad de tiradas acertadas.",
+  builderSubstatMenuNot: "No",
+  builderSubstatNotTooltip: "Marca este substat como prohibido: el objeto no debe tenerlo en absoluto.\n• La regla generada incluye una condición ¬ para que RSL Helper rechace cualquier objeto que lo tenga.",
   builderSubstatMenuMaxRolls: "Límite superior de tiradas",
   builderSubstatMenuMaxRollsTooltip: "Limita cuántas tiradas puede recibir este substat antes de descartar el objeto.\nÚsalo para frenar los quad-rolls o evitar sobrepasar stats bloqueados.",
   builderSubstatMenuAny: "Cualquiera",
@@ -1292,10 +1295,9 @@ const overrides: Catalog = {
   tutorialFinish: "Finalizar",
 
   // Roll indicator help
-  rollIndicatorTip1: "Usa el indicador de tiradas para exigir mejoras en ese substat. Clic izquierdo aumenta la exigencia; clic derecho la reduce.",
-  rollIndicatorTip2: "Desde ★, el clic izquierdo cambia a un requisito mínimo (0..5 tiradas) y el derecho a un límite superior (0..4).",
-  rollIndicatorTip3: "En un límite superior, el clic izquierdo baja el valor (1→0→★) y el derecho lo sube (0→1→…→4→★).",
-  rollIndicatorTip4: "Los números verdes muestran las tiradas mínimas que exiges; los rojos aplican el límite superior por encima de ese valor.",
+  rollIndicatorTip1: "Clic izquierdo: recorre requisitos mínimos de tiradas (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Clic derecho: recorre exclusión y límites de tiradas (★ → ¬ → máx 0 → … → máx 4 → ★).",
+  rollIndicatorTip3: "Verde = tiradas mínimas; rojo = límite de tiradas o substat debe estar ausente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Anulación de opciones de receta: se aplican los mínimos de tiradas de substats para este stat.",
 
   // Filter helpers

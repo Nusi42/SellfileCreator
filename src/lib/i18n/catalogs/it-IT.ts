@@ -784,6 +784,7 @@ const overrides: Catalog = {
   chipReq: "Rich.",
   chipMaxRolls: "Roll max: {n}",
   chipMinRolls: "Roll min: {n}",
+  chipNotSubstat: "Deve essere assente",
   // Header menu controls
   rulesMenuWrapRows: "Righe multi-linea",
   rulesMenuSlotsAsIcons: "Slot come icone",
@@ -978,6 +979,8 @@ const overrides: Catalog = {
   builderSubstatMenuLockTooltip: "Blocca questa sotto-stat per renderla obbligatoria in ogni regola generata. Sbloccala per permettere al builder di rimuoverla o sostituirla quando servono altre combinazioni.",
   builderSubstatMenuMinRolls: "Requisito minimo di roll",
   builderSubstatMenuMinRollsTooltip: "Richiede un numero minimo di potenziamenti su questa sotto-stat prima che l'oggetto sia valido.\n• \"Qualsiasi\" lo lascia libero.\n• I valori 0-5 impongono esattamente quel numero di roll riusciti.",
+  builderSubstatMenuNot: "Non",
+  builderSubstatNotTooltip: "Segna questa sotto-stat come vietata: l'oggetto non deve averla affatto.\n• La regola generata include una condizione ¬ affinché RSL Helper rifiuti qualsiasi oggetto che la possiede.",
   builderSubstatMenuMaxRolls: "Limite massimo di roll",
   builderSubstatMenuMaxRollsTooltip: "Limita quante rollate può ricevere questa sotto-stat prima di scartare il pezzo.\nServe per bloccare i quad-roll o evitare di superare un valore bloccato.",
   builderSubstatMenuAny: "Qualsiasi",
@@ -1294,10 +1297,9 @@ const overrides: Catalog = {
   tutorialFinish: "Fine",
 
   // Roll indicator help
-  rollIndicatorTip1: "Usa l'indicatore di roll per richiedere roll di potenziamento su quella sotto-stat. Clic sinistro aumenta la richiesta; clic destro la riduce.",
-  rollIndicatorTip2: "Partendo da ★, sinistro passa a un requisito Min (0..5 roll) e destro a un Limite superiore di roll (0..4).",
-  rollIndicatorTip3: "Su un Limite superiore di roll, sinistro abbassa il limite (1→0→★) e destro lo alza (0→1→…→4→★).",
-  rollIndicatorTip4: "I numeri verdi mostrano i roll minimi richiesti; i numeri rossi impongono il limite superiore oltre quel valore.",
+  rollIndicatorTip1: "Clic sinistro: scorre i requisiti minimi di roll (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Clic destro: scorre esclusione e limiti di roll (★ → ¬ → max 0 → … → max 4 → ★).",
+  rollIndicatorTip3: "Verde = roll minimi; rosso = limite di roll o sotto-stat deve essere assente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Sovrascrittura opzioni di ricetta: si applicano i roll minimi dei substat per questa stat.",
 
   // Filter helpers

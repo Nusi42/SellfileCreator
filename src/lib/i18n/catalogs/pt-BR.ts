@@ -783,6 +783,7 @@ const catalog: Catalog = {
   chipReq: "Nec.",
   chipMaxRolls: "Rolagens máx: {n}",
   chipMinRolls: "Rolagens mín: {n}",
+  chipNotSubstat: "Deve estar ausente",
   // Header menu controls
   rulesMenuWrapRows: "Linhas multilinhas",
   rulesMenuSlotsAsIcons: "Slots como ícones",
@@ -977,6 +978,8 @@ const catalog: Catalog = {
   builderSubstatMenuLockTooltip: "Bloqueie este substat para que ele seja obrigatório em todas as regras geradas. Desbloqueie para permitir que o builder o remova ou troque quando outras permutações fizerem mais sentido.",
   builderSubstatMenuMinRolls: "Requisito mínimo de rolagem",
   builderSubstatMenuMinRollsTooltip: "Exija um número mínimo de melhorias nesse substat antes de aceitar a peça.\n• \"Qualquer\" deixa o valor livre.\n• Os valores 0-5 obrigam exatamente essa quantidade de rolagens concluídas.",
+  builderSubstatMenuNot: "Não",
+  builderSubstatNotTooltip: "Marcar este substat como proibido — o item não deve tê-lo de forma alguma.\n• A regra gerada inclui uma condição ¬ para que o RSL Helper rejeite qualquer item que rolar este stat.",
   builderSubstatMenuMaxRolls: "Limite superior de rolagem",
   builderSubstatMenuMaxRollsTooltip: "Limita quantas rolagens esse substat pode receber antes de descartar o item.\nUse para bloquear quad-rolls ou evitar ultrapassar stats travados.",
   builderSubstatMenuAny: "Qualquer",
@@ -1292,10 +1295,9 @@ const catalog: Catalog = {
   tutorialFinish: "Concluir",
 
   // Roll indicator help
-  rollIndicatorTip1: "Use o indicador de rolagens para exigir melhorias nesse substat. Clique esquerdo aumenta a exigência; clique direito reduz.",
-  rollIndicatorTip2: "A partir de ★, o clique esquerdo passa para um requisito mínimo (0..5 rolagens) e o direito para um limite superior (0..4).",
-  rollIndicatorTip3: "Num limite superior, o clique esquerdo baixa o valor (1→0→★) e o direito eleva-o (0→1→…→4→★).",
-  rollIndicatorTip4: "Os números verdes mostram as rolagens mínimas exigidas; os vermelhos aplicam o limite superior acima desse valor.",
+  rollIndicatorTip1: "Clique esquerdo: percorre requisitos mínimos de rolagens (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Clique direito: percorre exclusão e limites de rolagens (★ → ¬ → máx 0 → … → máx 4 → ★).",
+  rollIndicatorTip3: "Verde = rolagens mínimas; vermelho = limite de rolagens ou substat deve estar ausente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Substituição de opções de receita: os mínimos de rolagens de substats se aplicam a este stat.",
 
   // Filter helpers

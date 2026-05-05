@@ -47,7 +47,8 @@ export interface BuilderRecipe {
   // Optional per-substat roll bounds used to filter distributions
   // Variant-keyed: key is StatVariant (encoded number)
   // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
-  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
+  // not: substat must be absent from the item (HSF Condition "¬"); mutually exclusive with min/max/any
+  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
   // Optional per-substat roll target overrides.
   // Variant-keyed: Base value (roll 0) plus explicit increments for +1 … +5.
   substatRollTargetsV?: SubstatRollTargets

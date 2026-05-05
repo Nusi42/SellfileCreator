@@ -765,13 +765,15 @@ export function summaryParts(
           const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
           const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         // Render per-substat roll bounds using a compact, readable indicator circle
-        // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
-        // outlined circle with the number inside. This avoids the cryptic ">= 4r" text.
+        // like the Builder’s roll badge, but without fill: a red (cap/not) or green (min/any)
+        // outlined circle with the symbol inside.
         const b = bounds ? bounds[vk] : undefined
-        const min = (b && typeof b.min === 'number') ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
-        const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
+        const isNot = Boolean((b as { not?: boolean } | undefined)?.not)
+        const min = (!isNot && b && typeof b.min === 'number') ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
+        const max = (!isNot && b && typeof b.max === 'number') ? Math.max(0, Math.min(4, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
+        const showNot = isNot && !showCap && !showMin
         const rawTargetEntry = (recipe as BuilderRecipe).substatRollTargetsV?.[vk]
         let targetsEntry = null
         try {
@@ -796,8 +798,8 @@ export function summaryParts(
         })()
         const hasTargets = Boolean(targetSummary)
 
-        // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
-          const indicator = (showCap || showMin) ? (
+        // Indicator: show only one state. Prefer cap; ¬ (not) shown in red like cap.
+          const indicator = (showCap || showMin || showNot) ? (
           <Box
             key={`ri-${vk}`}
             component="span"
@@ -811,23 +813,24 @@ export function summaryParts(
               border: '1.2px solid',
               lineHeight: 1,
               fontSize: CHIP_ROLL_BADGE_FONT_SIZE_PX,
-              // No fill per request; ring color indicates intent; number uses a high-contrast white
+              // No fill per request; ring color indicates intent
               bgcolor: 'transparent',
               color: 'common.white',
-              borderColor: showCap ? 'error.main' : (showMin ? 'success.main' : 'text.secondary'),
+              borderColor: (showCap || showNot) ? 'error.main' : (showMin ? 'success.main' : 'text.secondary'),
               // Subtle baseline alignment
               position: 'relative',
               top: '0px',
               userSelect: 'none',
             }}
           >
-            {showCap ? String(max) : (showMin ? String(min) : '')}
+            {showNot ? '¬' : showCap ? String(max) : (showMin ? String(min) : '')}
           </Box>
         ) : null
 
         const tooltipSections: string[] = []
         if (showCap) tooltipSections.push(opts.t ? opts.t('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`)
         else if (showMin) tooltipSections.push(opts.t ? opts.t('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`)
+        else if (showNot) tooltipSections.push(opts.t ? opts.t('chipNotSubstat') : 'Must be absent')
         if (targetSummary) {
           tooltipSections.push(targetSummary)
         }

@@ -54,6 +54,7 @@ export interface MultiEditRollPatchEntry {
   min?: number | null | undefined
   max?: number | null | undefined
   any?: boolean | null | undefined
+  not?: boolean | null | undefined
 }
 
 export type MultiEditRollPatch = Record<number, MultiEditRollPatchEntry>
@@ -434,6 +435,7 @@ function isRollPatchEmpty(patch: MultiEditRollPatch | null | undefined): boolean
     if (entry.any !== undefined) return false
     if (entry.min !== undefined) return false
     if (entry.max !== undefined) return false
+    if (entry.not !== undefined) return false
   }
   return true
 }
@@ -537,6 +539,7 @@ function areRollPatchesEqual(left: MultiEditRollPatch, right: MultiEditRollPatch
     if (l.any !== r.any) return false
     if (l.min !== r.min) return false
     if (l.max !== r.max) return false
+    if (l.not !== r.not) return false
   }
   return true
 }
@@ -845,8 +848,8 @@ function applySubstatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPatch<nu
   // Remove duplicates
   nextFixed = Array.from(new Set(nextFixed.map(Number))).sort((a, b) => a - b)
 
-  const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+  const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
+  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
   for (const [key, value] of Object.entries(boundsSource)) {
     const idx = Number(key)
     if (!nextSet.has(idx)) continue
@@ -898,8 +901,8 @@ function applyFixedSubstatsPatch(recipe: BuilderRecipe, patch: MultiEditArrayPat
 
 function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch): BuilderRecipe {
   const selectable = new Set<number>(Array.isArray(recipe.substatsV) ? recipe.substatsV.map(Number) : [])
-  const currentBounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+  const currentBounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
+  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
   let changed = false
   for (const [key, value] of Object.entries(currentBounds)) {
     const idx = Number(key)
@@ -919,12 +922,28 @@ function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch)
       continue
     }
     const current = nextBounds[idx] ? { ...nextBounds[idx]! } : {}
+    // `not: true` is mutually exclusive — clear all other fields.
+    if (entry.not !== undefined) {
+      if (entry.not) {
+        if (!current.not || current.min !== undefined || current.max !== undefined || current.any) {
+          current.not = true
+          delete current.min
+          delete current.max
+          delete current.any
+          changed = true
+        }
+      } else if (current.not) {
+        delete current.not
+        changed = true
+      }
+    }
     if (entry.any !== undefined) {
       if (entry.any) {
-        if (!current.any || current.min !== undefined || current.max !== undefined) {
+        if (!current.any || current.min !== undefined || current.max !== undefined || current.not) {
           current.any = true
           delete current.min
           delete current.max
+          delete current.not
           changed = true
         }
       } else if (current.any) {
@@ -942,6 +961,7 @@ function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch)
         const clamped = Math.max(0, Math.min(5, Number(entry.min)))
         if (current.min !== clamped) {
           current.min = clamped
+          delete current.not
           changed = true
         }
       }
@@ -956,6 +976,7 @@ function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch)
         const clamped = Math.max(0, Math.min(4, Number(entry.max)))
         if (current.max !== clamped) {
           current.max = clamped
+          delete current.not
           changed = true
         }
       }
@@ -1149,14 +1170,17 @@ function arraysEqualString(left: readonly string[], right: readonly string[]): b
 }
 
 function normalizeBoundsObject(
-  source: Record<number, { min?: number; max?: number; any?: boolean }>,
-): Record<number, { min?: number; max?: number; any?: boolean }> {
-  const result: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+  source: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>,
+): Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> {
+  const result: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
   for (const [key, entry] of Object.entries(source)) {
     if (!entry) continue
     const idx = Number(key)
-    const normalized: { min?: number; max?: number; any?: boolean } = {}
-    if (entry.any) {
+    const normalized: { min?: number; max?: number; any?: boolean; not?: boolean } = {}
+    // `not` takes priority — all other fields are silently dropped when set.
+    if (entry.not === true) {
+      normalized.not = true
+    } else if (entry.any) {
       normalized.any = true
     } else {
       if (typeof entry.min === 'number') normalized.min = Math.max(0, Math.min(5, Number(entry.min)))

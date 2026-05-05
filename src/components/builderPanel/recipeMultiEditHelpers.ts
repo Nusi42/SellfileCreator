@@ -241,6 +241,14 @@ export const mergeRollPatchForVariant = (
     }
   }
   const previous = result[variant] ? { ...result[variant]! } : {}
+  if (Object.prototype.hasOwnProperty.call(delta, 'not')) {
+    const nextNot = delta.not
+    if (nextNot === undefined) {
+      delete previous.not
+    } else {
+      previous.not = nextNot
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(delta, 'any')) {
     const nextAny = delta.any
     if (nextAny === undefined) {

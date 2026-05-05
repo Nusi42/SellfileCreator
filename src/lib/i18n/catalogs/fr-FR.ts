@@ -787,6 +787,7 @@ const overrides: Catalog = {
   chipReq: "Requis",
   chipMaxRolls: "Lancers max : {n}",
   chipMinRolls: "Lancers min : {n}",
+    chipNotSubstat: "Doit être absent",
   // Header menu controls
   rulesMenuWrapRows: "Lignes multi-lignes",
   rulesMenuSlotsAsIcons: "Slots en icônes",
@@ -981,6 +982,8 @@ const overrides: Catalog = {
   builderSubstatMenuLockTooltip: "Verrouillez cette sous-stat pour qu’elle reste obligatoire dans chaque règle générée. Déverrouillez-la pour que le builder puisse la retirer ou l’échanger quand d’autres permutations sont plus pertinentes.",
   builderSubstatMenuMinRolls: "Exigence minimale de lancers",
   builderSubstatMenuMinRollsTooltip: "Exigez un nombre minimal d’améliorations sur cette sous-stat avant qu’une pièce ne soit valide.\n• « Libre » laisse n’importe quelle valeur.\n• Les chiffres 0-5 imposent exactement ce nombre de lancers réussis.",
+  builderSubstatMenuNot: "Non",
+  builderSubstatNotTooltip: "Marquer ce sous-stat comme interdit — l'objet ne doit pas l'avoir du tout.\n• La règle générée inclut une condition ¬ pour que RSL Helper rejette tout objet ayant ce stat.",
   builderSubstatMenuMaxRolls: "Limite supérieure de lancers",
   builderSubstatMenuMaxRollsTooltip: "Limite le nombre de lancers que cette sous-stat peut recevoir avant de rejeter la pièce.\nIdéal pour bloquer les quad-rolls ou éviter de dépasser une valeur verrouillée.",
   builderSubstatMenuAny: "Libre",
@@ -1297,10 +1300,9 @@ const overrides: Catalog = {
   tutorialFinish: "Terminer",
 
   // Roll indicator help
-  rollIndicatorTip1: "Utilisez l’indicateur de lancers pour exiger des améliorations sur cette sous-stat. Clic gauche augmente l’exigence ; clic droit la réduit.",
-  rollIndicatorTip2: "Depuis ★, un clic gauche passe sur une exigence minimale (0..5 lancers) et un clic droit passe sur une limite supérieure (0..4).",
-  rollIndicatorTip3: "Sur une limite supérieure, le clic gauche réduit la borne (1→0→★) et le clic droit l’augmente (0→1→…→4→★).",
-  rollIndicatorTip4: "Les chiffres verts indiquent les lancers minimum exigés ; les rouges appliquent la limite supérieure au-delà de cette valeur.",
+  rollIndicatorTip1: "Clic gauche : parcourt les exigences min de lancers (★ → 0 → 1 → … → 5 → ★).",
+  rollIndicatorTip2: "Clic droit : parcourt l’exclusion et les limites de lancers (★ → ¬ → max 0 → … → max 4 → ★).",
+  rollIndicatorTip3: "Vert = lancers minimum requis ; rouge = limite de lancers ou sous-stat doit être absente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Remplacement des options de recette : les rolls minimum des sous-stats s’appliquent à cette stat.",
 
   // Filter helpers

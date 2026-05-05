@@ -144,4 +144,30 @@ test('matching config indices preserve encounter order when primary match has no
   assert.deepEqual(result.matchingRecipeIndices, [1, 0])
 })
 
+test('¬ condition passes when stat is absent from item', async () => {
+  await warmupWasmRuleEngine()
+  const notRule: HsfRule = {
+    ...baseRule,
+    Substats: [{ ID: StatId.ATK, Value: 0, IsFlat: true, Condition: '¬' }],
+  }
+  const noATK: TestItem = {
+    ...buildBaseItem(),
+    // subValues has no ATK entry
+  }
+  assert.equal(matchRule(notRule, noATK), true, '¬ should pass when stat is absent')
+})
+
+test('¬ condition fails when stat is present on item', async () => {
+  await warmupWasmRuleEngine()
+  const notRule: HsfRule = {
+    ...baseRule,
+    Substats: [{ ID: StatId.ATK, Value: 0, IsFlat: true, Condition: '¬' }],
+  }
+  const hasATK: TestItem = {
+    ...buildBaseItem(),
+    subValues: { [StatVariant.ATK_FLAT]: 300 },
+  }
+  assert.equal(matchRule(notRule, hasATK), false, '¬ should fail when stat is present')
+})
+
 export {}

@@ -362,12 +362,17 @@ export function buildHsfRules(
     factoryBaseByVariantForStar,
     variantPriority: PREFERRED_STAT_ORDER,
   })
-  const selectedPoolV = prep.selectedPoolV
+  // Split "not" substats from the combination pool. Not-substats carry Condition "¬"
+  // and are appended to every emitted rule; they must not participate in positive combos.
+  const boundsForNotSplit = (recipe.substatRollBoundsV ?? {}) as Record<number, { not?: boolean }>
+  const isNotVariant = (v: number): boolean => boundsForNotSplit[v]?.not === true
+  const selectedPoolV = prep.selectedPoolV.filter(v => !isNotVariant(v))
+  const notSubstatsV = prep.selectedPoolV.filter(v => isNotVariant(v))
   // If the user explicitly selected substats but all are invalid for the slot/main,
   // emit no rules instead of falling back to presence-only behavior.
-  if (prep.hadRequestedSubstats && selectedPoolV.length === 0) return []
-  const requiredV = prep.requiredV
-  const optionalPoolV = prep.optionalPoolV
+  if (prep.hadRequestedSubstats && selectedPoolV.length === 0 && notSubstatsV.length === 0) return []
+  const requiredV = prep.requiredV.filter(v => !isNotVariant(v))
+  const optionalPoolV = prep.optionalPoolV.filter(v => !isNotVariant(v))
   const lockedCount = requiredV.length
   const minTargetCount = prep.minTargetCount
   const maxTargetCount = prep.maxTargetCount
@@ -451,6 +456,7 @@ export function buildHsfRules(
     requiredV,
     optionalPoolV,
     selectedPoolV,
+    notSubstatsV,
     flexActive,
     aggregateMinActive,
     minTargetCount,

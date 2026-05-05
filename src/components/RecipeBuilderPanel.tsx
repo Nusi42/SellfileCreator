@@ -608,6 +608,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     | { kind: 'any'; presence: number }
     | { kind: 'min'; presence: number; min: number; max?: number }
     | { kind: 'max'; presence: number; max: number; min?: number }
+    | { kind: 'not'; presence: number }
     | { kind: 'mixed'; presence: number; wildcardCount: number; minValues: number[]; maxValues: number[] }
   const getRollMode = React.useCallback((variant: number): RollMode => {
     const boundsForSingle = (key: number) => (recipe.substatRollBoundsV ?? {})[key]
@@ -615,6 +616,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       const hasStat = Array.isArray(recipe.substatsV) ? recipe.substatsV.includes(variant) : false
       if (!hasStat) return { kind: 'none', presence: hasStat ? 1 : 0 }
       const bounds = boundsForSingle(variant)
+      if (bounds?.not === true) return { kind: 'not', presence: 1 }
       if (!bounds || bounds.any) return { kind: 'any', presence: 1 }
       const min = typeof bounds.min === 'number' ? Math.max(0, Math.min(5, Number(bounds.min))) : undefined
       const max = typeof bounds.max === 'number' ? Math.max(0, Math.min(4, Number(bounds.max))) : undefined
@@ -630,13 +632,25 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     if (presenceCount === 0) return { kind: 'none', presence: 0 }
     const base = multiSummary.rollSummary.get(variant)
     let anyCount = base?.any ?? 0
+    let notCount = base?.notCount ?? 0
     let minValues = new Set(base?.minValues ?? [])
     let maxValues = new Set(base?.maxValues ?? [])
     const patchEntry = rollPatch?.[variant]
     if (patchEntry) {
+      if (patchEntry.not !== undefined) {
+        if (patchEntry.not) {
+          notCount = presenceCount
+          anyCount = 0
+          minValues = new Set<number>()
+          maxValues = new Set<number>()
+        } else {
+          notCount = 0
+        }
+      }
       if (patchEntry.any !== undefined) {
         if (patchEntry.any) {
           anyCount = presenceCount
+          notCount = 0
           minValues = new Set<number>()
           maxValues = new Set<number>()
         } else {
@@ -650,6 +664,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
           const clamped = Math.max(0, Math.min(5, Number(patchEntry.min)))
           minValues = new Set<number>([clamped])
           anyCount = 0
+          notCount = 0
         }
       }
       if (patchEntry.max !== undefined) {
@@ -659,11 +674,17 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
           const clamped = Math.max(0, Math.min(4, Number(patchEntry.max)))
           maxValues = new Set<number>([clamped])
           anyCount = 0
+          notCount = 0
         }
       }
     }
     anyCount = Math.min(anyCount, presenceCount)
-    if (anyCount === presenceCount && minValues.size === 0 && maxValues.size === 0) {
+    notCount = Math.min(notCount, presenceCount)
+    // All recipes agree on "not" — return the not kind.
+    if (notCount === presenceCount && anyCount === 0 && minValues.size === 0 && maxValues.size === 0) {
+      return { kind: 'not', presence: presenceCount }
+    }
+    if (anyCount === presenceCount && notCount === 0 && minValues.size === 0 && maxValues.size === 0) {
       return { kind: 'any', presence: presenceCount }
     }
     const minArray = Array.from(minValues).map((v) => Math.max(0, Math.min(5, Number(v))))
@@ -674,13 +695,19 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
     if (anyCount > 0 && anyCount < presenceCount) {
       mixed = true
     }
-    if (anyCount > 0 && (minArray.length > 0 || maxArray.length > 0)) {
+    if (notCount > 0 && notCount < presenceCount) {
+      mixed = true
+    }
+    if (anyCount > 0 && (minArray.length > 0 || maxArray.length > 0 || notCount > 0)) {
+      mixed = true
+    }
+    if (notCount > 0 && (minArray.length > 0 || maxArray.length > 0 || anyCount > 0)) {
       mixed = true
     }
     if (minArray.length > 1 || maxArray.length > 1) {
       mixed = true
     }
-    if (minArray.length === 0 && maxArray.length === 0 && anyCount === 0) {
+    if (minArray.length === 0 && maxArray.length === 0 && anyCount === 0 && notCount === 0) {
       return { kind: 'any', presence: presenceCount }
     }
     if (!mixed && typeof maxUnique === 'number' && minArray.length <= 1) {
@@ -761,6 +788,10 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
           info.wildcard = false
           break
         }
+        case 'not': {
+          info.wildcard = false
+          break
+        }
         case 'mixed': {
           info.rollKind = 'mixed'
           const presenceMixed = presenceState === 'partial'
@@ -811,10 +842,13 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
       }
     } else {
       const bounds = (recipe.substatRollBoundsV ?? {})[variant]
-      if (typeof bounds?.min === 'number') info.minValue = clampRollMin(bounds.min)
-      if (typeof bounds?.max === 'number') info.maxValue = clampRollMax(bounds.max)
-      info.wildcard = Boolean(bounds?.any) || (info.minValue == null && info.maxValue == null)
-      if (info.wildcard) {
+      const isNotBound = bounds?.not === true
+      if (!isNotBound && typeof bounds?.min === 'number') info.minValue = clampRollMin(bounds.min)
+      if (!isNotBound && typeof bounds?.max === 'number') info.maxValue = clampRollMax(bounds.max)
+      info.wildcard = !isNotBound && (Boolean(bounds?.any) || (info.minValue == null && info.maxValue == null))
+      if (isNotBound) {
+        info.rollKind = 'not'
+      } else if (info.wildcard) {
         info.rollKind = 'any'
       } else if (info.minValue != null && info.maxValue != null) {
         info.rollKind = 'mixed'
@@ -1032,25 +1066,24 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const multiCycleRollForward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
+    // Scale (left→right): max:4 ← … ← max:0 ← ¬ ← ★ → min:0 → … → min:5
+    // Left-click (forward) steps rightward; min:5 wraps back to ★.
     switch (mode.kind) {
       case 'none':
       case 'any':
       case 'mixed':
-        commitRollPatch(variant, { any: false, min: 0, max: null })
+        commitRollPatch(variant, { any: false, not: null, min: 0, max: null })                           // ★ → min:0
         break
       case 'min':
-        if (mode.min >= 5) {
-          commitRollPatch(variant, { any: true, min: null, max: null })
-        } else {
-          commitRollPatch(variant, { any: false, min: Math.min(5, mode.min + 1), max: mode.max ?? null })
-        }
+        if (mode.min >= 5) commitRollPatch(variant, { any: true, not: null, min: null, max: null })      // min:5 → ★
+        else commitRollPatch(variant, { any: false, min: Math.min(5, mode.min + 1), max: null })
+        break
+      case 'not':
+        commitRollPatch(variant, { any: true, not: null, min: null, max: null })                         // ¬ → ★
         break
       case 'max':
-        if (mode.max <= 0) {
-          commitRollPatch(variant, { any: true, min: null, max: null })
-        } else {
-          commitRollPatch(variant, { any: false, max: Math.max(0, mode.max - 1), min: mode.min ?? null })
-        }
+        if (mode.max <= 0) commitRollPatch(variant, { any: false, not: true, min: null, max: null })     // max:0 → ¬
+        else commitRollPatch(variant, { any: false, max: Math.max(0, mode.max - 1), min: null })         // max:n → max:(n-1)
         break
       default:
         break
@@ -1059,25 +1092,24 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const multiCycleRollBackward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
+    // Scale (left→right): max:4 ← … ← max:0 ← ¬ ← ★ → min:0 → … → min:5
+    // Right-click (backward) steps leftward; max:4 wraps back to ★.
     switch (mode.kind) {
       case 'none':
       case 'any':
       case 'mixed':
-        commitRollPatch(variant, { any: false, max: 0, min: null })
+        commitRollPatch(variant, { any: false, not: true, min: null, max: null })                        // ★ → ¬
+        break
+      case 'not':
+        commitRollPatch(variant, { any: false, not: null, max: 0, min: null })                           // ¬ → max:0
         break
       case 'max':
-        if (mode.max >= 4) {
-          commitRollPatch(variant, { any: true, min: null, max: null })
-        } else {
-          commitRollPatch(variant, { any: false, max: Math.min(4, mode.max + 1), min: mode.min ?? null })
-        }
+        if (mode.max >= 4) commitRollPatch(variant, { any: true, not: null, min: null, max: null })      // max:4 → ★
+        else commitRollPatch(variant, { any: false, max: Math.min(4, mode.max + 1), min: null })         // max:n → max:(n+1)
         break
       case 'min':
-        if (mode.min <= 0) {
-          commitRollPatch(variant, { any: true, min: null, max: null })
-        } else {
-          commitRollPatch(variant, { any: false, min: Math.max(0, mode.min - 1), max: mode.max ?? null })
-        }
+        if (mode.min <= 0) commitRollPatch(variant, { any: true, not: null, min: null, max: null })      // min:0 → ★
+        else commitRollPatch(variant, { any: false, min: Math.max(0, mode.min - 1), max: null })         // min:n → min:(n-1)
         break
       default:
         break
@@ -1191,8 +1223,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         // fixedSubstatsV must remain a subset of substatsV.
         const sanitizedFixedV = (recipe.fixedSubstatsV ?? []).filter((v) => keptVariants.has(Number(v)))
         // substatRollBoundsV: drop variant-keyed entries for removed substats.
-        const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-        const prunedBoundsV: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+        const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
+        const prunedBoundsV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
         for (const [k, v] of Object.entries(boundsV)) {
           if (keptVariants.has(Number(k))) prunedBoundsV[Number(k)] = v
         }
@@ -3833,7 +3865,6 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                       `• ${t('rollIndicatorTip1')}`,
                       `• ${t('rollIndicatorTip2')}`,
                       `• ${t('rollIndicatorTip3')}`,
-                      `• ${t('rollIndicatorTip4')}`,
                     ].join('\n')}
                   />
                 )}
@@ -3913,9 +3944,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               // Keep edits bound to the stored recipe so interactions stay deterministic.
               const displayRecipe = (!multiEditActive && effectiveRecipe !== recipe) ? effectiveRecipe : recipe
               // Normalize roll bounds so override comparisons use stable, clamped values.
-              const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean }) => ({
+              const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => ({
                 // Keep the wildcard flag explicit to avoid false positives.
                 any: Boolean(bounds?.any),
+                not: Boolean((bounds as { not?: boolean } | undefined)?.not),
                 // Clamp min to the roll bounds the builder enforces.
                 min: (typeof bounds?.min === 'number' && Number.isFinite(bounds.min))
                   ? Math.max(0, Math.min(5, Math.floor(bounds.min)))
@@ -3929,7 +3961,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               const boundsEqual = (
                 left: ReturnType<typeof normalizeBounds>,
                 right: ReturnType<typeof normalizeBounds>,
-              ) => left.any === right.any && left.min === right.min && left.max === right.max
+              ) => left.any === right.any && left.not === right.not && left.min === right.min && left.max === right.max
               const value: string[] = ((((displayRecipe as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
               const isSelected = (v: number) => {
                 const subsV = ((displayRecipe as unknown as { substatsV?: number[] }).substatsV) ?? []
@@ -3945,51 +3977,34 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               const getDisplayBounds = (vKey: number) => {
                 return (displayRecipe.substatRollBoundsV)?.[vKey]
               }
-              const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean }) => {
+              const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => {
                 applySingleSubstatBounds(vKey, () => {
                   if (!bounds) return null
                   return { ...bounds }
                 })
               }
-              // No unset: default is star (any).
-              // New interaction model:
-              // - Left click increases current sequence.
-              //   From ★: enters Min (0), then 1→…→5→★.
-              //   From Roll Upper Limit: 0→…→4→★.
-              // - Right click decreases current sequence.
-              //   From ★: enters Roll Upper Limit (4), then 3→…→0→★.
-              const cycleMin = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                const b = getBounds(vKey)
-                const isAny = Boolean(b?.any)
-                const hasMin = typeof b?.min === 'number'
-                const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
-                if (isAny) {
-                  // ★ -> 0 (Min)
-                  setBounds(vKey, { min: 0 })
-                } else if (hasMin && curMin < 5) {
-                  // 1..4 -> +1; 5 handled below
-                  setBounds(vKey, { min: curMin + 1 })
-                } else {
-                  // none or 5 -> ★
-                  setBounds(vKey, { any: true })
-                }
-              }
-
+              // Badge scale (left → right): max:4 ← max:3 ← … ← max:0 ← ¬ ← ★ → min:0 → min:1 → … → min:5
+              // Left-click (cycleForward) steps rightward; right-click (cycleBackward) steps leftward.
+              // At min:5, left-click wraps back to ★. At max:4, right-click wraps back to ★.
               const cycleForward = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 const b = getBounds(vKey)
-                const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
-                const hasMax = typeof b?.max === 'number'
-                const hasMin = typeof b?.min === 'number'
+                const isNot = b?.not === true
+                const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
+                const hasMax = !isNot && typeof b?.max === 'number'
+                const hasMin = !isNot && typeof b?.min === 'number'
                 if (isAny) {
-                  // ★ -> Min 0
-                  setBounds(vKey, { min: 0 })
-                } else if (hasMax) {
-                  // Left-click on the Roll Upper Limit goes down (1→0→★)
-                  cycleMaxBack(vKey)
+                  setBounds(vKey, { min: 0 })                                          // ★ → min:0
                 } else if (hasMin) {
-                  cycleMin(vKey)
+                  const n = Math.max(0, Math.min(5, Number(b?.min)))
+                  if (n < 5) setBounds(vKey, { min: n + 1 })                           // min:n → min:(n+1)
+                  else setBounds(vKey, { any: true })                                  // min:5 → ★ (right-end wrap)
+                } else if (isNot) {
+                  setBounds(vKey, { any: true })                                       // ¬ → ★
+                } else if (hasMax) {
+                  const n = Math.max(0, Math.min(4, Number(b?.max)))
+                  if (n > 0) setBounds(vKey, { max: n - 1 })                           // max:n → max:(n-1)
+                  else setBounds(vKey, { not: true })                                  // max:0 → ¬
                 } else {
                   setBounds(vKey, { any: true })
                 }
@@ -3998,60 +4013,27 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               const cycleBackward = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 const b = getBounds(vKey)
-                const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
-                const hasMax = typeof b?.max === 'number'
-                const hasMin = typeof b?.min === 'number'
+                const isNot = b?.not === true
+                const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
+                const hasMax = !isNot && typeof b?.max === 'number'
+                const hasMin = !isNot && typeof b?.min === 'number'
                 if (isAny) {
-                  // ★ -> Roll Upper Limit 0 (forbid rolls)
-                  setBounds(vKey, { max: 0 })
+                  setBounds(vKey, { not: true })                                       // ★ → ¬
+                } else if (isNot) {
+                  setBounds(vKey, { max: 0 })                                          // ¬ → max:0
                 } else if (hasMax) {
-                  // On the Roll Upper Limit, right‑click increases (0→1→…→4→★)
-                  const curMax = Math.max(0, Math.min(4, Number(b?.max)))
-                  if (curMax < 4) setBounds(vKey, { max: curMax + 1 })
-                  else setBounds(vKey, { any: true })
+                  const n = Math.max(0, Math.min(4, Number(b?.max)))
+                  if (n < 4) setBounds(vKey, { max: n + 1 })                           // max:n → max:(n+1)
+                  else setBounds(vKey, { any: true })                                  // max:4 → ★ (left-end wrap)
                 } else if (hasMin) {
-                  cycleMinBack(vKey)
+                  const n = Math.max(0, Math.min(5, Number(b?.min)))
+                  if (n <= 0) setBounds(vKey, { any: true })                           // min:0 → ★
+                  else setBounds(vKey, { min: n - 1 })                                 // min:n → min:(n-1)
                 } else {
                   setBounds(vKey, { any: true })
                 }
               }
 
-              const cycleMinBack = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                const b = getBounds(vKey)
-                const isAny = Boolean(b?.any)
-                const hasMin = typeof b?.min === 'number'
-                const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
-                if (isAny) {
-                  // ★ -> 5 (Min)
-                  setBounds(vKey, { min: 5 })
-                } else if (hasMin && curMin > 0) {
-                  // 1..5 -> -1; 0 handled below
-                  setBounds(vKey, { min: curMin - 1 })
-                } else {
-                  // 0 or none -> ★
-                  setBounds(vKey, { any: true })
-                }
-              }
-              
-              const cycleMaxBack = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                const b = getBounds(vKey)
-                const isAny = Boolean(b?.any)
-                const hasMax = typeof b?.max === 'number'
-                const curMax = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : 0
-                if (isAny) {
-                  // ★ -> 4 (Max)
-                  setBounds(vKey, { max: 4 })
-                } else if (hasMax && curMax > 0) {
-                  // 1..4 -> -1; 0 handled below
-                  setBounds(vKey, { max: curMax - 1 })
-                } else {
-                  // 0 or none -> ★
-                  setBounds(vKey, { any: true })
-                }
-              }
-              
               const cycleSubstat = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (multiEditActive && multiEdit) {
@@ -4118,9 +4100,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
               const rollIndicatorTooltip = [
                 t('rollIndicatorTip1'),
-                `- ${t('rollIndicatorTip2')}`,
-                `- ${t('rollIndicatorTip3')}`,
-                `- ${t('rollIndicatorTip4')}`,
+                t('rollIndicatorTip2'),
+                t('rollIndicatorTip3'),
               ].join('\n')
 
               const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
@@ -4128,6 +4109,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 const presenceState = multiEditActive ? getSubstatPresence(variant) : (isSelected(variant) ? 'all' : 'none')
                 const lockState = multiEditActive ? getSubstatLockState(variant) : (isFixed(variant) ? 'all' : 'none')
                 const rollMode = multiEditActive ? getRollMode(variant) : (() => {
+                  if (singleBounds?.not === true) return { kind: 'not', presence: isSelected(variant) ? 1 : 0 } as RollMode
                   if (!singleBounds || singleBounds.any) return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
                   const hasMin = typeof singleBounds.min === 'number'
                   const hasMax = typeof singleBounds.max === 'number'
@@ -4185,16 +4167,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                         tooltip: rollIndicatorTooltip,
                       }
                     }
+                    if (rollMode.kind === 'not') {
+                      return displaySelected ? { wildcard: false, not: true, tooltip: rollIndicatorTooltip } : undefined
+                    }
                     return undefined
                   }
-                  const hasMin = typeof displayBounds?.min === 'number'
+                  const isNotSub = displayBounds?.not === true
+                  const hasMin = !isNotSub && typeof displayBounds?.min === 'number'
                   const minVal = hasMin ? Math.max(0, Math.min(5, Number(displayBounds?.min))) : undefined
-                  const hasMax = typeof displayBounds?.max === 'number' && isFinite(displayBounds.max ?? NaN)
+                  const hasMax = !isNotSub && typeof displayBounds?.max === 'number' && isFinite(displayBounds.max ?? NaN)
                   const maxVal = hasMax ? Math.max(0, Math.min(4, Number(displayBounds?.max))) : undefined
-                  const wildcard = Boolean(displayBounds?.any) || (!hasMin && !hasMax)
+                  const wildcard = !isNotSub && (Boolean(displayBounds?.any) || (!hasMin && !hasMax))
                   return displaySelected
                     ? {
                         wildcard,
+                        ...(isNotSub ? { not: true } : {}),
                         ...(typeof minVal === 'number' ? { min: minVal } : {}),
                         ...(typeof maxVal === 'number' ? { max: maxVal } : {}),
                         tooltip: rollIndicatorTooltip,
@@ -4371,6 +4358,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               }
               const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
               const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
+              // Derive the "not" state: explicit draft wins, then fall back to the active info rollKind.
+              const effectiveNotDraft: boolean = substatMenuDraft
+                ? (substatMenuDraft.not === true)
+                : (activeMenuInfo?.rollKind === 'not')
               const statLabelText = activeMenuInfo ? t(statVariantI18nKey(activeMenuInfo.variant)) : ''
               const statHighlightColor = activeMenuInfo && colorStatTexts
                 ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
@@ -4550,7 +4541,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   ? (mode === 'min' ? substatMenuValueSummary.minMixed : substatMenuValueSummary.maxMixed)
                   : false
                 const hasValue = Boolean(text && text.trim().length > 0)
-                const displayText = mixed
+                // When the "not" toggle is active on the max row, show ¬ and suppress the value.
+                const isNotActive = mode === 'max' && effectiveNotDraft
+                const displayText = (mixed || isNotActive)
                   ? ''
                   : (hasValue ? text! : '')
                 const statId = variantToSub(activeMenuInfo.variant).id
@@ -4562,8 +4555,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   colorize: shouldColorize,
                   fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
                 })
-                const glyph = mixed ? '' : (mode === 'min' ? '≥' : '≤')
-                const glyphColor = mode === 'min' ? theme.palette.success.main : theme.palette.error.main
+                const glyph = mixed ? '' : isNotActive ? '¬' : (mode === 'min' ? '≥' : '≤')
+                const glyphColor = (mode === 'max') ? theme.palette.error.main : theme.palette.success.main
                 const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
                 const enforcedWidth = (() => {
                   if (chipWidth === 0) return undefined
@@ -4701,6 +4694,22 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
                 }
               }
+              const applyNotSelection = () => {
+                if (!activeMenuInfo) return
+                ensureSubstatPresenceForBounds(activeMenuInfo.variant)
+                setSubstatMenuDraft((prev) => ({
+                  min: null,
+                  max: null,
+                  not: true,
+                  targetBase: prev?.targetBase ?? null,
+                  targetRolls: cloneTargetRolls(prev?.targetRolls),
+                }))
+                if (multiEditActive && multiEdit) {
+                  commitRollPatch(activeMenuInfo.variant, { not: true, any: false, min: null, max: null })
+                } else {
+                  applySingleSubstatBounds(activeMenuInfo.variant, () => ({ not: true }))
+                }
+              }
               const applyTargetSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
                 if (!activeMenuInfo) return
                 const draftRolls = cloneTargetRolls(nextRolls)
@@ -4757,12 +4766,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 applyLockSelection(value)
               }
               const MIN_SEQUENCE = ['any', '0', '1', '2', '3', '4', '5'] as const
-              const MAX_SEQUENCE = ['any', '0', '1', '2', '3', '4'] as const
+              // 'not' appears first in the max group (before 0), reflecting the badge cycle order.
+              const MAX_SEQUENCE = ['any', 'not', '0', '1', '2', '3', '4'] as const
               type MinOption = (typeof MIN_SEQUENCE)[number]
               type MaxOption = (typeof MAX_SEQUENCE)[number]
               const MIN_CYCLE_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
               const MIN_LABEL_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
-              const MAX_LABEL_SEQUENCE: MaxOption[] = ['0', '1', '2', '3', '4']
+              const MAX_LABEL_SEQUENCE: MaxOption[] = ['not', '0', '1', '2', '3', '4']
               const normalizeMinOption = (raw: string | null): MinOption => {
                 if (!raw) return 'any'
                 return (MIN_SEQUENCE.includes(raw as MinOption) ? raw : 'any') as MinOption
@@ -4774,13 +4784,15 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               const minToggleValue: MinOption | undefined | null = minMixed
                 ? null
                 : (minGroupValue == null
-                  ? (maxGroupValue == null ? 'any' : undefined)
+                  ? (maxGroupValue == null && !effectiveNotDraft ? 'any' : undefined)
                   : (String(minGroupValue) as MinOption))
               const maxToggleValue: MaxOption | undefined | null = maxMixed
                 ? null
-                : (maxGroupValue == null
-                  ? (minGroupValue == null ? 'any' : undefined)
-                  : (String(maxGroupValue) as MaxOption))
+                : (effectiveNotDraft
+                  ? 'not'
+                  : (maxGroupValue == null
+                    ? (minGroupValue == null ? 'any' : undefined)
+                    : (String(maxGroupValue) as MaxOption)))
               const applyMinSelection = (key: MinOption) => {
                 if (key === 'any') {
                   applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
@@ -4791,6 +4803,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               const applyMaxSelection = (key: MaxOption) => {
                 if (key === 'any') {
                   applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
+                  return
+                }
+                if (key === 'not') {
+                  applyNotSelection()
                   return
                 }
                 applyMenuSelection(null, clampRollMax(Number(key)), { requirePresence: true })
@@ -4811,6 +4827,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               }
               const resolveMaxCycleKey = (): MaxOption => {
                 if (maxMixed) return 'any'
+                if (effectiveNotDraft) return 'not'
                 const key = maxToggleValue
                 if (key && MAX_SEQUENCE.includes(key as MaxOption)) {
                   return key as MaxOption
@@ -4822,7 +4839,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   applyMinSelection('any')
                   return
                 }
-                if (minGroupValue == null && maxGroupValue != null) {
+                if (minGroupValue == null && (maxGroupValue != null || effectiveNotDraft)) {
                   applyMinSelection('any')
                   return
                 }
@@ -4833,23 +4850,23 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               }
               const cycleMaxLimit = () => {
                 if (maxMixed) {
-                  applyMaxSelection('0')
+                  applyMaxSelection('not')
                   return
                 }
-                if (maxGroupValue == null) {
+                if (!effectiveNotDraft && maxGroupValue == null) {
                   if (minGroupValue != null) {
-                    applyMaxSelection('0')
+                    applyMaxSelection('not')
                     return
                   }
                 }
                 const current = resolveMaxCycleKey()
                 if (current === 'any') {
-                  applyMaxSelection('0')
+                  applyMaxSelection('not')
                   return
                 }
                 const idx = MAX_LABEL_SEQUENCE.indexOf(current)
                 if (idx === -1) {
-                  applyMaxSelection('0')
+                  applyMaxSelection('not')
                   return
                 }
                 const nextIdx = idx + 1
@@ -5175,6 +5192,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             onClick={(event) => { event.stopPropagation() }}
                             sx={createRollGroupSx('max')}
                           >
+                            <MarkdownTooltip
+                              render={<BuilderTooltipContent text={t('builderSubstatNotTooltip')} />}
+                            >
+                              <ToggleButton
+                                value="not"
+                                aria-label={t('builderSubstatMenuNot')}
+                                data-mixed={maxMixed ? 'true' : undefined}
+                              >
+                                <Box component="span" className="menu-roll-label">{'¬'}</Box>
+                              </ToggleButton>
+                            </MarkdownTooltip>
                             {['0', '1', '2', '3', '4'].map((valueOption) => (
                               <ToggleButton
                                 key={valueOption}
