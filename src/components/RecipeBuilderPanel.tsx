@@ -384,10 +384,16 @@ const applySingleSubstatBounds = React.useCallback((variant: number, builder: (c
   const normalizedBounds: BuilderRecipe['substatRollBoundsV'] = nextMap
     ? nextMap
     : ({} as BuilderRecipe['substatRollBoundsV'])
-  const baseRecipe = {
+  let baseRecipe = {
     ...recipe,
     substatRollBoundsV: normalizedBounds,
   } as BuilderRecipe
+  // Bounds changes can flip a substat between positive and "not"; re-sync minCount so
+  // autoMinCount always reflects the current positive-substat count.
+  if (baseRecipe.autoMinCount) {
+    const positiveCount = countPositiveSubstats(baseRecipe.substatsV, normalizedBounds as Record<number, { not?: boolean }>)
+    baseRecipe = { ...baseRecipe, minCount: Math.min(4, Math.max(0, positiveCount)) as 0 | 1 | 2 | 3 | 4 }
+  }
   onChange(normalizeKeepWithAuto(baseRecipe))
 }, [recipe, normalizeKeepWithAuto, onChange])
 const applySingleSubstatTargets = React.useCallback((variant: number, builder: (current: SubstatRollTargetEntry | undefined) => SubstatRollTargetEntry | null) => {

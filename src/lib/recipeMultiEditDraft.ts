@@ -995,6 +995,11 @@ function applySubstatRollPatch(recipe: BuilderRecipe, patch: MultiEditRollPatch)
     ...recipe,
     substatRollBoundsV: normalizeBoundsObject(nextBounds),
   }
+  // Bounds patch can flip not/positive; re-sync minCount to match current positive count.
+  if (nextRecipe.autoMinCount) {
+    const positiveCount = countPositiveSubstats(nextRecipe.substatsV, nextRecipe.substatRollBoundsV as Record<number, { not?: boolean }>)
+    nextRecipe = { ...nextRecipe, minCount: Math.min(4, Math.max(0, positiveCount)) as 0 | 1 | 2 | 3 | 4 }
+  }
   nextRecipe = normalizeKeepMode(nextRecipe)
   nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
   if (nextRecipe.autoSubstatFlex && !canEnableSubstatFlex(nextRecipe)) {

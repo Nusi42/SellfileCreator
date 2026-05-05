@@ -380,7 +380,12 @@ export function buildHsfRules(
   const requiredV = prep.requiredV.filter(v => !isNotVariant(v))
   const optionalPoolV = prep.optionalPoolV.filter(v => !isNotVariant(v))
   const lockedCount = requiredV.length
-  const minTargetCount = prep.minTargetCount
+  // autoMinCount means "require all positive substats." Guard against a stale stored
+  // minCount=0 when the recipe was mutated (bounds cycled to/from "not") without the
+  // minCount being resynced at the time — use the actual positive pool size instead.
+  const minTargetCount = (recipe.autoMinCount === true && selectedPoolV.length > 0)
+    ? Math.min(selectedPoolV.length, availablePositiveSlots)
+    : prep.minTargetCount
   // Cap maxTargetCount so flex combos don't consume slots needed by "not" substats.
   const maxTargetCount = Math.min(prep.maxTargetCount, availablePositiveSlots)
   // Flex mode only activates when both the recipe allows it and the toggle is on.
