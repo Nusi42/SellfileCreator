@@ -64,7 +64,7 @@ const catalog: Catalog = {
   manageColorsAria: "Gerenciar cores",
   // Gear Inspector
   gearDialogOpenTooltip: "Abra o diálogo Ferramentas na guia “Equipamentos” para carregar um banco de dados do RSL Helper ou montar itens de exemplo sem sair da prévia.",
-  gearDialogIntro: "Use o diálogo Equipamentos (`Ferramentas` → guia Equipamentos) para criar peças de exemplo e ver qual regra mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) para que a visualização do Teste de Regras reflita equipamentos reais.",
+  gearDialogIntro: "Use esta guia Equipamentos para criar peças de exemplo e ver qual regra mantém ou vende o item. Conecte-se ao RSL Helper para sincronização ao vivo ou carregue/arraste um arquivo .db de %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada continuam visíveis na visualização do Teste de Regras; use os botões abaixo para remover essas origens, se necessário.",
   gearInspectorRule: "Regra",
   gearInspectorJumpToRecipe: "Selecionar receita",
@@ -1532,7 +1532,7 @@ const catalog: Catalog = {
   tutGearDialogOpenTitle: "Equipamentos",
   tutGearDialogOpenBody: "Use `Ferramentas` para abrir o diálogo direto na guia `Equipamentos`. Ali você importa um banco de dados do ~~RSL Helper~~ ou cria entradas manuais sem sair da prévia.",
   tutGearDialogAddTitle: "Adicionar equipamento personalizado",
-  tutGearDialogAddBody: "Com o `Ferramentas` ainda aberto em `Equipamentos`, arraste um arquivo `.db` do ~~RSL Helper~~ para o app ou clique em `Carregar` para importá-lo de `%APPDATA%\\RslHelper\\Config`. Você também pode executar `Stream-Helper-DB-to-Creator.bat` para transmitir o equipamento dessa pasta.\n\nO equipamento criado manualmente convive com o que vem do ~~RSL Helper~~. Acabamos de adicionar um estandarte `Refresh` Raro 5★ dos Banner Lords e um amuleto Knight Revenant Incomum 4★ como itens de exemplo para você acompanhar. Use este botão sempre que quiser modelar quedas hipotéticas, criações manuais ou atributos reajustados.",
+  tutGearDialogAddBody: "Conecte-se ao RSL Helper para sincronização ao vivo, ou arraste um arquivo `.db` do ~~RSL Helper~~ para o app ou clique em `Carregar` para importá-lo de `%APPDATA%\\RslHelper\\Config`. Você também pode executar `Stream-Helper-DB-to-Creator.bat` para transmitir o equipamento dessa pasta.\n\nO equipamento criado manualmente convive com o que vem do ~~RSL Helper~~. Acabamos de adicionar um estandarte `Refresh` Raro 5★ dos Banner Lords e um amuleto Knight Revenant Incomum 4★ como itens de exemplo para você acompanhar. Use este botão sempre que quiser modelar quedas hipotéticas, criações manuais ou atributos reajustados.",
   tutGearDialogPreviewTitle: "Prévia do Gear Inspector",
   tutGearDialogPreviewBody: "Feche o diálogo `Ferramentas` e coloque a prévia em modo `Gear Inspector` para ver apenas a lista de equipamentos. Os dois itens de exemplo são as únicas linhas por enquanto, então a grade deixa claro quando as receitas, a Venda final ou Salvaguardas batem.",
   tutSafeguardsIntroTitle: "Visão geral de Salvaguardas",

@@ -64,7 +64,7 @@ const overrides: Catalog = {
   manageColorsAria: "Gérer les couleurs",
   // Inspecteur d'équipement
   gearDialogOpenTooltip: "Ouvrez la boîte de dialogue Outils sur l’onglet « Équipement » pour charger une base ~~RSL Helper~~ ou créer un équipement d’exemple sans quitter l’aperçu.",
-  gearDialogIntro: "Utilisez le dialogue « Équipement » (`Outils` → onglet Équipement) pour créer des exemples et voir quelle règle conserve ou vend l’objet. Chargez/glissez une base RSL Helper (souvent %APPDATA%\\RslHelper\\Recette) afin que la vue de l’Inspecteur d’équipement reflète de l’équipement réel.",
+  gearDialogIntro: "Utilisez cet onglet « Équipement » pour créer des exemples et voir quelle règle conserve ou vend l’objet. Connectez RSL Helper pour une synchronisation en direct ou chargez/glissez un fichier .db depuis %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Ce panneau affiche uniquement les entrées personnalisées. Les pièces importées depuis l’inventaire, la collection, le coffre et la boîte de réception restent visibles dans la vue de l’Inspecteur d’équipement ; utilisez les boutons ci-dessous pour supprimer ces sources si nécessaire.",
   gearInspectorRule: "Règle",
   gearInspectorJumpToRecipe: "Sélectionner la recette",
@@ -1542,7 +1542,7 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Équipement",
   tutGearDialogOpenBody: "Utilisez `Outils` pour ouvrir la boîte de dialogue directement sur l’onglet `Équipement`. Vous pouvez y importer une base ~~RSL Helper~~ ou créer des entrées manuelles sans quitter l’aperçu.",
   tutGearDialogAddTitle: "Ajouter un équipement personnalisé",
-  tutGearDialogAddBody: "En laissant la boîte de dialogue `Outils` ouverte sur `Équipement`, faites glisser un fichier `.db` ~~RSL Helper~~ dans l’application ou cliquez sur `Charger` pour l’importer depuis `%APPDATA%\\RslHelper\\Recette`. Vous pouvez aussi lancer `Stream-Helper-DB-to-Creator.bat` pour streamer l’équipement depuis ce dossier.\n\nLes objets créés manuellement cohabitent avec ceux de ~~RSL Helper~~. Nous venons d’ajouter une bannière `Refresh` 5★ Rare des Banner Lords et une amulette Knight Revenant 4★ Peu commune pour que vous puissiez suivre. Utilisez ce bouton chaque fois que vous voulez simuler des drops hypothétiques, un artisanat manuel ou des statistiques rééquilibrées.",
+  tutGearDialogAddBody: "Connectez RSL Helper pour une synchronisation en direct, ou glissez un fichier `.db` ~~RSL Helper~~ dans l’application ou cliquez sur `Charger` pour l’importer depuis `%APPDATA%\\RslHelper\\Config`. Vous pouvez aussi lancer `Stream-Helper-DB-to-Creator.bat` pour streamer l’équipement depuis ce dossier.\n\nLes objets créés manuellement cohabitent avec ceux de ~~RSL Helper~~. Nous venons d’ajouter une bannière `Refresh` 5★ Rare des Banner Lords et une amulette Knight Revenant 4★ Peu commune pour que vous puissiez suivre. Utilisez ce bouton chaque fois que vous voulez simuler des drops hypothétiques, un artisanat manuel ou des statistiques rééquilibrées.",
   tutGearDialogPreviewTitle: "Prévisualiser le Gear Inspector",
   tutGearDialogPreviewBody: "Fermez la boîte de dialogue `Outils`, puis basculez la prévisualisation en mode `Gear Inspector` pour voir uniquement la liste d’équipement. Les deux pièces types sont les seules lignes pour l’instant, donc la grille montre clairement quand les recettes, la Vente finale ou Protections correspondent.",
   tutSafeguardsIntroTitle: "Présentation de Protections",

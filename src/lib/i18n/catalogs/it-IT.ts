@@ -64,7 +64,7 @@ const overrides: Catalog = {
   manageColorsAria: "Gestisci colori",
   // Gear Inspector
   gearDialogOpenTooltip: "Apri la finestra di dialogo Strumenti nella scheda “Equipaggiamento” per caricare un database di RSL Helper o creare equip di esempio senza uscire dall'anteprima.",
-  gearDialogIntro: "Usa il dialogo Equipaggiamento (`Strumenti` → scheda Equipaggiamento) per creare equip di esempio e vedere quale regola lo conserva o lo vende. Carica o trascina un database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Config) così la vista del Tester mostra equip reale.",
+  gearDialogIntro: "Usa questa scheda Equipaggiamento per creare equip di esempio e vedere quale regola lo conserva o lo vende. Connetti RSL Helper per la sincronizzazione in tempo reale o carica/trascina un file .db da %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Questo riquadro mostra solo le voci personalizzate. Gli oggetti importati da inventario, collezione, deposito e posta rimangono visibili nella vista del Tester regole; usa i pulsanti qui sotto per rimuovere tali sorgenti se necessario.",
   gearInspectorRule: "Regola",
   gearInspectorJumpToRecipe: "Seleziona ricetta",
@@ -1534,7 +1534,7 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Equipaggiamento",
   tutGearDialogOpenBody: "Usa `Strumenti` per aprire la finestra di dialogo direttamente sulla scheda `Equipaggiamento`. Lì puoi importare un database ~~RSL Helper~~ o creare voci manuali senza lasciare l'anteprima.",
   tutGearDialogAddTitle: "Aggiungi equipaggiamento personalizzato",
-  tutGearDialogAddBody: "Con la finestra `Strumenti` ancora aperta su `Equipaggiamento`, trascina un file `.db` di ~~RSL Helper~~ nell'app oppure clicca `Carica` per importarlo da `%APPDATA%\\RslHelper\\Config`. Puoi anche eseguire `Stream-Helper-DB-to-Creator.bat` per trasmettere l'equipaggiamento da quella cartella.\n\nL'equipaggiamento creato manualmente vive insieme a quello importato da ~~RSL Helper~~. Abbiamo appena aggiunto uno stendardo `Refresh` Raro 5★ dei Banner Lords e un amuleto Knight Revenant Non comune 4★ come pezzi di esempio così puoi seguirci. Usa questo pulsante quando vuoi simulare drop ipotetici, craft manuali o statistiche ribilanciate.",
+  tutGearDialogAddBody: "Connetti RSL Helper per la sincronizzazione in tempo reale, o trascina un file `.db` di ~~RSL Helper~~ nell'app oppure clicca `Carica` per importarlo da `%APPDATA%\\RslHelper\\Config`. Puoi anche eseguire `Stream-Helper-DB-to-Creator.bat` per trasmettere l'equipaggiamento da quella cartella.\n\nL'equipaggiamento creato manualmente vive insieme a quello importato da ~~RSL Helper~~. Abbiamo appena aggiunto uno stendardo `Refresh` Raro 5★ dei Banner Lords e un amuleto Knight Revenant Non comune 4★ come pezzi di esempio così puoi seguirci. Usa questo pulsante quando vuoi simulare drop ipotetici, craft manuali o statistiche ribilanciate.",
   tutGearDialogPreviewTitle: "Anteprima del Gear Inspector",
   tutGearDialogPreviewBody: "Chiudi la finestra `Strumenti`, poi porta l'anteprima in modalità `Gear Inspector` per vedere solo la lista equipaggiamento. I due pezzi di esempio sono le uniche righe per ora, quindi la griglia mostra subito quando coincidono le ricette, la Vendita finale o Salvaguardie.",
   tutSafeguardsIntroTitle: "Panoramica di Salvaguardie",

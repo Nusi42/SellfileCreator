@@ -64,7 +64,7 @@ const enUS: Catalog = {
   manageColorsAria: "Manage Colors",
   // Gear Inspector
   gearDialogOpenTooltip: "Open the **Tools** dialog on the **Gear** tab to load an RSL Helper database or craft sample gear without leaving the preview.",
-  gearDialogIntro: "Use the Gear dialog (Logic Hub → Gear tab) to build sample gear and see which rule keeps or sells the item. Load or drag an RSL Helper DB (typically under %APPDATA%\\RslHelper\\Config) into the app so the Gear Inspector view reflects real gear.",
+  gearDialogIntro: "Use this Custom Gear tab to build sample gear and see which rule keeps or sells the item. Connect to RSL Helper for live gear sync, or load/drag a .db file from %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "This pane lists only the custom entries. Imported inventory, collection, vault, and inbox items remain in the Gear Inspector view; clear those sources with the buttons below if needed.",
   gearInspectorRule: "Rule",
   gearInspectorJumpToRecipe: "Select Recipe",
@@ -1558,7 +1558,7 @@ const enUS: Catalog = {
   tutGearDialogOpenTitle: "Gear",
   tutGearDialogOpenBody: "Use `Tools` to open the dialog directly on the Gear tab so you can import an ~~RSL Helper~~ database or craft manual entries without leaving the preview.",
   tutGearDialogAddTitle: "Add a Custom Gear",
-  tutGearDialogAddBody: "Drag an ~~RSL Helper~~ `.db` file into the app, or click `Load` to import from `%APPDATA%\\RslHelper\\Config`.\n\nWe've added four sample pieces: a Speed banner (ACC main) matching Recipe #3, DPS boots (HP% main, Lethal) matching Recipe #2, a low-value amulet with no match, and a Resist banner that `Final Sell` would sell — but a `Safeguard` keeps it. Use `Add manual entry` any time to model hypothetical drops.",
+  tutGearDialogAddBody: "Connect to ~~RSL Helper~~ for live gear sync, or drag/load a `.db` file from `%APPDATA%\\RslHelper\\Config`.\n\nWe've added four sample pieces: a Speed banner (ACC main) matching Recipe #3, DPS boots (HP% main, Lethal) matching Recipe #2, a low-value amulet with no match, and a Resist banner that `Final Sell` would sell — but a `Safeguard` keeps it. Use `Add manual entry` any time to model hypothetical drops.",
   tutGearDialogPreviewTitle: "Preview the Gear Inspector",
   tutGearDialogPreviewBody: "Switch to `Gear Inspector` to see just the gear list. The sample pieces are the only rows — watch their status update as we add `Final Sell` and `Safeguard` rules in the next steps.",
   tutSafeguardsIntroTitle: "Safeguards Overview",

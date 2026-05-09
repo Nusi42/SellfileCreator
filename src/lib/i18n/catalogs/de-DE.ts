@@ -64,7 +64,7 @@ const overrides: Catalog = {
   manageColorsAria: "Farben verwalten",
   // Ausrüstungsinspektor
   gearDialogOpenTooltip: "Öffne den `Tools`-Dialog im Tab „Ausrüstung”, um eine RSL-Helper-Datenbank zu laden oder Beispielgear zu erstellen, ohne die Vorschau zu verlassen.",
-  gearDialogIntro: "Nutze den Ausrüstungsdialog (Tools → „Ausrüstung”), um Beispielgear zu bauen und zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, damit die Ausrüstungsinspektor-Ansicht echtes Gear zeigt.",
+  gearDialogIntro: "Nutze diesen Tab Ausrüstung, um Beispielgear zu bauen und zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Verbinde RSL Helper für Live-Synchronisation oder lade/ziehe eine .db-Datei aus %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Höhle und Posteingang bleiben im Ausrüstungsinspektor sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.",
   gearInspectorRule: "Regel",
   gearInspectorJumpToRecipe: "Rezept auswählen",
@@ -1530,7 +1530,7 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Ausrüstung",
   tutGearDialogOpenBody: "Nutze `Tools`, um den Dialog direkt im Tab `Ausrüstung` zu öffnen. Dort kannst du eine ~~RSL Helper~~-Datenbank importieren oder manuelle Einträge erstellen, ohne die Vorschau zu verlassen.",
   tutGearDialogAddTitle: "Benutzerdefinierte Ausrüstung hinzufügen",
-  tutGearDialogAddBody: "Lass den `Tools`-Dialog im Tab `Ausrüstung` geöffnet und ziehe eine ~~RSL Helper~~ `.db`-Datei in die App oder klicke auf `Laden`, um sie aus `%APPDATA%\\RslHelper\\Config` zu importieren. Du kannst auch `Stream-Helper-DB-to-Creator.bat` ausführen, um Ausrüstung direkt aus diesem Ordner zu streamen.\n\nManuell erstellte Ausrüstung liegt neben der aus ~~RSL Helper~~. Wir haben gerade ein 5★ Rare `Refresh`-Banner der Banner Lords und ein 4★ Uncommon Knight-Revenant-Amulett als Beispielteile hinzugefügt, damit du mitverfolgen kannst. Nutze diesen Button jederzeit, wenn du hypothetische Drops, manuell erstellte Ausrüstung oder angepasste Werte simulieren willst.",
+  tutGearDialogAddBody: "Verbinde RSL Helper für Live-Synchronisation oder ziehe eine ~~RSL Helper~~ `.db`-Datei in die App oder klicke auf `Laden`, um sie aus `%APPDATA%\\RslHelper\\Config` zu importieren. Du kannst auch `Stream-Helper-DB-to-Creator.bat` ausführen, um Ausrüstung direkt aus diesem Ordner zu streamen.\n\nManuell erstellte Ausrüstung liegt neben der aus ~~RSL Helper~~. Wir haben gerade ein 5★ Rare `Refresh`-Banner der Banner Lords und ein 4★ Uncommon Knight-Revenant-Amulett als Beispielteile hinzugefügt, damit du mitverfolgen kannst. Nutze diesen Button jederzeit, wenn du hypothetische Drops, manuell erstellte Ausrüstung oder angepasste Werte simulieren willst.",
   tutGearDialogPreviewTitle: "Gear Inspector anzeigen",
   tutGearDialogPreviewBody: "Schließe den `Tools`-Dialog und schalte die Vorschau anschließend in den `Gear Inspector`-Modus, um nur die Ausrüstungsliste zu sehen. Die beiden Beispielteile sind momentan die einzigen Zeilen, sodass das Raster sofort zeigt, wann Rezepte, Finaler Verkauf oder Schutzmaßnahmen sie abdecken.",
   tutSafeguardsIntroTitle: "Schutzmaßnahmen: Überblick",

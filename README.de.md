@@ -14,9 +14,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
   Vorschau-Tab an, bevor du exportierst.
 - **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
   Sammlungen zusammen und verwende sie in Rezepten und Schutzmaßnahmen wieder.
-- **Ausrüstungs-Inspektor** — lade deine Ausrüstungsdatenbank (`.db`-Dump oder
-  Drag & Drop), um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten
-  oder verkauft würden.
+- **Ausrüstungs-Inspektor** — verbinde RSL Helper für Live-Synchronisation oder lade eine `.db`-Datei, um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten oder verkauft würden.
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
   und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
   Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
@@ -249,8 +247,7 @@ Hinweise:
 
 ### Ausrüstungsinspektor
 - Klicke auf „Tools” im Header der Sellfile-Vorschau, um den Dialog „Ausrüstung” zu öffnen. Erstelle Beispielausrüstung. Die Einträge landen sofort in der Vorschau, daher bleibt dein Raster im Ausrüstungsinspektor auch bei geschlossenem Dialog erhalten.
-- Importiere deine RSL-Helper-Ausrüstungsdatenbank, indem du `.db`-Dateien in die App ziehst oder den Button „RSL Helper Sellfile laden” nutzt (gleiches Verhalten). Diese Importe stellen tausende Artefakte plus Posteingang in die Warteschlange, schalten die Vorschau auf den Ausrüstungsinspektor und lassen Builder sowie Exportzustand unangetastet.
-- Jede Zeile zeigt Slot, Set, Level, Mainstat, Substats (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
+- Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Slot, Set, Level, Mainstat, Substats (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
 - Die Header-Zähler zeigen Behalten/Verkaufen/Bereich/Kein Treffer. Die vier Ergebnisfilter-Buttons — **Behalten**, **Verkaufen**, **Bereich** und **Kein Treffer** — funktionieren als unabhängige Schalter: jede Kombination lässt sich aktivieren, um die Liste einzugrenzen. **Bereich** dunkelt Items ab (hält sie aber sichtbar), die denselben Set+Slot wie ein zum Verkauf stehendes Stück teilen – so kannst du einen Kandidaten direkt im Vergleich zu seiner Konkurrenz sehen, ohne zwei Filterdurchläufe. Sind zusätzlich eine oder mehrere **Quellen** ausgewählt, fungieren diese als Referenzgruppe – nur als Verkauf markierte Items aus den gewählten Quellen werden zu Haupttreffern, während Begleiter aus *allen* Quellen stammen und du so jedes Exemplar dieser Ausrüstung unabhängig von seinem Standort siehst. **Kein Treffer** zeigt Ausrüstung, die von keiner Regel erfasst wird – nützlich, um Lücken in deinen Rezepten aufzudecken. Kombiniere dies mit dem `First-Match-Auswertung`/`Nach Treffer`-Schalter, um vor dem Export gezielt auf Randfälle zu fokussieren.
 - Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
 

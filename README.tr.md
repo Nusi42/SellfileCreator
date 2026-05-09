@@ -14,9 +14,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
   Önizleme sekmesinde görüntüleyin.
 - **Metasetler** — ekipman setlerini (örn. Hız + Algı) adlandırılmış koleksiyonlarda
   gruplandırın ve tariflerde ve koruma kurallarında yeniden kullanın.
-- **Ekipman denetçisi** — her tarifin hangi öğelerle eşleştiğini ve kaçının saklanacağını
-  veya satılacağını görmek için ekipman veritabanınızı (`.db` dökümü veya sürükle ve
-  bırak) yükleyin.
+- **Ekipman denetçisi** — gerçek zamanlı senkronizasyon için RSL Helper'a bağlanın veya her tarifin hangi öğelerle eşleştiğini görmek için bir `.db` dosyası yükleyin.
 - **Zindan simülatörü** — farming yaparken veya ekipman geliştirirken satış dosyanızın
   etkisini doğrulamak için çeşitli zorluk ve yükseltme seviyelerinde Ateş Şövalyesi,
   Ejderha ve Buz Golemi için saklama olasılığı yüzdelerini görün.
@@ -249,8 +247,7 @@ Araçlar'ı açıp **Gear Lens** sekmesine geçin — içe aktarılan ekipmanın
 
 ### Ekipman Denetçisi
 - Sellfile Önizlemesi başlığındaki “Araçlar” düğmesine tıklayarak Ekipman diyaloğunu açın (Araçlar → Gear sekmesi). Örnek ekipman oluşturun veya satırları yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak Ekipman Denetçisi tablosunu temizlemez.
-- `.db` dosyalarını uygulamaya bırakarak ya da “Load RSL Helper Sellfile” düğmesini kullanarak RSL Helper ekipman veritabanınızı içe aktarın (aynı yönlendirme). Bu içe aktarmalar binlerce envanter + gelen kutusu parçasını kuyruğa ekler, önizlemeyi Ekipman Denetçisi tablosuna geçirir ve oluşturucu/dışa aktarma durumunu bozmadan bırakır.
-- Her Ekipman Denetçisi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen reçete etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
+- RSL Helper'a bağlanarak gerçek zamanlı senkronizasyon sağlayın (önizleme başlığındaki Connect düğmesi) veya `.db` dosyalarını uygulamaya bırakın ya da “Load RSL Helper Sellfile” düğmesini kullanın.- Her Ekipman Denetçisi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen reçete etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
 - Başlıktaki sayaçlar Keep/Sell/Kapsam/Eşleşme yok toplamlarını gösterir. Dört sonuç filtresi butonu — **Keep**, **Sell**, **Kapsam** ve **Eşleşme yok** — bağımsız birer anahtar gibi çalışır: listeyi daraltmak için herhangi bir kombinasyonu etkinleştirin. **Kapsam**, kurallarınızın satacağı bir parçayla aynı set+slot’u paylaşan öğeleri soldurur (ancak görünür tutar), böylece bir adayı rakipleriyle tek bir görünümde karşılaştırabilirsiniz. Bir veya daha fazla **Kaynak** da seçiliyse, bunlar referans küme olarak görev yapar — yalnızca seçili kaynaklardaki Satış etiketli öğeler birincil öğe olur; arkadaşlar ise *tüm* kaynaklardan alınır ve söz konusu ekipman parçasının nerede olduğundan bağımsız olarak her kopyasını görebilirsiniz. **Eşleşme yok**, hiçbir kuralın dokunmadığı ekipmanı gösterir – reçetelerinizdeki boşlukları tespit etmek için yararlıdır. Dışa aktarmadan önce edge case’lere odaklanmak için `Seçim` `Off`/`İlk`/`Eşleşmeye göre` anahtarıyla birleştirin.
 - Önizleme anahtarını kullanarak kurallar tablosu ile Ekipman Denetçisi tablosu arasında Araçlar iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 

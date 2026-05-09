@@ -14,9 +14,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
   gerado na aba Pré-visualização antes de exportar.
 - **Metaconjuntos** — agrupe conjuntos de equipamentos (ex. Velocidade + Percepção) em
   coleções nomeadas e reutilize-os em receitas e proteções.
-- **Inspetor de equipamentos** — carregue seu banco de dados de equipamentos (dump `.db`
-  ou arrastar e soltar) para pré-visualizar quais itens correspondem a cada receita e
-  quantos seriam mantidos ou vendidos.
+- **Inspetor de equipamentos** — conecte-se ao RSL Helper para sincronização ao vivo ou carregue um arquivo `.db` para pré-visualizar quais itens correspondem a cada receita e quantos seriam mantidos ou vendidos.
 - **Simulador de masmorras** — veja os percentuais de chance de manter para o Cavaleiro do
   Fogo, o Dragão e o Golem de Gelo nos níveis de dificuldade e aprimoramento para confirmar
   o efeito do seu arquivo de venda ao farmar ou melhorar equipamentos.
@@ -249,8 +247,7 @@ Abra «Ferramentas» e vá para a aba **Gear Lens** para uma visão analítica d
 
 ### Inspetor de Equipamento
 - Clique em «Ferramentas» no cabeçalho da prévia para abrir o diálogo Equipamento. Crie equipamento de exemplo. Os itens sincronizam imediatamente com a prévia, então fechar o diálogo não limpa a grade do Inspetor de Equipamento.
-- Importe o banco de dados do RSL Helper arrastando `.db` para o aplicativo ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Esses imports enfileiram milhares de artefatos (incluindo inbox), mudam a prévia para a tabela do Inspetor de Equipamento e deixam o builder/export intactos.
-- Cada linha do Inspetor de Equipamento mostra slot, set, nível, main stat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, então `No Match` representa o que o Sellfile deixaria passar.
+- Conecte-se ao RSL Helper para sincronização ao vivo (o botão Connect no cabeçalho da prévia) ou arraste um arquivo `.db` para o aplicativo ou use o botão “Load RSL Helper Sellfile”.- Cada linha do Inspetor de Equipamento mostra slot, set, nível, main stat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, então `No Match` representa o que o Sellfile deixaria passar.
 - Os contadores no cabeçalho mostram os totais de Manter/Vender/Escopo/Sem regra. Os quatro botões de filtro de resultado — **Manter**, **Vender**, **Escopo** e **Sem regra** — funcionam como interruptores independentes: ative qualquer combinação para restringir a lista. **Escopo** esmaece (mas mantém visíveis) os itens que compartilham o mesmo set+slot que uma peça que suas regras venderiam, para que você possa comparar um candidato com sua concorrência em uma única visualização, sem precisar de dois filtros. Quando uma ou mais **Fontes** também estão selecionadas, essas fontes atuam como conjunto de referência — apenas os itens marcados para venda das fontes selecionadas se tornam itens principais, enquanto os acompanhantes são buscados em *todas* as fontes, permitindo ver cada cópia dessa peça de equipamento independentemente de onde esteja. **Sem regra** mostra equipamentos que nenhuma regra toca — útil para identificar lacunas nas suas receitas. Combine com o seletor `Primeira`/`Por correspondência` de Receitas para focar nos casos-limite antes de exportar.
 - Use o interruptor da prévia para alternar entre as tabelas «Rules» e «Inspetor de Equipamento» sem reabrir Ferramentas — perfeito para comparar as linhas geradas com o item que disparou cada resultado.
 

@@ -64,7 +64,7 @@ const overrides: Catalog = {
   manageColorsAria: "Gestionar colores",
   // Gear Inspector
   gearDialogOpenTooltip: "Abre el diálogo Herramientas en la pestaña «Equipo» para cargar una base de datos de ~~RSL Helper~~ o crear equipo de ejemplo sin salir de la vista previa.",
-  gearDialogIntro: "Usa el diálogo Equipo (`Herramientas` → pestaña Equipo) para crear equipo de muestra y ver qué regla lo mantiene o vende. Carga o arrastra una base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) para que la vista del Probador refleje equipo real.",
+  gearDialogIntro: "Usa esta pestaña Equipo para crear equipo de muestra y ver qué regla lo mantiene o vende. Conecta RSL Helper para sincronización en vivo o carga/arrastra un archivo .db desde %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Este panel solo muestra las entradas personalizadas. El equipo importado del inventario, la colección, la bóveda y la bandeja de entrada permanece visible en la vista del Probador; usa los botones de abajo para borrar esas fuentes si lo necesitas.",
   gearInspectorRule: "Regla",
   gearInspectorJumpToRecipe: "Seleccionar receta",
@@ -1532,7 +1532,7 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Equipo",
   tutGearDialogOpenBody: "Usa `Herramientas` para abrir el diálogo directamente en la pestaña `Equipo`. Allí puedes importar una base de datos de ~~RSL Helper~~ o crear entradas manuales sin salir de la vista previa.",
   tutGearDialogAddTitle: "Añadir equipo personalizado",
-  tutGearDialogAddBody: "Con `Herramientas` aún abierto en `Equipo`, arrastra un archivo `.db` de ~~RSL Helper~~ a la app o haz clic en `Cargar` para importarlo desde `%APPDATA%\\RslHelper\\Config`. También puedes ejecutar `Stream-Helper-DB-to-Creator.bat` para transmitir equipo desde esa carpeta.\n\nEl equipo creado manualmente convive con el de ~~RSL Helper~~. Acabamos de añadir un estandarte `Refresh` Raro de 5★ de los Banner Lords y un amuleto Poco común 4★ de Knight Revenant como piezas de ejemplo. Usa este botón cada vez que quieras simular drops hipotéticos, creaciones manuales o estadísticas reajustadas.",
+  tutGearDialogAddBody: "Conecta RSL Helper para sincronización en vivo, o arrastra un archivo `.db` de ~~RSL Helper~~ a la app o haz clic en `Cargar` para importarlo desde `%APPDATA%\\RslHelper\\Config`. También puedes ejecutar `Stream-Helper-DB-to-Creator.bat` para transmitir equipo desde esa carpeta.\n\nEl equipo creado manualmente convive con el de ~~RSL Helper~~. Acabamos de añadir un estandarte `Refresh` Raro de 5★ de los Banner Lords y un amuleto Poco común 4★ de Knight Revenant como piezas de ejemplo. Usa este botón cada vez que quieras simular drops hipotéticos, creaciones manuales o estadísticas reajustadas.",
   tutGearDialogPreviewTitle: "Previsualizar el Gear Inspector",
   tutGearDialogPreviewBody: "Cierra el diálogo `Herramientas` y cambia la vista previa al modo `Gear Inspector` para ver solo la lista de equipo. Las dos piezas de ejemplo son las únicas filas por ahora, así que la cuadrícula deja claro cuándo coinciden las recetas, la Venta final o Salvaguardas.",
   tutSafeguardsIntroTitle: "Resumen de Salvaguardas",

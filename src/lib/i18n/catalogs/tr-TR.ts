@@ -64,7 +64,7 @@ const overrides: Catalog = {
   manageColorsAria: "Renkleri yönet",
   // Ekipman Denetçisi
   gearDialogOpenTooltip: "Önizlemeden çıkmadan RSL Helper veritabanı yüklemek veya örnek eşyalar hazırlamak için Araçlar iletişim kutusunu “Ekipman” sekmesinde açın.",
-  gearDialogIntro: "Ekipman diyaloğunu (`Araçlar` → Gear sekmesi) kullanarak örnek ekipman oluşturun ve hangi kuralın tutup satacağını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config) uygulamaya yükleyin veya sürükleyin ki Kural Testi görünümü gerçek eşyaları göstersin.",
+  gearDialogIntro: "Bu Ekipman sekmesini kullanarak örnek ekipman oluşturun ve hangi kuralın tutup satacağını görün. Gerçek zamanlı senkronizasyon için RSL Helper'a bağlanın veya %APPDATA%\\RslHelper\\Config konumundan bir .db dosyası yükleyin/sürükleyin.",
   gearDialogManualOnlyNotice: "Bu panel sadece özel girişleri listeler. İçeri aktarılan envanter, koleksiyon, kasa ve gelen kutusu parçaları Kural Testi görünümünde kalır; gerekirse bu kaynakları aşağıdaki düğmelerle temizleyin.",
   gearInspectorRule: "Kural",
   gearInspectorJumpToRecipe: "Tarifi seç",
@@ -1534,7 +1534,7 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Ekipman",
   tutGearDialogOpenBody: "`Araçlar` düğmesini kullanarak iletişim kutusunu doğrudan `Ekipman` sekmesinde açın. Önizlemeden çıkmadan ~~RSL Helper~~ veritabanı içe aktarabilir veya manuel girdiler oluşturabilirsiniz.",
   tutGearDialogAddTitle: "Özel ekipman ekle",
-  tutGearDialogAddBody: "`Araçlar` “Ekipman” sekmesinde açıkken bir ~~RSL Helper~~ `.db` dosyasını uygulamaya sürükleyin veya `%APPDATA%\\RslHelper\\Config` konumundan içeri almak için `Yükle`ye tıklayın. Ayrıca `Stream-Helper-DB-to-Creator.bat` çalıştırarak bu klasörden ekipman aktarabilirsin.\n\nManuel oluşturulan ekipman ~~RSL Helper~~'dan gelen verilerin yanında listelenir. Rehber olarak Banner Lords'tan 5★ Nadir `Refresh` bir sancak ve 4★ Sıradan bir Knight Revenant muskası örnek parça olarak ekledik. Varsayımsal düşüşleri, el yapımı eşyaları veya yeniden ayarlanmış istatistikleri modellemek istediğinizde bu düğmeyi kullanın.",
+  tutGearDialogAddBody: "RSL Helper'a bağlanın veya bir ~~RSL Helper~~ `.db` dosyasını uygulamaya sürükleyin veya `%APPDATA%\\RslHelper\\Config` konumundan içeri almak için `Yükle`ye tıklayın. Ayrıca `Stream-Helper-DB-to-Creator.bat` çalıştırarak bu klasörden ekipman aktarabilirsin.\n\nManuel oluşturulan ekipman ~~RSL Helper~~'dan gelen verilerin yanında listelenir. Rehber olarak Banner Lords'tan 5★ Nadir `Refresh` bir sancak ve 4★ Sıradan bir Knight Revenant muskası örnek parça olarak ekledik. Varsayımsal düşüşleri, el yapımı eşyaları veya yeniden ayarlanmış istatistikleri modellemek istediğinizde bu düğmeyi kullanın.",
   tutGearDialogPreviewTitle: "Ekipman Denetçisi'ıni önizle",
   tutGearDialogPreviewBody: "`Araçlar` iletişim kutusunu kapatıp önizlemeyi `Ekipman Denetçisi` moduna çevirerek sadece ekipman listesini görün. İki örnek parça şu anda tek satırlar olduğu için reçeteler, Nihai Satış veya Safeguards eşleştiğinde tablo bu farkı net gösteriyor.",
   tutSafeguardsIntroTitle: "Safeguards genel bakış",

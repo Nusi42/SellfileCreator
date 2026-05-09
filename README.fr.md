@@ -14,9 +14,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   dans l'onglet Aperçu avant d'exporter.
 - **Métasets** — regroupez des ensembles d'équipements (ex. Vitesse + Perception) en
   collections nommées et réutilisez-les dans vos recettes et protections.
-- **Inspecteur d'équipement** — chargez votre base de données d'équipements (dump `.db`
-  ou glisser-déposer) pour prévisualiser les objets correspondant à chaque recette et
-  combien seraient conservés ou vendus.
+- **Inspecteur d'équipement** — connectez RSL Helper pour une synchronisation en direct ou chargez un fichier `.db` pour prévisualiser les objets correspondant à chaque recette et combien seraient conservés ou vendus.
 - **Simulateur de donjon** — consultez les pourcentages de chance de conservation pour le
   Chevalier du Feu, le Dragon et le Golem de Glace selon les niveaux de difficulté et de
   mise à niveau pour confirmer l'effet de votre fichier de vente lors du farming ou de
@@ -255,8 +253,7 @@ Ouvrez « Outils » et passez sur l'onglet **Gear Lens** pour un aperçu analyti
 
 ### Aperçu de l’Inspecteur d’équipement
 - Cliquez sur « Outils » dans l’en-tête de l’aperçu pour ouvrir le dialogue « Équipement ». Créez un équipement d’exemple. Les objets se synchronisent aussitôt avec l’aperçu, donc fermer le dialogue ne vide pas la grille de l’Inspecteur d’équipement.
-- Importez votre base de données d’équipement RSL Helper en déposant des fichiers `.db` dans l’app ou via « Charger Sellfile RSL Helper » (même comportement). Ces imports ajoutent des milliers d’artefacts (et les pièces de la boîte de réception), basculent l’aperçu sur l’Inspecteur d’équipement et laissent le builder ainsi que l’état d’export inchangés.
-- Chaque ligne de l’Inspecteur d’équipement affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
+- Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
 - Les compteurs de l’en-tête affichent les totaux Conserver/Vendre/Portée/Sans règle. Les quatre boutons du filtre de résultat — **Conserver**, **Vendre**, **Portée** et **Sans règle** — fonctionnent comme des bascules indépendantes : activez n’importe quelle combinaison pour affiner la liste. **Portée** atténue (mais garde visibles) les objets qui partagent le même set+emplacement qu’une pièce que vos règles vendraient, afin de comparer un candidat avec ses concurrents en une seule vue sans avoir à faire deux passes de filtre. Lorsqu'une ou plusieurs **Sources** sont également sélectionnées, elles servent de référence — seuls les objets estampillés Vendre des sources sélectionnées deviennent des éléments principaux, tandis que les compagnons sont trouvés dans *toutes* les sources, ce qui vous permet de voir chaque exemplaire de la pièce quel que soit son emplacement. **Sans règle** affiche l’équipement qu’aucune règle ne touche — utile pour repérer les lacunes de vos recettes. Combinez avec le sélecteur `Première`/`Par correspondance` des Recettes pour vous concentrer sur les cas limites avant l’export.
 - Utilisez l’interrupteur d’aperçu pour alterner entre les tables Règles et Inspecteur d’équipement sans rouvrir le dialogue Outils — idéal pour comparer les lignes générées et l’équipement qui les a déclenchées.
 

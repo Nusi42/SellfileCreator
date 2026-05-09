@@ -14,7 +14,7 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
   before exporting.
 - **Metasets** — group gear sets (e.g. Speed + Perception) into named collections and
   reuse them across recipes and safeguards.
-- **Gear Inspector** — load your gear database (`.db` dump or drag-and-drop) to preview
+- **Gear Inspector** — connect to RSL Helper for live sync or load a `.db` file to preview
   which items each recipe matches and how many would be kept or sold.
 - **Dungeon Simulator** — see keep-chance percentages for Fire Knight, Dragon, and Ice
   Golem across difficulty stages and upgrade levels to confirm the effect of your sellfile
@@ -251,8 +251,7 @@ Open `Tools` and switch to the **Gear Lens** tab for an analytics overview of yo
 
 ### Gear Inspector
 - Click `Tools` in the Sellfile Preview header to open the Gear dialog. Create example gear. Items sync to the preview immediately, so closing the dialog does not clear your Gear Inspector grid.
-- Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same behavior). Those imports queue thousands of artifacts plus inbox items, switch the preview to the Gear Inspector, and keep the builder/export state untouched.
-- Each item in the Gear Inspector shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching recipe/rule. Disabled rules never match, so “No match” entries represent gear the Sellfile would leave alone.
+- Connect to RSL Helper for live gear sync (the Connect button in the preview header), or import a `.db` file by dropping it onto the app or using the “Load RSL Helper Sellfile” button.- Each item in the Gear Inspector shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching recipe/rule. Disabled rules never match, so “No match” entries represent gear the Sellfile would leave alone.
 - The header counts show Keep / Sell / matched / unmatched totals. The four result-filter buttons — **Keep**, **Sell**, **Scope**, and **Unmatched** — work as independent toggles: activate any combination to narrow the list. **Scope** dims (but keeps visible) items that share the same set+slot as a piece your rules would sell, so you can compare a candidate against its competition in one view rather than hunting across two filter passes. When one or more **Sources** are also selected, those sources act as the reference set — only sell-tagged items from the selected sources become primaries, while companions are drawn from *all* sources, letting you see every copy of that gear piece regardless of where it sits. **Unmatched** shows gear no rule touches at all — useful for spotting gaps in your recipes. Combine these with the Recipe `First-Match`/`Any-Match` toggle to focus on edge cases before exporting.
 - Use the preview toggle to move between Rules and Gear Inspector without reopening the Tools dialog — great for comparing the generated rule rows against the gear that triggered them.
 
