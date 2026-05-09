@@ -16,19 +16,17 @@
  * dance animation on the polygon.  10 distinct variants are available.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { RadarChart } from '@mui/x-charts/RadarChart'
 import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useI18n } from '../../lib/i18n'
-import MarkdownTooltip from '../MarkdownTooltip'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import type { BarEntry } from './GearAnalyticsBar'
+import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 
 type Props = {
   title: string
@@ -408,31 +406,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   return (
     <Box ref={chartRef}>
       {/* Title row — chevron toggles collapse; tooltip on the label when a description is provided. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
-        {onToggleCollapse && (
-          // Tooltip surfaces the right-click toggle-all hint.
-          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
-            <IconButton
-              size="small"
-              data-snapshot-hide
-              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-              sx={{ p: 0.25, flexShrink: 0 }}
-            >
-              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-            </IconButton>
-          </MarkdownTooltip>
-        )}
-        <Tooltip title={description ?? ''} arrow placement="top-start">
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: description ? 'help' : 'default' }}
-          >
-            {title}
-          </Typography>
-        </Tooltip>
-      </Box>
+      <GearAnalyticsChartHeader title={title} description={description} collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       <Collapse in={!collapsed} timeout="auto">
 
       {/*

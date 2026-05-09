@@ -18,9 +18,7 @@
  * Hovering a filled cell shows the equipped gear piece via GearInspectorGridCard.
  */
 import { useMemo, useState, useEffect } from 'react'
-import { Box, Collapse, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Box, Collapse, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   buildChampionGearProfiles,
@@ -45,6 +43,7 @@ import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import MarkdownTooltip from '../MarkdownTooltip'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from '../GearInspectorGridCard'
+import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -436,30 +435,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   return (
     <Box>
       {/* Title row — chevron toggles collapse; tooltip on the label for legend context. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
-        {onToggleCollapse && (
-          // Tooltip surfaces the right-click toggle-all hint.
-          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
-            <IconButton
-              size="small"
-              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-              sx={{ p: 0.25, flexShrink: 0 }}
-            >
-              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-            </IconButton>
-          </MarkdownTooltip>
-        )}
-        <Tooltip title={t('gearAnalyticsNotEquippedTitleDesc')} arrow placement="top-start">
-          <Typography variant="caption" color="text.secondary" sx={{
-            fontWeight: 600, letterSpacing: 0.3,
-            textTransform: 'uppercase', fontSize: '0.68rem',
-            display: 'inline-block', cursor: 'help',
-          }}>
-            {t('gearAnalyticsNotEquippedTitle')}
-          </Typography>
-        </Tooltip>
-      </Box>
+      <GearAnalyticsChartHeader title={t('gearAnalyticsNotEquippedTitle')} description={t('gearAnalyticsNotEquippedTitleDesc')} collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       <Collapse in={!collapsed} timeout="auto">
       {/* Controls row: Sort label + mode group. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>

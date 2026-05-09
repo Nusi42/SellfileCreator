@@ -353,9 +353,20 @@ const sectionHeaderLabelTextSx = {
   whiteSpace: 'nowrap',
 } as const
 
-const SectionHeaderLabel = ({ label, highlight }: { label: string; highlight?: boolean }) => (
+const SectionHeaderLabel = ({
+  label,
+  highlight,
+  onClick,
+  onContextMenu,
+}: {
+  label: string
+  highlight?: boolean
+  onClick?: () => void
+  onContextMenu?: (event: React.MouseEvent) => void
+}) => (
   <EllipsisTooltip title={label} wrap="block">
-    <FormLabel sx={sectionHeaderLabelSx}>
+    {/* onClick/onContextMenu: clicking the label mirrors the toggle icon — left-click toggles one, right-click toggles all. */}
+    <FormLabel sx={onClick ? [sectionHeaderLabelSx, { cursor: 'pointer' }] : sectionHeaderLabelSx} onClick={onClick} onContextMenu={onContextMenu}>
       {/* highlight: primary color signals the section has an active selection while collapsed. */}
       <Box component="span" data-ellipsis-target sx={highlight ? [sectionHeaderLabelTextSx, { color: 'primary.main' }] : sectionHeaderLabelTextSx}>
         {label}
@@ -369,29 +380,18 @@ const SectionHeaderLabel = ({ label, highlight }: { label: string; highlight?: b
 type FilterSectionToggleProps = {
   id: keyof CollapsedSections
   collapsed: CollapsedSections
-  onCollapsedChange: (next: CollapsedSections) => void
+  // onToggle: shared toggle callback from FilterSectionHeader; avoids duplicating the logic here.
+  onToggle: (applyToAll: boolean) => void
 }
 
-const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onCollapsedChange }) => {
+const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onToggle }) => {
   const { t } = useI18n()
-  const toggleSections = (applyToAll: boolean) => {
-    const nextValue = !collapsed[id]
-    if (applyToAll) {
-      const nextAll: CollapsedSections = { ...collapsed }
-      for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
-        nextAll[key] = nextValue
-      }
-      onCollapsedChange(nextAll)
-      return
-    }
-    onCollapsedChange({ ...collapsed, [id]: nextValue })
-  }
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     // Guard against right-button synthetic clicks that some browser/OS combinations fire
     // after a contextmenu event — those are handled exclusively by handleContextMenu.
     if (event.button !== 0) return
     const multiToggle = event.ctrlKey || event.metaKey
-    toggleSections(multiToggle)
+    onToggle(multiToggle)
   }
   const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -399,7 +399,7 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
     // flushSync ensures React processes the store update synchronously before the browser's
     // native contextmenu handling can defer or interrupt the scheduled re-render.
     // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- contextmenu events can stall React's render cycle; synchronous flush ensures the collapse state is visible immediately.
-    flushSync(() => toggleSections(true))
+    flushSync(() => onToggle(true))
   }
   return (
     // Tooltip surfaces the right-click hint so users discover the toggle-all gesture.
@@ -443,6 +443,24 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   // Highlight the label when the section is collapsed and has a non-default selection,
   // so the color acts as a secondary signal alongside the X-clear button.
   const highlight = !!dirty && !!collapsed[id]
+  // Single source of truth for toggle logic shared by the icon button and the label.
+  const toggleSections = (applyToAll: boolean) => {
+    const nextValue = !collapsed[id]
+    if (applyToAll) {
+      const nextAll: CollapsedSections = { ...collapsed }
+      for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
+        nextAll[key] = nextValue
+      }
+      onCollapsedChange(nextAll)
+      return
+    }
+    onCollapsedChange({ ...collapsed, [id]: nextValue })
+  }
+  const handleLabelContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault()
+    // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- matches the icon button's contextmenu flush to keep collapse state visible immediately.
+    flushSync(() => toggleSections(true))
+  }
   return (
     <Box
       sx={{
@@ -451,7 +469,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
         maxWidth: fullWidth ? '100%' : resolvedMax ?? '100%',
       }}
     >
-      <FilterSectionToggle id={id} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />
+      <FilterSectionToggle id={id} collapsed={collapsed} onToggle={toggleSections} />
       <Box
         sx={{
           display: 'flex',
@@ -461,7 +479,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
           flex: '0 1 auto',
         }}
       >
-        <SectionHeaderLabel label={label} highlight={highlight} />
+        <SectionHeaderLabel label={label} highlight={highlight} onClick={() => toggleSections(false)} onContextMenu={handleLabelContextMenu} />
         {actions ? (
           <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
             {actions}

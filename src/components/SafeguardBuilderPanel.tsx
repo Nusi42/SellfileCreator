@@ -19,7 +19,6 @@ import {
   Collapse,
   Divider,
   FormControl,
-  FormLabel,
   IconButton,
   InputAdornment,
   InputBase,
@@ -82,7 +81,6 @@ import {
   type StatVariant,
 } from '../lib/types'
 import {
-  BUILDER_LABEL_INLINE_SX,
   BUILDER_LABEL_TEXT_SX,
   BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
@@ -113,7 +111,7 @@ import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfcHistory'
 import { useBuilderSafeguardCollapsedPreference } from '../state/builderPreferences'
 import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
-import BuilderSectionToggle from './BuilderSectionToggle'
+import BuilderSectionHeader from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
@@ -1181,10 +1179,9 @@ export default function SafeguardBuilderPanel({
         {/* Header row: chevron + Mode label + info icon + undo/redo (always visible).
             position+zIndex keep the label and undo/redo controls on top of the toggle row bleed. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, position: 'relative', zIndex: 1 }}>
-          <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+          <BuilderSectionHeader id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
             <Box component="span" sx={modeLabelColor ? [BUILDER_LABEL_TEXT_SX, { color: modeLabelColor }] : BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
-          </FormLabel>
+          </BuilderSectionHeader>
           <MarkdownTooltip markdown={ruleModeScopeTooltip}>
             <IconButton
               size="small"
@@ -1710,10 +1707,9 @@ export default function SafeguardBuilderPanel({
         {/* Rank — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
             <GearRankSelect
@@ -1742,10 +1738,9 @@ export default function SafeguardBuilderPanel({
         {/* Rarity — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
             <GearRaritySelect
@@ -1771,10 +1766,9 @@ export default function SafeguardBuilderPanel({
         {/* Faction — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
             <GearFactionSelect
@@ -1816,8 +1810,7 @@ export default function SafeguardBuilderPanel({
         {/* Label row mirrors the recipe builder's level-window header exactly (same components,
             same sx) so this spacer's height is always pixel-identical on every screen/zoom. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-          <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-          <FormLabel sx={BUILDER_LABEL_INLINE_SX} />
+          <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
         </Box>
         {/* Collapse mirrors left columns: hide the slider when every RRF section is collapsed so
             the grid row height tracks the content rather than always being slider-tall. */}
@@ -1850,10 +1843,9 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
             {mainStatSectionDirty
               ? (
                 <ClearIconButton
@@ -1981,10 +1973,9 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
             {hasSubstatSelection
               ? (
                 <ClearIconButton
@@ -2347,10 +2338,9 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
             {slotSectionDirty
               ? (
                 <ClearIconButton
@@ -2506,10 +2496,9 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0, flex: 1 }]}>
+            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0, flex: 1 }}>
               <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
               <Button
                 size="small"

@@ -15,9 +15,7 @@
  * animation on the tile layout.  10 distinct variants are available.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { alpha, Box, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { alpha, Box, Collapse, Tooltip, Typography, useTheme } from '@mui/material'
 import type { SetOutcomeCount } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
 import { clamp01, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
@@ -26,7 +24,7 @@ import type { ArtifactSetId } from '../../lib/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import type { Metaset } from '../../lib/metasets'
 import GearSetsSelect from '../gear/GearSetsSelect'
-import MarkdownTooltip from '../MarkdownTooltip'
+import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -480,28 +478,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   return (
     <Box>
       {/* Title row — chevron + label on the left; GearSetsSelect quick-filter on the right (hidden when collapsed). */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75, minWidth: 0 }}>
-        {onToggleCollapse && (
-          // Tooltip surfaces the right-click toggle-all hint.
-          <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
-            <IconButton
-              size="small"
-              data-snapshot-hide
-              onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-              sx={{ p: 0.25, flexShrink: 0 }}
-            >
-              {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-            </IconButton>
-          </MarkdownTooltip>
-        )}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block' }}
-        >
-          {title}
-        </Typography>
+      <GearAnalyticsChartHeader title={title} collapsed={collapsed} onToggleCollapse={onToggleCollapse} boxSx={{ mb: 0.75 }}>
         {/* Quick gear-set filter — visible only when the section is expanded; excluded from snapshots. */}
         {!collapsed && setSelectionEntries !== undefined && onSetSelectionChange && (
           // Fixed-width container: prevents the select from pushing the title label when many sets
@@ -524,7 +501,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
             />
           </Box>
         )}
-      </Box>
+      </GearAnalyticsChartHeader>
       <Collapse in={!collapsed} timeout="auto">
       {/* Treemap canvas. Tiles are absolutely positioned inside. */}
       <Box ref={containerRef} sx={{ position: 'relative', width: '100%', height: TREEMAP_H }}>

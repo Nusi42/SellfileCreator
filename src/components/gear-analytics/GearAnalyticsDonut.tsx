@@ -12,9 +12,7 @@
  * Optional arcLabel: custom text label function for arcs (used when no slotIconById is given).
  */
 import { createContext, use, useEffect, useMemo, useRef } from 'react'
-import { alpha, Box, Collapse, IconButton, Typography, useTheme } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { alpha, Box, Collapse, Typography, useTheme } from '@mui/material'
 import { PieChart } from '@mui/x-charts'
 import {
   useItemTooltip,
@@ -25,8 +23,7 @@ import {
 } from '@mui/x-charts/ChartsTooltip'
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
-import { useI18n } from '../../lib/i18n'
-import MarkdownTooltip from '../MarkdownTooltip'
+import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 
 export type DonutSlice = {
   /** Domain ID used to track selection (slot ID, rarity RankValue, set ID, outcome string, etc.). */
@@ -423,7 +420,6 @@ function triggerDonutDance(el: HTMLElement): void {
 }
 
 export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
-  const { t } = useI18n()
   const theme = useTheme()
 
   // Pre-build icon map: String(domainId) → SlotIconAsset.
@@ -482,23 +478,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
   if (data.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
-          {onToggleCollapse && (
-            // Tooltip surfaces the right-click toggle-all hint.
-            <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
-              <IconButton
-                size="small"
-                data-snapshot-hide
-                onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-                sx={{ p: 0.25, flexShrink: 0 }}
-              >
-                {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-              </IconButton>
-            </MarkdownTooltip>
-          )}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>{title}</Typography>
-        </Box>
+        <GearAnalyticsChartHeader title={title} collapsed={collapsed} onToggleCollapse={onToggleCollapse} boxSx={{ gap: 0.25 }} />
         <Collapse in={!collapsed} timeout="auto">
           <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="caption" color="text.secondary">—</Typography>
@@ -568,25 +548,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
       {/* ref target for WAAPI dance animations — the whole donut bounces/spins/etc. */}
       <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Title row — chevron toggles collapse of the pie chart below. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mb: 0.5 }}>
-          {onToggleCollapse && (
-            // Tooltip surfaces the right-click toggle-all hint.
-            <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
-              <IconButton
-                size="small"
-                data-snapshot-hide
-                onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-                sx={{ p: 0.25, flexShrink: 0 }}
-              >
-                {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-              </IconButton>
-            </MarkdownTooltip>
-          )}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem' }}>
-            {title}
-          </Typography>
-        </Box>
+        <GearAnalyticsChartHeader title={title} collapsed={collapsed} onToggleCollapse={onToggleCollapse} boxSx={{ gap: 0.25 }} />
         <Collapse in={!collapsed} timeout="auto">
         <PieChart
           series={[{

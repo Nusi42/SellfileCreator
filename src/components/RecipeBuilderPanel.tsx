@@ -64,7 +64,7 @@ import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtil
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
-import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
+import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, Chip, FormControl, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -86,7 +86,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
@@ -114,7 +114,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from '../state/builderPreferences'
 import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
-import BuilderSectionToggle from './BuilderSectionToggle'
+import BuilderSectionHeader from './BuilderSectionToggle'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
@@ -2771,8 +2771,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         })}>
           {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0 }]}>
+            <BuilderSectionHeader id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ mb: 0 }}>
               <MarkdownTooltip
                 // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
                 // the OS tooltip without stacking another Markdown popper.
@@ -2788,7 +2787,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={actionLabelColor ? [BUILDER_LABEL_TEXT_SX, { color: actionLabelColor }] : BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
             {/* Info icon beside the Action label — hover to see builder overview. */}
             <MarkdownTooltip markdown={t('builderInfoTooltip')}>
               <IconButton
@@ -3235,8 +3234,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+            <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderRank')}
                 render={(
@@ -3252,7 +3250,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -3362,8 +3360,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+            <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <MarkdownTooltip
                 ellipsisTitle={t('filterRarity')}
                 render={(
@@ -3383,7 +3380,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -3546,8 +3543,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+            <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderFaction')}
                 render={(
@@ -3561,7 +3557,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -3658,10 +3654,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-            <FormLabel sx={BUILDER_LABEL_INLINE_SX}>
+            <BuilderSectionHeader id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
-            </FormLabel>
+            </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
           <Box sx={{ px: 1.5, position: 'relative' }}>
@@ -3716,9 +3711,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderMain')}
                 render={(
@@ -3729,7 +3723,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
             {(() => {
               const baseMainSelected = (((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
               const hasMainSelection = multiEditActive && multiSummary
@@ -3858,9 +3852,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderSubstats')}
                 render={(
@@ -3878,7 +3871,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.substats && substatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
             {(() => {
               if (multiEditActive && multiSummary) {
                 if (substatsPatch?.clear) {
@@ -5451,9 +5444,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionToggle id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
+            <BuilderSectionHeader id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderSlots')}
                 render={(
@@ -5464,7 +5456,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
             {(() => {
               if (multiEditActive && multiSummary) {
                 if (slotsPatch?.clear) {
@@ -5764,12 +5756,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   <>
                     {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionToggle id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-                      <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.min-rolls.label">
+                      <BuilderSectionHeader id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.min-rolls.label">
                         <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
                           <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
                         </MarkdownTooltip>
-                      </FormLabel>
+                      </BuilderSectionHeader>
                     </Box>
                     <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
                     {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
@@ -6037,8 +6028,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   <>
                     {/* Required substats caption exposes overflow through the shared label helper. */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionToggle id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-                      <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.required.label">
+                      <BuilderSectionHeader id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.required.label">
                         <MarkdownTooltip
                           ellipsisTitle={t('builderRequiredSubstats')}
                           render={(
@@ -6052,7 +6042,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         >
                           <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
                         </MarkdownTooltip>
-                      </FormLabel>
+                      </BuilderSectionHeader>
                     </Box>
                     <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
                     {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
@@ -6266,8 +6256,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 >
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <BuilderSectionToggle id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
-                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]} data-tour-id="builder.thresholds.label">
+                    <BuilderSectionHeader id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.thresholds.label">
                       <MarkdownTooltip
                         ellipsisTitle={t('builderMilestoneThresholds')}
                         render={(
@@ -6283,7 +6272,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       >
                         <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
                       </MarkdownTooltip>
-                    </FormLabel>
+                    </BuilderSectionHeader>
                   </Box>
                   <Collapse in={!builderCollapsed.milestoneThresholds} timeout="auto" unmountOnExit>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -6409,9 +6398,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl fullWidth sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
-            <BuilderSectionToggle id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
             {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
-            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0, mr: 1, flex: '0 1 auto' }]}>
+            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ mb: 0, mr: 1, flex: '0 1 auto' }}>
               <MarkdownTooltip
                 ellipsisTitle={t('setsTitle')}
                 render={(
@@ -6422,7 +6410,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               >
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
-            </FormLabel>
+            </BuilderSectionHeader>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
