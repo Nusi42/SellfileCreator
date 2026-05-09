@@ -7617,14 +7617,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <Box
         sx={{
           mb: 1,
-          // Forced-zoom and native side-by-side: escape the MUI Container max-width cap
-          // so the header stays visually aligned with the panels row below it.
-          // Single-column: stay within the Container, cap at PANEL_WIDTH_PX, centred.
+          // Side-by-side: escape the MUI Container max-width cap so the header spans
+          // the full two-panel width. Single-column: fill the Container width, same as
+          // the BuilderColumn paper (which uses maxWidth:none / width:100%).
           width: (isSideBySide || forceSideBySideLayout)
             ? (forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100vw')
             : '100%',
-          maxWidth: (isSideBySide || forceSideBySideLayout) ? 'none' : PANEL_WIDTH_PX,
-          mx: (isSideBySide || forceSideBySideLayout) ? 0 : 'auto',
+          maxWidth: 'none',
+          mx: 0,
           ...(isSideBySide || forceSideBySideLayout
             ? {
                 position: 'relative',
@@ -7651,15 +7651,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             gap: 1,
             flexWrap: 'wrap',
             width: '100%',
-            maxWidth: PANEL_WIDTH_PX,
+            maxWidth: 'none',
             ...(forceSideBySideLayout
               ? {
                   gridColumn: '1 / span 1',
                 }
               : {}),
             [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
-              // Anchor to the left edge of the two-column grid; only span the left panel width
+              // Span the full two-panel width so the right-aligned buttons reach the preview edge.
               gridColumn: '1 / span 1',
+              maxWidth: 'none',
             },
           }}
         >
