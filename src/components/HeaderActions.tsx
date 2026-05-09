@@ -15,6 +15,7 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { highlightElementKeyframes } from '../lib/attentionCatalog'
+import basicSfcRaw from '../../examples/Basic.sfc?raw'
 import nusiSfcRaw from '../../examples/example.sfc?raw'
 
 // Glow-pulse keyframe: soft drop-shadow that fades in and out.
@@ -77,8 +78,8 @@ export default function HeaderActions(props: {
   const { t } = useI18n()
 
   const [sfcCtxMenu, setSfcCtxMenu] = useState<{ x: number; y: number } | null>(null)
-  // Tracks whether the sample-load confirmation dialog is open.
-  const [sampleConfirmOpen, setSampleConfirmOpen] = useState(false)
+  // Tracks which preset the user clicked — null means no confirm dialog is open.
+  const [pendingPreset, setPendingPreset] = useState<{ raw: string; filename: string } | null>(null)
   // Cursor position for the "right-click for options" hover hint.
   const [sfcHintPos, setSfcHintPos] = useState<{ x: number; y: number } | null>(null)
   const sfcButtonRef = useRef<HTMLButtonElement>(null)
@@ -97,11 +98,12 @@ export default function HeaderActions(props: {
   )
   const chipLabel = props.chipLabel ?? recipeChipLabel
 
-  const handleLoadSample = useCallback(() => {
-    setSampleConfirmOpen(false)
-    const file = new File([nusiSfcRaw], 'example.sfc', { type: 'application/json' })
+  const handleLoadPreset = useCallback(() => {
+    if (!pendingPreset) return
+    setPendingPreset(null)
+    const file = new File([pendingPreset.raw], pendingPreset.filename, { type: 'application/json' })
     void onSelectFile(file, { shiftKey: false })
-  }, [onSelectFile])
+  }, [pendingPreset, onSelectFile])
 
   // Three arrows: all start from the same neon-yellow base but the slow rainbow-flash
   // cycle is staggered so each sits at a different hue at any given moment — gold,
@@ -302,20 +304,28 @@ export default function HeaderActions(props: {
           <MenuItem
             onClick={() => {
               closeSfcMenu()
-              setSampleConfirmOpen(true)
+              setPendingPreset({ raw: basicSfcRaw, filename: 'Basic.sfc' })
             }}
           >
-            {t('loadSampleSfc')}
+            {t('loadPresetBeginner')}
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeSfcMenu()
+              setPendingPreset({ raw: nusiSfcRaw, filename: 'example.sfc' })
+            }}
+          >
+            {t('loadPresetMidToEndGame')}
           </MenuItem>
         </Menu>
-        <Dialog open={sampleConfirmOpen} onClose={() => setSampleConfirmOpen(false)}>
-          <DialogTitle>{t('loadSampleSfcConfirmTitle')}</DialogTitle>
+        <Dialog open={pendingPreset !== null} onClose={() => setPendingPreset(null)}>
+          <DialogTitle>{t('loadPresetConfirmTitle')}</DialogTitle>
           <DialogContent>
-            <Typography>{t('loadSampleSfcConfirmMessage')}</Typography>
+            <Typography>{t('loadPresetConfirmMessage')}</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setSampleConfirmOpen(false)}>{t('cancel')}</Button>
-            <Button variant="contained" onClick={handleLoadSample}>{t('loadSampleSfcConfirmOk')}</Button>
+            <Button onClick={() => setPendingPreset(null)}>{t('cancel')}</Button>
+            <Button variant="contained" onClick={handleLoadPreset}>{t('loadPresetConfirmOk')}</Button>
           </DialogActions>
         </Dialog>
         <DirtyBadge active={sfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
