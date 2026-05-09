@@ -1,13 +1,14 @@
 /**
  * RslHelperConnectButton
  *
- * Header button that reopens the app pre-connected to a local RSL Helper instance.
- * Left-click navigates to the deep-link URL.
- * Right-click opens a ContextMenuPaper popout for port configuration,
- * consistent with all other right-click surfaces in the app.
+ * Header toggle that connects/disconnects the app from a local RSL Helper WebSocket instance.
+ * State is reflected visually on the robot icon: off (outlined), connecting (pulsing + spinner
+ * badge), connected (success fill + dot badge).
+ * Left-click toggles the connection. Right-click opens a ContextMenuPaper popout for port
+ * configuration, consistent with all other right-click surfaces in the app.
  */
 import React, { useRef, useState } from 'react'
-import { IconButton, Popover, TextField } from '@mui/material'
+import { Box, CircularProgress, IconButton, Popover, TextField } from '@mui/material'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
@@ -17,20 +18,29 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useI18n } from '../lib/i18n'
 import {
-  buildRslHelperConnectUrl,
   getRslHelperPort,
   RSL_HELPER_DEFAULT_PORT,
   RSL_HELPER_PORT_STORAGE_KEY,
 } from '../lib/externalWsProtocol'
 
-// Self-contained: manages its own port state so App.tsx does not need to know about it.
-export default function RslHelperConnectButton() {
+export type RslHelperConnectButtonProps = {
+  // Whether the user has toggled the connection on.
+  connectEnabled: boolean
+  // Whether the WebSocket is currently open and confirmed reachable.
+  pushEndpointReachable: boolean
+  // Called when the user clicks the button to toggle the connection.
+  onToggleConnect: () => void
+}
+
+export default function RslHelperConnectButton({
+  connectEnabled,
+  pushEndpointReachable,
+  onToggleConnect,
+}: RslHelperConnectButtonProps) {
   const { t } = useI18n()
 
   // Port read from localStorage on mount; updated whenever the input contains a valid value.
   const [port, setPort] = useState<number>(() => getRslHelperPort())
-  // Recompute the deep-link URL whenever the port changes.
-  const connectUrl = React.useMemo(() => buildRslHelperConnectUrl(port), [port])
 
   // Anchor element stored in state so Popover receives a stable non-ref value during render.
   // (Accessing ref.current during render is forbidden by the react-hooks/refs lint rule.)
@@ -61,6 +71,9 @@ export default function RslHelperConnectButton() {
     return Number.isFinite(n) && n >= 1 && n <= 65535 ? n : null
   })()
 
+  // Derive the visual state from the combination of enabled + reachable.
+  const connectState = !connectEnabled ? 'off' : pushEndpointReachable ? 'connected' : 'connecting'
+
   const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     // Record that the user found the right-click feature so the hint stops showing.
@@ -87,25 +100,66 @@ export default function RslHelperConnectButton() {
     setPort(n)
   }
 
-  // Compose the tooltip: primary action + right-click hint in italic below.
-  const tooltipMd = `${t('connectRslHelper')}\n\n${t('connectRslHelperPortHint')}`
+  // Tooltip primary line changes with state; port hint always appended below.
+  const primaryTooltip =
+    connectState === 'connected' ? t('connectRslHelperConnected')
+    : connectState === 'connecting' ? t('connectRslHelperConnecting')
+    : t('connectRslHelper')
+  const tooltipMd = `${primaryTooltip}\n\n${t('connectRslHelperPortHint')}`
 
   return (
     <>
       <MarkdownTooltip markdown={tooltipMd}>
         <IconButton
           size="small"
-          onClick={() => { window.location.href = connectUrl }}
+          onClick={onToggleConnect}
           onContextMenu={handleContextMenu}
           onMouseMove={(e) => {
             // Track cursor so the hint overlay follows the pointer.
             if (showHint && !popoverOpen) setHintPos({ x: e.clientX, y: e.clientY })
           }}
           onMouseLeave={() => setHintPos(null)}
-          aria-label={t('connectRslHelper')}
-          sx={{ height: 34, width: 34, color: 'primary.main', border: '1px solid', borderColor: 'primary.main', borderRadius: 1, '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' } }}
+          aria-label={primaryTooltip}
+          sx={{
+            height: 34, width: 34, border: '1px solid', borderRadius: 1,
+            // Colour scheme shifts with connection state.
+            ...(connectState === 'connected'
+              ? {
+                  bgcolor: 'success.main', borderColor: 'success.main', color: 'success.contrastText',
+                  '&:hover': { bgcolor: 'success.dark', borderColor: 'success.dark', color: 'success.contrastText' },
+                }
+              : connectState === 'connecting'
+              ? {
+                  color: 'primary.main', borderColor: 'primary.main',
+                  // Pulse the whole button to signal an active attempt without obscuring the icon.
+                  '@keyframes rslPulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.45 } },
+                  animation: 'rslPulse 1.4s ease-in-out infinite',
+                }
+              : {
+                  color: 'primary.main', borderColor: 'primary.main',
+                  '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' },
+                }),
+          }}
         >
-          <SmartToyOutlinedIcon fontSize="small" />
+          {/* Robot icon with a small badge overlay that conveys connection state. */}
+          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+            <SmartToyOutlinedIcon fontSize="small" />
+            {connectState === 'connecting' && (
+              // Spinner anchored to the bottom-right corner of the icon.
+              <CircularProgress
+                size={10}
+                sx={{ position: 'absolute', bottom: -3, right: -3, color: 'primary.main' }}
+              />
+            )}
+            {connectState === 'connected' && (
+              // Solid dot anchored to the bottom-right corner; white fill inside a green ring.
+              <Box sx={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 8, height: 8, borderRadius: '50%',
+                bgcolor: 'success.contrastText', border: '1.5px solid', borderColor: 'success.main',
+              }} />
+            )}
+          </Box>
         </IconButton>
       </MarkdownTooltip>
 

@@ -202,6 +202,8 @@ const overrides: Catalog = {
   updateNoticeDownload: "Завантажити",
   updateNoticeDismissAriaLabel: "Закрити сповіщення про оновлення",
   connectRslHelper: "Підключитися до RSL Helper",
+  connectRslHelperConnecting: "Підключення до RSL Helper…",
+  connectRslHelperConnected: "Підключено до RSL Helper — натисніть для відключення",
   connectRslHelperPortHint: "_Клацніть правою кнопкою миші, щоб налаштувати порт._",
   rslHelperPortDialogTitle: "Порт RSL Helper",
   rslHelperPortLabel: "Порт",

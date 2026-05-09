@@ -204,6 +204,8 @@ const enUS: Catalog = {
   updateNoticeDownload: "Download",
   updateNoticeDismissAriaLabel: "Dismiss update notification",
   connectRslHelper: "Connect to RSL Helper",
+  connectRslHelperConnecting: "Connecting to RSL Helper…",
+  connectRslHelperConnected: "Connected to RSL Helper — click to disconnect",
   connectRslHelperPortHint: "_Right-click to configure the port._",
   rslHelperPortDialogTitle: "RSL Helper Port",
   rslHelperPortLabel: "Port",

@@ -202,6 +202,8 @@ const catalog: Catalog = {
   updateNoticeDownload: "Baixar",
   updateNoticeDismissAriaLabel: "Dispensar notificação de atualização",
   connectRslHelper: "Conectar ao RSL Helper",
+  connectRslHelperConnecting: "Conectando ao RSL Helper…",
+  connectRslHelperConnected: "Conectado ao RSL Helper — clique para desconectar",
   connectRslHelperPortHint: "_Clique com o botão direito para configurar a porta._",
   rslHelperPortDialogTitle: "Porta do RSL Helper",
   rslHelperPortLabel: "Porta",

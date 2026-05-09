@@ -11,7 +11,15 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, EXTERNAL_WS_METHOD_SELECT_ARTIFACTS } from './lib/externalWsProtocol'
+import {
+  EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
+  EXTERNAL_WS_METHOD_SELECT_ARTIFACTS,
+  buildRslHelperWsEndpoint,
+  getRslHelperConnectEnabled,
+  getRslHelperPort,
+  // Aliased so the React state setter can follow the setX naming convention without conflict.
+  setRslHelperConnectEnabled as persistRslHelperConnectEnabled,
+} from './lib/externalWsProtocol'
 import type {
   ExternalCommand,
   GearDbArtifactsCommand,
@@ -3138,11 +3146,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastMsg,
     t,
   })
-  const pushEndpoint = useMemo(() => getPushEndpoint(), [])
+  // Initialize from localStorage; migrate users who previously loaded via ?endpoint= URL param.
+  const [rslHelperConnectEnabled, setRslHelperConnectEnabled] = useState<boolean>(() => {
+    if (getPushEndpoint()) {
+      // Persist the preference so subsequent loads auto-connect without a URL param.
+      persistRslHelperConnectEnabled(true)
+      // Strip the endpoint param from the address bar so it does not linger.
+      try {
+        const cleanUrl = new URL(window.location.href)
+        cleanUrl.searchParams.delete('endpoint')
+        history.replaceState(null, '', cleanUrl.toString())
+      } catch {}
+      return true
+    }
+    return getRslHelperConnectEnabled()
+  })
+  // Derive the WebSocket endpoint from the toggle state; re-reads port from localStorage when enabled.
+  const pushEndpoint = useMemo(
+    () => (rslHelperConnectEnabled ? buildRslHelperWsEndpoint(getRslHelperPort()) : undefined),
+    [rslHelperConnectEnabled]
+  )
   const [pushEndpointReachable, setPushEndpointReachable] = useState(() => Boolean(pushEndpoint))
   const updatePushEndpointReachable = useCallback((next: boolean) => {
     setPushEndpointReachable((prev) => (prev === next ? prev : next))
   }, [])
+  const handleToggleRslHelperConnect = useCallback(() => {
+    setRslHelperConnectEnabled((prev) => {
+      const next = !prev
+      persistRslHelperConnectEnabled(next)
+      return next
+    })
+  }, [setRslHelperConnectEnabled])
 
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = createRecipesClearedDescriptor(customRecipes.length)
@@ -3852,10 +3886,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
-
-  // Detect whether the app was already opened with a WebSocket endpoint param.
-  // The button is hidden when the endpoint is already present so it is not confusing.
-  const hasEndpointParam = React.useMemo(() => new URLSearchParams(window.location.search).has('endpoint'), [])
 
   const { applyGearDbDiff } = useGearInspectorItemsActions({
     allocGearInspectorItemId,
@@ -7695,8 +7725,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   {t('helpOpenLabel')}
                 </Button>
               </MarkdownTooltip>
-              {/* Connect to RSL Helper — hidden once an endpoint param is already present */}
-              {!hasEndpointParam && <RslHelperConnectButton />}
+              {/* Connect to RSL Helper — persistent toggle with off/connecting/connected states */}
+              <RslHelperConnectButton
+                connectEnabled={rslHelperConnectEnabled}
+                pushEndpointReachable={pushEndpointReachable}
+                onToggleConnect={handleToggleRslHelperConnect}
+              />
             </Box>
           </Box>
         </Box>
