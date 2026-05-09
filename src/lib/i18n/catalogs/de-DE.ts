@@ -10,7 +10,7 @@ const overrides: Catalog = {
   loadRecipesTooltip: "Lade eine SFC-Datei, um dein vollständiges Setup wiederherzustellen — Rezepte, Schutzmaßnahmen, Metasets, Notizen und mehr.",
   loadSfcFromFile: "Aus Datei laden…",
   loadPresetBeginner: "SFC-Beispieldatei laden (Anfänger)",
-  loadPresetMidToEndGame: "SFC-Beispieldatei laden (Mid–Endgame)",
+  loadPresetMidToEndGame: "SFC-Beispieldatei laden (Midgame bis Endgame)",
   loadPresetConfirmTitle: "Voreinstellung laden?",
   loadPresetConfirmMessage: "Dadurch wird dein aktuelles Setup — Rezepte, Metasets und Notizen — durch die ausgewählte Voreinstellung ersetzt.",
   loadPresetConfirmOk: "Voreinstellung laden",

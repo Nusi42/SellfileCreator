@@ -10,7 +10,7 @@ const enUS: Catalog = {
   loadRecipesTooltip: "Load an SFC file to restore your full setup — recipes, safeguards, metasets, notes, and more.",
   loadSfcFromFile: "Load from file…",
   loadPresetBeginner: "Load Beginner Sample SFC",
-  loadPresetMidToEndGame: "Load Mid–End Game Sample SFC",
+  loadPresetMidToEndGame: "Load Midgame to Endgame Sample SFC",
   loadPresetConfirmTitle: "Load Preset?",
   loadPresetConfirmMessage: "This will replace your current setup — recipes, metasets, and notes — with the selected preset.",
   loadPresetConfirmOk: "Load Preset",
