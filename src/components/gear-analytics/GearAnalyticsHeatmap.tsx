@@ -7,9 +7,7 @@
  * Clicking a cell toggles both the slot (cross-filter) and the main stat (substat drill-down filter).
  */
 import React from 'react'
-import { Box, Collapse, IconButton, Tooltip, Typography, useTheme } from '@mui/material'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Box, Collapse, Tooltip, useTheme } from '@mui/material'
 import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearAnalytics'
 import type { GearAnalyticsDim } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
@@ -17,6 +15,7 @@ import { useI18n } from '../../lib/i18n'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { slotIconSvgAsset } from '../artifactTypeIcons'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
+import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 
 type Props = {
   matrix: SlotMainMatrix
@@ -52,28 +51,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
   return (
     <Box>
       {/* Title row — chevron toggles collapse; tooltip on the label for context. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }}>
-        {onToggleCollapse && (
-          <IconButton
-            size="small"
-            data-snapshot-hide
-            onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
-          >
-            {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-          </IconButton>
-        )}
-        <Tooltip title={t('gearAnalyticsChartHeatmapDesc')} arrow placement="top-start">
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.68rem', display: 'inline-block', cursor: 'help' }}
-          >
-            {t('gearAnalyticsChartHeatmap')}
-          </Typography>
-        </Tooltip>
-      </Box>
+      <GearAnalyticsChartHeader title={t('gearAnalyticsChartHeatmap')} description={t('gearAnalyticsChartHeatmapDesc')} collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       <Collapse in={!collapsed} timeout="auto">
       <Box sx={{ overflowX: 'auto' }}>
         {/* Grid: first column is the stat label, then one column per slot. */}
