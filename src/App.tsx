@@ -7622,10 +7622,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         '.chips-dragging [data-recipe-chip="true"], .chips-dragging [data-recipe-chip="true"] *, .chips-dragging [data-safeguard-chip="true"], .chips-dragging [data-safeguard-chip="true"] *': {
           pointerEvents: 'none !important',
         },
-        '::-webkit-scrollbar': {
-          width: 10,
-          height: 10,
-        },
+        '::-webkit-scrollbar': {},
         '::-webkit-scrollbar-track': {
           backgroundColor: theme.palette.background.paper,
         },
