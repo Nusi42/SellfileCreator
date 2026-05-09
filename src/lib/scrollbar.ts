@@ -25,9 +25,9 @@ export interface ScrollbarGutterOptions {
  */
 export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
   // Webkit: explicit track + thumb colours with a slim width
-  '&::-webkit-scrollbar': { width: 6 },
-  '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.06)', borderRadius: 3 },
-  '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.22)', borderRadius: 3 },
+  '&::-webkit-scrollbar': { width: 9 },
+  '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.06)', borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.22)', borderRadius: 5 },
   '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.38)' },
   // Firefox: shorthand thumb/track colour + thin width
   scrollbarColor: 'rgba(255,255,255,0.22) rgba(255,255,255,0.06)',
