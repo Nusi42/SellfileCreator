@@ -426,11 +426,10 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         return false;
     }
 
-    if let Some(required_item_key) = rule.safeguard_item_key {
-        if required_item_key != 0 && resolve_item_key(item) != Some(required_item_key) {
-            return false;
-        }
-    }
+    // safeguard_item_key is intentionally NOT checked here: it is used for dedupe,
+    // sort ordering, and UI display only. Matching must mirror RSL Helper's behaviour —
+    // the exported HSF rule carries no item-key restriction, so any item satisfying the
+    // set/slot/rank/main-stat/level/substat conditions should be kept.
 
     if !rule.artifact_types.is_empty() && !rule.artifact_types.contains(&item.slot) {
         return false;
