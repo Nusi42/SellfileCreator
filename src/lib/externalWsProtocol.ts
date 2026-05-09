@@ -3,7 +3,26 @@ import type { ExternalCommand } from './externalCommands'
 // Default port for a locally running RSL Helper WebSocket server.
 export const RSL_HELPER_DEFAULT_PORT = 8080
 // localStorage key that persists the user-configured RSL Helper port.
-export const RSL_HELPER_PORT_STORAGE_KEY = 'rslHelperPort'
+export const RSL_HELPER_PORT_STORAGE_KEY = 'sellfileCreator.rslHelper.port.v1'
+// localStorage key that persists whether the user has enabled the RSL Helper connection.
+export const RSL_HELPER_CONNECT_ENABLED_KEY = 'sellfileCreator.rslHelper.connectEnabled.v1'
+
+// Read whether the user has previously toggled on the RSL Helper connection.
+export const getRslHelperConnectEnabled = (): boolean =>
+  localStorage.getItem(RSL_HELPER_CONNECT_ENABLED_KEY) === 'true'
+
+// Persist or clear the RSL Helper connection preference.
+export const setRslHelperConnectEnabled = (enabled: boolean): void => {
+  if (enabled) {
+    localStorage.setItem(RSL_HELPER_CONNECT_ENABLED_KEY, 'true')
+  } else {
+    localStorage.removeItem(RSL_HELPER_CONNECT_ENABLED_KEY)
+  }
+}
+
+// Build the raw WebSocket endpoint URL (not a page deep-link) from the given port.
+export const buildRslHelperWsEndpoint = (port?: number): string =>
+  `ws://localhost:${port ?? getRslHelperPort()}/`
 
 // Default WebSocket endpoint, built from the default port.
 export const RSL_HELPER_DEFAULT_WS_ENDPOINT = `ws://localhost:${RSL_HELPER_DEFAULT_PORT}/`

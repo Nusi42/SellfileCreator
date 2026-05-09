@@ -202,6 +202,8 @@ const overrides: Catalog = {
   updateNoticeDownload: "Scarica",
   updateNoticeDismissAriaLabel: "Ignora notifica aggiornamento",
   connectRslHelper: "Connetti a RSL Helper",
+  connectRslHelperConnecting: "Connessione a RSL Helper in corso…",
+  connectRslHelperConnected: "Connesso a RSL Helper — clicca per disconnettere",
   connectRslHelperPortHint: "_Clic destro per configurare la porta._",
   rslHelperPortDialogTitle: "Porta RSL Helper",
   rslHelperPortLabel: "Porta",
