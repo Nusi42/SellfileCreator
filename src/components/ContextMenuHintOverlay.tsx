@@ -6,14 +6,26 @@ type Props = {
   position: { x: number; y: number } | null
 }
 
+// Flip horizontal anchor when cursor is this close to the right edge (px).
+const HINT_FLIP_THRESHOLD_PX = 220
+const HINT_OFFSET_PX = 10
+
 export function ContextMenuHintOverlay({ text, position }: Props) {
   if (!position) return null
+  // Anchor to the left of the cursor when near the right viewport edge so the
+  // tooltip never runs off-screen or wraps.
+  const nearRight =
+    typeof window !== 'undefined' &&
+    position.x > window.innerWidth - HINT_FLIP_THRESHOLD_PX
   const hint = (
     <Box
       sx={(theme) => ({
         position: 'fixed',
-        top: position.y + 10,
-        left: position.x + 10,
+        top: position.y + HINT_OFFSET_PX,
+        ...(nearRight
+          ? { right: window.innerWidth - position.x + HINT_OFFSET_PX, left: 'auto' }
+          : { left: position.x + HINT_OFFSET_PX }),
+        whiteSpace: 'nowrap',
         transform: 'translate3d(0, 0, 0)',
         pointerEvents: 'none',
         backgroundColor: theme.palette.mode === 'dark'
