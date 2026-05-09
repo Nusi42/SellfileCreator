@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, type Ref } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import type { MouseEvent } from 'react'
@@ -10,9 +10,8 @@ import { useI18n, formatRecipesCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
-import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { highlightElementKeyframes } from '../lib/attentionCatalog'
 import nusiSfcRaw from '../../examples/example.sfc?raw'
@@ -76,17 +75,15 @@ export default function HeaderActions(props: {
   } = props
   const { t } = useI18n()
 
-  const [sfcCtxMenu, setSfcCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [sfcCtxMenu, setSfcCtxMenu] = useState<HTMLElement | null>(null)
   // Tracks whether the sample-load confirmation dialog is open.
   const [sampleConfirmOpen, setSampleConfirmOpen] = useState(false)
   // Cursor position for the "right-click for options" hover hint.
   const [sfcHintPos, setSfcHintPos] = useState<{ x: number; y: number } | null>(null)
   const sfcButtonRef = useRef<HTMLButtonElement>(null)
+  const sfcMenuRef = useRef<HTMLDivElement | null>(null)
   const closeSfcMenu = useCallback(() => setSfcCtxMenu(null), [])
-  const { menuRef: sfcMenuRef, contextMenuGuard: sfcGuard } = useContextMenuPaperGuard({
-    open: sfcCtxMenu !== null,
-    onClose: closeSfcMenu,
-  })
+  useContextMenuCloseOnOutsideRightClick({ open: sfcCtxMenu !== null, onClose: closeSfcMenu, menuRef: sfcMenuRef })
   const { shouldShow: sfcHintShouldShow, markSeen: sfcHintMarkSeen } = useContextMenuHint('sfc.load')
 
   const recipeChipLabel = formatRecipesCount(
@@ -193,7 +190,7 @@ export default function HeaderActions(props: {
                 sfcHintMarkSeen()
                 setSfcHintPos(null)
                 onSfcLoadNudgeDismiss?.()
-                setSfcCtxMenu({ x: e.clientX, y: e.clientY })
+                setSfcCtxMenu(e.currentTarget as HTMLElement)
               }}
               onMouseEnter={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
               onMouseMove={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
@@ -275,21 +272,10 @@ export default function HeaderActions(props: {
         </Box>
         <ContextMenuHintOverlay text={t('contextMenuHint')} position={sfcHintShouldShow ? sfcHintPos : null} />
         <Menu
-          open={sfcCtxMenu !== null}
+          anchorEl={sfcCtxMenu}
+          open={Boolean(sfcCtxMenu)}
           onClose={closeSfcMenu}
-          anchorReference="anchorPosition"
-          {...(sfcCtxMenu ? { anchorPosition: { top: sfcCtxMenu.y, left: sfcCtxMenu.x } } : {})}
-          slotProps={{
-            paper: {
-              ...buildContextMenuPaperSlotProps({
-                component: ContextMenuPaper,
-                contextMenuGuard: sfcGuard,
-                onRequestClose: closeSfcMenu,
-                closeLabel: t('close'),
-              }),
-              ref: sfcMenuRef as Ref<HTMLDivElement>,
-            },
-          }}
+          PaperProps={{ ref: sfcMenuRef }}
         >
           <MenuItem
             onClick={() => {
