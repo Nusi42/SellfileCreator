@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type Ref } from 'react'
+import { useState, useRef, useCallback, useMemo, type Ref } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import type { MouseEvent } from 'react'
@@ -14,6 +14,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { highlightElementKeyframes } from '../lib/attentionCatalog'
 import nusiSfcRaw from '../../examples/example.sfc?raw'
 
 // Glow-pulse keyframe: soft drop-shadow that fades in and out.
@@ -28,6 +29,22 @@ const sfcNudgeTipKf = keyframes`
   to   { opacity: 0.97; transform: translateX(-50%) translateY(0); }
 `
 
+// 80s-advertisement bounce: snappy up-down with a double-tap at the top.
+const arrowBounceKf = keyframes`
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-18px); }
+  45%  { transform: translateY(-8px); }
+  60%  { transform: translateY(-15px); }
+  80%  { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+`
+
+// Fade-out used when the nudge timer expires.
+const sfcNudgeFadeOutKf = keyframes`
+  from { opacity: 1; }
+  to   { opacity: 0; }
+`
+
 export default function HeaderActions(props: {
   onAboutToOpenSfc?: (event: MouseEvent<HTMLButtonElement>) => void
   onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void
@@ -40,6 +57,7 @@ export default function HeaderActions(props: {
   sfcDirty: boolean
   chipLabel?: string
   sfcLoadNudgeActive?: boolean
+  sfcLoadNudgeFading?: boolean
   onSfcLoadNudgeDismiss?: () => void
 }) {
   const {
@@ -53,6 +71,7 @@ export default function HeaderActions(props: {
     visibleCount,
     sfcDirty,
     sfcLoadNudgeActive = false,
+    sfcLoadNudgeFading = false,
     onSfcLoadNudgeDismiss,
   } = props
   const { t } = useI18n()
@@ -83,6 +102,18 @@ export default function HeaderActions(props: {
     const file = new File([nusiSfcRaw], 'example.sfc', { type: 'application/json' })
     void onSelectFile(file, { shiftKey: false })
   }, [onSelectFile])
+
+  // Three arrows: all start from the same neon-yellow base but the slow rainbow-flash
+  // cycle is staggered so each sits at a different hue at any given moment — gold,
+  // magenta, cyan, etc., constantly drifting. A second catalog effect adds personality.
+  const nudgeArrows = useMemo(() => {
+    if (!sfcLoadNudgeActive) return []
+    return [
+      { stemHeight: 52, bounceDelay: '0.00s', hueDelay: '0.0s', extraKf: highlightElementKeyframes.shakeBlast, extraDur: '2.2s', extraDelay: '0.0s', rotation: '-28deg' },
+      { stemHeight: 64, bounceDelay: '0.12s', hueDelay: '1.2s', extraKf: highlightElementKeyframes.bouncePop,  extraDur: '3.0s', extraDelay: '0.9s', rotation:   '0deg' },
+      { stemHeight: 56, bounceDelay: '0.24s', hueDelay: '2.4s', extraKf: highlightElementKeyframes.explode,    extraDur: '2.5s', extraDelay: '0.5s', rotation:  '28deg' },
+    ]
+  }, [sfcLoadNudgeActive])
 
 
   return (
@@ -172,6 +203,45 @@ export default function HeaderActions(props: {
               sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX }}
             />
           </MarkdownTooltip>
+          {/* 80s-ad arrows: row of chunky downward-pointing arrows above the button. */}
+          {nudgeArrows.length > 0 && (
+            <Box sx={{
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              gap: '10px',
+              pb: '3px',
+              pointerEvents: 'none',
+              // Fade-out overrides all child animations and brings opacity to 0.
+              ...(sfcLoadNudgeFading ? { animation: `${sfcNudgeFadeOutKf} 0.7s ease-out forwards` } : {}),
+            }}>
+              {nudgeArrows.map((arrow) => (
+                <Box
+                  key={arrow.bounceDelay}
+                  sx={{ rotate: arrow.rotation, transformOrigin: 'bottom center' }}
+                >
+                  {/* Inner box handles all animation; outer box holds the static fan rotation. */}
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    animation: sfcLoadNudgeFading
+                      ? 'none'
+                      : `${arrowBounceKf} 0.5s ease-in-out ${arrow.bounceDelay} infinite, ${highlightElementKeyframes.rainbowFlash} 3.6s linear ${arrow.hueDelay} infinite, ${arrow.extraKf} ${arrow.extraDur} ease-in-out ${arrow.extraDelay} infinite`,
+                  }}>
+                    {/* Stem */}
+                    <Box sx={{ width: '32px', height: `${arrow.stemHeight}px`, backgroundColor: '#FFE000', borderRadius: '5px 5px 0 0', boxShadow: '4px 4px 0 rgba(0,0,0,0.7)' }} />
+                    {/* Head — extra-wide flat arrowhead */}
+                    <Box sx={{ width: 0, height: 0, borderLeft: '42px solid transparent', borderRight: '42px solid transparent', borderTop: '30px solid #FFE000', filter: 'drop-shadow(4px 4px 0 rgba(0,0,0,0.7))' }} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
           {/* Tip floats below the button via absolute positioning inside this position:relative wrapper. */}
           {sfcLoadNudgeActive && (
             <Box
@@ -183,18 +253,20 @@ export default function HeaderActions(props: {
                 transform: 'translateX(-50%)',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
-                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.95)',
+                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.94)' : 'rgba(255,255,255,0.97)',
                 color: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
                 borderRadius: 999,
-                padding: '2px 10px',
-                fontSize: theme.typography.caption.fontSize,
-                fontWeight: 600,
-                letterSpacing: 0.1,
-                boxShadow: theme.shadows[4],
-                border: `1px solid ${theme.palette.divider}`,
+                padding: '8px 22px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                letterSpacing: 0.3,
+                boxShadow: theme.shadows[6],
+                border: `2px solid ${theme.palette.divider}`,
                 zIndex: theme.zIndex.tooltip + 1,
-                backdropFilter: 'blur(4px)',
-                animation: `${sfcNudgeTipKf} 0.25s ease-out both`,
+                backdropFilter: 'blur(6px)',
+                animation: sfcLoadNudgeFading
+                  ? `${sfcNudgeFadeOutKf} 0.7s ease-out forwards`
+                  : `${sfcNudgeTipKf} 0.25s ease-out both, ${highlightElementKeyframes.rainbowFlash} 4s linear 0.3s infinite`,
               })}
             >
               {t('sfcLoadNudgeHint')}

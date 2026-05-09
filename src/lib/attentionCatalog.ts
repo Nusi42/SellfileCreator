@@ -231,6 +231,18 @@ export function buildHighlightEffectSx(effectIdx: number | null, context: Highli
   return builder(context)
 }
 
+// Expose element-level keyframes that animate the element itself (no child selector needed).
+// Useful for shapes, icons, or custom widgets that want attention effects.
+export const highlightElementKeyframes = {
+  pulse: kfPulse,
+  bouncePop: kfBouncePop,
+  rainbowFlash: kfRainbowFlash,
+  shakeBlast: kfShakeBlast,
+  explode: kfExplode,
+  crazyWobble: kfCrazyWobble,
+  crazyBurst: kfCrazyBurst,
+} as const
+
 // Expose select text keyframes for auxiliary animations (e.g., Legendary 42 overlay).
 export const highlightTextKeyframes = {
   heartbeat: kfTextHeartbeat,

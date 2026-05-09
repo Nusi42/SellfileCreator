@@ -7231,6 +7231,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       } : {})}
       sfcDirty={isDirty}
       sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive}
+      sfcLoadNudgeFading={tutorial.sfcLoadNudgeFading}
       onSfcLoadNudgeDismiss={tutorial.clearSfcLoadNudge}
     />
   )

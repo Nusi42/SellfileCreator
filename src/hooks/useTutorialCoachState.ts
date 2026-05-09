@@ -316,6 +316,7 @@ export type UseTutorialCoachStateResult = {
   handleTutorialPrev: () => void
   handleTutorialNext: () => void
   sfcLoadNudgeActive: boolean
+  sfcLoadNudgeFading: boolean
   triggerSfcLoadNudge: () => void
   clearSfcLoadNudge: () => void
 }
@@ -395,7 +396,9 @@ export function useTutorialCoachState({
   const [tutorialSnapshot, setTutorialSnapshot] = useState<TutorialSnapshot | null>(null)
 
   const [sfcLoadNudgeActive, setSfcLoadNudgeActive] = useState(false)
+  const [sfcLoadNudgeFading, setSfcLoadNudgeFading] = useState(false)
   const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nudgeFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const hsfRef = useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
@@ -1891,13 +1894,29 @@ export function useTutorialCoachState({
 
   const triggerSfcLoadNudge = useCallback(() => {
     if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current)
+    if (nudgeFadeTimerRef.current) clearTimeout(nudgeFadeTimerRef.current)
+    setSfcLoadNudgeFading(false)
     setSfcLoadNudgeActive(true)
-    nudgeTimerRef.current = setTimeout(() => setSfcLoadNudgeActive(false), 12_000)
+    // First time: 12 s so the user can read and notice; every subsequent trigger: 3 s.
+    const SFC_NUDGE_SEEN_KEY = 'sellfileCreator.sfcNudge.seen'
+    const firstTime = localStorage.getItem(SFC_NUDGE_SEEN_KEY) !== '1'
+    const visibleMs = firstTime ? 12_000 : 3_000
+    try { localStorage.setItem(SFC_NUDGE_SEEN_KEY, '1') } catch {}
+    nudgeTimerRef.current = setTimeout(() => {
+      setSfcLoadNudgeFading(true)
+      // Remove from DOM 700 ms after the fade-out animation starts.
+      nudgeFadeTimerRef.current = setTimeout(() => {
+        setSfcLoadNudgeActive(false)
+        setSfcLoadNudgeFading(false)
+      }, 700)
+    }, visibleMs)
   }, [])
 
   const clearSfcLoadNudge = useCallback(() => {
     if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current)
+    if (nudgeFadeTimerRef.current) clearTimeout(nudgeFadeTimerRef.current)
     setSfcLoadNudgeActive(false)
+    setSfcLoadNudgeFading(false)
   }, [])
 
   const handleTutorialClose = useCallback(() => {
@@ -2071,6 +2090,7 @@ export function useTutorialCoachState({
     handleTutorialPrev,
     handleTutorialNext,
     sfcLoadNudgeActive,
+    sfcLoadNudgeFading,
     triggerSfcLoadNudge,
     clearSfcLoadNudge,
   }
