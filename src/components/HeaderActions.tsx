@@ -1,4 +1,5 @@
-import { Box, Button, Chip, Typography } from '@mui/material'
+import { useState, useRef, useCallback, type Ref } from 'react'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
 import type { MouseEvent } from 'react'
 import { ACCEPT_SFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
@@ -8,6 +9,11 @@ import { useI18n, formatRecipesCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import nusiSfcRaw from '../../examples/example.sfc?raw'
 
 export default function HeaderActions(props: {
   onAboutToOpenSfc?: (event: MouseEvent<HTMLButtonElement>) => void
@@ -33,6 +39,20 @@ export default function HeaderActions(props: {
     sfcDirty,
   } = props
   const { t } = useI18n()
+
+  const [sfcCtxMenu, setSfcCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  // Tracks whether the sample-load confirmation dialog is open.
+  const [sampleConfirmOpen, setSampleConfirmOpen] = useState(false)
+  // Cursor position for the "right-click for options" hover hint.
+  const [sfcHintPos, setSfcHintPos] = useState<{ x: number; y: number } | null>(null)
+  const sfcButtonRef = useRef<HTMLButtonElement>(null)
+  const closeSfcMenu = useCallback(() => setSfcCtxMenu(null), [])
+  const { menuRef: sfcMenuRef, contextMenuGuard: sfcGuard } = useContextMenuPaperGuard({
+    open: sfcCtxMenu !== null,
+    onClose: closeSfcMenu,
+  })
+  const { shouldShow: sfcHintShouldShow, markSeen: sfcHintMarkSeen } = useContextMenuHint('sfc.load')
+
   const recipeChipLabel = formatRecipesCount(
     t,
     count,
@@ -40,6 +60,12 @@ export default function HeaderActions(props: {
     visibleCount,
   )
   const chipLabel = props.chipLabel ?? recipeChipLabel
+
+  const handleLoadSample = useCallback(() => {
+    setSampleConfirmOpen(false)
+    const file = new File([nusiSfcRaw], 'example.sfc', { type: 'application/json' })
+    void onSelectFile(file, { shiftKey: false })
+  }, [onSelectFile])
 
   return (
     <Box
@@ -105,16 +131,71 @@ export default function HeaderActions(props: {
       >
         <MarkdownTooltip markdown={t('loadRecipesTooltip')}>
           <FilePickerButton
+            ref={sfcButtonRef}
             label={t('loadRecipes')}
             startIcon={<UploadFileIcon />}
             accept={ACCEPT_SFC_FILE_DIALOG}
             onBeforeOpen={(event) => { onAboutToOpenSfc?.(event) }}
             onSelect={onSelectFile}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              sfcHintMarkSeen()
+              setSfcHintPos(null)
+              setSfcCtxMenu({ x: e.clientX, y: e.clientY })
+            }}
+            onMouseEnter={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
+            onMouseMove={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
+            onMouseLeave={() => setSfcHintPos(null)}
             data-tour-id="sfc.load"
             labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
             sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
           />
         </MarkdownTooltip>
+        <ContextMenuHintOverlay text={t('contextMenuHint')} position={sfcHintShouldShow ? sfcHintPos : null} />
+        <Menu
+          open={sfcCtxMenu !== null}
+          onClose={closeSfcMenu}
+          anchorReference="anchorPosition"
+          {...(sfcCtxMenu ? { anchorPosition: { top: sfcCtxMenu.y, left: sfcCtxMenu.x } } : {})}
+          slotProps={{
+            paper: {
+              ...buildContextMenuPaperSlotProps({
+                component: ContextMenuPaper,
+                contextMenuGuard: sfcGuard,
+                onRequestClose: closeSfcMenu,
+                closeLabel: t('close'),
+              }),
+              ref: sfcMenuRef as Ref<HTMLDivElement>,
+            },
+          }}
+        >
+          <MenuItem
+            onClick={() => {
+              closeSfcMenu()
+              sfcButtonRef.current?.click()
+            }}
+          >
+            {t('loadSfcFromFile')}
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeSfcMenu()
+              setSampleConfirmOpen(true)
+            }}
+          >
+            {t('loadSampleSfc')}
+          </MenuItem>
+        </Menu>
+        <Dialog open={sampleConfirmOpen} onClose={() => setSampleConfirmOpen(false)}>
+          <DialogTitle>{t('loadSampleSfcConfirmTitle')}</DialogTitle>
+          <DialogContent>
+            <Typography>{t('loadSampleSfcConfirmMessage')}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSampleConfirmOpen(false)}>{t('cancel')}</Button>
+            <Button variant="contained" onClick={handleLoadSample}>{t('loadSampleSfcConfirmOk')}</Button>
+          </DialogActions>
+        </Dialog>
         <DirtyBadge active={sfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
           <MarkdownTooltip markdown={t('saveAllRecipesTooltip')}>
             <Button

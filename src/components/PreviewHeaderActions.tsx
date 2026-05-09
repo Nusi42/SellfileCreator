@@ -16,7 +16,8 @@ import {
 	  STATUS_CHIP_BORDER_RADIUS_PX,
 	} from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
-import SaveIcon from '@mui/icons-material/Save'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import PublishIcon from '@mui/icons-material/Publish'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import ClearIconButton from './ClearIconButton'
@@ -582,6 +583,7 @@ export default function PreviewHeaderActions(props: {
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
     : (baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile'))
+  const exportIcon = pushActive ? <PublishIcon /> : <FileDownloadIcon />
   const exportTooltipParts: string[] = []
   if (pushActive && pushEndpoint) {
     exportTooltipParts.push(t('pushSellfileTooltip', { endpoint: pushEndpoint }))
@@ -2357,7 +2359,7 @@ export default function PreviewHeaderActions(props: {
                   }}
                 >
                   <Button
-                    startIcon={<SaveIcon />}
+                    startIcon={exportIcon}
                     sx={{
                       whiteSpace: 'nowrap',
                       px: 1.25,
@@ -2414,7 +2416,7 @@ export default function PreviewHeaderActions(props: {
                 }}
               >
                 <Button
-                  startIcon={<SaveIcon />}
+                  startIcon={exportIcon}
                   sx={{
                     whiteSpace: 'nowrap',
                     px: 1.25,
@@ -2452,7 +2454,7 @@ export default function PreviewHeaderActions(props: {
               {/* Local-download fallback when a push endpoint is active. */}
               {pushActive && onExportLocal ? (
                 <MenuItem onClick={() => { onExportLocal(); closeExportMenu() }}>
-                  <SaveIcon fontSize="small" sx={{ mr: 1 }} />
+                  <FileDownloadIcon fontSize="small" sx={{ mr: 1 }} />
                   {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
                 </MenuItem>
               ) : null}
