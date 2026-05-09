@@ -148,7 +148,7 @@ export default function HeaderActions(props: {
         }}
       >
         {/* Glow-pulse wrapper: animates the button for ~7 s after first-run nudge fires. */}
-        <Box sx={sfcLoadNudgeActive ? { position: 'relative', animation: `${sfcNudgeKf} 1.4s ease-in-out 5`, flexShrink: 1, minWidth: 0 } : { flexShrink: 1, minWidth: 0 }}>
+        <Box sx={(theme) => sfcLoadNudgeActive ? { position: 'relative', zIndex: theme.zIndex.tooltip + 1, animation: `${sfcNudgeKf} 1.4s ease-in-out 5`, flexShrink: 1, minWidth: 0 } : { flexShrink: 1, minWidth: 0 }}>
           <MarkdownTooltip markdown={t('loadRecipesTooltip')}>
             <FilePickerButton
               ref={sfcButtonRef}
