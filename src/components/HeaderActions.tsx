@@ -172,36 +172,36 @@ export default function HeaderActions(props: {
               sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX }}
             />
           </MarkdownTooltip>
+          {/* Tip floats below the button via absolute positioning inside this position:relative wrapper. */}
+          {sfcLoadNudgeActive && (
+            <Box
+              sx={(theme) => ({
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                mt: '6px',
+                transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.95)',
+                color: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+                borderRadius: 999,
+                padding: '2px 10px',
+                fontSize: theme.typography.caption.fontSize,
+                fontWeight: 600,
+                letterSpacing: 0.1,
+                boxShadow: theme.shadows[4],
+                border: `1px solid ${theme.palette.divider}`,
+                zIndex: theme.zIndex.tooltip + 1,
+                backdropFilter: 'blur(4px)',
+                animation: `${sfcNudgeTipKf} 0.25s ease-out both`,
+              })}
+            >
+              {t('sfcLoadNudgeHint')}
+            </Box>
+          )}
         </Box>
         <ContextMenuHintOverlay text={t('contextMenuHint')} position={sfcHintShouldShow ? sfcHintPos : null} />
-        {/* Tip floats below the button via absolute positioning inside the glow wrapper. */}
-        {sfcLoadNudgeActive && (
-          <Box
-            sx={(theme) => ({
-              position: 'absolute',
-              top: '100%',
-              left: '50%',
-              mt: '6px',
-              transform: 'translateX(-50%)',
-              whiteSpace: 'nowrap',
-              pointerEvents: 'none',
-              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.95)',
-              color: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
-              borderRadius: 999,
-              padding: '2px 10px',
-              fontSize: theme.typography.caption.fontSize,
-              fontWeight: 600,
-              letterSpacing: 0.1,
-              boxShadow: theme.shadows[4],
-              border: `1px solid ${theme.palette.divider}`,
-              zIndex: theme.zIndex.tooltip + 1,
-              backdropFilter: 'blur(4px)',
-              animation: `${sfcNudgeTipKf} 0.25s ease-out both`,
-            })}
-          >
-            {t('sfcLoadNudgeHint')}
-          </Box>
-        )}
         <Menu
           open={sfcCtxMenu !== null}
           onClose={closeSfcMenu}
