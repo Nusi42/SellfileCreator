@@ -88,6 +88,26 @@ export function resetBuilderCollapsedPreferences(): void {
   builderSafeguardCollapsedStore.set(cloneDefaultBuilderPanelCollapsed())
 }
 
+// Shape of the builder-collapsed snapshot taken before the tutorial overwrites state.
+export type BuilderCollapsedPreferencesSnapshot = {
+  recipe: BuilderPanelCollapsedSections
+  safeguard: BuilderPanelCollapsedSections
+}
+
+/** Capture current builder collapsed state before tutorial overwrite. */
+export function snapshotBuilderCollapsedPreferences(): BuilderCollapsedPreferencesSnapshot {
+  return {
+    recipe: { ...builderRecipeCollapsedStore.getSnapshot() },
+    safeguard: { ...builderSafeguardCollapsedStore.getSnapshot() },
+  }
+}
+
+/** Restore builder collapsed state from a previously captured snapshot. */
+export function restoreBuilderCollapsedPreferencesSnapshot(snapshot: BuilderCollapsedPreferencesSnapshot): void {
+  builderRecipeCollapsedStore.set({ ...snapshot.recipe })
+  builderSafeguardCollapsedStore.set({ ...snapshot.safeguard })
+}
+
 const autoResetStore = createLocalStorageStore<boolean>({
   key: BUILDER_AUTO_RESET_AFTER_INSERT_KEY,
   fallback: false,

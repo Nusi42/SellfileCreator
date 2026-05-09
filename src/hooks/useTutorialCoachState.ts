@@ -33,6 +33,12 @@ import {
   snapshotSafeguardImprovementChance,
   restoreSafeguardImprovementChance,
 } from '../state/gearInspectorGridPreferences'
+import {
+  resetBuilderCollapsedPreferences,
+  snapshotBuilderCollapsedPreferences,
+  restoreBuilderCollapsedPreferencesSnapshot,
+  type BuilderCollapsedPreferencesSnapshot,
+} from '../state/builderPreferences'
 import type { useI18n } from '../lib/i18n'
 import {
   SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
@@ -75,6 +81,8 @@ type TutorialSnapshot = {
 type ViewStateSnapshot = {
   filterPrefs: RulesFilterPreferencesSnapshot
   sortState: GearInspectorSubstatSortState
+  // Builder panel collapsed sections — reset to defaults on start, restored on close.
+  builderCollapsed: BuilderCollapsedPreferencesSnapshot
 }
 
 // Blank builder state used to start a fresh tutorial session and as the base for the
@@ -589,6 +597,7 @@ export function useTutorialCoachState({
       if (viewSnap) {
         restoreRulesFilterPreferencesSnapshot(viewSnap.filterPrefs)
         restoreGearInspectorSubstatSortSnapshot(viewSnap.sortState)
+        restoreBuilderCollapsedPreferencesSnapshot(viewSnap.builderCollapsed)
         viewStateSnapshotRef.current = null
       }
       restoreSafeguardImprovementChance(snap.safeguardImprovementChance)
@@ -821,10 +830,11 @@ export function useTutorialCoachState({
       const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig
       const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderRecipe
-      // Snapshot filter/sort state across all modes before we wipe them.
+      // Snapshot filter/sort and builder-collapsed state across all modes before we wipe them.
       viewStateSnapshotRef.current = {
         filterPrefs: snapshotRulesFilterPreferences(),
         sortState: snapshotGearInspectorSubstatSort(),
+        builderCollapsed: snapshotBuilderCollapsedPreferences(),
       }
       setTutorialSnapshot({
         hsf: cloneHsf,
@@ -858,9 +868,10 @@ export function useTutorialCoachState({
       setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_FINAL_SELL)
       setSfcNote(null)
       setBuilder(TUTORIAL_INITIAL_BUILDER)
-      // Reset all-modes filter state and gear inspector sort so the tutorial starts clean.
+      // Reset all-modes filter/sort and builder-collapsed state so the tutorial starts clean.
       resetRulesFilterPreferences()
       clearGearInspectorSubstatSortStandalone()
+      resetBuilderCollapsedPreferences()
       setGearInspectorItems([])
       setLogicHubOpen(false)
       setPreviewMode('rules')
