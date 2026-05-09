@@ -513,8 +513,18 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
       return out
     }
-    // Hide overlay chips when the artifact does not match any substat safeguard.
-    const matchedEntries = Array.from(safeguardImprovementChanceByArtifactId.entries()).filter(([, entry]) => entry.hasMatchingSafeguard)
+    // Index artifact levels so we can detect the +16 degenerate case below.
+    const levelByArtifactId = new Map<number, number>()
+    for (const row of (allRows ?? rows)) levelByArtifactId.set(row.artifact.id, Number(row.artifact.level))
+    // Hide overlay chips when no substat safeguard matches, or when the gear is already at
+    // +16 and would show a trivially-derived 100% (no upgrade projection is possible for
+    // maxed gear; the result just reflects current-state selection, which is already
+    // communicated by the keep indicator). 0% at +16 is still meaningful and is kept.
+    const matchedEntries = Array.from(safeguardImprovementChanceByArtifactId.entries()).filter(([artifactId, entry]) => {
+      if (!entry.hasMatchingSafeguard) return false
+      if (entry.chancePercent === 100 && (levelByArtifactId.get(artifactId) ?? 0) >= 16) return false
+      return true
+    })
     if (matchedEntries.length === 0) {
       return new Map<number, ImprovementChanceOverlayEntry>()
     }
