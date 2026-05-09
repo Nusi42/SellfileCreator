@@ -7230,6 +7230,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })(),
       } : {})}
       sfcDirty={isDirty}
+      sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive}
+      onSfcLoadNudgeDismiss={tutorial.clearSfcLoadNudge}
     />
   )
 
@@ -8077,6 +8079,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           open={tutorial.helpOpen}
           firstRunMode={tutorial.helpFirstRunMode}
           onClose={() => {
+            // First-run dismissal without tutorial → nudge the Load SFC button.
+            if (tutorial.helpFirstRunMode) tutorial.triggerSfcLoadNudge()
             tutorial.setHelpOpen(false)
             // Close without auto-start; manual Help never auto-starts
             tutorial.setHelpFirstRunMode(false)

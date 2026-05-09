@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, type Ref } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
+import { keyframes } from '@emotion/react'
 import type { MouseEvent } from 'react'
 import { ACCEPT_SFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
@@ -15,6 +16,18 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import nusiSfcRaw from '../../examples/example.sfc?raw'
 
+// Glow-pulse keyframe: soft drop-shadow that fades in and out.
+const sfcNudgeKf = keyframes`
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 7px currentColor); }
+`
+
+// Fade-in keyframe for the floating tip.
+const sfcNudgeTipKf = keyframes`
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to   { opacity: 0.97; transform: translateX(-50%) translateY(0); }
+`
+
 export default function HeaderActions(props: {
   onAboutToOpenSfc?: (event: MouseEvent<HTMLButtonElement>) => void
   onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void
@@ -26,6 +39,8 @@ export default function HeaderActions(props: {
   visibleCount: number
   sfcDirty: boolean
   chipLabel?: string
+  sfcLoadNudgeActive?: boolean
+  onSfcLoadNudgeDismiss?: () => void
 }) {
   const {
     onAboutToOpenSfc,
@@ -37,6 +52,8 @@ export default function HeaderActions(props: {
     selectedCount,
     visibleCount,
     sfcDirty,
+    sfcLoadNudgeActive = false,
+    onSfcLoadNudgeDismiss,
   } = props
   const { t } = useI18n()
 
@@ -66,6 +83,7 @@ export default function HeaderActions(props: {
     const file = new File([nusiSfcRaw], 'example.sfc', { type: 'application/json' })
     void onSelectFile(file, { shiftKey: false })
   }, [onSelectFile])
+
 
   return (
     <Box
@@ -129,29 +147,61 @@ export default function HeaderActions(props: {
           alignItems: 'center',
         }}
       >
-        <MarkdownTooltip markdown={t('loadRecipesTooltip')}>
-          <FilePickerButton
-            ref={sfcButtonRef}
-            label={t('loadRecipes')}
-            startIcon={<UploadFileIcon />}
-            accept={ACCEPT_SFC_FILE_DIALOG}
-            onBeforeOpen={(event) => { onAboutToOpenSfc?.(event) }}
-            onSelect={onSelectFile}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              sfcHintMarkSeen()
-              setSfcHintPos(null)
-              setSfcCtxMenu({ x: e.clientX, y: e.clientY })
-            }}
-            onMouseEnter={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
-            onMouseMove={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
-            onMouseLeave={() => setSfcHintPos(null)}
-            data-tour-id="sfc.load"
-            labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
-            sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
-          />
-        </MarkdownTooltip>
+        {/* Glow-pulse wrapper: animates the button for ~7 s after first-run nudge fires. */}
+        <Box sx={sfcLoadNudgeActive ? { position: 'relative', animation: `${sfcNudgeKf} 1.4s ease-in-out 5`, flexShrink: 1, minWidth: 0 } : { flexShrink: 1, minWidth: 0 }}>
+          <MarkdownTooltip markdown={t('loadRecipesTooltip')}>
+            <FilePickerButton
+              ref={sfcButtonRef}
+              label={t('loadRecipes')}
+              startIcon={<UploadFileIcon />}
+              accept={ACCEPT_SFC_FILE_DIALOG}
+              onBeforeOpen={(event) => { onAboutToOpenSfc?.(event) }}
+              onSelect={onSelectFile}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                sfcHintMarkSeen()
+                setSfcHintPos(null)
+                onSfcLoadNudgeDismiss?.()
+                setSfcCtxMenu({ x: e.clientX, y: e.clientY })
+              }}
+              onMouseEnter={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
+              onMouseMove={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
+              onMouseLeave={() => setSfcHintPos(null)}
+              data-tour-id="sfc.load"
+              labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
+              sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX }}
+            />
+          </MarkdownTooltip>
+        </Box>
         <ContextMenuHintOverlay text={t('contextMenuHint')} position={sfcHintShouldShow ? sfcHintPos : null} />
+        {/* Tip floats below the button via absolute positioning inside the glow wrapper. */}
+        {sfcLoadNudgeActive && (
+          <Box
+            sx={(theme) => ({
+              position: 'absolute',
+              top: '100%',
+              left: '50%',
+              mt: '6px',
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.95)',
+              color: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+              borderRadius: 999,
+              padding: '2px 10px',
+              fontSize: theme.typography.caption.fontSize,
+              fontWeight: 600,
+              letterSpacing: 0.1,
+              boxShadow: theme.shadows[4],
+              border: `1px solid ${theme.palette.divider}`,
+              zIndex: theme.zIndex.tooltip + 1,
+              backdropFilter: 'blur(4px)',
+              animation: `${sfcNudgeTipKf} 0.25s ease-out both`,
+            })}
+          >
+            {t('sfcLoadNudgeHint')}
+          </Box>
+        )}
         <Menu
           open={sfcCtxMenu !== null}
           onClose={closeSfcMenu}

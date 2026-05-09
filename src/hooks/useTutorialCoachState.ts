@@ -315,6 +315,9 @@ export type UseTutorialCoachStateResult = {
   handleTutorialClose: () => void
   handleTutorialPrev: () => void
   handleTutorialNext: () => void
+  sfcLoadNudgeActive: boolean
+  triggerSfcLoadNudge: () => void
+  clearSfcLoadNudge: () => void
 }
 
 /**
@@ -390,6 +393,9 @@ export function useTutorialCoachState({
   const previewHighlightRafRef = useRef<number | null>(null)
 
   const [tutorialSnapshot, setTutorialSnapshot] = useState<TutorialSnapshot | null>(null)
+
+  const [sfcLoadNudgeActive, setSfcLoadNudgeActive] = useState(false)
+  const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const hsfRef = useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
@@ -1883,12 +1889,24 @@ export function useTutorialCoachState({
     tutorialSteps,
   ])
 
+  const triggerSfcLoadNudge = useCallback(() => {
+    if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current)
+    setSfcLoadNudgeActive(true)
+    nudgeTimerRef.current = setTimeout(() => setSfcLoadNudgeActive(false), 12_000)
+  }, [])
+
+  const clearSfcLoadNudge = useCallback(() => {
+    if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current)
+    setSfcLoadNudgeActive(false)
+  }, [])
+
   const handleTutorialClose = useCallback(() => {
     closeAllTransientUi()
     restoreFromTutorialSnapshot()
     setTutorialSnapshot(null)
     setTutorialOpen(false)
-  }, [closeAllTransientUi, restoreFromTutorialSnapshot])
+    triggerSfcLoadNudge()
+  }, [closeAllTransientUi, restoreFromTutorialSnapshot, triggerSfcLoadNudge])
 
   const handleTutorialPrev = useCallback(() => {
     // Delegate to the replay path so all state changes (recipes, metasets, flags)
@@ -2002,6 +2020,7 @@ export function useTutorialCoachState({
       const next = value + 1
       if (next >= tutorialSteps.length) {
         try { localStorage.setItem(TUTORIAL_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+        triggerSfcLoadNudge()
         closeAllTransientUi()
         restoreFromTutorialSnapshot()
         setTutorialSnapshot(null)
@@ -2031,6 +2050,7 @@ export function useTutorialCoachState({
     tutorialAddedAutoLate,
     tutorialAddedBasic,
     tutorialAddedSlowDD,
+    triggerSfcLoadNudge,
     tutorialIdx,
     tutorialSteps,
   ])
@@ -2050,5 +2070,8 @@ export function useTutorialCoachState({
     handleTutorialClose,
     handleTutorialPrev,
     handleTutorialNext,
+    sfcLoadNudgeActive,
+    triggerSfcLoadNudge,
+    clearSfcLoadNudge,
   }
 }
