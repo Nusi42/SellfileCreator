@@ -2659,6 +2659,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Selected gear items: optimistically updated on click and reconciled with endpoint response.
   // Only active when the WebSocket push endpoint is connected.
   const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(() => new Set())
+  // Set when an endpoint push changes the dataset; cleared by the deferred filter-reconciliation effect.
+  const pendingEndpointSelectionFilterRef = useRef(false)
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -4149,6 +4151,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       }
       if (removedCount > 0 || addedCount > 0) {
+        // Signal a deferred filter-based reconciliation once gearEntriesForTable settles.
+        pendingEndpointSelectionFilterRef.current = true
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
       }
@@ -5044,6 +5048,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortGearInspectorRows(rows)
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearInspectorRecipeFilterSelectedSet, gearEntriesAfterRulesFilter])
+  // Deferred filter-based selection reconciliation: fires after the full filter pipeline settles
+  // following an endpoint push. Drops selections for items hidden by the active filter; in context
+  // mode additionally drops companions and "other" items (only primary stays selected).
+  useEffect(() => {
+    if (!pendingEndpointSelectionFilterRef.current) return
+    pendingEndpointSelectionFilterRef.current = false
+    const visibleIds = new Set(gearEntriesForTable.map(row => row.artifact.id))
+    const contextMap = gearInspectorContextGroupById
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
+    setSelectedGearItemIds(prev => {
+      if (prev.size === 0) return prev
+      const pruned = new Set([...prev].filter(id => {
+        // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+        if (!visibleIds.has(id)) return false
+        // In context mode, only primary items remain selected; companions and others are dropped.
+        return contextMap == null || contextMap.get(id) === 'primary'
+      }))
+      return pruned.size === prev.size ? prev : pruned
+    })
+  }, [gearEntriesForTable, gearInspectorContextGroupById])
   // Set of safeguard item keys currently visible in the Gear Inspector (after all filters).
   // Non-null only when a filter is active; null means everything is visible (no dimming needed).
   // Used by the safeguard candidate list to dim items hidden by the current filter.
