@@ -98,7 +98,7 @@ try {
   }
 
   # Run unit (+ e2e tests for production releases; skip for dev builds to keep iteration fast.
-  # don'r error out if e2e tests fail
+  # don't error out if e2e tests fail
   if (-not $DevBuild) {
     Write-Host 'Running test suite (npm run test:unit)...'
     npm run --silent test:unit
