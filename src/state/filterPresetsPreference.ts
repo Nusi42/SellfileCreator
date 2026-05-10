@@ -53,6 +53,8 @@ export type FilterPreset = {
   color?: string
   // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
   builtin?: true
+  // When true, the preset is hidden from the menu unless the user toggles show-hidden.
+  hidden?: true
 }
 
 const cloneDefaultView = (): FilterPresetView => ({
@@ -327,18 +329,27 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
   const id = sanitizePresetId(rec['id'])
   if (!id) return null
   // Built-in stubs store only { id, builtin: true }; resolve to full preset data.
-  if (rec['builtin'] === true) return BUILTIN_FILTER_PRESET_MAP.get(id) ?? null
+  if (rec['builtin'] === true) {
+    const builtin = BUILTIN_FILTER_PRESET_MAP.get(id) ?? null
+    if (!builtin) return null
+    // Restore the hidden flag persisted in the compact stub.
+    if (rec['hidden'] === true) return { ...builtin, hidden: true as const }
+    return builtin
+  }
   const name = sanitizePresetName(rec['name'])
   if (!name) return null
   // exactOptionalPropertyTypes: spread color only when present so the field stays absent for uncolored presets.
   const color = sanitizePresetColor(rec['color'])
   const colorField: Pick<FilterPreset, 'color'> = color !== undefined ? { color } : {}
+  // exactOptionalPropertyTypes: spread hidden only when explicitly true.
+  const hiddenField: Pick<FilterPreset, 'hidden'> = rec['hidden'] === true ? { hidden: true } : {}
   return {
     id,
     name,
     savedAt: sanitizePresetSavedAt(rec['savedAt']),
     snapshot: sanitizeFilterPresetSnapshot(rec['snapshot']),
     ...colorField,
+    ...hiddenField,
   }
 }
 
@@ -367,7 +378,10 @@ const serializePresets = (value: FilterPreset[]): string | null => {
   // Keep storage clean: prefer removing the key when there's nothing to save.
   if (!Array.isArray(value) || value.length === 0) return null
   // Built-ins are stored as compact stubs so snapshot data isn't duplicated in localStorage.
-  const toStore = value.map((p) => (p.builtin ? { id: p.id, builtin: true } : p))
+  // Include hidden in the stub when set so the flag survives a reload.
+  const toStore = value.map((p) => (
+    p.builtin ? (p.hidden ? { id: p.id, builtin: true, hidden: true } : { id: p.id, builtin: true }) : p
+  ))
   return JSON.stringify(toStore)
 }
 

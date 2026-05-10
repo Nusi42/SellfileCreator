@@ -3010,6 +3010,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Deleting is purely local: remove the entry and keep the rest stable.
     setFilterPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
   }, [setFilterPresets])
+
+  const handleHideFilterPreset = useCallback((presetId: string, hidden: boolean) => {
+    // Spread the hidden flag onto the matching entry; omit the field entirely when unhiding.
+    setFilterPresets((prev) => Array.isArray(prev)
+      ? prev.map((entry) => entry.id !== presetId ? entry : hidden ? { ...entry, hidden: true as const } : (({ hidden: _h, ...rest }) => rest)(entry))
+      : [],
+    )
+  }, [setFilterPresets])
   const handleMoveFilterPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
     setFilterPresets((prev) => {
       if (!Array.isArray(prev)) return prev
@@ -3083,6 +3091,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleDeleteSortPreset = useCallback((presetId: string) => {
     // Guard: built-ins are never in the user list, but filter defensively.
     setSortPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
+  }, [setSortPresets])
+
+  const handleHideSortPreset = useCallback((presetId: string, hidden: boolean) => {
+    setSortPresets((prev) => Array.isArray(prev)
+      ? prev.map((entry) => entry.id !== presetId ? entry : hidden ? { ...entry, hidden: true as const } : (({ hidden: _h, ...rest }) => rest)(entry))
+      : [],
+    )
   }, [setSortPresets])
 
   const handleMoveSortPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
@@ -7999,11 +8014,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onApplyFilterPreset={handleApplyFilterPreset}
           onDeleteFilterPreset={handleDeleteFilterPreset}
           onMoveFilterPreset={handleMoveFilterPreset}
+          onHideFilterPreset={handleHideFilterPreset}
           sortPresets={sortPresets}
           onSaveSortPreset={handleSaveSortPreset}
           onApplySortPreset={handleApplySortPreset}
           onDeleteSortPreset={handleDeleteSortPreset}
           onMoveSortPreset={handleMoveSortPreset}
+          onHideSortPreset={handleHideSortPreset}
 	        gearInspectorCount={gearInspectorItems.length}
         gearInspectorFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}

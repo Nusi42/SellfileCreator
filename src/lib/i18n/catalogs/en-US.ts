@@ -1245,6 +1245,11 @@ const enUS: Catalog = {
   sortPresetsDeleteDialogMessage: "Delete \"{name}\"? This cannot be undone.",
   sortPresetsSaveIncludeFilter: "Include filter settings",
   presetLabelColor: "Label color",
+  // Hide/show-hidden actions for preset menus.
+  presetHide: "Hide",
+  presetUnhide: "Unhide",
+  presetsShowHidden: "Show hidden",
+  presetsHideHidden: "Hide hidden",
   filterMatch: "Match",
   filterAnyOf: "Any Of",
   filterAllOf: "All Of",
