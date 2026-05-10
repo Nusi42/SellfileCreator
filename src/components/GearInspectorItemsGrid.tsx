@@ -716,6 +716,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return overlays
   }, [
+    allRows,
     levelByArtifactId,
     numberFormatter,
     onJumpToSafeguardRule,

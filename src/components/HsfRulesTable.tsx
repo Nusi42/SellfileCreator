@@ -138,6 +138,9 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   focusRuleIndex?: number | null
   onFocusRuleSettled?: () => void
 }) {
+  // TanStack Virtual's useVirtualizer returns functions incompatible with the React Compiler's
+  // memoization model; opt out of compilation for this component to silence the warning.
+  'use no memo'
   const { t, lang } = useI18n()
   const theme = useTheme()
   // Reuse the shared disabled opacity so rows dim consistently with chips.
@@ -789,6 +792,7 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
   }, [])
   // Single TanStack virtualizer drives both fixed and wrap modes.
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions incompatible with React Compiler memoization; 'use no memo' above opts this component out of compilation
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     // Virtualize the `rules[]` array directly.
     // Why: all recipe span / selection math is expressed as indices into this array.
