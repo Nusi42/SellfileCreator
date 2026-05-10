@@ -8125,6 +8125,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             tutorial.setHelpFirstRunMode(false)
             tutorial.startTutorial()
           }}
+          connectEnabled={rslHelperConnectEnabled}
+          pushEndpointReachable={pushEndpointReachable}
+          onToggleConnect={handleToggleRslHelperConnect}
         />
       ) : null}
       {/* Only mount the Note dialog when visible so recipe chip previews stay out of the tree. */}

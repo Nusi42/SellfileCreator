@@ -8,7 +8,7 @@
  * configuration, consistent with all other right-click surfaces in the app.
  */
 import React, { useRef, useState } from 'react'
-import { Box, CircularProgress, IconButton, Popover, TextField } from '@mui/material'
+import { Box, Button, CircularProgress, IconButton, Popover, TextField } from '@mui/material'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
@@ -30,12 +30,16 @@ export type RslHelperConnectButtonProps = {
   pushEndpointReachable: boolean
   // Called when the user clicks the button to toggle the connection.
   onToggleConnect: () => void
+  // When true, renders as a Button with icon+text instead of a bare IconButton.
+  // Used by HelpDialog to embed a labelled version in the dialog actions row.
+  showLabel?: boolean
 }
 
 export default function RslHelperConnectButton({
   connectEnabled,
   pushEndpointReachable,
   onToggleConnect,
+  showLabel = false,
 }: RslHelperConnectButtonProps) {
   const { t } = useI18n()
 
@@ -107,61 +111,74 @@ export default function RslHelperConnectButton({
     : t('connectRslHelper')
   const tooltipMd = `${primaryTooltip}\n\n${t('connectRslHelperPortHint')}`
 
+  // Shared mouse handlers for the hint overlay (used by both rendering paths).
+  const onMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (showHint && !popoverOpen) setHintPos({ x: e.clientX, y: e.clientY })
+  }
+  const onMouseLeave = () => setHintPos(null)
+
+  // Icon with badge overlay shared between the IconButton and Button rendering paths.
+  const iconWithBadge = (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <SmartToyOutlinedIcon fontSize="small" />
+      {connectState === 'connecting' && (
+        // Spinner anchored to the bottom-right corner of the icon.
+        <CircularProgress size={10} sx={{ position: 'absolute', bottom: -3, right: -3, color: 'primary.main' }} />
+      )}
+      {connectState === 'connected' && (
+        // Solid dot anchored to the bottom-right corner; white fill inside a green ring.
+        <Box sx={{ position: 'absolute', bottom: -2, right: -2, width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.contrastText', border: '1.5px solid', borderColor: 'success.main' }} />
+      )}
+    </Box>
+  )
+
+  // Pulse animation shared between both rendering paths.
+  const pulseSx = connectState === 'connecting'
+    ? { '@keyframes rslPulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.45 } }, animation: 'rslPulse 1.4s ease-in-out infinite' }
+    : {}
+
   return (
     <>
-      <MarkdownTooltip markdown={tooltipMd}>
-        <IconButton
+      {showLabel ? (
+        // Labelled variant used in HelpDialog: icon + state text, no tooltip needed.
+        <Button
           size="small"
+          variant={connectState === 'connected' ? 'contained' : 'outlined'}
+          color={connectState === 'connected' ? 'success' : 'primary'}
           onClick={onToggleConnect}
           onContextMenu={handleContextMenu}
-          onMouseMove={(e) => {
-            // Track cursor so the hint overlay follows the pointer.
-            if (showHint && !popoverOpen) setHintPos({ x: e.clientX, y: e.clientY })
-          }}
-          onMouseLeave={() => setHintPos(null)}
+          onMouseMove={onMouseMove}
+          onMouseLeave={onMouseLeave}
+          startIcon={iconWithBadge}
           aria-label={primaryTooltip}
-          sx={{
-            height: 34, width: 34, border: '1px solid', borderRadius: 1,
-            // Colour scheme shifts with connection state.
-            ...(connectState === 'connected'
-              ? {
-                  bgcolor: 'success.main', borderColor: 'success.main', color: 'success.contrastText',
-                  '&:hover': { bgcolor: 'success.dark', borderColor: 'success.dark', color: 'success.contrastText' },
-                }
-              : connectState === 'connecting'
-              ? {
-                  color: 'primary.main', borderColor: 'primary.main',
-                  // Pulse the whole button to signal an active attempt without obscuring the icon.
-                  '@keyframes rslPulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.45 } },
-                  animation: 'rslPulse 1.4s ease-in-out infinite',
-                }
-              : {
-                  color: 'primary.main', borderColor: 'primary.main',
-                  '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' },
-                }),
-          }}
+          sx={{ whiteSpace: 'nowrap', ...pulseSx }}
         >
-          {/* Robot icon with a small badge overlay that conveys connection state. */}
-          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-            <SmartToyOutlinedIcon fontSize="small" />
-            {connectState === 'connecting' && (
-              // Spinner anchored to the bottom-right corner of the icon.
-              <CircularProgress
-                size={10}
-                sx={{ position: 'absolute', bottom: -3, right: -3, color: 'primary.main' }}
-              />
-            )}
-            {connectState === 'connected' && (
-              // Solid dot anchored to the bottom-right corner; white fill inside a green ring.
-              <Box sx={{
-                position: 'absolute', bottom: -2, right: -2,
-                width: 8, height: 8, borderRadius: '50%',
-                bgcolor: 'success.contrastText', border: '1.5px solid', borderColor: 'success.main',
-              }} />
-            )}
-          </Box>
-        </IconButton>
-      </MarkdownTooltip>
+          {primaryTooltip}
+        </Button>
+      ) : (
+        // Icon-only variant used in the toolbar.
+        <MarkdownTooltip markdown={tooltipMd}>
+          <IconButton
+            size="small"
+            onClick={onToggleConnect}
+            onContextMenu={handleContextMenu}
+            onMouseMove={onMouseMove}
+            onMouseLeave={onMouseLeave}
+            aria-label={primaryTooltip}
+            sx={{
+              height: 34, width: 34, border: '1px solid', borderRadius: 1,
+              // Colour scheme shifts with connection state.
+              ...(connectState === 'connected'
+                ? { bgcolor: 'success.main', borderColor: 'success.main', color: 'success.contrastText', '&:hover': { bgcolor: 'success.dark', borderColor: 'success.dark', color: 'success.contrastText' } }
+                : connectState === 'connecting'
+                ? { color: 'primary.main', borderColor: 'primary.main', ...pulseSx }
+                : { color: 'primary.main', borderColor: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'primary.contrastText' } }),
+            }}
+          >
+            {iconWithBadge}
+          </IconButton>
+        </MarkdownTooltip>
+      )}
 
       {/* Floating hint near the cursor — disappears once the user right-clicks */}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive ? hintPos : null} />

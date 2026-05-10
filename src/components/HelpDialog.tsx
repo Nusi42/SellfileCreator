@@ -15,7 +15,7 @@ import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
 import { AppTitle } from './AppTitle'
-import { buildRslHelperConnectUrl } from '../lib/externalWsProtocol'
+import RslHelperConnectButton from './RslHelperConnectButton'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGES,
@@ -36,7 +36,7 @@ const getFaviconLinkHref = (): string | undefined => {
   return undefined
 }
 
-export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
+export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
@@ -213,10 +213,6 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     resetProximity()
   }, [firstRunMode, resetProximity])
 
-  // Build the "Connect to RSL Helper" deep-link using the shared helper (SSOT in externalWsProtocol.ts).
-  // This lets users open the app pre-connected to a locally running RSL Helper instance.
-  const rslHelperUrl = React.useMemo(() => buildRslHelperConnectUrl(), [])
-
   // No automatic translation integration: only built-in or local README files are used.
   return (
     <Dialog
@@ -284,10 +280,17 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       </DialogContent>
       {firstRunMode ? (
         <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25, overflow: 'visible', py: 1, minHeight: `${ACTIONS_MIN_HEIGHT_PX}px`, position: 'relative' }}>
-          {/* RSL Helper deep-link — absolutely centered on the same row as the buttons */}
-          <Typography component="a" href={rslHelperUrl} sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 12, color: 'primary.main', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { color: 'primary.light' } }}>
-            {t('connectRslHelper')}
-          </Typography>
+          {/* RSL Helper toggle — absolutely centered on the same row as the buttons */}
+          {onToggleConnect != null && (
+            <Box sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+              <RslHelperConnectButton
+                showLabel
+                connectEnabled={connectEnabled ?? false}
+                pushEndpointReachable={pushEndpointReachable ?? false}
+                onToggleConnect={onToggleConnect}
+              />
+            </Box>
+          )}
           <Box
             ref={closeWrapRef}
             sx={{ display: 'inline-block', lineHeight: 0, transform: `scale(${closeScale})`, transformOrigin: 'center', transition: 'transform 160ms ease-out', willChange: 'transform' }}
@@ -323,10 +326,17 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           >
             <Box component="span" className="start-tutorial-text">{t('startTutorial')}</Box>
           </Button>
-          {/* RSL Helper deep-link — absolutely centered on the same row as the buttons */}
-          <Typography component="a" href={rslHelperUrl} sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: 12, color: 'primary.main', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { color: 'primary.light' } }}>
-            {t('connectRslHelper')}
-          </Typography>
+          {/* RSL Helper toggle — absolutely centered on the same row as the buttons */}
+          {onToggleConnect != null && (
+            <Box sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+              <RslHelperConnectButton
+                showLabel
+                connectEnabled={connectEnabled ?? false}
+                pushEndpointReachable={pushEndpointReachable ?? false}
+                onToggleConnect={onToggleConnect}
+              />
+            </Box>
+          )}
           <Button onClick={onClose}>{t('close')}</Button>
         </DialogActions>
       )}
