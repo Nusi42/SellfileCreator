@@ -904,11 +904,13 @@ export default function SafeguardBuilderPanel({
     setWeightsAnchorEl(null)
   }, [])
 
+  const weightsPopoverMenuRef = useRef<Element | null>(null)
   // Close-button guard for the weights popover — same ContextMenuPaper pattern used for other popovers.
   // menuRef must be forwarded to slotProps.paper so isTargetInsideAnyMenu can distinguish inside clicks.
-  const { contextMenuGuard: weightsPopoverGuard, menuRef: weightsPopoverMenuRef } = useContextMenuPaperGuard({
+  const { contextMenuGuard: weightsPopoverGuard } = useContextMenuPaperGuard({
     open: Boolean(weightsAnchorEl),
     onClose: handleWeightsPopoverClose,
+    menuRef: weightsPopoverMenuRef,
   })
 
   // Close-button guard for the improvement-chance threshold popover.
@@ -921,8 +923,9 @@ export default function SafeguardBuilderPanel({
     setImprovementChanceAnchorEl(null)
     setImprovementChanceAnchorPos(null)
   }, [])
-  const { contextMenuGuard: improvementChancePopoverGuard, menuRef: improvementChancePopoverMenuRef } =
-    useContextMenuPaperGuard({ open: Boolean(improvementChanceAnchorEl), onClose: handleImprovementChancePopoverClose })
+  const improvementChancePopoverMenuRef = useRef<Element | null>(null)
+  const { contextMenuGuard: improvementChancePopoverGuard } =
+    useContextMenuPaperGuard({ open: Boolean(improvementChanceAnchorEl), onClose: handleImprovementChancePopoverClose, menuRef: improvementChancePopoverMenuRef })
 
   // Candidate list shown in the popover right column:
   // prefer live preview (from unsaved weight edits) over the detection snapshot.
