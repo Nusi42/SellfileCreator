@@ -2005,7 +2005,6 @@ function RulesFilterPanel({
               <Collapse in={!collapsed.improvChance} timeout="auto" unmountOnExit>
                 <Box
                   sx={{
-                    mt: 0.25,
                     width: 200,
                     maxWidth: '100%',
                     boxSizing: 'border-box',
@@ -2025,7 +2024,6 @@ function RulesFilterPanel({
                     onChange={handleImprovChanceSliderChange}
                     sx={{
                       width: '100%',
-                      mt: 0.5,
                       mb: 1.5,
                       '& .MuiSlider-track': { height: 4 },
                       '& .MuiSlider-rail': { height: 4 },
@@ -3149,7 +3147,6 @@ function RulesFilterPanel({
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isGearInspectorMode ? (
                   <Box sx={{
-                    mt: 0.25,
                     width: levelControlResponsiveWidth,
                     maxWidth: '100%',
                     boxSizing: 'border-box',
