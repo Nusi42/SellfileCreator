@@ -1107,7 +1107,21 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                         </IconButton>
                       </MarkdownTooltip>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: 70 }}>{t('colLevel')}</TableCell>
+                    <TableCell
+                      sx={{ fontWeight: 600, width: 70, cursor: 'pointer' }}
+                      onClick={(event) => {
+                        // Left-click toggles this dungeon; Ctrl/Cmd toggles all.
+                        const scope = event.ctrlKey || event.metaKey ? 'all' : 'single'
+                        toggleDungeonCollapsed({ dungeonId, scope })
+                      }}
+                      onContextMenu={(event) => {
+                        // Right-click always toggles every dungeon table.
+                        event.preventDefault()
+                        toggleDungeonCollapsed({ dungeonId, scope: 'all' })
+                      }}
+                    >
+                      {t('colLevel')}
+                    </TableCell>
                     {setIds.map((setId) => {
                       // Column headers stack icon + label to reduce width pressure.
                       const label = formatSetLabel({ setId, translate: t, lang })
