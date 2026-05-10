@@ -43,6 +43,7 @@ import GridViewIcon from '@mui/icons-material/GridView'
 import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import HistoryIcon from '@mui/icons-material/History'
 import {
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
@@ -181,11 +182,14 @@ export default function PreviewHeaderActions(props: {
   onApplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
   onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
+  // Toggles hidden state; called with the new desired value so callers don't need to read current state.
+  onHideFilterPreset?: (presetId: string, hidden: boolean) => void
   sortPresets?: readonly SortPreset[]
   onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined) => void
   onApplySortPreset?: (presetId: string) => void
   onDeleteSortPreset?: (presetId: string) => void
   onMoveSortPreset?: (presetId: string, direction: 'up' | 'down') => void
+  onHideSortPreset?: (presetId: string, hidden: boolean) => void
 }) {
   const {
     mergedCount,
@@ -253,11 +257,13 @@ export default function PreviewHeaderActions(props: {
     onApplyFilterPreset,
     onDeleteFilterPreset,
     onMoveFilterPreset,
+    onHideFilterPreset,
     sortPresets = [],
     onSaveSortPreset,
     onApplySortPreset,
     onDeleteSortPreset,
     onMoveSortPreset,
+    onHideSortPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -493,6 +499,23 @@ export default function PreviewHeaderActions(props: {
     return formatLocalDateTime(value) ?? value
   }, [])
 
+  // When true, hidden presets are shown in the filter menu (dimmed) so users can unhide them.
+  const [showHiddenFilterPresets, setShowHiddenFilterPresets] = React.useState(false)
+  // Presets visible in the filter menu — hidden entries are suppressed unless show-hidden is on.
+  const visibleFilterPresets = React.useMemo(
+    () => filterPresets.filter((p) => !p.hidden || showHiddenFilterPresets),
+    [filterPresets, showHiddenFilterPresets],
+  )
+  const hasHiddenFilterPresets = React.useMemo(() => filterPresets.some((p) => p.hidden), [filterPresets])
+
+  // Same show-hidden toggle for the sort preset menu.
+  const [showHiddenSortPresets, setShowHiddenSortPresets] = React.useState(false)
+  const visibleSortPresets = React.useMemo(
+    () => sortPresets.filter((p) => !p.hidden || showHiddenSortPresets),
+    [sortPresets, showHiddenSortPresets],
+  )
+  const hasHiddenSortPresets = React.useMemo(() => sortPresets.some((p) => p.hidden), [sortPresets])
+
   const [savePresetOpen, setSavePresetOpen] = React.useState(false)
   const [savePresetName, setSavePresetName] = React.useState('')
   // Whether to include the current sort config in the filter preset snapshot.
@@ -582,6 +605,21 @@ export default function PreviewHeaderActions(props: {
     onDeleteFilterPreset?.(deletePresetTarget.id)
     setDeletePresetTarget(null)
   }, [deletePresetTarget, onDeleteFilterPreset])
+
+  // "Hide" button in the filter delete-confirmation dialog — hides instead of destroying.
+  const hideFilterPresetFromDialog = React.useCallback(() => {
+    if (!deletePresetTarget) return
+    onHideFilterPreset?.(deletePresetTarget.id, true)
+    setDeletePresetTarget(null)
+  }, [deletePresetTarget, onHideFilterPreset])
+
+  // "Hide" button in the sort delete-confirmation dialog.
+  const hideSortPresetFromDialog = React.useCallback(() => {
+    if (!deleteSortPresetTarget) return
+    onHideSortPreset?.(deleteSortPresetTarget.id, true)
+    setDeleteSortPresetTarget(null)
+  }, [deleteSortPresetTarget, onHideSortPreset])
+
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const filterHeaderLabel = t('filterHeader')
   const filterToggleLabel = t('filterToggleLabel')
@@ -1138,15 +1176,15 @@ export default function PreviewHeaderActions(props: {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
                 {/* Saved presets: built-ins first, then user-defined with move/delete controls. */}
-                {filterPresets.length > 0 ? (
-                  filterPresets.map((preset, index) => (
+                {visibleFilterPresets.length > 0 ? (
+                  visibleFilterPresets.map((preset, index) => (
                     <MenuItem
                       key={preset.id}
                       onClick={() => {
                         onApplyFilterPreset?.(preset.id)
                         closeFilterMenu()
                       }}
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75, ...(preset.hidden ? { opacity: 0.45 } : {}) }}
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
@@ -1177,7 +1215,7 @@ export default function PreviewHeaderActions(props: {
                           <IconButton
                             size="small"
                             aria-label={t('filterPresetsMoveDown')}
-                            disabled={index === filterPresets.length - 1}
+                            disabled={index === visibleFilterPresets.length - 1}
                             onClick={(event) => {
                               try { event.stopPropagation() } catch {}
                               onMoveFilterPreset(preset.id, 'down')
@@ -1188,22 +1226,40 @@ export default function PreviewHeaderActions(props: {
                           </IconButton>
                         </>
                       ) : null}
-                      {onDeleteFilterPreset ? (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label={t('delete')}
-                          disabled={preset.builtin}
-                          onClick={(event) => {
-                            try { event.stopPropagation() } catch {}
-                            closeFilterMenu()
-                            requestDeletePreset(preset.id, filterPresetDisplayName(preset))
-                          }}
-                          sx={{ p: 0.5, alignSelf: 'center' }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
-                      ) : null}
+                      {/* Builtin presets: hide/unhide toggle. User presets: delete button. */}
+                      {preset.builtin ? (
+                        onHideFilterPreset ? (
+                          <MarkdownTooltip markdown={preset.hidden ? t('presetUnhide') : t('presetHide')}>
+                            <IconButton
+                              size="small"
+                              aria-label={preset.hidden ? t('presetUnhide') : t('presetHide')}
+                              onClick={(event) => {
+                                try { event.stopPropagation() } catch {}
+                                onHideFilterPreset(preset.id, !preset.hidden)
+                              }}
+                              sx={{ p: 0.5, alignSelf: 'center' }}
+                            >
+                              {preset.hidden ? <VisibilityIcon fontSize="inherit" /> : <VisibilityOffIcon fontSize="inherit" />}
+                            </IconButton>
+                          </MarkdownTooltip>
+                        ) : null
+                      ) : (
+                        onDeleteFilterPreset ? (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={t('delete')}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              closeFilterMenu()
+                              requestDeletePreset(preset.id, filterPresetDisplayName(preset))
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <DeleteIcon fontSize="inherit" />
+                          </IconButton>
+                        ) : null
+                      )}
                     </MenuItem>
                   ))
                 ) : (
@@ -1225,16 +1281,32 @@ export default function PreviewHeaderActions(props: {
                     {t('filterSyncViews')}
                   </MenuItem>
                 ) : null}
-                {/* Save-as is always last and non-reorderable — it is structural, not a stored preset. */}
+                {/* Save-as row: always last and non-reorderable. Show-hidden toggle lives at the right edge. */}
                 {onSaveFilterPreset ? (
                   <MenuItem
                     onClick={() => {
                       closeFilterMenu()
                       openSavePresetDialog()
                     }}
-                    sx={{ fontStyle: 'italic' }}
+                    sx={{ fontStyle: 'italic', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}
                   >
                     {t('filterPresetsSaveAs')}
+                    {/* Show the toggle only when hidden presets exist; otherwise there's nothing to reveal. */}
+                    {hasHiddenFilterPresets ? (
+                      <MarkdownTooltip markdown={showHiddenFilterPresets ? t('presetsHideHidden') : t('presetsShowHidden')}>
+                        <IconButton
+                          size="small"
+                          aria-label={showHiddenFilterPresets ? t('presetsHideHidden') : t('presetsShowHidden')}
+                          onClick={(event) => {
+                            try { event.stopPropagation() } catch {}
+                            setShowHiddenFilterPresets((v) => !v)
+                          }}
+                          sx={{ p: 0.25, ml: 'auto', flexShrink: 0 }}
+                        >
+                          {showHiddenFilterPresets ? <VisibilityOffIcon fontSize="inherit" /> : <VisibilityIcon fontSize="inherit" />}
+                        </IconButton>
+                      </MarkdownTooltip>
+                    ) : null}
                   </MenuItem>
                 ) : null}
               </Menu>
@@ -1310,6 +1382,10 @@ export default function PreviewHeaderActions(props: {
               </DialogContent>
               <DialogActions>
                 <Button onClick={cancelDeletePreset}>{t('cancel')}</Button>
+                {/* Hide is a non-destructive alternative — keeps the preset in storage but removes it from the menu. */}
+                {onHideFilterPreset ? (
+                  <Button onClick={hideFilterPresetFromDialog}>{t('presetHide')}</Button>
+                ) : null}
                 <Button color="error" variant="contained" onClick={confirmDeletePreset}>
                   {t('delete')}
                 </Button>
@@ -1325,15 +1401,15 @@ export default function PreviewHeaderActions(props: {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
-                {sortPresets.length > 0 ? (
-                  sortPresets.map((preset, index) => (
+                {visibleSortPresets.length > 0 ? (
+                  visibleSortPresets.map((preset, index) => (
                     <MenuItem
                       key={preset.id}
                       onClick={() => {
                         onApplySortPreset?.(preset.id)
                         closeSortPresetMenu()
                       }}
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75, ...(preset.hidden ? { opacity: 0.45 } : {}) }}
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
@@ -1364,7 +1440,7 @@ export default function PreviewHeaderActions(props: {
                           <IconButton
                             size="small"
                             aria-label={t('filterPresetsMoveDown')}
-                            disabled={index === sortPresets.length - 1}
+                            disabled={index === visibleSortPresets.length - 1}
                             onClick={(event) => {
                               try { event.stopPropagation() } catch {}
                               onMoveSortPreset(preset.id, 'down')
@@ -1375,37 +1451,70 @@ export default function PreviewHeaderActions(props: {
                           </IconButton>
                         </>
                       ) : null}
-                      {onDeleteSortPreset ? (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label={t('delete')}
-                          disabled={preset.builtin}
-                          onClick={(event) => {
-                            try { event.stopPropagation() } catch {}
-                            closeSortPresetMenu()
-                            requestDeleteSortPreset(preset.id, sortPresetDisplayName(preset))
-                          }}
-                          sx={{ p: 0.5, alignSelf: 'center' }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
-                      ) : null}
+                      {/* Builtin presets: hide/unhide toggle. User presets: delete button. */}
+                      {preset.builtin ? (
+                        onHideSortPreset ? (
+                          <MarkdownTooltip markdown={preset.hidden ? t('presetUnhide') : t('presetHide')}>
+                            <IconButton
+                              size="small"
+                              aria-label={preset.hidden ? t('presetUnhide') : t('presetHide')}
+                              onClick={(event) => {
+                                try { event.stopPropagation() } catch {}
+                                onHideSortPreset(preset.id, !preset.hidden)
+                              }}
+                              sx={{ p: 0.5, alignSelf: 'center' }}
+                            >
+                              {preset.hidden ? <VisibilityIcon fontSize="inherit" /> : <VisibilityOffIcon fontSize="inherit" />}
+                            </IconButton>
+                          </MarkdownTooltip>
+                        ) : null
+                      ) : (
+                        onDeleteSortPreset ? (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={t('delete')}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              closeSortPresetMenu()
+                              requestDeleteSortPreset(preset.id, sortPresetDisplayName(preset))
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            <DeleteIcon fontSize="inherit" />
+                          </IconButton>
+                        ) : null
+                      )}
                     </MenuItem>
                   ))
                 ) : (
                   <MenuItem disabled>{t('sortPresetsEmpty')}</MenuItem>
                 )}
-                {/* Save-as is always last and non-reorderable — it is structural, not a stored preset. */}
+                {/* Save-as row: always last and non-reorderable. Show-hidden toggle lives at the right edge. */}
                 {onSaveSortPreset ? (
                   <MenuItem
                     onClick={() => {
                       closeSortPresetMenu()
                       openSaveSortPresetDialog()
                     }}
-                    sx={{ fontStyle: 'italic' }}
+                    sx={{ fontStyle: 'italic', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}
                   >
                     {t('sortPresetsSaveAs')}
+                    {hasHiddenSortPresets ? (
+                      <MarkdownTooltip markdown={showHiddenSortPresets ? t('presetsHideHidden') : t('presetsShowHidden')}>
+                        <IconButton
+                          size="small"
+                          aria-label={showHiddenSortPresets ? t('presetsHideHidden') : t('presetsShowHidden')}
+                          onClick={(event) => {
+                            try { event.stopPropagation() } catch {}
+                            setShowHiddenSortPresets((v) => !v)
+                          }}
+                          sx={{ p: 0.25, ml: 'auto', flexShrink: 0 }}
+                        >
+                          {showHiddenSortPresets ? <VisibilityOffIcon fontSize="inherit" /> : <VisibilityIcon fontSize="inherit" />}
+                        </IconButton>
+                      </MarkdownTooltip>
+                    ) : null}
                   </MenuItem>
                 ) : null}
               </Menu>
@@ -1481,6 +1590,9 @@ export default function PreviewHeaderActions(props: {
               </DialogContent>
               <DialogActions>
                 <Button onClick={cancelDeleteSortPreset}>{t('cancel')}</Button>
+                {onHideSortPreset ? (
+                  <Button onClick={hideSortPresetFromDialog}>{t('presetHide')}</Button>
+                ) : null}
                 <Button color="error" variant="contained" onClick={confirmDeleteSortPreset}>
                   {t('delete')}
                 </Button>

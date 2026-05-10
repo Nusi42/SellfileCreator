@@ -38,13 +38,21 @@ export default function ManageColorsDialog(props: {
 }) {
   const { open, onClose, substatColors, setSubstatColors, onReset } = props
   const { t } = useI18n()
+  // draftAlphas: slider alpha dragged but not yet committed — same pattern as MUI Slider.
   const [draftAlphas, setDraftAlphas] = React.useState<Record<number, number>>({})
-  // Reset draft alphas when dialog closes — render-time state adjustment pattern.
+  // draftColors: color picker dragged but not yet committed — mirrors draftAlphas for colors.
+  const [draftColors, setDraftColors] = React.useState<Record<number, { fg?: string; bg?: string }>>({})
+
+  // Reset all draft state when dialog closes — render-time state adjustment pattern.
   const [prevOpen, setPrevOpen] = React.useState(open)
   if (open !== prevOpen) {
     setPrevOpen(open)
-    if (!open) setDraftAlphas({})
+    if (!open) {
+      setDraftAlphas({})
+      setDraftColors({})
+    }
   }
+
   return (
     <Dialog
       open={open}
@@ -62,25 +70,50 @@ export default function ManageColorsDialog(props: {
             const defaultBg = (DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[vk] ?? '#E3F2FD') as string
             const fg = (substatColors[vk]?.fg ?? defaultFg) as string
             const bg = (substatColors[vk]?.bg ?? defaultBg) as string
-            const { base: baseBg, alpha: alphaValue } = parseHexWithAlpha(bg, defaultBg)
+
+            // Live fg from color picker drag; falls back to committed value.
+            const liveFg = draftColors[vk]?.fg ?? fg
+
+            // Live bg from color picker drag (full hex); falls back to committed value.
+            const liveBgHex = draftColors[vk]?.bg ?? bg
+            const { base: baseBg, alpha: alphaValue } = parseHexWithAlpha(liveBgHex, defaultBg)
             const storedPct = Math.round(alphaValue * 100)
             const sliderPct = draftAlphas[vk] ?? storedPct
             const clampedPct = Math.max(0, Math.min(100, sliderPct))
             const sliderAlpha = clampedPct / 100
-            const displayHex = formatHexWithAlpha(baseBg, sliderAlpha)
-            const previewBg = alpha(baseBg, sliderAlpha)
-            const previewBorder = alpha(baseBg, sliderAlpha)
+            // During bg picker drag use the raw draft color; otherwise apply slider alpha.
+            const displayHex = draftColors[vk]?.bg ?? formatHexWithAlpha(baseBg, sliderAlpha)
+            const previewBg = alpha(baseBg, draftColors[vk]?.bg ? alphaValue : sliderAlpha)
+            const previewBorder = previewBg
 
+            // Fg color picker: onChange → draft, onChangeCommitted → setSubstatColors.
             const handleTextColorChange = (nextFg: string) => {
+              setDraftColors(prev => ({ ...prev, [vk]: { ...prev[vk], fg: nextFg } }))
+            }
+            const handleTextColorCommit = (nextFg: string) => {
+              setDraftColors(prev => {
+                const next = { ...prev[vk] }
+                delete next.fg
+                return { ...prev, [vk]: next }
+              })
               setSubstatColors(prev => ({ ...prev, [vk]: { fg: nextFg, bg: displayHex } }))
             }
 
+            // Bg color picker: onChange → draft, onChangeCommitted → setSubstatColors.
             const handleBgColorChange = (nextColor: string) => {
+              setDraftColors(prev => ({ ...prev, [vk]: { ...prev[vk], bg: nextColor } }))
+            }
+            const handleBgColorCommit = (nextColor: string) => {
               const parsed = parseHexWithAlpha(nextColor, displayHex)
               const hasExplicitAlpha = nextColor.length === 9
               const nextPct = hasExplicitAlpha ? Math.round(parsed.alpha * 100) : clampedPct
               const normalizedPct = Math.max(0, Math.min(100, nextPct))
               const committedHex = formatHexWithAlpha(parsed.base, normalizedPct / 100)
+              setDraftColors(prev => {
+                const next = { ...prev[vk] }
+                delete next.bg
+                return { ...prev, [vk]: next }
+              })
               setDraftAlphas(prev => {
                 const next = { ...prev }
                 delete next[vk]
@@ -113,9 +146,20 @@ export default function ManageColorsDialog(props: {
               <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>
                 <Typography sx={{ minWidth: 136 }}>{labelOfVariant(vk)}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                  <ColorField value={fg} onChange={handleTextColorChange} label={t('labelText')} />
+                  <ColorField
+                    value={liveFg}
+                    onChange={handleTextColorChange}
+                    onChangeCommitted={handleTextColorCommit}
+                    label={t('labelText')}
+                  />
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <ColorField value={displayHex} onChange={handleBgColorChange} label={t('labelBg')} allowAlpha />
+                    <ColorField
+                      value={displayHex}
+                      onChange={handleBgColorChange}
+                      onChangeCommitted={handleBgColorCommit}
+                      label={t('labelBg')}
+                      allowAlpha
+                    />
                     <Slider
                       value={clampedPct}
                       min={0}
@@ -138,7 +182,7 @@ export default function ManageColorsDialog(props: {
                       bgcolor: previewBg,
                       border: '1px solid',
                       borderColor: previewBorder,
-                      color: fg,
+                      color: liveFg,
                       fontSize: '0.85rem',
                     }}
                   >
