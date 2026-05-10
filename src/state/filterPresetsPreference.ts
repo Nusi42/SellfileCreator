@@ -14,8 +14,8 @@ import {
   type CollapsedSections,
 } from './rulesFilterPersistence'
 import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
-import { sanitizeRulesFilterState, type RulesFilterState } from '../lib/rulesFilter'
-import { ArtifactType } from '../lib/types'
+import { sanitizeRulesFilterState, type RulesFilterState, type GearInspectorSourceFilter } from '../lib/rulesFilter'
+import { ArtifactType, type ArtifactTypeId } from '../lib/types'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt } from './presetUtils'
 import {
@@ -153,6 +153,7 @@ const SELL_ONLY_RESULT = Object.freeze({ keep: false, sell: true, matched: false
  * sets the optional gearInspectorResult + optional slot restrictions.
  * When gearInspectorResult is omitted the default (all-false) is used, meaning
  * no result-label restriction and all items pass through.
+ * Sections touched by active filters start expanded; everything else collapsed.
  * Sort is intentionally omitted so applying a built-in never overwrites the
  * user's current sort configuration.
  */
@@ -167,6 +168,14 @@ const makeBuiltinFilterSnapshot = (
     // Explicit slot list narrows to artifacts or accessories; undefined leaves slots unrestricted.
     ...(slotIds ? { slots: { selected: slotIds, anyMode: 'off' } } : {}),
   }
+  // Expand sections that have active filters so they're immediately visible when the panel opens.
+  const resultActive = gearInspectorResult != null
+    && (gearInspectorResult.keep || gearInspectorResult.sell || gearInspectorResult.matched || gearInspectorResult.unmatched)
+  const collapsed: CollapsedSections = {
+    ...cloneDefaultRulesFilterCollapsed(),
+    ...(resultActive ? { rule: false } : {}),
+    ...(slotIds ? { slots: false } : {}),
+  }
   return {
     version: FILTER_PRESETS_VERSION,
     activeMode: 'gearInspector',
@@ -180,7 +189,7 @@ const makeBuiltinFilterSnapshot = (
         // Filter panel stays closed; the active filter is visible via chip without forcing the panel open.
         open: false,
         state: giState,
-        collapsed: cloneDefaultRulesFilterCollapsed(),
+        collapsed,
       },
     },
   }
@@ -202,6 +211,47 @@ const ACCESSORY_SLOT_IDS = [
   ArtifactType.Amulet,
   ArtifactType.Banner,
 ]
+
+/** Sources selected for Scoped Sell presets (inventory + vault). */
+const SCOPED_SELL_SOURCES: GearInspectorSourceFilter[] = ['inventory', 'vault']
+
+/** Collapsed state with results (rule), sources, and slots expanded; everything else closed. */
+const makeScopedSellCollapsed = (): CollapsedSections => ({
+  ...cloneDefaultRulesFilterCollapsed(),
+  rule: false,
+  sources: false,
+  slots: false,
+})
+
+/**
+ * Build a Scoped Sell snapshot: sell+scope (matched) result filter, inventory+vault
+ * sources, explicit slot list. Results / sources / slots sections start expanded so
+ * the active filters are immediately visible when the panel is opened.
+ */
+const makeScopedSellSnapshot = (slotIds: number[]): FilterPresetSnapshot => {
+  const giState: RulesFilterState = {
+    ...cloneDefaultRulesFilterState(),
+    gearInspectorResult: { keep: false, sell: true, matched: true, unmatched: false },
+    slots: { selected: slotIds as ArtifactTypeId[], anyMode: 'include' },
+    gearInspectorSources: { selected: SCOPED_SELL_SOURCES },
+  }
+  return {
+    version: FILTER_PRESETS_VERSION,
+    activeMode: 'gearInspector',
+    filtersSynced: false,
+    limitRecipesToFiltered: false,
+    gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
+    // No gearInspectorSubstatSort — preserves the user's live sort on apply.
+    views: {
+      rules: cloneDefaultView(),
+      gearInspector: {
+        open: false,
+        state: giState,
+        collapsed: makeScopedSellCollapsed(),
+      },
+    },
+  }
+}
 
 /**
  * Shipped filter presets shown at the top of the preset menu by default.
@@ -244,6 +294,20 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     savedAt: '',
     builtin: true,
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ACCESSORY_SLOT_IDS),
+  },
+  {
+    id: 'builtin:scoped-sell-artifacts',
+    name: 'Scoped Sell - Artifacts',
+    savedAt: '',
+    builtin: true,
+    snapshot: makeScopedSellSnapshot(ARTIFACT_SLOT_IDS),
+  },
+  {
+    id: 'builtin:scoped-sell-accessories',
+    name: 'Scoped Sell - Accessories',
+    savedAt: '',
+    builtin: true,
+    snapshot: makeScopedSellSnapshot(ACCESSORY_SLOT_IDS),
   },
 ]
 
