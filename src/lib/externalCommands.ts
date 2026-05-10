@@ -177,6 +177,11 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     return command
   }
 
+  // `ArtifactByHeroID` is a known RSL Helper method (typeId → slotNumber → artifactId)
+  // that is intentionally ignored: the `champions` packet already carries per-instance
+  // slot maps (`artifacts: { slot: artifactId }`), making this endpoint redundant.
+  // If Helper ever drops the per-instance field in favour of this one, add a handler here
+  // that builds equippedByArtifact from the typeId-keyed map instead.
   // Unknown commands are ignored to keep the parser strict.
   return null
 }
