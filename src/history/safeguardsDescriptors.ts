@@ -45,6 +45,8 @@ type SafeguardRuleSignature = {
   substatWeights: Array<[number, number]>
   // Per-level threshold — null means disabled.
   improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
+  // Sorted tag strings — omitting tags caused diffSafeguardRules to miss tag-only edits.
+  tags: string[]
 }
 
 // isSafeguardRuleOrderChanged flags pure reorders so history can record them.
@@ -281,6 +283,8 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     substatWeights: weightEntries,
     // Normalize the quality floor so null and undefined both map to null.
     improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
+    // Sort tags so ordering differences do not produce spurious mismatches.
+    tags: Array.isArray(rule.tags) ? rule.tags.map(String).slice().sort() : [],
   }
 }
 
@@ -329,6 +333,8 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
   }
   // Compare improvement-chance threshold (object or null — use JSON for deep equality).
   if (JSON.stringify(left.improvementChanceThreshold) !== JSON.stringify(right.improvementChanceThreshold)) return false
+  if (left.tags.length !== right.tags.length) return false
+  for (let idx = 0; idx < left.tags.length; idx += 1) if (left.tags[idx] !== right.tags[idx]) return false
   return true
 }
 
