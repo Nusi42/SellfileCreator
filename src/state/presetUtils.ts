@@ -29,3 +29,10 @@ export const sanitizePresetSavedAt = (raw: unknown): string => {
   if (typeof raw === 'string' && raw.trim()) return raw
   return new Date().toISOString()
 }
+
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
+/** Returns a valid #RRGGBB hex color, or undefined for absent/invalid values. */
+export const sanitizePresetColor = (raw: unknown): string | undefined => {
+  if (typeof raw !== 'string') return undefined
+  return HEX_COLOR_RE.test(raw) ? raw : undefined
+}

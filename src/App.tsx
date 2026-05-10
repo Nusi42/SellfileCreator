@@ -2866,15 +2866,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorSubstatSortPrefs.state,
   ])
 
-  const handleSaveFilterPreset = useCallback((name: string, includeSort: boolean) => {
+  const handleSaveFilterPreset = useCallback((name: string, includeSort: boolean, color: string | undefined) => {
     // Presets allow duplicates; the internal ID is what disambiguates entries.
     const trimmed = name.trim()
     if (!trimmed) return
+    // exactOptionalPropertyTypes: spread color only when set so the field stays absent for uncolored presets.
+    const colorField: Pick<FilterPreset, 'color'> = color ? { color } : {}
     const preset: FilterPreset = {
       id: createFilterPresetId(),
       name: trimmed,
       savedAt: new Date().toISOString(),
       snapshot: buildFilterPresetSnapshot(includeSort),
+      ...colorField,
     }
     setFilterPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
   }, [buildFilterPresetSnapshot, createFilterPresetId, setFilterPresets])
@@ -3004,13 +3007,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // --- Sort preset handlers -------------------------------------------------
 
-  const handleSaveSortPreset = useCallback((name: string, includeFilter: boolean) => {
+  const handleSaveSortPreset = useCallback((name: string, includeFilter: boolean, color: string | undefined) => {
     const trimmed = name.trim()
     if (!trimmed) return
     // Capture the filter snapshot without sort (sort lives in snapshot already; no need to double-store).
     const filterField: Pick<SortPreset, 'filterSnapshot'> = includeFilter
       ? { filterSnapshot: buildFilterPresetSnapshot(false) }
       : {}
+    // exactOptionalPropertyTypes: spread color only when set so the field stays absent for uncolored presets.
+    const colorField: Pick<SortPreset, 'color'> = color ? { color } : {}
     const preset: SortPreset = {
       // Reuse the same UUID strategy as filter presets for low collision risk.
       id: createFilterPresetId(),
@@ -3019,6 +3024,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Deep-clone so subsequent sort mutations don't corrupt the saved snapshot.
       snapshot: JSON.parse(JSON.stringify(gearInspectorSubstatSortPrefs.state)) as typeof gearInspectorSubstatSortPrefs.state,
       ...filterField,
+      ...colorField,
     }
     setSortPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
   }, [buildFilterPresetSnapshot, createFilterPresetId, gearInspectorSubstatSortPrefs, setSortPresets])

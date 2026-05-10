@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, InputAdornment, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
@@ -77,6 +77,7 @@ import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { GearDbHistoryMenu } from './GearDbHistoryMenu'
 import type { GearDbDiffHistoryEntry } from '../lib/gearDbDiffToast'
+import { ColorField, COLOR_FIELD_DEFAULT_VALUE } from './ColorField'
 
 
 type ProgressChipProps = {
@@ -176,12 +177,12 @@ export default function PreviewHeaderActions(props: {
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
-  onSaveFilterPreset?: (name: string, includeSort: boolean) => void
+  onSaveFilterPreset?: (name: string, includeSort: boolean, color: string | undefined) => void
   onApplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
   onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
   sortPresets?: readonly SortPreset[]
-  onSaveSortPreset?: (name: string, includeFilter: boolean) => void
+  onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined) => void
   onApplySortPreset?: (presetId: string) => void
   onDeleteSortPreset?: (presetId: string) => void
   onMoveSortPreset?: (presetId: string, direction: 'up' | 'down') => void
@@ -496,6 +497,8 @@ export default function PreviewHeaderActions(props: {
   const [savePresetName, setSavePresetName] = React.useState('')
   // Whether to include the current sort config in the filter preset snapshot.
   const [savePresetIncludeSort, setSavePresetIncludeSort] = React.useState(true)
+  // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
+  const [savePresetColor, setSavePresetColor] = React.useState('')
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
   const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
@@ -504,6 +507,8 @@ export default function PreviewHeaderActions(props: {
     setSavePresetName('')
     // Default sort inclusion to true so the checkbox matches the previous behavior.
     setSavePresetIncludeSort(true)
+    // Reset color so the default (no color) is shown each time the dialog opens.
+    setSavePresetColor('')
     setSavePresetOpen(true)
   }, [])
 
@@ -515,9 +520,9 @@ export default function PreviewHeaderActions(props: {
     const name = savePresetName.trim()
     // Skip empty names; the dialog keeps the user in-context until it's valid.
     if (!name) return
-    onSaveFilterPreset?.(name, savePresetIncludeSort)
+    onSaveFilterPreset?.(name, savePresetIncludeSort, savePresetColor || undefined)
     setSavePresetOpen(false)
-  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort])
+  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort, savePresetColor])
 
   // --- Sort preset dialog state ---------------------------------------------
 
@@ -525,12 +530,16 @@ export default function PreviewHeaderActions(props: {
   const [saveSortPresetName, setSaveSortPresetName] = React.useState('')
   // Default filter inclusion to true so the checkbox matches an "include everything" expectation.
   const [saveSortPresetIncludeFilter, setSaveSortPresetIncludeFilter] = React.useState(true)
+  // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
+  const [saveSortPresetColor, setSaveSortPresetColor] = React.useState('')
   const [deleteSortPresetTarget, setDeleteSortPresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
   const openSaveSortPresetDialog = React.useCallback(() => {
     setSaveSortPresetName('')
     // Reset inclusion flag on every open so the default is always "include both".
     setSaveSortPresetIncludeFilter(true)
+    // Reset color so the default (no color) is shown each time the dialog opens.
+    setSaveSortPresetColor('')
     setSaveSortPresetOpen(true)
   }, [])
 
@@ -541,9 +550,9 @@ export default function PreviewHeaderActions(props: {
   const confirmSaveSortPreset = React.useCallback(() => {
     const name = saveSortPresetName.trim()
     if (!name) return
-    onSaveSortPreset?.(name, saveSortPresetIncludeFilter)
+    onSaveSortPreset?.(name, saveSortPresetIncludeFilter, saveSortPresetColor || undefined)
     setSaveSortPresetOpen(false)
-  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter])
+  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter, saveSortPresetColor])
 
   const requestDeleteSortPreset = React.useCallback((presetId: string, presetName: string) => {
     setDeleteSortPresetTarget({ id: presetId, name: presetName })
@@ -1140,7 +1149,8 @@ export default function PreviewHeaderActions(props: {
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
-                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
+                        {/* Apply label color when set; fall back to default inherited text color. */}
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
                           {filterPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets carry no meaningful timestamp; show it only for user presets. */}
@@ -1236,6 +1246,7 @@ export default function PreviewHeaderActions(props: {
                   <Typography variant="body2" color="text.secondary">
                     {t('filterPresetsSaveDialogHelper')}
                   </Typography>
+                  {/* Name field + color swatch share one row via endAdornment — no extra layout needed. */}
                   <TextField
                     autoFocus
                     label={t('filterPresetsNameLabel')}
@@ -1245,6 +1256,30 @@ export default function PreviewHeaderActions(props: {
                       if (event.key === 'Enter') confirmSavePreset()
                     }}
                     inputProps={{ maxLength: 80 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
+                          {savePresetColor ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                              <ColorField value={savePresetColor} onChange={setSavePresetColor} />
+                              <ClearIconButton tooltip={t('clear')} onClick={() => setSavePresetColor('')} />
+                            </Box>
+                          ) : (
+                            <MarkdownTooltip markdown={t('presetLabelColor')}>
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => setSavePresetColor(COLOR_FIELD_DEFAULT_VALUE)}
+                                sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
+                              >
+                                <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
+                              </Button>
+                            </MarkdownTooltip>
+                          )}
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                   {/* Allow the user to exclude sort so applying the preset preserves their current sort config. */}
                   <FormControlLabel
@@ -1301,7 +1336,8 @@ export default function PreviewHeaderActions(props: {
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
                     >
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
-                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}>
+                        {/* Apply label color when set; fall back to default inherited text color. */}
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
                           {sortPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets have no meaningful timestamp; skip the caption. */}
@@ -1381,6 +1417,7 @@ export default function PreviewHeaderActions(props: {
                   <Typography variant="body2" color="text.secondary">
                     {t('sortPresetsSaveDialogHelper')}
                   </Typography>
+                  {/* Name field + color swatch share one row via endAdornment — no extra layout needed. */}
                   <TextField
                     autoFocus
                     label={t('filterPresetsNameLabel')}
@@ -1390,6 +1427,30 @@ export default function PreviewHeaderActions(props: {
                       if (event.key === 'Enter') confirmSaveSortPreset()
                     }}
                     inputProps={{ maxLength: 80 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
+                          {saveSortPresetColor ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                              <ColorField value={saveSortPresetColor} onChange={setSaveSortPresetColor} />
+                              <ClearIconButton tooltip={t('clear')} onClick={() => setSaveSortPresetColor('')} />
+                            </Box>
+                          ) : (
+                            <MarkdownTooltip markdown={t('presetLabelColor')}>
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => setSaveSortPresetColor(COLOR_FIELD_DEFAULT_VALUE)}
+                                sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
+                              >
+                                <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
+                              </Button>
+                            </MarkdownTooltip>
+                          )}
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                   {/* Allow the user to exclude filter state so applying the preset preserves their current filters. */}
                   <FormControlLabel

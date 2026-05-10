@@ -1223,6 +1223,7 @@ const overrides: Catalog = {
   sortPresetsDeleteDialogTitle: "Supprimer le tri enregistr\u00e9 ?",
   sortPresetsDeleteDialogMessage: "Supprimer \u00ab {name} \u00bb ? Cette action est irr\u00e9versible.",
   sortPresetsSaveIncludeFilter: "Inclure les param\u00e8tres de filtre",
+  presetLabelColor: "Couleur de l'\u00e9tiquette",
   filterMatch: "Accord",
   filterAnyOf: "Au moins un",
   filterAllOf: "Tous",

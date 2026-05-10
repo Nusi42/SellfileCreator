@@ -1219,6 +1219,7 @@ const overrides: Catalog = {
   sortPresetsDeleteDialogTitle: "Удалить сохранённую сортировку?",
   sortPresetsDeleteDialogMessage: "Удалить «{name}»? Это действие нельзя отменить.",
   sortPresetsSaveIncludeFilter: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0444\u0438\u043b\u044c\u0442\u0440\u0430",
+  presetLabelColor: "\u0426\u0432\u0435\u0442 \u043c\u0435\u0442\u043a\u0438",
   filterMatch: "Совпад.",
   filterAnyOf: "Любые из",
   filterAllOf: "Все из",
