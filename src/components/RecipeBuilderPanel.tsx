@@ -3653,7 +3653,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <BuilderSectionHeader id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
             </BuilderSectionHeader>
@@ -3687,6 +3687,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 }
               }}
               sx={{
+                display: 'block',
                 '& .MuiSlider-track': { height: 4 },
                 '& .MuiSlider-rail': { height: 4 },
                 '& .MuiSlider-thumb': { width: 16, height: 16 },

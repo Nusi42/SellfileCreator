@@ -1809,7 +1809,7 @@ export default function SafeguardBuilderPanel({
       <Box aria-hidden="true" sx={{ gridColumn: '3 / 4', visibility: 'hidden' }}>
         {/* Label row mirrors the recipe builder's level-window header exactly (same components,
             same sx) so this spacer's height is always pixel-identical on every screen/zoom. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} />
         </Box>
         {/* Collapse mirrors left columns: hide the slider when every RRF section is collapsed so
@@ -1828,6 +1828,7 @@ export default function SafeguardBuilderPanel({
             valueLabelFormat={(v) => `+${v}`}
             onChange={() => { /* spacer — no-op */ }}
             sx={{
+              display: 'block',
               '& .MuiSlider-track': { height: 4 },
               '& .MuiSlider-rail': { height: 4 },
               '& .MuiSlider-thumb': { width: 16, height: 16 },
