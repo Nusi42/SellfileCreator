@@ -3,6 +3,7 @@ import { HexColorPicker, HexAlphaColorPicker } from 'react-colorful'
 import { Box, Button, Popover, Typography, TextField } from '@mui/material'
 import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
+import { useI18n } from '../lib/i18n'
 import { useRecentColors, addRecentColor } from '../state/recentColorsPreference'
 
 /** Default starting color used when opening the picker without a prior selection. */
@@ -35,6 +36,7 @@ function ColorPickerContent({
   // draft is the raw text-field value and may be partial while typing.
   const [draft, setDraft] = React.useState(initialValue)
   const recentColors = useRecentColors()
+  const { t } = useI18n()
 
   /** Commits live on every drag step — callers that need throttling use onChangeCommitted. */
   const handlePickerChange = (color: string) => {
@@ -104,7 +106,7 @@ function ColorPickerContent({
           onBlur={() => { onCommit(draft) }}
           sx={{ flex: 1 }}
         />
-        <Button size="small" variant="contained" onClick={handleOk}>OK</Button>
+        <Button size="small" variant="contained" onClick={handleOk}>{t('close')}</Button>
       </Box>
     </Box>
   )
