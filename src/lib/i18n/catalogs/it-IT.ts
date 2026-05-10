@@ -1221,6 +1221,7 @@ const overrides: Catalog = {
   sortPresetsDeleteDialogTitle: "Eliminare l'ordinamento salvato?",
   sortPresetsDeleteDialogMessage: "Eliminare \"{name}\"? Questa azione non può essere annullata.",
   sortPresetsSaveIncludeFilter: "Includi impostazioni di filtro",
+  presetLabelColor: "Colore etichetta",
   filterMatch: "Abbina",
   filterAnyOf: "Qualsiasi tra",
   filterAllOf: "Tutte",

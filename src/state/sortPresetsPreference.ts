@@ -6,7 +6,7 @@
  * can save/restore sort setups independently of filter presets.
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt } from './presetUtils'
+import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt, sanitizePresetColor } from './presetUtils'
 import {
   DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
   normalizeGearInspectorSubstatSortState,
@@ -34,6 +34,8 @@ export type SortPreset = {
   snapshot: GearInspectorSubstatSortState
   // Optional filter snapshot captured at save time; absent means "don't overwrite the current filter on apply".
   filterSnapshot?: FilterPresetSnapshot
+  // Optional #RRGGBB text color applied to the preset label in the menu.
+  color?: string
   // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
   builtin?: true
 }
@@ -160,6 +162,9 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
   const filterField: Pick<SortPreset, 'filterSnapshot'> = filterRaw !== undefined
     ? { filterSnapshot: sanitizeFilterPresetSnapshot(filterRaw) }
     : {}
+  // exactOptionalPropertyTypes: spread color only when present so the field stays absent for uncolored presets.
+  const color = sanitizePresetColor(rec['color'])
+  const colorField: Pick<SortPreset, 'color'> = color !== undefined ? { color } : {}
   return {
     id,
     name,
@@ -167,6 +172,7 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
     // Reuse the existing normalizer; it handles all schema evolution for sort state.
     snapshot: normalizeGearInspectorSubstatSortState(rec['snapshot']),
     ...filterField,
+    ...colorField,
   }
 }
 

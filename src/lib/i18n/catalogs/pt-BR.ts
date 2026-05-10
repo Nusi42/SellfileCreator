@@ -1219,6 +1219,7 @@ const catalog: Catalog = {
   sortPresetsDeleteDialogTitle: "Excluir ordem salva?",
   sortPresetsDeleteDialogMessage: "Excluir \"{name}\"? Isso n\u00e3o pode ser desfeito.",
   sortPresetsSaveIncludeFilter: "Incluir configura\u00e7\u00f5es de filtro",
+  presetLabelColor: "Cor do r\u00f3tulo",
   filterMatch: "Acerto",
   filterAnyOf: "Algum de",
   filterAllOf: "Todos de",

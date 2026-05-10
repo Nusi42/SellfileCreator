@@ -3,7 +3,9 @@ import { Box, Button, Popover, Typography, TextField } from '@mui/material'
 import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
 
-const COLOR_PRESETS = ['#90CAF9','#4FC3F7','#81C784','#66BB6A','#E57373','#FFB74D','#CE93D8','#B0BEC5','#FFD54F','#A5D6A7','#80CBC4','#F48FB1']
+/** Default starting color used when opening the picker without a prior selection. */
+export const COLOR_FIELD_DEFAULT_VALUE = '#90CAF9'
+const COLOR_PRESETS = [COLOR_FIELD_DEFAULT_VALUE,'#4FC3F7','#81C784','#66BB6A','#E57373','#FFB74D','#CE93D8','#B0BEC5','#FFD54F','#A5D6A7','#80CBC4','#F48FB1']
 
 function ColorPickerContent({
   initialValue,

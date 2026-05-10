@@ -1221,6 +1221,7 @@ const overrides: Catalog = {
   sortPresetsDeleteDialogTitle: "Kaydedilmiş sıralama silinsin mi?",
   sortPresetsDeleteDialogMessage: "\"{name}\" silinsin mi? Bu geri alınamaz.",
   sortPresetsSaveIncludeFilter: "Filtre ayarlar\u0131n\u0131 dahil et",
+  presetLabelColor: "Etiket rengi",
   filterMatch: "Eşleşme",
   filterAnyOf: "En az biri",
   filterAllOf: "Hepsi",

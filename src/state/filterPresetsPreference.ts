@@ -17,7 +17,7 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { sanitizeRulesFilterState, type RulesFilterState, type GearInspectorSourceFilter } from '../lib/rulesFilter'
 import { ArtifactType, type ArtifactTypeId } from '../lib/types'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt } from './presetUtils'
+import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt, sanitizePresetColor } from './presetUtils'
 import {
   DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
   normalizeGearInspectorSubstatSortState,
@@ -49,6 +49,8 @@ export type FilterPreset = {
   name: string
   savedAt: string
   snapshot: FilterPresetSnapshot
+  // Optional #RRGGBB text color applied to the preset label in the menu.
+  color?: string
   // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
   builtin?: true
 }
@@ -328,11 +330,15 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
   if (rec['builtin'] === true) return BUILTIN_FILTER_PRESET_MAP.get(id) ?? null
   const name = sanitizePresetName(rec['name'])
   if (!name) return null
+  // exactOptionalPropertyTypes: spread color only when present so the field stays absent for uncolored presets.
+  const color = sanitizePresetColor(rec['color'])
+  const colorField: Pick<FilterPreset, 'color'> = color !== undefined ? { color } : {}
   return {
     id,
     name,
     savedAt: sanitizePresetSavedAt(rec['savedAt']),
     snapshot: sanitizeFilterPresetSnapshot(rec['snapshot']),
+    ...colorField,
   }
 }
 
