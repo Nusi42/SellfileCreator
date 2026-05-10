@@ -1429,9 +1429,16 @@ function RulesFilterPanel({
   const sourcesSectionLabel = t('filterSource')
   const championsSectionLabel = t('gearInspectorChampionFilterLabel')
   const lastUseSectionLabel = t('gearInspectorLastUsedFilterLabel')
-  const improvChanceUnassessedChipLabel = improvChanceIncludeUnassessed
-    ? t('gearInspectorImprovChanceNoDataShow')
-    : t('gearInspectorImprovChanceNoDataHide')
+  const improvChanceUnassessedChipLabel = (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>{t('gearInspectorImprovChanceNoDataPrefix')}</Box>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
+        {improvChanceIncludeUnassessed
+          ? <VisibilityIcon fontSize="small" aria-hidden="true" />
+          : <VisibilityOffIcon fontSize="small" aria-hidden="true" />}
+      </Box>
+    </Box>
+  )
   const mainSectionLabel = t('filterMainstat')
   const subSectionLabel = t('filterSubstats')
   const levelSectionLabel = t('filterLevel')

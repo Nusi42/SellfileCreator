@@ -159,8 +159,7 @@ const catalog: Catalog = {
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} dias atrás",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} dias atrás",
   gearInspectorImprovChanceFilterLabel: "Chance de melhoria",
-  gearInspectorImprovChanceNoDataShow: "Sem dados: mostrar",
-  gearInspectorImprovChanceNoDataHide: "Sem dados: ocultar",
+  gearInspectorImprovChanceNoDataPrefix: "Sem dados:",
   gearInspectorImprovChanceTooltip: "Filtra itens por faixa de chance de melhoria. Itens com regra de salvaguarda são exibidos se o valor estiver dentro da faixa selecionada. O chip abaixo controla se itens sem cobertura são mostrados ou ocultados.",
   // Common UI bits used in Gear Inspector
   add: "Adicionar",
