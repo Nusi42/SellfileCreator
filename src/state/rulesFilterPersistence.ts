@@ -42,6 +42,7 @@ export const RULES_FILTER_COLLAPSIBLE_SECTION_IDS = Object.freeze([
   'rarity',
   'faction',
   'ascension',
+  'improvChance',
 ] as const)
 
 type CollapsibleSectionId = typeof RULES_FILTER_COLLAPSIBLE_SECTION_IDS[number]

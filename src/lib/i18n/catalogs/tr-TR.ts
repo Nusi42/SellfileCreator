@@ -158,6 +158,10 @@ const overrides: Catalog = {
   gearInspectorLastUsedCustomSummaryRange: "{minDays}–{maxDays} gün önce",
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} gün önce",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} gün önce",
+  gearInspectorImprovChanceFilterLabel: "Geliştirme Şansı",
+  gearInspectorImprovChanceNoDataShow: "Veri yok: göster",
+  gearInspectorImprovChanceNoDataHide: "Veri yok: gizle",
+  gearInspectorImprovChanceTooltip: "Öğeleri geliştirme şansı aralığına göre filtreler. Koruma kuralına sahip öğeler, değerleri seçili aralıkta ise gösterilir. Aşağıdaki chip, kapsamsız öğelerin gösterilip gösterilmeyeceğini kontrol eder.",
   // Common UI bits used in Ekipman Denetçisi
   add: "Ekle",
   compact: "Kompakt",

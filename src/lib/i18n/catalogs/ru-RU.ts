@@ -158,6 +158,10 @@ const overrides: Catalog = {
   gearInspectorLastUsedCustomSummaryRange: "{minDays}–{maxDays} дней назад",
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} дней назад",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} дней назад",
+  gearInspectorImprovChanceFilterLabel: "Шанс улучшения",
+  gearInspectorImprovChanceNoDataShow: "Нет данных: показать",
+  gearInspectorImprovChanceNoDataHide: "Нет данных: скрыть",
+  gearInspectorImprovChanceTooltip: "Фильтрует предметы по диапазону шанса улучшения. Предметы с правилом защиты отображаются, если их значение попадает в выбранный диапазон. Чип ниже управляет отображением предметов без покрытия.",
   // Common UI bits used in Gear Inspector
   add: "Добавить",
   compact: "Компактный",

@@ -168,3 +168,12 @@ export function coerceGearInspectorLevel(value: unknown, fallback: LevelMileston
   }
   return closest
 }
+
+/**
+ * Returns true when an improvement chance entry is the trivially-derived 100% that
+ * appears for already-maxed (+16) gear. No real upgrade projection is possible for
+ * maxed gear, so the UI hides this value and the filter/sort must treat it as "no data."
+ */
+export function isDegenerateImprovChance(chancePercent: number, artifactLevel: number): boolean {
+  return chancePercent === 100 && artifactLevel >= 16
+}

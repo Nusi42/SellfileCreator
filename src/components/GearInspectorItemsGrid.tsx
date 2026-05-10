@@ -41,7 +41,7 @@ import {
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { isAccessorySlot } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, isDegenerateImprovChance } from '../lib/gearInspectorDomain'
 import type { GearInspectorContextGroup } from '../lib/rulesFilter'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the Gear Inspector's tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
@@ -450,15 +450,24 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => improvementChanceByArtifactId ?? new Map(),
     [improvementChanceByArtifactId],
   )
+  // SSOT for artifact level lookup — shared by the overlay and sort-spec memos to avoid duplication.
+  const levelByArtifactId = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const row of (allRows ?? rows)) map.set(row.artifact.id, Number(row.artifact.level))
+    return map
+  }, [allRows, rows])
+
   const substatSortWithSafeguardChance = useMemo(() => {
     if (!effectiveSubstatSort) return effectiveSubstatSort
     // Thread the improvement-chance map only when the sort key is active (avoid unnecessary work).
     const withChance: GearInspectorSubstatSortSpec = safeguardChanceSortEnabled
       ? (() => {
         // Comparator only needs numeric chance values; omit non-matching safeguards so they sort as null/last.
+        // Also exclude the +16/100% degenerate case — the overlay hides it too (SSOT: levelByArtifactId memo).
         const chanceMap = new Map<number, number | null>()
         safeguardImprovementChanceByArtifactId.forEach((entry, artifactId) => {
           if (!entry.hasMatchingSafeguard) return
+          if (isDegenerateImprovChance(entry.chancePercent, levelByArtifactId.get(artifactId) ?? 0)) return
           chanceMap.set(artifactId, entry.chancePercent)
         })
         return { ...effectiveSubstatSort, safeguardImprovementChanceByArtifactId: chanceMap }
@@ -480,6 +489,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     safeguardRankSortEnabled,
     safeguardImprovementChanceByArtifactId,
     safeguardRankByArtifactId,
+    levelByArtifactId,
   ])
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
   const groups = useMemo(
@@ -513,16 +523,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
       return out
     }
-    // Index artifact levels so we can detect the +16 degenerate case below.
-    const levelByArtifactId = new Map<number, number>()
-    for (const row of (allRows ?? rows)) levelByArtifactId.set(row.artifact.id, Number(row.artifact.level))
     // Hide overlay chips when no substat safeguard matches, or when the gear is already at
     // +16 and would show a trivially-derived 100% (no upgrade projection is possible for
     // maxed gear; the result just reflects current-state selection, which is already
     // communicated by the keep indicator). 0% at +16 is still meaningful and is kept.
     const matchedEntries = Array.from(safeguardImprovementChanceByArtifactId.entries()).filter(([artifactId, entry]) => {
       if (!entry.hasMatchingSafeguard) return false
-      if (entry.chancePercent === 100 && (levelByArtifactId.get(artifactId) ?? 0) >= 16) return false
+      if (isDegenerateImprovChance(entry.chancePercent, levelByArtifactId.get(artifactId) ?? 0)) return false
       return true
     })
     if (matchedEntries.length === 0) {
@@ -709,7 +716,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return overlays
   }, [
-    allRows,
+    levelByArtifactId,
     numberFormatter,
     onJumpToSafeguardRule,
     rows,

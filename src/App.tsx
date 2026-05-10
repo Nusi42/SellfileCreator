@@ -4813,6 +4813,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       recipeNames,
       recipeTags,
       specialRuleLabels: specialRuleSourceLabels,
+      improvementChanceByArtifactId,
     })
   }, [
     gearInspectorFilterActive,
@@ -4822,6 +4823,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipeNames,
     recipeTags,
     specialRuleSourceLabels,
+    improvementChanceByArtifactId,
   ])
   const gearEntriesAfterRulesFilter = gearInspectorFilterResult.items
   // Companion context groups for opacity rendering; present only when Matched/Unmatched is active.

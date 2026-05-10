@@ -1831,8 +1831,6 @@ export default function SafeguardBuilderPanel({
               '& .MuiSlider-track': { height: 4 },
               '& .MuiSlider-rail': { height: 4 },
               '& .MuiSlider-thumb': { width: 16, height: 16 },
-              '& .MuiSlider-mark': { height: 8 },
-              '& .MuiSlider-markLabel': { fontSize: '0.75rem', mt: 0.5 },
             }}
           />
         </Box>

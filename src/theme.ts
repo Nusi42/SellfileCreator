@@ -119,6 +119,14 @@ export function makeTheme(mode: ColorBlindMode) {
           slotProps: { root: { closeAfterTransition: false } },
         },
       },
+      MuiSlider: {
+        styleOverrides: {
+          // Tighten mark labels toward the track — the default MUI gap is too large.
+          markLabel: { fontSize: '0.75rem', marginTop: -4 },
+          // Taller marks so they're visible next to the compact rail.
+          mark: { height: 8 },
+        },
+      },
     },
   })
 }

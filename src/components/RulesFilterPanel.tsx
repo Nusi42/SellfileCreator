@@ -635,6 +635,17 @@ function RulesFilterPanel({
     onClose: handleLastUsePopoverClose,
     menuRef: lastUsePopoverPaperRef,
   })
+  const improvChanceMin = state.gearInspectorImprovementChance?.min ?? 0
+  const improvChanceMax = state.gearInspectorImprovementChance?.max ?? 100
+  const improvChanceIncludeUnassessed = state.gearInspectorImprovementChance?.includeUnassessed !== false
+  const handleImprovChanceSliderChange = React.useCallback((_e: Event, value: number | number[]) => {
+    const [nextMin, nextMax] = Array.isArray(value) ? value as [number, number] : [value, value]
+    const isDefault = nextMin === 0 && nextMax === 100
+    const ic = state.gearInspectorImprovementChance ?? DEFAULT_RULES_FILTER_STATE.gearInspectorImprovementChance!
+    // When range changes from default, automatically exclude unassessed items so the filter is meaningful.
+    const includeUnassessed = isDefault ? ic.includeUnassessed : false
+    onChange({ ...state, gearInspectorImprovementChance: { min: nextMin, max: nextMax, includeUnassessed } })
+  }, [onChange, state])
   const rollFilterStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.slice(), [])
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
@@ -1418,6 +1429,9 @@ function RulesFilterPanel({
   const sourcesSectionLabel = t('filterSource')
   const championsSectionLabel = t('gearInspectorChampionFilterLabel')
   const lastUseSectionLabel = t('gearInspectorLastUsedFilterLabel')
+  const improvChanceUnassessedChipLabel = improvChanceIncludeUnassessed
+    ? t('gearInspectorImprovChanceNoDataShow')
+    : t('gearInspectorImprovChanceNoDataHide')
   const mainSectionLabel = t('filterMainstat')
   const subSectionLabel = t('filterSubstats')
   const levelSectionLabel = t('filterLevel')
@@ -1426,6 +1440,7 @@ function RulesFilterPanel({
   const rankSectionLabel = t('filterRank')
   const raritySectionLabel = t('filterRarity')
   const ascensionSectionLabel = t('filterAscension')
+  const improvChanceSectionLabel = t('gearInspectorImprovChanceFilterLabel')
 
   // Keep the aria-label/tooltip descriptive so screen readers and hover affordances both share the same phrasing.
   const formatSectionClearLabel = React.useCallback((sectionLabel: string) => {
@@ -1549,6 +1564,12 @@ function RulesFilterPanel({
       gearInspectorAscension: { ...(DEFAULT_RULES_FILTER_STATE.gearInspectorAscension ?? { stars: [], stats: [] }) },
     })
   }
+  const clearImprovChanceSection = () => {
+    onChange({
+      ...state,
+      gearInspectorImprovementChance: { min: 0, max: 100, includeUnassessed: true },
+    })
+  }
 
   // Dirty-state probes ensure the clear affordance only lights up when this section diverged from factory defaults.
   const defaultRuleFilter = DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }
@@ -1611,6 +1632,8 @@ function RulesFilterPanel({
     (gearInspectorAscStars.length > 0)
     || (gearInspectorAscStats.length > 0)
   )
+  const improvChanceSectionDirty = isGearInspectorMode && (improvChanceMin > 0 || improvChanceMax < 100 || !improvChanceIncludeUnassessed)
+
 
   return (
     <Box sx={{ display: 'contents' }}>
@@ -1756,7 +1779,7 @@ function RulesFilterPanel({
         {/* Left column */}
         <Box>
           {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isGearInspectorMode ? 'auto auto minmax(0, 1fr)' : 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <FilterSectionHeader
               id="rule"
@@ -1958,6 +1981,67 @@ function RulesFilterPanel({
             )}
             </Collapse>
           </FormControl>
+          {isGearInspectorMode && (
+            <FormControl fullWidth sx={{ mb: 0.75 }}>
+              <FilterSectionHeader
+                id="improvChance"
+                label={improvChanceSectionLabel}
+                dirty={improvChanceSectionDirty}
+                actions={renderSectionClearButton(
+                  improvChanceSectionDirty,
+                  formatSectionClearLabel(improvChanceSectionLabel),
+                  clearImprovChanceSection,
+                )}
+                collapsed={collapsed}
+                onCollapsedChange={onCollapsedChange}
+              />
+              <Collapse in={!collapsed.improvChance} timeout="auto" unmountOnExit>
+                <Box
+                  sx={{
+                    mt: 0.25,
+                    width: 200,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    px: 1.25,
+                  }}
+                >
+                  <Slider
+                    size="small"
+                    disableSwap
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={[improvChanceMin, improvChanceMax]}
+                    marks={[0, 25, 50, 75, 100].map((v) => ({ value: v, label: `${v}%` }))}
+                    valueLabelDisplay="auto"
+                    valueLabelFormat={(v) => `${v}%`}
+                    onChange={handleImprovChanceSliderChange}
+                    sx={{
+                      width: '100%',
+                      mt: 0.5,
+                      mb: 1.5,
+                      '& .MuiSlider-track': { height: 4 },
+                      '& .MuiSlider-rail': { height: 4 },
+                      '& .MuiSlider-thumb': { width: 16, height: 16 },
+                    }}
+                  />
+                </Box>
+                <Box sx={{ mt: 0 }}>
+                  <MarkdownTooltip markdown={t('gearInspectorImprovChanceTooltip')}>
+                    <Chip
+                      size="small"
+                      label={improvChanceUnassessedChipLabel}
+                      onClick={() => {
+                        const ic = state.gearInspectorImprovementChance ?? DEFAULT_RULES_FILTER_STATE.gearInspectorImprovementChance!
+                        onChange({ ...state, gearInspectorImprovementChance: { ...ic, includeUnassessed: !improvChanceIncludeUnassessed } })
+                      }}
+                      sx={tintedChipSx(improvChanceIncludeUnassessed ? theme.palette.success : theme.palette.warning)}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+              </Collapse>
+            </FormControl>
+          )}
           {/* Sets (compact, capped width on sm+) */}
           <FormControl
             fullWidth
@@ -3092,8 +3176,6 @@ function RulesFilterPanel({
                         '& .MuiSlider-track': { height: 4 },
                         '& .MuiSlider-rail': { height: 4 },
                         '& .MuiSlider-thumb': { width: 16, height: 16 },
-                        '& .MuiSlider-mark': { height: 8 },
-                        '& .MuiSlider-markLabel': { fontSize: '0.75rem', mt: 0.5 },
                       }}
                     />
                   </Box>
@@ -3491,6 +3573,7 @@ function RulesFilterPanel({
             </FormControl>
         </Box>
         {isGearInspectorMode && (
+          <>
           <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
             <FilterSectionHeader
               id="ascension"
@@ -3577,6 +3660,7 @@ function RulesFilterPanel({
               </Box>
             </Collapse>
           </FormControl>
+          </>
         )}
       </Box>
       {/* Faction moved to left column */}

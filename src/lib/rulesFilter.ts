@@ -26,10 +26,11 @@ import {
 import { rankCoverage, rarityCoverage } from './hsfTypes'
 import type { HsfRuleWithRecipe } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
-import { isAccessorySlot } from './gearInspectorDomain'
+import { isAccessorySlot, isDegenerateImprovChance } from './gearInspectorDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from './ruleRecipeIndex'
 import { getDaysSince } from './dateDisplay'
+import type { ImprovementChanceWasmEntry } from './wasm/wasmRuleEngine'
 
 // Tri-state for handling explicit "Any" fields in rules.
 export type AnyMode = 'off' | 'include' | 'only'
@@ -158,6 +159,7 @@ export interface RulesFilterState {
   gearInspectorChampions?: { selected: number[] }
   gearInspectorRolls?: GearInspectorRollFilterState
   gearInspectorLastUse?: GearInspectorLastUseFilter
+  gearInspectorImprovementChance?: { min: number; max: number; includeUnassessed: boolean }
 }
 
 const clampGearInspectorLevelValue = (value: number | null | undefined): number => {
@@ -195,6 +197,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   gearInspectorChampions: { selected: [] },
   gearInspectorRolls: createDefaultGearInspectorRollsState(),
   gearInspectorLastUse: createDefaultGearInspectorLastUseFilter(),
+  gearInspectorImprovementChance: { min: 0, max: 100, includeUnassessed: true },
 }
 
 /**
@@ -427,7 +430,7 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
     const candidate = isRecord(rec['gearInspectorAscension']) ? (rec['gearInspectorAscension'] as UnknownRecord) : null
     const stars = sanitizeUniqueNumberArray(candidate?.['stars'])
       .map((value) => Math.round(value))
-      .filter((value) => value >= 1 && value <= 6)
+      .filter((value) => value >= 0 && value <= 6)
     const uniqueStars = Array.from(new Set(stars)).sort((a, b) => a - b)
     next.gearInspectorAscension = {
       stars: uniqueStars,
@@ -444,6 +447,19 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   // Legacy + partial shapes are handled by the existing normalizers.
   next.gearInspectorRolls = normalizeGearInspectorRollsState(isRecord(rec['gearInspectorRolls']) ? (rec['gearInspectorRolls'] as GearInspectorRollFilterState) : undefined)
   next.gearInspectorLastUse = normalizeGearInspectorLastUseFilter(rec['gearInspectorLastUse'] as RulesFilterState['gearInspectorLastUse'])
+  {
+    const raw = isRecord(rec['gearInspectorImprovementChance']) ? rec['gearInspectorImprovementChance'] as Record<string, unknown> : null
+    const rawMin = typeof raw?.['min'] === 'number' ? raw['min'] : 0
+    const rawMax = typeof raw?.['max'] === 'number' ? raw['max'] : 100
+    const clampedMin = Math.max(0, Math.min(100, Math.round(rawMin / 5) * 5))
+    const clampedMax = Math.max(0, Math.min(100, Math.round(rawMax / 5) * 5))
+    const includeUnassessed = raw?.['includeUnassessed'] !== false
+    next.gearInspectorImprovementChance = {
+      min: Math.min(clampedMin, clampedMax),
+      max: Math.max(clampedMin, clampedMax),
+      includeUnassessed,
+    }
+  }
 
   return next
 }
@@ -478,7 +494,9 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeGear
   const n = ((f.gearInspectorAscension?.stars?.length ?? 0) > 0) || ((f.gearInspectorAscension?.stats?.length ?? 0) > 0)
   const o = (f.gearInspectorChampions?.selected?.length ?? 0) > 0
   const q = isGearInspectorLastUseFilterActive(f.gearInspectorLastUse)
-  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o || q
+  const ic = f.gearInspectorImprovementChance
+  const r = (ic?.min ?? 0) > 0 || (ic?.max ?? 100) < 100 || ic?.includeUnassessed === false
+  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o || q || r
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -800,6 +818,7 @@ export interface FilterGearInspectorItemsOptions {
   recipeNames?: Array<string | null | undefined>
   recipeTags?: Array<string[] | null | undefined>
   specialRuleLabels?: RuleSourceLabelMap
+  improvementChanceByArtifactId?: Map<number, ImprovementChanceWasmEntry> | null
 }
 
 /** Opacity group for each gear card in Matched/Unmatched context mode. */
@@ -907,6 +926,10 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
   const glyphMode = f.gearInspectorGlyphs?.mode ?? 'any'
   const ascensionStars = new Set<number>(f.gearInspectorAscension?.stars ?? [])
   const ascensionStats = new Set((f.gearInspectorAscension?.stats ?? []).map(Number))
+  const improvChanceMin = f.gearInspectorImprovementChance?.min ?? 0
+  const improvChanceMax = f.gearInspectorImprovementChance?.max ?? 100
+  const improvChanceIncludeUnassessed = f.gearInspectorImprovementChance?.includeUnassessed !== false
+  const improvChanceFilterActive = improvChanceMin > 0 || improvChanceMax < 100 || !improvChanceIncludeUnassessed
   // First pass: collect candidates passing all non-gearInspectorResult filters.
   // gearInspectorResult is resolved in a second pass so companion keys can be computed
   // across the full candidate set before any item is excluded.
@@ -1178,6 +1201,20 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
         filters: gearInspectorRolls,
         rollCounts,
       })) continue
+    }
+
+    if (improvChanceFilterActive) {
+      const entry = options?.improvementChanceByArtifactId?.get(Number(artifact.id))
+      // Treat the +16/100% degenerate case as "no data" — same exclusion as the overlay and sort.
+      const hasData = Boolean(entry?.hasMatchingSafeguard)
+        && !isDegenerateImprovChance(entry?.chancePercent ?? 0, Number(artifact.level))
+      if (hasData) {
+        // Item has improvement chance data — filter by range.
+        if (entry!.chancePercent < improvChanceMin || entry!.chancePercent > improvChanceMax) continue
+      } else {
+        // No improvement chance data (or degenerate) — keep only if includeUnassessed.
+        if (!improvChanceIncludeUnassessed) continue
+      }
     }
 
     candidates.push(row)

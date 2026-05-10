@@ -158,6 +158,10 @@ const overrides: Catalog = {
   gearInspectorLastUsedCustomSummaryRange: "{minDays}–{maxDays} giorni fa",
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} giorni fa",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} giorni fa",
+  gearInspectorImprovChanceFilterLabel: "Probabilità di miglioramento",
+  gearInspectorImprovChanceNoDataShow: "Nessun dato: mostra",
+  gearInspectorImprovChanceNoDataHide: "Nessun dato: nascondi",
+  gearInspectorImprovChanceTooltip: "Filtra gli oggetti per intervallo di probabilità di miglioramento. Gli oggetti con regola di protezione vengono mostrati se il valore rientra nell'intervallo selezionato. Il chip in basso controlla se gli oggetti senza copertura vengono mostrati o nascosti.",
   // Common UI bits used in Gear Inspector
   add: "Aggiungi",
   compact: "Compatta",
