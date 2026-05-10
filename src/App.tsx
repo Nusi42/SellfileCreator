@@ -217,6 +217,26 @@ function isAbortError(error: unknown): boolean {
   return false
 }
 
+// Fingerprint of the cID (equipped-champion) assignments across all artifact rows.
+// RSL Helper does not bump artifact revisions when equipment changes, so the revision
+// diff alone cannot detect equipment-only pushes. This fingerprint covers that gap
+// and lets handleGearDbRawSnapshot short-circuit no-op pushes entirely.
+function computeArtifactCidFingerprint(
+  artifacts: readonly GearDbArtifactRow[],
+  inboxArtifacts: readonly GearDbArtifactRow[],
+): number {
+  // 1000003 and 7919 are coprime primes — keeps (ID, cID) pairs from aliasing
+  // across different artifacts or champion assignments.
+  let h = 0
+  for (const r of artifacts) {
+    h = (h * 1000003 + r.ID + (r.cID ?? 0) * 7919) | 0
+  }
+  for (const r of inboxArtifacts) {
+    h = (h * 1000003 + r.ID + (r.cID ?? 0) * 7919) | 0
+  }
+  return h
+}
+
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
@@ -551,6 +571,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Compared against the incoming push to find the changed subset before snapshotting,
   // so unchanged artifacts skip the deep stat clone entirely.
   const gearDbRevisionMapRef = useRef<Map<number, number>>(new Map())
+  // Fingerprint of the last accepted snapshot's cID assignments; compared against
+  // incoming fingerprints to short-circuit no-op pushes (see computeArtifactCidFingerprint).
+  const gearDbCidFingerprintRef = useRef<number>(0)
   // Snapshot map produced at the end of the last successful binary (SQLite) command import.
   // Reused as the "before" baseline for the next push and compared against the new import
   // via isGearDbDatasetMatchingSnapshotCache to skip all stat cloning when only non-tracked
@@ -4100,6 +4123,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const changedIdsFilter = incomingRevisions.size > 0 ? changedIds : null
     // Capture the previous dataset so we can compute before/after diffs.
     const previousDataset = gearDbRawDatasetRef.current
+    // Short-circuit when artifact revisions and cID assignments are both unchanged.
+    // Revisions cover stat/level edits; the cID fingerprint catches equipment reassignments
+    // which do not bump artifact revisions in RSL Helper (e.g. packets 01 = 02 at session
+    // start, or duplicate champion pushes that produce identical slot mappings).
+    // Neither beginGearImport nor the worker settle cycle are needed.
+    if (previousDataset !== null && changedIds.size === 0 && incomingRevisions.size > 0) {
+      const cidFingerprint = computeArtifactCidFingerprint(command.artifacts, command.inboxArtifacts ?? [])
+      if (cidFingerprint === gearDbCidFingerprintRef.current) return
+    }
     // Snapshot only the changed subset of previous artifacts — unchanged ones produce no diff entry.
     const previousSnapshots = previousDataset
       ? snapshotGearDbDataset(previousDataset, changedIdsFilter)
@@ -4122,6 +4154,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRawDatasetRef.current = dataset
       // Advance the revision baseline so the next push can skip its own unchanged artifacts.
       gearDbRevisionMapRef.current = incomingRevisions
+      // Advance the cID fingerprint so the next duplicate push can be short-circuited.
+      gearDbCidFingerprintRef.current = computeArtifactCidFingerprint(command.artifacts, command.inboxArtifacts ?? [])
       // Invalidate the binary snapshot cache — the JSON path has its own baseline now.
       // A subsequent binary push must build its "before" snapshot from the JSON dataset.
       gearDbBinarySnapshotCacheRef.current = null
