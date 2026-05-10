@@ -34,7 +34,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Builder Panel Grids](technical/builder-panel-grids.md) — row-by-row grid map for RecipeBuilderPanel and SafeguardBuilderPanel, flex-wrapper mechanics for collapsible sections, and options for layout changes.
 - [Gear Inspector Rule Templates](technical/gear-inspector-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
 - [Tooltip & Context Hints](technical/ui-and-layout.md#tooltips-and-context-hints) — canonical guidance for Markdown/Ellipsis tooltips, context-menu hints, and overflow handling.
-- [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Claude orchestration instructions for maintaining `docs/HISTORY.txt`.
+- [Release Notes Prompt](CREATE-RELEASE-NOTES.md) and [Worker Prompt](CREATE-RELEASE-NOTES-WORKER.md) — Claude orchestration for maintaining `docs/HISTORY.txt` (single-pass / reducer) and the map-worker role used for large releases. Maintainer review items collected during the run land in `PRE-RELEASE-CHECKLIST.md` at the repo root.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.
 
 > **Playwright in the Claude sandbox:** Run the Vite dev server on ports above `5180` (we default to `5182`). When the harness blocks the bind with an `EPERM` error, rerun the Playwright command with `with_escalated_permissions: true` and a concise `justification` so the server can listen on `127.0.0.1`.

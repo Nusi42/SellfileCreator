@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Keep parsing strict to avoid accidental word-splitting.
 IFS=$'\n\t'
 
-# Resolve script + repo roots so paths are stable.
+# Anchor at repo root so all paths are predictable.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Anchor all work at the repo root.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
-# Centralize doc paths so we only edit them here.
-PROMPT_PATH="docs/CREATE-RELEASE-NOTES.md"
-# The release ledger is always docs/HISTORY.txt.
+PROMPT_MAIN="docs/CREATE-RELEASE-NOTES.md"
+PROMPT_WORKER="docs/CREATE-RELEASE-NOTES-WORKER.md"
 HISTORY_PATH="docs/HISTORY.txt"
+CHECKLIST_PATH="PRE-RELEASE-CHECKLIST.md"
+TEMP_BASE="docs/.release-notes"
 
-# Default to only the newest missing release entry.
+# Budgets are measured in changed lines (numstat add+delete), not commit count,
+# because a single 8000-line commit is harder to review than 200 small ones.
+SINGLE_PASS_LINE_BUDGET="${RELEASE_NOTES_SINGLE_PASS_LINES:-5000}"
+WORKER_LINE_BUDGET="${RELEASE_NOTES_WORKER_LINES:-3500}"
+
+# Model selection. Workers do bounded diff inspection (Haiku is enough); the
+# reducer / single-pass writes the bilingual final output and judges
+# added-then-removed patterns, so Sonnet is the floor. Set either env var to
+# an empty string to inherit the CLI's default model.
+WORKER_MODEL="${RELEASE_NOTES_WORKER_MODEL-haiku}"
+REDUCER_MODEL="${RELEASE_NOTES_REDUCER_MODEL-sonnet}"
+
 process_all="false"
 
 usage() {
@@ -26,421 +35,383 @@ Options (pass after `--` when using npm):
   --all      Process every missing release entry instead of only the newest gap.
   -h, --help Show this help and exit.
 
-Environment:
-  RELEASE_NOTES_CATCHUP_ALL=1 has the same effect as --all.
+Environment overrides:
+  RELEASE_NOTES_CATCHUP_ALL=1            Same as --all.
+  RELEASE_NOTES_BRANCH=<ref>             Override which branch is scanned.
+  RELEASE_NOTES_DATE=<yyyy-mm-dd>        Override the release date for the in-progress entry.
+  RELEASE_NOTES_SINGLE_PASS_LINES=<int>  Switch to map-reduce above this many changed lines (default 5000).
+  RELEASE_NOTES_WORKER_LINES=<int>       Per-worker line budget when chunking (default 3500).
+  RELEASE_NOTES_WORKER_MODEL=<model>     Claude model for map workers (default 'haiku'; empty to inherit CLI default).
+  RELEASE_NOTES_REDUCER_MODEL=<model>    Claude model for reducer / single-pass (default 'sonnet'; empty to inherit CLI default).
 EOF
 }
 
-# Parse CLI options explicitly for clarity.
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --all)
-      process_all="true"
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    --)
-      shift
-      break
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      usage >&2
-      exit 1
-      ;;
+    --all) process_all="true"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 
-# Allow environment override to force a full backfill.
-if [[ "${RELEASE_NOTES_CATCHUP_ALL:-0}" == "1" ]]; then
-  process_all="true"
-fi
+[[ "${RELEASE_NOTES_CATCHUP_ALL:-0}" == "1" ]] && process_all="true"
 
-# Ensure required docs exist before we do any git work.
-if [[ ! -f "$PROMPT_PATH" ]]; then
-  echo "Release notes prompt missing at $PROMPT_PATH." >&2
+for path in "$PROMPT_MAIN" "$PROMPT_WORKER" "$HISTORY_PATH"; do
+  if [[ ! -f "$path" ]]; then
+    echo "Required file missing: $path" >&2
+    exit 1
+  fi
+done
+
+if ! [[ "$SINGLE_PASS_LINE_BUDGET" =~ ^[0-9]+$ ]] || (( SINGLE_PASS_LINE_BUDGET <= 0 )); then
+  echo "RELEASE_NOTES_SINGLE_PASS_LINES must be a positive integer (got '$SINGLE_PASS_LINE_BUDGET')." >&2
   exit 1
 fi
-if [[ ! -f "$HISTORY_PATH" ]]; then
-  echo "HISTORY.txt missing at $HISTORY_PATH. Create it before running the release-notes workflow." >&2
-  exit 1
-fi
-
-# Configure chunk size for long release spans.
-MAX_COMMITS_PER_CHUNK_DEFAULT=150
-# Allow overrides for unusually large ranges.
-MAX_COMMITS_PER_CHUNK="${RELEASE_NOTES_MAX_COMMITS_PER_CHUNK:-$MAX_COMMITS_PER_CHUNK_DEFAULT}"
-if ! [[ "$MAX_COMMITS_PER_CHUNK" =~ ^[0-9]+$ ]] || [[ "$MAX_COMMITS_PER_CHUNK" -le 0 ]]; then
-  echo "RELEASE_NOTES_MAX_COMMITS_PER_CHUNK must be a positive integer (received '$MAX_COMMITS_PER_CHUNK')." >&2
+if ! [[ "$WORKER_LINE_BUDGET" =~ ^[0-9]+$ ]] || (( WORKER_LINE_BUDGET <= 0 )); then
+  echo "RELEASE_NOTES_WORKER_LINES must be a positive integer (got '$WORKER_LINE_BUDGET')." >&2
   exit 1
 fi
 
-# Track versions already in HISTORY.txt without bash 4 maps.
+# ---------------------------------------------------------------------------
+# History parsing
+# ---------------------------------------------------------------------------
+
 history_versions=()
-# Capture the newest entry to detect in-progress behavior.
 latest_history_version=""
 
 parse_history_versions() {
   history_versions=()
   latest_history_version=""
   local line_number=0
-  # Walk the history file line-by-line to keep parsing simple.
   while IFS= read -r raw_line; do
     line_number=$((line_number + 1))
-    # Normalize CRLF to LF so regexes behave.
     local line="${raw_line//$'\r'/}"
     # Strip UTF-8 BOM if present on line 1.
-    if [[ "$line_number" -eq 1 && "${line:0:1}" == $'\ufeff' ]]; then
+    if (( line_number == 1 )) && [[ "${line:0:1}" == $'﻿' ]]; then
       line="${line#?}"
     fi
-    # Capture release headings in the canonical format.
     if [[ "$line" =~ ^##[[:space:]]+v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
       local version="${BASH_REMATCH[1]}"
       history_versions+=("$version")
-      # First heading is always the newest release.
-      if [[ -z "$latest_history_version" ]]; then
-        latest_history_version="$version"
-      fi
+      [[ -z "$latest_history_version" ]] && latest_history_version="$version"
     fi
   done <"$HISTORY_PATH"
 }
 
 version_in_history() {
-  local version="$1"
-  # Linear scan keeps this bash-3 compatible.
+  local needle="$1"
   for known in "${history_versions[@]}"; do
-    if [[ "$known" == "$version" ]]; then
-      return 0
-    fi
+    [[ "$known" == "$needle" ]] && return 0
   done
   return 1
 }
 
-diff_range() {
-  local range="$1"
-  # Single-commit ranges need ^! to avoid comparing with HEAD.
-  if [[ "$range" == *".."* ]]; then
-    printf '%s' "$range"
-  else
-    printf '%s^!' "$range"
-  fi
-}
-
 ensure_history_entry() {
-  local expected_version="$1"
-  local require_entry="${2:-true}"
-  if [[ "$require_entry" != "true" ]]; then
-    return 0
-  fi
+  local version="$1"
   parse_history_versions
-  if ! version_in_history "$expected_version"; then
-    echo "Claude run finished, but docs/HISTORY.txt still lacks v${expected_version}." >&2
-    echo "Review the output above and update the history entry manually if needed." >&2
+  if ! version_in_history "$version"; then
+    echo "docs/HISTORY.txt is still missing v${version} after the Claude run. Review the output and fix manually." >&2
     exit 1
   fi
 }
 
+# ---------------------------------------------------------------------------
+# Branch and chunk helpers
+# ---------------------------------------------------------------------------
+
 select_branch() {
   local -a candidates=()
-  # Allow explicit override first.
-  if [[ -n "${RELEASE_NOTES_BRANCH:-}" ]]; then
-    candidates+=("$RELEASE_NOTES_BRANCH")
-  fi
-  # Fall back to common branch names.
+  [[ -n "${RELEASE_NOTES_BRANCH:-}" ]] && candidates+=("$RELEASE_NOTES_BRANCH")
   candidates+=("origin/master" "master" "origin/main" "main" "HEAD")
-  for candidate in "${candidates[@]}"; do
-    # Use rev-parse to confirm the ref exists.
-    if git rev-parse --verify --quiet "${candidate}^{commit}" >/dev/null; then
-      echo "$candidate"
+  for ref in "${candidates[@]}"; do
+    if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
+      echo "$ref"
       return 0
     fi
   done
-  # Fail loudly if no ref can be resolved.
   echo "Unable to resolve a branch to scan (checked: ${candidates[*]})." >&2
   return 1
 }
 
-collect_commit_chunks() {
-  local commit_range="$1"
-  local previous_marker="$2"
-
-  # Capture the full commit list so we can slice it.
-  commit_list=()
-  while IFS= read -r commit; do
-    commit_list+=("$commit")
-  done < <(git rev-list --reverse "$commit_range")
-  # Bail out early if the range is empty.
-  if (( ${#commit_list[@]} == 0 )); then
-    echo "No commits found in range ${commit_range}." >&2
-    exit 1
-  fi
-
-  total_commit_count=${#commit_list[@]}
-  chunk_total=$(( (total_commit_count + MAX_COMMITS_PER_CHUNK - 1) / MAX_COMMITS_PER_CHUNK ))
-
-  chunk_ranges=()
-  chunk_prev_commits=()
-  chunk_first_commits=()
-  chunk_last_commits=()
-  chunk_commit_counts=()
-
-  local previous_for_range="$previous_marker"
-  for ((i = 0; i < chunk_total; i++)); do
-    local start_index=$((i * MAX_COMMITS_PER_CHUNK))
-    local end_index=$((start_index + MAX_COMMITS_PER_CHUNK - 1))
-    # Clamp the end index for the final chunk.
-    if (( end_index >= total_commit_count )); then
-      end_index=$((total_commit_count - 1))
-    fi
-
-    local first_commit="${commit_list[$start_index]}"
-    local last_commit="${commit_list[$end_index]}"
-    local range_start="$previous_for_range"
-    # Later chunks always use the commit immediately before them.
-    if (( i > 0 )); then
-      range_start="${commit_list[$((start_index - 1))]}"
-    fi
-
-    local range_spec
-    if [[ -n "$range_start" ]]; then
-      range_spec="${range_start}..${last_commit}"
-    else
-      range_spec="${last_commit}"
-    fi
-
-    chunk_ranges+=("$range_spec")
-    chunk_prev_commits+=("$range_start")
-    chunk_first_commits+=("$first_commit")
-    chunk_last_commits+=("$last_commit")
-    chunk_commit_counts+=("$((end_index - start_index + 1))")
-
-    # Next chunk should start after this chunk's end.
-    previous_for_range="$last_commit"
-  done
+range_line_count() {
+  # Sum added+deleted across non-binary paths in the range.
+  git log --numstat --format= "$1" \
+    | awk '$1 != "-" && $2 != "-" { s += $1 + $2 } END { print s+0 }'
 }
 
-run_claude_chunk() {
-  # Identify which workflow we are running.
-  local mode="$1"
-  # Track the target release version for this run.
-  local target_version="$2"
-  # Capture the release commit pointer.
-  local release_commit="$3"
-  # Keep the previous marker for range context.
-  local previous_release_marker="$4"
-  # Record which branch we scanned.
-  local branch="$5"
-  # Use the provided release date for the heading.
-  local release_date="$6"
-  # Keep the full commit range for reporting.
-  local commit_range_full="$7"
-  # Track the full commit count for the release span.
-  local total_commits="$8"
-  # Identify which chunk we are on.
-  local chunk_index="$9"
-  # Track how many chunks exist in total.
-  local chunk_total="${10}"
-  # Use the chunk-specific commit range.
-  local chunk_range="${11}"
-  # Record the commit count for this chunk.
-  local chunk_commit_count="${12}"
-  # Capture the previous commit before the chunk.
-  local chunk_prev_commit="${13}"
-  # Record the first commit in the chunk.
-  local chunk_first_commit="${14}"
-  # Record the last commit in the chunk.
-  local chunk_last_commit="${15}"
-  # Decide whether to require a new history entry.
-  local require_entry="${16}"
-  # Pass the package version when in-progress.
-  local pkg_version="${17:-}"
-  # Track prerelease status for in-progress runs.
-  local pkg_version_is_prerelease="${18:-}"
-  # Note whether the entry already exists.
-  local entry_exists="${19:-}"
-  # Remember the previous version string.
-  local previous_version="${20:-}"
-  # Remember the previous release date.
-  local previous_date="${21:-}"
-  # Capture the release status code.
-  local release_status="${22:-}"
-  # Capture the human-readable status line.
-  local release_status_human="${23:-}"
+# Walks commits chronologically and groups them into chunks no larger than
+# $WORKER_LINE_BUDGET. A single commit larger than the budget gets its own
+# chunk — splitting mid-commit would break the deep-review guarantee.
+chunk_ranges=()
+collect_chunks_by_size() {
+  local range="$1" budget="$2" prev_commit="$3"
+  chunk_ranges=()
+  local cur_last="" cur_lines=0
 
-  # Provide concise summaries for the prompt body.
-  local summary_log
-  # Capture diff stats for the chunk.
-  local diff_stat
-  # Track top-level directories touched.
-  local component_summary
-  # Snapshot existing history for context.
-  local history_snapshot
-  # Load the shared prompt template.
-  local prompt_body
-  # Add extra context for in-progress runs.
-  local extra_context=""
+  while IFS= read -r commit; do
+    local lines
+    lines=$(git show --numstat --format= "$commit" \
+      | awk '$1 != "-" && $2 != "-" { s += $1 + $2 } END { print s+0 }')
 
-  # Summarize the commit list for this chunk.
-  summary_log=$(git log --oneline --decorate=short --color=never "$chunk_range" || true)
-  # Summarize changes without comparing against HEAD.
-  diff_stat=$(git diff --stat "$(diff_range "$chunk_range")" || true)
-  # Condense touched paths into a top-level list.
-  component_summary=$(git diff --name-only "$(diff_range "$chunk_range")" | awk -F'/' 'NF {print $1}' | sort | uniq -c | sort -nr)
-  # Capture the existing history for the prompt context.
-  history_snapshot=$(cat "$HISTORY_PATH")
-  # Load the shared release-notes prompt template.
-  prompt_body=$(cat "$PROMPT_PATH")
+    if [[ -z "$cur_last" ]]; then
+      cur_last="$commit"
+      cur_lines="$lines"
+    elif (( cur_lines + lines > budget )); then
+      if [[ -n "$prev_commit" ]]; then
+        chunk_ranges+=("${prev_commit}..${cur_last}")
+      else
+        chunk_ranges+=("${cur_last}")
+      fi
+      prev_commit="$cur_last"
+      cur_last="$commit"
+      cur_lines="$lines"
+    else
+      cur_last="$commit"
+      cur_lines=$((cur_lines + lines))
+    fi
+  done < <(git rev-list --reverse "$range")
 
-  # Guard against empty summaries so the prompt stays readable.
-  if [[ -z "$summary_log" ]]; then
-    summary_log="<no commits returned by git log>"
+  if [[ -n "$cur_last" ]]; then
+    if [[ -n "$prev_commit" ]]; then
+      chunk_ranges+=("${prev_commit}..${cur_last}")
+    else
+      chunk_ranges+=("${cur_last}")
+    fi
   fi
-  if [[ -z "$diff_stat" ]]; then
-    diff_stat="<no diff>"
-  fi
-  if [[ -z "$component_summary" ]]; then
-    component_summary="<none>"
+}
+
+# Extract the "before" side of a `prev..cur` range, or empty for a bare hash.
+range_prev_commit() {
+  case "$1" in
+    *..*) printf '%s' "${1%..*}" ;;
+    *)    printf '%s' "" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# Checklist finalization (mechanical, no AI involvement)
+# ---------------------------------------------------------------------------
+
+finalize_checklist() {
+  local version="$1" date="$2"
+  local src="$TEMP_BASE/$version/checklist.md"
+  if [[ ! -s "$src" ]]; then
+    echo "No PRE-RELEASE-CHECKLIST items for v${version}." >&2
+    return 0
   fi
 
-  # Normalize empty previous commit labels.
-  local chunk_prev_display="${chunk_prev_commit:-<none>}"
-
-  # Include in-progress details only when relevant.
-  if [[ "$mode" == "in-progress" ]]; then
-    extra_context=$(
-      cat <<EOF
-- Current package version: ${pkg_version}
-- Package build is prerelease: ${pkg_version_is_prerelease}
-- Release status: ${release_status_human}
-- History entry already exists: ${entry_exists}
-- Previous release: v${previous_version:-n/a} (${previous_date:-n/a})
-EOF
-    )
+  # Seed the file with a stable header on first use.
+  if [[ ! -f "$CHECKLIST_PATH" ]]; then
+    {
+      printf '# Pre-Release Checklist\n\n'
+      printf 'Maintainer-facing review items collected during release-notes runs. Newest first.\n'
+      printf 'Delete entries once handled.\n\n'
+    } >"$CHECKLIST_PATH"
   fi
 
-  echo "Dispatching Claude for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total} (range ${chunk_range})." >&2
+  # Insert the new section after the file's first H1 so newest stays on top.
+  local tmp="${CHECKLIST_PATH}.tmp.$$"
+  awk -v ver="$version" -v date="$date" -v src="$src" '
+    BEGIN { inserted = 0 }
+    /^# / && !inserted {
+      print
+      print ""
+      print "## v" ver " — " date
+      print ""
+      while ((getline line < src) > 0) print line
+      close(src)
+      print ""
+      inserted = 1
+      next
+    }
+    { print }
+    END {
+      if (!inserted) {
+        print "## v" ver " — " date
+        print ""
+        while ((getline line < src) > 0) print line
+        close(src)
+        print ""
+      }
+    }
+  ' "$CHECKLIST_PATH" >"$tmp" && mv "$tmp" "$CHECKLIST_PATH"
 
-  # Export all required inputs for the Claude prompt.
-  # Core release identifiers.
-  TARGET_VERSION="$target_version" \
-  RELEASE_COMMIT="$release_commit" \
-  PREVIOUS_MARKER="$previous_release_marker" \
-  # Commit-range context for this run.
-  COMMIT_RANGE="$chunk_range" \
-  RELEASE_DATE="$release_date" \
-  RELEASE_BRANCH="$branch" \
-  # Chunk bookkeeping for multi-pass runs.
-  RELEASE_CHUNK_INDEX="$chunk_index" \
-  RELEASE_CHUNK_COUNT="$chunk_total" \
-  RELEASE_CHUNK_COMMIT_COUNT="$chunk_commit_count" \
-  # Chunk boundary commits for audit context.
-  RELEASE_CHUNK_PREVIOUS_COMMIT="$chunk_prev_commit" \
-  RELEASE_CHUNK_EXCLUDE_MARKER="$chunk_prev_commit" \
-  RELEASE_CHUNK_FIRST_COMMIT="$chunk_first_commit" \
-  RELEASE_CHUNK_LAST_COMMIT="$chunk_last_commit" \
-  # Full-span totals for awareness.
-  RELEASE_COMMIT_TOTAL="$total_commits" \
-  RELEASE_COMMIT_RANGE_FULL="$commit_range_full" \
-  # Package version flags for in-progress runs.
-  PACKAGE_VERSION="$pkg_version" \
-  PACKAGE_VERSION_IS_PRERELEASE="$pkg_version_is_prerelease" \
-  # Existing entry hints for the prompt.
-  ENTRY_ALREADY_EXISTS="$entry_exists" \
-  PREVIOUS_VERSION="$previous_version" \
-  PREVIOUS_DATE="$previous_date" \
-  # Status flag used by the prompt instructions.
-  RELEASE_STATUS="$release_status" \
-  # Use the current HOME for Claude auth.
-  HOME="${HOME:-}" \
-  claude -p --dangerously-skip-permissions --add-dir "$REPO_ROOT" <<EOF
-!! AUTOMATION NOTICE !!
-- Immediately run: git log --reverse --stat "${chunk_range}"
-- Open every player-facing commit you rely on with individual \`git show <hash>\` commands before writing notes.
-- This is a non-interactive automation run; do not ask for confirmation. Proceed through the workflow immediately.
-- If you would normally ask a question, state your assumption in one line and continue.
+  echo "Prepended checklist items for v${version} to ${CHECKLIST_PATH}." >&2
+}
 
-${prompt_body}
+# ---------------------------------------------------------------------------
+# Claude invocation
+# ---------------------------------------------------------------------------
 
----
-IMPORTANT: After outlining your plan, immediately execute the listed commands via tool calls in this run. Do not send another assistant message until you have run at least \`git log --reverse --stat "${chunk_range}"\` and inspected every relevant commit.
----
-Existing release history (newest → oldest):
-${history_snapshot}
+# Runs Claude with the given prompt file embedded in the heredoc, plus an
+# inline context block. Trailing arguments are KEY=VALUE env exports added on
+# top of the existing environment (HOME etc. are inherited).
+# Empty $model means "inherit the CLI's default" — no --model flag is added.
+run_claude() {
+  local prompt_path="$1"; shift
+  local model="$1"; shift
+  local context="$1"; shift
+
+  local -a model_flag=()
+  [[ -n "$model" ]] && model_flag=(--model "$model")
+
+  env "$@" \
+    claude -p ${model_flag[@]+"${model_flag[@]}"} --dangerously-skip-permissions --add-dir "$REPO_ROOT" <<EOF
+$(cat "$prompt_path")
 
 ---
 Context for this run:
-- Scope: ${mode} commit chunk ${chunk_index}/${chunk_total}
-- Target version: v${target_version}
-- Release commit: ${release_commit}
-- Previous release marker: ${previous_release_marker:-<none>}
-- Full release span: ${commit_range_full}
-- Commit range for this chunk: ${chunk_range}
-- Commits in this chunk: ${chunk_commit_count}/${total_commits}
-- Previous chunk last commit: ${chunk_prev_display}
-- First commit in chunk: ${chunk_first_commit}
-- Last commit in chunk: ${chunk_last_commit}
-- Release date: ${release_date}
-- Branch scanned: ${branch}
-${extra_context}
-
-Quick commit summary (newest first):
-${summary_log}
-
-Changed files (git diff --stat):
-${diff_stat}
-
-Top-level directories touched:
-${component_summary}
+${context}
 EOF
-
-  # Fail fast if we expected a new entry and it is still missing.
-  ensure_history_entry "$target_version" "$require_entry"
-  echo "Completed Claude run for ${mode} v${target_version} chunk ${chunk_index}/${chunk_total}." >&2
 }
 
+# ---------------------------------------------------------------------------
+# Single-pass and map-reduce dispatch
+# ---------------------------------------------------------------------------
+
+run_single_pass() {
+  local version="$1" range="$2" date="$3" status="$4" branch="$5"
+  local temp_dir="$TEMP_BASE/$version"
+  mkdir -p "$temp_dir"
+  : >"$temp_dir/checklist.md"
+
+  local context
+  context=$(cat <<EOF
+- Branch scanned: ${branch}
+- Target version: v${version}
+- Release date: ${date}
+- Commit range: ${range}
+- Release status: ${status}
+- Bullets directory: <empty — single-pass; read commits directly>
+- Checklist file: ${temp_dir}/checklist.md (append maintainer review items here)
+EOF
+  )
+
+  echo "Single-pass Claude run for v${version} (range ${range}, model ${REDUCER_MODEL:-<cli default>})." >&2
+  run_claude "$PROMPT_MAIN" "$REDUCER_MODEL" "$context" \
+    "TARGET_VERSION=$version" \
+    "COMMIT_RANGE=$range" \
+    "RELEASE_DATE=$date" \
+    "RELEASE_STATUS=$status" \
+    "BULLETS_DIR=" \
+    "CHECKLIST_FILE=$temp_dir/checklist.md"
+}
+
+run_map_reduce() {
+  local version="$1" range="$2" date="$3" status="$4" branch="$5"
+  local temp_dir="$TEMP_BASE/$version"
+  mkdir -p "$temp_dir"
+  : >"$temp_dir/checklist.md"
+  rm -f "$temp_dir"/chunk-*.bullets.md
+
+  local prev; prev="$(range_prev_commit "$range")"
+  collect_chunks_by_size "$range" "$WORKER_LINE_BUDGET" "$prev"
+  local total="${#chunk_ranges[@]}"
+  if (( total == 0 )); then
+    echo "Map-reduce for v${version}: no commits in range ${range}." >&2
+    return 0
+  fi
+
+  echo "Map-reduce for v${version}: ${total} chunk(s), ${WORKER_LINE_BUDGET}-line budget per worker (worker model ${WORKER_MODEL:-<cli default>}, reducer model ${REDUCER_MODEL:-<cli default>})." >&2
+
+  local n=1
+  for chunk_range in "${chunk_ranges[@]}"; do
+    local out
+    out=$(printf '%s/chunk-%03d.bullets.md' "$temp_dir" "$n")
+    : >"$out"
+
+    local worker_context
+    worker_context=$(cat <<EOF
+- Branch scanned: ${branch}
+- Target version: v${version}
+- Worker: ${n} of ${total}
+- Commit range for this worker: ${chunk_range}
+- Output bullets file (overwrite): ${out}
+- Output checklist file (append-only, shared across workers): ${temp_dir}/checklist.md
+EOF
+    )
+
+    echo "  Worker ${n}/${total} — range ${chunk_range}" >&2
+    run_claude "$PROMPT_WORKER" "$WORKER_MODEL" "$worker_context" \
+      "TARGET_VERSION=$version" \
+      "COMMIT_RANGE=$chunk_range" \
+      "BULLETS_FILE=$out" \
+      "CHECKLIST_FILE=$temp_dir/checklist.md"
+
+    n=$((n + 1))
+  done
+
+  local reducer_context
+  reducer_context=$(cat <<EOF
+- Branch scanned: ${branch}
+- Target version: v${version}
+- Release date: ${date}
+- Commit range (full): ${range}
+- Release status: ${status}
+- Bullets directory: ${temp_dir}
+- Checklist file: <empty — workers already populated PRE-RELEASE-CHECKLIST data>
+EOF
+  )
+
+  echo "  Reducer — consolidating ${total} bullet files into docs/HISTORY.txt." >&2
+  run_claude "$PROMPT_MAIN" "$REDUCER_MODEL" "$reducer_context" \
+    "TARGET_VERSION=$version" \
+    "COMMIT_RANGE=$range" \
+    "RELEASE_DATE=$date" \
+    "RELEASE_STATUS=$status" \
+    "BULLETS_DIR=$temp_dir" \
+    "CHECKLIST_FILE="
+}
+
+dispatch_release() {
+  local version="$1" range="$2" date="$3" status="$4" branch="$5"
+
+  local lines; lines="$(range_line_count "$range")"
+  echo "v${version}: ${lines} changed lines in ${range} (status=${status})." >&2
+
+  if (( lines <= SINGLE_PASS_LINE_BUDGET )); then
+    run_single_pass "$version" "$range" "$date" "$status" "$branch"
+  else
+    echo "Lines exceed single-pass budget (${SINGLE_PASS_LINE_BUDGET}); switching to map-reduce." >&2
+    run_map_reduce "$version" "$range" "$date" "$status" "$branch"
+  fi
+
+  finalize_checklist "$version" "$date"
+
+  # released-verify can legitimately leave HISTORY.txt unchanged because the
+  # entry already exists; in that case ensure_history_entry still passes.
+  ensure_history_entry "$version"
+
+  # Clean up scratch on success. Failed runs leave the dir behind for inspection.
+  rm -rf "$TEMP_BASE/$version"
+}
+
+# ---------------------------------------------------------------------------
+# Main flow: catch-up missing release entries, then handle in-progress version
+# ---------------------------------------------------------------------------
+
 parse_history_versions
+# Empty history forces full backfill regardless of --all.
+[[ -z "$latest_history_version" ]] && process_all="true"
 
-# If the history is empty we must backfill everything.
-if [[ -z "$latest_history_version" ]]; then
-  process_all="true"
-fi
-
-# Resolve the branch we will scan for release commits.
 BRANCH="$(select_branch)"
-echo "Release history catch-up: scanning branch $BRANCH" >&2
+echo "Release-notes catch-up: scanning ${BRANCH}" >&2
 
-# Collect release commits tagged with vX.Y.Z subjects.
-release_lines=()
-# Read the git log output into an array.
-while IFS= read -r line; do
-  release_lines+=("$line")
-done < <(git log --format='%H|%cs|%s' --grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' "$BRANCH")
-
-# Reset release arrays before filling them.
+# Collect every commit whose subject is exactly "vX.Y.Z" (the release commit).
 release_commits=()
 release_dates=()
 release_versions=()
-
-# Split each release log line into components.
-for line in "${release_lines[@]}"; do
+while IFS= read -r line; do
   IFS='|' read -r commit iso_date subject <<<"$line"
-  # Strip the leading v from the subject.
-  version="${subject#v}"
   release_commits+=("$commit")
   release_dates+=("$iso_date")
-  release_versions+=("$version")
-done
+  release_versions+=("${subject#v}")
+done < <(git log --format='%H|%cs|%s' --grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' "$BRANCH")
 
 missing_indices=()
-# Identify release commits that are absent from HISTORY.txt.
 for idx in "${!release_versions[@]}"; do
-  version="${release_versions[$idx]}"
-  if ! version_in_history "$version"; then
-    missing_indices+=("$idx")
-  fi
+  version_in_history "${release_versions[$idx]}" || missing_indices+=("$idx")
 done
 
 if [[ "$process_all" != "true" && "${#missing_indices[@]}" -gt 1 ]]; then
@@ -449,13 +420,12 @@ if [[ "$process_all" != "true" && "${#missing_indices[@]}" -gt 1 ]]; then
   missing_indices=("$newest_idx")
 fi
 
-if [[ "${#missing_indices[@]}" -gt 0 ]]; then
-  missing_indices_sorted=()
-  # Sort missing entries from oldest to newest.
-  while IFS= read -r line; do
-    missing_indices_sorted+=("$line")
-  done < <(printf '%s\n' "${missing_indices[@]}" | sort -nr)
-  missing_indices=("${missing_indices_sorted[@]}")
+# Sort oldest → newest so backfill respects chronology.
+if (( ${#missing_indices[@]} > 0 )); then
+  sorted=()
+  while IFS= read -r line; do sorted+=("$line"); done \
+    < <(printf '%s\n' "${missing_indices[@]}" | sort -nr)
+  missing_indices=("${sorted[@]}")
 fi
 
 for idx in "${missing_indices[@]}"; do
@@ -463,67 +433,21 @@ for idx in "${missing_indices[@]}"; do
   version="${release_versions[$idx]}"
   iso_date="${release_dates[$idx]}"
 
-  # Figure out the previous release marker for range building.
-  previous_commit=""
-  if [[ $idx -lt $((${#release_commits[@]} - 1)) ]]; then
-    previous_commit="${release_commits[$((idx + 1))]}"
+  prev_commit=""
+  if (( idx < ${#release_commits[@]} - 1 )); then
+    prev_commit="${release_commits[$((idx + 1))]}"
   fi
 
-  # Build the commit range for this release span.
-  if [[ -n "$previous_commit" ]]; then
-    commit_range="${previous_commit}..${commit}"
+  if [[ -n "$prev_commit" ]]; then
+    commit_range="${prev_commit}..${commit}"
   else
-    commit_range="${commit}"
+    commit_range="$commit"
   fi
 
-  chunk_ranges=()
-  chunk_prev_commits=()
-  chunk_first_commits=()
-  chunk_last_commits=()
-  chunk_commit_counts=()
-  total_commit_count=0
-  chunk_total=0
-
-  # Split the release span into manageable chunks.
-  collect_commit_chunks "$commit_range" "$previous_commit"
-
-  if (( chunk_total > 1 )); then
-    echo "Commit range ${commit_range} spans ${total_commit_count} commits; splitting into ${chunk_total} chunks (max ${MAX_COMMITS_PER_CHUNK} per run)." >&2
-  fi
-
-  for chunk_idx in "${!chunk_ranges[@]}"; do
-    chunk_range_spec="${chunk_ranges[$chunk_idx]}"
-    chunk_commit_count="${chunk_commit_counts[$chunk_idx]}"
-    chunk_prev_commit="${chunk_prev_commits[$chunk_idx]}"
-    chunk_first_commit="${chunk_first_commits[$chunk_idx]}"
-    chunk_last_commit="${chunk_last_commits[$chunk_idx]}"
-    chunk_number=$((chunk_idx + 1))
-    require_entry="false"
-    if [[ "$chunk_idx" -eq 0 ]]; then
-      require_entry="true"
-    fi
-    # Dispatch the Claude run for this released chunk.
-    run_claude_chunk \
-      "released" \
-      "$version" \
-      "$commit" \
-      "$previous_commit" \
-      "$BRANCH" \
-      "$iso_date" \
-      "$commit_range" \
-      "$total_commit_count" \
-      "$chunk_number" \
-      "$chunk_total" \
-      "$chunk_range_spec" \
-      "$chunk_commit_count" \
-      "$chunk_prev_commit" \
-      "$chunk_first_commit" \
-      "$chunk_last_commit" \
-      "$require_entry"
-  done
+  dispatch_release "$version" "$commit_range" "$iso_date" "new-entry" "$BRANCH"
 done
 
-# Refresh history after catch-up before checking in-progress notes.
+# Refresh history before the in-progress check.
 parse_history_versions
 
 if ! command -v node >/dev/null 2>&1; then
@@ -531,7 +455,6 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-# Read the version from package.json.
 pkg_version="$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
 if [[ -z "$pkg_version" ]]; then
   echo "Unable to read version from package.json." >&2
@@ -544,15 +467,11 @@ if [[ -z "$target_version" ]]; then
   exit 1
 fi
 
-# Detect prerelease versions for in-progress updates.
 pkg_version_is_prerelease="false"
-if [[ "$pkg_version" == *-* ]]; then
-  pkg_version_is_prerelease="true"
-fi
+[[ "$pkg_version" == *-* ]] && pkg_version_is_prerelease="true"
 
-# If the version already has a release commit, skip in-progress.
+# Skip in-progress when the package version already has a release commit.
 release_index=""
-# Locate a release commit with the same version.
 for idx in "${!release_versions[@]}"; do
   if [[ "${release_versions[$idx]}" == "$target_version" ]]; then
     release_index="$idx"
@@ -563,109 +482,38 @@ done
 if [[ -n "$release_index" ]]; then
   echo "Latest package version (v${target_version}) already has a release commit; no in-progress notes to update." >&2
 else
-  previous_commit=""
-  previous_version=""
-  previous_date=""
-  # Capture the most recent release for range building.
-  if [[ "${#release_commits[@]}" -gt 0 ]]; then
-    previous_commit="${release_commits[0]}"
-    previous_version="${release_versions[0]}"
-    previous_date="${release_dates[0]}"
+  prev_commit=""
+  if (( ${#release_commits[@]} > 0 )); then
+    prev_commit="${release_commits[0]}"
   fi
 
-  # Build the in-progress range from last release to HEAD.
-  if [[ -n "$previous_commit" ]]; then
-    commit_range="${previous_commit}..HEAD"
+  if [[ -n "$prev_commit" ]]; then
+    commit_range="${prev_commit}..HEAD"
   else
     commit_range="HEAD"
   fi
 
-  # Count commits to avoid empty in-progress runs.
   commit_count=$(git rev-list --count "$commit_range")
-  if [[ "$commit_count" -eq 0 ]]; then
-    echo "No commits found between the last release and HEAD; skipping in-progress notes update." >&2
+  if (( commit_count == 0 )); then
+    echo "No commits between the last release and HEAD; skipping in-progress notes." >&2
   else
     entry_exists="false"
-    # Detect whether the entry already exists.
-    if version_in_history "$target_version"; then
-      entry_exists="true"
-    fi
+    version_in_history "$target_version" && entry_exists="true"
 
-    # Use explicit release date override when provided.
     release_date="${RELEASE_NOTES_DATE:-$(date +%F)}"
-    release_branch_current="$(git rev-parse --abbrev-ref HEAD)"
-    release_commit_head="$(git rev-parse HEAD)"
+    branch_current="$(git rev-parse --abbrev-ref HEAD)"
 
-    # Pick a status label for the prompt context.
-    release_status="new-entry"
-    release_status_human="New version (create entry)"
+    status="new-entry"
     if [[ "$entry_exists" == "true" ]]; then
       if [[ "$pkg_version_is_prerelease" == "true" && "$target_version" == "$latest_history_version" ]]; then
-        release_status="unreleased-extend"
-        release_status_human="Unreleased (extend existing entry; safe to revise)"
+        status="unreleased-extend"
       else
-        release_status="released-verify"
-        release_status_human="Released version already recorded; verify only"
+        status="released-verify"
       fi
     fi
 
-    chunk_ranges=()
-    chunk_prev_commits=()
-    chunk_first_commits=()
-    chunk_last_commits=()
-    chunk_commit_counts=()
-    total_commit_count=0
-    chunk_total=0
-
-    # Split the in-progress span into manageable chunks.
-    collect_commit_chunks "$commit_range" "$previous_commit"
-
-    if (( chunk_total > 1 )); then
-      echo "In-progress range ${commit_range} spans ${total_commit_count} commits; splitting into ${chunk_total} chunks (max ${MAX_COMMITS_PER_CHUNK} per run)." >&2
-    fi
-
-    for chunk_idx in "${!chunk_ranges[@]}"; do
-      chunk_range_spec="${chunk_ranges[$chunk_idx]}"
-      chunk_commit_count="${chunk_commit_counts[$chunk_idx]}"
-      chunk_prev_commit="${chunk_prev_commits[$chunk_idx]}"
-      chunk_first_commit="${chunk_first_commits[$chunk_idx]}"
-      chunk_last_commit="${chunk_last_commits[$chunk_idx]}"
-      chunk_number=$((chunk_idx + 1))
-      require_entry="false"
-      if [[ "$entry_exists" != "true" && "$chunk_idx" -eq 0 ]]; then
-        require_entry="true"
-      fi
-      # Dispatch the Claude run for this in-progress chunk.
-      run_claude_chunk \
-        "in-progress" \
-        "$target_version" \
-        "$release_commit_head" \
-        "$previous_commit" \
-        "$release_branch_current" \
-        "$release_date" \
-        "$commit_range" \
-        "$total_commit_count" \
-        "$chunk_number" \
-        "$chunk_total" \
-        "$chunk_range_spec" \
-        "$chunk_commit_count" \
-        "$chunk_prev_commit" \
-        "$chunk_first_commit" \
-        "$chunk_last_commit" \
-        "$require_entry" \
-        "$pkg_version" \
-        "$pkg_version_is_prerelease" \
-        "$entry_exists" \
-        "$previous_version" \
-        "$previous_date" \
-        "$release_status" \
-        "$release_status_human"
-
-      if version_in_history "$target_version"; then
-        entry_exists="true"
-      fi
-    done
+    dispatch_release "$target_version" "$commit_range" "$release_date" "$status" "$branch_current"
   fi
 fi
 
-echo "Release-notes Claude workflow finished. Review docs/HISTORY.txt for the latest entries." >&2
+echo "Release-notes workflow finished. Review docs/HISTORY.txt and PRE-RELEASE-CHECKLIST.md." >&2

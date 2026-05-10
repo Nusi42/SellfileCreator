@@ -1,83 +1,89 @@
 # Release Notes Prompt
 
-Use this prompt when Claude must assemble or refresh the Sellfile Creator release history.
+Update `docs/HISTORY.txt` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
 
-## Baseline Context
-- Re-read `CLAUDE.md`, `docs/TECHNICAL.md`, and the existing `docs/HISTORY.txt` entry list before investigating the commits.
-- Keep the One Definition Rule in mind: reuse existing helpers and constants; do not fork logic when summarising behaviour.
-- The authoritative release ledger lives at `docs/HISTORY.txt` (UTF-8 with BOM). Only that file should change during a release-notes run.
+The script that invokes you is `scripts/release/run-release-notes-catchup.sh`. It calls you in one of two modes:
+- **Single-pass** — one Claude run handles a release whose changed-line total fits the budget. `BULLETS_DIR` is empty; you read commits directly.
+- **Reducer** — workers have already distilled the commits into bullet files. `BULLETS_DIR` points at them; you skip git and consolidate.
 
-## Shared Ground Rules
-- Never stage, commit, or amend Git history. The maintainer handles commits manually.
-- Do not touch plan files or rename anything under `plans/`.
-- Treat `examples/` as reference material. Skim those diffs only when they reveal user-facing behaviour; otherwise, you may omit the file-by-file commentary.
-- Ignore hidden references to easter eggs. Do not mention them in the notes.
-- Keep the tone factual and user-focused. Explain what players can now do or rely on; avoid hype or marketing fluff.
-- If a feature was added and removed within the same release window, leave it out of the notes.
-
-## Inputs Provided by the Runner
-The orchestration script injects these environment variables for every Claude execution:
+## Inputs (env vars)
 
 | Variable | Meaning |
 | --- | --- |
-| `TARGET_VERSION` | Release version without the leading `v` (for example `0.9.8`). |
-| `RELEASE_COMMIT` | Commit hash that marks the release when catching up, or `HEAD` when refreshing the in-progress window. |
-| `PREVIOUS_MARKER` | Hash of the previous release commit. Empty when building the very first entry. |
-| `COMMIT_RANGE` | Git range to inspect (e.g. `148c35a..5eac81c`, or the standalone release hash when no prior marker exists). |
-| `RELEASE_DATE` | ISO date (`yyyy-mm-dd`) that should appear next to the version heading. |
-| `RELEASE_BRANCH` | Branch that the runner scanned (`origin/master`, `master`, etc.). |
-| `PREVIOUS_VERSION` | Most recent released version prior to the current run (blank when none exist). |
-| `PREVIOUS_DATE` | Release date paired with `PREVIOUS_VERSION` (blank when none exist). |
-| `ENTRY_ALREADY_EXISTS` | `"true"` when `docs/HISTORY.txt` already contains `v<TARGET_VERSION>`, otherwise `"false"`. |
-| `RELEASE_STATUS` | `new-entry`, `unreleased-extend`, or `released-verify` — use this to decide whether to append to the existing section or draft a new one. |
-| `RELEASE_COMMIT_RANGE_FULL` | Full commit span for the release window; long histories may be split across several runs. |
-| `RELEASE_COMMIT_TOTAL` | Number of commits across the full span listed above. |
-| `RELEASE_CHUNK_INDEX` / `RELEASE_CHUNK_COUNT` | Present when the span is chunked; indicates which slice you are handling (1-based) and how many slices exist. |
-| `RELEASE_CHUNK_COMMIT_COUNT` | Number of commits in the current chunk. |
-| `RELEASE_CHUNK_PREVIOUS_COMMIT` | Last commit processed before this chunk (blank when there is no earlier slice). |
-| `RELEASE_CHUNK_FIRST_COMMIT` / `RELEASE_CHUNK_LAST_COMMIT` | Oldest and newest commit hashes included in this run. |
-| `PACKAGE_VERSION` | Raw version string from `package.json`; useful when confirming prerelease labels. |
-| `PACKAGE_VERSION_IS_PRERELEASE` | `"true"` when `PACKAGE_VERSION` contains a prerelease suffix, otherwise `"false"`. |
+| `TARGET_VERSION` | Version without leading `v` (e.g. `0.9.8`). |
+| `RELEASE_DATE` | ISO date for the heading (`yyyy-mm-dd`). |
+| `COMMIT_RANGE` | Git range or single hash to inspect. |
+| `RELEASE_STATUS` | `new-entry` (insert a fresh section), `unreleased-extend` (amend the existing `v$TARGET_VERSION` block), or `released-verify` (review only — change nothing unless inaccurate). |
+| `BULLETS_DIR` | Empty in single-pass mode. In reducer mode, the directory holding `chunk-*.bullets.md` files. |
+| `CHECKLIST_FILE` | Empty in reducer mode (workers already populated it). In single-pass, the file you APPEND maintainer-facing review items to. |
 
-## Required Workflow
-1. **Confirm Context**
-   - Announce `TARGET_VERSION`, cite `RELEASE_STATUS`, and state whether you will extend an existing entry or draft a new one.
-   - When `RELEASE_CHUNK_COUNT` is present, note which chunk you are covering (`RELEASE_CHUNK_INDEX`) and skim the existing `v<TARGET_VERSION>` entry so you can build on the earlier slice instead of repeating it.
-   - Re-read the baseline docs mentioned above, paying attention to how prior releases in `docs/HISTORY.txt` are worded and ordered.
-   - Print the exact commands you will run before executing them so the maintainer can follow the trail. Immediately follow through by running those commands with shell tool calls in the same turn—especially `git log --reverse --stat "$COMMIT_RANGE"` plus the `git show` inspections. The automation flags runs that skip these commands and continues with a warning, so expect to double-check the generated notes when that happens.
-   - Do not wait for human confirmation after outlining your plan; continue straight through the workflow.
-2. **Audit the Commits**
-   - Inspect `COMMIT_RANGE` with `git log --reverse --stat "$COMMIT_RANGE"` to get an overview. When the run is chunked, stay inside this range—future slices will handle the remaining commits.
-   - For every commit that might matter to players, open the diff (`git show <hash>`) and understand what changed. Do not rely solely on commit messages.
-   - Skip large binary diffs and sample exports under `examples/` unless they directly change product behaviour.
-   - Build a detailed working list of user-facing outcomes: note every improvement, workflow change, localisation update, packaging tweak, or regression fix that players or release operators will feel. Treat each commit as a candidate; only merge notes when multiple commits clearly implement slices of the same feature.
-3. **Draft the Notes**
-   - Work in `docs/HISTORY.txt`.
-   - Ensure entries stay ordered newest → oldest. Respect `RELEASE_STATUS`: when it is `unreleased-extend`, amend the existing `v${TARGET_VERSION}` section instead of adding a duplicate. Otherwise insert or refresh the heading as needed.
-   - Use the following structure:
+The script also prints a "Context for this run" block with the current values so you do not need `printenv` for the common ones.
 
-     ```markdown
-     ## v<TARGET_VERSION> — <RELEASE_DATE>
-     English:
-     - Key update written for everyday players (ELI5 style is fine; use Raid Shadow Legends terms when helpful).
-     - Another notable change. Stay specific—“bug fixes” alone is not acceptable.
+## Workflow
 
-     Deutsch:
-     - Deutsche Zusammenfassung derselben Punkte in Alltagssprache.
-     ```
+### 1. Re-read baseline docs
+- `CLAUDE.md` and the top of `docs/HISTORY.txt` so your tone, structure, and ordering match prior releases.
 
-   - Convert your working list into bullet points: each unique user-facing change should appear as its own bullet (or tightly related pair) so nothing slips through. Do not collapse unrelated improvements; include localisation and release-process changes when they affect the shipped experience. Break up long sentences instead of writing paragraphs.
-   - Capture every change the player or release operator can experience. If the behaviour shifts in a visible way—UI, localisation, flows, exports—record it in the notes.
-   - Transliterate technical jargon into plain language the community understands. Use Raid: Shadow Legends vocabulary freely, but avoid backend terms such as “cache”, “threads”, or “async” unless players interact with that concept directly. Prefer phrasing like “preview loads faster” over “cache warmed”.
-   - Mention rollbacks or fixes only if they affect the final behaviour players will notice; ignore churn that no longer ships.
-4. **Quality Check**
-   - Re-read the English and German sections to ensure they cover the same points.
-   - Confirm there are no easter-egg hints.
-   - Keep whitespace tidy: blank line between the English and German blocks, and between releases.
-   - Verify that every entry from your working list appears in both languages—if something is missing, add it.
-5. **Report Back**
-   - Summarise the changes you captured and highlight any areas that deserve manual verification.
-   - If something prevented you from finishing the entry (e.g. conflicts, unclear commits), stop and report instead of guessing.
-   - When additional chunks remain, call out any open threads the next run should resolve so the hand-off stays tight.
+### 2. Gather the changes
+- **Single-pass mode** (`BULLETS_DIR` empty): run `git log --reverse --stat "$COMMIT_RANGE"` to get the overview, then `git show <hash>` on every commit that might affect what players or release operators experience. Treat commit messages as introductory — open the diff. Some commits run thousands of lines; budget your reading. Skip large binary diffs and `examples/` unless they directly change shipping behavior.
+- **Reducer mode** (`BULLETS_DIR` set): read every `*.bullets.md` file in that directory. Each bullet ends with a short hash in parens for dedupe. Do not re-run `git show` — workers already inspected those commits. Only fall back to git if a bullet is too vague to convert into a player-facing note.
+
+### 3. Compose the entry in `docs/HISTORY.txt`
+
+The file is UTF-8 with BOM, ordered newest → oldest. Honor `RELEASE_STATUS`:
+- `new-entry`: insert a new section at the top (under any existing file header).
+- `unreleased-extend`: amend the existing `v$TARGET_VERSION` block — add new bullets, revise wording, do not duplicate the heading.
+- `released-verify`: read the existing entry against the commit history. Only edit if you find a factual error; otherwise leave it alone and say so in the report.
+
+Section structure:
+
+```markdown
+## v$TARGET_VERSION — $RELEASE_DATE
+English:
+- Concrete player-facing change in plain language. Raid: Shadow Legends terms welcome.
+- Another distinct change. "Bug fixes" alone is never acceptable — name the fix.
+
+Deutsch:
+- Gleiche Punkte auf Deutsch, in Alltagssprache.
+- Weitere Änderung.
+```
+
+### 4. Append maintainer items to `$CHECKLIST_FILE` (single-pass only; skip if empty)
+
+Anything a maintainer should act on **before or after** shipping. Bullets only; no headings — the script wraps them in a per-version section afterward. Examples worth flagging:
+- Unfinished cleanup ("remove `FEATURE_X_FALLBACK` after one release").
+- Migrations or persisted-data shape changes that need verification post-deploy.
+- Regressions you suspect but cannot confirm from the diff.
+- Tests skipped/`xfail`'d in the window with no removal date.
+- Docs that drifted out of sync with the change (especially `docs/TECHNICAL.md` and `CLAUDE.md`).
+- SFC backward-compatibility concerns (per CLAUDE.md, persisted field changes need migration paths).
+
+If you find no concerns, leave `$CHECKLIST_FILE` untouched.
+
+## Rules
+
+- **Never** stage, commit, or amend git. The maintainer handles commits.
+- Do not touch anything under `plans/` or rename plan files.
+- Treat `examples/` diffs as reference material; skim only when behavior changes.
+- Keep tone factual and player-focused. No hype, no marketing fluff. Plain language; avoid backend terms (cache, threads, async, mutex) unless players directly interact with the concept.
+- Drop features added and removed within the same release window.
+- Drop fixes for features added in the same release window.
+- Do not mention or hint at easter eggs.
+- One bullet per distinct change. Do not collapse unrelated improvements into a single line. Break long sentences instead of writing paragraphs.
+- Honor One Definition Rule and other CLAUDE.md guidelines if you ever need to edit code-adjacent files (you usually do not — this run only touches `docs/HISTORY.txt` and the checklist).
+
+## Quality check before reporting back
+
+- English and German bullets cover the same points, in roughly the same order.
+- No easter-egg hints leaked through.
+- Blank line between the English and German blocks, and between releases.
+- The entry is the newest section in the file (or the amended one, for `unreleased-extend`).
+
+## Report
+
+In your final message, summarize:
+- Which bullets you wrote (one line each is fine).
+- Anything you flagged in the checklist.
+- Anything that needs manual verification (commits you could not interpret, tone calls you were unsure about).
 
 When the maintainer reruns the script, follow the same process and update the existing entry rather than duplicating it.
