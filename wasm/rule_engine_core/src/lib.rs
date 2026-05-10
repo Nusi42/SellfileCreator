@@ -1166,8 +1166,9 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-    // Pre-computed improvement chances keyed by artifact id. Empty map disables threshold gating.
-    improvement_chances: HashMap<i64, f64>,
+    // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
+    // Empty map disables threshold gating.
+    improvement_chances: std::collections::BTreeMap<(i64, i64), f64>,
 ) -> Result<EvaluateAndCollectSnapshotOut, String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();

@@ -576,9 +576,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const debug = entry.debug
       const tooltipHeader = t('gearInspectorGridSafeguardChanceTooltipHeader', { chance: `${entry.chancePercent.toFixed(1)}%` })
       const tooltipProjection = t('gearInspectorGridSafeguardChanceTooltipProjection')
-      const tooltipDataset = t('gearInspectorGridSafeguardChanceTooltipDataset', {
-        count: numberFormatter.format(debug?.sourceArtifactCount ?? (allRows ?? rows).length),
-      })
       const tooltipRule = t('gearInspectorGridSafeguardChanceTooltipRule', { name: safeguardName })
       const tooltipRuleNameIndex = tooltipRule.indexOf(safeguardName)
       const tooltipRuleNameHighlightedMarkdown = tooltipRuleNameIndex >= 0
@@ -659,7 +656,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const chanceTooltipLines = [
         `**${tooltipHeader}**`,
         tooltipProjection,
-        `- ${tooltipDataset}`,
         `- ${tooltipRuleNameHighlightedMarkdown}`,
         `- ${tooltipRequirement}`,
         ...debugTooltipLines.map((line) => `- ${line}`),
@@ -674,11 +670,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             {tooltipProjection}
           </Typography>
           <Box component="ul" sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Box component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
-              <Typography variant="body2" component="span">
-                {tooltipDataset}
-              </Typography>
-            </Box>
             <Box component="li" sx={{ p: 0, listStylePosition: 'outside' }}>
               <Typography variant="body2" component="span">
                 {tooltipRulePrefix}
@@ -716,11 +707,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return overlays
   }, [
-    allRows,
     levelByArtifactId,
     numberFormatter,
     onJumpToSafeguardRule,
-    rows,
     safeguardRules,
     safeguardImprovementChanceByArtifactId,
     showSafeguardImprovementChance,

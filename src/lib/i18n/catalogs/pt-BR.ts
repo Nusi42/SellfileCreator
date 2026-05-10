@@ -95,7 +95,6 @@ const catalog: Catalog = {
   safeguardRankTooltipTitle: "Posição da Salvaguarda",
   gearInspectorGridSafeguardChanceTooltipHeader: "Chance de melhoria: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "A projeção simula upgrades até o nível 16 com variância de rolagens e potencial de glifos.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "Comparado com {count} itens.",
   gearInspectorGridSafeguardChanceTooltipRule: "Salvaguarda: {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Requisito: {matchMode} de [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Itens para manter necessários neste grupo: {count}",

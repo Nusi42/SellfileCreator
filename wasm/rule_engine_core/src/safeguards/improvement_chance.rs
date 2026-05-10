@@ -69,8 +69,6 @@ const TWO_VALUE_BRANCHING_MIN_MILESTONE: i64 = 12;
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ImprovementChanceDebug {
-    // Number of artifacts used as the comparison dataset for this chance run.
-    pub source_artifact_count: u32,
     // Number of viable scenarios that can match this artifact by +16.
     pub viable_scenario_count: u32,
     // Selected substats used by the preferred scenario (full rule set).
@@ -89,23 +87,42 @@ pub struct ImprovementChanceDebug {
     pub max_addition_events_to16: u8,
 }
 
+// Per-rule chance entry inside ImprovementChanceEntry. Carried as a list (not a map) so the
+// payload round-trips through serde_wasm_bindgen's to_js_value / from_js_value without needing
+// the maps-as-objects serializer. The consumer in mod.rs rebuilds a HashMap<(art_id, rule_ordinal), f64>
+// from these lists for O(1) lookup during threshold expansion.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImprovementChanceRuleEntry {
+    // 1-based safeguard rule ordinal in the input rules list.
+    pub rule_ordinal: i64,
+    // Probability (0.0–100.0, one decimal place) the artifact lands in THIS rule's top-N at +16.
+    pub chance_percent: f64,
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
     // Probability (0.0–100.0, one decimal place) of being safeguard-selected at +16.
+    // This is the MAX across per-rule chances — used by the overlay for a single-value display.
     pub chance_percent: f64,
     // True when at least one substat safeguard applies to this artifact.
     pub has_matching_safeguard: bool,
     // Preferred safeguard rule id for overlay click-through navigation (legacy; always None now that
     // SafeguardRule carries no id — kept in payload for backward-compatible deserialization).
     pub matched_rule_id: Option<String>,
-    // 1-based ordinal of the preferred safeguard rule; None when no rule matched.
+    // 1-based ordinal of the preferred safeguard rule (the rule with the max chance); None when no rule matched.
     // Renamed to "ruleOrdinal" to match TS type ImprovementChanceWasmEntry; overrides the struct-level
     // camelCase rename which would otherwise produce "matchedRuleOrdinal".
     #[serde(rename = "ruleOrdinal")]
     pub matched_rule_ordinal: Option<i64>,
+    // Per-rule chances keyed by 1-based safeguard rule ordinal. Used by mod.rs's
+    // improvement_chance_threshold expansion so each rule consults the chance of the
+    // artifact landing in ITS OWN top-N — not the global union across all rules.
+    // Empty when no rules apply to this artifact.
+    pub chances_by_rule_ordinal: Vec<ImprovementChanceRuleEntry>,
     // Optional debug snapshot populated when the caller requests diagnostics.
     pub debug: Option<ImprovementChanceDebug>,
 }
@@ -934,71 +951,96 @@ fn artifact_matches_substats(
 
 // ─── per-artifact chance computation ─────────────────────────────────────────
 
-// `memo` is a caller-owned scratch map; cleared here before use so the same
-// allocation is reused across all artifacts in the outer loop without leaking
-// stale entries between artifacts (context changes per artifact).
+// `memo` is a caller-owned scratch map; cleared per-rule before each recursion so the same
+// allocation is reused across all (artifact × rule) pairs without leaking stale entries
+// between rules (the leaf predicate's scenario set changes per rule).
+//
+// Returns (max_chance, chances_by_rule_ordinal). The per-rule map carries one entry per rule
+// that has at least one viable scenario for this artifact, keyed by 1-based rule ordinal.
+// The max is provided as a convenience for the overlay display (and for tie-breaking).
 fn compute_artifact_chance_percent(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
     memo: &mut BTreeMap<StateKey, f64>,
-) -> f64 {
+) -> (f64, BTreeMap<i64, f64>) {
+    let mut by_rule_ordinal: BTreeMap<i64, f64> = BTreeMap::new();
     if scenarios.is_empty() {
-        return 0.0;
+        return (0.0, by_rule_ordinal);
+    }
+    // Group scenarios by their owning rule. perSubstat rules expand into multiple
+    // scenarios per rule; those still get OR'd together at the leaf (within-rule union)
+    // so each rule's chance reflects "this rule selects the piece under any of its scenarios".
+    let mut scenarios_by_rule: BTreeMap<usize, Vec<&UpgradeScenario>> = BTreeMap::new();
+    for &s in scenarios {
+        scenarios_by_rule.entry(s.rule_order).or_default().push(s);
     }
     let artifact_id = artifact.id.unwrap_or(0);
     let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
     let milestones = resolve_remaining_milestones(level);
     // mut: compute_probability mutates state in-place (undo-redo) and restores it on return.
     let mut initial_state = build_initial_scaled_state(artifact);
-    // Artifact already at +16: check current state directly without recursion.
-    if milestones.is_empty() {
-        let ctx = RecursionContext {
-            artifact_id,
-            artifact_slot: artifact.slot,
-            artifact_set: artifact.set,
-            artifact_faction: artifact.faction,
-            artifact_main_stat: artifact.main_stat,
-            artifact_rank: artifact.rank,
-            scenarios,
-            milestones: vec![],
-            addition_milestones: HashSet::default(),
-            legal_addition_pool: vec![],
-            expected_gain: HashMap::default(),
-            fallback_gain: HashMap::default(),
-        };
-        return if is_state_selected_by_any_scenario(&initial_state, &ctx) {
-            100.0
-        } else {
-            0.0
-        };
-    }
+    // Pre-build shared per-artifact context fields (independent of which rule we're evaluating).
     let rarity = clamp_rarity(artifact.rarity);
     let addition_milestones = resolve_remaining_addition_milestones(rarity, level);
     let legal_addition_pool = build_legal_addition_pool(artifact);
     let fallback_gain = build_fallback_gain(artifact.rank);
     let expected_gain = build_existing_gain(artifact, &fallback_gain);
-    let ctx = RecursionContext {
-        artifact_id,
-        artifact_slot: artifact.slot,
-        artifact_set: artifact.set,
-        artifact_faction: artifact.faction,
-        artifact_main_stat: artifact.main_stat,
-        artifact_rank: artifact.rank,
-        scenarios,
-        milestones,
-        addition_milestones,
-        legal_addition_pool,
-        expected_gain,
-        fallback_gain,
-    };
-    // Clear the scratch memo before this artifact's recursion tree; reusing the
-    // allocation across artifacts eliminates repeated HashMap construction/destruction.
-    memo.clear();
-    // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
-    // restored by the time compute_probability returns — callers see no net change.
-    let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
-    // One decimal place (e.g. 47.3) — round to nearest tenth.
-    (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
+    // Run the recursion once PER (artifact, rule). The leaf predicate uses only this
+    // rule's scenarios — so cross-rule scenarios cannot inflate this rule's probability.
+    let mut max_chance: f64 = 0.0;
+    for (rule_order, rule_scenarios) in &scenarios_by_rule {
+        let rule_ordinal = *rule_order as i64 + 1;
+        let chance = if milestones.is_empty() {
+            // Artifact already at +16: check current state directly without recursion.
+            let ctx = RecursionContext {
+                artifact_id,
+                artifact_slot: artifact.slot,
+                artifact_set: artifact.set,
+                artifact_faction: artifact.faction,
+                artifact_main_stat: artifact.main_stat,
+                artifact_rank: artifact.rank,
+                scenarios: rule_scenarios.as_slice(),
+                milestones: vec![],
+                addition_milestones: HashSet::default(),
+                legal_addition_pool: vec![],
+                expected_gain: HashMap::default(),
+                fallback_gain: HashMap::default(),
+            };
+            if is_state_selected_by_any_scenario(&initial_state, &ctx) {
+                100.0
+            } else {
+                0.0
+            }
+        } else {
+            let ctx = RecursionContext {
+                artifact_id,
+                artifact_slot: artifact.slot,
+                artifact_set: artifact.set,
+                artifact_faction: artifact.faction,
+                artifact_main_stat: artifact.main_stat,
+                artifact_rank: artifact.rank,
+                scenarios: rule_scenarios.as_slice(),
+                milestones: milestones.clone(),
+                addition_milestones: addition_milestones.clone(),
+                legal_addition_pool: legal_addition_pool.clone(),
+                expected_gain: expected_gain.clone(),
+                fallback_gain: fallback_gain.clone(),
+            };
+            // Clear scratch memo between rules — the leaf predicate is rule-specific,
+            // so a state's cached result is not valid across rules.
+            memo.clear();
+            // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
+            // restored by the time compute_probability returns — callers see no net change.
+            let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
+            // One decimal place (e.g. 47.3) — round to nearest tenth.
+            (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
+        };
+        by_rule_ordinal.insert(rule_ordinal, chance);
+        if chance > max_chance {
+            max_chance = chance;
+        }
+    }
+    (max_chance, by_rule_ordinal)
 }
 
 // ─── viability pruning ────────────────────────────────────────────────────────
@@ -1324,7 +1366,10 @@ fn resolve_most_likely_scenario_idx<'a>(
     for &s in viable.iter() {
         // Wrap single reference in a one-element array slice for the shared signature.
         let single = [s];
-        chances.push(compute_artifact_chance_percent(artifact, &single, &mut memo));
+        // Per-rule map will contain exactly one entry for this single-scenario call; use the max
+        // as the scenario's standalone chance (post-refactor returns (max, by_rule_ordinal)).
+        let (chance, _by_rule) = compute_artifact_chance_percent(artifact, &single, &mut memo);
+        chances.push(chance);
     }
     let &best_chance = chances.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
     let best_idxs: Vec<usize> = chances
@@ -1375,7 +1420,6 @@ fn build_chance_debug(
     artifact: &SafeguardWasmArtifactIn,
     scenario: &UpgradeScenario,
     viability: &ViabilityContext,
-    source_artifact_count: u32,
     viable_scenario_count: u32,
 ) -> ImprovementChanceDebug {
     // Mirror buildChanceDebugSnapshot; populates tooltip data.
@@ -1423,7 +1467,6 @@ fn build_chance_debug(
     let matched_now =
         count_matched_in_state(&viability.initial_state, &scenario.selected_substats);
     ImprovementChanceDebug {
-        source_artifact_count,
         viable_scenario_count,
         selected_substats: debug_substats,
         substat_match: scenario.rule_substat_match.clone(),
@@ -1464,7 +1507,6 @@ pub fn compute_improvement_chance_core(
     for (art_id, indices) in &idx_by_id {
         scenarios_by_id.insert(*art_id, indices.iter().map(|&i| &scenarios[i]).collect());
     }
-    let source_count = rows.len() as u32;
     let mut output = Vec::<ImprovementChanceEntry>::new();
     // Single scratch memo reused across all per-artifact compute_probability calls.
     // compute_artifact_chance_percent calls memo.clear() at the start of each artifact,
@@ -1490,6 +1532,7 @@ pub fn compute_improvement_chance_core(
                 has_matching_safeguard: false,
                 matched_rule_id: None,
                 matched_rule_ordinal: None,
+                chances_by_rule_ordinal: Vec::new(),
                 debug: None,
             });
             continue;
@@ -1509,16 +1552,26 @@ pub fn compute_improvement_chance_core(
                 has_matching_safeguard: false,
                 matched_rule_id: None,
                 matched_rule_ordinal: None,
+                chances_by_rule_ordinal: Vec::new(),
                 debug: None,
             });
             continue;
         }
         if debug { artifacts_viable += 1; }
-        let chance = compute_artifact_chance_percent(&row.artifact, &viable, &mut impr_memo);
+        let (chance, chances_map) =
+            compute_artifact_chance_percent(&row.artifact, &viable, &mut impr_memo);
+        // Convert BTreeMap to ordered Vec<ImprovementChanceRuleEntry> for round-trip stability.
+        let chances_by_rule_ordinal: Vec<ImprovementChanceRuleEntry> = chances_map
+            .into_iter()
+            .map(|(rule_ordinal, chance_percent)| ImprovementChanceRuleEntry {
+                rule_ordinal,
+                chance_percent,
+            })
+            .collect();
         let preferred_idx = resolve_most_likely_scenario_idx(&row.artifact, &viable);
         let preferred = preferred_idx.map(|i| viable[i]);
         let debug_snapshot = preferred.map(|s| {
-            build_chance_debug(&row.artifact, s, &viability, source_count, viable.len() as u32)
+            build_chance_debug(&row.artifact, s, &viability, viable.len() as u32)
         });
         // matched_rule_id is always None now that SafeguardRule carries no id field;
         // kept in struct for backward-compatible deserialization of old payloads.
@@ -1532,6 +1585,7 @@ pub fn compute_improvement_chance_core(
             has_matching_safeguard: true,
             matched_rule_id,
             matched_rule_ordinal,
+            chances_by_rule_ordinal,
             debug: debug_snapshot,
         });
     }

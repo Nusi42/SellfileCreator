@@ -96,7 +96,6 @@ const enUS: Catalog = {
   safeguardRankTooltipTitle: "Safeguard Rank",
   gearInspectorGridSafeguardChanceTooltipHeader: "Improvement chance: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Projection simulates upgrades to +16 with roll variance and glyph potential.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "Compared against {count} items.",
   gearInspectorGridSafeguardChanceTooltipRule: "Safeguard: {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Requirement: {matchMode} of [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Required keeps in this group: {count}",

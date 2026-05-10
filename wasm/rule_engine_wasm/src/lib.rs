@@ -102,13 +102,39 @@ fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usiz
 }
 
 // Minimal inbound representation of a pre-computed improvement-chance entry.
-// Only the two fields needed for threshold gating are deserialized; the full
-// ImprovementChanceEntry type is serialization-only and cannot be deserialized.
+// Only the fields needed for per-rule threshold gating are deserialized; the wire payload
+// also carries `chancePercent` (the global max) and other display-only fields, but those
+// are silently ignored by serde during deserialization.
+//
+// `chances_by_rule_ordinal` is the per-rule chance list — each entry pairs a 1-based
+// safeguard rule ordinal with the probability the artifact lands in THAT rule's top-N at +16.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ImprovementChanceInput {
     artifact_id: i64,
+    chances_by_rule_ordinal: Vec<ImprovementChanceRuleInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImprovementChanceRuleInput {
+    rule_ordinal: i64,
     chance_percent: f64,
+}
+
+// Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
+// BTreeMap consumed by the safeguard protection core. BTreeMap chosen for memory stability
+// under the talc allocator (matches the convention used elsewhere in this crate).
+fn flatten_improvement_chances(
+    entries: Vec<ImprovementChanceInput>,
+) -> std::collections::BTreeMap<(i64, i64), f64> {
+    let mut out: std::collections::BTreeMap<(i64, i64), f64> = std::collections::BTreeMap::new();
+    for e in entries {
+        for r in e.chances_by_rule_ordinal {
+            out.insert((e.artifact_id, r.rule_ordinal), r.chance_percent);
+        }
+    }
+    out
 }
 
 // Shared serializer used for all wasm outputs that contain HashMap fields.
@@ -289,14 +315,16 @@ pub fn compute_safeguard_protection_value(
             Some(from_js_value(expected_groups_by_rule_id)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
-    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
-    let improvement_chances: HashMap<i64, f64> =
+    // Parse improvement-chance entries and flatten into (artifact_id, rule_ordinal) → chance.
+    // Per-rule keying lets each safeguard rule's threshold expansion consult ITS OWN top-N
+    // probability — not the global union — so cross-rule probability inflation is impossible.
+    let improvement_chances: std::collections::BTreeMap<(i64, i64), f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
-            HashMap::new()
+            std::collections::BTreeMap::new()
         } else {
             let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
-            entries.into_iter().map(|e| (e.artifact_id, e.chance_percent)).collect()
+            flatten_improvement_chances(entries)
         };
     // Run the shared protection core and return the serialized snapshot.
     let snapshot = compute_safeguard_protection_core_pub(
@@ -351,14 +379,15 @@ pub fn collect_and_compute_safeguard_protection_value(
             Some(from_js_value(expected_groups_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
         };
-    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
-    let improvement_chances: HashMap<i64, f64> =
+    // Parse improvement-chance entries and flatten into (artifact_id, rule_ordinal) → chance.
+    // See flatten_improvement_chances for the rationale (per-rule lookup, no cross-rule inflation).
+    let improvement_chances: std::collections::BTreeMap<(i64, i64), f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
-            HashMap::new()
+            std::collections::BTreeMap::new()
         } else {
             let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
-            entries.into_iter().map(|e| (e.artifact_id, e.chance_percent)).collect()
+            flatten_improvement_chances(entries)
         };
     let combined = collect_and_compute_safeguard_protection_core(
         parsed_rows,
@@ -1002,18 +1031,16 @@ pub fn evaluate_and_collect_safeguard_protection_value(
             Some(from_js_value(expected_groups_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect expected-groups payload: {error}")))?)
         };
-    // Parse improvement-chance entries into a HashMap for O(1) lookup during ranking.
+    // Parse improvement-chance entries and flatten into (artifact_id, rule_ordinal) → chance.
+    // See flatten_improvement_chances for the rationale (per-rule lookup, no cross-rule inflation).
     // null/undefined payload → empty map (no threshold gating applied).
-    let improvement_chances: HashMap<i64, f64> =
+    let improvement_chances: std::collections::BTreeMap<(i64, i64), f64> =
         if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
-            HashMap::new()
+            std::collections::BTreeMap::new()
         } else {
             let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
                 .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect improvement-chances payload: {error}")))?;
-            entries
-                .into_iter()
-                .map(|e| (e.artifact_id, e.chance_percent))
-                .collect()
+            flatten_improvement_chances(entries)
         };
     let snapshot = evaluate_engine_and_collect_safeguard_protection(
         parsed_options,

@@ -555,7 +555,6 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
 // Debug snapshot mirroring ImprovementChanceDebug from improvement_chance.rs.
 // exactOptionalPropertyTypes: all nullable fields use T | null (not T | undefined).
 export type ImprovementChanceWasmDebug = {
-  sourceArtifactCount: number
   viableScenarioCount: number
   selectedSubstats: number[]
   substatMatch: string
@@ -576,15 +575,30 @@ export type ImprovementChanceWasmPerfDiag = {
   artifactsViable: number
 }
 
+// One per-rule chance entry — chance the artifact lands in THIS rule's top-N at +16.
+// Carried as a list (not a map) so the payload round-trips cleanly through serde_wasm_bindgen
+// without requiring the maps-as-objects serializer on either side.
+export type ImprovementChanceWasmRuleEntry = {
+  // 1-based safeguard rule ordinal in the input rules list.
+  ruleOrdinal: number
+  // Probability (0.0–100.0) the artifact lands in this rule's top-N at +16.
+  chancePercent: number
+}
+
 // Single artifact entry returned by compute_improvement_chance_value.
 export type ImprovementChanceWasmEntry = {
   artifactId: number
+  // Max chance across all rules — used by the gear-inspector overlay for a single-value display.
   chancePercent: number
   hasMatchingSafeguard: boolean
   // Legacy field; always null now that SafeguardRule carries no id. Kept for deserialization compat.
   matchedRuleId: string | null
-  // 1-based ordinal of the preferred safeguard rule; null when no rule matched.
+  // 1-based ordinal of the preferred safeguard rule (the rule with the max chance); null when no rule matched.
   ruleOrdinal: number | null
+  // Per-rule chances. The threshold-expansion lookup in the safeguard core uses
+  // (artifactId, ruleOrdinal) so each rule's expansion considers only ITS OWN top-N
+  // chance — not the global union across rules. Empty when no rules apply to this artifact.
+  chancesByRuleOrdinal: ImprovementChanceWasmRuleEntry[]
   debug: ImprovementChanceWasmDebug | null
 }
 

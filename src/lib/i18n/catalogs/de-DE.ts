@@ -95,7 +95,6 @@ const overrides: Catalog = {
   safeguardRankTooltipTitle: "Sicherheitsnetz-Rang",
   gearInspectorGridSafeguardChanceTooltipHeader: "Verbesserungschance: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Die Projektion simuliert Aufwertungen auf Stufe 16 mit Würfelvarianz und Glyphenpotenzial.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "Verglichen mit {count} Gegenständen.",
   gearInspectorGridSafeguardChanceTooltipRule: "Schutzregel: {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Anforderung: {matchMode} von [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Nötige Keep-Anzahl in dieser Gruppe: {count}",

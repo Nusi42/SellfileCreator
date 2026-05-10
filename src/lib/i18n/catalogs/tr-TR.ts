@@ -95,7 +95,6 @@ const overrides: Catalog = {
   safeguardRankTooltipTitle: "Koruyucu Sırası",
   gearInspectorGridSafeguardChanceTooltipHeader: "İyileştirme şansı: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Projeksiyon, atış varyansı ve glif potansiyeli ile 16. seviyeye yükseltmeleri simüle eder.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "{count} öğe ile karşılaştırıldı.",
   gearInspectorGridSafeguardChanceTooltipRule: "Koruma: {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Gereksinim: {matchMode} / [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Bu grupta gerekli saklama sayısı: {count}",

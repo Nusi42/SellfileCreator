@@ -95,7 +95,6 @@ const overrides: Catalog = {
   safeguardRankTooltipTitle: "Ранг Захисту",
   gearInspectorGridSafeguardChanceTooltipHeader: "Шанс покращення: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Проекція симулює покращення до 16-го рівня з урахуванням варіації кидів та потенціалу гліфів.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "Порівняно з {count} предметами.",
   gearInspectorGridSafeguardChanceTooltipRule: "Захист: {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Вимога: {matchMode} з [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Потрібна кількість збережень у цій групі: {count}",

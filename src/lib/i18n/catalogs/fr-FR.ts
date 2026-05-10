@@ -95,7 +95,6 @@ const overrides: Catalog = {
   safeguardRankTooltipTitle: "Rang de Sauvegarde",
   gearInspectorGridSafeguardChanceTooltipHeader: "Chance d’amélioration : {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "La projection simule des améliorations jusqu’au niveau 16 avec la variance des jets et le potentiel de glyphes.",
-  gearInspectorGridSafeguardChanceTooltipDataset: "Comparé à {count} objets.",
   gearInspectorGridSafeguardChanceTooltipRule: "Sauvegarde : {name}",
   gearInspectorGridSafeguardChanceTooltipRequirement: "Exigence : {matchMode} de [{substats}]",
   gearInspectorGridSafeguardChanceTooltipRequiredCount: "Conservations requises dans ce groupe : {count}",

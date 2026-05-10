@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
@@ -2731,8 +2732,14 @@ fn safeguard_build_entry_for_substats(
     candidate_sold_state: &[bool],
     selected_substats: &[i64],
     substat_match: &str,
-    // Pre-computed improvement chances keyed by artifact id; used when improvement_chance_threshold is set.
-    improvement_chances: &HashMap<i64, f64>,
+    // 1-based ordinal of this rule in the input safeguard list. Used as the lookup
+    // dimension into per-rule improvement chances so each rule's threshold expansion
+    // consults its OWN top-N chance, not the global union across rules.
+    rule_ordinal: i64,
+    // Pre-computed improvement chances keyed by (artifact id, rule_ordinal); used when
+    // improvement_chance_threshold is set. BTreeMap chosen over HashMap for memory
+    // stability under the talc allocator (matches the convention used elsewhere in this crate).
+    improvement_chances: &BTreeMap<(i64, i64), f64>,
 ) -> SafeguardWasmEntryEvalOut {
     // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
@@ -2917,8 +2924,12 @@ fn safeguard_build_entry_for_substats(
                             _ => 3,
                         };
                         let threshold = thresholds[slot];
+                        // Look up the per-rule chance for this specific (artifact, rule_ordinal)
+                        // pair. The chance is "probability this artifact lands in THIS rule's top-N"
+                        // — so raising another rule's required_count cannot inflate this rule's
+                        // expansion set (the bug that motivated this design).
                         if improvement_chances
-                            .get(&art_id)
+                            .get(&(art_id, rule_ordinal))
                             .map_or(false, |&ch| ch >= threshold)
                         {
                             expanded.push(e.clone());
@@ -3421,9 +3432,12 @@ fn compute_safeguard_protection_core(
     expected_payload: SafeguardWasmExpectedGroupsPayloadIn,
     enabled: bool,
     now: f64,
-    // Pre-computed improvement chances keyed by artifact id. Populated before detection when
-    // at least one rule uses improvement_chance_threshold; empty map disables threshold gating.
-    improvement_chances: &HashMap<i64, f64>,
+    // Pre-computed improvement chances keyed by (artifact id, 1-based rule ordinal). Each rule
+    // looks up its OWN chance — never the global union across rules — so cross-rule probability
+    // inflation cannot drive an earlier rule's threshold expansion. BTreeMap chosen for
+    // memory stability under the talc allocator (avoids HashMap's large contiguous backing
+    // arrays that can fragment the heap between detection runs).
+    improvement_chances: &BTreeMap<(i64, i64), f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Baseline state never changes; per-rule toggle can opt to read from it.
     let baseline_candidate_sold_state = parsed_candidates
@@ -3525,8 +3539,12 @@ fn compute_safeguard_protection_core(
     let mut entries = Vec::<SafeguardWasmEntryOut>::new();
     // 1-based ordinal counter — matches the __safeguardRuleOrdinal stamped by build_safeguard_rules_core
     // so TypeScript can cross-reference detection entries back to the rule list by position.
+    // Incremented at the START of each iteration so the value passed to safeguard_build_entry_for_substats
+    // matches the ordinal stamped on the resulting entry (used as the dimension for per-rule
+    // improvement_chance lookups).
     let mut rule_ordinal = 0i64;
     for prepared_rule in &prepared_rules {
+        rule_ordinal += 1;
         // Per-rule toggle decides whether this rule sees prior safeguard selections.
         let candidate_sold_state = if prepared_rule.ignore_previous_safeguards {
             &baseline_candidate_sold_state
@@ -3547,6 +3565,7 @@ fn compute_safeguard_protection_core(
                         candidate_sold_state,
                         &[*variant],
                         SAFEGUARD_SUBSTAT_ANY,
+                        rule_ordinal,
                         improvement_chances,
                     )
                 })
@@ -3569,10 +3588,10 @@ fn compute_safeguard_protection_core(
                 candidate_sold_state,
                 &prepared_rule.selected_substats,
                 effective_match,
+                rule_ordinal,
                 improvement_chances,
             )
         };
-        rule_ordinal += 1;
         // Active safeguards always contribute to cumulative state for later rules.
         if prepared_rule.rule_active {
             for candidate_idx in &eval_result.selected_candidate_indices {
@@ -3599,8 +3618,9 @@ pub fn compute_safeguard_protection_core_pub(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-    // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, f64>,
+    // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
+    // Empty map disables threshold gating entirely.
+    improvement_chances: BTreeMap<(i64, i64), f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Parse candidates from fast-path format.
     let parsed_candidates = safeguard_parse_candidates_payload(fast_candidates);
@@ -3631,8 +3651,9 @@ pub fn collect_and_compute_safeguard_protection_core(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-    // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, f64>,
+    // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
+    // Empty map disables threshold gating entirely.
+    improvement_chances: BTreeMap<(i64, i64), f64>,
 ) -> Result<SafeguardCollectedAndProtectedSnapshotOut, String> {
     // Resolve expected groups payload (None = empty default).
     let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
@@ -3689,8 +3710,9 @@ pub fn compute_safeguard_protection_from_collected_core(
     expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     enabled: bool,
     now: f64,
-    // Pre-computed improvement chances; empty map disables threshold gating entirely.
-    improvement_chances: HashMap<i64, f64>,
+    // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
+    // Empty map disables threshold gating entirely.
+    improvement_chances: BTreeMap<(i64, i64), f64>,
 ) -> SafeguardWasmSnapshotOut {
     // Resolve expected groups payload (None = empty default).
     let expected = parse_safeguard_expected_groups_payload(expected_payload);
