@@ -10,7 +10,7 @@ const overrides: Catalog = {
   loadRecipesTooltip: "Завантажте файл SFC, щоб відновити повне налаштування — рецепти, правила збереження, метасети, нотатки та інше.",
   loadSfcFromFile: "Завантажити з файлу…",
   loadPresetBeginner: "Завантажити зразок SFC (Початківець)",
-  loadPresetMidToEndGame: "Завантажити зразок SFC (Мід–Ендгейм)",
+  loadPresetMidToEndGame: "Завантажити зразок SFC (Мідгейм до Ендгейму)",
   loadPresetConfirmTitle: "Завантажити зразок?",
   loadPresetConfirmMessage: "Це замінить ваше поточне налаштування — рецепти, метасети та нотатки — вибраним зразком.",
   loadPresetConfirmOk: "Завантажити зразок",

@@ -10,7 +10,7 @@ const overrides: Catalog = {
   loadRecipesTooltip: "Tam kurulumunuzu geri yüklemek için bir SFC dosyası yükleyin — reçeteler, koruma kuralları, metasetler, notlar ve daha fazlası.",
   loadSfcFromFile: "Dosyadan Yükle…",
   loadPresetBeginner: "SFC Örneğini Yükle (Başlangıç)",
-  loadPresetMidToEndGame: "SFC Örneğini Yükle (Orta–Son Oyun)",
+  loadPresetMidToEndGame: "SFC Örneğini Yükle (Orta Oyundan Son Oyuna)",
   loadPresetConfirmTitle: "Ön Ayar Yüklensin mi?",
   loadPresetConfirmMessage: "Bu işlem mevcut kurulumunuzu — reçeteler, metasetler ve notlar — seçilen ön ayarla değiştirecek.",
   loadPresetConfirmOk: "Ön Ayarı Yükle",

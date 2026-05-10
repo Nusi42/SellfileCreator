@@ -10,7 +10,7 @@ const overrides: Catalog = {
   loadRecipesTooltip: "Chargez un fichier SFC pour restaurer votre configuration complète — recettes, conservations, métasets, notes et plus.",
   loadSfcFromFile: "Charger depuis un fichier…",
   loadPresetBeginner: "Charger le fichier SFC exemple (Débutant)",
-  loadPresetMidToEndGame: "Charger le fichier SFC exemple (Mid–Endgame)",
+  loadPresetMidToEndGame: "Charger le fichier SFC exemple (Midgame à Endgame)",
   loadPresetConfirmTitle: "Charger la configuration ?",
   loadPresetConfirmMessage: "Cela remplacera votre configuration actuelle — recettes, métasets et notes — par la configuration sélectionnée.",
   loadPresetConfirmOk: "Charger la configuration",
