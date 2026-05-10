@@ -6,7 +6,7 @@
  * filter, and every other chart shows data filtered by the remaining active dimensions.
  * This is the BI-style Crossfilter pattern.
  */
-import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from 'react'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
@@ -384,10 +384,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // Refs allow callbacks to read the current values without stale-closure issues.
   const [dimIndividualSets, setDimIndividualSets] = useState<ReadonlySet<number>>(() => new Set())
   const dimIndividualSetsRef = useRef<ReadonlySet<number>>(new Set())
-  dimIndividualSetsRef.current = dimIndividualSets
+  useLayoutEffect(() => { dimIndividualSetsRef.current = dimIndividualSets })
   const [dimMetaSetNames, setDimMetaSetNames] = useState<string[]>([])
   const dimMetaSetNamesRef = useRef<string[]>([])
-  dimMetaSetNamesRef.current = dimMetaSetNames
+  useLayoutEffect(() => { dimMetaSetNamesRef.current = dimMetaSetNames })
 
   // Expand a list of metaset names to their constituent set IDs.
   const getExpandedMetaSetIds = useCallback((names: string[]): Set<number> => {

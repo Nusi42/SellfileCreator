@@ -661,13 +661,7 @@ export function useTutorialCoachState({
       try {
         // Always pivot to the Gear tab before toggling visibility so overlays never land on stale sections.
         setLogicHubDialogTab(LOGIC_HUB_DIALOG_TAB_GEAR)
-        if (open) {
-          // Showing the dialog exposes the integrated Gear Inspector grid so the tutorial can highlight its controls.
-          setLogicHubOpen(true)
-        } else {
-          // Closing the dialog keeps earlier steps uncluttered once we leave the Gear walkthrough.
-          setLogicHubOpen(false)
-        }
+        setLogicHubOpen(open)
       } catch {}
     }
 

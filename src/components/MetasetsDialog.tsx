@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -250,11 +250,15 @@ export default function MetasetsDialog({
   const [prevMetasets, setPrevMetasets] = useState(metasets)
   if (metasets !== prevMetasets) {
     setPrevMetasets(metasets)
-    if (!hasPendingPublishRef.current) {
-      draftMetasetsRef.current = metasets
-      setDraftMetasets(metasets)
-    }
+    // eslint-disable-next-line react-hooks/refs -- reading a stable flag ref during render-time derived-state update; does not affect rendering directly
+    if (!hasPendingPublishRef.current) setDraftMetasets(metasets)
   }
+  // Keep the draftMetasetsRef shadow in sync when the parent metasets change; deferred to layout.
+  useLayoutEffect(() => {
+    if (metasets !== prevMetasets && !hasPendingPublishRef.current) {
+      draftMetasetsRef.current = metasets
+    }
+  }, [metasets, prevMetasets])
   // Dialog close/unmount must flush pending local edits so state never drifts.
   useEffect(() => {
     return () => {
@@ -283,7 +287,8 @@ export default function MetasetsDialog({
   // Skip auto-scrolling after manual toggles so the list stays anchored where the user clicked.
   const skipSetsMenuAutoScrollRef = useRef(false)
   const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
-  {
+  // Prune stale per-row ref entries when metasets are removed.
+  useLayoutEffect(() => {
     const active = new Set(draftMetasets.map(m => m.name))
     for (const key of Object.keys(selectContainerRefsRef.current)) {
       if (!active.has(key)) delete selectContainerRefsRef.current[key]
@@ -291,7 +296,7 @@ export default function MetasetsDialog({
     for (const key of Object.keys(setsMenuListRefsRef.current)) {
       if (!active.has(key)) delete setsMenuListRefsRef.current[key]
     }
-  }
+  }, [draftMetasets])
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   // Ephemeral celebration for playful metaset names: highlight the new row's Select
@@ -528,15 +533,17 @@ export default function MetasetsDialog({
   const [prevActiveSetMenuMetaId, setPrevActiveSetMenuMetaId] = useState(activeSetMenuMetaId)
   if (activeSetMenuMetaId !== prevActiveSetMenuMetaId) {
     setPrevActiveSetMenuMetaId(activeSetMenuMetaId)
-    if (metaSetsMenuOpen && activeSetMenuMetaId) {
+  }
+  // Auto-scroll to selected set when the active metaset changes; deferred to layout so render stays pure.
+  useLayoutEffect(() => {
+    if (activeSetMenuMetaId !== prevActiveSetMenuMetaId && metaSetsMenuOpen && activeSetMenuMetaId) {
       if (skipSetsMenuAutoScrollRef.current) {
         skipSetsMenuAutoScrollRef.current = false
       } else {
-        // Schedule scroll after commit so the DOM nodes exist.
         queueMicrotask(() => scrollMetasetSetsMenuToSelected(activeSetMenuMetaId))
       }
     }
-  }
+  }, [activeSetMenuMetaId, prevActiveSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected])
 
 
   return (
@@ -564,6 +571,7 @@ export default function MetasetsDialog({
             }}
           >
             <Stack spacing={1}>
+              {/* eslint-disable-next-line react-hooks/refs -- per-key dictionary callback refs (ref={(el) => { dictRef.current[key] = el }}) are a valid JSX pattern; all other ref accesses here are inside event handlers, not during render */}
               {draftMetasets.map((m, idx) => {
                 const iconId = (m.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
                 const hasSelectedSets = (m.sets?.length ?? 0) > 0
@@ -760,7 +768,7 @@ export default function MetasetsDialog({
                           setSetsMenuAnchorPos(null)
                         }}
                         MenuProps={{
-                          PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
+                          PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: setsRowMenuPaperRef },
                           MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
                           ...(setsMenuAnchorPos
                             ? {

@@ -282,17 +282,19 @@ export function TutorialCoach({
   const [prevOpenStepKey, setPrevOpenStepKey] = React.useState(openStepKey)
   if (openStepKey !== prevOpenStepKey) {
     setPrevOpenStepKey(openStepKey)
+    setNavLocked(open)
+  }
+  // Reset placement/rect refs when open or step changes; deferred to layout so render stays pure.
+  React.useLayoutEffect(() => {
     if (!open) {
-      setNavLocked(false)
       pendingPlacementRef.current = null
       processedRectRef.current = null
       settleRectRef.current = null
     } else {
-      setNavLocked(true)
       processedRectRef.current = null
       settleRectRef.current = null
     }
-  }
+  }, [open, stepIndex])
   // Timer management for open/stepIndex transitions must stay in an effect.
   React.useEffect(() => {
     if (!open) {
@@ -322,19 +324,22 @@ export function TutorialCoach({
   const [prevNavLocked, setPrevNavLocked] = React.useState(navLocked)
   if (navLocked !== prevNavLocked) {
     setPrevNavLocked(navLocked)
+  }
+  // Cancel settle timer when navLocked transitions to false; deferred to layout so render stays pure.
+  React.useLayoutEffect(() => {
     if (!navLocked && highlightSettleTimerRef.current !== null) {
       window.clearTimeout(highlightSettleTimerRef.current)
       highlightSettleTimerRef.current = null
     }
-  }
+  }, [navLocked])
 
   // Stable callback that handles rect/settle logic; reads volatile state from refs.
   const openRef = React.useRef(open)
-  openRef.current = open
+  React.useLayoutEffect(() => { openRef.current = open })
   const rectRef = React.useRef(rect)
-  rectRef.current = rect
+  React.useLayoutEffect(() => { rectRef.current = rect })
   const navLockedRef = React.useRef(navLocked)
-  navLockedRef.current = navLocked
+  React.useLayoutEffect(() => { navLockedRef.current = navLocked })
   const processRectChange = React.useCallback(() => {
     if (!openRef.current) return
     const currentRect = rectRef.current

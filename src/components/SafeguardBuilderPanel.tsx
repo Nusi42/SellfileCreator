@@ -2854,7 +2854,6 @@ export default function SafeguardBuilderPanel({
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
           paper: {
-            // eslint-disable-next-line react-hooks/refs -- improvementChancePopoverGuard contains a ref used only by the event-driven isTargetInsideAnyMenu check, never during render.
             ...buildContextMenuPaperSlotProps({
               component: ContextMenuPaper,
               contextMenuGuard: improvementChancePopoverGuard,
@@ -3020,7 +3019,6 @@ export default function SafeguardBuilderPanel({
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{
           paper: {
-            // eslint-disable-next-line react-hooks/refs -- handleWeightsPopoverClose reads livePreviewTimerRef only when invoked as an event handler, never during this render-time spread call.
             ...buildContextMenuPaperSlotProps({
               component: ContextMenuPaper,
               contextMenuGuard: weightsPopoverGuard,

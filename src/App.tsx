@@ -536,7 +536,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const recipeNamesForPreview = useDeferredValue(recipeNames)
   // Keep Gear Inspector math reusable so seeding hooks share the same normalization as the dialog.
   const gearInspectorMath = useMemo(() => createGearInspectorMath(effectiveSubstatTargets), [effectiveSubstatTargets])
-  const lastRecipeNamesRef = useRef<string[]>(recipeNamesForPreview)
+  // State (not ref) so the useMemo below can read it during render without violating react-hooks/refs.
+  const [lastRecipeNames, setLastRecipeNames] = useState<string[]>(recipeNamesForPreview)
   const gearInspectorItemIdRef = useRef(1)
   const allocGearInspectorItemId = useCallback(() => {
     const id = gearInspectorItemIdRef.current
@@ -573,11 +574,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     items: GearInspectorItem[]
     savedAt: string | null
     count: number
-  } | null>(() => {
-    const draft = loadGearInspectorAutosaveDraft({ math: gearInspectorMath, allocItemId: allocGearInspectorItemId })
-    if (!draft) return null
-    return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
-  })
+  } | null>(
+    // eslint-disable-next-line react-hooks/refs -- mount-only initializer; allocGearInspectorItemId reads a ref safely at mount, not on re-renders
+    () => {
+      const draft = loadGearInspectorAutosaveDraft({ math: gearInspectorMath, allocItemId: allocGearInspectorItemId })
+      if (!draft) return null
+      return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
+    }
+  )
   // Gear Inspector champion filters reuse the same metadata as the Gear Inspector grid to keep icons/borders in sync.
   type GearInspectorChampionOption = {
     id: number
@@ -587,8 +591,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     location: ChampionLocation | null
     count: number
   }
-  // Keep the initial Gear Inspector item array reference as a cheap "changed since load" baseline.
-  const gearInspectorAutosaveBaselineRef = useRef<GearInspectorItem[] | null>(null)
+  // Capture the initial item array once at mount for cheap "changed since load" diffing.
+  const [gearInspectorAutosaveBaseline] = useState<GearInspectorItem[]>(() => gearInspectorItems)
   // Store latest Gear Inspector items for lazy autosave payload generation.
   const gearInspectorAutosaveItemsRef = useRef<GearInspectorItem[]>(gearInspectorItems)
   useEffect(() => {
@@ -761,7 +765,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (timeoutId !== null) clearTimeout(timeoutId)
     }
   }, [gearInspectorMatchResetReason, gearEntriesCommittedBuildId, gearEntriesBuilding, gearEntriesActiveBuildId])
-  const exportBaselineResetRef = useRef(false)
+  // State (not ref) so the render-time baseline check can read it without violating react-hooks/refs.
+  const [exportBaselineResetPending, setExportBaselineResetPending] = useState(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
     leftPaperRef,
@@ -964,8 +969,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const workloadBusy = rulesBuilding || gearEntriesBuilding
   // Freeze recipe names to the last committed snapshot while rows build so displayed indices do not shift mid-run.
   const recipeNamesForGrid = useMemo(
-    () => ((rulesBuilding || gearEntriesBuilding) ? lastRecipeNamesRef.current : recipeNamesForPreview),
-    [rulesBuilding, gearEntriesBuilding, recipeNamesForPreview],
+    () => ((rulesBuilding || gearEntriesBuilding) ? lastRecipeNames : recipeNamesForPreview),
+    [rulesBuilding, gearEntriesBuilding, recipeNamesForPreview, lastRecipeNames],
   )
   // Keep Gear Inspector chip labels in sync with the frozen recipe-name snapshot so chips never display mid-build indices.
   const gearInspectorRecipeNamesForGrid = useMemo(() => recipeNamesForGrid.map((name) => {
@@ -1103,16 +1108,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const currentEntrySignatureRef = useRef<{ crc: string; size: number } | null>(null)
   // Ref-shadowed so launchPipeline can include recipe overrides in the cache key without adding
   // them to the effect dep array — the effect already re-runs via ruleRecipes/recipeModes changes.
-  // Updated during render (not via useEffect) so the ref is always current before effects fire.
   const noteRecipeOverridesAnswersRef = useRef(noteRecipeOverridesAnswers)
-  noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers
+  useLayoutEffect(() => { noteRecipeOverridesAnswersRef.current = noteRecipeOverridesAnswers })
   const noteOverridesDisabledRef = useRef(noteOverridesDisabled)
-  noteOverridesDisabledRef.current = noteOverridesDisabled
+  useLayoutEffect(() => { noteOverridesDisabledRef.current = noteOverridesDisabled })
   // Ref-shadowed so launchPipeline can include safeguard overrides in the cache key without adding
   // them to the dep array — changes re-run the effect via effectiveSafeguardRules dependency.
-  // Updated during render so changes are visible to the pipeline effect in the same commit.
   const noteSafeguardOverridesAnswersRef = useRef(noteSafeguardOverridesAnswers)
-  noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers
+  useLayoutEffect(() => { noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers })
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the improvement-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -1187,12 +1190,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setRulesBuilding(true)
         setRulesBuildProgress(null)
         // Rules preview mode skips Gear Inspector rows, so avoid flipping build state/progress.
-        if (includeMatchesInPipeline) {
-          setGearEntriesBuilding(true)
-          setGearEntriesProgress(null)
-        } else {
-          setGearEntriesBuilding(false)
-        }
+        setGearEntriesBuilding(includeMatchesInPipeline)
+        if (includeMatchesInPipeline) setGearEntriesProgress(null)
       })
 
       // Safeguards payload seeds the worker with the current (overrides-applied) rule set.
@@ -1337,7 +1336,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setSafeguardDetection(cachedEntry.processedSafeguardDetection)
               setImprovementChanceByArtifactId(cachedEntry.processedImprovementChance)
             })
-            lastRecipeNamesRef.current = recipeNamesForBuild
+            setLastRecipeNames(recipeNamesForBuild)
             recoverMissingRulesRef.current = false
             return
           }
@@ -1404,7 +1403,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setSafeguardDetection(safeguardDetection ?? null)
             setImprovementChanceByArtifactId(improvementChanceResult ?? null)
           })
-          lastRecipeNamesRef.current = recipeNamesForBuild
+          setLastRecipeNames(recipeNamesForBuild)
           const totalCustomRules = Array.from(state.countsByRecipe.values()).reduce((acc, val) => (
             acc + (Number.isFinite(val) ? Number(val) : 0)
           ), 0)
@@ -1496,7 +1495,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   setSafeguardDetection(retrySafeguardDetection ?? null)
                   setImprovementChanceByArtifactId(retryImprovementChanceResult ?? null)
                 })
-                lastRecipeNamesRef.current = recipeNamesForBuild
+                setLastRecipeNames(recipeNamesForBuild)
               })
               .catch((error: unknown) => {
                 if (isAbortError(error)) return
@@ -1802,12 +1801,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [prevSubstatTargetsDialogOpen, setPrevSubstatTargetsDialogOpen] = useState(substatTargetsDialogOpen)
   if (substatTargetsDialogOpen !== prevSubstatTargetsDialogOpen) {
     setPrevSubstatTargetsDialogOpen(substatTargetsDialogOpen)
+  }
+  useLayoutEffect(() => {
     if (!substatTargetsDialogOpen) {
       substatTargetsHistorySessionRef.current = 'idle'
       substatTargetsSessionBaselineRef.current = null
       substatTargetsSessionModeRef.current = null
     }
-  }
+  }, [substatTargetsDialogOpen])
   // Nonce incremented inside startTransition on every SFC load/selective import.
   // The useEffect below watches it to call markSavedNow() AFTER the history snapshot
   // effect fires in the same commit — ensuring the safety-net does not fire early
@@ -1867,7 +1868,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedSafeguardRuleIdx,
     setSafeguardBuilder,
   })
-  describeNextChangeRef.current = describeNextChange
+  useLayoutEffect(() => { describeNextChangeRef.current = describeNextChange })
   // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
   useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
@@ -2340,7 +2341,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastSeverity(options?.severity ?? 'success')
     setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
     setToastOpen(true)
-  }, [])
+  }, [setToastMsg, setToastSeverity, setToastIcon, setToastOpen])
   // Command push feedback needs its own lightweight toast so the global snackbar stays unobtrusive.
   type GearDbCommandToastState = {
     // Severity controls alert color and icon.
@@ -2361,6 +2362,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Force success styling so the diff list stays readable.
     setGearDbCommandToast({ severity: 'success', diff: payload })
   }, [])
+  // Keep a single pending diff so rapid endpoint updates collapse into the latest toast.
+  const gearDbDiffToastPendingRef = useRef<{
+    // Monotonic id for the queued payload.
+    requestId: number
+    // Build id used to detect when the Gear Inspector grid has updated.
+    baselineBuildId: number
+    // Timestamp captured when the update was queued.
+    queuedAt: number
+    // Structured header specs so history stays localizable.
+    lineSpecs: GearDbDiffHistoryLineSpec[]
+    // Shared retained diff entries (newest-window capped once for all surfaces).
+    retainedEntries: GearDbDiffEntry[]
+    // Number of retained entries to expose in the history surface.
+    historyCount: number
+    // Count of omitted entries beyond the history surface cap.
+    historyOverflowCount: number
+    // Number of retained entries to expose in the toast surface.
+    toastCount: number
+    // Count of omitted entries beyond the toast surface cap.
+    toastOverflowCount: number
+    // Matches captured before applying the dataset update.
+    matchesBefore: Map<number, GearInspectorPreviewMatch | null>
+  } | null>(null)
+  // Monotonic id used to cancel stale pending payloads.
+  const gearDbDiffToastRequestIdRef = useRef(0)
   // Shared closer lets timers and manual dismissals reuse a single path.
   const dismissGearDbCommandToast = useCallback(() => {
     // Clear the live toast so it does not linger between updates.
@@ -2408,9 +2434,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFileFormatError(null)
   }, [])
   const [gearDbCommandError, setGearDbCommandError] = useState<string | null>(null)
-  const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
+  const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [setGearDbCommandError])
   const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
-  const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [])
+  const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [setGearDbCommandSuccess])
   // History toast toggle keeps endpoint updates quiet without hiding status badges.
   const [hideGearDbUpdateToast, setHideGearDbUpdateToast] = useState(false)
   // Toggle helper keeps the checkbox handler stable for the header menu.
@@ -2450,31 +2476,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const toastMessage = headerLines.join('\n')
     return { headerLines, tooltipMessage, toastMessage }
   }, [buildGearDbHistoryHeaderLines])
-  // Keep a single pending diff so rapid endpoint updates collapse into the latest toast.
-  const gearDbDiffToastPendingRef = useRef<{
-    // Monotonic id for the queued payload.
-    requestId: number
-    // Build id used to detect when the Gear Inspector grid has updated.
-    baselineBuildId: number
-    // Timestamp captured when the update was queued.
-    queuedAt: number
-    // Structured header specs so history stays localizable.
-    lineSpecs: GearDbDiffHistoryLineSpec[]
-    // Shared retained diff entries (newest-window capped once for all surfaces).
-    retainedEntries: GearDbDiffEntry[]
-    // Number of retained entries to expose in the history surface.
-    historyCount: number
-    // Count of omitted entries beyond the history surface cap.
-    historyOverflowCount: number
-    // Number of retained entries to expose in the toast surface.
-    toastCount: number
-    // Count of omitted entries beyond the toast surface cap.
-    toastOverflowCount: number
-    // Matches captured before applying the dataset update.
-    matchesBefore: Map<number, GearInspectorPreviewMatch | null>
-  } | null>(null)
-  // Monotonic id used to cancel stale pending payloads.
-  const gearDbDiffToastRequestIdRef = useRef(0)
   // Build a stable match map keyed by artifact id so before/after comparisons line up.
   const buildMatchMapByArtifactId = useCallback((rows: GearInspectorPreviewRow[]): Map<number, GearInspectorPreviewMatch | null> => {
     // Map rows by id so add/remove/update comparisons are stable.
@@ -2633,6 +2634,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const drainBuilding = gearEntriesBuilding
     const drainCommittedBuildId = gearEntriesCommittedBuildId
     const drainPreviewRows = gearInspectorPreviewRows
+    // eslint-disable-next-line react-hooks/refs -- drainGearDbDiffToast closes over a ref but runs asynchronously via queueMicrotask, not during render
     queueMicrotask(() => drainGearDbDiffToast(drainBuilding, drainCommittedBuildId, drainPreviewRows))
   }
   const [gearImportBusy, setGearImportBusy] = useState(false)
@@ -2653,7 +2655,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep callback identity stable so HsfRulesTable memoization can skip unrelated app rerenders.
   const handleFocusRuleSettled = useCallback(() => {
     setFocusRuleIndex(null)
-  }, [])
+  }, [setFocusRuleIndex])
   // Gear Inspector consumes this to expand + scroll to a targeted artifact card.
   const [gearInspectorArtifactFocusRequest, setGearInspectorArtifactFocusRequest] = useState<GearInspectorArtifactFocusRequest | null>(null)
   // Selected gear items: optimistically updated on click and reconciled with endpoint response.
@@ -2673,12 +2675,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleCloseLogicHub = useCallback(() => {
     setLogicHubOpen(false)
   }, [])
-  logicHubOpenRef.current = logicHubOpen
-  if (!logicHubOpen) {
-    finalSellHistorySessionRef.current = 'idle'
-    finalSellSessionBaselineRef.current = null
-    finalSellSessionModeRef.current = null
-  }
+  useLayoutEffect(() => { logicHubOpenRef.current = logicHubOpen })
+  useLayoutEffect(() => {
+    if (!logicHubOpen) {
+      finalSellHistorySessionRef.current = 'idle'
+      finalSellSessionBaselineRef.current = null
+      finalSellSessionModeRef.current = null
+    }
+  }, [logicHubOpen])
   // View-only rules filter state
   const [filterOpen, setFilterOpenRaw, filterOpenByMode] = useRulesFilterOpenPreference(previewMode)
   const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
@@ -3094,12 +3098,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [prevFilterOpen, setPrevFilterOpen] = useState(filterOpen)
   if (filterOpen !== prevFilterOpen) {
     setPrevFilterOpen(filterOpen)
+  }
+  useLayoutEffect(() => {
     if (filterOpen && filterShortcutPendingFocusRef.current) {
       filterShortcutPendingFocusRef.current = false
       // Schedule focus after the current render so the input is mounted.
       queueMicrotask(() => { rulesFilterPanelRef.current?.focusRecipeNameInput() })
     }
-  }
+  }, [filterOpen])
 
   useEffect(() => {
     const shouldIgnoreShortcutTarget = (target: EventTarget | null): boolean => {
@@ -3187,7 +3193,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCustomRecipesTransition([])
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
     markNextSnapshotAsSaved()
-    exportBaselineResetRef.current = true
+    setExportBaselineResetPending(true)
   }, [customRecipes.length, describeNextChange, markNextSnapshotAsSaved, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     // Recipe deletes can shift large arrays; schedule as non-urgent.
@@ -3289,8 +3295,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [openNoteViewer, setNoteAutoOpenedFromSfc])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
-  requestDeleteSingleRef.current = requestDeleteSingle
-  requestDeleteMultiRef.current = requestDeleteMulti
+  useLayoutEffect(() => { requestDeleteSingleRef.current = requestDeleteSingle })
+  useLayoutEffect(() => { requestDeleteMultiRef.current = requestDeleteMulti })
   const [confirmClearHistoryOpen, setConfirmClearHistoryOpen] = useState(false)
   const requestClearHistory = useCallback(() => {
     setConfirmClearHistoryOpen(true)
@@ -3471,7 +3477,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { kind: 'builderDraft', mode: 'builder' }
   }, [customRecipes, editingRecipeIndex, multiselectActive, selectedRecipeIndices])
 
-  selectionGuardRef.current = (_prevSelection, _nextSelection) => {
+  const selectionGuardFn = useCallback((_prevSelection: number[], _nextSelection: number[]) => {
     if (!builderUiDirty) return
     // Skip draft snapshots when the caller signalled that a recipe-changing action already captured intent.
     if (selectionDraftSuppressionDepthRef.current > 0) return
@@ -3480,7 +3486,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Force the next payload change to append so the draft snapshot stays in history.
       captureSnapshotNow(descriptor, { forceAppend: true })
     }
-  }
+  }, [builderUiDirty, captureSnapshotNow, computeDraftHistoryDescriptor])
+  useLayoutEffect(() => { selectionGuardRef.current = selectionGuardFn })
 
   const exportRulesCountRef = useRef(mergedRules.length)
   useEffect(() => { exportRulesCountRef.current = mergedRules.length }, [mergedRules.length])
@@ -3759,10 +3766,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setQueuedSellfileExport(silent ? 'silent' : 'loud')
     return true
   }, [isSellfileExportBlockedByWorker])
-  // Establish the export signature baseline after resets or first render — render-time adjustment.
-  if (exportBaselineResetRef.current || lastExportSig === null) {
+  // Establish the export signature baseline after resets or first render.
+  if (exportBaselineResetPending || lastExportSig === null) {
     setLastExportSig(hsfExportStateSig)
-    exportBaselineResetRef.current = false
+    if (exportBaselineResetPending) setExportBaselineResetPending(false)
   }
   const hsfDirty = lastExportSig !== null && !exportDirtyStatesEqual(hsfExportStateSig, lastExportSig)
   const handleSetDedupeDefault = useCallback((next: boolean) => {
@@ -3880,12 +3887,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (hasSortChange) clearGearInspectorSubstatSort()
   }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreDraft, restoreFiltersDiffer, restoreSortDiffer])
-  // Clear the filters-reset guard when the restore dialog is dismissed — render-time comparison.
+  // Clear the filters-reset guard when the restore dialog is dismissed.
   const [prevRestoreDialogPending, setPrevRestoreDialogPending] = useState(restoreDialogPending)
   if (restoreDialogPending !== prevRestoreDialogPending) {
     setPrevRestoreDialogPending(restoreDialogPending)
-    if (!restoreDialogPending) filtersResetRef.current = false
   }
+  useLayoutEffect(() => {
+    if (!restoreDialogPending) filtersResetRef.current = false
+  }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
 
@@ -4719,11 +4728,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     debounceMs: 1000,
     beforeSave: persistRuntimeGearSetsNow,
   })
-  if (gearInspectorAutosaveBaselineRef.current === null) {
-    gearInspectorAutosaveBaselineRef.current = gearInspectorItems
-  }
   const gearInspectorGearTabActive = logicHubOpen && logicHubDialogTab === LOGIC_HUB_DIALOG_TAB_GEAR
-  const gearInspectorAutosaveChangedSinceLoad = gearInspectorAutosaveBaselineRef.current !== gearInspectorItems
+  const gearInspectorAutosaveChangedSinceLoad = gearInspectorAutosaveBaseline !== gearInspectorItems
   const gearInspectorAutosaveEnabled = gearInspectorGearTabActive || gearInspectorAutosaveChangedSinceLoad
   // Build compressed Gear Inspector autosave payload only when a save actually runs.
   const buildGearInspectorAutosavePayloadCallback = useCallback(
@@ -5194,7 +5200,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleIdx, token })
     return true
-  }, [handleSelectSafeguardRule, safeguardRules.length])
+  }, [handleSelectSafeguardRule, safeguardRules.length, setGearInspectorArtifactFocusRequest, setBuilderMode])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
     // safeguardRuleOrdinal is 1-based; convert to 0-based index for openLogicHubSafeguardRule.
     const ruleOrdinal = selection.safeguardRuleOrdinal
@@ -5233,7 +5239,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // No real gear was resolved for this safeguard, so open Safeguard Builder.
     openLogicHubSafeguardRule(ruleIdx)
-  }, [openLogicHubSafeguardRule, setLogicHubOpen, setPreviewMode, gearInspectorArtifactIdBySafeguardItemKey])
+  }, [openLogicHubSafeguardRule, setLogicHubOpen, setPreviewMode, setBuilderMode, setGearInspectorArtifactFocusRequest, gearInspectorArtifactIdBySafeguardItemKey])
   // Candidate list row click: resolve safeguard item key → artifact id, switch to Gear Inspector, scroll.
   const handleSafeguardCandidateSelect = useCallback((itemKey: number) => {
     const artifactId = gearInspectorArtifactIdBySafeguardItemKey.get(itemKey) ?? null
@@ -5244,7 +5250,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       artifactId,
       token: gearInspectorArtifactFocusTokenRef.current,
     })
-  }, [gearInspectorArtifactIdBySafeguardItemKey, setPreviewMode])
+  }, [gearInspectorArtifactIdBySafeguardItemKey, setPreviewMode, setGearInspectorArtifactFocusRequest])
 
   const handleGearInspectorFocusArtifactFilteredOut = useCallback(() => {
     // Keep the notification short because this only explains why auto-scroll did not occur.
@@ -5295,7 +5301,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [openLogicHubSafeguardRule, scrollSelectedRecipeIntoViewRef, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx])
+  }, [openLogicHubSafeguardRule, scrollSelectedRecipeIntoViewRef, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx, setGearInspectorArtifactFocusRequest])
   const handleGearInspectorRuleTemplateCreate = useCallback((row: GearInspectorPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -5355,7 +5361,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return indices
   }, [chipMatchingRecipeIndices, customRecipes, limitRecipesToFiltered, previewMode, gearInspectorRecipeFilterMode])
-  visibleRecipeIndicesRef.current = visibleRecipeIndices
+  useLayoutEffect(() => { visibleRecipeIndicesRef.current = visibleRecipeIndices })
   // In safeguard builder mode, limitRecipesToFiltered hides safeguard rule chips that have no
   // matching items in the current (possibly recipe-filtered) gear table.
   const visibleSafeguardRuleIds = useMemo<Set<number> | null>(() => {
@@ -5374,7 +5380,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return visible
   }, [limitRecipesToFiltered, builderMode, safeguardDetection, gearEntriesForTable])
   // Keep the ref in sync so shift-click in useSafeguardSelection reads the latest visible set.
-  visibleSafeguardRuleIdsRef.current = visibleSafeguardRuleIds
+  useLayoutEffect(() => { visibleSafeguardRuleIdsRef.current = visibleSafeguardRuleIds })
   const selectAllLabelKey = visibleRecipeIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedRecipeIntoView = useCallback(() => {
     if (multiselectActive || selectedRecipeIdx === null) return
@@ -5415,7 +5421,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	    } catch {}
 	  }, [chipsContainerRef, multiselectActive, selectedRecipeIdx])
   // Keep the ref current so handleGearInspectorRuleView always calls the latest version.
-  scrollSelectedRecipeIntoViewRef.current = scrollSelectedRecipeIntoView
+  useLayoutEffect(() => { scrollSelectedRecipeIntoViewRef.current = scrollSelectedRecipeIntoView })
   // Keep the focused recipe chip in view as filters or list length change so keyboard navigation stays visible.
   useEffect(() => {
     scrollSelectedRecipeIntoView()
@@ -5430,7 +5436,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [scrollSelectedRecipeIntoView, setLimitRecipesToFiltered, setRulesFilter, setGearInspectorRecipeFilterMode])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customRecipes.length)
-  hoverCountRef.current = customRecipes.length
+  useLayoutEffect(() => { hoverCountRef.current = customRecipes.length })
   React.useEffect(() => {
     if (typeof document === 'undefined') return undefined
     const applyChipLinkedHover = (idx: number | null, active: boolean) => {
@@ -5496,7 +5502,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
     return true
-  }, [mergedRules, customRecipes, filterActive, filteredRules, setBuilder, syncSelectedRecipeIdx])
+  }, [mergedRules, customRecipes, filterActive, filteredRules, setBuilder, syncSelectedRecipeIdx, setFocusRuleIndex])
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
@@ -5996,7 +6002,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!pushExportEndpoint) return
     // Silently swallow errors; the optimistic update stands regardless.
     void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { artifactIds: [...nextIds] }).catch(() => {})
-  }, [pushExportEndpoint, sendExternalRequest])
+  }, [pushExportEndpoint, sendExternalRequest, setSelectedGearItemIds])
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])
 
@@ -6625,7 +6631,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     markNextSnapshotAsSaved()
     setLastExportSig(null)
-    exportBaselineResetRef.current = true
+    setExportBaselineResetPending(true)
     flushTransientUi()
   }, [
     applyFinalSellChange,
@@ -6820,7 +6826,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     markNextSnapshotAsSaved()
     setLastExportSig(null)
-    exportBaselineResetRef.current = true
+    setExportBaselineResetPending(true)
     // markSavedNow in the rAF is a safety net: this function uses urgent (non-transition)
     // updates, so useEffect fires before the rAF and the rAF is truly a fallback.
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -6920,7 +6926,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try {
       const parsed = await readHsfFile(file)
       setHsf(parsed)
-      exportBaselineResetRef.current = true
+      setExportBaselineResetPending(true)
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to parse .hsf file', err)
@@ -8452,12 +8458,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming
             // history snapshot as saved; rAF markSavedNow is a safety net for the edge case where
-            // the effect fires without a new entry. setLastExportSig(null) + exportBaselineResetRef
+            // the effect fires without a new entry. setLastExportSig(null) + setExportBaselineResetPending(true)
             // reset the HSF export baseline. Do NOT call markSavedNow() synchronously — it clears
             // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
             markNextSnapshotAsSaved()
             setLastExportSig(null)
-            exportBaselineResetRef.current = true
+            setExportBaselineResetPending(true)
             if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
               window.requestAnimationFrame(() => { markSavedNow() })
             } else {
