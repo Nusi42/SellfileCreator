@@ -1093,6 +1093,7 @@ const overrides: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Clic destro per rimuovere._",
   filterRule: "Regola",
   filterGearInspectorResult: "Risultato",
+  filterGearInspectorResultTooltip: "**Mantieni** / **Vendi** — filtra per risultato della regola. Uno attivo: mostra solo l'equipaggiamento contrassegnato come mantieni o vendi. Entrambi attivi: mostra tutto l'equipaggiamento abbinato a una regola.\n\n**Ambito** — modalità contesto. L'equipaggiamento contrassegnato come vendi viene evidenziato; gli oggetti dello stesso set e slot di qualsiasi pezzo venduto vengono attenuati accanto per il confronto. Tutto il resto è nascosto.\nAggiungi **Mantieni**: inverte il focus — gli oggetti mantenuti dello stesso slot diventano il punto centrale; il pezzo venduto si attenua al suo posto.\nAggiungi **Senza regola**: rivela l'equipaggiamento non coperto da nessuna regola con opacità ridotta nella stessa vista.\n\n**Senza regola** da solo — filtro semplice: mostra solo l'equipaggiamento non abbinato a nessuna regola.",
   filterSets: "Set",
   filterSource: "Source",
   filterMainstat: "Stat principale",

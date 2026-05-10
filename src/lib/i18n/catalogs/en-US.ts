@@ -1117,6 +1117,7 @@ const enUS: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Right-click to remove._",
   filterRule: "Rule",
   filterGearInspectorResult: "Result",
+  filterGearInspectorResultTooltip: "**Keep** / **Sell** — filter by rule outcome. One active: show only keep- or sell-tagged gear. Both active: show all rule-matched gear.\n\n**Scope** — context mode. Sell-tagged gear is highlighted; items in the same set and slot as any sold piece are dimmed alongside them for comparison. Everything else is hidden.\nAdd **Keep**: flips the focus — kept same-slot items become the highlight; the sold piece dims instead.\nAdd **Unmatched**: reveals gear not covered by any rule at reduced opacity in the same view.\n\n**Unmatched** alone — plain filter: show only gear not matched by any rule.",
   filterSets: "Sets",
   filterSource: "Source",
   filterMainstat: "Mainstat",

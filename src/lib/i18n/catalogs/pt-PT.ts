@@ -1092,6 +1092,7 @@ const overrides: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Clique com o botão direito para remover._",
   filterRule: "Regra",
   filterGearInspectorResult: "Resultado",
+  filterGearInspectorResultTooltip: "**Manter** / **Vender** — filtra pelo resultado da regra. Um ativo: mostrar apenas o equipamento marcado como manter ou vender. Ambos ativos: mostrar todo o equipamento correspondente a uma regra.\n\n**Âmbito** — modo de contexto. O equipamento marcado para vender é destacado; os itens no mesmo conjunto e slot que qualquer peça vendida são atenuados ao lado para comparação. Tudo o resto fica oculto.\nAdicionar **Manter**: inverte o foco — os itens mantidos do mesmo slot tornam-se o destaque; a peça vendida fica atenuada.\nAdicionar **Sem regra**: revela o equipamento não coberto por nenhuma regra com opacidade reduzida na mesma vista.\n\n**Sem regra** sozinho — filtro simples: mostrar apenas o equipamento que não corresponde a nenhuma regra.",
   filterSets: "Conjuntos",
   filterSource: "Source",
   filterMainstat: "Stat principal",

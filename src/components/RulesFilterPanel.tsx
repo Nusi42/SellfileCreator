@@ -1248,6 +1248,8 @@ function RulesFilterPanel({
     : (isSafeguardMode ? t('filterLimitSelectedSafeguardTooltip') : t('filterLimitSelectedRecipesTooltip'))
   // Pick the Narrow tooltip: recipe mode uses column-filter match, safeguard mode uses gear-item match.
   const narrowTooltip = isSafeguardMode ? t('filterLimitPreviewSafeguardTooltip') : t('filterLimitPreviewRecipesTooltip')
+  // Single tooltip string shared across the Scope and Unmatched toggle buttons.
+  const resultSectionTooltip = t('filterGearInspectorResultTooltip')
   const recipeFilterButtonActive = gearInspectorRecipeFilterOn
   const recipeFilterButtonDisabled = !hasRecipes || !onGearInspectorRecipeFilterModeChange
   const recipeFilterButtonVariant: 'contained' | 'outlined' = recipeFilterButtonActive ? 'contained' : 'outlined'
@@ -1854,52 +1856,54 @@ function RulesFilterPanel({
                 </Box>
                 {/* Matched / Unmatched — independent toggles; both can be active simultaneously. */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                  <ToggleButtonGroup
-                    size="small"
-                    value={[
-                      ...(state.gearInspectorResult?.matched ? ['matched'] : []),
-                      ...(state.gearInspectorResult?.unmatched ? ['unmatched'] : []),
-                    ]}
-                    onChange={(_, newValues: string[]) => {
-                      onChange({
-                        ...state,
-                        gearInspectorResult: {
-                          ...(state.gearInspectorResult ?? DEFAULT_RULES_FILTER_STATE.gearInspectorResult!),
-                          matched: newValues.includes('matched'),
-                          unmatched: newValues.includes('unmatched'),
+                  <MarkdownTooltip markdown={resultSectionTooltip}>
+                    <ToggleButtonGroup
+                      size="small"
+                      value={[
+                        ...(state.gearInspectorResult?.matched ? ['matched'] : []),
+                        ...(state.gearInspectorResult?.unmatched ? ['unmatched'] : []),
+                      ]}
+                      onChange={(_, newValues: string[]) => {
+                        onChange({
+                          ...state,
+                          gearInspectorResult: {
+                            ...(state.gearInspectorResult ?? DEFAULT_RULES_FILTER_STATE.gearInspectorResult!),
+                            matched: newValues.includes('matched'),
+                            unmatched: newValues.includes('unmatched'),
+                          },
+                        })
+                      }}
+                      sx={[{
+                        '& .MuiToggleButton-root': {
+                          p: 0.5,
+                          width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                          minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                          maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                          height: 28,
+                          overflow: 'hidden',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1.2,
                         },
-                      })
-                    }}
-                    sx={[{
-                      '& .MuiToggleButton-root': {
-                        p: 0.5,
-                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        height: 28,
-                        overflow: 'hidden',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1.2,
-                      },
-                    }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
-                  >
-                    <ToggleButton value={'matched'}>
-                      <EllipsisTooltip title={t('gearInspectorResultMatched')} wrap="block">
-                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t('gearInspectorResultMatched')}
-                        </Typography>
-                      </EllipsisTooltip>
-                    </ToggleButton>
-                    <ToggleButton value={'unmatched'}>
-                      <EllipsisTooltip title={t('gearInspectorMatchNoRule')} wrap="block">
-                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t('gearInspectorMatchNoRule')}
-                        </Typography>
-                      </EllipsisTooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
+                      }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
+                    >
+                      <ToggleButton value={'matched'}>
+                        <EllipsisTooltip title={t('gearInspectorResultMatched')} wrap="block">
+                          <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                            {t('gearInspectorResultMatched')}
+                          </Typography>
+                        </EllipsisTooltip>
+                      </ToggleButton>
+                      <ToggleButton value={'unmatched'}>
+                        <EllipsisTooltip title={t('gearInspectorMatchNoRule')} wrap="block">
+                          <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                            {t('gearInspectorMatchNoRule')}
+                          </Typography>
+                        </EllipsisTooltip>
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </MarkdownTooltip>
                 </Box>
               </Box>
             ) : (

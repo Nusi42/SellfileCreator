@@ -1090,6 +1090,7 @@ const overrides: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Rechtsklick: entfernen._",
   filterRule: "Regel",
   filterGearInspectorResult: "Ergebnis",
+  filterGearInspectorResultTooltip: "**Behalten** / **Verkaufen** — Filter nach Regelresultat. Eines aktiv: nur als Behalten oder Verkaufen markierte Ausrüstung anzeigen. Beide aktiv: alle von einer Regel erfassten Gegenstände anzeigen.\n\n**Bereich** — Kontextmodus. Als Verkaufen markierte Ausrüstung wird hervorgehoben; Gegenstände im selben Set und Slot wie ein verkauftes Stück werden gedimmt daneben angezeigt. Alles andere wird ausgeblendet.\n**Behalten** hinzufügen: kehrt den Fokus um — behaltene Gegenstände im gleichen Slot rücken in den Vordergrund; das verkaufte Stück dimmt stattdessen.\n**Kein Treffer** hinzufügen: zeigt Ausrüstung ohne passende Regel mit reduzierter Deckkraft in derselben Ansicht.\n\n**Kein Treffer** allein — einfacher Filter: nur Ausrüstung anzeigen, die keiner Regel entspricht.",
   filterSets: "Sets",
   filterSource: "Quelle",
   filterMainstat: "Mainstat",

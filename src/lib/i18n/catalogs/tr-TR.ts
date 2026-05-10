@@ -1094,6 +1094,7 @@ const overrides: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Kaldırmak için sağ tıklayın._",
   filterRule: "Kural",
   filterGearInspectorResult: "Sonuç",
+  filterGearInspectorResultTooltip: "**Koru** / **Sat** — kural sonucuna göre filtreler. Biri aktif: yalnızca koru veya sat olarak etiketlenmiş ekipmanı göster. İkisi de aktif: bir kuralla eşleşen tüm ekipmanı göster.\n\n**Kapsam** — bağlam modu. Sat etiketli ekipman vurgulanır; satılan herhangi bir parçayla aynı set ve slottaki öğeler karşılaştırma için yanlarında soluk gösterilir. Diğer her şey gizlenir.\n**Koru** ekle: odağı tersine çevirir — aynı slottaki korunan öğeler ön plana çıkar; satılan parça bunun yerine soluklaşır.\n**Eşleşme yok** ekle: hiçbir kural kapsamında olmayan ekipmanı aynı görünümde düşük opaklıkla gösterir.\n\n**Eşleşme yok** tek başına — basit filtre: hiçbir kuralla eşleşmeyen ekipmanı göster.",
   filterSets: "Setler",
   filterSource: "Source",
   filterMainstat: "Ana stat",

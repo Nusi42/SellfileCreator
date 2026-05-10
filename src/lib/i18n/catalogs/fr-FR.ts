@@ -1096,6 +1096,7 @@ const overrides: Catalog = {
   rulesFilterVariantRightClickHintRemove: "_Clic droit pour supprimer._",
   filterRule: "Règle",
   filterGearInspectorResult: "Résultat",
+  filterGearInspectorResultTooltip: "**Garder** / **Vendre** — filtre selon le résultat de la règle. Un seul actif : afficher uniquement l'équipement marqué garder ou vendre. Les deux actifs : afficher tout l'équipement correspondant à une règle.\n\n**Portée** — mode contextuel. L'équipement marqué vendre est mis en valeur ; les objets du même ensemble et emplacement qu'une pièce vendue sont affichés en grisé à côté pour comparaison. Tout le reste est masqué.\nAjouter **Garder** : inverse le focus — les objets conservés du même emplacement deviennent le point central ; la pièce vendue s'assombrit à la place.\nAjouter **Sans règle** : révèle l'équipement non couvert par une règle avec une opacité réduite dans la même vue.\n\n**Sans règle** seul — filtre simple : afficher uniquement l'équipement ne correspondant à aucune règle.",
   filterSets: "Sets",
   filterSource: "Source",
   filterMainstat: "Stat principale",
