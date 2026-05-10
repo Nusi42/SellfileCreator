@@ -71,6 +71,7 @@ const buildArtifact = (params: {
     equippedChampionName: null,
     equippedChampionLocation: null,
     lastUseLocalTimestamp: null,
+    isLocked: false,
   }
 }
 

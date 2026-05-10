@@ -101,6 +101,8 @@ export function buildPreviewArtifactFromGearInspectorItem(
   const lastUseLocalTimestamp = typeof extras?.lastUseLocalTimestamp === 'string'
     ? extras.lastUseLocalTimestamp
     : null
+  // Lock state is only set by the endpoint; manual items are never locked.
+  const isLocked = extras?.isLocked === true
 
   return {
     id,
@@ -124,5 +126,6 @@ export function buildPreviewArtifactFromGearInspectorItem(
     equippedChampionName,
     equippedChampionLocation,
     lastUseLocalTimestamp,
+    isLocked,
   }
 }

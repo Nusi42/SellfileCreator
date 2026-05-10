@@ -1,6 +1,7 @@
 import { Box } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import LockIcon from '@mui/icons-material/Lock'
 import { createElement, type MouseEvent, type ReactNode } from 'react'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
@@ -66,6 +67,9 @@ type GridIconBoxProps = {
   rerollLabel?: string | undefined
   rerollTooltip?: string | undefined
   levelLabel?: string | undefined
+  // When true, renders a centered lock icon overlay over the gear image.
+  locked?: boolean
+  lockTooltip?: string | undefined
   size?: number
   showRankStarsBackground?: boolean
   // Plain-text gear hover content shown when hovering the icon (not chips).
@@ -115,6 +119,8 @@ export default function GridIconBox({
   rerollLabel,
   rerollTooltip,
   levelLabel,
+  locked,
+  lockTooltip,
   size = GRID_ICON_BOX_SIZE_PX,
   showRankStarsBackground = true,
   gearTooltip,
@@ -262,6 +268,33 @@ export default function GridIconBox({
         }}
       >
         {rerollLabel}
+      </Box>
+    </MarkdownTooltip>
+  ) : null
+  // Centered lock overlay — rendered over the gear image when the item is player-locked.
+  const lockNode = locked ? (
+    <MarkdownTooltip markdown={lockTooltip ?? ''}>
+      <Box
+        sx={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          bgcolor: alpha('#000', 0.60),
+          border: '2px solid',
+          borderColor: alpha(theme.palette.common.white, 0.55),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          // Pointer events active so the tooltip fires; no click handler so events pass through.
+          pointerEvents: 'auto',
+          zIndex: 2,
+        }}
+      >
+        <LockIcon sx={{ fontSize: '0.9rem', color: 'common.white', pointerEvents: 'none' }} />
       </Box>
     </MarkdownTooltip>
   ) : null
@@ -525,6 +558,7 @@ export default function GridIconBox({
         )
       ) : null}
       {slotVisualNode}
+      {lockNode}
       {accessoryBadge}
       {setIconOverlay}
       {rerollNode}

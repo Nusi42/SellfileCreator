@@ -140,6 +140,7 @@ const overrides: Catalog = {
   gearDialogDuplicateRowAction: "Satırı çoğalt",
   gearDialogRemoveRowAriaLabel: "Satırı kaldır",
   gearInspectorRerollLabel: "Yeniden atıldı",
+  gearInspectorLockedTooltip: "RSL Helper’da kilitli — bu eşya otomatik olarak satılmayacak.",
   gearInspectorLastUsedTooltip: "Son kullanım {timestamp}.",
   gearInspectorLastUsedFilterLabel: "Son kullanım",
   gearInspectorLastUsedPresetNever: "Hiç kullanılmadı",

@@ -140,6 +140,7 @@ const overrides: Catalog = {
   gearDialogDuplicateRowAction: "Dupliquer la ligne",
   gearDialogRemoveRowAriaLabel: "Supprimer une ligne",
   gearInspectorRerollLabel: "Relancé",
+  gearInspectorLockedTooltip: "Verrouillé dans RSL Helper — cet objet ne sera pas vendu automatiquement.",
   gearInspectorLastUsedTooltip: "Dernière utilisation {timestamp}.",
   gearInspectorLastUsedFilterLabel: "Dernière utilisation",
   gearInspectorLastUsedPresetNever: "Jamais utilisé",

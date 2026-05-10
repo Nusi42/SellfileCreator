@@ -217,6 +217,8 @@ type ArtifactLogRow = {
   requiredFraction?: unknown
   rerollsCount?: unknown
   ascendLevel?: unknown
+  // True when the player has locked the item in-game (RSL Helper exposes this as readOnly).
+  readOnly?: unknown
   primary?: unknown
   secondary?: unknown
   ascend?: unknown
@@ -289,6 +291,8 @@ const parseArtifactLogRow = (
     ASCGV: toNumber(ascend?.glyphValue) ?? 0,
     ASCLEVEL: toNumber(row.ascendLevel) ?? 0,
     REROLLCOUNT: toNumber(row.rerollsCount) ?? 0,
+    // Carry the player-set lock flag; strict equality avoids treating strings as truthy.
+    isLocked: row.readOnly === true,
   }
   // Flatten up to four substats into the canonical SQL-ish columns.
   for (let index = 0; index < 4; index += 1) {

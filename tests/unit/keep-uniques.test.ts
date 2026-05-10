@@ -71,6 +71,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
     lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
+    isLocked: overrides.isLocked ?? false,
   }
 }
 

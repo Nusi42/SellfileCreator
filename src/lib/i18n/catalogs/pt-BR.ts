@@ -140,6 +140,7 @@ const catalog: Catalog = {
   gearDialogDuplicateRowAction: "Duplicar linha",
   gearDialogRemoveRowAriaLabel: "Remover linha",
   gearInspectorRerollLabel: "Rerolado",
+  gearInspectorLockedTooltip: "Bloqueado no RSL Helper — este item não será vendido automaticamente.",
   gearInspectorLastUsedTooltip: "Último uso {timestamp}.",
   gearInspectorLastUsedFilterLabel: "Último uso",
   gearInspectorLastUsedPresetNever: "Nunca usado",

@@ -156,6 +156,7 @@ const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}): 
     source: overrides.source ?? 'manual',
     exactLevel: overrides.exactLevel ?? null,
     lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
+    isLocked: overrides.isLocked ?? false,
   }
 
   return {

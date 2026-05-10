@@ -77,13 +77,16 @@ const PERCENT_WHEN_FLAT_FLAG_ZERO = new Set<number>([
   StatId.DEF,
 ])
 
+// Keys of GearDbArtifactRow whose non-nullable value type is number; excludes boolean fields like isLocked.
+type NumericGearDbKey = { [K in keyof GearDbArtifactRow]-?: NonNullable<GearDbArtifactRow[K]> extends number ? K : never }[keyof GearDbArtifactRow]
+
 type SubstatColumn = {
-  id: keyof GearDbArtifactRow
-  flag: keyof GearDbArtifactRow
-  level: keyof GearDbArtifactRow
-  base: keyof GearDbArtifactRow
-  glyph: keyof GearDbArtifactRow
-  myth: keyof GearDbArtifactRow
+  id: NumericGearDbKey
+  flag: NumericGearDbKey
+  level: NumericGearDbKey
+  base: NumericGearDbKey
+  glyph: NumericGearDbKey
+  myth: NumericGearDbKey
 }
 
 const SUBSTAT_COLUMNS: readonly SubstatColumn[] = [
@@ -151,6 +154,8 @@ export type GearDbArtifactRow = {
   ASCGV?: number | null
   ASCLEVEL?: number | null
   REROLLCOUNT?: number | null
+  // Set to true when the player has locked the item in-game (sourced from the readOnly endpoint field).
+  isLocked?: boolean | null
 }
 
 export type GearDbChampionRow = {
@@ -223,6 +228,8 @@ export type NormalizedGearArtifact = {
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
   lastUseLocalTimestamp: string | null
+  // True when the player has locked this item in-game; always false for manual entries.
+  isLocked: boolean
 }
 
 export type NormalizeOptions = {
@@ -444,6 +451,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const ascension = extractAscensionStat(row)
 
   const rerollCount = toNumber(row.REROLLCOUNT) ?? 0
+  const isLocked = row.isLocked === true
   const equippedToChampionId = (() => {
     const value = toNumber(row.cID)
     if (value === null || value === 0) return null
@@ -490,6 +498,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       ascension: ascension ?? null,
       exactLevel,
       lastUseLocalTimestamp,
+      isLocked,
     },
   }
 
@@ -515,5 +524,6 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     equippedChampionName,
     equippedChampionLocation,
     lastUseLocalTimestamp,
+    isLocked,
   }
 }

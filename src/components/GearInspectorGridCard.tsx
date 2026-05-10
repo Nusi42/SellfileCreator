@@ -997,6 +997,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   })()
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('gearInspectorRerollLabel') : ''
+  const lockTooltip = artifact.isLocked ? t('gearInspectorLockedTooltip') : undefined
   // Tooltip copy surfaces the localized last-used timestamp whenever the DB provided one.
   const lastUseTooltip = (() => {
     if (!artifact.lastUseLocalTimestamp) return null
@@ -1332,6 +1333,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           rerollLabel={rerollLabel || undefined}
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
+          {...(artifact.isLocked ? { locked: true, lockTooltip } : {})}
           size={iconBoxSizePx}
           // Ultra-dense small-mode cards swap the star row for a compact numeric rank badge.
           {...(isUltraDense ? { compactRankDisplay: true } : {})}

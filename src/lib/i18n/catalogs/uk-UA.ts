@@ -140,6 +140,7 @@ const overrides: Catalog = {
   gearDialogDuplicateRowAction: "Дублювати рядок",
   gearDialogRemoveRowAriaLabel: "Вилучити рядок",
   gearInspectorRerollLabel: "Перековано",
+  gearInspectorLockedTooltip: "Заблоковано в RSL Helper — цей предмет не буде проданий автоматично.",
   gearInspectorLastUsedTooltip: "Востаннє використано {timestamp}.",
   gearInspectorLastUsedFilterLabel: "Востаннє використання",
   gearInspectorLastUsedPresetNever: "Ніколи не використовувалось",

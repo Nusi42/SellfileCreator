@@ -141,6 +141,7 @@ const enUS: Catalog = {
   gearDialogDuplicateRowAction: "Duplicate Row",
   gearDialogRemoveRowAriaLabel: "Remove Row",
   gearInspectorRerollLabel: "Rerolled",
+  gearInspectorLockedTooltip: "Locked in RSL Helper — this item will not be auto-sold.",
   gearInspectorLastUsedTooltip: "Last used {timestamp}.",
   gearInspectorLastUsedFilterLabel: "Last Used",
   gearInspectorLastUsedPresetNever: "Never Used",

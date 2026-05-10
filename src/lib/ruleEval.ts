@@ -47,6 +47,8 @@ export type GearInspectorItemPreviewExtras = {
   exactLevel?: number | null
   // Last-use timestamp supports recency sorts in Gear Inspector views.
   lastUseLocalTimestamp?: string | null
+  // Mirrors NormalizedGearArtifact.isLocked; true when the player locked the item in-game.
+  isLocked?: boolean | null
 }
 
 export type TestItem = {
