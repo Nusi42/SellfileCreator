@@ -3420,6 +3420,7 @@ export default function NoteDialog({
         maxWidth="lg"
         fullWidth
         PaperProps={{ sx: NOTE_DIALOG_PAPER_SX }}
+        TransitionProps={{ unmountOnExit: true }}
       >
       <DialogTitle
         sx={{
@@ -3586,7 +3587,7 @@ export default function NoteDialog({
           />
         )}
       </Dialog>
-      <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog}>
+      <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('noteDynamicOverridesDisableConfirmTitle')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('noteDynamicOverridesDisableConfirmBody')}</Typography>
@@ -4420,7 +4421,7 @@ function NoteEditorContent({
           </Box>
         </Box>
       </Popover>
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleClearNote')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgClearNote')}</Typography>

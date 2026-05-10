@@ -26,6 +26,7 @@ export default function FileFormatErrorDialog(props: FileFormatErrorDialogProps)
       maxWidth="xs"
       fullWidth
       aria-labelledby="file-format-error-title"
+      TransitionProps={{ unmountOnExit: true }}
     >
       <DialogTitle id="file-format-error-title">
         {t('fileFormatErrorTitle')}

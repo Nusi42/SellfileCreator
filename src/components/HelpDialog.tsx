@@ -225,6 +225,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       aria-label={t('helpAriaLabel')}
       maxWidth="lg"
       fullWidth
+      TransitionProps={{ unmountOnExit: true }}
       PaperProps={{
         sx: {
           maxHeight: '84vh',

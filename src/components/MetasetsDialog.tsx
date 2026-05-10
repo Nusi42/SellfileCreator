@@ -548,7 +548,7 @@ export default function MetasetsDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth>
+      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
@@ -1068,7 +1068,7 @@ export default function MetasetsDialog({
       </Dialog>
 
       {/* Confirm Clear Metaset */}
-      <Dialog open={Boolean(confirmClearMetaId)} onClose={() => setConfirmClearMetaId(null)}>
+      <Dialog open={Boolean(confirmClearMetaId)} onClose={() => setConfirmClearMetaId(null)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleClearMetaset')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgClearMetaset')}</Typography>
@@ -1106,6 +1106,7 @@ export default function MetasetsDialog({
         onClose={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}
         fullWidth
         maxWidth="sm"
+        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('titleDeleteMetaset')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
@@ -1237,7 +1238,7 @@ export default function MetasetsDialog({
       </Dialog>
 
       {/* Confirm Reset Metasets */}
-      <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)} maxWidth="sm" fullWidth>
+      <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)} maxWidth="sm" fullWidth TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleResetMetasets')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
           {/* Hidden measurer for confirm button width (covers all labels) */}

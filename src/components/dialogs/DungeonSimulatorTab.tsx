@@ -252,15 +252,24 @@ export type DungeonSimulatorTabProps = {
    * Mirrors the "Reset to defaults" button pattern used in other Logic Hub tabs.
    */
   resetKey?: number
+  // When false, pauses the sim and releases the worker. Transitions to true restart it.
+  // Pass open && showDungeonTab from the parent dialog so the sim stops when the dialog
+  // closes and auto-restarts when it reopens.
+  isActive?: boolean
 }
 
 export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
-  const { rules, substatTargets, substatColors, useStatButtonColors, resetKey } = props
+  const { rules, substatTargets, substatColors, useStatButtonColors, resetKey, isActive } = props
   const { t, lang } = useI18n()
   // Persisted mode/stage/spotlight selections keep the simulator stable across sessions.
   const [prefs, setPrefs] = useDungeonSimulatorPreferences()
   // Reset all preferences to defaults when the parent increments resetKey.
-  useEffect(() => { if (resetKey !== undefined) setPrefs(buildDefaultDungeonSimulatorPreferences()) }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Guard with `if (resetKey)` so the effect is a no-op on the initial mount
+  // (resetKey=0). Firing setPrefs on mount would notify the localStorage store
+  // with a new object reference even when values are identical, causing the
+  // control effect in useDungeonSimulatorWorker to re-run, cancel the in-flight
+  // sim, and return early — breaking auto-start.
+  useEffect(() => { if (resetKey) setPrefs(buildDefaultDungeonSimulatorPreferences()) }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // Manual refresh bumps force a full resimulation without input changes.
   const [refreshToken, setRefreshToken] = useState(0)
   // Anchor + target power the detail popover when a cell is clicked.
@@ -284,6 +293,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     runs: DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize: DUNGEON_SIM_BATCH_SIZE,
     throttleMs: PROGRESS_THROTTLE_MS,
+    ...(isActive !== undefined ? { isActive } : {}),
   })
 
   // Cell clicks bind the anchor element and target metadata.

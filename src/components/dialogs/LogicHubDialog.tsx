@@ -107,6 +107,14 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const [gearAnalyticsResetKey, setGearAnalyticsResetKey] = useState(0)
   // Counter passed to DungeonSimulatorTab; incrementing it triggers a preferences reset.
   const [dungeonResetKey, setDungeonResetKey] = useState(0)
+  // React key for DungeonSimulatorTab: bumped each time the dungeon panel becomes visible so
+  // the simulator always mounts fresh. MUI Dialog does not reliably unmount children between
+  // open/close cycles (Fade transition keeps content in the DOM), so a key change is the only
+  // guarantee that prevInputs and worker state are cleared before the next sim run.
+  // prevDungeonActive tracks the previous value so we detect false→true transitions during render
+  // and bump the key immediately, without needing a useEffect.
+  const [dungeonMountKey, setDungeonMountKey] = useState(0)
+  const [prevDungeonActive, setPrevDungeonActive] = useState(false)
   // Fallback keeps the Gear Inspector grid handler stable even when no jump target is supplied.
   const noopGearInspectorRuleJump = useCallback(() => {}, [])
   const gearTabOnView = onJumpToRule ?? noopGearInspectorRuleJump
@@ -138,6 +146,16 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const showSubstatTargetsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const showDungeonTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_DUNGEON
+  // Detect false→true transitions of the dungeon panel being active and bump dungeonMountKey.
+  // Doing this during render (rather than useEffect) avoids the react-hooks/set-state-in-effect
+  // lint rule and is the React-recommended pattern for derived state.
+  const dungeonActive = open && showDungeonTab
+  if (dungeonActive && !prevDungeonActive) {
+    setPrevDungeonActive(true)
+    setDungeonMountKey((k) => k + 1)
+  } else if (!dungeonActive && prevDungeonActive) {
+    setPrevDungeonActive(false)
+  }
   const showGearStatsTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR_STATS
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
@@ -216,6 +234,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       fullWidth
       maxWidth={false}
       PaperProps={{ sx: paperSx }}
+      TransitionProps={{ unmountOnExit: true }}
     >
       <DialogTitle sx={{ p: 0 }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>
@@ -504,12 +523,16 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         )}
         {showDungeonTab && (
           // Dungeon sim uses the merged rule list + substat targets for current keep logic.
+          // key={dungeonMountKey} forces a fresh mount on each activate so prevInputs and
+          // worker state are always null — guaranteeing the sim auto-starts.
           <DungeonSimulatorTab
+            key={dungeonMountKey}
             rules={rules}
             substatTargets={substatTargets}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
             resetKey={dungeonResetKey}
+            isActive={open && showDungeonTab}
           />
         )}
         {showGearStatsTab && (
@@ -536,6 +559,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       <Dialog
         open={confirmResetGearInspector}
         onClose={() => setConfirmResetGearInspector(false)}
+        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('titleResetGearInspector')}</DialogTitle>
         <DialogContent>
@@ -549,6 +573,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       <Dialog
         open={confirmResetSubstatTargets}
         onClose={() => setConfirmResetSubstatTargets(false)}
+        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('titleResetSubstatTargets')}</DialogTitle>
         <DialogContent>

@@ -34,7 +34,7 @@ export default function ConfirmDialogs({
   return (
     <>
       {clearHistoryOpen ? (
-      <Dialog open={clearHistoryOpen} onClose={() => setClearHistoryOpen(false)}>
+      <Dialog open={clearHistoryOpen} onClose={() => setClearHistoryOpen(false)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleClearHistory')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgClearHistory')}</Typography>
@@ -47,7 +47,7 @@ export default function ConfirmDialogs({
       ) : null}
 
       {openClear ? (
-      <Dialog open={openClear} onClose={() => setOpenClear(false)}>
+      <Dialog open={openClear} onClose={() => setOpenClear(false)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleDeleteAllRecipes')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgDeleteAllRecipes')}</Typography>
@@ -60,7 +60,7 @@ export default function ConfirmDialogs({
       ) : null}
 
       {deleteIdx !== null ? (
-      <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
+      <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleDeleteRecipe')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgDeleteRecipe')}</Typography>
@@ -73,7 +73,7 @@ export default function ConfirmDialogs({
       ) : null}
 
       {deleteMultiTargets !== null ? (
-      <Dialog open={deleteMultiTargets !== null} onClose={() => setDeleteMultiTargets(null)}>
+      <Dialog open={deleteMultiTargets !== null} onClose={() => setDeleteMultiTargets(null)} TransitionProps={{ unmountOnExit: true }}>
         <DialogTitle>{t('titleDeleteSelectedRecipes', { n: deleteMultiCount })}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('msgDeleteSelectedRecipes', { n: deleteMultiCount })}</Typography>

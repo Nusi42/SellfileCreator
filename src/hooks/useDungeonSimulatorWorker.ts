@@ -46,6 +46,10 @@ type UseDungeonSimulatorWorkerParams = {
   runs?: number
   batchSize?: number
   throttleMs?: number
+  // When false, cancels any running sim and terminates the worker to free WASM memory.
+  // Transitions false→true restart the sim via evictToken bump.
+  // Omit (undefined) to always simulate — backward-compatible default.
+  isActive?: boolean
 }
 
 type UseDungeonSimulatorWorkerResult = {
@@ -185,7 +189,10 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     runs = DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize = DUNGEON_SIM_BATCH_SIZE,
     throttleMs = PROGRESS_THROTTLE_MS,
+    isActive,
   } = params
+  // Treat omitted isActive as always-active so existing callers are unaffected.
+  const isActiveEffective = isActive ?? true
   // Clamp batch size so loops never spin on a zero or NaN batch.
   // Using an integer protects the batch math inside the worker.
   const safeBatchSize = Number.isFinite(batchSize)
@@ -244,6 +251,11 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const errorHandlerRef = useRef<((e: ErrorEvent | MessageEvent) => void) | null>(null)
   // Factory ref: creates a fresh worker and wires up handlers. Set in mount effect.
   const createWorkerRef = useRef<(() => Worker | null) | null>(null)
+  // Stable terminator ref so the isActive effect can reach terminateWorkerNow without
+  // capturing the closure from the mount effect directly.
+  const terminateWorkerNowRef = useRef<(() => void) | null>(null)
+  // Tracks the previous isActive value so the effect only reacts to transitions.
+  const prevIsActiveRef = useRef<boolean | undefined>(undefined)
   // Track previous inputs so we can resimulate only changed dungeons.
   const prevInputsRef = useRef<{
     rules: HsfRuleWithRecipe[]
@@ -287,6 +299,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       for (const resolve of genericResolversRef.current.values()) resolve(null)
       genericResolversRef.current.clear()
     }
+    // Expose to the isActive effect so it can terminate without re-entering this closure.
+    terminateWorkerNowRef.current = terminateWorkerNow
     // Soft-pause: send 'cancel' to the live worker, preserving cachedSession for resume.
     // Called by the rule-cache pipeline before its own WASM peak allocations.
     const pauseWorker = () => {
@@ -439,6 +453,20 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       terminateWorkerNow()
     }
   }, [])
+
+  useEffect(() => {
+    // Deactivation: terminate the worker immediately when the tab/dialog becomes hidden
+    // so the sim stops consuming CPU during the close animation.
+    // Reactivation is handled by the parent giving this component a fresh React key,
+    // which forces a full unmount/remount — the control effect restarts via fullReset.
+    const prev = prevIsActiveRef.current
+    prevIsActiveRef.current = isActiveEffective
+    // Skip initial mount: the control effect handles the first run via fullReset.
+    if (prev === undefined) return
+    if (!isActiveEffective && prev) {
+      terminateWorkerNowRef.current?.()
+    }
+  }, [isActiveEffective])
 
   useEffect(() => {
     // Every new dependency change resets the in-flight run.
