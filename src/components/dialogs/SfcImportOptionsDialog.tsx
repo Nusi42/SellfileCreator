@@ -164,7 +164,7 @@ export default function SfcImportOptionsDialog(props: SfcImportOptionsDialogProp
   const constraintSummary = constraintMessages.join(' • ')
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth TransitionProps={{ unmountOnExit: true }}>
+    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>{t('sfcImportDialogTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>

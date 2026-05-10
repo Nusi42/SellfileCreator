@@ -1781,7 +1781,6 @@ export function GearInspectorTabContent({
       <Dialog
         open={pendingDeleteSource != null}
         onClose={() => setPendingDeleteSource(null)}
-        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('gearDialogDeleteSourceConfirmTitle', { source: pendingDeleteMeta?.label ?? '' })}</DialogTitle>
         <DialogContent>

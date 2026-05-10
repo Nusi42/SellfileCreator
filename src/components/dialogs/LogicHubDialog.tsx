@@ -234,7 +234,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       fullWidth
       maxWidth={false}
       PaperProps={{ sx: paperSx }}
-      TransitionProps={{ unmountOnExit: true }}
     >
       <DialogTitle sx={{ p: 0 }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>
@@ -559,7 +558,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       <Dialog
         open={confirmResetGearInspector}
         onClose={() => setConfirmResetGearInspector(false)}
-        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('titleResetGearInspector')}</DialogTitle>
         <DialogContent>
@@ -573,7 +571,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       <Dialog
         open={confirmResetSubstatTargets}
         onClose={() => setConfirmResetSubstatTargets(false)}
-        TransitionProps={{ unmountOnExit: true }}
       >
         <DialogTitle>{t('titleResetSubstatTargets')}</DialogTitle>
         <DialogContent>

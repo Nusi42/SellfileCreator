@@ -232,7 +232,7 @@ export default function RestoreAutosaveDialog({
   const canRestore = hasAtLeastOne && constraintMessages.length === 0
 
   return (
-    <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth TransitionProps={{ unmountOnExit: true }}>
+    <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
       <DialogTitle>{t('restoreAutosaveTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>

@@ -931,7 +931,7 @@ export default function SafeguardChipsPanel({
         onCancel={closePasteDialog}
         onConfirm={handleConfirmPasteDialog}
       />
-      <Dialog open={pendingDeleteRuleIdx !== null} onClose={() => setPendingDeleteRuleIdx(null)} TransitionProps={{ unmountOnExit: true }}>
+      <Dialog open={pendingDeleteRuleIdx !== null} onClose={() => setPendingDeleteRuleIdx(null)}>
         <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
@@ -941,7 +941,7 @@ export default function SafeguardChipsPanel({
           <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
-      <Dialog open={pendingDeleteAll} onClose={() => setPendingDeleteAll(false)} TransitionProps={{ unmountOnExit: true }}>
+      <Dialog open={pendingDeleteAll} onClose={() => setPendingDeleteAll(false)}>
         <DialogTitle>{t('safeguardsDeleteAllTitle')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">{t('safeguardsDeleteAllMessage')}</Typography>

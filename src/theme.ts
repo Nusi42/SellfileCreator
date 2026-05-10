@@ -106,6 +106,7 @@ export function makeTheme(mode: ColorBlindMode) {
           closeAfterTransition: false,
           TransitionProps: {
             timeout: { appear: 0, enter: 0, exit: 150 },
+            unmountOnExit: true,
           },
         },
       },

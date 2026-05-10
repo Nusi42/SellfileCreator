@@ -1229,7 +1229,7 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
-            <Dialog open={savePresetOpen} onClose={closeSavePresetDialog} maxWidth="xs" fullWidth TransitionProps={{ unmountOnExit: true }}>
+            <Dialog open={savePresetOpen} onClose={closeSavePresetDialog} maxWidth="xs" fullWidth>
               <DialogTitle>{t('filterPresetsSaveDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Stack spacing={1.5} sx={{ mt: 0.5 }}>
@@ -1266,7 +1266,7 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </DialogActions>
             </Dialog>
-            <Dialog open={Boolean(deletePresetTarget)} onClose={cancelDeletePreset} maxWidth="xs" fullWidth TransitionProps={{ unmountOnExit: true }}>
+            <Dialog open={Boolean(deletePresetTarget)} onClose={cancelDeletePreset} maxWidth="xs" fullWidth>
               <DialogTitle>{t('filterPresetsDeleteDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Typography variant="body2">
@@ -1374,7 +1374,7 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
-            <Dialog open={saveSortPresetOpen} onClose={closeSaveSortPresetDialog} maxWidth="xs" fullWidth TransitionProps={{ unmountOnExit: true }}>
+            <Dialog open={saveSortPresetOpen} onClose={closeSaveSortPresetDialog} maxWidth="xs" fullWidth>
               <DialogTitle>{t('sortPresetsSaveDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Stack spacing={1.5} sx={{ mt: 0.5 }}>
@@ -1411,7 +1411,7 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </DialogActions>
             </Dialog>
-            <Dialog open={Boolean(deleteSortPresetTarget)} onClose={cancelDeleteSortPreset} maxWidth="xs" fullWidth TransitionProps={{ unmountOnExit: true }}>
+            <Dialog open={Boolean(deleteSortPresetTarget)} onClose={cancelDeleteSortPreset} maxWidth="xs" fullWidth>
               <DialogTitle>{t('sortPresetsDeleteDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Typography variant="body2">

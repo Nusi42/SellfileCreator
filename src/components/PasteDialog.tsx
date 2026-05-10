@@ -25,7 +25,7 @@ export default function PasteDialog({
 }) {
   const { t } = useI18n()
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth TransitionProps={{ unmountOnExit: true }}>
+    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
       <DialogTitle>{t('titlePasteRecipeJson')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 1 }}>{t('msgPasteInstructions')}</Typography>

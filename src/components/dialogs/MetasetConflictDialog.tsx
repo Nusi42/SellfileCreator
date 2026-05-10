@@ -12,7 +12,7 @@ export default function MetasetConflictDialog({ open, count, onCancel, onChoose 
   // Mirror the style of the "Reset metasets" dialog: radio choices + single CTA.
   const [choice, setChoice] = useState<'keepCurrent' | 'useIncoming' | 'keepBoth'>('keepCurrent')
   return (
-    <Dialog open={open} onClose={onCancel} TransitionProps={{ unmountOnExit: true }}>
+    <Dialog open={open} onClose={onCancel}>
       <DialogTitle>Resolve Metaset Conflicts</DialogTitle>
       <DialogContent>
         <Stack spacing={1}>

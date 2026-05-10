@@ -52,7 +52,6 @@ export default function ManageColorsDialog(props: {
       maxWidth="md"
       fullWidth
       PaperProps={{ sx: { width: { xs: '100%', sm: 640 }, maxWidth: 'calc(100vw - 32px)' } }}
-      TransitionProps={{ unmountOnExit: true }}
     >
       <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>

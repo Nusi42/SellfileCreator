@@ -304,7 +304,7 @@ export default function HeaderActions(props: {
             {t('loadPresetMidToEndGame')}
           </MenuItem>
         </Menu>
-        <Dialog open={pendingPreset !== null} onClose={() => setPendingPreset(null)} TransitionProps={{ unmountOnExit: true }}>
+        <Dialog open={pendingPreset !== null} onClose={() => setPendingPreset(null)}>
           <DialogTitle>{t('loadPresetConfirmTitle')}</DialogTitle>
           <DialogContent>
             <Typography>{t('loadPresetConfirmMessage')}</Typography>
