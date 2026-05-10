@@ -147,6 +147,10 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
 import {
+  getDirtySafeguardFieldKeys,
+  applyMultiEditFieldsToSafeguardRule,
+} from '../lib/safeguardMultiEditDraft'
+import {
   deriveBaseTriState,
   applyArrayPatchCount,
   computeSlotPatchToggle,
@@ -333,6 +337,22 @@ export default function SafeguardBuilderPanel({
   const multiDraftDirty = multiEditActive && multiFields
     ? Object.values(multiFields).some((field) => field?.dirty)
     : false
+  // Dirty field keys used to limit the projection to only changed fields.
+  const multiDirtyKeys = useMemo(() => (
+    multiEditActive && multiFields ? getDirtySafeguardFieldKeys(multiFields) : []
+  ), [multiEditActive, multiFields])
+  // Rules with staged patches applied — drives tag display so chips reflect pending changes.
+  const multiProjectedRules = useMemo<readonly SafeguardRule[] | null>(() => {
+    if (!multiEditActive || !multiSelectedRules || !multiFields) return null
+    if (multiDirtyKeys.length === 0) return multiSelectedRules
+    let changed = false
+    const projected = multiSelectedRules.map((source) => {
+      const next = applyMultiEditFieldsToSafeguardRule(source, multiFields, multiDirtyKeys)
+      if (next !== source) changed = true
+      return next
+    })
+    return changed ? projected : multiSelectedRules
+  }, [multiDirtyKeys, multiEditActive, multiFields, multiSelectedRules])
   // Per-element count aggregates for tri-state toggle derivation.
   const multiSummary = useSafeguardMultiEditSummary(multiEditActive, multiSelectedRules ?? null)
   // Rank is mixed when any rank value appears in some but not all selected rules.
@@ -1030,10 +1050,13 @@ export default function SafeguardBuilderPanel({
   // Summarize tag presence across all selected rules for multi-edit mixed styling.
   const tagPresence = useMemo(() => {
     if (!multiEditActive) return null
-    const source = multiSelectedRules ?? []
+    // Prefer projected rules so staged patches are reflected in the tag chips.
+    const source = (multiProjectedRules && multiProjectedRules.length > 0)
+      ? multiProjectedRules
+      : (multiSelectedRules ?? [])
     const lists = source.map((r) => (Array.isArray(r.tags) ? r.tags.map(String) : []))
     return summarizeTagPresence(lists)
-  }, [multiEditActive, multiSelectedRules])
+  }, [multiEditActive, multiProjectedRules, multiSelectedRules])
   // Expose the displayed tags based on single vs multi-edit state.
   const tagDisplay = useMemo(
     () => (multiEditActive ? (tagPresence?.all ?? []) : tagsValue),
