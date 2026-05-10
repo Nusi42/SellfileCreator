@@ -19,7 +19,7 @@ import { NOTE_DIALOG_TITLES, NOTE_DIALOG_CLOSE_LABEL } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
 import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
-import { PREVIEW_PAPER_SELECTOR, SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 
 // Example database bundled in the repo for smoke coverage.
@@ -43,16 +43,23 @@ type ModeOutcomes = Record<Mode, GearOutcomeRow[]>
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Wait until at least one gear inspector card reports a keep/sell outcome. */
+/**
+ * Wait until TanStack Virtual has rendered at least one gear inspector card into the DOM.
+ *
+ * We intentionally do NOT track the gear-results-version attribute here. Each SFC pipeline
+ * commit (one for SFC load, one per recipe-mode change) increments the version with empty rows,
+ * so version-based gating is satisfied prematurely — before the DB pipeline produces real items.
+ * Waiting for cards is immune to those false positives: TanStack only renders cards when
+ * gearInspectorPreviewRows is non-empty, which only happens after the DB WASM pass commits.
+ *
+ * timeout=testHeavy (30 s): after waitForWorkloadIdle (which absorbs ≤18 s of WASM), the
+ * remaining WASM + React commit + TanStack layout is well under 30 s for the 26 MB test DB.
+ */
 const waitForGearInspectorResults = async (page: Page): Promise<void> => {
   await page.waitForFunction(
-    () => Array.from(document.querySelectorAll('[data-gear-inspector-grid-card="true"]'))
-      .some((card) => {
-        const outcome = card.getAttribute('data-match-outcome')
-        return outcome === 'keep' || outcome === 'sell'
-      }),
+    () => document.querySelectorAll('[data-gear-inspector-grid-card="true"]').length > 0,
     undefined,
-    { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
+    { timeout: PLAYWRIGHT_TIMEOUTS.testHeavy },
   )
 }
 
@@ -62,23 +69,6 @@ const waitForWorkloadIdle = async (page: Page): Promise<void> => {
   // Catching is intentional: the indicator may never appear on a cache-hit fast path.
   await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
   await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.workloadIdle }).catch(() => undefined)
-}
-
-/**
- * Wait until the gear-results-version advances past `versionBefore`.
- * This ensures the startTransition that commits new Gear Inspector rows has
- * been flushed to the DOM before the test reads match outcomes.
- */
-const waitForResultsVersionChange = async (page: Page, versionBefore: string): Promise<void> => {
-  await page.waitForFunction(
-    ({ selector, before }: { selector: string; before: string }) => {
-      const el = document.querySelector(selector)
-      const current = el?.getAttribute('data-gear-results-version') ?? '0'
-      return current !== before
-    },
-    { selector: PREVIEW_PAPER_SELECTOR, before: versionBefore },
-    { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
-  )
 }
 
 /** Snapshot all gear inspector card outcomes in current DOM order. */
@@ -174,13 +164,12 @@ const collectOutcomesForMode = async (
     await dbInput.setInputFiles(dbPath)
     // DB load does not trigger any dialogs; no dismiss needed here.
 
-    // Wait for the one-and-only WASM pass to finish.
+    // Best-effort wait for the DB WASM workload to settle.
     await waitForWorkloadIdle(page)
+    // Wait for at least one card to appear — the only signal that the DB pipeline (not an
+    // earlier SFC-triggered empty-row commit) has completed and TanStack has rendered.
+    // See waitForGearInspectorResults for the full rationale.
     await waitForGearInspectorResults(page)
-    // Ensure the startTransition that commits new Gear Inspector rows has flushed to the DOM.
-    // Without this, snapshots taken in Firefox may still reflect the pre-pipeline state
-    // because the workload indicator hides synchronously before startTransition commits.
-    await waitForResultsVersionChange(page, '0')
 
     // Await the snapshot explicitly so the finally block doesn't close the context
     // before the page.evaluate CDP response returns.
@@ -231,8 +220,8 @@ for (const { name: dbName, path: dbPath } of SAMPLE_DBS) {
     test.beforeAll(async ({ browser }) => {
       // Allow time for three sequential WASM passes, each in its own fresh context.
       // Contexts run one at a time so no CPU contention inflates step durations.
-      // testXL (90 s) covers: 3 × (page boot ~2 s + SFC+dialog ~5 s + WASM ~10 s) with 2× CI load.
-      test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
+      // testXXL (180 s) covers: 3 × (boot ~2 s + SFC/dialog ~8 s + workload-idle ≤18 s + card-wait ≤30 s).
+      test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXXL)
 
       // Collect outcomes for each mode in sequence — one fresh context per mode.
       // Sequential execution keeps each WASM pass within the 15 s step budget.
