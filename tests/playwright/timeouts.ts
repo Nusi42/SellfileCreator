@@ -7,11 +7,14 @@ const TEST_TIMEOUT_DEFAULT_MS = 3_000
 const TEST_TIMEOUT_LONG_MS = 15_000
 // Extra-long timeout for heavy setup flows like autosave restores.
 const TEST_TIMEOUT_HEAVY_MS = 30_000
-// XL timeout for hooks that run multiple sequential WASM passes (e.g. 3× sequential 26 MB DB evals
-// in midgame-progression, or 2× passes on a 68 MB DB in large-db-duplication).
-// Budget: 3 × ~20 s per context under 2× CI load (2 s boot + 5 s SFC/dialog + 10 s WASM + 3 s overhead).
-// 90 s is sufficient now that Firefox serde bottleneck is fixed (pipeline ~3–5 s instead of minutes).
+// XL timeout for hooks that run multiple sequential WASM passes (e.g. 2× passes on a 68 MB DB
+// in large-db-duplication).
+// Budget: 2 × ~30 s per context under full-suite CPU load.
 const TEST_TIMEOUT_XL_MS = 90_000
+// XXL timeout for midgame-progression: 3 sequential fresh contexts × (boot + SFC + dialog + WASM + render).
+// Budget per mode: ~8 s overhead + ≤18 s workload-idle + ≤30 s card-render wait ≈ 56 s max.
+// 3 modes: ~168 s. 180 s gives a 12 s buffer against transient slowness.
+const TEST_TIMEOUT_XXL_MS = 180_000
 
 // Default expect timeout for fast-fail UI assertions.
 const EXPECT_TIMEOUT_DEFAULT_MS = 3_000
@@ -43,6 +46,8 @@ export const PLAYWRIGHT_TIMEOUTS = {
   testHeavy: TEST_TIMEOUT_HEAVY_MS,
   // XL timeout for hooks that run multiple sequential WASM passes or large-DB evaluations.
   testXL: TEST_TIMEOUT_XL_MS,
+  // XXL timeout for midgame-progression's 3-mode beforeAll (3 fresh contexts, each with WASM).
+  testXXL: TEST_TIMEOUT_XXL_MS,
   // Expect timeouts.
   expectDefault: EXPECT_TIMEOUT_DEFAULT_MS,
   // Long expect timeout reserved for rebuild/matching waits.
