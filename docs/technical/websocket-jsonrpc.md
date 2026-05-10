@@ -195,7 +195,22 @@ Champion roster. Provides display names and equipped-slot context.
 
 **Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Incoming rows are merged against the previously received champion list so that display metadata from the first message is not overwritten by the second.
 
-See `docs/orig/sampleLog/helperRcvData.json` for a full captured session (all nine messages across `inboxArtifacts`, `champions`, and `artifacts`).
+See `docs/orig/sampleLog/` for a full captured session split into per-message files. Each file is one full JSON-RPC envelope, named `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json`; the zero-padded numeric `<index>` is the order in which RSL Helper emitted the packet. The current sample (captured 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6, `lastUsed` ×2, and `ArtifactByHeroID` ×1.
+
+### ArtifactByHeroID
+
+Inverse view of the equipped-artifact mapping already carried in `champions[].artifacts`. Observed in captures from RSL Helper but **currently ignored by the importer** — the same data is consumed via `champions` and re-deriving it from this method would duplicate logic. Documented here so future captures aren't mistaken for an unknown payload.
+
+**Params**
+- `ArtifactByHeroID` (object) — keys are champion instance ids (string-encoded numbers); values are objects mapping slot numbers (`"1"`–`"9"`) to the equipped artifact's instance id. Empty slots are absent from the inner map.
+
+**Example**
+```json
+{"jsonrpc":"2.0","method":"ArtifactByHeroID","params":{"ArtifactByHeroID":{
+  "37727":{"1":71830,"2":101913,"5":123429,"6":53850,"7":127397,"8":148010,"9":135665},
+  "10030":{"1":63143,"5":68126,"6":76526,"7":207553,"8":77276}
+}}}
+```
 
 ### lastUsed
 

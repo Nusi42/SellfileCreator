@@ -12,8 +12,23 @@ import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint; app reads it from ?endpoint= query param.
 const ENDPOINT_URL = 'ws://localhost:8080/'
-// Sample log captured from RSL Helper: 4 artifacts, 3 inboxArtifacts, 2 champions messages.
-const SAMPLE_LOG_PATH = path.resolve(process.cwd(), 'docs/orig/sampleLog/helperRcvData.json')
+// Sample log captured from RSL Helper on 2026-05-10: 22 packets in capture order —
+// 6× artifacts, 7× champions, 6× inboxArtifacts, 2× lastUsed, 1× ArtifactByHeroID. Each
+// file under `docs/orig/sampleLog/` is one full JSON-RPC envelope, named
+// `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json` where the zero-padded numeric
+// `<index>` dictates send order.
+const SAMPLE_LOG_DIR = path.resolve(process.cwd(), 'docs/orig/sampleLog')
+// Loads every captured packet from the sample-log directory, sorted by the numeric
+// `<index>` prefix so we replay them in the exact order RSL Helper emitted them.
+const loadCapturedPackets = (): unknown[] => {
+  const files = fs.readdirSync(SAMPLE_LOG_DIR)
+    // Only the per-packet capture files; ignore READMEs or unrelated JSON dumps.
+    .filter((name) => /^packet_\d+_.+\.json$/.test(name))
+    // Sort by numeric index so packet_2 follows packet_1 even with single-digit indices.
+    .sort((a, b) => Number(a.match(/^packet_(\d+)_/)![1]) - Number(b.match(/^packet_(\d+)_/)![1]))
+  // Each file is a clean standalone envelope — no array wrapping or comma stitching needed.
+  return files.map((name) => JSON.parse(fs.readFileSync(path.join(SAMPLE_LOG_DIR, name), 'utf-8')))
+}
 // Repeat the full message burst this many times to stress-test the WASM boundary.
 // 3 rounds is enough to verify crash-free operation; memory-focused runs use the
 // binary-endpoint-memory spec which does many more rounds with explicit heap tracking.
@@ -22,16 +37,13 @@ const REPLAY_ROUNDS = 3 // raise to 8 in development tests, use 3 at release bui
 const MEMORY_LEAK_ROUNDS = 3 // raise to 20 in development tests, use 3 at release builds
 
 test.describe('endpoint-replay', () => {
-  test('replays helperRcvData 3× without crash or page error', async ({ page }) => {
+  test('replays sample-log packets 3× without crash or page error', async ({ page }) => {
     // Each round can trigger a full WASM pipeline pass over a large artifact set; budget accordingly.
     test.setTimeout(120_000)
 
-    // Parse the 78 MB sample log once in Node.js; all 9 messages fit comfortably in memory.
-    // The file has 3 missing commas between top-level array items (log was recorded by
-    // concatenating raw captures without proper JSON array formatting). Patch them before parsing.
-    let rawJson = fs.readFileSync(SAMPLE_LOG_PATH, 'utf-8')
-    rawJson = rawJson.replace(/ {4}\}\{\n {8}"jsonrpc"/g, '    },\n    {\n        "jsonrpc"')
-    const messages: unknown[] = JSON.parse(rawJson)
+    // Load every captured packet once in Node.js; the full burst fits comfortably in memory.
+    // Each file is a self-contained JSON-RPC envelope, so no stitching or comma-patching is needed.
+    const messages = loadCapturedPackets()
 
     // Accumulate errors so we can report all of them, not just the first.
     const pageErrors: string[] = []
@@ -115,12 +127,10 @@ test.describe('endpoint-replay', () => {
     // 20 rounds × ~30 s settle budget + startup headroom.
     test.setTimeout(720_000)
 
-    let rawJson = fs.readFileSync(SAMPLE_LOG_PATH, 'utf-8')
-    rawJson = rawJson.replace(/ {4}\}\{\n {8}"jsonrpc"/g, '    },\n    {\n        "jsonrpc"')
-    // Parse once; we mutate the objects in place between rounds to avoid 78 MB
+    // Parse once; we mutate the objects in place between rounds to avoid large
     // JSON roundtrips per round.  Revision fields are bumped per round so the
     // app's diff algorithm detects a change and triggers a full pipeline run.
-    const messages: unknown[] = JSON.parse(rawJson)
+    const messages = loadCapturedPackets()
 
     // Find the first artifact entry across all messages for per-round mutation.
     // Bumping its `revision` makes every round look like new data to the diff engine,
