@@ -15,7 +15,6 @@ import {
   hasActiveSafeguardRules,
   storeArtifactRows,
   toWasmArtifactStoreRow,
-  toWasmTestItem,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -429,8 +428,11 @@ const buildPipelineMatches = async (
     if (shouldAbort?.()) return results
     const end = Math.min(start + PIPELINE_MATCH_BATCH_SIZE, artifactEntries.length)
     const batchEntries = artifactEntries.slice(start, end)
-    // Trim to only WASM-needed fields — see toWasmTestItem for why passing the full item causes Chrome OOM.
-    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: toWasmTestItem(artifact.gearInspectorItem) }))
+    // evaluateWasmRuleEngineItems applies toWasmTestItem internally via buildEvaluatePayload,
+    // so we just pass the domain TestItem (rank/rarity stay branded). Pre-projecting here
+    // would mismatch the GearInspectorMatchWorkerEvaluateItem signature which holds the
+    // narrow domain shape.
+    const batchItems = batchEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.gearInspectorItem }))
     const batchResults = await evaluateWasmRuleEngineItems({
       items: batchItems,
       options: evaluateOptions,

@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
+// ts-rs auto-generates TS interfaces for PrepareHsfBuilderRecipeOut /
+// PrepareHsfBuilderTargetEntryOut so HashMap-bearing output structs stay in lockstep
+// with their TS consumers.  See matcher_evaluator.rs for full context.
+use ts_rs::TS;
 
 
 
@@ -59,60 +63,74 @@ fn append_not_substats(rule: &mut RuleRaw, entries: &[RuleSubRaw]) {
 
 // Builder prep payload moves selected/fixed pool normalization and base-target map
 // preparation out of hsfBuilder.ts so TS no longer loops large variant sets.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: top-level JSON-string input for prepare_hsf_builder_recipe_value.
+// Composes BuildHsfComboBoundsIn + BuildHsfComboTargetEntryIn (both derived in core).
+// Fields promoted from pub(crate) to `pub` so ts-rs can export them.
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct PrepareHsfBuilderRecipeIn {
-    pub(crate) min_count: i64,
-    pub(crate) auto_substat_flex: bool,
-    pub(crate) flex_eligible: bool,
+    pub min_count: i64,
+    pub auto_substat_flex: bool,
+    pub flex_eligible: bool,
     #[serde(default)]
-    pub(crate) substats_v: Vec<i64>,
+    pub substats_v: Vec<i64>,
     #[serde(default)]
-    pub(crate) fixed_substats_v: Vec<i64>,
+    pub fixed_substats_v: Vec<i64>,
     #[serde(default)]
-    pub(crate) allowed_substats: Vec<i64>,
+    pub allowed_substats: Vec<i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) substat_target_by_variant: HashMap<i64, i64>,
+    pub substat_target_by_variant: HashMap<i64, i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) factory_base_by_variant_for_star: HashMap<i64, i64>,
+    pub factory_base_by_variant_for_star: HashMap<i64, i64>,
     #[serde(default)]
-    pub(crate) variant_priority: Vec<i64>,
+    pub variant_priority: Vec<i64>,
 }
 
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: HashMap representative.  Each HashMap<i64, T> uses
+// `serialize_with = "crate::serialize_i64_key_map"` so the on-wire shape is a plain
+// JS object keyed by stringified i64.  With `TS_RS_LARGE_INT=number` (set in the
+// build script), ts-rs emits HashMap<i64, V> as `{ [key in number]: V }` — JS index
+// access coerces between number/string keys so this matches the wire shape.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct PrepareHsfBuilderRecipeOut {
-    pub(crate) selected_pool_v: Vec<i32>,
-    pub(crate) required_v: Vec<i32>,
-    pub(crate) optional_pool_v: Vec<i32>,
-    pub(crate) min_target_count: i32,
-    pub(crate) max_target_count: i32,
-    pub(crate) max_selectable_count: i32,
-    pub(crate) had_requested_substats: bool,
-    pub(crate) has_per_stat_min: bool,
+    pub selected_pool_v: Vec<i32>,
+    pub required_v: Vec<i32>,
+    pub optional_pool_v: Vec<i32>,
+    pub min_target_count: i32,
+    pub max_target_count: i32,
+    pub max_selectable_count: i32,
+    pub had_requested_substats: bool,
+    pub has_per_stat_min: bool,
     // serialize_with stringifies i64 keys so wasm_to_js can emit plain JS objects.
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub(crate) current_base_by_variant: HashMap<i64, i32>,
+    pub current_base_by_variant: HashMap<i64, i32>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub factory_base_by_variant: HashMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub target_base_override_by_variant: HashMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub(crate) target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
+    pub target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
 // Output target-entry payload mirrors the runtime input entry schema.
 // We keep this local so serialization does not depend on internal input-only types.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+// ts-rs: referenced by name from PrepareHsfBuilderRecipeOut.targetEntriesByVariant.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct PrepareHsfBuilderTargetEntryOut {
-    pub(crate) base: Option<f64>,
-    pub(crate) increments: Option<Vec<Option<f64>>>,
+    pub base: Option<f64>,
+    pub increments: Option<Vec<Option<f64>>>,
 }
 
 // Clamp and sanitize roll-target values to the same non-negative integer domain
@@ -278,7 +296,7 @@ pub fn prepare_hsf_builder_recipe_core_fn(input: &PrepareHsfBuilderRecipeIn) -> 
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteHsfBuilderBranchIn {
     code: i64,
     #[serde(default)]
@@ -287,7 +305,7 @@ struct ExecuteHsfBuilderBranchIn {
 
 // Builder runtime payload collapses all branch orchestration into one input.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteHsfBuilderRuntimeIn {
     rarity_branches: Vec<ExecuteHsfBuilderBranchIn>,
     baseline: Option<String>,
@@ -321,66 +339,75 @@ struct ExecuteHsfBuilderRuntimeIn {
 }
 
 // Builder runtime output carries rules plus a hard-limit signal for TS parity.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: composes RuleRaw (PascalCase shape; derived in lib.rs).
+// Fields are `pub` (was pub(crate)) so ts-rs can export them.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ExecuteHsfBuilderRuntimeOut {
-    pub(crate) rules: Vec<RuleRaw>,
-    pub(crate) limit_hit: bool,
+    pub rules: Vec<RuleRaw>,
+    pub limit_hit: bool,
 }
 
 // High-level runtime payload lets TS issue one wasm call after prep.
 // Rust then runs preflight, rarity-branch planning, and final execution.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: top-level JSON-string input for build_hsf_rules_runtime_value.
+// Composes EmitHsfMainChoiceIn, BuildHsfComboBoundsIn, BuildHsfComboTargetEntryIn.
+// Fields promoted from pub(crate) to `pub` so ts-rs can export them.
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct BuildHsfRulesRuntimeIn {
-    pub(crate) recipe_id: Option<i64>,
-    pub(crate) keep: Option<bool>,
-    pub(crate) use_flag: bool,
+    pub recipe_id: Option<i64>,
+    pub keep: Option<bool>,
+    pub use_flag: bool,
     #[serde(default)]
-    pub(crate) artifact_set_ids: Vec<i64>,
+    pub artifact_set_ids: Vec<i64>,
     #[serde(default)]
-    pub(crate) artifact_type_ids: Vec<i64>,
-    pub(crate) rank_code: i64,
-    pub(crate) rarity_code: i64,
-    pub(crate) faction_code: i64,
+    pub artifact_type_ids: Vec<i64>,
+    pub rank_code: i64,
+    pub rarity_code: i64,
+    pub faction_code: i64,
     #[serde(default)]
-    pub(crate) main_choices: Vec<EmitHsfMainChoiceIn>,
-    pub(crate) emit_any_main_when_no_choices: bool,
-    pub(crate) baseline: Option<String>,
-    pub(crate) effective_start: i64,
-    pub(crate) suppress_roll_thresholds: bool,
-    pub(crate) level_window_min: i64,
-    pub(crate) level_window_max: i64,
-    pub(crate) required_v: Vec<i32>,
-    pub(crate) optional_pool_v: Vec<i32>,
-    pub(crate) selected_pool_v: Vec<i32>,
+    pub main_choices: Vec<EmitHsfMainChoiceIn>,
+    pub emit_any_main_when_no_choices: bool,
+    pub baseline: Option<String>,
+    pub effective_start: i64,
+    pub suppress_roll_thresholds: bool,
+    pub level_window_min: i64,
+    pub level_window_max: i64,
+    pub required_v: Vec<i32>,
+    pub optional_pool_v: Vec<i32>,
+    pub selected_pool_v: Vec<i32>,
     // Substats that must be absent from the item (Condition "¬"). Always appended to every rule.
     #[serde(default)]
-    pub(crate) not_substats_v: Vec<i32>,
-    pub(crate) flex_active: bool,
-    pub(crate) aggregate_min_active: bool,
-    pub(crate) min_target_count: i32,
-    pub(crate) max_target_count: i32,
-    pub(crate) aggregate_targets_locked: bool,
-    pub(crate) aggregate_min_value: i32,
-    pub(crate) locked_min_active: bool,
-    pub(crate) locked_min_value: i32,
+    pub not_substats_v: Vec<i32>,
+    pub flex_active: bool,
+    pub aggregate_min_active: bool,
+    pub min_target_count: i32,
+    pub max_target_count: i32,
+    pub aggregate_targets_locked: bool,
+    pub aggregate_min_value: i32,
+    pub locked_min_active: bool,
+    pub locked_min_value: i32,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) current_base_by_variant: HashMap<i64, i32>,
+    pub current_base_by_variant: HashMap<i64, i32>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub factory_base_by_variant: HashMap<i64, Option<i32>>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
-    pub(crate) rarity_mode: Option<String>,
-    pub(crate) early_keep_mode: Option<String>,
-    pub(crate) auto_rarity_supplements_threshold: Option<String>,
-    pub(crate) early_mode: String,
+    pub target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub rarity_mode: Option<String>,
+    pub early_keep_mode: Option<String>,
+    pub auto_rarity_supplements_threshold: Option<String>,
+    pub early_mode: String,
     #[serde(default)]
-    pub(crate) emission_limit: Option<i64>,
+    pub emission_limit: Option<i64>,
 }
 
 // Canonicalize set selectors with numeric ordering (game-id order parity).
@@ -758,4 +785,122 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
 // Exposed for wasm crate: run the full runtime from a typed input.
 pub fn build_hsf_rules_runtime_core_fn(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
     build_hsf_rules_runtime_core(input)
+}
+
+// Output-wire snapshot tests for the HSF-builder result structs.
+// Each test serializes a fully-populated instance and asserts that the
+// resulting JSON's top-level key set matches a hand-listed expected set.
+// PrepareHsfBuilderRecipeOut owns four HashMap fields — the test additionally
+// asserts each one serializes to a plain JSON object, catching the
+// to_js_value vs wasm_to_js regression class at the type level.
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    // Shared drift message across modules so the cargo-test failure narrative
+    // points at the same lockstep-update workflow every time.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── PrepareHsfBuilderRecipeOut (HashMap-bearing) ────────────────────────
+    // The four HashMap<i64, T> fields use #[serde(serialize_with = "...")] to
+    // stringify keys so wasm_to_js can emit a plain JS object on the way out.
+    // We assert each one serializes to a plain JSON object — drift detection
+    // for both the field name AND the map-shape contract.
+    #[test]
+    fn prepare_hsf_builder_recipe_out_key_set_matches() {
+        let mut current = HashMap::<i64, i32>::new();
+        current.insert(1, 1);
+        let mut factory = HashMap::<i64, Option<i32>>::new();
+        factory.insert(1, Some(1));
+        let mut overrides = HashMap::<i64, Option<i32>>::new();
+        overrides.insert(1, None);
+        let mut entries = HashMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
+        entries.insert(1, PrepareHsfBuilderTargetEntryOut {
+            base: Some(0.0),
+            increments: Some(vec![]),
+        });
+        let value = PrepareHsfBuilderRecipeOut {
+            selected_pool_v: vec![1],
+            required_v: vec![1],
+            optional_pool_v: vec![1],
+            min_target_count: 1,
+            max_target_count: 1,
+            max_selectable_count: 1,
+            had_requested_substats: true,
+            has_per_stat_min: true,
+            current_base_by_variant: current,
+            factory_base_by_variant: factory,
+            target_base_override_by_variant: overrides,
+            target_entries_by_variant: entries,
+        };
+        let json = serde_json::to_value(&value).expect("PrepareHsfBuilderRecipeOut must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "selectedPoolV", "requiredV", "optionalPoolV",
+            "minTargetCount", "maxTargetCount", "maxSelectableCount",
+            "hadRequestedSubstats", "hasPerStatMin",
+            "currentBaseByVariant", "factoryBaseByVariant",
+            "targetBaseOverrideByVariant", "targetEntriesByVariant",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // Every HashMap-backed field must serialize as a plain JSON object,
+        // not as a JS Map shape — this catches plain to_js_value misuse at the
+        // serde layer (belt-and-suspenders with the wasm crate's checklist).
+        for map_key in [
+            "currentBaseByVariant", "factoryBaseByVariant",
+            "targetBaseOverrideByVariant", "targetEntriesByVariant",
+        ] {
+            let field = json.get(map_key).unwrap_or_else(|| panic!("{map_key} present"));
+            assert!(
+                field.is_object(),
+                "HashMap field {map_key} must serialize as JSON object (no plain to_js_value!)",
+            );
+        }
+    }
+
+    // ── PrepareHsfBuilderTargetEntryOut (nested inside the recipe-out map) ──
+    #[test]
+    fn prepare_hsf_builder_target_entry_out_key_set_matches() {
+        let value = PrepareHsfBuilderTargetEntryOut {
+            base: Some(0.0),
+            increments: Some(vec![Some(1.0)]),
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&["base", "increments"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ExecuteHsfBuilderRuntimeOut ─────────────────────────────────────────
+    // Returned by build_hsf_rules_runtime_value.  Contains Vec<RuleRaw> but no
+    // HashMap field — to_js_value is correct (per wasm crate checklist).
+    #[test]
+    fn execute_hsf_builder_runtime_out_key_set_matches() {
+        let value = ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&["rules", "limitHit"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
 }

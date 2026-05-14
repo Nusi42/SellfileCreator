@@ -3,6 +3,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
+// ts-rs trait import enables `#[derive(TS)]` on the wasm wire structs below; ts-rs
+// emits one .ts file per derived type into the rust-types/ output directory at
+// `cargo test` time (see ensure-rule-engine-wasm.mjs for the TS_RS_* env vars).
+use ts_rs::TS;
 
 // Fast-path input types and conversion functions live in a dedicated submodule
 // to keep this file focused on rule resolution and scoring logic.
@@ -129,16 +133,20 @@ fn safeguard_parse_rules_payload(rules: Vec<SafeguardWasmRuleIn>) -> Vec<Safegua
     rules
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: simple Selection record nested inside SafeguardWasmCombination.
+#[derive(Debug, Deserialize, Serialize, Clone, Default, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSetSelection {
     pub id: i64,
     #[serde(default)]
     pub excluded: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: composes SafeguardWasmSetSelection.
+#[derive(Debug, Deserialize, Serialize, Clone, Default, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCombination {
     #[serde(default)]
     pub slots: Vec<i64>,
@@ -174,8 +182,10 @@ where
     }))
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: per-rule count-mode flags; consumed by detection grouping.
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, Default, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCountMode {
     #[serde(default)]
     pub per_rule: bool,
@@ -195,8 +205,14 @@ pub struct SafeguardWasmCountMode {
 //   from sfc_reader / direct WASM calls). Legacy single-number SFC files are normalized
 //   to the object form by sfcIO.ts before they reach Rust.
 // The untagged discriminant tries variants in declaration order: array first, then object.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+//
+// ts-rs export: untagged enums emit a TS union (`Array | Object`).  The Array variant
+// is `[number, number, number, number]` (fixed-length tuple) and the Object variant
+// emits an interface with at_level_0/at_level_4/... renamed via the field-level
+// `#[serde(rename = ...)]` attributes — ts-rs honors those passthroughs.
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[serde(untagged)]
+#[ts(export)]
 pub enum ImprovementChanceThresholdIn {
     // Resolved format: TypeScript has already applied inherit-from-left logic.
     Array([f64; 4]),
@@ -235,8 +251,13 @@ impl ImprovementChanceThresholdIn {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: top-level safeguard rule input shared by most safeguard wasm entries.
+// Composes SafeguardWasmCombination + SafeguardWasmCountMode + ImprovementChanceThresholdIn.
+// substat_weights HashMap<i64, f64> emits as `{ [key in number]: number }` (string-keyed
+// at runtime via serialize_i64_key_map — JS coerces numeric/string keys transparently).
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmRuleIn {
     #[serde(default)]
     pub id: Option<String>,
@@ -274,8 +295,13 @@ pub struct SafeguardWasmRuleIn {
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: composes SafeguardWasmCombination, SafeguardWasmCountMode,
+// ImprovementChanceThresholdIn.  substat_weights is HashMap<String, f64> which ts-rs
+// emits as `{ [key in string]: number }` (matching wasm_to_js's plain-object output).
+#[derive(Debug, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmResolvedRuleOut {
     pub id: String,
     pub name: String,
@@ -336,38 +362,50 @@ fn safeguard_sort_unique_substats(values: Vec<i64>) -> Vec<i64> {
     deduped
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmExpectedSampleIn {
-    slot: i64,
-    set: i64,
-    faction: i64,
-    main_stat: i64,
+// ts-rs export: nested by SafeguardWasmExpectedGroupIn.sample.  Promoted to `pub`.
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmExpectedSampleIn {
+    pub slot: i64,
+    pub set: i64,
+    pub faction: i64,
+    pub main_stat: i64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmExpectedGroupIn {
-    key: String,
-    sample: SafeguardWasmExpectedSampleIn,
+// ts-rs export: nested by SafeguardWasmExpectedGroupsPayloadIn.expectedGroupsByRuleId.
+// Promoted to `pub` so ts-rs can resolve the nested reference.
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmExpectedGroupIn {
+    pub key: String,
+    pub sample: SafeguardWasmExpectedSampleIn,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: HashMap<String, Vec<i64>> serializes through serialize_maps_as_objects
+// to a plain JS object — ts-rs emits `{ [key in string]: Array<number> }`.
+// Fields are `pub` (required by ts-rs) but only the in-crate code mutates them.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmExpectedGroupDomainIn {
-    slot_order: Vec<i64>,
-    accessory_compatible_set_ids: Vec<i64>,
-    armor_compatible_set_ids: Vec<i64>,
-    allowed_main_by_slot: HashMap<String, Vec<i64>>,
-    all_faction_ids: Vec<i64>,
+    pub slot_order: Vec<i64>,
+    pub accessory_compatible_set_ids: Vec<i64>,
+    pub armor_compatible_set_ids: Vec<i64>,
+    pub allowed_main_by_slot: HashMap<String, Vec<i64>>,
+    pub all_faction_ids: Vec<i64>,
 }
 
-#[derive(Debug, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: input wrapper around the expected-group precomputation payload.
+// Fields are `pub` (required by ts-rs).
+#[derive(Debug, Deserialize, Default, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmExpectedGroupsPayloadIn {
     #[serde(default)]
-    expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
-    expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
+    pub expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
+    pub expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
 }
 
 // Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
@@ -402,42 +440,54 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
 
 // Metaset payload for in-wasm safeguard set expansion.
 // `name` is the primary key after the metaset ID→name migration.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: input metaset record for resolve_safeguard_rules_with_metasets_value.
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmMetasetIn {
     pub name: String,
     #[serde(default)]
     pub sets: Vec<i64>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmSubstatOut {
-    variant: i64,
-    is_flat: bool,
-    value: f64,
+// ts-rs export: nested by name from SafeguardWasmArtifactOut.substats.
+// Now `pub` (required by ts-rs for `export`) — fields pub for the same reason;
+// only emit-side code in this module constructs these values.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmSubstatOut {
+    pub variant: i64,
+    pub is_flat: bool,
+    pub value: f64,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmArtifactOut {
-    item_key: i64,
-    slot: i64,
-    set: i64,
-    rank: i64,
-    rarity: i64,
-    level: i64,
-    exact_level: Option<i64>,
-    faction: i64,
-    main_stat: i64,
-    substats: Vec<SafeguardWasmSubstatOut>,
+// ts-rs export: nested by name from SafeguardWasmEntryOut.artifacts.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmArtifactOut {
+    pub item_key: i64,
+    pub slot: i64,
+    pub set: i64,
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
+    pub exact_level: Option<i64>,
+    pub faction: i64,
+    pub main_stat: i64,
+    pub substats: Vec<SafeguardWasmSubstatOut>,
 }
 
 // Per-candidate scored output exposed in detection entries for UI overlays.
 // candidateRank is 1-based (1 = best score); 0 means the non-ranking path was used.
 // isWithinQuota is true when the candidate is among the top-N selected for this rule.
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: leaf type referenced by SafeguardWasmEntryOut and the live preview path.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCandidateOut {
     pub item_key: i64,
     pub score: f64,
@@ -445,47 +495,54 @@ pub struct SafeguardWasmCandidateOut {
     pub is_within_quota: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmPlaceholderOut {
-    combination: SafeguardWasmCombination,
-    missing: i64,
-    reason: String,
+// ts-rs export: nested by name from SafeguardWasmEntryOut.placeholders.
+// Now `pub` (required by ts-rs `export`).
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmPlaceholderOut {
+    pub combination: SafeguardWasmCombination,
+    pub missing: i64,
+    pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    substat_variants: Option<Vec<i64>>,
+    pub substat_variants: Option<Vec<i64>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmEntryOut {
-    hash: String,
-    combination: SafeguardWasmCombination,
-    rule_id: Option<String>,
+// ts-rs export: composite output entry referenced by SafeguardWasmSnapshotOut.entries.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmEntryOut {
+    pub hash: String,
+    pub combination: SafeguardWasmCombination,
+    pub rule_id: Option<String>,
     // 1-based position of this rule in the input list; matches __safeguardRuleOrdinal on HSF rules.
     #[serde(skip_serializing_if = "Option::is_none")]
-    rule_ordinal: Option<i64>,
-    rule_activation: String,
-    count_mode: SafeguardWasmCountMode,
-    per_group_required_count: i64,
-    groups_tracked: i64,
-    required_count: i64,
-    current_count: i64,
-    projected_count: i64,
-    deficit: i64,
-    covered_by_existing: bool,
-    item_keys: Vec<i64>,
-    artifacts: Vec<SafeguardWasmArtifactOut>,
-    placeholders: Vec<SafeguardWasmPlaceholderOut>,
+    pub rule_ordinal: Option<i64>,
+    pub rule_activation: String,
+    pub count_mode: SafeguardWasmCountMode,
+    pub per_group_required_count: i64,
+    pub groups_tracked: i64,
+    pub required_count: i64,
+    pub current_count: i64,
+    pub projected_count: i64,
+    pub deficit: i64,
+    pub covered_by_existing: bool,
+    pub item_keys: Vec<i64>,
+    pub artifacts: Vec<SafeguardWasmArtifactOut>,
+    pub placeholders: Vec<SafeguardWasmPlaceholderOut>,
     // All matched+scored candidates with their ranks; omitted from old snapshots (default = empty).
     #[serde(default)]
-    candidates: Vec<SafeguardWasmCandidateOut>,
+    pub candidates: Vec<SafeguardWasmCandidateOut>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: top-level safeguard snapshot returned by detection.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSnapshotOut {
-    scanned_at: f64,
-    entries: Vec<SafeguardWasmEntryOut>,
+    pub scanned_at: f64,
+    pub entries: Vec<SafeguardWasmEntryOut>,
 }
 
 #[derive(Debug, Clone)]
@@ -558,49 +615,63 @@ struct SafeguardWasmEntryEvalOut {
     selected_candidate_indices: Vec<usize>,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: input wire struct for safeguard_count_key_value entry point.
+// Fields made `pub` for ts-rs export (only the matcher code reads them).
+#[derive(Debug, Deserialize, Clone, Copy, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCountKeyArtifactIn {
-    slot: i64,
-    set: i64,
-    faction: i64,
-    main_stat: i64,
+    pub slot: i64,
+    pub set: i64,
+    pub faction: i64,
+    pub main_stat: i64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmItemKeyPreviewExtrasIn {
+// ts-rs export: nested by SafeguardWasmItemKeyTesterItemIn.previewExtras.
+// Promoted to `pub` (was private) so ts-rs can export it.
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmItemKeyPreviewExtrasIn {
     #[serde(default)]
-    id: Option<i64>,
+    pub id: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct SafeguardWasmItemKeyTesterItemIn {
+// ts-rs export: nested by SafeguardWasmItemKeyArtifactIn.gearInspectorItem.
+// Promoted to `pub` (was private) so ts-rs can export it.
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmItemKeyTesterItemIn {
     #[serde(default)]
-    item_id: Option<i64>,
+    pub item_id: Option<i64>,
     #[serde(default)]
-    preview_extras: Option<SafeguardWasmItemKeyPreviewExtrasIn>,
+    pub preview_extras: Option<SafeguardWasmItemKeyPreviewExtrasIn>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: input wire struct for safeguard_item_key_value entry point.
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmItemKeyArtifactIn {
     #[serde(default)]
-    id: Option<i64>,
+    pub id: Option<i64>,
     #[serde(default)]
-    gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
+    pub gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: input wire struct for safeguard_group_key_value entry point.
+// Carries SafeguardWasmMainStatRawIn (an untagged enum — ts-rs emits a union).
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmGroupKeyArtifactIn {
-    slot: i64,
-    set: i64,
+    pub slot: i64,
+    pub set: i64,
     #[serde(default)]
-    faction: i64,
+    pub faction: i64,
     #[serde(default)]
-    main_stat: Option<SafeguardWasmMainStatRawIn>,
+    pub main_stat: Option<SafeguardWasmMainStatRawIn>,
 }
 
 // pub(super) so improvement_chance submodule can derive faction-bucketing flags.
@@ -3740,8 +3811,11 @@ pub fn compute_safeguard_protection_from_collected_core(
 // Input payload for live preview scoring in the weight-configuration popover.
 // Allows TS to rescore candidates with in-progress (unsaved) weights without
 // re-running the full detection pass.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: top-level input for score_safeguard_candidates_value.
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmScorePreviewIn {
     // Candidate artifacts to score (substats carry raw values from the detection snapshot).
     pub artifacts: Vec<SafeguardWasmArtifactIn>,
@@ -3869,5 +3943,309 @@ mod improvement_chance_threshold_tests {
         for lvl in [12i64, 13, 14, 15, 16] {
             assert_eq!(level_to_slot(lvl), 3, "level {lvl} should map to slot 3");
         }
+    }
+}
+
+// Output-wire snapshot tests for safeguard result structs.  Each test
+// serializes a fully-populated instance and asserts that the resulting JSON's
+// top-level key set matches a hand-listed expected set.  Drift triggers cargo
+// test failure → forces lockstep update of the test fixture and TS consumer.
+//
+// Several entry/artifact/placeholder structs are crate-private; their tests
+// build the value via a JSON round-trip from a fixture string (deserialize +
+// re-serialize) so the test does not need to know the private-field internals.
+// The Serialize impl exercised here is the same one used by the wasm export.
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::{BTreeSet, HashMap};
+
+    // Shared drift message keeps the failure narrative consistent across modules.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
+        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
+        json.as_object()
+            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    // ── SafeguardWasmSetSelection ───────────────────────────────────────────
+    // Nested inside SafeguardWasmCombination.sets.
+    #[test]
+    fn safeguard_wasm_set_selection_key_set_matches() {
+        let value = SafeguardWasmSetSelection { id: 1, excluded: true };
+        let actual = actual_keys(&value, "SafeguardWasmSetSelection");
+        let expected = key_set(&["id", "excluded"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmCombination ────────────────────────────────────────────
+    // Returned as the output of sort_safeguard_combination_value and used as
+    // an output field across many other safeguard result structs.
+    #[test]
+    fn safeguard_wasm_combination_key_set_matches() {
+        let value = SafeguardWasmCombination {
+            slots: vec![1],
+            sets: vec![SafeguardWasmSetSelection { id: 1, excluded: false }],
+            meta_set_names: vec!["m".to_string()],
+            ranks: vec![1],
+            rarities: vec![1],
+            main_stats: vec![1],
+            factions: vec![1],
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCombination");
+        let expected = key_set(&[
+            "slots", "sets", "metaSetNames", "ranks", "rarities", "mainStats", "factions",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmCountMode ──────────────────────────────────────────────
+    // Echoed inside SafeguardWasmResolvedRuleOut.countMode and inside detection
+    // snapshot entries.  Pinning the toggle key set protects both surfaces.
+    #[test]
+    fn safeguard_wasm_count_mode_key_set_matches() {
+        let value = SafeguardWasmCountMode {
+            per_rule: true,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCountMode");
+        let expected = key_set(&[
+            "perRule", "perSet", "perFaction", "perMainStat", "perSlot",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmExpectedGroupDomainIn ──────────────────────────────────
+    // Returned by normalize_safeguard_expected_group_domain_value.  Note this
+    // type derives BOTH Serialize and Deserialize and is used as input/output;
+    // input fields are already covered by full_fixture_deserializes in the
+    // wasm crate — this test specifically gates the output wire shape.
+    // The allowed_main_by_slot HashMap field must serialize as a plain JSON
+    // object — we also assert that here.
+    #[test]
+    fn safeguard_wasm_expected_group_domain_in_key_set_matches() {
+        let mut allowed = HashMap::<String, Vec<i64>>::new();
+        allowed.insert("1".to_string(), vec![1]);
+        let value = SafeguardWasmExpectedGroupDomainIn {
+            slot_order: vec![1],
+            accessory_compatible_set_ids: vec![1],
+            armor_compatible_set_ids: vec![1],
+            allowed_main_by_slot: allowed,
+            all_faction_ids: vec![1],
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "slotOrder", "accessoryCompatibleSetIds", "armorCompatibleSetIds",
+            "allowedMainBySlot", "allFactionIds",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // HashMap field must serialize as plain object so JS consumers see a
+        // standard JS object rather than a JS Map.
+        let allowed_field = json.get("allowedMainBySlot").expect("allowedMainBySlot present");
+        assert!(
+            allowed_field.is_object(),
+            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
+        );
+    }
+
+    // ── SafeguardWasmResolvedRuleOut ────────────────────────────────────────
+    // Returned by resolve_safeguard_rules_with_metasets_value (Vec).  Note that
+    // substat_weights is a HashMap<String, f64>; we additionally assert it
+    // serializes to a plain JSON object (not a JS Map shape).
+    #[test]
+    fn safeguard_wasm_resolved_rule_out_key_set_matches() {
+        let mut weights = HashMap::<String, f64>::new();
+        weights.insert("1".to_string(), 1.0);
+        let value = SafeguardWasmResolvedRuleOut {
+            id: "rule1".to_string(),
+            name: "Rule 1".to_string(),
+            combination: SafeguardWasmCombination::default(),
+            required_count: 1,
+            activation: "Active".to_string(),
+            count_mode: SafeguardWasmCountMode::default(),
+            ignore_previous_safeguards: false,
+            ignore_equipped_in_collection: false,
+            ignore_equipped_in_vault: false,
+            substats: vec![],
+            substat_match: "any".to_string(),
+            substat_weights: weights,
+            // Use Array variant so serialization emits an array, not an object.
+            improvement_chance_threshold: Some(
+                ImprovementChanceThresholdIn::Array([0.0, 0.0, 0.0, 0.0]),
+            ),
+            tags: vec!["t".to_string()],
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "id", "name", "combination", "requiredCount", "activation",
+            "countMode", "ignorePreviousSafeguards",
+            "ignoreEquippedInCollection", "ignoreEquippedInVault",
+            "substats", "substatMatch", "substatWeights",
+            "improvementChanceThreshold", "tags",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // HashMap<String, f64> must serialize as a plain JSON object.
+        let weights_field = json.get("substatWeights").expect("substatWeights key present");
+        assert!(
+            weights_field.is_object(),
+            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
+        );
+    }
+
+    // ── SafeguardWasmCandidateOut ───────────────────────────────────────────
+    // Returned by score_safeguard_candidates_value (Vec) and also nested inside
+    // SafeguardWasmEntryOut.candidates of the detection snapshot.
+    #[test]
+    fn safeguard_wasm_candidate_out_key_set_matches() {
+        let value = SafeguardWasmCandidateOut {
+            item_key: 1,
+            score: 1.0,
+            candidate_rank: 1,
+            is_within_quota: true,
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCandidateOut");
+        let expected = key_set(&["itemKey", "score", "candidateRank", "isWithinQuota"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmSnapshotOut ────────────────────────────────────────────
+    // Returned by compute_safeguard_protection_value and build_safeguard_rules_value;
+    // also nested in EvaluateAndCollectSnapshotOut.detection and
+    // SafeguardCollectedAndProtectedSnapshotOut.detection.  Construct via JSON
+    // round-trip so this test does not require pub access to crate-private fields.
+    #[test]
+    fn safeguard_wasm_snapshot_out_key_set_matches() {
+        let value: SafeguardWasmSnapshotOut = serde_json::from_str(
+            r#"{"scannedAt":0.0,"entries":[]}"#,
+        ).expect("snapshot literal must deserialize");
+        let actual = actual_keys(&value, "SafeguardWasmSnapshotOut");
+        let expected = key_set(&["scannedAt", "entries"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmEntryOut (nested inside SafeguardWasmSnapshotOut.entries) ──
+    // Crate-private struct; construct via JSON round-trip from a fully-populated
+    // fixture so the same key set is asserted on the way back out.
+    // ruleOrdinal carries skip_serializing_if = "Option::is_none", so we must
+    // populate it; substatVariants on placeholders has the same skip rule.
+    #[test]
+    fn safeguard_wasm_entry_out_key_set_matches() {
+        let fixture = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":"id","ruleOrdinal":1,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[1],"artifacts":[],"placeholders":[],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture}]}}"#),
+        ).expect("entry-bearing snapshot must deserialize");
+        // Round-trip the (sole) entry value via serde_json::to_value so its
+        // object key set can be inspected.  This keeps the test honest: the
+        // assertion runs against the same Serialize impl the wasm export uses.
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let entries = json.get("entries").and_then(|v| v.as_array()).expect("entries array");
+        let entry = entries.first().expect("at least one entry").as_object().expect("entry object");
+        let actual: BTreeSet<String> = entry.keys().cloned().collect();
+        let expected = key_set(&[
+            "hash", "combination", "ruleId", "ruleOrdinal", "ruleActivation",
+            "countMode", "perGroupRequiredCount", "groupsTracked",
+            "requiredCount", "currentCount", "projectedCount", "deficit",
+            "coveredByExisting", "itemKeys", "artifacts", "placeholders", "candidates",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmArtifactOut (nested inside entries.artifacts) ──────────
+    // Crate-private; construct via the JSON round-trip pattern used above.
+    #[test]
+    fn safeguard_wasm_artifact_out_key_set_matches() {
+        let fixture_entry = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":null,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[],"artifacts":[{
+            "itemKey":1,"slot":1,"set":1,"rank":1,"rarity":1,"level":1,
+            "exactLevel":null,"faction":0,"mainStat":1,"substats":[{"variant":1,"isFlat":false,"value":1.0}]
+          }],"placeholders":[],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture_entry}]}}"#),
+        ).expect("must deserialize");
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let artifact = json
+            .pointer("/entries/0/artifacts/0")
+            .and_then(|v| v.as_object())
+            .expect("artifacts[0] must be an object");
+        let actual: BTreeSet<String> = artifact.keys().cloned().collect();
+        let expected = key_set(&[
+            "itemKey", "slot", "set", "rank", "rarity", "level",
+            "exactLevel", "faction", "mainStat", "substats",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // Also pin the nested SafeguardWasmSubstatOut shape so a rename there
+        // (also crate-private) is caught by the same fixture.
+        let substat = json
+            .pointer("/entries/0/artifacts/0/substats/0")
+            .and_then(|v| v.as_object())
+            .expect("substats[0] must be an object");
+        let substat_keys: BTreeSet<String> = substat.keys().cloned().collect();
+        let substat_expected = key_set(&["variant", "isFlat", "value"]);
+        assert_eq!(substat_keys, substat_expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmPlaceholderOut (nested inside entries.placeholders) ────
+    // Populated form (with substatVariants) to make sure that field appears.
+    #[test]
+    fn safeguard_wasm_placeholder_out_key_set_matches() {
+        let fixture_entry = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":null,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[],"artifacts":[],"placeholders":[{
+            "combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+            "missing":1,"reason":"x","substatVariants":[1]
+          }],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture_entry}]}}"#),
+        ).expect("must deserialize");
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let placeholder = json
+            .pointer("/entries/0/placeholders/0")
+            .and_then(|v| v.as_object())
+            .expect("placeholders[0] must be an object");
+        let actual: BTreeSet<String> = placeholder.keys().cloned().collect();
+        let expected = key_set(&["combination", "missing", "reason", "substatVariants"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
     }
 }

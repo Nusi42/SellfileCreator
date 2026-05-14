@@ -24,7 +24,7 @@ use crate::RARITY_CODE_ANY;
 // Per-combo runtime payload replaces the largest remaining TS combo branch.
 // It computes vectors/policy/plan/timeline and executes intro steps in Rust.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfComboRuntimeIn {
     pub(crate) combo: Vec<i32>,
     pub(crate) required_v: Vec<i32>,

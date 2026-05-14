@@ -20,7 +20,7 @@ import initDsimRuleEngineWasm, {
 import type { HsfRuleWithRecipe } from '../merge'
 import type { SellfileExportMode } from '../hsfBuilder'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
-import type { WasmRuleEngineEvaluateOptions } from './wasmRuleEngine'
+import { buildEvaluatePayload, type WasmRuleEngineEvaluateOptions } from './wasmRuleEngine'
 // Shared wire-format minify helper — same SSOT used by the full rule_engine_wasm
 // binary.  Required to match the configure_value payload shape the dsim binary expects.
 import { minifyRuleRawForWire } from '../generated/wasmRuleWireFields'
@@ -29,33 +29,6 @@ import { minifyRuleRawForWire } from '../generated/wasmRuleWireFields'
 
 let dsimWasmInitialized = false
 let dsimWasmInitPromise: Promise<void> | null = null
-
-// Converts WasmRuleEngineEvaluateOptions into the compact payload shape accepted by the
-// dsim evaluate_value binding.  Mirrors toEvaluateOptionsPayload in wasmRuleEngine.ts.
-const toDsimEvaluateOptionsPayload = (
-  options: WasmRuleEngineEvaluateOptions | undefined,
-): object | undefined => {
-  if (!options) return undefined
-  const payload: {
-    excludeSources?: readonly string[]
-    baselineExcludeSources?: readonly string[]
-    excludeRecipeIndices?: number[]
-    ignoreSafeguardRecipeIndices?: number[]
-  } = {}
-  if (options.excludeSources && options.excludeSources.length > 0) {
-    payload.excludeSources = options.excludeSources
-  }
-  if (options.baselineExcludeSources && options.baselineExcludeSources.length > 0) {
-    payload.baselineExcludeSources = options.baselineExcludeSources
-  }
-  if (options.excludeRecipeIndices && options.excludeRecipeIndices.size > 0) {
-    payload.excludeRecipeIndices = [...options.excludeRecipeIndices]
-  }
-  if (options.ignoreSafeguardRecipeIndices && options.ignoreSafeguardRecipeIndices.size > 0) {
-    payload.ignoreSafeguardRecipeIndices = [...options.ignoreSafeguardRecipeIndices]
-  }
-  return Object.keys(payload).length > 0 ? payload : undefined
-}
 
 // -- Public API --
 
@@ -102,8 +75,11 @@ export const evaluateDsimRuleEngineItemsWithLoadedWasm = (params: {
   if (!dsimWasmInitialized) {
     throw new Error('dsim WASM is not initialized — call warmupDsimWasmRuleEngine first.')
   }
-  const optionsPayload = toDsimEvaluateOptionsPayload(params.options)
-  const result = evaluateDsimRuleEngineWasmValueBinding(params.items, optionsPayload)
+  // Shared with the full rule_engine_wasm binary so the EvaluateValueInWire shape
+  // stays in lockstep across both. Items are projected through toWasmTestItem to
+  // strip previewExtras fields beyond `id` (Rust TestItemRaw is strict).
+  const payload = buildEvaluatePayload(params.items, params.options)
+  const result = evaluateDsimRuleEngineWasmValueBinding(payload)
   if (Array.isArray(result)) return result as GearInspectorMatchWorkerItemResult[]
   throw new Error('dsim WASM evaluate returned an invalid payload.')
 }

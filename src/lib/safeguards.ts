@@ -37,8 +37,15 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
-import type { TestItem } from './ruleEval'
-import type { ImprovementChanceWasmEntry, WasmArtifactStoreRow, WasmRuleEngineEvaluateOptions } from './wasm/wasmRuleEngine'
+import type {
+  ImprovementChanceWasmEntry,
+  WasmArtifactStoreInput,
+  WasmArtifactStoreRow,
+  WasmImprovementChanceInput,
+  WasmRuleEngineEvaluateOptions,
+  WasmSafeguardCandidateInput,
+  WasmSafeguardCollectRowInput,
+} from './wasm/wasmRuleEngine'
 import {
   collectAndComputeSafeguardProtectionWithLoadedWasm,
   collectSafeguardCandidatesWithLoadedWasm,
@@ -55,6 +62,8 @@ import {
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
   scoreSafeguardCandidatesWithLoadedWasm,
+  // toWasmTestItem SSOT moved here; re-exported below for downstream consumers.
+  toWasmTestItem,
 } from './wasm/wasmRuleEngine'
 import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
 import {
@@ -544,16 +553,11 @@ export type SafeguardDetectionSubstat = {
 }
 
 // Per-candidate scoring output from the WASM detection pass or live preview.
-// Mirrors SafeguardWasmCandidateOut on the Rust side.
-export type SafeguardCandidateOut = {
-  itemKey: number
-  // Weighted normalized substat score; 0 when no substats are selected.
-  score: number
-  // 1-based rank within the group; 0 when scoring is inactive (no substats).
-  candidateRank: number
-  // true when the candidate ranks within the rule's keep quota.
-  isWithinQuota: boolean
-}
+// Pure mirror of SafeguardWasmCandidateOut (Rust) — imported from the ts-rs
+// generated rust-types/ directory and re-exported under the legacy name so
+// downstream consumers (gear-inspector overlay, safeguard popover) don't move.
+import type { SafeguardWasmCandidateOut } from './wasm/generated/rust-types/SafeguardWasmCandidateOut'
+export type SafeguardCandidateOut = SafeguardWasmCandidateOut
 
 export type SafeguardDetectionEntry = {
   hash: string
@@ -1285,60 +1289,108 @@ export function collectAndComputeSafeguardProtection(
   }
 }
 
-// Trim a TestItem to only the fields TestItemRaw reads (wasm/rule_engine_core/src/lib.rs:239).
-// Must be applied before passing any TestItem across the JS↔WASM boundary — both for
-// storeArtifactRows (store path) and evaluateWasmRuleEngineItems (evaluate path).
-// Passing the full item forces serde_wasm_bindgen to traverse previewExtras.mainStat /
-// .substats / .ascension (up to ~50 NormalizedStat properties per artifact) and to allocate
-// temporary Rust Strings for champion-name/location fields. PreviewExtrasRaw in Rust only
-// reads `id`. With large artifact sets (~8–25 k items) this causes hundreds of thousands of
-// unnecessary property accesses and short-lived heap allocations → WASM heap fragmentation
-// → Chrome renderer OOM / "Access Violation" crash.
-export const toWasmTestItem = (item: TestItem): TestItem => ({
-  slot: item.slot,
-  set: item.set,
-  rank: item.rank,
-  rarity: item.rarity,
-  level: item.level,
-  ...(item.faction != null ? { faction: item.faction } : {}),
-  ...(item.main != null ? { main: item.main } : {}),
-  ...(item.subValues != null ? { subValues: item.subValues } : {}),
-  // Forward only previewExtras.id — all other extras fields are not in PreviewExtrasRaw.
-  ...(item.previewExtras?.id != null ? { previewExtras: { id: item.previewExtras.id } } : {}),
-})
+// toWasmTestItem now lives in ./wasm/wasmRuleEngine.ts (SSOT moved alongside the
+// evaluate wrappers that depend on it).  Re-exported here so downstream callers
+// importing from './safeguards' keep working without changing their import paths,
+// and so the toWasmSafeguardCandidate helper below can keep calling it locally.
+// See the canonical definition for the full rationale (drift gate +
+// heap-fragmentation mitigation).
+export { toWasmTestItem }
 
-// Build a compact WASM store row from a NormalizedGearArtifact.
+// Build a compact WASM artifact payload from a NormalizedGearArtifact.
 // Includes only the fields SafeguardWasmArtifactRawIn reads, eliminating
 // serde_wasm_bindgen overhead from iterating ignored properties — which is
 // catastrophically slow in Firefox for 8k+ artifacts with 9-field NormalizedStat substats.
 // mainStat is passed as a plain variant number so serde immediately matches Variant(i64),
 // skipping the failed object-attempt of the untagged enum fallback path.
+// Reused by both toWasmArtifactStoreRow (store path) and toWasmSafeguardCandidate
+// (compute_safeguard_protection_value path) to keep the projection SSOT.
+export const toWasmArtifactStoreInput = (artifact: NormalizedGearArtifact): WasmArtifactStoreInput => ({
+  id: artifact.id,
+  slot: artifact.slot,
+  set: artifact.set,
+  rank: artifact.rank,
+  rarity: artifact.rarity,
+  level: artifact.level,
+  exactLevel: artifact.exactLevel ?? null,
+  faction: artifact.faction,
+  mainStat: artifact.mainStat?.variant ?? null,
+  substats: artifact.substats.map((s) => ({
+    variant: s.variant,
+    isFlat: s.isFlat,
+    // `value` is the engine-canonical value (== totalValue for normalized substats);
+    // SafeguardWasmSubstatRawIn declares both, so the projection must populate both
+    // to keep ts-rs's strict `T | null` contract satisfied. Runtime Rust treats
+    // either as a fallback via #[serde(default)], so the duplication is harmless.
+    value: s.totalValue ?? null,
+    totalValue: s.totalValue ?? null,
+    rolls: s.rolls ?? null,
+  })),
+  // Forward the nested champion reference so the WASM safeguard parser can read
+  // `equippedChampion.location` (collection/vault). null when the artifact has no
+  // equipped-champion link or the location is unknown.
+  equippedChampion: artifact.equippedChampion?.location != null
+    ? { location: artifact.equippedChampion.location }
+    : null,
+  // Trim gearInspectorItem via toWasmTestItem — see that function's comment for why.
+  gearInspectorItem: toWasmTestItem(artifact.gearInspectorItem),
+})
+
+// Wrap the artifact projection in the row shape SafeguardCollectRowFastIn expects.
+// Thin wrapper around toWasmArtifactStoreInput so both call sites share the projection.
 export const toWasmArtifactStoreRow = (artifact: NormalizedGearArtifact): WasmArtifactStoreRow => ({
-  artifact: {
-    id: artifact.id,
-    slot: artifact.slot,
-    set: artifact.set,
-    rank: artifact.rank,
-    rarity: artifact.rarity,
-    level: artifact.level,
-    ...(artifact.exactLevel != null ? { exactLevel: artifact.exactLevel } : {}),
-    faction: artifact.faction,
-    ...(artifact.mainStat != null ? { mainStat: artifact.mainStat.variant } : {}),
-    substats: artifact.substats.map((s) => ({
-      variant: s.variant,
-      isFlat: s.isFlat,
-      ...(s.totalValue != null ? { totalValue: s.totalValue } : {}),
-      ...(s.rolls != null ? { rolls: s.rolls } : {}),
-    })),
-    // Forward the nested champion reference so the WASM safeguard parser can read
-    // `equippedChampion.location` (collection/vault). Only emit when the location is
-    // known — undefined location would just be ignored by the parser anyway.
-    ...(artifact.equippedChampion?.location != null
-      ? { equippedChampion: { location: artifact.equippedChampion.location } }
-      : {}),
-    // Trim gearInspectorItem via toWasmTestItem — see that function's comment for why.
-    gearInspectorItem: toWasmTestItem(artifact.gearInspectorItem),
-  },
+  artifact: toWasmArtifactStoreInput(artifact),
+})
+
+// Project a SafeguardCandidate into the WASM wire shape declared by
+// SafeguardWasmCandidateFastIn. Drops the TS-side `row: GearInspectorPreviewRow`
+// reference (Rust does not read it) and projects the artifact down to only the
+// fields SafeguardWasmArtifactRawIn declares.  Required by the JSON-string path of
+// compute_safeguard_protection_value: deny_unknown_fields would otherwise reject
+// the payload because of the extra `row` key.
+export const toWasmSafeguardCandidate = (candidate: SafeguardCandidate): WasmSafeguardCandidateInput => ({
+  itemKey: candidate.itemKey,
+  groupKey: candidate.groupKey,
+  isSold: candidate.isSold,
+  artifact: toWasmArtifactStoreInput(candidate.artifact),
+})
+
+// Project a GearInspectorPreviewRow into the WASM wire shape declared by
+// SafeguardCollectRowFastIn (wasm/rule_engine_core/src/safeguards/fast_path_types.rs).
+// Required by the JSON-string path of collect_safeguard_candidates_value and
+// collect_and_compute_safeguard_protection_value: deny_unknown_fields rejects the
+// preview row's `match` / `matchingRecipeIndices` / `matchingRecipeDecisions` fields
+// (Rust derives base-match presence from baseMatch alone — the row's
+// `match` field is the post-safeguard outcome, intentionally not mirrored).
+// baseMatch is trimmed to SafeguardCandidateResolveBaseMatchIn's exact field
+// set (`keep` + `recipeIdx`) — display-only extras like recipeName / ruleIndex /
+// ruleLabel / ruleSource / safeguardRuleId / safeguardRuleOrdinal are stripped.
+export const toWasmSafeguardCollectRow = (row: GearInspectorPreviewRow): WasmSafeguardCollectRowInput => ({
+  artifact: toWasmArtifactStoreInput(row.artifact),
+  // `item` is optional on the wire: Rust falls back to artifact.gearInspectorItem
+  // when missing. The TS row carries gearInspectorItem on the artifact already,
+  // so we never need to send a separate item — always null.
+  item: null,
+  // Let Rust derive base-match presence from baseMatch alone (the existing
+  // unwrap_or(base_match.is_some()) path).
+  baseMatchDefined: null,
+  // Trim baseMatch to the exact fields Rust declares
+  // (SafeguardCandidateResolveBaseMatchIn: keep + recipeIdx). Display-only extras
+  // on GearInspectorPreviewMatch (recipeName / ruleIndex / ruleLabel / ruleSource /
+  // safeguardRuleId / safeguardRuleOrdinal) are stripped.
+  baseMatch: row.baseMatch != null
+    ? { keep: row.baseMatch.keep, recipeIdx: row.baseMatch.recipeIdx }
+    : null,
+})
+
+// Strip ImprovementChanceWasmEntry to the Rust wire shape declared by
+// ImprovementChanceInput in rule_engine_wasm/src/lib.rs.  chancePercent /
+// hasMatchingSafeguard / matchedRuleId / ruleOrdinal / debug are display-only
+// fields the Rust struct does NOT declare; deny_unknown_fields rejects them now
+// that compute_safeguard_protection_value parses via serde_json::from_str.
+export const toWasmImprovementChanceInput = (entry: ImprovementChanceWasmEntry): WasmImprovementChanceInput => ({
+  artifactId: entry.artifactId,
+  chancesByRuleOrdinal: entry.chancesByRuleOrdinal,
 })
 
 // Store pre-parsed artifact rows in WASM engine state for the combined evaluate+collect path.

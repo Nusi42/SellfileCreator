@@ -9,3 +9,11 @@ crate-type = ["rlib"]
 [dependencies]
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
+# ts-rs is a normal dependency (not dev-dependency) because the `#[derive(TS)]` macro
+# expands into generated test functions guarded by `#[cfg(test)]`, but the *trait
+# implementations* themselves are emitted unconditionally and must compile in every
+# profile (release wasm builds included).  Cargo would reject a `#[derive(TS)]` on a
+# `pub` struct if `ts-rs` lived in [dev-dependencies] because release builds would not
+# see the crate.  The `no-serde-warnings` feature suppresses ts-rs's helpful-but-noisy
+# "you also need serde" hints; we already derive Serialize on every output struct.
+ts-rs = { version = "12", features = ["no-serde-warnings"] }

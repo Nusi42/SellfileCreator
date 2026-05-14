@@ -20,10 +20,10 @@
 //   src/lib/wasm/generated/rule_engine_dsim_bg.wasm
 //   src/lib/wasm/generated/rule_engine_dsim_bg.wasm.d.ts
 
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
+use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
 use rule_engine_core::{
-    configure_engine, evaluate_engine, EvaluateItemRaw, EvaluateOptionsRaw, RuleRaw,
+    configure_engine, evaluate_engine, EvaluateValueInWire, RuleRaw,
 };
 use rule_engine_core::wasm_merged_rules_wire_format::RuleRawWire;
 
@@ -67,19 +67,15 @@ pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
 // Evaluate a batch of items against the configured rules.
 // Mirrors the evaluate_value export in rule_engine_wasm exactly so the shared
 // TS wrapper in wasmDsimRuleEngine.ts can call it with the same serialization.
+// Both share the EvaluateValueInWire wrapper defined in rule_engine_core so the
+// wire shape stays in lockstep across binaries.
 //
 // Requires configure_value to have been called first.
 #[wasm_bindgen]
-pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_items: Vec<EvaluateItemRaw> = from_js_value(items)
-        .map_err(|error| JsValue::from_str(&format!("Invalid items value: {error}")))?;
-    let parsed_options: EvaluateOptionsRaw = if options.is_undefined() || options.is_null() {
-        EvaluateOptionsRaw::default()
-    } else {
-        from_js_value(options)
-            .map_err(|error| JsValue::from_str(&format!("Invalid options value: {error}")))?
-    };
-    let results = evaluate_engine(parsed_items, parsed_options)
+pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
+    let input: EvaluateValueInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-value payload: {error}")))?;
+    let results = evaluate_engine(input.items, input.options.unwrap_or_default())
         .map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&results)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))

@@ -36,6 +36,8 @@ use crate::{
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::Serialize;
+// ts-rs trait import enables `#[derive(TS)]` on this submodule's output types.
+use ts_rs::TS;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -66,8 +68,10 @@ const TWO_VALUE_BRANCHING_MIN_MILESTONE: i64 = 12;
 
 // ─── public output types ─────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: optional diagnostics block embedded in ImprovementChanceEntry.debug.
+#[derive(Debug, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceDebug {
     // Number of viable scenarios that can match this artifact by +16.
     pub viable_scenario_count: u32,
@@ -91,8 +95,10 @@ pub struct ImprovementChanceDebug {
 // payload round-trips through serde_wasm_bindgen's to_js_value / from_js_value without needing
 // the maps-as-objects serializer. The consumer in mod.rs rebuilds a HashMap<(art_id, rule_ordinal), f64>
 // from these lists for O(1) lookup during threshold expansion.
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: leaf entry inside ImprovementChanceEntry.chancesByRuleOrdinal.
+#[derive(Debug, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceRuleEntry {
     // 1-based safeguard rule ordinal in the input rules list.
     pub rule_ordinal: i64,
@@ -100,8 +106,13 @@ pub struct ImprovementChanceRuleEntry {
     pub chance_percent: f64,
 }
 
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: artifact-keyed improvement-chance entry; debug is optional.
+// The matched_rule_ordinal field uses #[serde(rename = "ruleOrdinal")] which overrides
+// the struct-level camelCase rename to a literal "ruleOrdinal"; the same rename is
+// mirrored as a #[ts(rename = ...)] attribute so the generated TS field name agrees.
+#[derive(Debug, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
@@ -117,6 +128,7 @@ pub struct ImprovementChanceEntry {
     // Renamed to "ruleOrdinal" to match TS type ImprovementChanceWasmEntry; overrides the struct-level
     // camelCase rename which would otherwise produce "matchedRuleOrdinal".
     #[serde(rename = "ruleOrdinal")]
+    #[ts(rename = "ruleOrdinal")]
     pub matched_rule_ordinal: Option<i64>,
     // Per-rule chances keyed by 1-based safeguard rule ordinal. Used by mod.rs's
     // improvement_chance_threshold expansion so each rule consults the chance of the
@@ -132,8 +144,10 @@ pub struct ImprovementChanceEntry {
 // wasm32 without web_sys). JS times the outer call with performance.now() and
 // uses these counts to understand scaling (e.g. why 10k artifacts × N scenarios
 // is slow even when each compute_probability depth is bounded at 4).
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: per-call perf counters returned when debug=true.
+#[derive(Debug, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChancePerfDiag {
     // Total artifact rows passed to the function.
     pub row_count: u32,
@@ -1601,4 +1615,105 @@ pub fn compute_improvement_chance_core(
         None
     };
     (output, perf_diag)
+}
+
+// Output-wire snapshot tests for the improvement-chance result structs.
+// Each test serializes a fully-populated instance and asserts that the
+// resulting JSON's top-level key set matches a hand-listed expected set.
+// Drift triggers cargo test failure → forces lockstep update of the test
+// fixture and the TS-side consumer.
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    // Shared drift message keeps the failure narrative consistent across modules.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
+        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
+        json.as_object()
+            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    // ── ImprovementChanceDebug ──────────────────────────────────────────────
+    #[test]
+    fn improvement_chance_debug_key_set_matches() {
+        let value = ImprovementChanceDebug {
+            viable_scenario_count: 1,
+            selected_substats: vec![1],
+            substat_match: "any".to_string(),
+            required_per_group: 1,
+            bucket_candidate_count: 1,
+            better_candidate_count: 0,
+            matched_selected_now: 1,
+            max_addition_events_to16: 4,
+        };
+        let actual = actual_keys(&value, "ImprovementChanceDebug");
+        let expected = key_set(&[
+            "viableScenarioCount", "selectedSubstats", "substatMatch",
+            "requiredPerGroup", "bucketCandidateCount", "betterCandidateCount",
+            "matchedSelectedNow", "maxAdditionEventsTo16",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ImprovementChanceRuleEntry ──────────────────────────────────────────
+    #[test]
+    fn improvement_chance_rule_entry_key_set_matches() {
+        let value = ImprovementChanceRuleEntry { rule_ordinal: 1, chance_percent: 42.0 };
+        let actual = actual_keys(&value, "ImprovementChanceRuleEntry");
+        let expected = key_set(&["ruleOrdinal", "chancePercent"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ImprovementChanceEntry ──────────────────────────────────────────────
+    // matched_rule_ordinal carries an explicit #[serde(rename = "ruleOrdinal")]
+    // that overrides the struct-level camelCase rename — pin both the rename
+    // and the surrounding key set so a future rename cannot silently break the
+    // TS type `ImprovementChanceWasmEntry` that depends on this exact name.
+    #[test]
+    fn improvement_chance_entry_key_set_matches() {
+        let value = ImprovementChanceEntry {
+            artifact_id: 1,
+            chance_percent: 50.0,
+            has_matching_safeguard: true,
+            matched_rule_id: Some("id".to_string()),
+            matched_rule_ordinal: Some(1),
+            chances_by_rule_ordinal: vec![],
+            debug: None,
+        };
+        let actual = actual_keys(&value, "ImprovementChanceEntry");
+        let expected = key_set(&[
+            "artifactId", "chancePercent", "hasMatchingSafeguard",
+            "matchedRuleId", "ruleOrdinal", "chancesByRuleOrdinal", "debug",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ImprovementChancePerfDiag ───────────────────────────────────────────
+    #[test]
+    fn improvement_chance_perf_diag_key_set_matches() {
+        let value = ImprovementChancePerfDiag {
+            row_count: 1,
+            rule_count: 1,
+            scenario_count: 1,
+            artifacts_with_scenarios: 1,
+            artifacts_viable: 1,
+        };
+        let actual = actual_keys(&value, "ImprovementChancePerfDiag");
+        let expected = key_set(&[
+            "rowCount", "ruleCount", "scenarioCount",
+            "artifactsWithScenarios", "artifactsViable",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
 }

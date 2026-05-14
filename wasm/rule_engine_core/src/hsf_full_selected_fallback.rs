@@ -14,7 +14,7 @@ use crate::RuleRaw;
 // Payload mirrors the remaining "full-selected fallback" branch in hsfBuilder.ts.
 // Keep this input narrow so we only ship the data needed for plan decisions.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct BuildHsfFullSelectedFallbackPlanIn {
     effective_mode: String,
     early_mode: String,
@@ -35,7 +35,7 @@ struct BuildHsfFullSelectedFallbackPlanIn {
 // Output is an emission spec consumed by the existing compact wasm emitter path.
 // TS only checks for null vs object, then forwards this spec as-is.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct BuildHsfFullSelectedFallbackPlanOut {
     full_selection: Vec<i64>,
     dimensions: i64,
@@ -48,7 +48,7 @@ struct BuildHsfFullSelectedFallbackPlanOut {
 // Runtime payload lets Rust own the full-selected fallback emission branch.
 // TS now passes branch inputs once and receives ready-to-push rule rows.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfFullSelectedFallbackIn {
     pub(crate) effective_mode: String,
     pub(crate) early_mode: String,

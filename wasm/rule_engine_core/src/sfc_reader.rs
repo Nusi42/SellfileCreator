@@ -184,7 +184,7 @@ pub fn rank_value_from_label(raw: &str) -> Option<i64> {
 /// Top-level SFC payload as stored in .sfc files.
 /// Field names match the SFC JSON schema (PascalCase keys where applicable).
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase", deny_unknown_fields)]
 pub struct ReadableSfc {
     #[serde(default)]
     pub version: Option<String>,
@@ -208,7 +208,7 @@ pub struct ReadableSfc {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReadableMetaset {
     #[serde(default)]
     pub name: Option<String>,
@@ -219,6 +219,7 @@ pub struct ReadableMetaset {
 /// Readable recipe entry as stored in the SFC "Recipes" array.
 /// Mirrors the output of `buildReadableRecipe` in sfcIO.ts.
 #[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ReadableRecipe {
     // Identity / metadata
     #[serde(default, rename = "name")]
@@ -317,6 +318,7 @@ pub enum ReadableSubstat {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ReadableSubstatBoundsEntry {
     #[serde(default)]
     pub min: Option<f64>,
@@ -339,6 +341,7 @@ pub enum ReadableArtifactSetEntry {
 
 /// Final Sell Remainder section in the SFC.
 #[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ReadableFinalSell {
     #[serde(default, rename = "artifacts")]
     pub artifacts: Option<bool>,
@@ -398,6 +401,7 @@ pub struct ReadableRecipeParsed {
 
 /// Minimal substat target table parsed from SFC Minima section.
 #[derive(Debug, Deserialize, Default, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SubstatTargetTableIn {
     #[serde(default)]
     pub one:   HashMap<i64, i64>,

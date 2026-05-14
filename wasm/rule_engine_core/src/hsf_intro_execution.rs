@@ -11,7 +11,7 @@ use crate::FILTER_OPTION_NONE_I32;
 // Execution payload mirrors the remaining intro-assignment runtime branch in
 // hsfBuilder.ts. Policy planning already runs in wasm; this runs the plan.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfIntroPlanIn {
     pub(crate) m: i32,
     pub(crate) others_count: i32,

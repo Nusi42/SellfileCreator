@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 // Wire form of RuleSubRaw — one substat inside a rule.  Skips serialising
 // None fields to keep the output compact; the original struct does the same.
 #[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct RuleSubRawWire {
     #[serde(rename = "id", alias = "ID", skip_serializing_if = "Option::is_none")]
     id: Option<i64>,
@@ -74,7 +74,7 @@ impl From<RuleSubRawWire> for RuleSubRaw {
 // Wire form of RuleRaw — the dominant row type in the merge payload.
 // Short aliases match shared/wasm-rule-wire-fields.json (SSOT).
 #[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct RuleRawWire {
     #[serde(rename = "r_id", alias = "RecipeID", skip_serializing_if = "Option::is_none")]
     recipe_id: Option<i64>,
@@ -220,7 +220,7 @@ impl From<RuleRawWire> for RuleRaw {
 // minified; the smaller supporting structs (final sell remainder, safeguard
 // rules, detection snapshot) are passed through with their native shapes.
 #[derive(Debug, Default, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct ComputeMergedRulesInWire {
     #[serde(rename = "br", alias = "baseRules")]
     pub base_rules: Vec<RuleRawWire>,
@@ -267,7 +267,7 @@ impl From<ComputeMergedRulesInWire> for ComputeMergedRulesIn {
 // The `rule` field uses RuleRawWire for compact JSON; metadata fields are small
 // enough to keep their original camelCase names.
 #[derive(Debug, Default, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct GeneratedRuleEntryInWire {
     pub rule: RuleRawWire,
     #[serde(alias = "branchOrder")]

@@ -1,5 +1,9 @@
 use super::*;
 use std::sync::Arc;
+// ts-rs auto-generates TS interfaces from `#[derive(TS)]` structs during cargo
+// test runs, dropping the .ts files at `export_to` (see derives below).
+// Importing the trait directly keeps the attribute usage readable.
+use ts_rs::TS;
 
 // Rules bucketed by artifact slot for fast per-item evaluation.
 // from_rules partitions the flat rule list into shared (any-type) and per-slot buckets.
@@ -102,8 +106,11 @@ pub struct PreparedRuleSub {
 
 // Evaluate options mirror EvalMatchesByRecipeOverrides from TS.
 // Sets are converted once so each rule scan stays allocation-free.
-#[derive(Debug, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: nested by EvaluateValueInWire.options + EvaluateAndCollectSafeguardProtectionInWire.options.
+#[derive(Debug, Deserialize, Default, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateOptionsRaw {
     pub exclude_sources: Option<Vec<String>>,
     pub exclude_recipe_indices: Option<Vec<i64>>,
@@ -239,29 +246,47 @@ pub fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrep
 
 // Serialized match result shape consumed by existing worker hooks.
 // All fields are plain data; Copy avoids manual field-by-field reconstruction at use sites.
-#[derive(Debug, Serialize, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: writes `EvalMatch.ts` to src/lib/wasm/generated/rust-types/ during
+// `cargo test`.  The build script runs cargo test with `TS_RS_LARGE_INT=number` so
+// i64 maps to TS `number` (matching serde_wasm_bindgen's default i64 → JS number
+// wire encoding — bigint would only apply if `serialize_large_number_types` were
+// enabled in the Serializer, which it is not).
+// `#[ts(rename_all = "camelCase")]` mirrors the #[serde(rename_all = ...)] attribute
+// so the generated TS interface uses ruleIndex/recipeIdx, not rule_index/recipe_idx.
+#[derive(Debug, Serialize, Clone, Copy, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvalMatch {
     pub rule_index: usize,
     pub keep: bool,
     pub recipe_idx: Option<i64>,
     // Runtime-only flag; not serialized to JS — used to decide if a baseline re-evaluation
     // is needed without looking up the rule from the bucketed structure.
+    // `#[ts(skip)]` mirrors `#[serde(skip)]` so the field disappears from the generated TS.
     #[serde(skip)]
+    #[ts(skip)]
     pub is_keep_override_source: bool,
 }
 
 // Serialized per-recipe keep/sell decision list.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+// ts-rs: nested inside EvaluateItemResult.matchingRecipeDecisions — exported so the
+// generated TS interface can reference it by name (`MatchingRecipeDecision[]`).
+// i64 maps to TS `number` via TS_RS_LARGE_INT=number (set in the build script).
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct MatchingRecipeDecision {
     pub recipe_idx: i64,
     pub keep: bool,
 }
 
 // Serialized item result shape mirrors TesterMatchWorkerItemResult.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+// ts-rs export: nested-types representative — Option<EvalMatch>,
+// Vec<MatchingRecipeDecision>, Vec<i64>.  All inner refs land via TS imports.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateItemResult {
     pub item_id: i64,
     pub first_match: Option<EvalMatch>,
@@ -271,8 +296,11 @@ pub struct EvaluateItemResult {
 }
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: nested by SafeguardCollectRowFastIn.baseMatch (fast-path input).
+#[derive(Debug, Deserialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCandidateResolveBaseMatchIn {
     pub keep: bool,
     pub recipe_idx: Option<i64>,
@@ -280,7 +308,7 @@ pub struct SafeguardCandidateResolveBaseMatchIn {
 
 // Candidate collection input extends resolver rows with normalized artifact data.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectRowIn {
     pub item: TestItemRaw,
     #[serde(default)]
@@ -291,8 +319,11 @@ pub struct SafeguardCollectRowIn {
 
 // Candidate snapshot entry mirrors safeguards.ts SafeguardCandidate shape.
 // artifact is intentionally omitted: TS callers reconstruct it from rows[rowIndex].
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: referenced by name from SafeguardCollectedSnapshotOut.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectedCandidateOut {
     pub row_index: usize,
     pub item_key: i64,
@@ -301,8 +332,11 @@ pub struct SafeguardCollectedCandidateOut {
 }
 
 // Candidate snapshot payload also includes sold-item key dedupe set.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+//
+// ts-rs export: composes SafeguardCollectedCandidateOut.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectedSnapshotOut {
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     pub unique_item_keys: Vec<i64>,
@@ -910,5 +944,113 @@ mod tests {
         // Slot 99 has no slot-specific rules — fall back to shared.
         let (shared, slot_rules) = bucketed.rules_for_slot(99);
         assert_eq!(shared.len() + slot_rules.len(), 1, "shared-only slot must return the single shared rule");
+    }
+}
+
+// Output-wire snapshot tests: each test serializes a fully-populated instance
+// of an output struct and asserts that the resulting JSON's top-level key set
+// matches a hand-listed expected set.  If a developer renames or removes a
+// field on the Rust side, the test will fail — forcing the rename to be made
+// in lockstep with the corresponding TS consumer.
+//
+// Catches: field renames, field removals, type-shape changes.
+// Does NOT catch field additions (those are usually safe back-compat moves).
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    // Common drift message reused by every assert_eq below.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
+        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
+        json.as_object()
+            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    // ── EvalMatch ───────────────────────────────────────────────────────────
+    // is_keep_override_source carries #[serde(skip)] so it must NOT appear in
+    // the serialized output.  This test pins both halves of that contract:
+    // present fields stay present, the skipped one does not leak.
+    #[test]
+    fn eval_match_key_set_matches() {
+        let value = EvalMatch {
+            rule_index: 0,
+            keep: true,
+            recipe_idx: Some(1),
+            is_keep_override_source: true,
+        };
+        let actual = actual_keys(&value, "EvalMatch");
+        let expected = key_set(&["ruleIndex", "keep", "recipeIdx"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── MatchingRecipeDecision ──────────────────────────────────────────────
+    #[test]
+    fn matching_recipe_decision_key_set_matches() {
+        let value = MatchingRecipeDecision { recipe_idx: 0, keep: true };
+        let actual = actual_keys(&value, "MatchingRecipeDecision");
+        let expected = key_set(&["recipeIdx", "keep"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── EvaluateItemResult ──────────────────────────────────────────────────
+    #[test]
+    fn evaluate_item_result_key_set_matches() {
+        let value = EvaluateItemResult {
+            item_id: 1,
+            // first_match / first_non_excluded_match are Option<EvalMatch>; populated
+            // to None here is fine — the field is still emitted as null, which keeps
+            // it in the key set.  Drift on the EvalMatch inner shape is covered by
+            // the EvalMatch test above.
+            first_match: None,
+            first_non_excluded_match: None,
+            matching_recipe_indices: vec![],
+            matching_recipe_decisions: vec![],
+        };
+        let actual = actual_keys(&value, "EvaluateItemResult");
+        let expected = key_set(&[
+            "itemId", "firstMatch", "firstNonExcludedMatch",
+            "matchingRecipeIndices", "matchingRecipeDecisions",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardCollectedCandidateOut ──────────────────────────────────────
+    // Nested inside SafeguardCollectedSnapshotOut.candidates AND inside
+    // SafeguardCollectedAndProtectedSnapshotOut.candidates (in lib.rs).
+    #[test]
+    fn safeguard_collected_candidate_out_key_set_matches() {
+        let value = SafeguardCollectedCandidateOut {
+            row_index: 0,
+            item_key: 1,
+            group_key: "g".to_string(),
+            is_sold: false,
+        };
+        let actual = actual_keys(&value, "SafeguardCollectedCandidateOut");
+        let expected = key_set(&["rowIndex", "itemKey", "groupKey", "isSold"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardCollectedSnapshotOut ───────────────────────────────────────
+    // Returned by collect_safeguard_candidates_value.
+    #[test]
+    fn safeguard_collected_snapshot_out_key_set_matches() {
+        let value = SafeguardCollectedSnapshotOut {
+            candidates: vec![],
+            unique_item_keys: vec![],
+        };
+        let actual = actual_keys(&value, "SafeguardCollectedSnapshotOut");
+        let expected = key_set(&["candidates", "uniqueItemKeys"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
     }
 }
