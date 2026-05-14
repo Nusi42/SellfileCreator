@@ -1094,19 +1094,21 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
   targetEntriesByVariant: Record<string, { base?: number; increments?: Array<number | null> }>
 } => {
   assertWasmInitializedSync()
-  const result = prepareHsfBuilderRecipeWasmValueBinding({
-    minCount: Math.floor(payload.minCount),
-    autoSubstatFlex: payload.autoSubstatFlex === true,
-    flexEligible: payload.flexEligible === true,
-    substatsV: Array.from(toFlooredI32(payload.substatsV)),
-    fixedSubstatsV: Array.from(toFlooredI32(payload.fixedSubstatsV)),
-    allowedSubstats: Array.from(toFlooredI32(payload.allowedSubstats)),
-    substatRollBoundsV: payload.substatRollBoundsV ?? {},
-    substatRollTargetsV: payload.substatRollTargetsV ?? {},
-    substatTargetByVariant: payload.substatTargetByVariant ?? {},
-    factoryBaseByVariantForStar: payload.factoryBaseByVariantForStar ?? {},
-    variantPriority: Array.from(toFlooredI32(payload.variantPriority)),
-  }) as {
+  const result = prepareHsfBuilderRecipeWasmValueBinding(
+    JSON.stringify({
+      minCount: Math.floor(payload.minCount),
+      autoSubstatFlex: payload.autoSubstatFlex === true,
+      flexEligible: payload.flexEligible === true,
+      substatsV: Array.from(toFlooredI32(payload.substatsV)),
+      fixedSubstatsV: Array.from(toFlooredI32(payload.fixedSubstatsV)),
+      allowedSubstats: Array.from(toFlooredI32(payload.allowedSubstats)),
+      substatRollBoundsV: payload.substatRollBoundsV ?? {},
+      substatRollTargetsV: payload.substatRollTargetsV ?? {},
+      substatTargetByVariant: payload.substatTargetByVariant ?? {},
+      factoryBaseByVariantForStar: payload.factoryBaseByVariantForStar ?? {},
+      variantPriority: Array.from(toFlooredI32(payload.variantPriority)),
+    }),
+  ) as {
     selectedPoolV?: unknown
     requiredV?: unknown
     optionalPoolV?: unknown
@@ -1306,51 +1308,53 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
   emissionLimit?: number | null
 }): { rules: HsfRule[]; limitHit: boolean } => {
   assertWasmInitializedSync()
-  const result = buildHsfRulesRuntimeWasmValueBinding({
-    ...(params.recipeId != null && Number.isFinite(params.recipeId)
-      ? { recipeId: Math.floor(params.recipeId) }
-      : {}),
-    ...(typeof params.keep === 'boolean' ? { keep: params.keep } : {}),
-    useFlag: params.useFlag === true,
-    artifactSetIds: Array.from(toFlooredI32(params.artifactSetIds)),
-    artifactTypeIds: Array.from(toFlooredI32(params.artifactTypeIds)),
-    rankCode: Math.floor(params.rankCode),
-    rarityCode: Math.floor(params.rarityCode),
-    factionCode: Math.floor(params.factionCode),
-    mainChoices: params.mainChoices ?? [],
-    emitAnyMainWhenNoChoices: params.emitAnyMainWhenNoChoices === true,
-    baseline: params.baseline,
-    effectiveStart: Math.floor(params.effectiveStart),
-    suppressRollThresholds: params.suppressRollThresholds === true,
-    levelWindowMin: Math.floor(params.levelWindowMin),
-    levelWindowMax: Math.floor(params.levelWindowMax),
-    requiredV: Array.from(toFlooredI32(params.requiredV)),
-    optionalPoolV: Array.from(toFlooredI32(params.optionalPoolV)),
-    selectedPoolV: Array.from(toFlooredI32(params.selectedPoolV)),
-    ...(params.notSubstatsV != null ? { notSubstatsV: Array.from(toFlooredI32(params.notSubstatsV)) } : {}),
-    flexActive: params.flexActive === true,
-    aggregateMinActive: params.aggregateMinActive === true,
-    minTargetCount: Math.floor(params.minTargetCount),
-    maxTargetCount: Math.floor(params.maxTargetCount),
-    aggregateTargetsLocked: params.aggregateTargetsLocked === true,
-    aggregateMinValue: Math.floor(params.aggregateMinValue),
-    lockedMinActive: params.lockedMinActive === true,
-    lockedMinValue: Math.floor(params.lockedMinValue),
-    substatRollBoundsV: params.substatRollBoundsV ?? {},
-    targetEntriesByVariant: params.targetEntriesByVariant ?? {},
-    currentBaseByVariant: params.currentBaseByVariant ?? {},
-    factoryBaseByVariant: params.factoryBaseByVariant ?? {},
-    targetBaseOverrideByVariant: params.targetBaseOverrideByVariant ?? {},
-    ...(typeof params.rarityMode === 'string' ? { rarityMode: params.rarityMode } : {}),
-    ...(typeof params.earlyKeepMode === 'string' ? { earlyKeepMode: params.earlyKeepMode } : {}),
-    ...(typeof params.autoRaritySupplementsThreshold === 'string'
-      ? { autoRaritySupplementsThreshold: params.autoRaritySupplementsThreshold }
-      : {}),
-    earlyMode: params.earlyMode,
-    ...(params.emissionLimit != null && Number.isFinite(params.emissionLimit)
-      ? { emissionLimit: Math.floor(params.emissionLimit) }
-      : {}),
-  }) as { rules?: unknown; limitHit?: unknown }
+  const result = buildHsfRulesRuntimeWasmValueBinding(
+    JSON.stringify({
+      ...(params.recipeId != null && Number.isFinite(params.recipeId)
+        ? { recipeId: Math.floor(params.recipeId) }
+        : {}),
+      ...(typeof params.keep === 'boolean' ? { keep: params.keep } : {}),
+      useFlag: params.useFlag === true,
+      artifactSetIds: Array.from(toFlooredI32(params.artifactSetIds)),
+      artifactTypeIds: Array.from(toFlooredI32(params.artifactTypeIds)),
+      rankCode: Math.floor(params.rankCode),
+      rarityCode: Math.floor(params.rarityCode),
+      factionCode: Math.floor(params.factionCode),
+      mainChoices: params.mainChoices ?? [],
+      emitAnyMainWhenNoChoices: params.emitAnyMainWhenNoChoices === true,
+      baseline: params.baseline,
+      effectiveStart: Math.floor(params.effectiveStart),
+      suppressRollThresholds: params.suppressRollThresholds === true,
+      levelWindowMin: Math.floor(params.levelWindowMin),
+      levelWindowMax: Math.floor(params.levelWindowMax),
+      requiredV: Array.from(toFlooredI32(params.requiredV)),
+      optionalPoolV: Array.from(toFlooredI32(params.optionalPoolV)),
+      selectedPoolV: Array.from(toFlooredI32(params.selectedPoolV)),
+      ...(params.notSubstatsV != null ? { notSubstatsV: Array.from(toFlooredI32(params.notSubstatsV)) } : {}),
+      flexActive: params.flexActive === true,
+      aggregateMinActive: params.aggregateMinActive === true,
+      minTargetCount: Math.floor(params.minTargetCount),
+      maxTargetCount: Math.floor(params.maxTargetCount),
+      aggregateTargetsLocked: params.aggregateTargetsLocked === true,
+      aggregateMinValue: Math.floor(params.aggregateMinValue),
+      lockedMinActive: params.lockedMinActive === true,
+      lockedMinValue: Math.floor(params.lockedMinValue),
+      substatRollBoundsV: params.substatRollBoundsV ?? {},
+      targetEntriesByVariant: params.targetEntriesByVariant ?? {},
+      currentBaseByVariant: params.currentBaseByVariant ?? {},
+      factoryBaseByVariant: params.factoryBaseByVariant ?? {},
+      targetBaseOverrideByVariant: params.targetBaseOverrideByVariant ?? {},
+      ...(typeof params.rarityMode === 'string' ? { rarityMode: params.rarityMode } : {}),
+      ...(typeof params.earlyKeepMode === 'string' ? { earlyKeepMode: params.earlyKeepMode } : {}),
+      ...(typeof params.autoRaritySupplementsThreshold === 'string'
+        ? { autoRaritySupplementsThreshold: params.autoRaritySupplementsThreshold }
+        : {}),
+      earlyMode: params.earlyMode,
+      ...(params.emissionLimit != null && Number.isFinite(params.emissionLimit)
+        ? { emissionLimit: Math.floor(params.emissionLimit) }
+        : {}),
+    }),
+  ) as { rules?: unknown; limitHit?: unknown }
   if (!result || !Array.isArray(result.rules)) {
     throw new Error('WASM build-hsf-rules-runtime helper returned an invalid payload.')
   }

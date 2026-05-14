@@ -609,8 +609,9 @@ pub fn version() -> String {
 // Full builder runtime keeps preflight + branch orchestration in Rust.
 // TS calls this once per recipe instead of re-running branch loops in JS.
 #[wasm_bindgen]
-pub fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: BuildHsfRulesRuntimeIn = from_js_value(payload)
+pub fn build_hsf_rules_runtime_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let input: BuildHsfRulesRuntimeIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-rules-runtime payload: {error}")))?;
     let result = build_hsf_rules_runtime_core_fn(&input)
         .map_err(|error| JsValue::from_str(&error))?;
@@ -620,13 +621,19 @@ pub fn build_hsf_rules_runtime_value(payload: JsValue) -> Result<JsValue, JsValu
 
 // Builder prep normalizes selected/fixed pools and target maps in Rust.
 // TS uses this to avoid large per-recipe prep loops before runtime dispatch.
+// Returns via wasm_to_js so the HashMap fields (currentBaseByVariant /
+// factoryBaseByVariant / targetBaseOverrideByVariant / targetEntriesByVariant)
+// serialize as plain JS objects. Plain to_js_value would produce JS Map
+// instances, and `JSON.stringify(new Map())` is "{}" — silently dropping every
+// entry when the downstream build_hsf_rules_runtime_value wrapper stringifies
+// the prep output before passing it as a JSON payload.
 #[wasm_bindgen]
-pub fn prepare_hsf_builder_recipe_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: PrepareHsfBuilderRecipeIn = from_js_value(payload)
+pub fn prepare_hsf_builder_recipe_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let input: PrepareHsfBuilderRecipeIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid prepare-hsf-builder-recipe payload: {error}")))?;
     let result = prepare_hsf_builder_recipe_core_fn(&input);
-    to_js_value(&result)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize prepare-hsf-builder-recipe result: {error}")))
+    wasm_to_js(&result)
 }
 
 // --- Distribution / combinatorics exports ---
@@ -1700,6 +1707,46 @@ mod score_safeguard_candidates_value_wire_tests {
     fn unknown_top_level_field_rejected() {
         let bad = r#"{"artifacts":[],"substats":[],"weights":{},"requiredCount":1,"unknownField":"bogus"}"#;
         let r: Result<SafeguardWasmScorePreviewIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod prepare_hsf_builder_recipe_value_wire_tests {
+    use super::*;
+    const FIXTURE: &str = r#"{"minCount":2,"autoSubstatFlex":true,"flexEligible":true,"substatsV":[10,11,12],"fixedSubstatsV":[10],"allowedSubstats":[10,11,12,13],"substatRollBoundsV":{"10":{"min":1.0,"max":5.0,"any":false,"not":false},"11":{"min":2.0,"max":4.0,"any":true,"not":false}},"substatRollTargetsV":{"10":{"base":3.5,"increments":[1.0,2.0]},"11":{"base":2.5}},"substatTargetByVariant":{"10":50,"11":40},"factoryBaseByVariantForStar":{"10":20,"11":15},"variantPriority":[10,11,12,13]}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        // Fixture successfully parses; all required and optional fields present.
+        let _parsed: PrepareHsfBuilderRecipeIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"minCount":2,"autoSubstatFlex":true,"flexEligible":true,"substatsV":[],"fixedSubstatsV":[],"allowedSubstats":[],"substatRollBoundsV":{},"substatRollTargetsV":{},"substatTargetByVariant":{},"factoryBaseByVariantForStar":{},"variantPriority":[],"unknownField":"bogus"}"#;
+        let r: Result<PrepareHsfBuilderRecipeIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod build_hsf_rules_runtime_value_wire_tests {
+    use super::*;
+    const FIXTURE: &str = r#"{"recipeId":100,"keep":true,"useFlag":true,"artifactSetIds":[1,2],"artifactTypeIds":[3,4,5],"rankCode":4,"rarityCode":5,"factionCode":1,"mainChoices":[{"id":1,"f":10}],"emitAnyMainWhenNoChoices":false,"baseline":"test","effectiveStart":1,"suppressRollThresholds":false,"levelWindowMin":1,"levelWindowMax":20,"requiredV":[10],"optionalPoolV":[11,12],"selectedPoolV":[10,11,12],"notSubstatsV":[20],"flexActive":true,"aggregateMinActive":true,"minTargetCount":2,"maxTargetCount":4,"aggregateTargetsLocked":false,"aggregateMinValue":5,"lockedMinActive":false,"lockedMinValue":0,"substatRollBoundsV":{"10":{"min":1.0,"max":5.0,"any":false,"not":false}},"targetEntriesByVariant":{"10":{"base":3.0,"increments":[1.0,2.0]}},"currentBaseByVariant":{"10":20},"factoryBaseByVariant":{"10":25},"targetBaseOverrideByVariant":{"10":30},"rarityMode":"auto","earlyKeepMode":"full","autoRaritySupplementsThreshold":"3","earlyMode":"early","emissionLimit":100}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        // Fixture successfully parses; all required and optional fields present.
+        let _parsed: BuildHsfRulesRuntimeIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"useFlag":true,"rankCode":4,"rarityCode":5,"factionCode":1,"mainChoices":[],"emitAnyMainWhenNoChoices":false,"effectiveStart":1,"suppressRollThresholds":false,"levelWindowMin":1,"levelWindowMax":20,"requiredV":[],"optionalPoolV":[],"selectedPoolV":[],"flexActive":true,"aggregateMinActive":true,"minTargetCount":2,"maxTargetCount":4,"aggregateTargetsLocked":false,"aggregateMinValue":5,"lockedMinActive":false,"lockedMinValue":0,"substatRollBoundsV":{},"targetEntriesByVariant":{},"currentBaseByVariant":{},"factoryBaseByVariant":{},"targetBaseOverrideByVariant":{},"earlyMode":"early","unknownField":"bogus"}"#;
+        let r: Result<BuildHsfRulesRuntimeIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
