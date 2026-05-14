@@ -809,9 +809,15 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
 ): T[] => {
   assertWasmInitializedSync()
   if (rules.length === 0 || metasets.length === 0) return rules as T[]
+  // SafeguardWasmMetasetIn is deny_unknown_fields; project to wire shape so
+  // presentation-only fields (e.g. show, iconId) don't trip strict deserialize.
+  const metasetsWire = metasets.map((m) => {
+    const src = m as { name: string; sets: readonly number[] }
+    return { name: src.name, sets: src.sets }
+  })
   const payload = JSON.stringify({
     rules,
-    metasets,
+    metasets: metasetsWire,
   })
   const result = resolveSafeguardRulesWithMetasetsWasmValueBinding(payload) as T[]
   if (Array.isArray(result)) return result
@@ -1268,11 +1274,14 @@ const toWasmSafeguardItemKeyArtifact = (artifact: SafeguardKeyArtifactInput): {
   id: number
   gearInspectorItem?: { itemId?: number; previewExtras?: { id: number } }
 } => {
+  // Tolerate artifacts with no gearInspectorItem at all (Rust treats it as
+  // None and falls back to artifact.id / the zero sentinel).
+  const inspectorItem = artifact.gearInspectorItem as (TestItem & { itemId?: number }) | undefined
   // Pull the optional itemId off the TestItem if attached at runtime.
-  const itemId = (artifact.gearInspectorItem as TestItem & { itemId?: number }).itemId
+  const itemId = inspectorItem?.itemId
   // Only emit previewExtras.id when present — the Rust struct uses
   // Option<SafeguardWasmItemKeyPreviewExtrasIn> with serde(default).
-  const previewExtrasId = artifact.gearInspectorItem.previewExtras?.id
+  const previewExtrasId = inspectorItem?.previewExtras?.id
   // Build the inner gearInspectorItem object only when at least one declared
   // field carries a value; omit it entirely otherwise so serde sees None.
   const inner: { itemId?: number; previewExtras?: { id: number } } = {}
