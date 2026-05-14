@@ -205,8 +205,7 @@ test('normalizeGearDbArtifact captures equipped champion rarity metadata', () =>
     [championId, {
       id: championId,
       name: 'Test Champ',
-      vault: false,
-      reserveVault: false,
+      location: 'collection',
       baseHeroId: 1234,
       rarity: 5,
       ascensionLevel: 6,
@@ -218,8 +217,8 @@ test('normalizeGearDbArtifact captures equipped champion rarity metadata', () =>
     }],
   ])
   const normalized = normalizeGearDbArtifact(weaponRow, { championLookup: lookup })
-  assert.equal(normalized.equippedChampionRarity, 5)
-  assert.equal(normalized.gearInspectorItem.previewExtras?.equippedChampionRarity, 5)
+  assert.equal(normalized.equippedChampion?.rarity, 5)
+  assert.equal(normalized.gearInspectorItem.previewExtras?.equippedChampion?.rarity, 5)
 })
 
 test('normalizeGearDbArtifact records last-use timestamps from options', () => {

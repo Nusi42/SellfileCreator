@@ -1330,8 +1330,11 @@ export const toWasmArtifactStoreRow = (artifact: NormalizedGearArtifact): WasmAr
       ...(s.totalValue != null ? { totalValue: s.totalValue } : {}),
       ...(s.rolls != null ? { rolls: s.rolls } : {}),
     })),
-    ...(artifact.equippedChampionLocation != null
-      ? { equippedChampionLocation: artifact.equippedChampionLocation }
+    // Forward the nested champion reference so the WASM safeguard parser can read
+    // `equippedChampion.location` (collection/vault). Only emit when the location is
+    // known — undefined location would just be ignored by the parser anyway.
+    ...(artifact.equippedChampion?.location != null
+      ? { equippedChampion: { location: artifact.equippedChampion.location } }
       : {}),
     // Trim gearInspectorItem via toWasmTestItem — see that function's comment for why.
     gearInspectorItem: toWasmTestItem(artifact.gearInspectorItem),

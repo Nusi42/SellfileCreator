@@ -4,7 +4,7 @@
  * Matcher adapters now delegate to the WASM rule engine so matching behavior
  * has a single source of truth shared by workers and main-thread callers.
  */
-import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormalizer'
+import type { ChampionLookupRecord, NormalizedStat } from './importers/gearDbNormalizer'
 import type { HsfRule } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import type { LevelMilestone, RankValue } from './types'
@@ -25,34 +25,18 @@ export type GearInspectorItemPreviewExtras = {
   source?: 'artifacts' | 'inbox' | 'manual'
   // Re-roll count shown in Gear Inspector card badges.
   rerollCount?: number
-  // Champion linkage fields mirrored from normalized Gear Inspector rows.
-  equippedToChampionId?: number | null
-  // Champion base id keeps presets stable across duplicate names.
-  equippedChampionBaseId?: number | null
-  // Champion rarity helps downstream tooltip formatting.
-  equippedChampionRarity?: number | null
-  // Champion ascension level (HeroID − BaseHeroID, 0–6) gates amulet/banner slot availability.
-  equippedChampionAscensionLevel?: number | null
-  // Champion empowerment level (DB `EmpLvl`, 0–4 observed); roster-sort key only — no rule impact.
-  equippedChampionEmpowermentLevel?: number | null
-  // Champion affinity (DB `Affinity`, 1=Magic 2=Force 3=Spirit 4=Void); roster-sort key only.
-  equippedChampionAffinity?: number | null
-  // Champion Double-Ascension / Blessing grade (DB `BGrade`, WS `doubleAscend.grade`,
-  // RSL "Awakening" level, 0–6); roster-sort key only — no rule impact.
-  equippedChampionBlessingGrade?: number | null
-  // Champion current star count (DB `Rang`, WS `grade`, 1–6); roster-sort key only.
-  equippedChampionStarGrade?: number | null
-  // Champion XP level (DB `Lvl`, WS `level`, 1–60); roster-sort key only.
-  equippedChampionExperienceLevel?: number | null
-  // Champion display name used by preview row labels.
-  equippedChampionName?: string | null
-  // Champion location helps filter/display context in Gear Inspector tables.
-  equippedChampionLocation?: ChampionLocation | null
+  // Reference to the equipped champion's full lookup record. All previously-denormalized
+  // `equippedChampion*` fields (Name, BaseId, Rarity, Location, AscensionLevel,
+  // EmpowermentLevel, Affinity, BlessingGrade, StarGrade, ExperienceLevel) are accessed
+  // off this single field — see ChampionLookupRecord for constituents. Callers read the
+  // id via `extras.equippedChampion?.id` (no separate FK field).
+  equippedChampion?: ChampionLookupRecord | null
   // Main stat payload retained for preview details and exports.
   mainStat?: NormalizedStat | null
   // Substat payload retained for preview details and exports.
   substats?: NormalizedStat[]
-  // Ascension payload retained for preview details and exports.
+  // Ascension (glyph) stat payload — the artifact-level "ascension stat" applied via glyphs.
+  // Unrelated to the equipped champion's ascension level (use `equippedChampion?.ascensionLevel`).
   ascension?: NormalizedStat | null
   // Exact level retains non-milestone values for imported rows.
   exactLevel?: number | null
@@ -63,8 +47,6 @@ export type GearInspectorItemPreviewExtras = {
 }
 
 export type TestItem = {
-  // Optional human-readable name used in Gear Inspector-facing surfaces.
-  name?: string
   // Slot id (artifact/accessory type) used for HSF slot checks.
   slot: ArtifactTypeId
   // Set id used for HSF set checks.

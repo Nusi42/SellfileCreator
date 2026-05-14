@@ -487,8 +487,8 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
     if (a.substats.some((s) => s.glyphValue > 0)) glyphed++
     // Ascended = gear has an ascension stat (at least 1 ascension level applied).
     if (a.ascension !== null) ascended++
-    // Equipped = has an equippedToChampionId (any champion, including benched).
-    if (a.equippedToChampionId !== null) equipped++
+    // Equipped = has an equippedChampion reference (any champion, including benched).
+    if (a.equippedChampion?.id !== null) equipped++
     // Artifacts vs accessories: split by slot type using the single-source-of-truth utility.
     if (isAccessorySlot(a.slot)) accessories++
     else artifacts++

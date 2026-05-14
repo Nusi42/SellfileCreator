@@ -199,7 +199,7 @@ const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): strin
 //   rank          — rank promotion
 //   substats.length — new sub added at levels 4/8/12/16
 //   Σ totalValue  — glyph application or substat value increase on upgrade
-//   equippedChampionLocation — artifact moved to/from champion / vault
+//   equippedChampion.location — artifact moved to/from champion / vault
 // Immutable fields (slot, set, faction, mainStat variant, substat isFlat) are
 // omitted for speed. Cost: O(N) integer multiply/XOR — no string allocation.
 const computeArtifactStoreFingerprint = (
@@ -214,7 +214,7 @@ const computeArtifactStoreFingerprint = (
     h ^= (a.level + (a.rank ?? 0) * 97) | 0
     h = Math.imul(h, 0x517cc1b7) | 0
     // Cover equipped-champion change: null=0, vault=1, collection/other=2.
-    const loc = a.equippedChampionLocation
+    const loc = a.equippedChampion?.location
     const locCode = loc == null ? 0 : /vault/i.test(loc) ? 1 : 2
     h ^= locCode * 31
     h = Math.imul(h, 0xbf58476d) | 0

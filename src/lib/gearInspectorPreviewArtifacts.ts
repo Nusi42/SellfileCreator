@@ -1,7 +1,7 @@
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem } from './ruleEval'
-import { StatVariant, type RankValue } from './types'
+import { StatVariant } from './types'
 
 type BuildOptions = {
   fallbackId?: number | undefined
@@ -84,22 +84,9 @@ export function buildPreviewArtifactFromGearInspectorItem(
   const id = extras?.id ?? options?.fallbackId ?? 0
   const source = extras?.source ?? 'manual'
   const rerollCount = extras?.rerollCount ?? 0
-  const equippedToChampionId = extras?.equippedToChampionId ?? null
-  const equippedChampionBaseId = extras?.equippedChampionBaseId ?? null
-  const equippedChampionRarity = (extras?.equippedChampionRarity ?? null) as RankValue | null
-  // Ascension level is only present for DB-imported rows; manual entries leave it null.
-  const equippedChampionAscensionLevel = extras?.equippedChampionAscensionLevel ?? null
-  // Empowerment level — same provenance as ascension level: DB / endpoint only.
-  const equippedChampionEmpowermentLevel = extras?.equippedChampionEmpowermentLevel ?? null
-  // Affinity — same provenance: DB / endpoint only; null for manual entries.
-  const equippedChampionAffinity = extras?.equippedChampionAffinity ?? null
-  // Blessing grade (Double-Ascension / "Awakening" level) — null for manual entries.
-  const equippedChampionBlessingGrade = extras?.equippedChampionBlessingGrade ?? null
-  // Current star count (Rang, 1–6) and XP level (1–60) — null for manual entries.
-  const equippedChampionStarGrade = extras?.equippedChampionStarGrade ?? null
-  const equippedChampionExperienceLevel = extras?.equippedChampionExperienceLevel ?? null
-  const equippedChampionName = extras?.equippedChampionName ?? null
-  const equippedChampionLocation = extras?.equippedChampionLocation ?? null
+  // Carry the full lookup-record reference forward unchanged when present; manual
+  // entries leave it null. The id is accessible via `equippedChampion.id` when needed.
+  const equippedChampion = extras?.equippedChampion ?? null
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
   const substats = extras?.substats ? cloneStats(extras.substats) : buildManualSubstats(item, options?.subOrder)
   const ascension = extras?.ascension ? cloneStat(extras.ascension) : null
@@ -127,18 +114,8 @@ export function buildPreviewArtifactFromGearInspectorItem(
     ascension,
     gearInspectorItem: item,
     rerollCount,
-    equippedToChampionId,
-    equippedChampionBaseId,
-    equippedChampionRarity,
-    equippedChampionAscensionLevel,
-    equippedChampionEmpowermentLevel,
-    equippedChampionAffinity,
-    equippedChampionBlessingGrade,
-    equippedChampionStarGrade,
-    equippedChampionExperienceLevel,
+    equippedChampion,
     source,
-    equippedChampionName,
-    equippedChampionLocation,
     lastUseLocalTimestamp,
     isLocked,
   }

@@ -90,10 +90,10 @@ export function getItemSourceDescriptor(artifact: NormalizedGearArtifact, transl
   if (category === 'inbox') {
     return { category, label: translate('gearInspectorSourceInbox') }
   }
-  if (artifact.equippedToChampionId != null) {
-    const tooltip = artifact.equippedChampionName && artifact.equippedChampionName.trim().length > 0
-      ? artifact.equippedChampionName.trim()
-      : translate('gearInspectorEquippedLabel', { id: artifact.equippedToChampionId })
+  if (artifact.equippedChampion?.id != null) {
+    const tooltip = artifact.equippedChampion?.name && artifact.equippedChampion?.name.trim().length > 0
+      ? artifact.equippedChampion?.name.trim()
+      : translate('gearInspectorEquippedLabel', { id: artifact.equippedChampion?.id })
     return {
       category,
       label: category === 'vault'

@@ -6,6 +6,7 @@
  * No React, no side effects.
  */
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+import type { ChampionLookupRecord } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './gearInspectorDomain'
 import { statLabel } from './gearAnalytics'
 import { ArtifactType, PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } from './types'
@@ -16,14 +17,20 @@ import { ArtifactType, PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, St
 export type ChampAnalyticsLocation = 'all' | 'collection' | 'vault'
 
 /**
- * One per unique equipped champion across all loaded gear rows.
- * Aggregates slot coverage, level stats, and location.
+ * One per unique equipped champion across all loaded gear rows. Aggregates slot
+ * coverage + gear-derived stats for each champion.
+ *
+ * The champion-intrinsic fields (name, rarity, location, ascension, empowerment,
+ * affinity, blessing grade, star grade, XP level, baseHeroId) are reached via the
+ * nested `champion` reference — a pointer to the shared `ChampionLookupRecord`,
+ * which is the single source of truth.
  */
 export type ChampionGearProfile = {
-  championId: number
-  championName: string
-  /** Where the champion is stored ('collection' | 'vault'). reserveVault is excluded — those champs can't hold gear. */
-  location: 'collection' | 'vault'
+  /** Reference to the champion's lookup record. reserveVault champions are filtered
+   *  out by the builder so callers can rely on `champion.location` being either
+   *  'collection' or 'vault'. The champion's id lives on `champion.id` — there is no
+   *  separate top-level `championId` (would be redundant with the reference). */
+  champion: ChampionLookupRecord
   /** Set of slot IDs for which this champion has gear equipped. */
   slotsFilled: ReadonlySet<number>
   /** Count of the 6 main armor slots (1-6) that are filled. */
@@ -34,26 +41,10 @@ export type ChampionGearProfile = {
   avgLevel: number
   /** Total item count equipped to this champion. */
   itemCount: number
-  /** Base hero ID for icon lookup; falls back to championId when absent. */
-  baseId: number | null
-  /** Champion rarity rank (1–6). */
-  rarity: number
   /** Count of gear pieces that have an ascension (glyph) stat applied. */
   ascentionCount: number
   /** Sum of gear ranks (star grades) across all equipped pieces. */
   rankSum: number
-  /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when DB data is absent. */
-  champAscensionLevel: number | null
-  /** Champion empowerment level (DB `EmpLvl`, 0–4 observed); null when absent. */
-  champEmpowermentLevel: number | null
-  /** Champion affinity numeric code (1=Magic, 2=Force, 3=Spirit, 4=Void); null when unknown. */
-  champAffinity: number | null
-  /** Champion Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6); null when unknown. */
-  champBlessingGrade: number | null
-  /** Champion current star count (1–6, yellow stars on the icon); null when unknown. */
-  champStarGrade: number | null
-  /** Champion XP level (1–60); null when unknown. */
-  champExperienceLevel: number | null
 }
 
 // ── Slot availability ─────────────────────────────────────────────────────────
@@ -93,75 +84,47 @@ export const ACCESSORY_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.
 
 /**
  * Build one ChampionGearProfile per unique champion that appears in `rows`.
- * Only champions with an `equippedToChampionId` and a known non-reserveVault
- * location are included. Unequipped rows are silently skipped.
+ * Only rows whose `artifact.equippedChampion` resolves to a known champion with a
+ * non-reserveVault location are included. Unequipped rows are silently skipped.
  */
 export function buildChampionGearProfiles(
   rows: readonly GearInspectorPreviewRow[],
 ): ChampionGearProfile[] {
-  // Accumulate raw data keyed by championId.
-  const map = new Map<
-    number,
-    {
-      id: number
-      name: string
-      location: 'collection' | 'vault'
-      slots: Set<number>
-      levels: number[]
-      baseId: number | null
-      rarity: number
-      ascentionCount: number
-      rankSum: number
-      /** Ascension level from the first artifact seen for this champion. */
-      ascensionLevel: number | null
-      /** Empowerment level from the first artifact seen for this champion. */
-      empowermentLevel: number | null
-      /** Affinity numeric code from the first artifact seen for this champion. */
-      affinity: number | null
-      /** Blessing grade (Double-Ascension / Awakening level) from the first artifact seen for this champion. */
-      blessingGrade: number | null
-      /** Current star count (Rang, 1–6) from the first artifact seen for this champion. */
-      starGrade: number | null
-      /** Champion XP level (Lvl, 1–60) from the first artifact seen for this champion. */
-      experienceLevel: number | null
-    }
-  >()
+  // Per-champion accumulator. Champion-intrinsic fields live on the shared
+  // ChampionLookupRecord (`champion`); only the gear-derived metrics belong here.
+  type Accumulator = {
+    champion: ChampionLookupRecord
+    slots: Set<number>
+    levels: number[]
+    ascentionCount: number
+    rankSum: number
+  }
+  const map = new Map<number, Accumulator>()
 
   for (const row of rows) {
     const a = row.artifact
     // Skip unequipped items.
-    if (a.equippedToChampionId === null) continue
+    if (a.equippedChampion?.id === null) continue
+    const champion = a.equippedChampion
+    // Skip artifacts whose champion lookup is unresolved (orphan or pre-merge state).
+    if (!champion) continue
     // Skip reserve-vault champions — they cannot actually hold gear.
-    const loc = a.equippedChampionLocation
-    if (loc === null || loc === 'reserveVault') continue
+    if (champion.location === 'reserveVault') continue
 
-    const id = a.equippedToChampionId
-    let entry = map.get(id)
+    let entry = map.get(champion.id)
     if (!entry) {
       entry = {
-        id,
-        name: a.equippedChampionName ?? String(id),
-        location: loc as 'collection' | 'vault',
+        champion,
         slots: new Set<number>(),
         levels: [],
-        baseId: a.equippedChampionBaseId,
-        rarity: Number(a.equippedChampionRarity ?? 0),
         ascentionCount: 0,
         rankSum: 0,
-        // Ascension, empowerment, affinity, blessing, star grade, and XP level are constant
-        // per champion; capture them on first entry creation.
-        ascensionLevel: a.equippedChampionAscensionLevel ?? null,
-        empowermentLevel: a.equippedChampionEmpowermentLevel ?? null,
-        affinity: a.equippedChampionAffinity ?? null,
-        blessingGrade: a.equippedChampionBlessingGrade ?? null,
-        starGrade: a.equippedChampionStarGrade ?? null,
-        experienceLevel: a.equippedChampionExperienceLevel ?? null,
       }
-      map.set(id, entry)
+      map.set(champion.id, entry)
     }
     entry.slots.add(Number(a.slot))
     entry.levels.push(Number(a.level))
-    // Accumulate fields needed for the profile tiebreaker / icon lookup.
+    // Gear-derived accumulators for the radar tiebreaker / icon lookup.
     if (a.ascension !== null) entry.ascentionCount++
     entry.rankSum += Number(a.rank)
   }
@@ -175,24 +138,14 @@ export function buildChampionGearProfiles(
         ? entry.levels.reduce((s, v) => s + v, 0) / entry.levels.length
         : 0
     profiles.push({
-      championId: entry.id,
-      championName: entry.name,
-      location: entry.location,
+      champion: entry.champion,
       slotsFilled: entry.slots,
       mainSlotsFilled,
       fullyEquipped: mainSlotsFilled === MAIN_ARMOR_SLOTS.length,
       avgLevel,
       itemCount: entry.levels.length,
-      baseId: entry.baseId,
-      rarity: entry.rarity,
       ascentionCount: entry.ascentionCount,
       rankSum: entry.rankSum,
-      champAscensionLevel: entry.ascensionLevel,
-      champEmpowermentLevel: entry.empowermentLevel,
-      champAffinity: entry.affinity,
-      champBlessingGrade: entry.blessingGrade,
-      champStarGrade: entry.starGrade,
-      champExperienceLevel: entry.experienceLevel,
     })
   }
   return profiles
@@ -210,8 +163,9 @@ export function filterChampionProfiles(
   fullyEquippedOnly: boolean,
 ): ChampionGearProfile[] {
   return profiles.filter((p) => {
-    // Location gate.
-    if (location !== 'all' && p.location !== location) return false
+    // Location gate. The builder filters out reserveVault champions, so location here
+    // is always either 'collection' or 'vault'.
+    if (location !== 'all' && p.champion.location !== location) return false
     // Fully-equipped gate.
     if (fullyEquippedOnly && !p.fullyEquipped) return false
     return true
@@ -271,44 +225,46 @@ function affinityRosterPriority(affinity: number | null): number {
  * in-game roster sort does not depend on what gear a champion happens to be wearing.
  */
 export function champProfileRankComparator(a: ChampionGearProfile, b: ChampionGearProfile): number {
+  const ac = a.champion
+  const bc = b.champion
   // 1. Highest champion rarity first (Mythical → Common).
-  if (b.rarity !== a.rarity) return b.rarity - a.rarity
-  // 2. Highest empowerment next; unknown (null) sorts last by treating it as -1.
-  const aEmp = a.champEmpowermentLevel ?? -1
-  const bEmp = b.champEmpowermentLevel ?? -1
+  if ((bc.rarity ?? 0) !== (ac.rarity ?? 0)) return (bc.rarity ?? 0) - (ac.rarity ?? 0)
+  // 2. Highest empowerment; unknown (null) sorts last by treating it as -1.
+  const aEmp = ac.empowermentLevel ?? -1
+  const bEmp = bc.empowermentLevel ?? -1
   if (bEmp !== aEmp) return bEmp - aEmp
   // 3. Blessing grade desc — higher Double-Ascension / Awakening level first.
-  const aBg = a.champBlessingGrade ?? -1
-  const bBg = b.champBlessingGrade ?? -1
+  const aBg = ac.blessingGrade ?? -1
+  const bBg = bc.blessingGrade ?? -1
   if (bBg !== aBg) return bBg - aBg
   // 4. Affinity priority (Void > Force > Magic > Spirit); unknown → -1.
-  const aAff = affinityRosterPriority(a.champAffinity)
-  const bAff = affinityRosterPriority(b.champAffinity)
+  const aAff = affinityRosterPriority(ac.affinity)
+  const bAff = affinityRosterPriority(bc.affinity)
   if (bAff !== aAff) return bAff - aAff
   // 5. Highest ascension level; unknown (null) sorts last.
-  const aRank = a.champAscensionLevel ?? -1
-  const bRank = b.champAscensionLevel ?? -1
+  const aRank = ac.ascensionLevel ?? -1
+  const bRank = bc.ascensionLevel ?? -1
   if (bRank !== aRank) return bRank - aRank
   // 6. Star grade (current yellow-star count) desc — higher first.
-  const aSg = a.champStarGrade ?? -1
-  const bSg = b.champStarGrade ?? -1
+  const aSg = ac.starGrade ?? -1
+  const bSg = bc.starGrade ?? -1
   if (bSg !== aSg) return bSg - aSg
   // 7. Champion XP level desc — fully-levelled first.
-  const aXp = a.champExperienceLevel ?? -1
-  const bXp = b.champExperienceLevel ?? -1
+  const aXp = ac.experienceLevel ?? -1
+  const bXp = bc.experienceLevel ?? -1
   if (bXp !== aXp) return bXp - aXp
   // 8. BaseHeroID desc — empirical tail tiebreaker. Comparing the in-game vault order
   //    of two otherwise-tied heroes confirmed the higher BaseHeroID comes first.
   //    BaseHeroID has no in-game-visible meaning on its own; it correlates with the
   //    hero's release order, so this effectively puts newer heroes ahead of older
   //    ones when every other sort key ties.
-  const aBase = a.baseId ?? -1
-  const bBase = b.baseId ?? -1
+  const aBase = ac.baseHeroId ?? -1
+  const bBase = bc.baseHeroId ?? -1
   if (bBase !== aBase) return bBase - aBase
-  // 9. Same-hero duplicates: sort the newer instance (higher championId) first —
-  //    confirmed by two copies of the same hero in the in-game roster. Only fires
+  // 9. Same-hero duplicates: sort the newer instance (higher champion-instance id) first
+  //    — confirmed by two copies of the same hero in the in-game roster. Only fires
   //    when every preceding step ties, which in practice means same-hero copies.
-  return b.championId - a.championId
+  return b.champion.id - a.champion.id
 }
 
 // ── Per-champion substat totals ────────────────────────────────────────────────
@@ -416,9 +372,10 @@ export function computeChampSubstatTotalStats(
 
   for (const row of rows) {
     const a = row.artifact
-    if (a.equippedToChampionId === null) continue
-    if (!activeChampIds.has(a.equippedToChampionId)) continue
-    const id = a.equippedToChampionId
+    const champion = a.equippedChampion
+    if (!champion) continue
+    if (!activeChampIds.has(champion.id)) continue
+    const id = champion.id
 
     // Accumulate substat totals.
     let variantMap = champTotals.get(id)
@@ -431,14 +388,15 @@ export function computeChampSubstatTotalStats(
       variantMap.set(variant, (variantMap.get(variant) ?? 0) + value)
     }
 
-    // Accumulate tiebreaker metadata.
+    // Accumulate tiebreaker metadata. Using a separate const after the lookup avoids
+    // the "possibly undefined" narrowing complaint when noUncheckedIndexedAccess is on.
     let meta = champMeta.get(id)
     if (!meta) {
       meta = {
         id,
-        name: a.equippedChampionName ?? String(id),
-        baseId: a.equippedChampionBaseId,
-        rarity: Number(a.equippedChampionRarity ?? 0),
+        name: champion.name ?? String(id),
+        baseId: champion.baseHeroId ?? null,
+        rarity: Number(champion.rarity ?? 0),
         ascentionCount: 0,
         levelSum: 0,
         rankSum: 0,

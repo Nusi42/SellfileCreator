@@ -440,11 +440,9 @@ function buildGearInspectorPreviewRow(snapshot: GearArtifactSnapshot, match: Gea
     id: snapshot.id,
     source: snapshot.source,
     rerollCount: snapshot.rerollCount,
-    equippedToChampionId: snapshot.equippedToChampionId,
-    equippedChampionBaseId: snapshot.equippedChampionBaseId,
-    equippedChampionRarity: snapshot.equippedChampionRarity,
-    equippedChampionName: snapshot.equippedChampionName,
-    equippedChampionLocation: snapshot.equippedChampionLocation,
+    // Single nested champion reference replaces the previous flat
+    // equippedChampion* set; renderers read fields via `previewExtras.equippedChampion?.X`.
+    equippedChampion: snapshot.equippedChampion,
     mainStat: snapshot.mainStat,
     substats: snapshot.substats,
     ascension: snapshot.ascension,

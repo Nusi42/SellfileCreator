@@ -61,17 +61,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
     subValues: { [StatVariant.CR]: 12, [StatVariant.CDMG]: 20 },
   },
   rerollCount: 0,
-  equippedToChampionId: null,
-  equippedChampionBaseId: null,
-  equippedChampionRarity: null,
-    equippedChampionAscensionLevel: null,
-  equippedChampionEmpowermentLevel: null,
-  equippedChampionAffinity: null,
-  equippedChampionBlessingGrade: null,
-  equippedChampionStarGrade: null,
-  equippedChampionExperienceLevel: null,
-  equippedChampionName: null,
-  equippedChampionLocation: null,
+  equippedChampion: null,
   source: 'artifacts',
   lastUseLocalTimestamp: null,
   isLocked: false,
@@ -258,7 +248,23 @@ test('filterGearInspectorItems filters by matched vs unmatched gear (plain mode)
 test('filterGearInspectorItems filters by tester sources', () => {
   const manual = makeArtifact({ source: 'manual' })
   const inventory = makeArtifact()
-  const collection = makeArtifact({ equippedToChampionId: 101, equippedChampionLocation: 'collection' })
+  // Equipped artifact carries a champion reference; the rulesFilter "collection" source
+  // category looks at equippedChampion?.location, so we provide a minimal lookup record.
+  const collection = makeArtifact({
+    equippedChampion: {
+      id: 101,
+      name: 'Test Champ',
+      location: 'collection',
+      baseHeroId: null,
+      rarity: null,
+      ascensionLevel: null,
+      empowermentLevel: null,
+      affinity: null,
+      blessingGrade: null,
+      starGrade: null,
+      experienceLevel: null,
+    },
+  })
   const rows: GearInspectorFilterRow[] = [
     { artifact: manual, match: null },
     { artifact: inventory, match: null },
@@ -429,8 +435,22 @@ test('filterGearInspectorItems treats Mythical preroll as the fifth roll', () =>
 })
 
 test('filterGearInspectorItems filters by champion selection', () => {
-  const championArtifact = makeArtifact({ equippedToChampionId: 321 })
-  const inventoryArtifact = makeArtifact({ equippedToChampionId: null })
+  const championArtifact = makeArtifact({
+    equippedChampion: {
+      id: 321,
+      name: null,
+      location: 'collection',
+      baseHeroId: null,
+      rarity: null,
+      ascensionLevel: null,
+      empowermentLevel: null,
+      affinity: null,
+      blessingGrade: null,
+      starGrade: null,
+      experienceLevel: null,
+    },
+  })
+  const inventoryArtifact = makeArtifact({})
   const rows: GearInspectorFilterRow[] = [
     { artifact: championArtifact, match: null },
     { artifact: inventoryArtifact, match: null },
@@ -441,7 +461,7 @@ test('filterGearInspectorItems filters by champion selection', () => {
   }
   const result = filterGearInspectorItems(rows, state)
   assert.equal(result.items.length, 1)
-  assert.equal(result.items[0]?.artifact.equippedToChampionId, 321)
+  assert.equal(result.items[0]?.artifact.equippedChampion?.id, 321)
 })
 
 test('filterGearInspectorItems filters by wildcard roll counts', () => {

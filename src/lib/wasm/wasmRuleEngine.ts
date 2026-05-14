@@ -87,7 +87,9 @@ export type WasmArtifactStoreInput = {
   faction: number
   mainStat?: number | null
   substats: WasmSubstatStoreInput[]
-  equippedChampionLocation?: string | null
+  // Nested champion reference matches the TS NormalizedGearArtifact shape.
+  // Safeguards read `equippedChampion.location` to derive collection/vault flags.
+  equippedChampion?: { location: string | null } | null
   gearInspectorItem: TestItem
 }
 

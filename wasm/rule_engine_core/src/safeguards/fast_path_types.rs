@@ -78,6 +78,16 @@ pub struct SafeguardWasmSubstatRawIn {
     pub rolls: Option<i64>,
 }
 
+// Nested champion reference carries only the fields safeguards read from the
+// equipped-champion record (currently just `location`). Matches the TS
+// ChampionLookupRecord nested shape on NormalizedGearArtifact.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SafeguardWasmEquippedChampionRawIn {
+    #[serde(default)]
+    pub location: Option<String>,
+}
+
 // Fast-path artifact decoder mirrors normalized gear inspector artifact payloads.
 // The optional `gearInspectorItem` keeps row payloads compact when `item` is omitted.
 // Made pub because SafeguardCollectRowFastIn/SafeguardWasmCandidateFastIn (also pub) embed it.
@@ -98,8 +108,10 @@ pub struct SafeguardWasmArtifactRawIn {
     pub main_stat: Option<SafeguardWasmMainStatRawIn>,
     #[serde(default)]
     pub substats: Vec<SafeguardWasmSubstatRawIn>,
+    // Nested champion reference; safeguards read `.location` to derive
+    // collection/vault flags.
     #[serde(default)]
-    pub equipped_champion_location: Option<String>,
+    pub equipped_champion: Option<SafeguardWasmEquippedChampionRawIn>,
     #[serde(default)]
     pub gear_inspector_item: Option<TestItemRaw>,
 }
@@ -192,7 +204,10 @@ pub(super) fn safeguard_convert_fast_artifact(
     artifact: SafeguardWasmArtifactRawIn,
 ) -> (SafeguardWasmArtifactIn, Option<TestItemRaw>) {
     let (equipped_in_collection, equipped_in_vault) = safeguard_parse_equipped_location(
-        artifact.equipped_champion_location.as_deref(),
+        artifact
+            .equipped_champion
+            .as_ref()
+            .and_then(|champion| champion.location.as_deref()),
     );
     (
         SafeguardWasmArtifactIn {

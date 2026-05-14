@@ -69,8 +69,12 @@ pub const SAFEGUARD_WASM_ARTIFACT_RAW_IN_FIELD_MAP: &[(&str, &str)] = &[
     ("faction", "f"),
     ("mainStat", "ms"),
     ("substats", "ss"),
-    ("equippedChampionLocation", "ecl"),
+    ("equippedChampion", "ec"),
     ("gearInspectorItem", "gii"),
+];
+
+pub const SAFEGUARD_WASM_EQUIPPED_CHAMPION_RAW_IN_FIELD_MAP: &[(&str, &str)] = &[
+    ("location", "lc"),
 ];
 
 pub const SAFEGUARD_WASM_SUBSTAT_RAW_IN_FIELD_MAP: &[(&str, &str)] = &[

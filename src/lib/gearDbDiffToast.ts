@@ -5,7 +5,7 @@
  * endpoint-update toasts and other UI surfaces without duplicating logic.
  */
 import type { GearDbRawDataset } from './importers/gearDbRawDataset'
-import type { ChampionLocation, NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
+import type { ChampionLookupRecord, NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { GearInspectorPreviewMatch } from '../types/gearInspectorPreview'
 import { formatLocalDateTime } from './dateDisplay'
 import type {
@@ -43,12 +43,9 @@ export type GearArtifactSnapshot = {
   rerollCount: number
   // Source helps differentiate inbox vs inventory when needed.
   source: NormalizedGearArtifact['source']
-  // Champion metadata shows source + avatar context in Gear Inspector cards.
-  equippedToChampionId: number | null
-  equippedChampionBaseId: number | null
-  equippedChampionRarity: RankValue | null
-  equippedChampionName: string | null
-  equippedChampionLocation: ChampionLocation | null
+  // Champion linkage — single reference to the shared lookup record; the id is
+  // reached as `snapshot.equippedChampion?.id`.
+  equippedChampion: ChampionLookupRecord | null
   // Note: last-used timestamps are intentionally excluded so timestamp-only updates stay silent.
 }
 
@@ -299,11 +296,11 @@ const areGearSnapshotsEqual = (left: GearArtifactSnapshot, right: GearArtifactSn
   // Source changes (inventory vs inbox) should surface as updates.
   if (left.source !== right.source) return false
   // Champion metadata changes should surface in endpoint updates.
-  if (left.equippedToChampionId !== right.equippedToChampionId) return false
-  if (left.equippedChampionBaseId !== right.equippedChampionBaseId) return false
-  if (left.equippedChampionRarity !== right.equippedChampionRarity) return false
-  if (left.equippedChampionName !== right.equippedChampionName) return false
-  if (left.equippedChampionLocation !== right.equippedChampionLocation) return false
+  if (left.equippedChampion?.id !== right.equippedChampion?.id) return false
+  if (left.equippedChampion?.baseHeroId !== right.equippedChampion?.baseHeroId) return false
+  if (left.equippedChampion?.rarity !== right.equippedChampion?.rarity) return false
+  if (left.equippedChampion?.name !== right.equippedChampion?.name) return false
+  if (left.equippedChampion?.location !== right.equippedChampion?.location) return false
   // Main stat + ascension + substats must all match.
   if (!areNormalizedStatsEqual(left.mainStat, right.mainStat)) return false
   if (!areNormalizedStatsEqual(left.ascension, right.ascension)) return false
@@ -337,11 +334,11 @@ const isNormalizedArtifactMatchingSnapshot = (
   // Source changes (inventory vs inbox) should surface as updates.
   if (artifact.source !== snapshot.source) return false
   // Champion metadata changes should surface in endpoint updates.
-  if (artifact.equippedToChampionId !== snapshot.equippedToChampionId) return false
-  if (artifact.equippedChampionBaseId !== snapshot.equippedChampionBaseId) return false
-  if (artifact.equippedChampionRarity !== snapshot.equippedChampionRarity) return false
-  if (artifact.equippedChampionName !== snapshot.equippedChampionName) return false
-  if (artifact.equippedChampionLocation !== snapshot.equippedChampionLocation) return false
+  if (artifact.equippedChampion?.id !== snapshot.equippedChampion?.id) return false
+  if (artifact.equippedChampion?.baseHeroId !== snapshot.equippedChampion?.baseHeroId) return false
+  if (artifact.equippedChampion?.rarity !== snapshot.equippedChampion?.rarity) return false
+  if (artifact.equippedChampion?.name !== snapshot.equippedChampion?.name) return false
+  if (artifact.equippedChampion?.location !== snapshot.equippedChampion?.location) return false
   // Stats must match using the same field-level comparison as the snapshot differ.
   if (!areNormalizedStatsEqual(artifact.mainStat, snapshot.mainStat)) return false
   if (!areNormalizedStatsEqual(artifact.ascension, snapshot.ascension)) return false
@@ -404,12 +401,10 @@ const snapshotGearArtifact = (artifact: NormalizedGearArtifact): GearArtifactSna
   // Mirror reroll + source metadata for UI badges.
   rerollCount: artifact.rerollCount,
   source: artifact.source,
-  // Copy champion metadata so equip/source changes show up in diffs.
-  equippedToChampionId: artifact.equippedToChampionId ?? null,
-  equippedChampionBaseId: artifact.equippedChampionBaseId ?? null,
-  equippedChampionRarity: artifact.equippedChampionRarity ?? null,
-  equippedChampionName: artifact.equippedChampionName ?? null,
-  equippedChampionLocation: artifact.equippedChampionLocation ?? null,
+  // Copy champion metadata so equip/source changes show up in diffs. The reference
+  // is shared with the live ChampionLookup — snapshots reuse it (frozen by the diff
+  // comparer's structural-equality check) rather than copying each field.
+  equippedChampion: artifact.equippedChampion ?? null,
 })
 
 /**

@@ -337,7 +337,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
 
   // Set of champion IDs that pass the current filters.
   const activeChampIds = useMemo(
-    () => new Set(filteredProfiles.map((p) => p.championId)),
+    () => new Set(filteredProfiles.map((p) => p.champion.id)),
     [filteredProfiles],
   )
 

@@ -1121,7 +1121,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     }
 
     if (!deferItemFilters && selectedChampionIds.size > 0) {
-      const championId = artifact.equippedToChampionId
+      const championId = artifact.equippedChampion?.id
       if (championId == null || !selectedChampionIds.has(Number(championId))) continue
     }
 
@@ -1263,7 +1263,7 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
         }
       }
       if (selectedChampionIds.size > 0) {
-        const championId = artifact.equippedToChampionId
+        const championId = artifact.equippedChampion?.id
         if (championId == null || !selectedChampionIds.has(Number(championId))) return false
       }
       if (gearInspectorLastUsePresetsActive || gearInspectorLastUseCustomActive) {
@@ -1390,8 +1390,8 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
 export const determineGearInspectorSourceCategory = (artifact: NormalizedGearArtifact): GearInspectorSourceFilter => {
   if (artifact.source === 'manual') return 'manual'
   if (artifact.source === 'inbox') return 'inbox'
-  if (artifact.equippedToChampionId != null) {
-    const loc = artifact.equippedChampionLocation
+  if (artifact.equippedChampion?.id != null) {
+    const loc = artifact.equippedChampion?.location
     return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
   }
   return 'inventory'

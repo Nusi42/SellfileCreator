@@ -65,8 +65,12 @@
     "faction": "f",
     "mainStat": "ms",
     "substats": "ss",
-    "equippedChampionLocation": "ecl",
+    "equippedChampion": "ec",
     "gearInspectorItem": "gii"
+  },
+
+  "SafeguardWasmEquippedChampionRawIn": {
+    "location": "lc"
   },
 
   "SafeguardWasmSubstatRawIn": {

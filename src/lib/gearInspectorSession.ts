@@ -40,8 +40,8 @@ export const gearInspectorSourceCategoryForItem = (item: GearInspectorItem): Gea
   const baseSource = extras?.source
   if (!baseSource || baseSource === 'manual') return 'manual'
   if (baseSource === 'inbox') return 'inbox'
-  if (extras?.equippedToChampionId != null) {
-    const loc = extras.equippedChampionLocation
+  if (extras?.equippedChampion?.id != null) {
+    const loc = extras.equippedChampion?.location
     return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
   }
   return 'inventory'
@@ -381,11 +381,11 @@ type CanonicalNormalizedStat = {
 type CanonicalPreviewExtras = {
   source: GearInspectorItemPreviewExtras['source'] | null
   rerollCount: number | null
-  equippedToChampionId: number | null
-  equippedChampionBaseId: number | null
-  equippedChampionRarity: number | null
-  equippedChampionName: string | null
-  equippedChampionLocation: GearInspectorItemPreviewExtras['equippedChampionLocation'] | null
+  // Champion identity captured by id only — full record lives in the ChampionLookup.
+  // The cache invariant cares about whether the equipped-champion link changed; the
+  // detailed fields (name, rarity, location, ...) ride along on the live lookup record
+  // and are not part of the canonical fingerprint.
+  equippedChampionId: number | null
   mainStat: CanonicalNormalizedStat | null
   substats: CanonicalNormalizedStat[] | null
   ascension: CanonicalNormalizedStat | null
@@ -459,11 +459,7 @@ const canonicalizePreviewExtras = (extras?: GearInspectorItemPreviewExtras): Can
   return {
     source: extras.source ?? null,
     rerollCount: normalizeFiniteNumber(extras.rerollCount),
-    equippedToChampionId: normalizeFiniteNumber(extras.equippedToChampionId),
-    equippedChampionBaseId: normalizeFiniteNumber(extras.equippedChampionBaseId),
-    equippedChampionRarity: normalizeFiniteNumber(extras.equippedChampionRarity),
-    equippedChampionName: typeof extras.equippedChampionName === 'string' ? extras.equippedChampionName : null,
-    equippedChampionLocation: extras.equippedChampionLocation ?? null,
+    equippedChampionId: normalizeFiniteNumber(extras.equippedChampion?.id),
     mainStat: canonicalizeNormalizedStat(extras.mainStat),
     substats: canonicalizeStatArray(extras.substats),
     ascension: canonicalizeNormalizedStat(extras.ascension),
@@ -555,11 +551,10 @@ const hashFoldPreviewExtras = (hash: number, extras: CanonicalPreviewExtras | nu
   if (!extras) return hashFoldU32(hash, 0xfffffffb)
   let next = hashFoldNullableString(hash, extras.source ?? null)
   next = hashFoldNullableNumber(next, extras.rerollCount)
-  next = hashFoldNullableNumber(next, extras.equippedToChampionId)
-  next = hashFoldNullableNumber(next, extras.equippedChampionBaseId)
-  next = hashFoldNullableNumber(next, extras.equippedChampionRarity)
-  next = hashFoldNullableString(next, extras.equippedChampionName)
-  next = hashFoldNullableString(next, extras.equippedChampionLocation ?? null)
+  // Fold only the champion id — the live ChampionLookupRecord (name/rarity/location)
+  // is referenced through the lookup map, so structural identity by id is sufficient
+  // for cache fingerprinting.
+  next = hashFoldNullableNumber(next, extras.equippedChampionId)
   next = hashFoldCanonicalStat(next, extras.mainStat)
   next = hashFoldCanonicalStatArray(next, extras.substats)
   next = hashFoldCanonicalStat(next, extras.ascension)
@@ -637,11 +632,7 @@ const previewExtrasEqual = (left: CanonicalPreviewExtras | null, right: Canonica
   if (
     left.source !== right.source
     || left.rerollCount !== right.rerollCount
-    || left.equippedToChampionId !== right.equippedToChampionId
-    || left.equippedChampionBaseId !== right.equippedChampionBaseId
-    || left.equippedChampionRarity !== right.equippedChampionRarity
-    || left.equippedChampionName !== right.equippedChampionName
-    || left.equippedChampionLocation !== right.equippedChampionLocation
+    || left.equippedChampionId !== right.equippedChampionId
     || left.exactLevel !== right.exactLevel
     || left.lastUseLocalTimestamp !== right.lastUseLocalTimestamp
   ) {

@@ -945,13 +945,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const sourceTooltipTitle = (() => {
     const base = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
     if (!import.meta.env.DEV) return base
-    const equippedToChampionId = artifact.equippedToChampionId
+    const equippedToChampionId = artifact.equippedChampion?.id
     if (typeof equippedToChampionId !== 'number' || !Number.isFinite(equippedToChampionId) || equippedToChampionId <= 0) return base
-    const baseHeroId = artifact.equippedChampionBaseId
+    const baseHeroId = artifact.equippedChampion?.baseHeroId
     const baseHeroLabel = (typeof baseHeroId === 'number' && Number.isFinite(baseHeroId) && baseHeroId > 0) ? String(baseHeroId) : '?'
     return `${base} (${baseHeroLabel} / ${equippedToChampionId})`
   })()
-  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  const championIconSrc = championIconUrl(artifact.equippedChampion?.baseHeroId ?? artifact.equippedChampion?.id)
   // 4-col and 8-col cards align to 5-col avatar sizing — 4-col for visual parity, 8-col because
   // cards are narrower than 5-col despite the higher count so large avatars would crowd the stats.
   const championSizingColumnCount = (gridColumnCount === 4 || gridColumnCount >= 8) ? 5 : gridColumnCount
@@ -984,14 +984,14 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     ? CHAMPION_ICON_LARGE_SIZE
     : CHAMPION_ICON_BASE_SIZE
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
-  const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampionRarity)
+  const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampion?.rarity)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
   const championBorderColor = rarityAccentColor ?? theme.palette.divider
   // Glyph-only source icons use the accent when available so missing champ icons are easier to spot.
   const championGlyphColor = rarityAccentColor ?? theme.palette.text.secondary
   // Mirror the champion dropdown fallback: render the first initial when an avatar image is missing.
   const missingChampionFallbackInitial = (() => {
-    const name = artifact.equippedChampionName?.trim() ?? ''
+    const name = artifact.equippedChampion?.name?.trim() ?? ''
     if (!name) return '?'
     return name.charAt(0).toUpperCase()
   })()

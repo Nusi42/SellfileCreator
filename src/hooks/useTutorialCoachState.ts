@@ -115,7 +115,6 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     // SPD=20: recipes use rankCode=0 which defaults to 6-star conservative base=5;
     // 3-roll threshold = base*(1+3) = 5*4 = 20, so SPD must be ≥20 to match.
     itemId: 1,
-    name: 'Refresh Bannerlords Banner',
     slot: ArtifactType.Banner,
     set: ArtifactSet.Refresh,
     rank: 5,
@@ -139,7 +138,6 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     // Start compact so items 2–4 stay collapsed; only item 1 is expanded by default.
     itemId: 2,
     compact: true,
-    name: 'Knight Revenant Amulet',
     slot: ArtifactType.Amulet,
     set: ACCESSORY_NO_SET_ID as ArtifactSet,
     rank: 4,
@@ -160,7 +158,6 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     // Rarity (Rare=3) matches safeguard rarities: [3,4,5] → Safeguard keeps it.
     itemId: 3,
     compact: true,
-    name: 'Refresh Bannerlords Banner',
     slot: ArtifactType.Banner,
     set: ArtifactSet.Refresh,
     rank: 5,
@@ -186,7 +183,6 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
     // SPD=12≥10 (1 roll), CR=10≥10 (1 roll), CDMG=13≥10 (1 roll) → total 3 ✓.
     itemId: 4,
     compact: true,
-    name: 'Lethal Boots',
     slot: ArtifactType.Boots,
     set: ArtifactSet.Lethal,
     rank: 5,

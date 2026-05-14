@@ -202,8 +202,10 @@ export type ChampionLocation = 'collection' | 'vault' | 'reserveVault'
 export type ChampionLookupRecord = {
   id: number
   name: string | null
-  vault: boolean
-  reserveVault: boolean
+  /** Where the champion lives — exactly one of the three. Replaces the prior
+   *  `vault` + `reserveVault` boolean pair (mutually exclusive flags were the wrong
+   *  representation for a one-of-three value). */
+  location: ChampionLocation
   baseHeroId: number | null
   rarity: RankValue | null
   /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when absent in the DB row. */
@@ -247,27 +249,12 @@ export type NormalizedGearArtifact = {
   ascension: NormalizedStat | null
   gearInspectorItem: TestItem
   rerollCount: number
-  equippedToChampionId: number | null
-  equippedChampionBaseId: number | null
-  equippedChampionRarity: RankValue | null
-  /** Ascension stars of the equipped champion (post-6★ colored stars, computed as
-   *  HeroID − BaseHeroID, 0–6). Distinct from `equippedChampionStarGrade` (= SQL
-   *  `Rang`, current yellow-star count) and from the artifact-level `ascension`
-   *  field (= glyph stat applied to a piece of gear). Null when unknown. */
-  equippedChampionAscensionLevel: number | null
-  /** Empowerment level of the equipped champion (0–4 observed); null when unknown. */
-  equippedChampionEmpowermentLevel: number | null
-  /** Affinity of the equipped champion (1=Magic, 2=Force, 3=Spirit, 4=Void); null when unknown. */
-  equippedChampionAffinity: number | null
-  /** Equipped champion's Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6); null when unknown. */
-  equippedChampionBlessingGrade: number | null
-  /** Equipped champion's current star count (1–6, yellow stars); null when unknown. */
-  equippedChampionStarGrade: number | null
-  /** Equipped champion's XP level (1–60); null when unknown. */
-  equippedChampionExperienceLevel: number | null
+  /** Reference to the equipped champion's full lookup record. Null when the artifact
+   *  is unequipped OR the equipped champion id is missing from the current lookup.
+   *  Callers read the id via `artifact.equippedChampion?.id` — there is no separate
+   *  `equippedToChampionId` foreign-key field. */
+  equippedChampion: ChampionLookupRecord | null
   source: 'artifacts' | 'inbox' | 'manual'
-  equippedChampionName: string | null
-  equippedChampionLocation: ChampionLocation | null
   lastUseLocalTimestamp: string | null
   // True when the player has locked this item in-game; always false for manual entries.
   isLocked: boolean
@@ -275,7 +262,6 @@ export type NormalizedGearArtifact = {
 
 export type NormalizeOptions = {
   source?: 'artifacts' | 'inbox'
-  name?: string
   championLookup?: ReadonlyMap<number, ChampionLookupRecord>
   lastUseLocalTimestamp?: string | null
 }
@@ -499,28 +485,18 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     return value
   })()
   const championLookup = options.championLookup
-  const championRecord = (equippedToChampionId != null && championLookup)
+  // Reference to the equipped champion's lookup record; null when unequipped or
+  // when the champion id is not in the current lookup map. All previously
+  // denormalized `equippedChampion*` fields are accessed off this reference.
+  const equippedChampion = (equippedToChampionId != null && championLookup)
     ? championLookup.get(equippedToChampionId) ?? null
     : null
-  const equippedChampionName = championRecord?.name ?? null
-  const equippedChampionLocation: ChampionLocation | null = championRecord
-    ? (championRecord.reserveVault ? 'reserveVault' : (championRecord.vault ? 'vault' : 'collection'))
-    : null
-  const equippedChampionBaseId = championRecord?.baseHeroId ?? null
-  const equippedChampionRarity = championRecord?.rarity ?? null
-  const equippedChampionAscensionLevel = championRecord?.ascensionLevel ?? null
-  const equippedChampionEmpowermentLevel = championRecord?.empowermentLevel ?? null
-  const equippedChampionAffinity = championRecord?.affinity ?? null
-  const equippedChampionBlessingGrade = championRecord?.blessingGrade ?? null
-  const equippedChampionStarGrade = championRecord?.starGrade ?? null
-  const equippedChampionExperienceLevel = championRecord?.experienceLevel ?? null
   const source = options.source ?? 'artifacts'
   const lastUseLocalTimestamp = sanitizeLastUseTimestamp(options.lastUseLocalTimestamp)
 
   const subValues = buildSubValueMap(substats)
 
   const gearInspectorItem: TestItem = {
-    ...(options.name ? { name: options.name } : {}),
     slot,
     set,
     rank,
@@ -533,17 +509,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       id: row.ID,
       source,
       rerollCount,
-      equippedToChampionId,
-      equippedChampionBaseId,
-      equippedChampionRarity,
-      equippedChampionAscensionLevel,
-      equippedChampionEmpowermentLevel,
-      equippedChampionAffinity,
-      equippedChampionBlessingGrade,
-      equippedChampionStarGrade,
-      equippedChampionExperienceLevel,
-      equippedChampionName,
-      equippedChampionLocation,
+      equippedChampion,
       mainStat,
       substats,
       ascension: ascension ?? null,
@@ -567,18 +533,8 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     ascension: ascension ?? null,
     gearInspectorItem,
     rerollCount,
-    equippedToChampionId,
-    equippedChampionBaseId,
-    equippedChampionRarity,
-    equippedChampionAscensionLevel,
-    equippedChampionEmpowermentLevel,
-    equippedChampionAffinity,
-    equippedChampionBlessingGrade,
-    equippedChampionStarGrade,
-    equippedChampionExperienceLevel,
+    equippedChampion,
     source,
-    equippedChampionName,
-    equippedChampionLocation,
     lastUseLocalTimestamp,
     isLocked,
   }

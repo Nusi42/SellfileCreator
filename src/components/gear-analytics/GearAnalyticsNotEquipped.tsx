@@ -140,7 +140,7 @@ function missingCount(
   effectivelyFilled: ReadonlySet<number>,
 ): number {
   return slots.filter(
-    (s) => isSlotAvailableAtAscensionLevel(s, p.champAscensionLevel) && !effectivelyFilled.has(s),
+    (s) => isSlotAvailableAtAscensionLevel(s, p.champion.ascensionLevel) && !effectivelyFilled.has(s),
   ).length
 }
 
@@ -156,7 +156,7 @@ function effectiveFilledSlots(
   simulateSold: boolean,
 ): ReadonlySet<number> {
   if (!simulateSold) return p.slotsFilled
-  const sold = soldSlotsByChamp.get(p.championId)
+  const sold = soldSlotsByChamp.get(p.champion.id)
   if (!sold || sold.size === 0) return p.slotsFilled
   // Build a fresh set minus the sold slots; ChampionGearProfile.slotsFilled is readonly.
   const next = new Set<number>(p.slotsFilled)
@@ -216,8 +216,8 @@ function SlotCellPreview({ row, substatColors, useStatButtonColors }: SlotCellPr
 function ChampAvatar({ profile }: { profile: ChampionGearProfile }) {
   const theme = useTheme()
   // Use baseId for icon URL — alt-art champions share a base hero icon.
-  const src = championIconUrl(profile.baseId ?? profile.championId)
-  const borderColor = resolveRarityAccentColor(profile.rarity) ?? theme.palette.divider
+  const src = championIconUrl(profile.champion.baseHeroId ?? profile.champion.id)
+  const borderColor = resolveRarityAccentColor(profile.champion.rarity ?? 0) ?? theme.palette.divider
   return (
     <Box sx={{
       width: AVATAR_SIZE, height: AVATAR_SIZE, flexShrink: 0,
@@ -226,10 +226,10 @@ function ChampAvatar({ profile }: { profile: ChampionGearProfile }) {
       bgcolor: src ? 'transparent' : `color-mix(in srgb, ${borderColor} 14%, transparent)`,
     }}>
       {src
-        ? <Box component="img" src={src} alt={profile.championName} draggable={false}
+        ? <Box component="img" src={src} alt={profile.champion.name ?? String(profile.champion.id)} draggable={false}
             sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none' }} />
         : <Typography sx={{ fontSize: AVATAR_SIZE * 0.5, fontWeight: 700, color: borderColor, lineHeight: `${AVATAR_SIZE}px`, textAlign: 'center', width: '100%' }}>
-            {profile.championName.charAt(0).toUpperCase()}
+            {profile.champion.name ?? String(profile.champion.id).charAt(0).toUpperCase()}
           </Typography>
       }
     </Box>
@@ -268,11 +268,11 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors,
     }}>
       {SLOT_GRID.map((slotId) => {
         const filled = profile.slotsFilled.has(slotId)
-        const available = isSlotAvailableAtAscensionLevel(slotId, profile.champAscensionLevel)
+        const available = isSlotAvailableAtAscensionLevel(slotId, profile.champion.ascensionLevel)
         // Sold simulation only matters for currently-equipped slots; otherwise nothing to sell.
         const wouldSell = filled && soldSlots.has(slotId)
         // Resolve the equipped row once — both selection state and tooltip preview need it.
-        const previewRow = filled ? rowByChampSlot.get(`${profile.championId}_${slotId}`) : undefined
+        const previewRow = filled ? rowByChampSlot.get(`${profile.champion.id}_${slotId}`) : undefined
         const artifactId = previewRow?.artifact.id ?? null
         // A slot is "selected" only if its underlying artifact id appears in the shared selection set.
         const selected = artifactId !== null && selectedArtifactIds.has(artifactId)
@@ -383,13 +383,13 @@ function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStat
       {/* Name truncated at NAME_W; EllipsisTooltip shows OS tooltip only when ellipsed.
           lineHeight fills the full ROW_H so the hover target spans the entire row height,
           preventing rapid onMouseLeave when the cursor strays above/below the text. */}
-      <EllipsisTooltip title={p.championName}>
+      <EllipsisTooltip title={p.champion.name ?? String(p.champion.id)}>
         <Box component="span" sx={{
           display: 'block', width: NAME_W,
           fontSize: '0.72rem', lineHeight: `${ROW_H}px`,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {p.championName}
+          {p.champion.name ?? String(p.champion.id)}
         </Box>
       </EllipsisTooltip>
       <SlotGrid
@@ -459,11 +459,11 @@ function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColor
           {profiles.map((p) => {
             // Compute per-champion derived sets once per render. EMPTY_SET sentinel keeps
             // the SlotGrid prop type non-optional without per-cell allocations when sim is off.
-            const soldSlots = soldSlotsByChamp.get(p.championId) ?? EMPTY_SLOT_SET
+            const soldSlots = soldSlotsByChamp.get(p.champion.id) ?? EMPTY_SLOT_SET
             const effectivelyFilled = effectiveFilledSlots(p, soldSlotsByChamp, simulateSold)
             return (
               <ChampRow
-                key={p.championId}
+                key={p.champion.id}
                 profile={p}
                 sortMode={sortMode}
                 rowByChampSlot={rowByChampSlot}
@@ -528,9 +528,9 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const rowByChampSlot = useMemo(() => {
     const map = new Map<string, GearInspectorPreviewRow>()
     for (const row of rows) {
-      const { equippedToChampionId, slot } = row.artifact
-      if (equippedToChampionId !== null) {
-        map.set(`${equippedToChampionId}_${Number(slot)}`, row)
+      const championId = row.artifact.equippedChampion?.id
+      if (championId != null) {
+        map.set(`${championId}_${Number(row.artifact.slot)}`, row)
       }
     }
     return map
@@ -542,14 +542,14 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const soldSlotsByChamp = useMemo(() => {
     const map = new Map<number, Set<number>>()
     for (const row of rows) {
-      const { equippedToChampionId, slot } = row.artifact
+      const championId = row.artifact.equippedChampion?.id
       // Only equipped rows can have a "sold slot" — unequipped gear has no host champion.
-      if (equippedToChampionId === null) continue
+      if (championId == null) continue
       // Outcome 'sell' is the canonical sell classification (see lib/gearAnalytics rowOutcome).
       if (rowOutcome(row) !== 'sell') continue
-      let set = map.get(equippedToChampionId)
-      if (!set) { set = new Set<number>(); map.set(equippedToChampionId, set) }
-      set.add(Number(slot))
+      let set = map.get(championId)
+      if (!set) { set = new Set<number>(); map.set(championId, set) }
+      set.add(Number(row.artifact.slot))
     }
     return map
   }, [rows])
@@ -587,8 +587,8 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     return copy
   }, [visibleChampions, sortMode, soldSlotsByChamp, simulateSold])
 
-  const collection = useMemo(() => sorted.filter((p) => p.location === 'collection'), [sorted])
-  const vault      = useMemo(() => sorted.filter((p) => p.location === 'vault'),      [sorted])
+  const collection = useMemo(() => sorted.filter((p) => p.champion.location === 'collection'), [sorted])
+  const vault      = useMemo(() => sorted.filter((p) => p.champion.location === 'vault'),      [sorted])
 
   // Selection plumbing: hooks must run on every render (rules-of-hooks) — declare them
   // before the early-return below. The toggle handler no-ops when onGearItemsSelect is

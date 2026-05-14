@@ -4351,7 +4351,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const fallback = new Map<number, number>()
       for (const item of gearInspectorItemsRef.current) {
         const aId = item.previewExtras?.id
-        const cId = item.previewExtras?.equippedToChampionId
+        const cId = item.previewExtras?.equippedChampion?.id
         if (aId != null && cId != null) fallback.set(aId, cId)
       }
       if (fallback.size > 0) equippedBy = fallback
@@ -4366,26 +4366,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
     }
     // When champions have not arrived yet, reconstruct their rows from the current
-    // queue so the synthetic snapshot carries full equippedChampionBaseId / Name /
-    // Rarity / Location — all of which feed the item signature and the card UI.
+    // queue so the synthetic snapshot carries the equippedChampion reference fields
+    // (baseHeroId / name / rarity / location) — all of which feed the item signature
+    // and the card UI.
     let syntheticChampions = parts.champions
     if (syntheticChampions === null) {
       const seen = new Set<number>()
       const rows: GearDbChampionRow[] = []
       for (const item of gearInspectorItemsRef.current) {
-        const cId = item.previewExtras?.equippedToChampionId
+        const cId = item.previewExtras?.equippedChampion?.id
         if (cId == null || seen.has(cId)) continue
         seen.add(cId)
-        const loc = item.previewExtras?.equippedChampionLocation
-        const baseId = item.previewExtras?.equippedChampionBaseId
-        const asc = item.previewExtras?.equippedChampionAscensionLevel
+        const loc = item.previewExtras?.equippedChampion?.location
+        const baseId = item.previewExtras?.equippedChampion?.baseHeroId
+        const asc = item.previewExtras?.equippedChampion?.ascensionLevel
         rows.push({
           ID: cId,
-          Name: item.previewExtras?.equippedChampionName ?? null,
+          Name: item.previewExtras?.equippedChampion?.name ?? null,
           BaseHeroID: baseId ?? null,
           // HeroID = BaseHeroID + ascensionLevel; both are required for the ascension calc.
           HeroID: baseId != null && asc != null ? baseId + asc : null,
-          Rarity: item.previewExtras?.equippedChampionRarity ?? null,
+          Rarity: item.previewExtras?.equippedChampion?.rarity ?? null,
           // Reverse-map ChampionLocation back to the integer flags createChampionLookup expects.
           Vault: loc === 'vault' ? 1 : 0,
           RVault: loc === 'reserveVault' ? 1 : 0,
@@ -4903,14 +4904,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
     const map = new Map<number, GearInspectorChampionOption>()
     for (const row of gearInspectorPreviewRows) {
-      const championId = Number(row.artifact.equippedToChampionId ?? NaN)
+      const championId = Number(row.artifact.equippedChampion?.id ?? NaN)
       if (!Number.isFinite(championId) || championId <= 0) continue
-      const trimmedName = row.artifact.equippedChampionName?.trim() || null
-      const location = row.artifact.equippedChampionLocation ?? null
+      const trimmedName = row.artifact.equippedChampion?.name?.trim() || null
+      const location = row.artifact.equippedChampion?.location ?? null
       // Base hero id + rarity keep dropdown avatars aligned with Gear Inspector cards.
-      const baseCandidate = row.artifact.equippedChampionBaseId
+      const baseCandidate = row.artifact.equippedChampion?.baseHeroId
       const baseId = typeof baseCandidate === 'number' && Number.isFinite(baseCandidate) && baseCandidate > 0 ? baseCandidate : null
-      const rarityCandidate = row.artifact.equippedChampionRarity
+      const rarityCandidate = row.artifact.equippedChampion?.rarity
       const rarity = typeof rarityCandidate === 'number' && Number.isFinite(rarityCandidate) && rarityCandidate > 0
         ? (rarityCandidate as RankValue)
         : null

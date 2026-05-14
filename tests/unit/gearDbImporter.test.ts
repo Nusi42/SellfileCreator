@@ -49,16 +49,17 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   assert(weapon, 'expected weapon artifact in dataset')
   assert.equal(weapon?.gearInspectorItem.rank, 6)
   assert.equal(weapon?.gearInspectorItem.set, weapon?.set)
-  const equipped = artifacts.find((item) => item.equippedToChampionId != null)
+  const equipped = artifacts.find((item) => item.equippedChampion?.id != null)
   assert(equipped, 'expected equipped artifact in dataset')
-  assert.notEqual(equipped?.equippedChampionName, null)
-  assert.ok(['collection', 'vault', 'reserveVault'].includes(String(equipped?.equippedChampionLocation)), 'expected equipped artifact location to be set')
+  assert.notEqual(equipped?.equippedChampion?.name, null)
+  assert.ok(['collection', 'vault', 'reserveVault'].includes(String(equipped?.equippedChampion?.location)), 'expected equipped artifact location to be set')
 
   const inboxRing = inboxArtifacts.find((item) => item.slot === 7)
   assert(inboxRing, 'expected ring in inbox dataset')
   assert.equal(inboxRing?.gearInspectorItem.faction, inboxRing?.faction)
-  assert.equal(inboxRing?.equippedChampionName, null)
-  assert.equal(inboxRing?.equippedChampionLocation, null)
+  // Unequipped inbox items have no champion reference at all (the FK lookup misses).
+  // Replaces the previous per-flat-field null checks now that the reference is unified.
+  assert.equal(inboxRing?.equippedChampion, null)
 })
 
 test('gear DB importer reports zero gear for broken databases', async (t) => {

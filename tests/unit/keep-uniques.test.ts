@@ -63,18 +63,8 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
       previewExtras: {},
     },
     rerollCount: overrides.rerollCount ?? 0,
-    equippedToChampionId: overrides.equippedToChampionId ?? null,
-    equippedChampionBaseId: overrides.equippedChampionBaseId ?? null,
-    equippedChampionRarity: overrides.equippedChampionRarity ?? null,
-    equippedChampionAscensionLevel: overrides.equippedChampionAscensionLevel ?? null,
-    equippedChampionEmpowermentLevel: overrides.equippedChampionEmpowermentLevel ?? null,
-    equippedChampionAffinity: overrides.equippedChampionAffinity ?? null,
-    equippedChampionBlessingGrade: overrides.equippedChampionBlessingGrade ?? null,
-    equippedChampionStarGrade: overrides.equippedChampionStarGrade ?? null,
-    equippedChampionExperienceLevel: overrides.equippedChampionExperienceLevel ?? null,
+    equippedChampion: overrides.equippedChampion ?? null,
     source: overrides.source ?? 'manual',
-    equippedChampionName: overrides.equippedChampionName ?? null,
-    equippedChampionLocation: overrides.equippedChampionLocation ?? null,
     lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
     isLocked: overrides.isLocked ?? false,
   }
@@ -317,24 +307,30 @@ test('equipped ignore toggles exclude matching collection/vault artifacts', () =
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignoreEquippedInVault: true,
   })
+  // Inline champion lookup records for the two equipped-location overrides; their fields
+  // beyond `id` + `location` are irrelevant to this test but must exist on the type.
+  const makeChampionAt = (id: number, location: 'collection' | 'vault') => ({
+    id, name: null, location, baseHeroId: null, rarity: null,
+    ascensionLevel: null, empowermentLevel: null, affinity: null,
+    blessingGrade: null, starGrade: null, experienceLevel: null,
+  })
   const rows = [
     makeGearInspectorRow({
       id: 9201,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
-      equippedChampionLocation: 'collection',
+      equippedChampion: makeChampionAt(91, 'collection'),
     }, false, StatVariant.ATK),
     makeGearInspectorRow({
       id: 9202,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
-      equippedChampionLocation: 'vault',
+      equippedChampion: makeChampionAt(92, 'vault'),
     }, false, StatVariant.ATK),
     makeGearInspectorRow({
       id: 9203,
       slot: ArtifactType.Weapon,
       set: ArtifactSet.Speed,
-      equippedChampionLocation: null,
     }, false, StatVariant.ATK),
   ]
   const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })

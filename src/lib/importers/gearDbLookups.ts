@@ -10,7 +10,7 @@ import type {
   GearDbChampionRow,
   GearDbLastUsedRow,
 } from './gearDbNormalizer'
-import type { ChampionLookupRecord } from './gearDbNormalizer'
+import type { ChampionLookupRecord, ChampionLocation } from './gearDbNormalizer'
 import type { RankValue } from '../types'
 import {
   coerceGearInspectorRarity,
@@ -95,11 +95,16 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
   const affinity = sanitizePositiveInt(row.Affinity)
   const starGrade = sanitizePositiveInt(row.Rang)
   const experienceLevel = sanitizePositiveInt(row.Lvl)
+  // Champion location is one-of-three; the SQL dump uses two flags but exactly one
+  // can be true at a time. RVault wins over Vault when both flags are set in malformed
+  // dumps, matching the precedence used elsewhere in the codebase.
+  const location: ChampionLocation = Number(row.RVault ?? 0) > 0
+    ? 'reserveVault'
+    : (Number(row.Vault ?? 0) > 0 ? 'vault' : 'collection')
   return {
     id,
     name: name && name.length > 0 ? name : null,
-    vault: Boolean(Number(row.Vault ?? 0)),
-    reserveVault: Boolean(Number(row.RVault ?? 0)),
+    location,
     baseHeroId: sanitizeBaseHeroId(row.BaseHeroID),
     rarity,
     ascensionLevel,
@@ -140,11 +145,12 @@ export const upsertChampionRow = (map: ChampionLookup, row: GearDbChampionRow): 
   const previous = map.get(record.id)
   if (previous) {
     // For each source column that's undefined on the incoming row, prefer the
-    // previously-known value. Numeric columns: undefined → keep. Name/Vault
-    // booleans: also preserved.
+    // previously-known value. Numeric columns: undefined → keep. Name and location
+    // are also preserved.
     if (row.Name === undefined && previous.name !== null) record.name = previous.name
-    if (row.Vault === undefined) record.vault = previous.vault
-    if (row.RVault === undefined) record.reserveVault = previous.reserveVault
+    // Location is derived from the two flags; if neither flag was present in the
+    // incoming row, keep the previous location.
+    if (row.Vault === undefined && row.RVault === undefined) record.location = previous.location
     if (row.BaseHeroID === undefined) record.baseHeroId = previous.baseHeroId
     if (row.Rarity === undefined) record.rarity = previous.rarity
     // Ascension is derived from HeroID+BaseHeroID; if either is missing, keep previous.

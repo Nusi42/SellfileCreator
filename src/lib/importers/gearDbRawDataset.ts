@@ -130,18 +130,11 @@ const cloneGearInspectorItem = (artifact: NormalizedGearArtifact): TestItem => (
   ...artifact.gearInspectorItem,
   previewExtras: {
     ...(artifact.gearInspectorItem.previewExtras ?? {}),
-    equippedChampionName: artifact.equippedChampionName,
-    equippedChampionBaseId: artifact.equippedChampionBaseId,
-    equippedChampionRarity: artifact.equippedChampionRarity,
-    equippedChampionAscensionLevel: artifact.equippedChampionAscensionLevel,
-    equippedChampionEmpowermentLevel: artifact.equippedChampionEmpowermentLevel,
-    equippedChampionAffinity: artifact.equippedChampionAffinity,
-    equippedChampionBlessingGrade: artifact.equippedChampionBlessingGrade,
-    equippedChampionStarGrade: artifact.equippedChampionStarGrade,
-    equippedChampionExperienceLevel: artifact.equippedChampionExperienceLevel,
-    equippedChampionLocation: artifact.equippedChampionLocation,
+    // Single nested reference replaces the previous flat `equippedChampion*` set —
+    // see ChampionLookupRecord for the constituent fields. The id is reached via
+    // `previewExtras.equippedChampion?.id` (there is no separate FK field).
+    equippedChampion: artifact.equippedChampion,
     lastUseLocalTimestamp: artifact.lastUseLocalTimestamp,
-    equippedToChampionId: artifact.equippedToChampionId,
   },
 })
 

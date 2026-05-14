@@ -67,8 +67,12 @@ export const SafeguardWasmArtifactRawIn_LONG_TO_SHORT = {
   "faction": "f",
   "mainStat": "ms",
   "substats": "ss",
-  "equippedChampionLocation": "ecl",
+  "equippedChampion": "ec",
   "gearInspectorItem": "gii",
+} as const
+
+export const SafeguardWasmEquippedChampionRawIn_LONG_TO_SHORT = {
+  "location": "lc",
 } as const
 
 export const SafeguardWasmSubstatRawIn_LONG_TO_SHORT = {
@@ -112,6 +116,10 @@ export const ComputeMergedRulesIn_SHORT_TO_LONG: Record<string, string> = Object
 
 export const SafeguardWasmArtifactRawIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
   Object.entries(SafeguardWasmArtifactRawIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
+)
+
+export const SafeguardWasmEquippedChampionRawIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
+  Object.entries(SafeguardWasmEquippedChampionRawIn_LONG_TO_SHORT).map(([long, short]) => [short, long]),
 )
 
 export const SafeguardWasmSubstatRawIn_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
