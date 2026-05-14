@@ -255,26 +255,28 @@ pub fn auto_rarity_includes_mythical_for_code_value(rarity_code: i32) -> bool {
 }
 
 // Builder-facing auto-rarity resolver compacts selected/fixed/bounds in Rust.
-// Deserializes the builder recipe payload from JsValue and returns the rarity code.
+// Deserializes the builder recipe payload from JSON string and returns the rarity code.
 #[wasm_bindgen]
-pub fn resolve_auto_rarity_code_for_builder_value(payload: JsValue) -> Result<i32, JsValue> {
-    let input: AutoRarityResolveBuilderIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-rarity builder payload: {error}")))?;
+pub fn resolve_auto_rarity_code_for_builder_value(payload: &str) -> Result<i32, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let input: AutoRarityResolveBuilderIn = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid resolve-auto-rarity-code payload: {error}")))?;
     Ok(resolve_auto_rarity_code_for_builder_core(&input))
 }
 
 // Public merge helper export keeps branch expansion logic in Rust.
-// Deserializes the flex-rarity recipe from JsValue and returns expanded branches.
+// Deserializes the flex-rarity recipe from JSON string and returns expanded branches.
 // Uses wasm_to_js (serialize_maps_as_objects) so substatRollBoundsV emits plain JS
 // objects instead of JS Map instances.  Non-declared recipe fields (e.g. minCount)
 // are restored by the TS wrapper via {...originalRecipe, ...wasmBranch}.
 #[wasm_bindgen]
 pub fn expand_auto_flex_rarity_branches_value(
-    recipe: JsValue,
+    recipe_payload: &str,
     base_rarity_code: i32,
 ) -> Result<JsValue, JsValue> {
-    let parsed: AutoFlexRarityRecipeIn = from_js_value(recipe)
-        .map_err(|error| JsValue::from_str(&format!("Invalid auto-flex-rarity recipe payload: {error}")))?;
+    prewarm_for_json_parse(recipe_payload.len());
+    let parsed: AutoFlexRarityRecipeIn = serde_json::from_str(recipe_payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid expand-auto-flex-rarity-branches payload: {error}")))?;
     let expanded = expand_auto_flex_rarity_branches_core(&parsed, base_rarity_code);
     // wasm_to_js converts errors to JsValue already; propagate directly.
     wasm_to_js(&expanded)
@@ -1129,9 +1131,10 @@ pub fn compute_improvement_chance_value(
 // weight map so the popover can show live score/rank updates without re-detection.
 // Uses to_js_value (SafeguardWasmCandidateOut has no HashMap fields).
 #[wasm_bindgen]
-pub fn score_safeguard_candidates_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let input: SafeguardWasmScorePreviewIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard score preview payload: {error}")))?;
+pub fn score_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let input: SafeguardWasmScorePreviewIn = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid score-safeguard-candidates payload: {error}")))?;
     let result = score_safeguard_candidates_for_preview_core(input);
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard score preview: {error}")))
@@ -1597,5 +1600,106 @@ mod sort_safeguard_substats_value_wire_tests {
         let parsed: Vec<i64> = serde_json::from_str(FIXTURE)
             .expect("fixture must deserialize");
         assert_eq!(parsed, vec![1i64, 2, 3], "substats array");
+    }
+}
+
+#[cfg(test)]
+mod resolve_auto_rarity_code_for_builder_value_wire_tests {
+    use super::*;
+    const FIXTURE: &str = r#"{"autoRaritySupplementsThreshold":"2","autoMinRequiredRolls":true,"minRequiredRolls":3.5,"lockedMinRequiredRolls":2.0,"minCount":1.0,"earlyKeepMode":"full","substatsV":[10,11,12],"fixedSubstatsV":[10],"substatRollBoundsV":{"10":{"min":2.0},"11":{"min":3.0}},"allowedSubstats":[10,11,12,13]}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: AutoRarityResolveBuilderIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed.auto_rarity_supplements_threshold, Some("2".to_string()));
+        assert_eq!(parsed.auto_min_required_rolls, Some(true));
+        assert_eq!(parsed.min_required_rolls, Some(3.5));
+        assert_eq!(parsed.locked_min_required_rolls, Some(2.0));
+        assert_eq!(parsed.min_count, Some(1.0));
+        assert_eq!(parsed.early_keep_mode, Some("full".to_string()));
+        assert_eq!(parsed.substats_v, vec![10i64, 11, 12]);
+        assert_eq!(parsed.fixed_substats_v, vec![10i64]);
+        assert_eq!(parsed.allowed_substats, vec![10i64, 11, 12, 13]);
+        assert!(parsed.substat_roll_bounds_v.contains_key(&10i64));
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"substatsV":[],"fixedSubstatsV":[],"substatRollBoundsV":{},"allowedSubstats":[],"unknownField":true}"#;
+        let r: Result<AutoRarityResolveBuilderIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod expand_auto_flex_rarity_branches_value_wire_tests {
+    use super::*;
+    const FIXTURE: &str = r#"{"rarityMode":"auto","rarityCode":5,"autoSubstatFlex":true,"autoMinCount":false,"minCount":2.0,"autoMinRequiredRolls":true,"minRequiredRolls":4.0,"substatsV":[20,21],"fixedSubstatsV":[20],"substatRollBoundsV":{"20":{"min":1.0,"max":3.0,"any":false,"not":false},"21":{"min":2.0,"max":4.0,"any":true,"not":false}},"minLevel":1.0,"maxLevel":20.0}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: AutoFlexRarityRecipeIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed.rarity_mode, Some("auto".to_string()));
+        assert_eq!(parsed.rarity_code, Some(5i64));
+        assert_eq!(parsed.auto_substat_flex, Some(true));
+        assert_eq!(parsed.auto_min_count, Some(false));
+        assert_eq!(parsed.min_count, Some(2.0));
+        assert_eq!(parsed.auto_min_required_rolls, Some(true));
+        assert_eq!(parsed.min_required_rolls, Some(4.0));
+        assert_eq!(parsed.substats_v, vec![20i64, 21]);
+        assert_eq!(parsed.fixed_substats_v, vec![20i64]);
+        assert_eq!(parsed.min_level, Some(1.0));
+        assert_eq!(parsed.max_level, Some(20.0));
+        assert!(parsed.substat_roll_bounds_v.contains_key(&20i64));
+        assert!(parsed.substat_roll_bounds_v.contains_key(&21i64));
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"substatsV":[],"fixedSubstatsV":[],"substatRollBoundsV":{},"unknownField":"bogus"}"#;
+        let r: Result<AutoFlexRarityRecipeIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod score_safeguard_candidates_value_wire_tests {
+    use super::*;
+    const FIXTURE: &str = r#"{"artifacts":[{"id":1,"slot":1,"set":1,"rank":1,"rarity":4,"level":20,"exactLevel":20,"faction":1,"mainStat":1,"equippedInCollection":false,"equippedInVault":false,"substats":[{"variant":2,"isFlat":false,"value":5.5,"rolls":2},{"variant":3,"isFlat":true,"value":100.0,"rolls":1}]}],"substats":[2,3],"weights":{"2":1.5,"3":1.0},"requiredCount":5}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardWasmScorePreviewIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed.artifacts.len(), 1);
+        assert_eq!(parsed.artifacts[0].id, Some(1i64));
+        assert_eq!(parsed.artifacts[0].slot, 1i64);
+        assert_eq!(parsed.artifacts[0].set, 1i64);
+        assert_eq!(parsed.artifacts[0].rank, 1i64);
+        assert_eq!(parsed.artifacts[0].rarity, 4i64);
+        assert_eq!(parsed.artifacts[0].level, 20i64);
+        assert_eq!(parsed.artifacts[0].exact_level, Some(20i64));
+        assert_eq!(parsed.artifacts[0].faction, 1i64);
+        assert_eq!(parsed.artifacts[0].main_stat, 1i64);
+        assert_eq!(parsed.artifacts[0].equipped_in_collection, false);
+        assert_eq!(parsed.artifacts[0].equipped_in_vault, false);
+        assert_eq!(parsed.artifacts[0].substats.len(), 2);
+        assert_eq!(parsed.artifacts[0].substats[0].variant, 2i64);
+        assert_eq!(parsed.artifacts[0].substats[0].is_flat, false);
+        assert_eq!(parsed.artifacts[0].substats[0].value, 5.5);
+        assert_eq!(parsed.artifacts[0].substats[0].rolls, Some(2i64));
+        assert_eq!(parsed.substats, vec![2i64, 3]);
+        assert_eq!(parsed.required_count, 5i64);
+        assert!(parsed.weights.contains_key(&2i64));
+        assert!(parsed.weights.contains_key(&3i64));
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"artifacts":[],"substats":[],"weights":{},"requiredCount":1,"unknownField":"bogus"}"#;
+        let r: Result<SafeguardWasmScorePreviewIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }

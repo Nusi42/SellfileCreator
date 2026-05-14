@@ -953,8 +953,29 @@ export const expandAutoFlexRarityBranchesWithLoadedWasm = (params: {
   baseRarityCode: number
 }): BuilderRecipe[] => {
   assertWasmInitializedSync()
+  // Filter recipe to only fields accepted by AutoFlexRarityRecipeIn in WASM;
+  // non-declared fields are restored by the TS wrapper via {...originalRecipe, ...wasmBranch}.
+  const filteredRecipe = {
+    ...(typeof params.recipe.rarityMode === 'string' ? { rarityMode: params.recipe.rarityMode } : {}),
+    ...(typeof params.recipe.rarityCode === 'number' ? { rarityCode: params.recipe.rarityCode } : {}),
+    ...(typeof params.recipe.autoSubstatFlex === 'boolean' ? { autoSubstatFlex: params.recipe.autoSubstatFlex } : {}),
+    ...(typeof params.recipe.autoMinCount === 'boolean' ? { autoMinCount: params.recipe.autoMinCount } : {}),
+    ...(typeof params.recipe.minCount === 'number' ? { minCount: params.recipe.minCount } : {}),
+    ...(typeof params.recipe.autoMinRequiredRolls === 'boolean' ? { autoMinRequiredRolls: params.recipe.autoMinRequiredRolls } : {}),
+    ...(typeof params.recipe.minRequiredRolls === 'number' ? { minRequiredRolls: params.recipe.minRequiredRolls } : {}),
+    substatsV: Array.from(toFlooredI32(params.recipe.substatsV ?? [])),
+    fixedSubstatsV: Array.from(toFlooredI32(params.recipe.fixedSubstatsV ?? [])),
+    substatRollBoundsV: Object.fromEntries(
+      Object.entries(params.recipe.substatRollBoundsV ?? {}).map(([key, bounds]) => [
+        key,
+        { min: bounds.min, max: bounds.max, any: bounds.any, not: bounds.not },
+      ])
+    ),
+    ...(typeof params.recipe.minLevel === 'number' ? { minLevel: params.recipe.minLevel } : {}),
+    ...(typeof params.recipe.maxLevel === 'number' ? { maxLevel: params.recipe.maxLevel } : {}),
+  }
   const rawResult = expandAutoFlexRarityBranchesWasmValueBinding(
-    params.recipe,
+    JSON.stringify(filteredRecipe),
     Math.floor(params.baseRarityCode),
   )
   // Rust emits only the declared AutoFlexRarityRecipeIn fields (rarity-related
@@ -988,7 +1009,7 @@ export const resolveAutoRarityCodeForBuilderWithLoadedWasm = (payload: {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
   // Delegate selection/fixed filtering + bound compaction + resolve to Rust.
-  const result = resolveAutoRarityCodeForBuilderWasmValueBinding({
+  const result = resolveAutoRarityCodeForBuilderWasmValueBinding(JSON.stringify({
     ...(typeof payload.autoRaritySupplementsThreshold === 'string'
       ? { autoRaritySupplementsThreshold: payload.autoRaritySupplementsThreshold }
       : {}),
@@ -1009,9 +1030,14 @@ export const resolveAutoRarityCodeForBuilderWithLoadedWasm = (payload: {
       : {}),
     substatsV: Array.from(toFlooredI32(payload.substatsV)),
     fixedSubstatsV: Array.from(toFlooredI32(payload.fixedSubstatsV)),
-    substatRollBoundsV: payload.substatRollBoundsV ?? {},
+    substatRollBoundsV: Object.fromEntries(
+      Object.entries(payload.substatRollBoundsV ?? {}).map(([key, bounds]) => [
+        key,
+        { min: bounds.min },
+      ])
+    ),
     allowedSubstats: Array.from(toFlooredI32(payload.allowedSubstats)),
-  })
+  }))
   // Rust binding returns a numeric rarity code; reject malformed payloads.
   if (typeof result === 'number' && Number.isFinite(result)) return Math.floor(result)
   throw new Error('WASM auto-rarity builder resolver returned an invalid payload.')
@@ -1146,12 +1172,12 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   requiredCount: number
 }): SafeguardCandidateOut[] => {
   assertWasmInitializedSync()
-  const result = scoreSafeguardCandidatesWasmValueBinding({
+  const result = scoreSafeguardCandidatesWasmValueBinding(JSON.stringify({
     artifacts: params.artifacts,
     substats: params.substats,
     weights: params.weights,
     requiredCount: params.requiredCount,
-  })
+  }))
   if (Array.isArray(result)) return result as SafeguardCandidateOut[]
   throw new Error('WASM safeguard score preview returned an invalid payload.')
 }
