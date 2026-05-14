@@ -8,7 +8,7 @@
  * then wrap horizontally.  A horizontal scrollbar appears when more columns
  * than fit in the container.
  *
- * Sort control (ToggleButtonGroup): Off / All / Artifacts / Accessories / By rank.
+ * Sort control (ToggleButtonGroup): By rank (default) / All / Artifacts / Accessories.
  * Simulate-sold toggle (rightmost): treats every equipped piece the rules would
  * sell as if its slot were empty — slot cells turn red and missing counts grow.
  *
@@ -19,12 +19,12 @@
  *
  * Hovering a filled cell shows the equipped gear piece via GearInspectorGridCard.
  */
-import { useMemo, useState, useEffect } from 'react'
-import { Box, Collapse, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
+import { useMemo, useState, useEffect, useCallback } from 'react'
+import { Box, Collapse, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
+import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   buildChampionGearProfiles,
-  champProfileTiebreaker,
   champProfileRankComparator,
   isSlotAvailableAtAscensionLevel,
   MAIN_ARMOR_SLOTS,
@@ -78,17 +78,20 @@ const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
 
 // ── Sort mode ─────────────────────────────────────────────────────────────────
 
-/** Controls champion sort order. 'off' = default tiebreaker; 'rank' = in-game
- *  default roster order; others = sort by missing count for that slot group
- *  (most missing first). */
-type SortMode = 'off' | 'all' | 'artifacts' | 'accessories' | 'rank'
+/** Controls champion sort order. 'rank' = in-game default roster order
+ *  (used as the natural/default ordering); others = sort by missing count
+ *  for that slot group (most missing first). */
+type SortMode = 'rank' | 'all' | 'artifacts' | 'accessories'
 
 const LS_SORT_MODE = 'gearAnalytics.notEquippedSortMode'
-const DEFAULT_SORT_MODE: SortMode = 'off'
+const DEFAULT_SORT_MODE: SortMode = 'rank'
 
 function readSortMode(): SortMode {
   const v = localStorage.getItem(LS_SORT_MODE)
-  if (v === 'off' || v === 'all' || v === 'artifacts' || v === 'accessories' || v === 'rank') return v
+  // Migration: legacy 'off' value falls through to the new default ('rank') —
+  // the old 'off' mode used a similar (but not identical) tiebreaker and is
+  // intentionally retired in favor of the more accurate 'rank' comparator.
+  if (v === 'rank' || v === 'all' || v === 'artifacts' || v === 'accessories') return v
   return DEFAULT_SORT_MODE
 }
 
@@ -105,11 +108,10 @@ function readSimulateSold(): boolean {
 /** Slot list used for sorting and the missing count badge per sort mode.
  *  'rank' has no slot-group constraint — it sorts by ascension/rarity tiebreakers. */
 const SORT_SLOTS: Readonly<Record<SortMode, readonly number[]>> = {
-  off:         SLOT_GRID,
+  rank:        SLOT_GRID,
   all:         SLOT_GRID,
   artifacts:   MAIN_ARMOR_SLOTS,
   accessories: ACCESSORY_SLOTS,
-  rank:        SLOT_GRID,
 }
 
 /**
@@ -232,10 +234,17 @@ type SlotGridProps = {
   /** Set of slot IDs whose equipped piece would be sold under the active rules.
    *  Always provided; empty when the simulate-sold toggle is off. */
   soldSlots: ReadonlySet<number>
+  /** Shared Gear Inspector selection — used to highlight filled slots whose
+   *  artifact id is in the selection set. Empty sentinel when parent didn't wire selection. */
+  selectedArtifactIds: ReadonlySet<number>
+  /** Click handler invoked with the row's artifact id when a filled slot is clicked.
+   *  Undefined when selection wiring isn't provided — the grid stays read-only. */
+  onToggleArtifactSelection: ((artifactId: number) => void) | undefined
 }
 
-function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors, soldSlots }: SlotGridProps) {
+function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors, soldSlots, selectedArtifactIds, onToggleArtifactSelection }: SlotGridProps) {
   const { t } = useI18n()
+  const theme = useTheme()
   return (
     // Three rows of three in PREFERRED_ARTIFACT_TYPE_ORDER.
     <Box sx={{
@@ -250,22 +259,41 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors,
         const available = isSlotAvailableAtAscensionLevel(slotId, profile.champAscensionLevel)
         // Sold simulation only matters for currently-equipped slots; otherwise nothing to sell.
         const wouldSell = filled && soldSlots.has(slotId)
+        // Resolve the equipped row once — both selection state and tooltip preview need it.
+        const previewRow = filled ? rowByChampSlot.get(`${profile.championId}_${slotId}`) : undefined
+        const artifactId = previewRow?.artifact.id ?? null
+        // A slot is "selected" only if its underlying artifact id appears in the shared selection set.
+        const selected = artifactId !== null && selectedArtifactIds.has(artifactId)
+        const clickable = filled && available && artifactId !== null && onToggleArtifactSelection !== undefined
+        // Click toggles selection. stopPropagation keeps tooltip wrappers from swallowing it.
+        const handleClick: React.MouseEventHandler<HTMLDivElement> | undefined = clickable
+          ? (e) => { e.stopPropagation(); onToggleArtifactSelection!(artifactId!) }
+          : undefined
 
         // Four visual states — sort mode has no effect on the grid display:
         //   filled+kept → primary.main solid (slot has gear that stays)
         //   filled+sell → error.main solid   (sim is on; this piece would be sold)
         //   available   → neutral outline    (slot is empty but can be filled)
         //   locked      → very dim, no border (slot not yet unlocked for this ascension level)
+        // Selection adds a yellow `outline` (warning.main) so it composes with any of the
+        // four bg/border states above without changing the cell's footprint.
         const cell = available
           ? (
-            <Box sx={{
-              width: SLOT_CELL, height: SLOT_CELL,
-              borderRadius: '2px', boxSizing: 'border-box',
-              bgcolor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'transparent',
-              border: '1px solid',
-              borderColor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'text.secondary',
-              opacity: filled ? 0.85 : 0.35,
-            }} />
+            <Box
+              onClick={handleClick}
+              sx={{
+                width: SLOT_CELL, height: SLOT_CELL,
+                borderRadius: '2px', boxSizing: 'border-box',
+                bgcolor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'transparent',
+                border: '1px solid',
+                borderColor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'text.secondary',
+                opacity: filled ? 0.85 : 0.35,
+                cursor: clickable ? 'pointer' : 'default',
+                // Outline (not border) so layout stays stable across selection toggles.
+                outline: selected ? `1.5px solid ${theme.palette.warning.main}` : 'none',
+                outlineOffset: selected ? '1px' : 0,
+              }}
+            />
           )
           : (
             // Locked slot: ascension level too low to equip this type.
@@ -280,18 +308,16 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors,
           )
 
         // Filled slot: show the equipped gear piece via MarkdownTooltip (SSOT with safeguard preview).
-        if (filled && available) {
-          const previewRow = rowByChampSlot.get(`${profile.championId}_${slotId}`)
-          if (previewRow) {
-            return (
-              <MarkdownTooltip
-                key={slotId}
-                render={<SlotCellPreview row={previewRow} substatColors={substatColors} useStatButtonColors={useStatButtonColors} />}
-              >
-                {cell}
-              </MarkdownTooltip>
-            )
-          }
+        // previewRow was already resolved above (also used for selection state).
+        if (filled && available && previewRow) {
+          return (
+            <MarkdownTooltip
+              key={slotId}
+              render={<SlotCellPreview row={previewRow} substatColors={substatColors} useStatButtonColors={useStatButtonColors} />}
+            >
+              {cell}
+            </MarkdownTooltip>
+          )
         }
         // Locked slot: explain why it is unavailable.
         if (!available) {
@@ -324,9 +350,13 @@ type ChampRowProps = {
   soldSlots: ReadonlySet<number>
   /** Effective filled set passed in so missingCount matches the sort/badge logic above. */
   effectivelyFilled: ReadonlySet<number>
+  /** Shared Gear Inspector selection — forwarded straight to SlotGrid. */
+  selectedArtifactIds: ReadonlySet<number>
+  /** Toggle handler — undefined when selection wiring is absent. */
+  onToggleArtifactSelection: ((artifactId: number) => void) | undefined
 }
 
-function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlots, effectivelyFilled }: ChampRowProps) {
+function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlots, effectivelyFilled, selectedArtifactIds, onToggleArtifactSelection }: ChampRowProps) {
   // Slot list matching the sort mode — drives the missing count badge.
   const slots = SORT_SLOTS[sortMode]
   return (
@@ -356,6 +386,8 @@ function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStat
         substatColors={substatColors}
         useStatButtonColors={useStatButtonColors}
         soldSlots={soldSlots}
+        selectedArtifactIds={selectedArtifactIds}
+        onToggleArtifactSelection={onToggleArtifactSelection}
       />
       {/* Missing count for the active sort dimension (red, tabular). */}
       <Typography sx={{
@@ -381,9 +413,13 @@ type LocationTableProps = {
   soldSlotsByChamp: ReadonlyMap<number, ReadonlySet<number>>
   /** Whether the simulate-sold toggle is currently engaged. */
   simulateSold: boolean
+  /** Shared Gear Inspector selection (artifact ids) for slot highlight. */
+  selectedArtifactIds: ReadonlySet<number>
+  /** Toggle handler — undefined when selection wiring is absent. */
+  onToggleArtifactSelection: ((artifactId: number) => void) | undefined
 }
 
-function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlotsByChamp, simulateSold }: LocationTableProps) {
+function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlotsByChamp, simulateSold, selectedArtifactIds, onToggleArtifactSelection }: LocationTableProps) {
   if (profiles.length === 0) return null
   return (
     <Box>
@@ -424,6 +460,8 @@ function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColor
                 // When sim is off, soldSlots is the empty sentinel and the grid renders normally.
                 soldSlots={simulateSold ? soldSlots : EMPTY_SLOT_SET}
                 effectivelyFilled={effectivelyFilled}
+                selectedArtifactIds={selectedArtifactIds}
+                onToggleArtifactSelection={onToggleArtifactSelection}
               />
             )
           })}
@@ -443,9 +481,15 @@ type Props = {
   collapsed?: boolean
   /** Called when the user clicks the collapse chevron; applyToAll = Ctrl/Cmd+click or right-click. */
   onToggleCollapse?: (applyToAll: boolean) => void
+  /** Shared Gear Inspector selection — read to highlight slots whose equipped artifact id
+   *  is currently selected. Optional: when absent the grid stays read-only with no highlight. */
+  selectedGearItemIds?: ReadonlySet<number>
+  /** Setter for the shared selection — when present, clicking a filled slot toggles the
+   *  equipped artifact's id in the set. Same signature as Gear Inspector's handler. */
+  onGearItemsSelect?: (next: ReadonlySet<number>) => void
 }
 
-export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCollapse }: Props) {
+export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCollapse, selectedGearItemIds, onGearItemsSelect }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   // useStatButtonColors drives substat chip coloring inside the gear preview card.
@@ -505,20 +549,19 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     })
   }, [rows, soldSlotsByChamp, simulateSold])
 
-  // Sort: 'off' = radar tiebreaker; 'rank' = in-game roster comparator;
-  // others = most missing in that slot group first (also honors sim via effective filled).
+  // Sort: 'rank' = in-game roster comparator (default); others = most missing in
+  // that slot group first, with champProfileRankComparator as the tail tiebreaker so
+  // groups of champs with equal missing counts still flow in the natural roster order.
   const sorted = useMemo(() => {
     const copy = [...notEquipped]
-    if (sortMode === 'off') {
-      copy.sort(champProfileTiebreaker)
-    } else if (sortMode === 'rank') {
+    if (sortMode === 'rank') {
       copy.sort(champProfileRankComparator)
     } else {
       const slots = SORT_SLOTS[sortMode]
       copy.sort((a, b) => {
         const da = missingCount(a, slots, effectiveFilledSlots(a, soldSlotsByChamp, simulateSold))
         const db = missingCount(b, slots, effectiveFilledSlots(b, soldSlotsByChamp, simulateSold))
-        return db !== da ? db - da : champProfileTiebreaker(a, b)
+        return db !== da ? db - da : champProfileRankComparator(a, b)
       })
     }
     return copy
@@ -527,7 +570,28 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const collection = useMemo(() => sorted.filter((p) => p.location === 'collection'), [sorted])
   const vault      = useMemo(() => sorted.filter((p) => p.location === 'vault'),      [sorted])
 
+  // Selection plumbing: hooks must run on every render (rules-of-hooks) — declare them
+  // before the early-return below. The toggle handler no-ops when onGearItemsSelect is
+  // undefined; consumers gate on the resolved onToggleArtifactSelection.
+  const selectedArtifactIds = selectedGearItemIds ?? EMPTY_SLOT_SET
+  const handleToggleArtifactSelection = useCallback((artifactId: number) => {
+    if (!onGearItemsSelect) return
+    // Build a fresh set; selectedGearItemIds is treated as readonly by callers.
+    const next = new Set<number>(selectedGearItemIds ?? EMPTY_SLOT_SET)
+    if (next.has(artifactId)) next.delete(artifactId)
+    else next.add(artifactId)
+    onGearItemsSelect(next)
+  }, [onGearItemsSelect, selectedGearItemIds])
+  const handleClearSelection = useCallback(() => {
+    onGearItemsSelect?.(new Set())
+  }, [onGearItemsSelect])
+
   if (collection.length === 0 && vault.length === 0) return null
+
+  // Resolve to undefined when no setter is wired so SlotGrid can skip click bindings entirely.
+  const onToggleArtifactSelection = onGearItemsSelect ? handleToggleArtifactSelection : undefined
+  // Show the clear button only when the parent wired selection AND something is selected.
+  const canClearSelection = onGearItemsSelect !== undefined && selectedArtifactIds.size > 0
 
   const tableProps = {
     sortMode,
@@ -536,6 +600,8 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     useStatButtonColors: statButtonBorders,
     soldSlotsByChamp,
     simulateSold,
+    selectedArtifactIds,
+    onToggleArtifactSelection,
   }
 
   return (
@@ -554,8 +620,9 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
           value={sortMode}
           onChange={(_e, val) => { if (val !== null) setSortMode(val as SortMode) }}
         >
-          <ToggleButton value="off" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
-            {t('gearAnalyticsSortOff')}
+          {/* Default/natural order — in-game roster sort via champProfileRankComparator. */}
+          <ToggleButton value="rank" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
+            {t('gearAnalyticsSlotModeRank')}
           </ToggleButton>
           <ToggleButton value="all" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
             {t('gearAnalyticsSlotModeAll')}
@@ -565,10 +632,6 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
           </ToggleButton>
           <ToggleButton value="accessories" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
             {t('gearAnalyticsSlotModeAccessories')}
-          </ToggleButton>
-          {/* In-game roster order; uses the dedicated champProfileRankComparator. */}
-          <ToggleButton value="rank" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
-            {t('gearAnalyticsSlotModeRank')}
           </ToggleButton>
         </ToggleButtonGroup>
         {/* Standalone single-button toggle for the simulate-sold overlay. */}
@@ -584,6 +647,23 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
             </ToggleButton>
           </ToggleButtonGroup>
         </Tooltip>
+        {/* Clear shared Gear Inspector selection. Hidden when no parent wired selection;
+            disabled when nothing is selected. Same i18n key as the Gear Inspector footer button. */}
+        {onGearItemsSelect && (
+          <Tooltip title={t('gearInspectorSelectionClearAll')} placement="top" arrow>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleClearSelection}
+                disabled={!canClearSelection}
+                aria-label={t('gearInspectorSelectionClearAll')}
+                sx={{ ml: 0.25 }}
+              >
+                <PlaylistRemoveIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Collection and Vault sub-tables, stacked vertically (collection on top). */}

@@ -69,6 +69,11 @@ type LogicHubDialogProps = {
   gearInspectorDim?: GearAnalyticsDim | null
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
+  // Gear Inspector selection set (artifact IDs) — shared so the Not Fully Equipped grid can
+  // toggle the same selection that the Gear Inspector reads.
+  selectedGearItemIds?: ReadonlySet<number>
+  // Setter that accepts the full new selection set (matches Gear Inspector's signature).
+  onGearItemsSelect?: (next: ReadonlySet<number>) => void
 }
 
 export default function LogicHubDialog(props: LogicHubDialogProps) {
@@ -98,6 +103,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onApplyGearAnalyticsFilter,
     gearInspectorDim,
     emptyStateVerticalAlign = 'center',
+    selectedGearItemIds,
+    onGearItemsSelect,
   } = props
   const { t } = useI18n()
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
@@ -536,7 +543,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         )}
         {showGearStatsTab && (
           // Gear Analytics receives all loaded rows so stats always reflect the full inventory.
-          <GearAnalyticsTabContent rows={gearInspectorPreviewRows} onApplyToGearInspector={onApplyGearAnalyticsFilter} {...(gearInspectorDim !== undefined && { gearInspectorDim })} resetKey={gearAnalyticsResetKey} />
+          <GearAnalyticsTabContent
+            rows={gearInspectorPreviewRows}
+            onApplyToGearInspector={onApplyGearAnalyticsFilter}
+            {...(gearInspectorDim !== undefined && { gearInspectorDim })}
+            resetKey={gearAnalyticsResetKey}
+            // Shared with the Gear Inspector grid — same artifact-id selection set.
+            {...(selectedGearItemIds !== undefined && { selectedGearItemIds })}
+            {...(onGearItemsSelect !== undefined && { onGearItemsSelect })}
+          />
         )}
       </DialogContent>
       <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>

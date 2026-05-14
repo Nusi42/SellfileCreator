@@ -81,6 +81,14 @@ type Props = {
    * Mirrors the "Reset to defaults" button pattern used in other Logic Hub tabs.
    */
   resetKey?: number
+  /**
+   * Gear Inspector selection (artifact IDs) — shared so the Not Fully Equipped grid can
+   * click-toggle the same selection set the Gear Inspector reads. Selection is held in
+   * App state so it survives tab switches and (when enabled) syncs to the WebSocket push endpoint.
+   */
+  selectedGearItemIds?: ReadonlySet<number>
+  /** Setter that accepts the full new selection set (matches GearInspectorItemsGrid's signature). */
+  onGearItemsSelect?: (next: ReadonlySet<number>) => void
 }
 
 // ── Section collapse IDs and localStorage persistence ─────────────────────────
@@ -137,7 +145,7 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInspectorDim, resetKey }: Props) {
+export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInspectorDim, resetKey, selectedGearItemIds, onGearItemsSelect }: Props) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
@@ -940,6 +948,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           {...(resetKey !== undefined && { resetKey })}
           collapsed={collapsed.notEquipped}
           onToggleCollapse={(all) => toggleSection('notEquipped', all)}
+          // Optional props — only pass when the parent (LogicHubDialog/App) supplies them,
+          // so the component stays usable in tests/contexts where selection isn't wired up.
+          {...(selectedGearItemIds !== undefined && { selectedGearItemIds })}
+          {...(onGearItemsSelect !== undefined && { onGearItemsSelect })}
         />
       </Box>
 

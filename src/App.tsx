@@ -8583,6 +8583,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onSubstatTargetsChange={(m, opts) => { applySubstatTargetsChange(m, opts) }}
           recipeOverridesActive={substatTargetsOverridesActive}
           emptyStateVerticalAlign={emptyStateVerticalAlign}
+          // Shared selection: Gear Analytics' Not-Fully-Equipped grid can click-toggle the
+          // same artifact-id set the Gear Inspector reads (and which optionally syncs to the
+          // WebSocket push endpoint via handleGearItemsSelect).
+          selectedGearItemIds={selectedGearItemIds}
+          onGearItemsSelect={handleGearItemsSelect}
         />
       ) : null}
       {/* Tutorial overlay */}

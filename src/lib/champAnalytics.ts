@@ -187,25 +187,7 @@ export function filterChampionProfiles(
   })
 }
 
-// ── Profile tiebreaker ────────────────────────────────────────────────────────
-
-/**
- * Compare two ChampionGearProfile objects by the radar tiebreaker order:
- * rarity desc → ascentionCount desc → avgLevel desc → avgRank desc.
- * Mirrors the private `champTiebreaker` inside computeChampSubstatTotalStats.
- */
-export function champProfileTiebreaker(a: ChampionGearProfile, b: ChampionGearProfile): number {
-  // 1. Highest champion rarity first.
-  if (b.rarity !== a.rarity) return b.rarity - a.rarity
-  // 2. Most gear pieces with an ascension (glyph) stat applied.
-  if (b.ascentionCount !== a.ascentionCount) return b.ascentionCount - a.ascentionCount
-  // 3. Highest average gear level.
-  if (b.avgLevel !== a.avgLevel) return b.avgLevel - a.avgLevel
-  // 4. Highest average gear rank (star grade).
-  const aAvgRank = a.itemCount > 0 ? a.rankSum / a.itemCount : 0
-  const bAvgRank = b.itemCount > 0 ? b.rankSum / b.itemCount : 0
-  return bAvgRank - aAvgRank
-}
+// ── Profile comparator ────────────────────────────────────────────────────────
 
 /**
  * Sort comparator that emulates the in-game default champion roster order

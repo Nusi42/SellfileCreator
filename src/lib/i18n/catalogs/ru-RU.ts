@@ -330,7 +330,6 @@ const overrides: Catalog = {
   gearAnalyticsNotEquippedTitleDesc: "Чемпионы хотя бы с одним пустым слотом снаряжения. Сетка: заполнено = одето, контур = пусто.",
   gearAnalyticsSlotNotUnlocked: "Ещё не разблокировано — улучшите чемпиона для разблокировки",
   gearAnalyticsSortLabel: "Сортировка",
-  gearAnalyticsSortOff: "Выкл.",
   gearAnalyticsSlotModeAll: "Все",
   gearAnalyticsSlotModeArtifacts: "Артефакты",
   gearAnalyticsSlotModeAccessories: "Аксессуары",

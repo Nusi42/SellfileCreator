@@ -336,7 +336,6 @@ const enUS: Catalog = {
   gearAnalyticsNotEquippedTitleDesc: "Champions with at least one empty gear slot. Grid: filled = equipped, outline = empty, dashed = locked (ascend champion).",
   gearAnalyticsSlotNotUnlocked: "Not yet unlocked — ascend champion to unlock",
   gearAnalyticsSortLabel: "Sort",
-  gearAnalyticsSortOff: "Off",
   gearAnalyticsSlotModeAll: "All",
   gearAnalyticsSlotModeArtifacts: "Artifacts",
   gearAnalyticsSlotModeAccessories: "Accessories",

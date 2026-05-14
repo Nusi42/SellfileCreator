@@ -330,7 +330,6 @@ const overrides: Catalog = {
   gearAnalyticsNotEquippedTitleDesc: "Campioni con almeno uno slot equipaggiamento vuoto. Griglia: pieno = equipaggiato, contorno = vuoto.",
   gearAnalyticsSlotNotUnlocked: "Non ancora sbloccato — ascendi il campione per sbloccare",
   gearAnalyticsSortLabel: "Ordina",
-  gearAnalyticsSortOff: "No",
   gearAnalyticsSlotModeAll: "Tutti",
   gearAnalyticsSlotModeArtifacts: "Artefatti",
   gearAnalyticsSlotModeAccessories: "Accessori",
