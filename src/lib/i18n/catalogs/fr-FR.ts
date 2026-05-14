@@ -219,6 +219,17 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "Port auquel l'application se connecte au lancement avec RSL Helper. Par défaut : 8080.",
 
+  simpleModeBasicSfc: "Débutant",
+  simpleModeEndgameSfc: "Mi-jeu / Jeu avancé / Fin de partie",
+  simpleModePresetLabel: "Règles de vente",
+  simpleModeGoExpert: "Mode expert",
+  simpleModeGoExpertTooltip: "Passer à l'interface complète de Sellfile Creator",
+  simpleModeGoSimple: "Mode simple",
+  simpleModeGoSimpleTooltip: "Revenir à la vue simplifiée",
+  simpleModeAutoPush: "Auto-envoi",
+  simpleModeAutoPushOnTooltip: "**Auto-envoi activé** — le sellfile est envoyé à RSL Helper automatiquement à chaque modification. Cliquez pour désactiver.",
+  simpleModeAutoPushOffTooltip: "**Auto-envoi désactivé** — cliquez pour envoyer automatiquement le sellfile à RSL Helper à chaque modification.",
+
   counting: "Comptage…",
 
   titleClearHistory: "Effacer l’historique ?",

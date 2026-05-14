@@ -219,6 +219,17 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Порт",
   rslHelperPortHelper: "Порт, до якого програма підключається при запуску з RSL Helper. За замовчуванням: 8080.",
 
+  simpleModeBasicSfc: "Початківець",
+  simpleModeEndgameSfc: "Середня / Пізня / Фінальна гра",
+  simpleModePresetLabel: "Правила продажу",
+  simpleModeGoExpert: "Режим експерта",
+  simpleModeGoExpertTooltip: "Перейти до повного інтерфейсу Sellfile Creator",
+  simpleModeGoSimple: "Простий режим",
+  simpleModeGoSimpleTooltip: "Повернутися до спрощеного вигляду",
+  simpleModeAutoPush: "Авто-надсилання",
+  simpleModeAutoPushOnTooltip: "**Авто-надсилання увімкнено** — sellfile надсилається до RSL Helper автоматично при кожній зміні. Натисніть, щоб вимкнути.",
+  simpleModeAutoPushOffTooltip: "**Авто-надсилання вимкнено** — натисніть, щоб автоматично надсилати sellfile до RSL Helper при кожній зміні.",
+
   counting: "Підрахунок…",
 
   titleClearHistory: "Очистити історію?",

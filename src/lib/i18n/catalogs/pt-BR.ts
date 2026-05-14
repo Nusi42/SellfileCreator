@@ -219,6 +219,17 @@ const catalog: Catalog = {
   rslHelperPortLabel: "Porta",
   rslHelperPortHelper: "Porta à qual o app se conecta ao iniciar com o RSL Helper. Padrão: 8080.",
 
+  simpleModeBasicSfc: "Iniciante",
+  simpleModeEndgameSfc: "Meio / Jogo tardio / Fim de jogo",
+  simpleModePresetLabel: "Regras de venda",
+  simpleModeGoExpert: "Modo especialista",
+  simpleModeGoExpertTooltip: "Mudar para a interface completa do Sellfile Creator",
+  simpleModeGoSimple: "Modo simples",
+  simpleModeGoSimpleTooltip: "Voltar para a visualização simplificada",
+  simpleModeAutoPush: "Envio automático",
+  simpleModeAutoPushOnTooltip: "**Envio automático ativado** — o sellfile é enviado ao RSL Helper automaticamente a cada alteração. Clique para desativar.",
+  simpleModeAutoPushOffTooltip: "**Envio automático desativado** — clique para enviar o sellfile ao RSL Helper automaticamente a cada alteração.",
+
   counting: "Contando…",
 
   titleClearHistory: "Limpar histórico?",

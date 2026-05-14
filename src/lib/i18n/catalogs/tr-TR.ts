@@ -219,6 +219,17 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "RSL Helper ile başlatılırken uygulamanın bağlandığı port. Varsayılan: 8080.",
 
+  simpleModeBasicSfc: "Başlangıç",
+  simpleModeEndgameSfc: "Orta / Geç / İleri Oyun",
+  simpleModePresetLabel: "Satış Kuralları",
+  simpleModeGoExpert: "Uzman modu",
+  simpleModeGoExpertTooltip: "Sellfile Creator'ın tam arayüzüne geç",
+  simpleModeGoSimple: "Basit mod",
+  simpleModeGoSimpleTooltip: "Basitleştirilmiş görünüme geri dön",
+  simpleModeAutoPush: "Otomatik gönder",
+  simpleModeAutoPushOnTooltip: "**Otomatik gönderme açık** — sellfile her değişiklikte RSL Helper'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
+  simpleModeAutoPushOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte sellfile'ı RSL Helper'a otomatik göndermek için tıklayın.",
+
   counting: "Sayılıyor…",
 
   titleClearHistory: "Geçmiş temizlensin mi?",

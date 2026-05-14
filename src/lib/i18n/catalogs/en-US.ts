@@ -230,7 +230,8 @@ const enUS: Catalog = {
   simpleModeGoSimple: "Simple Mode",
   simpleModeGoSimpleTooltip: "Switch back to the simplified view",
   simpleModeAutoPush: "Auto-Push",
-  simpleModeAutoPushTooltip: "Automatically push the sellfile to RSL Helper whenever it changes",
+  simpleModeAutoPushOnTooltip: "**Auto-Push is on** — your sellfile is sent to RSL Helper automatically on every change. Click to disable.",
+  simpleModeAutoPushOffTooltip: "**Auto-Push is off** — click to send your sellfile to RSL Helper automatically whenever it changes.",
 
   counting: "Counting…",
 

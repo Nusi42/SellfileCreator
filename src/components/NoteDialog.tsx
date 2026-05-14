@@ -1,12 +1,13 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SendIcon from '@mui/icons-material/Send'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
@@ -191,6 +192,7 @@ const NOTE_SUBSTAT_ORDER = new Map<number, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
 )
 // Apply a fixed height and flex column so the content can stretch fully.
+// Simple mode reuses the same height — the preset Collapse toggle just compresses the content area.
 const NOTE_DIALOG_PAPER_SX = {
   height: NOTE_DIALOG_HEIGHT,
   minHeight: NOTE_DIALOG_HEIGHT,
@@ -198,13 +200,6 @@ const NOTE_DIALOG_PAPER_SX = {
   // Make the paper a column layout so content/actions can flex.
   display: 'flex',
   flexDirection: 'column',
-}
-// In simple mode the preset toggle takes ~50px; grow the dialog to compensate so the note content keeps its full height.
-const NOTE_DIALOG_PAPER_SX_SIMPLE = {
-  ...NOTE_DIALOG_PAPER_SX,
-  height: '92vh',
-  minHeight: '92vh',
-  maxHeight: '92vh',
 }
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
@@ -3231,18 +3226,28 @@ export default function NoteDialog({
           />
         )}
         {autoPushExpressEnabled !== undefined && (
-          <MarkdownTooltip markdown={t('simpleModeAutoPushTooltip')}>
+          <MarkdownTooltip markdown={autoPushExpressEnabled ? t('simpleModeAutoPushOnTooltip') : t('simpleModeAutoPushOffTooltip')}>
             {/* key change on each push remounts the button so the CSS animation replays. */}
-            <Button
+            <IconButton
               key={autoPushFlashSeq}
               size="small"
-              variant={autoPushExpressEnabled ? 'contained' : 'outlined'}
-              color="success"
               onClick={() => onToggleAutoPushExpress?.(!autoPushExpressEnabled)}
-              sx={(autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}}
+              aria-label={t('simpleModeAutoPush')}
+              sx={(theme) => ({
+                borderRadius: 1,
+                border: 1,
+                borderColor: autoPushExpressEnabled ? 'success.main' : 'divider',
+                bgcolor: autoPushExpressEnabled ? 'success.main' : 'transparent',
+                color: autoPushExpressEnabled ? theme.palette.success.contrastText : 'text.secondary',
+                '&:hover': {
+                  bgcolor: autoPushExpressEnabled ? 'success.dark' : alpha(theme.palette.success.main, 0.08),
+                  borderColor: 'success.main',
+                },
+                ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}),
+              })}
             >
-              {t('simpleModeAutoPush')}
-            </Button>
+              <SendIcon fontSize="small" />
+            </IconButton>
           </MarkdownTooltip>
         )}
       </Box>
@@ -3555,7 +3560,7 @@ export default function NoteDialog({
         // In express expert mode our custom shrink animation handles the exit visual;
         // suppress MUI's own Fade exit so the paper doesn't flash back to full size afterwards.
         transitionDuration={simpleMode && expertMode ? { exit: 0 } : undefined}
-        PaperProps={{ sx: isSimpleMode ? NOTE_DIALOG_PAPER_SX_SIMPLE : NOTE_DIALOG_PAPER_SX, ref: paperRef }}
+        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX, ref: paperRef }}
       >
       <DialogTitle
         sx={{
@@ -3624,6 +3629,8 @@ export default function NoteDialog({
                 flexDirection: 'column',
                 flex: 1,
                 minHeight: 0,
+                // MUI default overflowY:auto would add a second scrollbar; inner Box handles scrolling.
+                overflow: 'hidden',
               }}
             >
               {notePending ? (
@@ -3663,31 +3670,16 @@ export default function NoteDialog({
               </Box>
             </DialogContent>
             <DialogActions sx={{ p: 0 }}>
-              {/* CSS-grid overlap: both layouts share the same cell so neither causes a height jump.
-                  The one sliding out moves toward the title (negative Y); the one coming in
-                  arrives from the opposite direction. pointer-events are blocked on the hidden layer. */}
-              <Box sx={{ display: 'grid', width: '100%', '& > *': { gridColumn: 1, gridRow: 1 } }}>
-                {/* Express simple layer: slides up (toward title) when expert mode activates. */}
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', p: 1,
-                  opacity: isSimpleMode ? 1 : 0,
-                  transform: isSimpleMode ? 'translateY(0)' : 'translateY(-8px)',
-                  pointerEvents: isSimpleMode ? 'auto' : 'none',
-                  transition: `opacity ${SIMPLE_MODE_TRANSITION_MS}ms ease, transform ${SIMPLE_MODE_TRANSITION_MS}ms ease`,
-                }}>
+              {isSimpleMode ? (
+                // Simple mode: full-width strip [Reset | Connect · AutoPush | Go Expert]
+                <Box sx={{ display: 'flex', alignItems: 'center', p: 1, width: '100%' }}>
                   {simpleActionsNode}
                 </Box>
-                {/* Expert / normal layer: slides in from below when expert mode activates. */}
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
-                  justifyContent: 'space-between', p: 1,
-                  opacity: isSimpleMode ? 0 : 1,
-                  transform: isSimpleMode ? 'translateY(8px)' : 'translateY(0)',
-                  pointerEvents: isSimpleMode ? 'none' : 'auto',
-                  transition: `opacity ${SIMPLE_MODE_TRANSITION_MS}ms ease, transform ${SIMPLE_MODE_TRANSITION_MS}ms ease`,
-                }}>
+              ) : (
+                // Expert / normal mode: left cluster + right close button.
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', p: 1, width: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    {/* Edit button is hidden in express mode — use Go Expert to access editing. */}
+                    {/* Edit button is hidden in simple mode — use Go Expert to access editing. */}
                     {!hideEditButton && !simpleMode ? (
                       <Button
                         size="small"
@@ -3742,7 +3734,7 @@ export default function NoteDialog({
                     {t('close')}
                   </Button>
                 </Box>
-              </Box>
+              )}
             </DialogActions>
           </>
         )
@@ -4284,6 +4276,8 @@ function NoteEditorContent({
           flexDirection: 'column',
           flex: 1,
           minHeight: 0,
+          // MUI default overflowY:auto would add a second scrollbar; inner editor handles scrolling.
+          overflow: 'hidden',
         }}
       >
         {/* Match the markdown editor chrome to the dark preview so text stays legible in edit mode. */}
