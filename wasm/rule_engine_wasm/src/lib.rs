@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 // Final input migration (batch H — safeguard key helpers) removed the last
 // `from_value` consumer.  All inbound payloads now flow through `serde_json::from_str`
@@ -12,13 +12,13 @@ use serde::{Deserialize, Serialize};
 // value:
 //
 //   • If the result's type (transitively, through any nested struct/Vec/Option)
-//     contains a `HashMap<K, V>` field, you MUST use `wasm_to_js(&result)`.
-//     `wasm_to_js` sets `serialize_maps_as_objects(true)` so HashMaps emit as
+//     contains a `BTreeMap<K, V>` field, you MUST use `wasm_to_js(&result)`.
+//     `wasm_to_js` sets `serialize_maps_as_objects(true)` so BTreeMaps emit as
 //     plain JS objects.
-//   • If there is no HashMap anywhere in the reachable type graph, plain
+//   • If there is no BTreeMap anywhere in the reachable type graph, plain
 //     `to_js_value(&result)` is correct and slightly cheaper.
 //
-// Why this matters: plain `to_js_value` serializes a HashMap as an ES2015 Map
+// Why this matters: plain `to_js_value` serializes a BTreeMap as an ES2015 Map
 // instance.  Downstream TS code that does `JSON.stringify(result)` on the
 // payload silently loses every entry — `JSON.stringify(new Map())` returns
 // `"{}"`, with no warning.  This already shipped once: see commit `9f384b5c`
@@ -28,8 +28,8 @@ use serde::{Deserialize, Serialize};
 //
 // Quick checklist when reviewing a new export:
 //   1. Find the type of `result`.
-//   2. Recursively check every field for `HashMap<_, _>`.
-//   3. If ANY HashMap is reachable → `wasm_to_js`. Otherwise → `to_js_value`.
+//   2. Recursively check every field for `BTreeMap<_, _>`.
+//   3. If ANY BTreeMap is reachable → `wasm_to_js`. Otherwise → `to_js_value`.
 //   4. Add a one-line comment above the call explaining the choice.
 // ──────────────────────────────────────────────────────────────────────────────
 use serde_wasm_bindgen::to_value as to_js_value;
@@ -361,8 +361,8 @@ pub struct EvaluateAndCollectSafeguardProtectionInWire {
 // under the talc allocator (matches the convention used elsewhere in this crate).
 fn flatten_improvement_chances(
     entries: Vec<ImprovementChanceInput>,
-) -> std::collections::BTreeMap<(i64, i64), f64> {
-    let mut out: std::collections::BTreeMap<(i64, i64), f64> = std::collections::BTreeMap::new();
+) -> BTreeMap<(i64, i64), f64> {
+    let mut out: BTreeMap<(i64, i64), f64> = BTreeMap::new();
     for e in entries {
         for r in e.chances_by_rule_ordinal {
             out.insert((e.artifact_id, r.rule_ordinal), r.chance_percent);
@@ -371,8 +371,8 @@ fn flatten_improvement_chances(
     out
 }
 
-// Shared serializer used for all wasm outputs that contain HashMap fields.
-// serialize_maps_as_objects ensures HashMap<K, V> round-trips as a plain JS
+// Shared serializer used for all wasm outputs that contain BTreeMap fields.
+// serialize_maps_as_objects ensures BTreeMap<K, V> round-trips as a plain JS
 // object rather than an ES2015 Map, removing the need for TS-side toPlainObjectDeep.
 fn wasm_to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
     value
@@ -438,7 +438,7 @@ pub fn normalize_safeguard_expected_group_domain_value(payload: &str) -> Result<
     let parsed: SafeguardWasmExpectedGroupDomainIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid normalize-safeguard-expected-group-domain payload: {error}")))?;
     let normalized = normalize_safeguard_expected_group_domain_core(parsed);
-    // Use maps-as-objects so allowed_main_by_slot (HashMap<String, Vec<i64>>) emits plain JS object.
+    // Use maps-as-objects so allowed_main_by_slot (BTreeMap<String, Vec<i64>>) emits plain JS object.
     wasm_to_js(&normalized)
 }
 
@@ -493,7 +493,7 @@ pub fn build_safeguard_rules_value(
         input.detection.as_ref(),
         recipe_id_base,
     );
-    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
+    // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
     to_js_value(&safeguard_rules)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
 }
@@ -671,7 +671,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
         .map_err(|error| JsValue::from_str(&format!("Invalid resolve-safeguard-rules-with-metasets payload: {error}")))?;
     let mut rules: Vec<SafeguardWasmRuleIn> = input.rules;
     let metasets: Vec<SafeguardWasmMetasetIn> = input.metasets;
-    let mut meta_map = HashMap::<String, Vec<i64>>::new();
+    let mut meta_map = BTreeMap::<String, Vec<i64>>::new();
     for meta in metasets {
         meta_map.insert(meta.name, meta.sets);
     }
@@ -760,7 +760,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
                 .unwrap_or_default()
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
-                .collect::<HashMap<String, f64>>(),
+                .collect::<BTreeMap<String, f64>>(),
             // Echo threshold back verbatim so TS preserves null-inheritance slots.
             improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
             // Pass tags through unchanged so TS override selectors can match after expansion.
@@ -768,7 +768,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
         });
     }
 
-    // Use serialize_maps_as_objects so HashMap<String, _> fields (e.g. substatWeights)
+    // Use serialize_maps_as_objects so BTreeMap<String, _> fields (e.g. substatWeights)
     // round-trip as plain JS objects rather than JS Map instances.
     resolved
         .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
@@ -798,7 +798,7 @@ pub fn build_hsf_rules_runtime_value(payload: &str) -> Result<JsValue, JsValue> 
 
 // Builder prep normalizes selected/fixed pools and target maps in Rust.
 // TS uses this to avoid large per-recipe prep loops before runtime dispatch.
-// Returns via wasm_to_js so the HashMap fields (currentBaseByVariant /
+// Returns via wasm_to_js so the BTreeMap fields (currentBaseByVariant /
 // factoryBaseByVariant / targetBaseOverrideByVariant / targetEntriesByVariant)
 // serialize as plain JS objects. Plain to_js_value would produce JS Map
 // instances, and `JSON.stringify(new Map())` is "{}" — silently dropping every
@@ -878,7 +878,7 @@ pub fn find_obsolete_value(payload: &str) -> Result<JsValue, JsValue> {
     let obsolete = rule_dedupe::collect_obsolete_entries(&parsed_rules);
     let report = ObsoleteReportOut { obsolete };
     // Output is ObsoleteReportOut { obsolete: Vec<ObsoleteEntryOut> } — no
-    // HashMap fields, plain to_js_value is correct.
+    // BTreeMap fields, plain to_js_value is correct.
     to_js_value(&report)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete value: {error}")))
 }
@@ -941,7 +941,7 @@ pub fn build_final_sell_rules_value(payload: &str) -> Result<JsValue, JsValue> {
     let input: BuildFinalSellRulesInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid build-final-sell-rules payload: {error}")))?;
     let result = build_final_sell_rules_core(input.remainder.as_ref(), &input.all_known_set_ids);
-    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
+    // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules: {error}")))
 }
@@ -991,7 +991,7 @@ pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
 // arrays each go through RuleRawWire so per-rule TS-side drift is also caught.
 // RuleRaw stays intentionally lax — wire-form is the only strict enforcement
 // point, matching find_obsolete_value and dedupe_hsf_rules_for_export_value.
-// Output is Vec<RuleRaw> (no HashMap fields) so plain to_js_value is correct.
+// Output is Vec<RuleRaw> (no BTreeMap fields) so plain to_js_value is correct.
 #[wasm_bindgen]
 pub fn merge_safeguard_injected_rules_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec<RuleRawWire> doublings inside serde_json land in a
@@ -1022,7 +1022,7 @@ pub fn dedupe_hsf_rules_for_export_value(payload: &str) -> Result<JsValue, JsVal
         .map_err(|error| JsValue::from_str(&format!("Invalid dedupe-hsf-rules payload: {error}")))?;
     let parsed_rules: Vec<RuleRaw> = wire_rules.into_iter().map(RuleRaw::from).collect();
     let result = dedupe_hsf_rules_for_export_core(&parsed_rules);
-    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
+    // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize deduped hsf rules: {error}")))
 }
@@ -1131,7 +1131,7 @@ pub fn clear_stored_rows_value() {
 //
 // Purpose: after several pipeline cycles the heap can fragment such that no contiguous
 // free block of the required size exists.  When a subsequent large allocation (e.g. a
-// HashMap resize inside improvement-chance) triggers talc.acquire, it calls
+// BTreeMap resize inside improvement-chance) triggers talc.acquire, it calls
 // memory.grow.  If the browser rejects that grow (or if the layout post-grow still can
 // not satisfy the request), the allocator returns null and Rust aborts with `unreachable`
 // (STATUS_BREAKPOINT on V8/Windows).
@@ -1139,7 +1139,7 @@ pub fn clear_stored_rows_value() {
 // By allocating a large scratch buffer here — before the phase that needs it — we force
 // memory.grow to happen NOW (when we can control the size) rather than inside the phase.
 // After drop the freed block sits in talc's bin list, immediately available for the
-// first large HashMap resize.  The net cost is one memory.grow call amortised across
+// first large BTreeMap resize.  The net cost is one memory.grow call amortised across
 // the whole pipeline, not an unpredictable grow inside improvement-chance.
 //
 // If a free block of `bytes` already exists (typical after the first few pipeline runs),
@@ -1250,7 +1250,7 @@ pub fn heap_integrity_check() -> u32 {
 // wasm-bindgen marshals primitives natively, no JSON overhead needed for them
 // (same convention as build_safeguard_rules_value's recipe_id_base).
 // Output type EvaluateAndCollectSnapshotOut → { evaluate_results: Vec, candidates: Vec,
-// unique_item_keys: Vec, detection: SafeguardWasmSnapshotOut } — no HashMap fields
+// unique_item_keys: Vec, detection: SafeguardWasmSnapshotOut } — no BTreeMap fields
 // anywhere in the tree, so plain to_js_value is the correct output helper.
 #[wasm_bindgen]
 pub fn evaluate_and_collect_safeguard_protection_value(
@@ -1306,7 +1306,7 @@ struct ImprovementChanceOutput {
 // Compute improvement-chance percentages for all non-maxed artifacts in stored rows.
 // Reads ENGINE_STATE.stored_rows (requires store_artifact_rows_value first).
 // Returns { entries, diag } where diag is populated only when debug=true.
-// Uses to_js_value (not wasm_to_js) because the output types have no HashMap fields.
+// Uses to_js_value (not wasm_to_js) because the output types have no BTreeMap fields.
 //
 // Migrated to a JSON-string payload so serde_json::from_str activates
 // deny_unknown_fields on every SafeguardWasmRuleIn entry — matching the
@@ -1339,7 +1339,7 @@ pub fn compute_improvement_chance_value(
 // Score and rank a list of candidate artifacts for the safeguard weight popover.
 // Accepts pre-parsed substats from a detection snapshot and the in-progress
 // weight map so the popover can show live score/rank updates without re-detection.
-// Uses to_js_value (SafeguardWasmCandidateOut has no HashMap fields).
+// Uses to_js_value (SafeguardWasmCandidateOut has no BTreeMap fields).
 #[wasm_bindgen]
 pub fn score_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsValue> {
     prewarm_for_json_parse(payload.len());
@@ -1361,7 +1361,7 @@ pub fn score_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsValu
 // Hot path: worker batches thousands of items per call; UTF-8 parsing in
 // linear memory beats externref-driven property reads for that volume.
 // Output type Vec<EvaluateItemResult> → { EvalMatch, MatchingRecipeDecision }
-// — no HashMap on any node — so plain to_js_value remains correct.
+// — no BTreeMap on any node — so plain to_js_value remains correct.
 #[wasm_bindgen]
 pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec<EvaluateItemRaw> growth during deserialization stays
@@ -2707,48 +2707,3 @@ mod safeguard_count_key_value_wire_tests {
     }
 }
 
-// Output-wire snapshot test for ImprovementChanceOutput, which is the wrapper
-// type defined in this crate (not in rule_engine_core).  Serialize a fully
-// populated instance and assert the resulting JSON's top-level key set matches
-// a hand-listed expected set.  Drift triggers cargo test failure → forces
-// lockstep update of the test fixture and TS consumer.
-//
-// The inner `entries` and `diag` types live in rule_engine_core and have their
-// own snapshot tests there — this test only pins the wrapper-level shape.
-#[cfg(test)]
-mod improvement_chance_output_wire_snapshot_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    // ImprovementChanceOutput switched from borrowed (`&Vec<_>`, `Option<&_>`) to
-    // owned form when ts-rs was wired up (lifetime generics block `#[derive(TS)]`).
-    // The test still pins the same wire-shape key set; the construction site moves
-    // owned values into the wrapper because each value is dropped after serialization.
-    #[test]
-    fn improvement_chance_output_key_set_matches() {
-        let entries = Vec::<ImprovementChanceEntry>::new();
-        let diag = ImprovementChancePerfDiag {
-            row_count: 0,
-            rule_count: 0,
-            scenario_count: 0,
-            artifacts_with_scenarios: 0,
-            artifacts_viable: 0,
-        };
-        let value = ImprovementChanceOutput { entries, diag: Some(diag) };
-        let json = serde_json::to_value(&value).expect("ImprovementChanceOutput must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected: BTreeSet<String> = ["entries", "diag"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-}

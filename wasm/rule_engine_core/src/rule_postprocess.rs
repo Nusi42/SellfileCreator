@@ -414,13 +414,13 @@ pub fn finalize_generated_rules_core(
         .collect::<Vec<_>>();
 
     // Group by canonical key to detect strict epic+legendary duplicates.
-    let mut groups = HashMap::<rule_dedupe::CollapseCanonicalKey, Vec<usize>>::new();
+    let mut groups = BTreeMap::<rule_dedupe::CollapseCanonicalKey, Vec<usize>>::new();
     for (idx, entry) in entries.iter().enumerate() {
         let key = rule_dedupe::collapse_canonical_key(&entry.rule);
         groups.entry(key).or_default().push(idx);
     }
 
-    let mut replacements = HashMap::<usize, GeneratedRuleEntry>::new();
+    let mut replacements = BTreeMap::<usize, GeneratedRuleEntry>::new();
     let mut removed = HashSet::<usize>::new();
     for indices in groups.values() {
         if indices.len() < 2 {

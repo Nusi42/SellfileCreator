@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
@@ -29,7 +29,7 @@ pub(crate) struct ExecuteHsfComboRuntimeIn {
     pub(crate) combo: Vec<i32>,
     pub(crate) required_v: Vec<i32>,
     pub(crate) aggregate_targets_locked: bool,
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     pub(crate) target_entries: Vec<Option<BuildHsfComboTargetEntryIn>>,
     pub(crate) base_vals: Vec<i32>,
     pub(crate) base_rule: RuleRaw,

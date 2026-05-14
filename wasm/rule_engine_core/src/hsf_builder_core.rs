@@ -2,7 +2,7 @@
 // These are pure Rust functions with no wasm_bindgen annotations;
 // lib.rs re-exports everything via `pub(crate) use hsf_builder_core::*` so
 // sibling execution modules continue to access them via `crate::*` unchanged.
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 // ts-rs trait import enables `#[derive(TS)]` on the few hsf-builder input types
@@ -131,7 +131,7 @@ pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
 // Per-variant roll-bound payload used for combo vector normalization.
 // When `not` is true the stat must be absent (HSF Condition "¬"); min/max/any are ignored.
 //
-// ts-rs export: nested by BuildHsfRulesRuntimeIn.substatRollBoundsV (HashMap value).
+// ts-rs export: nested by BuildHsfRulesRuntimeIn.substatRollBoundsV (BTreeMap value).
 // Fields promoted to `pub` so ts-rs can export them.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -146,7 +146,7 @@ pub struct BuildHsfComboBoundsIn {
 
 // Per-variant target override payload aligned to combo index order.
 //
-// ts-rs export: nested by BuildHsfRulesRuntimeIn.targetEntriesByVariant (HashMap value).
+// ts-rs export: nested by BuildHsfRulesRuntimeIn.targetEntriesByVariant (BTreeMap value).
 // Fields promoted to `pub` so ts-rs can export them.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -164,7 +164,7 @@ pub(crate) struct BuildHsfComboVectorsIn {
     pub(crate) required_v: Vec<i32>,
     pub(crate) aggregate_targets_locked: bool,
     #[serde(deserialize_with = "deserialize_i64_key_map")]
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     pub(crate) target_entries: Vec<Option<BuildHsfComboTargetEntryIn>>,
 }
 
@@ -259,7 +259,7 @@ pub(crate) struct BuildHsfPreflightFlagsIn {
     pub(crate) rarity_code: i64,
     pub(crate) rarity_mode: Option<String>,
     #[serde(deserialize_with = "deserialize_i64_key_map")]
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
 }
 
 // Output payload keeps preflight decisions in one rust-owned computation.
@@ -909,10 +909,10 @@ pub(crate) fn build_hsf_combo_policy_vectors_core(
 // Borrowed-argument factory helper avoids map cloning in branch runtime loops.
 pub(crate) fn build_hsf_factory_combo_rows_from_parts(
     combo: &[i32],
-    current_base_by_variant: &HashMap<i64, i32>,
-    factory_base_by_variant: &HashMap<i64, Option<i32>>,
-    target_base_override_by_variant: &HashMap<i64, Option<i32>>,
-    substat_roll_bounds_v: &HashMap<i64, BuildHsfComboBoundsIn>,
+    current_base_by_variant: &BTreeMap<i64, i32>,
+    factory_base_by_variant: &BTreeMap<i64, Option<i32>>,
+    target_base_override_by_variant: &BTreeMap<i64, Option<i32>>,
+    substat_roll_bounds_v: &BTreeMap<i64, BuildHsfComboBoundsIn>,
 ) -> BuildHsfFactoryComboRowsOut {
     // Preserve combo index order so callers can align emitted substats exactly.
     let mut base_vals = Vec::<i32>::with_capacity(combo.len());

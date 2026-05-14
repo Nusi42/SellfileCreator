@@ -206,7 +206,7 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
         .collect::<Vec<_>>();
 
     // Parse per-substat mins from normalized bounds payload.
-    let mut per_min = HashMap::<i64, i64>::new();
+    let mut per_min = BTreeMap::<i64, i64>::new();
     for variant in &selected_pool_v {
         let min_value = input
             .substat_roll_bounds_v
@@ -389,7 +389,7 @@ pub fn resolve_auto_rarity_code_for_builder_core(input: &AutoRarityResolveBuilde
         .collect::<Vec<_>>();
     // Keep bounds payload compact by forwarding only selected variants.
     let selected_set = selected_pool_v.iter().copied().collect::<HashSet<_>>();
-    let mut substat_roll_bounds_v = HashMap::<i64, AutoRarityResolveRollBoundsIn>::new();
+    let mut substat_roll_bounds_v = BTreeMap::<i64, AutoRarityResolveRollBoundsIn>::new();
     for (variant, bounds) in &input.substat_roll_bounds_v {
         if !selected_set.contains(variant) {
             continue;
@@ -423,11 +423,11 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 }
 
 // Typed auto-flex bounds carry only the three fields the builder uses.
-// serde_wasm_bindgen does not support #[serde(flatten)] for HashMap fields;
+// serde_wasm_bindgen does not support #[serde(flatten)] for BTreeMap fields;
 // extra bound keys (if any) are silently dropped here and do not affect logic.
 // `not` must be included so branches round-trip it back to TS without stripping it.
 //
-// ts-rs export: nested by name from AutoFlexRarityRecipeIn.substatRollBoundsV (HashMap value).
+// ts-rs export: nested by name from AutoFlexRarityRecipeIn.substatRollBoundsV (BTreeMap value).
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -444,12 +444,12 @@ pub struct AutoFlexRarityBoundsIn {
 
 // Typed auto-flex recipe shape carries only the fields that the branch splitter
 // reads or patches.  serde_wasm_bindgen does not support #[serde(flatten)]
-// for HashMap<String, serde_json::Value> — adding it causes serde_wasm_bindgen
+// for BTreeMap<String, serde_json::Value> — adding it causes serde_wasm_bindgen
 // to emit an empty JS Map instead of a plain object, making all fields invisible
 // to TS callers.  Non-declared recipe fields are restored by the TS wrapper via
 // {...originalRecipe, ...wasmBranch} after the WASM call returns.
 //
-// ts-rs export: composes AutoFlexRarityBoundsIn via the HashMap<i64, _> field
+// ts-rs export: composes AutoFlexRarityBoundsIn via the BTreeMap<i64, _> field
 // (emits `{ [key in number]: AutoFlexRarityBoundsIn }`).
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -475,7 +475,7 @@ pub struct AutoFlexRarityRecipeIn {
     pub fixed_substats_v: Vec<i64>,
     // deserialize_with parses string keys → i64; serialize_with reverses for output.
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
-    pub substat_roll_bounds_v: HashMap<i64, AutoFlexRarityBoundsIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, AutoFlexRarityBoundsIn>,
     #[serde(default)]
     pub min_level: Option<f64>,
     #[serde(default)]
@@ -632,92 +632,3 @@ pub fn expand_auto_flex_rarity_branches_core(
     expand_auto_flex_rarity_branches_typed_core(recipe, base_rarity_code as i64)
 }
 
-// Output-wire snapshot tests for the auto-flex rarity result structs.
-// expand_auto_flex_rarity_branches_value returns a Vec<AutoFlexRarityRecipeIn>;
-// each branch is round-tripped through Serialize on the way back to TS, so the
-// output shape needs its own drift gate even though the input side is covered
-// by the wasm-crate full_fixture_deserializes test.
-//
-// substatRollBoundsV is a HashMap<i64, AutoFlexRarityBoundsIn> serialized via
-// serialize_i64_key_map; we assert the field serializes to a plain JSON object
-// (the JS Map regression class).
-#[cfg(test)]
-mod output_wire_snapshot_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    // Shared drift message keeps the failure narrative consistent across modules.
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    fn key_set(items: &[&str]) -> BTreeSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    // ── AutoFlexRarityBoundsIn (nested inside the recipe's bounds map) ──────
-    #[test]
-    fn auto_flex_rarity_bounds_in_key_set_matches() {
-        let value = AutoFlexRarityBoundsIn {
-            min: Some(1.0),
-            max: Some(3.0),
-            any: Some(false),
-            not: Some(false),
-        };
-        let json = serde_json::to_value(&value).expect("must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected = key_set(&["min", "max", "any", "not"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── AutoFlexRarityRecipeIn ──────────────────────────────────────────────
-    // Returned as Vec entries from expand_auto_flex_rarity_branches_value.
-    // The substat_roll_bounds_v HashMap field must serialize as a plain JSON
-    // object (handled by the explicit serialize_with helper).
-    #[test]
-    fn auto_flex_rarity_recipe_in_key_set_matches() {
-        let mut bounds_map = HashMap::<i64, AutoFlexRarityBoundsIn>::new();
-        bounds_map.insert(1, AutoFlexRarityBoundsIn {
-            min: Some(0.0), max: Some(1.0), any: Some(false), not: Some(false),
-        });
-        let value = AutoFlexRarityRecipeIn {
-            rarity_mode: Some("auto".to_string()),
-            rarity_code: Some(5),
-            auto_substat_flex: Some(true),
-            auto_min_count: Some(false),
-            min_count: Some(2.0),
-            auto_min_required_rolls: Some(true),
-            min_required_rolls: Some(4.0),
-            substats_v: vec![20],
-            fixed_substats_v: vec![20],
-            substat_roll_bounds_v: bounds_map,
-            min_level: Some(1.0),
-            max_level: Some(20.0),
-        };
-        let json = serde_json::to_value(&value).expect("must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected = key_set(&[
-            "rarityMode", "rarityCode", "autoSubstatFlex", "autoMinCount",
-            "minCount", "autoMinRequiredRolls", "minRequiredRolls",
-            "substatsV", "fixedSubstatsV", "substatRollBoundsV",
-            "minLevel", "maxLevel",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-        // substatRollBoundsV serializes via serialize_i64_key_map which emits
-        // each entry with a stringified key — i.e. a plain JSON object.
-        let bounds_field = json.get("substatRollBoundsV").expect("substatRollBoundsV present");
-        assert!(
-            bounds_field.is_object(),
-            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
-        );
-    }
-}

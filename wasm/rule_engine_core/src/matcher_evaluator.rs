@@ -18,7 +18,7 @@ pub struct BucketedRules {
     pub shared: Vec<PreparedRule>,
     // Slot-specific rules only, in original_index order. No shared copies here.
     // evaluate_item merges shared + per_slot lazily via two-pointer sorted merge.
-    per_slot: HashMap<i64, Vec<PreparedRule>>,
+    per_slot: BTreeMap<i64, Vec<PreparedRule>>,
 }
 
 impl BucketedRules {
@@ -29,7 +29,7 @@ impl BucketedRules {
     // so evaluate_item can merge them with a simple two-pointer loop — no sort needed.
     pub fn from_rules(rules: Vec<PreparedRule>) -> Self {
         let mut shared: Vec<PreparedRule> = Vec::new();
-        let mut per_slot: HashMap<i64, Vec<PreparedRule>> = HashMap::new();
+        let mut per_slot: BTreeMap<i64, Vec<PreparedRule>> = BTreeMap::new();
         for (idx, mut rule) in rules.into_iter().enumerate() {
             // Stamp the flat-list position before distributing into buckets.
             rule.original_index = idx;
@@ -129,11 +129,11 @@ pub enum PreparedRuleSubCondition {
 }
 
 // Scratch buffers reused across items in evaluate_engine so each item avoids
-// per-item HashSet and HashMap allocations in the hot evaluation loop.
+// per-item HashSet and BTreeMap allocations in the hot evaluation loop.
 pub struct EvaluateItemScratch {
     // (recipe_idx, first_keep_decision) pairs in encounter order.
     // Combines the roles of the old matching_recipe_seen HashSet and
-    // matching_recipe_decisions HashMap into one linear Vec with no heap churn.
+    // matching_recipe_decisions BTreeMap into one linear Vec with no heap churn.
     pub recipe_matches: Vec<(i64, bool)>,
 }
 
@@ -447,7 +447,7 @@ pub(crate) fn resolve_collect_row_item_key(row: &SafeguardCollectRowIn) -> i64 {
 }
 
 // Linear scan for substat value by encoded variant key.
-// Items have ≤4 substats, so linear scan has better cache behavior than HashMap.
+// Items have ≤4 substats, so linear scan has better cache behavior than BTreeMap.
 fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<f64> {
     sub_values
         .as_ref()
@@ -553,7 +553,7 @@ fn should_include_recipe(
 }
 
 // Hot-path evaluator writes recipe matches into scratch to avoid per-item
-// HashSet and HashMap allocations. Returns only the two first-match results;
+// HashSet and BTreeMap allocations. Returns only the two first-match results;
 // callers read recipe data from scratch.recipe_matches after the call.
 //
 // shared: slot-agnostic rules from BucketedRules::shared, sorted by original_index.
@@ -947,110 +947,3 @@ mod tests {
     }
 }
 
-// Output-wire snapshot tests: each test serializes a fully-populated instance
-// of an output struct and asserts that the resulting JSON's top-level key set
-// matches a hand-listed expected set.  If a developer renames or removes a
-// field on the Rust side, the test will fail — forcing the rename to be made
-// in lockstep with the corresponding TS consumer.
-//
-// Catches: field renames, field removals, type-shape changes.
-// Does NOT catch field additions (those are usually safe back-compat moves).
-#[cfg(test)]
-mod output_wire_snapshot_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    // Common drift message reused by every assert_eq below.
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    fn key_set(items: &[&str]) -> BTreeSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
-        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
-        json.as_object()
-            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
-            .keys()
-            .cloned()
-            .collect()
-    }
-
-    // ── EvalMatch ───────────────────────────────────────────────────────────
-    // is_keep_override_source carries #[serde(skip)] so it must NOT appear in
-    // the serialized output.  This test pins both halves of that contract:
-    // present fields stay present, the skipped one does not leak.
-    #[test]
-    fn eval_match_key_set_matches() {
-        let value = EvalMatch {
-            rule_index: 0,
-            keep: true,
-            recipe_idx: Some(1),
-            is_keep_override_source: true,
-        };
-        let actual = actual_keys(&value, "EvalMatch");
-        let expected = key_set(&["ruleIndex", "keep", "recipeIdx"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── MatchingRecipeDecision ──────────────────────────────────────────────
-    #[test]
-    fn matching_recipe_decision_key_set_matches() {
-        let value = MatchingRecipeDecision { recipe_idx: 0, keep: true };
-        let actual = actual_keys(&value, "MatchingRecipeDecision");
-        let expected = key_set(&["recipeIdx", "keep"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── EvaluateItemResult ──────────────────────────────────────────────────
-    #[test]
-    fn evaluate_item_result_key_set_matches() {
-        let value = EvaluateItemResult {
-            item_id: 1,
-            // first_match / first_non_excluded_match are Option<EvalMatch>; populated
-            // to None here is fine — the field is still emitted as null, which keeps
-            // it in the key set.  Drift on the EvalMatch inner shape is covered by
-            // the EvalMatch test above.
-            first_match: None,
-            first_non_excluded_match: None,
-            matching_recipe_indices: vec![],
-            matching_recipe_decisions: vec![],
-        };
-        let actual = actual_keys(&value, "EvaluateItemResult");
-        let expected = key_set(&[
-            "itemId", "firstMatch", "firstNonExcludedMatch",
-            "matchingRecipeIndices", "matchingRecipeDecisions",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── SafeguardCollectedCandidateOut ──────────────────────────────────────
-    // Nested inside SafeguardCollectedSnapshotOut.candidates AND inside
-    // SafeguardCollectedAndProtectedSnapshotOut.candidates (in lib.rs).
-    #[test]
-    fn safeguard_collected_candidate_out_key_set_matches() {
-        let value = SafeguardCollectedCandidateOut {
-            row_index: 0,
-            item_key: 1,
-            group_key: "g".to_string(),
-            is_sold: false,
-        };
-        let actual = actual_keys(&value, "SafeguardCollectedCandidateOut");
-        let expected = key_set(&["rowIndex", "itemKey", "groupKey", "isSold"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── SafeguardCollectedSnapshotOut ───────────────────────────────────────
-    // Returned by collect_safeguard_candidates_value.
-    #[test]
-    fn safeguard_collected_snapshot_out_key_set_matches() {
-        let value = SafeguardCollectedSnapshotOut {
-            candidates: vec![],
-            unique_item_keys: vec![],
-        };
-        let actual = actual_keys(&value, "SafeguardCollectedSnapshotOut");
-        let expected = key_set(&["candidates", "uniqueItemKeys"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-}

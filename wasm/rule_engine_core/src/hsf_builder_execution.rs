@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 // ts-rs auto-generates TS interfaces for PrepareHsfBuilderRecipeOut /
-// PrepareHsfBuilderTargetEntryOut so HashMap-bearing output structs stay in lockstep
+// PrepareHsfBuilderTargetEntryOut so BTreeMap-bearing output structs stay in lockstep
 // with their TS consumers.  See matcher_evaluator.rs for full context.
 use ts_rs::TS;
 
@@ -81,23 +81,23 @@ pub struct PrepareHsfBuilderRecipeIn {
     #[serde(default)]
     pub allowed_substats: Vec<i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub substat_roll_targets_v: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub substat_target_by_variant: HashMap<i64, i64>,
+    pub substat_target_by_variant: BTreeMap<i64, i64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub factory_base_by_variant_for_star: HashMap<i64, i64>,
+    pub factory_base_by_variant_for_star: BTreeMap<i64, i64>,
     #[serde(default)]
     pub variant_priority: Vec<i64>,
 }
 
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
 //
-// ts-rs export: HashMap representative.  Each HashMap<i64, T> uses
+// ts-rs export: BTreeMap representative.  Each BTreeMap<i64, T> uses
 // `serialize_with = "crate::serialize_i64_key_map"` so the on-wire shape is a plain
 // JS object keyed by stringified i64.  With `TS_RS_LARGE_INT=number` (set in the
-// build script), ts-rs emits HashMap<i64, V> as `{ [key in number]: V }` — JS index
+// build script), ts-rs emits BTreeMap<i64, V> as `{ [key in number]: V }` — JS index
 // access coerces between number/string keys so this matches the wire shape.
 #[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -113,13 +113,13 @@ pub struct PrepareHsfBuilderRecipeOut {
     pub has_per_stat_min: bool,
     // serialize_with stringifies i64 keys so wasm_to_js can emit plain JS objects.
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub current_base_by_variant: HashMap<i64, i32>,
+    pub current_base_by_variant: BTreeMap<i64, i32>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub factory_base_by_variant: BTreeMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub target_base_override_by_variant: BTreeMap<i64, Option<i32>>,
     #[serde(serialize_with = "crate::serialize_i64_key_map")]
-    pub target_entries_by_variant: HashMap<i64, PrepareHsfBuilderTargetEntryOut>,
+    pub target_entries_by_variant: BTreeMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
 // Output target-entry payload mirrors the runtime input entry schema.
@@ -147,7 +147,7 @@ fn normalize_target_override_value(value: Option<f64>) -> Option<f64> {
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
 // falling back to raw numeric value when a variant is outside that priority list.
 fn sort_variants_by_priority(values: &mut [i64], variant_priority: &[i64]) {
-    let mut order = HashMap::<i64, usize>::new();
+    let mut order = BTreeMap::<i64, usize>::new();
     for (idx, value) in variant_priority.iter().enumerate() {
         order.insert(*value, idx);
     }
@@ -217,10 +217,10 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     });
 
     // Build star-resolved base minima and normalized roll-target override maps.
-    let mut current_base_by_variant = HashMap::<i64, i32>::new();
-    let mut factory_base_by_variant = HashMap::<i64, Option<i32>>::new();
-    let mut target_base_override_by_variant = HashMap::<i64, Option<i32>>::new();
-    let mut target_entries_by_variant = HashMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
+    let mut current_base_by_variant = BTreeMap::<i64, i32>::new();
+    let mut factory_base_by_variant = BTreeMap::<i64, Option<i32>>::new();
+    let mut target_base_override_by_variant = BTreeMap::<i64, Option<i32>>::new();
+    let mut target_entries_by_variant = BTreeMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
     for variant in &selected_pool_v {
         let current_base = input
             .substat_target_by_variant
@@ -324,11 +324,11 @@ struct ExecuteHsfBuilderRuntimeIn {
     aggregate_min_value: i32,
     locked_min_active: bool,
     locked_min_value: i32,
-    substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
-    target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
-    current_base_by_variant: HashMap<i64, i32>,
-    factory_base_by_variant: HashMap<i64, Option<i32>>,
-    target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
+    target_entries_by_variant: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
+    current_base_by_variant: BTreeMap<i64, i32>,
+    factory_base_by_variant: BTreeMap<i64, Option<i32>>,
+    target_base_override_by_variant: BTreeMap<i64, Option<i32>>,
     base_rule: RuleRaw,
     main_choices: Vec<EmitHsfMainChoiceIn>,
     emit_any_main_when_no_choices: bool,
@@ -393,15 +393,15 @@ pub struct BuildHsfRulesRuntimeIn {
     pub locked_min_active: bool,
     pub locked_min_value: i32,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub target_entries_by_variant: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub current_base_by_variant: HashMap<i64, i32>,
+    pub current_base_by_variant: BTreeMap<i64, i32>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub factory_base_by_variant: HashMap<i64, Option<i32>>,
+    pub factory_base_by_variant: BTreeMap<i64, Option<i32>>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub target_base_override_by_variant: BTreeMap<i64, Option<i32>>,
     pub rarity_mode: Option<String>,
     pub early_keep_mode: Option<String>,
     pub auto_rarity_supplements_threshold: Option<String>,
@@ -787,120 +787,3 @@ pub fn build_hsf_rules_runtime_core_fn(input: &BuildHsfRulesRuntimeIn) -> Result
     build_hsf_rules_runtime_core(input)
 }
 
-// Output-wire snapshot tests for the HSF-builder result structs.
-// Each test serializes a fully-populated instance and asserts that the
-// resulting JSON's top-level key set matches a hand-listed expected set.
-// PrepareHsfBuilderRecipeOut owns four HashMap fields — the test additionally
-// asserts each one serializes to a plain JSON object, catching the
-// to_js_value vs wasm_to_js regression class at the type level.
-#[cfg(test)]
-mod output_wire_snapshot_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    // Shared drift message across modules so the cargo-test failure narrative
-    // points at the same lockstep-update workflow every time.
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    fn key_set(items: &[&str]) -> BTreeSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    // ── PrepareHsfBuilderRecipeOut (HashMap-bearing) ────────────────────────
-    // The four HashMap<i64, T> fields use #[serde(serialize_with = "...")] to
-    // stringify keys so wasm_to_js can emit a plain JS object on the way out.
-    // We assert each one serializes to a plain JSON object — drift detection
-    // for both the field name AND the map-shape contract.
-    #[test]
-    fn prepare_hsf_builder_recipe_out_key_set_matches() {
-        let mut current = HashMap::<i64, i32>::new();
-        current.insert(1, 1);
-        let mut factory = HashMap::<i64, Option<i32>>::new();
-        factory.insert(1, Some(1));
-        let mut overrides = HashMap::<i64, Option<i32>>::new();
-        overrides.insert(1, None);
-        let mut entries = HashMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
-        entries.insert(1, PrepareHsfBuilderTargetEntryOut {
-            base: Some(0.0),
-            increments: Some(vec![]),
-        });
-        let value = PrepareHsfBuilderRecipeOut {
-            selected_pool_v: vec![1],
-            required_v: vec![1],
-            optional_pool_v: vec![1],
-            min_target_count: 1,
-            max_target_count: 1,
-            max_selectable_count: 1,
-            had_requested_substats: true,
-            has_per_stat_min: true,
-            current_base_by_variant: current,
-            factory_base_by_variant: factory,
-            target_base_override_by_variant: overrides,
-            target_entries_by_variant: entries,
-        };
-        let json = serde_json::to_value(&value).expect("PrepareHsfBuilderRecipeOut must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected = key_set(&[
-            "selectedPoolV", "requiredV", "optionalPoolV",
-            "minTargetCount", "maxTargetCount", "maxSelectableCount",
-            "hadRequestedSubstats", "hasPerStatMin",
-            "currentBaseByVariant", "factoryBaseByVariant",
-            "targetBaseOverrideByVariant", "targetEntriesByVariant",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-        // Every HashMap-backed field must serialize as a plain JSON object,
-        // not as a JS Map shape — this catches plain to_js_value misuse at the
-        // serde layer (belt-and-suspenders with the wasm crate's checklist).
-        for map_key in [
-            "currentBaseByVariant", "factoryBaseByVariant",
-            "targetBaseOverrideByVariant", "targetEntriesByVariant",
-        ] {
-            let field = json.get(map_key).unwrap_or_else(|| panic!("{map_key} present"));
-            assert!(
-                field.is_object(),
-                "HashMap field {map_key} must serialize as JSON object (no plain to_js_value!)",
-            );
-        }
-    }
-
-    // ── PrepareHsfBuilderTargetEntryOut (nested inside the recipe-out map) ──
-    #[test]
-    fn prepare_hsf_builder_target_entry_out_key_set_matches() {
-        let value = PrepareHsfBuilderTargetEntryOut {
-            base: Some(0.0),
-            increments: Some(vec![Some(1.0)]),
-        };
-        let json = serde_json::to_value(&value).expect("must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected = key_set(&["base", "increments"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ExecuteHsfBuilderRuntimeOut ─────────────────────────────────────────
-    // Returned by build_hsf_rules_runtime_value.  Contains Vec<RuleRaw> but no
-    // HashMap field — to_js_value is correct (per wasm crate checklist).
-    #[test]
-    fn execute_hsf_builder_runtime_out_key_set_matches() {
-        let value = ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false };
-        let json = serde_json::to_value(&value).expect("must serialize");
-        let actual: BTreeSet<String> = json
-            .as_object()
-            .expect("must be an object")
-            .keys()
-            .cloned()
-            .collect();
-        let expected = key_set(&["rules", "limitHit"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-}

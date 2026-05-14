@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use serde::Deserialize;
 
@@ -56,11 +56,11 @@ pub(crate) struct ExecuteHsfBranchRuntimeIn {
     pub(crate) aggregate_min_value: i32,
     pub(crate) locked_min_active: bool,
     pub(crate) locked_min_value: i32,
-    pub(crate) substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
-    pub(crate) target_entries_by_variant: HashMap<i64, BuildHsfComboTargetEntryIn>,
-    pub(crate) current_base_by_variant: HashMap<i64, i32>,
-    pub(crate) factory_base_by_variant: HashMap<i64, Option<i32>>,
-    pub(crate) target_base_override_by_variant: HashMap<i64, Option<i32>>,
+    pub(crate) substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
+    pub(crate) target_entries_by_variant: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
+    pub(crate) current_base_by_variant: BTreeMap<i64, i32>,
+    pub(crate) factory_base_by_variant: BTreeMap<i64, Option<i32>>,
+    pub(crate) target_base_override_by_variant: BTreeMap<i64, Option<i32>>,
     pub(crate) base_rule: RuleRaw,
     pub(crate) main_choices: Vec<EmitHsfMainChoiceIn>,
     pub(crate) emit_any_main_when_no_choices: bool,
@@ -165,7 +165,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
         .collect::<Vec<_>>();
 
     // Cache per-combo factory profiles so repeated levels reuse base/collapse vectors.
-    let mut combo_profile_cache = HashMap::<Vec<i32>, HsfComboCollapseProfileIn>::new();
+    let mut combo_profile_cache = BTreeMap::<Vec<i32>, HsfComboCollapseProfileIn>::new();
     // Sentinel-collapsed combos are skipped for later levels in the same branch.
     let mut sentinel_collapsed = HashSet::<Vec<i32>>::new();
     // Output rows preserve level->combo emission order for stable downstream sorting.
@@ -301,7 +301,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
                 .current_base_by_variant
                 .iter()
                 .map(|(key, value)| (*key, *value as i64))
-                .collect::<HashMap<_, _>>(),
+                .collect::<BTreeMap<_, _>>(),
             substat_roll_bounds_v: input.substat_roll_bounds_v.clone(),
             base_rule: fallback_base_rule,
             main_choices: input.main_choices.clone(),

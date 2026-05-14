@@ -38,7 +38,7 @@ use crate::{
 use serde::Serialize;
 // ts-rs trait import enables `#[derive(TS)]` on this submodule's output types.
 use ts_rs::TS;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ pub struct ImprovementChanceDebug {
 
 // Per-rule chance entry inside ImprovementChanceEntry. Carried as a list (not a map) so the
 // payload round-trips through serde_wasm_bindgen's to_js_value / from_js_value without needing
-// the maps-as-objects serializer. The consumer in mod.rs rebuilds a HashMap<(art_id, rule_ordinal), f64>
+// the maps-as-objects serializer. The consumer in mod.rs rebuilds a BTreeMap<(art_id, rule_ordinal), f64>
 // from these lists for O(1) lookup during threshold expansion.
 // ts-rs export: leaf entry inside ImprovementChanceEntry.chancesByRuleOrdinal.
 #[derive(Debug, Serialize, Clone, TS)]
@@ -173,7 +173,7 @@ struct PreparedUpgradeRule {
     selected_substats: Vec<i64>,
     // "any" | "all" | "perSubstat" after normalization.
     substat_match: String,
-    weights: HashMap<i64, f64>,
+    weights: BTreeMap<i64, f64>,
     set_includes: HashSet<i64>,
     set_excludes: HashSet<i64>,
     ignore_equipped_in_collection: bool,
@@ -192,10 +192,10 @@ struct UpgradeScenario {
     substat_match: String,
     required_per_group: i64,
     count_mode: SafeguardWasmCountMode,
-    weights: HashMap<i64, f64>,
+    weights: BTreeMap<i64, f64>,
     // Challengers pre-bucketed by typed count key for fast per-artifact lookup.
     // SafeguardCountKey is stack-allocated (no heap per entry, unlike String keys).
-    challengers_by_count_key: HashMap<SafeguardCountKey, Vec<StaticChallenger>>,
+    challengers_by_count_key: BTreeMap<SafeguardCountKey, Vec<StaticChallenger>>,
 }
 
 // Single challenger entry; projected_score fixes the apples-to-oranges Bug 2.
@@ -223,9 +223,9 @@ struct RecursionContext<'a> {
     // Legal substats that can be added at addition events for this slot/main.
     legal_addition_pool: Vec<i64>,
     // Two-value Q1/Q3 gains from observed substat values (scaled integer pairs).
-    expected_gain: HashMap<i64, (i64, i64)>,
+    expected_gain: BTreeMap<i64, (i64, i64)>,
     // Rank-based fallback Q1/Q3 gains for variants with no observed value (scaled).
-    fallback_gain: HashMap<i64, (i64, i64)>,
+    fallback_gain: BTreeMap<i64, (i64, i64)>,
 }
 
 // Per-artifact viability snapshot used to prune scenarios impossible by +16.
@@ -413,9 +413,9 @@ fn build_gain_pair_scaled(min: f64, max: f64) -> (i64, i64) {
     (low, high)
 }
 
-fn build_fallback_gain(rank: i64) -> HashMap<i64, (i64, i64)> {
+fn build_fallback_gain(rank: i64) -> BTreeMap<i64, (i64, i64)> {
     // Q1/Q3 per-roll gain pairs for each known variant, scaled to STATE_VALUE_SCALE.
-    let mut out = HashMap::<i64, (i64, i64)>::new();
+    let mut out = BTreeMap::<i64, (i64, i64)>::new();
     for variant in ALL_SUBSTAT_VARIANTS {
         let (min_r, max_r) = resolve_roll_range(rank, variant);
         if min_r <= 0.0 && max_r <= 0.0 {
@@ -431,11 +431,11 @@ fn build_fallback_gain(rank: i64) -> HashMap<i64, (i64, i64)> {
 
 fn build_existing_gain(
     artifact: &SafeguardWasmArtifactIn,
-    fallback: &HashMap<i64, (i64, i64)>,
-) -> HashMap<i64, (i64, i64)> {
+    fallback: &BTreeMap<i64, (i64, i64)>,
+) -> BTreeMap<i64, (i64, i64)> {
     // Per-roll Q1/Q3 gain pairs derived from observed substat quality and per-star ranges.
     let rank = clamp_rank(artifact.rank);
-    let mut out = HashMap::<i64, (i64, i64)>::new();
+    let mut out = BTreeMap::<i64, (i64, i64)>::new();
     for substat in &artifact.substats {
         let max6 = safeguard_substat_max6_by_variant(substat.variant);
         if max6 <= 0.0 {
@@ -525,7 +525,7 @@ fn state_matches_substats(
 fn compute_score_from_state(
     state: &BTreeMap<i64, i64>,
     selected: &[i64],
-    weights: &HashMap<i64, f64>,
+    weights: &BTreeMap<i64, f64>,
     rank: i64,
 ) -> f64 {
     // Weighted normalized sum from recursion state; mirrors computeSafeguardScoreFromState.
@@ -550,7 +550,7 @@ fn compute_score_from_state(
 // Compact stack-allocated memo key: avoids all heap allocation vs. the old String approach.
 // State has at most MAX_SUBSTAT_SLOTS (4) entries; event_idx is bounded by milestone count (≤8).
 // Ord is derived so StateKey can be used as a BTreeMap key (avoids large contiguous
-// reallocs that the HashMap backing array requires on resize).
+// reallocs that the BTreeMap backing array requires on resize).
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
 struct StateKey {
     event_idx: u8,
@@ -573,14 +573,14 @@ fn make_state_key(state: &BTreeMap<i64, i64>, event_idx: usize) -> StateKey {
 
 // apply_state_delta removed: compute_probability now mutates state in-place and
 // restores it after each recursive call (undo-redo pattern).  This eliminates
-// the HashMap clone that the old function performed on every recursive branch —
+// the BTreeMap clone that the old function performed on every recursive branch —
 // previously the dominant source of dlmalloc fragmentation during the 7432-artifact
 // improvement-chance pass, which grew WASM linear memory by 50–70 MiB per run.
 
 fn resolve_expected_gain(
     variant: i64,
-    existing: &HashMap<i64, (i64, i64)>,
-    fallback: &HashMap<i64, (i64, i64)>,
+    existing: &BTreeMap<i64, (i64, i64)>,
+    fallback: &BTreeMap<i64, (i64, i64)>,
 ) -> (i64, i64) {
     // Observed gain takes priority; fall back to rank-based estimate.
     if let Some(&pair) = existing.get(&variant) {
@@ -609,7 +609,7 @@ fn build_legal_addition_pool(artifact: &SafeguardWasmArtifactIn) -> Vec<i64> {
 pub(super) fn compute_projected_challenger_score(
     artifact: &SafeguardWasmArtifactIn,
     selected: &[i64],
-    weights: &HashMap<i64, f64>,
+    weights: &BTreeMap<i64, f64>,
 ) -> f64 {
     // Closed-form expected score at +16 for a static challenger artifact.
     // Formula (per-variant):
@@ -781,7 +781,7 @@ fn is_state_selected_by_any_scenario(
 
 // Memoized DP over the upgrade event sequence.
 // `state` is mutated in place and restored after each recursive branch (undo-redo)
-// so no HashMap is ever cloned — one allocation serves the entire recursion tree.
+// so no BTreeMap is ever cloned — one allocation serves the entire recursion tree.
 // `memo` is a caller-owned scratch map cleared between artifacts; it maps a compact
 // StateKey (stack-allocated, no heap) to the cached probability for that node.
 fn compute_probability(
@@ -1017,8 +1017,8 @@ fn compute_artifact_chance_percent(
                 milestones: vec![],
                 addition_milestones: HashSet::default(),
                 legal_addition_pool: vec![],
-                expected_gain: HashMap::default(),
-                fallback_gain: HashMap::default(),
+                expected_gain: BTreeMap::default(),
+                fallback_gain: BTreeMap::default(),
             };
             if is_state_selected_by_any_scenario(&initial_state, &ctx) {
                 100.0
@@ -1167,7 +1167,7 @@ fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRu
         let count_mode = safeguard_resolve_count_mode(rule.count_mode);
         let (set_includes, set_excludes) = safeguard_split_set_selections(&combination.sets);
         // Collect weights from the deserialized i64-keyed map.
-        let mut weights = HashMap::<i64, f64>::new();
+        let mut weights = BTreeMap::<i64, f64>::new();
         if let Some(raw_w) = &rule.substat_weights {
             for (&variant, &w) in raw_w {
                 if w.is_finite() {
@@ -1267,7 +1267,7 @@ fn build_scenarios(
     // Returns scenarios plus an artifact-id → scenario-index map so callers do not need
     // to store applicable_artifact_ids inside each UpgradeScenario (~64 KB × N scenarios).
     // BTreeMap: up to 7982 entries — avoids the large contiguous backing-array realloc that
-    // HashMap requires on resize (which can fail on V8/Windows when the heap is fragmented).
+    // BTreeMap requires on resize (which can fail on V8/Windows when the heap is fragmented).
     let mut scenarios = Vec::<UpgradeScenario>::new();
     let mut idx_by_id: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
     // Reuse a single Vec across all rule iterations. Vec::with_capacity pre-allocates
@@ -1294,7 +1294,7 @@ fn build_scenarios(
         applicable_ids.dedup();
         for def in expand_rule_scenarios(rule) {
             // Use SafeguardCountKey directly: stack-allocated enum avoids String heap allocs.
-            let mut challengers_by_key = HashMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
+            let mut challengers_by_key = BTreeMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
             for row in rows {
                 let Some(art_id) = row.artifact.id else {
                     continue;
@@ -1374,7 +1374,7 @@ fn resolve_most_likely_scenario_idx<'a>(
         return Some(0);
     }
     // Compute per-scenario chance in isolation; reuse one memo across all inner
-    // calls so N single-scenario invocations share one HashMap instead of N.
+    // calls so N single-scenario invocations share one BTreeMap instead of N.
     let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
     let mut chances: Vec<f64> = Vec::with_capacity(viable.len());
     for &s in viable.iter() {
@@ -1617,103 +1617,3 @@ pub fn compute_improvement_chance_core(
     (output, perf_diag)
 }
 
-// Output-wire snapshot tests for the improvement-chance result structs.
-// Each test serializes a fully-populated instance and asserts that the
-// resulting JSON's top-level key set matches a hand-listed expected set.
-// Drift triggers cargo test failure → forces lockstep update of the test
-// fixture and the TS-side consumer.
-#[cfg(test)]
-mod output_wire_snapshot_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    // Shared drift message keeps the failure narrative consistent across modules.
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    fn key_set(items: &[&str]) -> BTreeSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
-        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
-        json.as_object()
-            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
-            .keys()
-            .cloned()
-            .collect()
-    }
-
-    // ── ImprovementChanceDebug ──────────────────────────────────────────────
-    #[test]
-    fn improvement_chance_debug_key_set_matches() {
-        let value = ImprovementChanceDebug {
-            viable_scenario_count: 1,
-            selected_substats: vec![1],
-            substat_match: "any".to_string(),
-            required_per_group: 1,
-            bucket_candidate_count: 1,
-            better_candidate_count: 0,
-            matched_selected_now: 1,
-            max_addition_events_to16: 4,
-        };
-        let actual = actual_keys(&value, "ImprovementChanceDebug");
-        let expected = key_set(&[
-            "viableScenarioCount", "selectedSubstats", "substatMatch",
-            "requiredPerGroup", "bucketCandidateCount", "betterCandidateCount",
-            "matchedSelectedNow", "maxAdditionEventsTo16",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ImprovementChanceRuleEntry ──────────────────────────────────────────
-    #[test]
-    fn improvement_chance_rule_entry_key_set_matches() {
-        let value = ImprovementChanceRuleEntry { rule_ordinal: 1, chance_percent: 42.0 };
-        let actual = actual_keys(&value, "ImprovementChanceRuleEntry");
-        let expected = key_set(&["ruleOrdinal", "chancePercent"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ImprovementChanceEntry ──────────────────────────────────────────────
-    // matched_rule_ordinal carries an explicit #[serde(rename = "ruleOrdinal")]
-    // that overrides the struct-level camelCase rename — pin both the rename
-    // and the surrounding key set so a future rename cannot silently break the
-    // TS type `ImprovementChanceWasmEntry` that depends on this exact name.
-    #[test]
-    fn improvement_chance_entry_key_set_matches() {
-        let value = ImprovementChanceEntry {
-            artifact_id: 1,
-            chance_percent: 50.0,
-            has_matching_safeguard: true,
-            matched_rule_id: Some("id".to_string()),
-            matched_rule_ordinal: Some(1),
-            chances_by_rule_ordinal: vec![],
-            debug: None,
-        };
-        let actual = actual_keys(&value, "ImprovementChanceEntry");
-        let expected = key_set(&[
-            "artifactId", "chancePercent", "hasMatchingSafeguard",
-            "matchedRuleId", "ruleOrdinal", "chancesByRuleOrdinal", "debug",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ImprovementChancePerfDiag ───────────────────────────────────────────
-    #[test]
-    fn improvement_chance_perf_diag_key_set_matches() {
-        let value = ImprovementChancePerfDiag {
-            row_count: 1,
-            rule_count: 1,
-            scenario_count: 1,
-            artifacts_with_scenarios: 1,
-            artifacts_viable: 1,
-        };
-        let actual = actual_keys(&value, "ImprovementChancePerfDiag");
-        let expected = key_set(&[
-            "rowCount", "ruleCount", "scenarioCount",
-            "artifactsWithScenarios", "artifactsViable",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-}

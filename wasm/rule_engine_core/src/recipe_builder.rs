@@ -16,7 +16,7 @@
 //   anySelectedSlotSupportsMain             → any_selected_slot_supports_main
 //   buildHsfRules (recipe-level)            → build_hsf_rules_for_recipe
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use crate::*;
 use crate::sfc_reader::{ReadableRecipeParsed, SubstatTargetTableIn};
 
@@ -184,7 +184,7 @@ pub(crate) fn star_for_rank_code(rank_code: i64) -> i64 {
 
 /// Return the factory-default substat minimum map for the given star (1..6).
 /// Derived from SUBSTAT_ROLL_RANGES_BY_STAR — the min per-roll value is the factory default.
-pub(crate) fn factory_minima_for_star(star: i64) -> HashMap<i64, i64> {
+pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, i64> {
     // SUBSTAT_ROLL_RANGES_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
     for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
@@ -192,11 +192,11 @@ pub(crate) fn factory_minima_for_star(star: i64) -> HashMap<i64, i64> {
             return triples.iter().map(|&(variant, min, _max)| (variant, min)).collect();
         }
     }
-    HashMap::new()
+    BTreeMap::new()
 }
 
 /// Lookup the user-provided substat target map for a given star bucket.
-fn minima_for_star(table: &SubstatTargetTableIn, star: i64) -> HashMap<i64, i64> {
+fn minima_for_star(table: &SubstatTargetTableIn, star: i64) -> BTreeMap<i64, i64> {
     match star {
         6 => table.six.clone(),
         5 => table.five.clone(),
@@ -216,7 +216,7 @@ fn clamp_roll_requirement(v: i64) -> i64 {
 }
 
 /// True when per-substat roll bounds set any explicit floor or "not" constraint (mirrors hasSubstatThresholds).
-fn has_substat_thresholds(bounds: &HashMap<i64, BuildHsfComboBoundsIn>) -> bool {
+fn has_substat_thresholds(bounds: &BTreeMap<i64, BuildHsfComboBoundsIn>) -> bool {
     bounds.values().any(|b| {
         b.min.map(|m| m > 0.0).unwrap_or(false) || b.not.unwrap_or(false)
     })
@@ -391,7 +391,7 @@ pub fn build_hsf_rules_for_recipe(
     let factory_base_for_star = factory_minima_for_star(star);
 
     // 4. Substat target map: user-provided minima if available, else factory defaults.
-    let substat_target_by_variant: HashMap<i64, i64> = match minima {
+    let substat_target_by_variant: BTreeMap<i64, i64> = match minima {
         Some(table) => minima_for_star(table, star),
         None        => factory_base_for_star.clone(),
     };
@@ -485,7 +485,7 @@ pub fn build_hsf_rules_for_recipe(
 
     // 11. Convert PrepareHsfBuilderRecipeOut target-entry map to BuildHsfComboTargetEntryIn map
     //     (same field shape; local conversion avoids exposing internal types).
-    let target_entries: HashMap<i64, BuildHsfComboTargetEntryIn> = prep.target_entries_by_variant
+    let target_entries: BTreeMap<i64, BuildHsfComboTargetEntryIn> = prep.target_entries_by_variant
         .iter()
         .map(|(&k, v)| (k, BuildHsfComboTargetEntryIn {
             base:       v.base,

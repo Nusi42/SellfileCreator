@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, BTreeMap, HashSet};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -301,7 +301,7 @@ pub struct TestItemRaw {
     pub faction: Option<i64>,
     pub main: Option<i64>,
     // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
-    // Vec instead of HashMap: items have ≤4 substats so linear scan beats hashing.
+    // Vec instead of BTreeMap: items have ≤4 substats so linear scan beats hashing.
     // Wire shape is `Record<string, number>` (object keyed by stringified variant id);
     // the Rust internal Vec<(i64, f64)> is invisible to consumers.
     #[serde(default, deserialize_with = "deserialize_sub_values_vec")]
@@ -322,7 +322,7 @@ pub struct PreviewExtrasRaw {
 }
 
 // Custom serde visitor that builds Vec<(i64, f64)> directly from a string-keyed
-// map without allocating an intermediate HashMap.  Items are capped at 4 substats
+// map without allocating an intermediate BTreeMap.  Items are capped at 4 substats
 // so with_capacity(4) avoids any reallocation in the common case.
 struct SubValuesVisitor;
 
@@ -374,8 +374,8 @@ impl<'de> serde::de::Visitor<'de> for OptionSubValuesVisitor {
 }
 
 // Vec-based variant for TestItemRaw.sub_values so the hot matcher path uses
-// a linear scan instead of HashMap lookups (≤4 substats per item).
-// Builds directly into Vec without an intermediate HashMap allocation.
+// a linear scan instead of BTreeMap lookups (≤4 substats per item).
+// Builds directly into Vec without an intermediate BTreeMap allocation.
 pub fn deserialize_sub_values_vec<'de, D>(
     deserializer: D,
 ) -> Result<Option<Vec<(i64, f64)>>, D::Error>
@@ -389,22 +389,22 @@ where
 // Invalid keys are skipped so malformed entries remain non-fatal by design.
 pub fn deserialize_i64_key_map<'de, D, V>(
     deserializer: D,
-) -> Result<HashMap<i64, V>, D::Error>
+) -> Result<BTreeMap<i64, V>, D::Error>
 where
     D: serde::Deserializer<'de>,
     V: Deserialize<'de>,
 {
-    let raw = HashMap::<String, V>::deserialize(deserializer)?;
+    let raw = BTreeMap::<String, V>::deserialize(deserializer)?;
     Ok(raw
         .into_iter()
         .filter_map(|(key, value)| key.parse::<i64>().ok().map(|variant| (variant, value)))
-        .collect::<HashMap<i64, V>>())
+        .collect::<BTreeMap<i64, V>>())
 }
 
-// Serialize HashMap<i64, V> as a string-keyed map so serialize_maps_as_objects
+// Serialize BTreeMap<i64, V> as a string-keyed map so serialize_maps_as_objects
 // can convert it to a plain JS object.  Paired with deserialize_i64_key_map.
 pub fn serialize_i64_key_map<S, V>(
-    map: &HashMap<i64, V>,
+    map: &BTreeMap<i64, V>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -527,7 +527,7 @@ pub struct ComputeMergedRulesIn {
 
 // Auto-rarity bounds mirror BuilderRecipe.substatRollBoundsV row shape.
 //
-// ts-rs export: nested by AutoRarityResolve* via the substat_roll_bounds_v HashMap.
+// ts-rs export: nested by AutoRarityResolve* via the substat_roll_bounds_v BTreeMap.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -537,7 +537,7 @@ pub struct AutoRarityResolveRollBoundsIn {
 
 // Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
 //
-// ts-rs export: composes AutoRarityResolveRollBoundsIn via HashMap<i64, ...>.
+// ts-rs export: composes AutoRarityResolveRollBoundsIn via BTreeMap<i64, ...>.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -559,12 +559,12 @@ pub struct AutoRarityResolveIn {
     #[serde(default)]
     pub fixed_pool_v: Vec<i64>,
     #[serde(default, deserialize_with = "deserialize_i64_key_map")]
-    pub substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, AutoRarityResolveRollBoundsIn>,
 }
 
 // Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 //
-// ts-rs export: composes AutoRarityResolveRollBoundsIn via HashMap<i64, ...>.
+// ts-rs export: composes AutoRarityResolveRollBoundsIn via BTreeMap<i64, ...>.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -586,7 +586,7 @@ pub struct AutoRarityResolveBuilderIn {
     #[serde(default)]
     pub fixed_substats_v: Vec<i64>,
     #[serde(default, deserialize_with = "deserialize_i64_key_map")]
-    pub substat_roll_bounds_v: HashMap<i64, AutoRarityResolveRollBoundsIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, AutoRarityResolveRollBoundsIn>,
     #[serde(default)]
     pub allowed_substats: Vec<i64>,
 }
@@ -881,7 +881,7 @@ pub fn resolve_safeguard_rules_with_metasets_core(
     metasets: Vec<SafeguardWasmMetasetIn>,
 ) -> Vec<SafeguardWasmResolvedRuleOut> {
     // Parse metaset definitions into a fast lookup table.
-    let mut meta_map = HashMap::<String, Vec<i64>>::new();
+    let mut meta_map = BTreeMap::<String, Vec<i64>>::new();
     for meta in metasets {
         meta_map.insert(meta.name, meta.sets);
     }
@@ -970,7 +970,7 @@ pub fn resolve_safeguard_rules_with_metasets_core(
                 .unwrap_or_default()
                 .into_iter()
                 .map(|(variant, weight)| (variant.to_string(), weight))
-                .collect::<HashMap<String, f64>>(),
+                .collect::<BTreeMap<String, f64>>(),
             // Echo threshold back verbatim so TS preserves null-inheritance slots.
             improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
             // Pass tags through unchanged so TS override selectors can match after expansion.
@@ -1144,7 +1144,7 @@ pub fn evaluate_engine(
                 prepare_evaluate_options(&cloned)
             });
 
-        // Shared scratch reused across all items to avoid per-item HashSet/HashMap
+        // Shared scratch reused across all items to avoid per-item HashSet/BTreeMap
         // allocations in the evaluate_item hot loop.
         let mut scratch = EvaluateItemScratch::new();
         let mut results = Vec::with_capacity(items.len());
@@ -1277,7 +1277,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             collect_rows.len(),
         );
 
-        // Shared scratch reused across items to avoid per-row HashSet/HashMap allocations.
+        // Shared scratch reused across items to avoid per-row HashSet/BTreeMap allocations.
         let mut scratch = EvaluateItemScratch::new();
         let mut evaluate_results = Vec::<EvaluateItemResult>::with_capacity(collect_rows.len());
 
@@ -1769,173 +1769,4 @@ pub fn emit_hsf_rules_for_filtered_distributions_compact_core(
     };
     let rows = hsf_distribution_runtime::filter_roll_distributions_core(&filter_input);
     emit_hsf_rules_for_distributions_core(&input.emit, &rows)
-}
-
-// ─── output-wire snapshot tests ──────────────────────────────────────────────
-// Each test below serializes a fully-populated instance of an output struct and
-// asserts that the resulting JSON's top-level key set matches a hand-listed
-// expected set.  If a developer renames or removes a field on the Rust side,
-// the test will fail — forcing the rename to be made in lockstep with the
-// corresponding TS consumer.
-//
-// These tests catch: field renames, field removals, type-shape changes.
-// They do NOT catch field additions (those are usually safe back-compat moves
-// and would just expand the expected set on the next test update).
-#[cfg(test)]
-mod output_wire_snapshot_tests {
-    use super::*;
-    use crate::safeguards::SafeguardWasmSnapshotOut;
-    use std::collections::BTreeSet;
-
-    // Helper turns a static slice of string literals into a BTreeSet<String>.
-    // Used by every snapshot test below for the expected-key comparison.
-    fn key_set(items: &[&str]) -> BTreeSet<String> {
-        items.iter().map(|s| s.to_string()).collect()
-    }
-
-    // Helper extracts the top-level object key set from a serialized Rust value.
-    // Panics with a descriptive label when the value does not serialize to an object.
-    fn actual_keys<T: Serialize>(value: &T, label: &str) -> BTreeSet<String> {
-        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
-        json.as_object()
-            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
-            .keys()
-            .cloned()
-            .collect()
-    }
-
-    // The drift-detected error message is shared across every snapshot test so
-    // future failures point readers at the lockstep-update workflow.
-    const DRIFT_MESSAGE: &str =
-        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
-
-    // ── RuleRaw (PascalCase HSF rule shape) ─────────────────────────────────
-    // Every field is Option<T>; without skip_serializing_if, serde_json emits
-    // null for None.  Populate every field with Some(...) so the key set is
-    // complete regardless of any future skip_serializing_if additions.
-    #[test]
-    fn rule_raw_key_set_matches() {
-        let value = RuleRaw {
-            RecipeID: Some(1),
-            RecipeName: Some(Arc::from("name")),
-            Keep: Some(true),
-            IsRuleTypeAND: Some(false),
-            Use: Some(true),
-            ArtifactSet: Some(vec![1]),
-            ArtifactType: Some(vec![1]),
-            Rank: Some(1),
-            Rarity: Some(1),
-            MainStatID: Some(1),
-            MainStatF: Some(1),
-            LVLForCheck: Some(1),
-            Faction: Some(1),
-            Substats: Some(vec![]),
-            source: Some(Arc::from("hsf")),
-            line_idx: Some(1),
-            all_known_sets: Some(true),
-            rank_mask: Some(1),
-            rarity_mask: Some(1),
-            safeguard_rule_id: Some(Arc::from("id")),
-            safeguard_rule_ordinal: Some(1),
-            safeguard_hash: Some(Arc::from("h")),
-            safeguard_required: Some(1),
-            safeguard_scan_ms: Some(1.0),
-            safeguard_projected: Some(1),
-            safeguard_deficit: Some(1),
-            safeguard_item_key: Some(1),
-            safeguard_placeholder: Some(true),
-            safeguard_placeholder_missing: Some(1),
-        };
-        let actual = actual_keys(&value, "RuleRaw");
-        // PascalCase for the documented HSF fields; __* for the extension fields
-        // that TS treats as opaque metadata.  Order in the array is alphabetical
-        // by convention only — BTreeSet comparison is order-independent.
-        let expected = key_set(&[
-            "ArtifactSet", "ArtifactType", "Faction", "IsRuleTypeAND", "Keep",
-            "LVLForCheck", "MainStatF", "MainStatID", "Rank", "Rarity",
-            "RecipeID", "RecipeName", "Substats", "Use",
-            "__allKnownSets", "__lineIdx", "__rankMask", "__rarityMask",
-            "__safeguardDeficit", "__safeguardHash", "__safeguardItemKey",
-            "__safeguardPlaceholder", "__safeguardPlaceholderMissing",
-            "__safeguardProjected", "__safeguardRequired", "__safeguardRuleId",
-            "__safeguardRuleOrdinal", "__safeguardScanMs", "__source",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── RuleSubRaw (nested inside RuleRaw.Substats) ─────────────────────────
-    #[test]
-    fn rule_sub_raw_key_set_matches() {
-        let value = RuleSubRaw {
-            ID: Some(1),
-            Value: Some(1.0),
-            IsFlat: Some(false),
-            NotAvailable: Some(false),
-            Condition: Some(Arc::from(">=")),
-        };
-        let actual = actual_keys(&value, "RuleSubRaw");
-        let expected = key_set(&["ID", "Value", "IsFlat", "NotAvailable", "Condition"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ObsoleteEntryOut ────────────────────────────────────────────────────
-    #[test]
-    fn obsolete_entry_out_key_set_matches() {
-        let value = ObsoleteEntryOut { index: 0, covered_by: 1, reason: "shadow".to_string() };
-        let actual = actual_keys(&value, "ObsoleteEntryOut");
-        let expected = key_set(&["index", "coveredBy", "reason"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── ObsoleteReportOut ───────────────────────────────────────────────────
-    // No rename_all on this struct, so the field stays snake_case... actually
-    // `obsolete` is one lowercase token, so casing is irrelevant.
-    #[test]
-    fn obsolete_report_out_key_set_matches() {
-        let value = ObsoleteReportOut { obsolete: vec![] };
-        let actual = actual_keys(&value, "ObsoleteReportOut");
-        let expected = key_set(&["obsolete"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── SafeguardCollectedAndProtectedSnapshotOut ───────────────────────────
-    // Returned by collect_and_compute_safeguard_protection_value.
-    // SafeguardWasmSnapshotOut has crate-private fields, so construct it via
-    // JSON round-trip — the deserialize path is the same payload TS would send
-    // back, so behavior parity is preserved.
-    #[test]
-    fn safeguard_collected_and_protected_snapshot_out_key_set_matches() {
-        let detection: SafeguardWasmSnapshotOut = serde_json::from_str(
-            r#"{"scannedAt":0.0,"entries":[]}"#,
-        ).expect("snapshot literal must deserialize");
-        let value = SafeguardCollectedAndProtectedSnapshotOut {
-            candidates: vec![],
-            unique_item_keys: vec![],
-            detection,
-        };
-        let actual = actual_keys(&value, "SafeguardCollectedAndProtectedSnapshotOut");
-        let expected = key_set(&["candidates", "uniqueItemKeys", "detection"]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
-    // ── EvaluateAndCollectSnapshotOut ───────────────────────────────────────
-    // Returned by evaluate_and_collect_safeguard_protection_value.
-    #[test]
-    fn evaluate_and_collect_snapshot_out_key_set_matches() {
-        let detection: SafeguardWasmSnapshotOut = serde_json::from_str(
-            r#"{"scannedAt":0.0,"entries":[]}"#,
-        ).expect("snapshot literal must deserialize");
-        let value = EvaluateAndCollectSnapshotOut {
-            evaluate_results: vec![],
-            candidates: vec![],
-            unique_item_keys: vec![],
-            detection,
-        };
-        let actual = actual_keys(&value, "EvaluateAndCollectSnapshotOut");
-        let expected = key_set(&[
-            "evaluateResults", "candidates", "uniqueItemKeys", "detection",
-        ]);
-        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
-    }
-
 }

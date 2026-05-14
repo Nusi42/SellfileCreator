@@ -8,7 +8,7 @@
 // same stat/slot/faction constant sets used by the TypeScript layer — no magic
 // numbers inline.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::*;
@@ -382,8 +382,8 @@ pub struct ReadableRecipeParsed {
     pub main_stat_variants: Vec<i64>,         // StatVariant[]
     pub substats_v:         Vec<i64>,         // StatVariant[] — full selected pool
     pub fixed_substats_v:   Vec<i64>,         // StatVariant[] — locked substats
-    pub substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn>,
-    pub substat_roll_targets_v: HashMap<i64, BuildHsfComboTargetEntryIn>,
+    pub substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
+    pub substat_roll_targets_v: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
     pub min_count:          i64,
     pub auto_min_count:     bool,
     pub auto_substat_flex:  bool,
@@ -404,17 +404,17 @@ pub struct ReadableRecipeParsed {
 #[serde(deny_unknown_fields)]
 pub struct SubstatTargetTableIn {
     #[serde(default)]
-    pub one:   HashMap<i64, i64>,
+    pub one:   BTreeMap<i64, i64>,
     #[serde(default)]
-    pub two:   HashMap<i64, i64>,
+    pub two:   BTreeMap<i64, i64>,
     #[serde(default)]
-    pub three: HashMap<i64, i64>,
+    pub three: BTreeMap<i64, i64>,
     #[serde(default)]
-    pub four:  HashMap<i64, i64>,
+    pub four:  BTreeMap<i64, i64>,
     #[serde(default)]
-    pub five:  HashMap<i64, i64>,
+    pub five:  BTreeMap<i64, i64>,
     #[serde(default)]
-    pub six:   HashMap<i64, i64>,
+    pub six:   BTreeMap<i64, i64>,
 }
 
 // Metaset entry forwarded to WASM safeguard resolver.
@@ -559,7 +559,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
     // Substats.
     let mut substats_v: Vec<i64> = Vec::new();
     let mut fixed_substats_v: Vec<i64> = Vec::new();
-    let mut substat_roll_bounds_v: HashMap<i64, BuildHsfComboBoundsIn> = HashMap::new();
+    let mut substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn> = BTreeMap::new();
     for entry in rec.substats.as_deref().unwrap_or(&[]) {
         let (label, is_fixed, bounds_opt) = match entry {
             ReadableSubstat::Label(s) => (s.as_str(), false, None),
@@ -671,7 +671,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
         substats_v,
         fixed_substats_v,
         substat_roll_bounds_v,
-        substat_roll_targets_v: HashMap::new(), // V1: targets parsed from Minima table elsewhere
+        substat_roll_targets_v: BTreeMap::new(), // V1: targets parsed from Minima table elsewhere
         min_count,
         auto_min_count,
         auto_substat_flex,
@@ -739,7 +739,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
                 let w = weight.as_f64()?;
                 Some((variant, w))
             })
-            .collect::<HashMap<i64, f64>>()
+            .collect::<BTreeMap<i64, f64>>()
     });
     let substat_weights = substat_weights.filter(|m| !m.is_empty());
 

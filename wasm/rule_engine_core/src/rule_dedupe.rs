@@ -32,7 +32,7 @@ struct BuilderNormalizedSubstat {
 }
 
 // Coarse obsolete grouping uses typed keys instead of string concatenation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct ObsoleteCoarseKey {
     keep: bool,
     use_flag: bool,
@@ -47,7 +47,7 @@ struct ObsoleteCoarseKey {
 }
 
 // Group key combines coarse dimensions with normalized substat identity only.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum ObsoleteGroupKey {
     NoDomination(usize),
     Comparable {
@@ -116,7 +116,7 @@ fn parse_sub_cond(value: Option<&str>) -> Option<SubCond> {
 // Normalize substats for domination checks; unsupported conditions disable domination.
 fn normalize_substats_for_domination(subs: Option<&Vec<RuleSubRaw>>) -> Option<Vec<NormalizedSubstat>> {
     let substats = subs?;
-    let mut dedup = HashMap::<NormalizedSubKey, i64>::new();
+    let mut dedup = BTreeMap::<NormalizedSubKey, i64>::new();
     for sub in substats {
         let id = sub.ID.unwrap_or(STAT_ID_ANY);
         if id == STAT_ID_ANY {
@@ -339,7 +339,7 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
 // Shared obsolete-detector used by find_obsolete and generated-rule finalization.
 pub fn collect_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEntryOut> {
     let mut norm_subs = Vec::<Option<Vec<NormalizedSubstat>>>::with_capacity(rules.len());
-    let mut groups = HashMap::<ObsoleteGroupKey, Vec<usize>>::new();
+    let mut groups = BTreeMap::<ObsoleteGroupKey, Vec<usize>>::new();
     let mut group_order = Vec::<ObsoleteGroupKey>::new();
 
     for (idx, rule) in rules.iter().enumerate() {
@@ -411,7 +411,7 @@ pub fn collect_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEntryOut> {
 
 // Builder pruning obsolete detector mirrors hsfBuilder.ts pairwise subset checks.
 pub(crate) fn collect_builder_pruning_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEntryOut> {
-    let mut groups = HashMap::<ObsoleteCoarseKey, Vec<usize>>::new();
+    let mut groups = BTreeMap::<ObsoleteCoarseKey, Vec<usize>>::new();
     let mut group_order = Vec::<ObsoleteCoarseKey>::new();
     let mut normalized = Vec::<Vec<BuilderNormalizedSubstat>>::with_capacity(rules.len());
     for (idx, rule) in rules.iter().enumerate() {
