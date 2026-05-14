@@ -3871,3 +3871,307 @@ mod improvement_chance_threshold_tests {
         }
     }
 }
+
+// Output-wire snapshot tests for safeguard result structs.  Each test
+// serializes a fully-populated instance and asserts that the resulting JSON's
+// top-level key set matches a hand-listed expected set.  Drift triggers cargo
+// test failure → forces lockstep update of the test fixture and TS consumer.
+//
+// Several entry/artifact/placeholder structs are crate-private; their tests
+// build the value via a JSON round-trip from a fixture string (deserialize +
+// re-serialize) so the test does not need to know the private-field internals.
+// The Serialize impl exercised here is the same one used by the wasm export.
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::{BTreeSet, HashMap};
+
+    // Shared drift message keeps the failure narrative consistent across modules.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn actual_keys<T: serde::Serialize>(value: &T, label: &str) -> BTreeSet<String> {
+        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
+        json.as_object()
+            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    // ── SafeguardWasmSetSelection ───────────────────────────────────────────
+    // Nested inside SafeguardWasmCombination.sets.
+    #[test]
+    fn safeguard_wasm_set_selection_key_set_matches() {
+        let value = SafeguardWasmSetSelection { id: 1, excluded: true };
+        let actual = actual_keys(&value, "SafeguardWasmSetSelection");
+        let expected = key_set(&["id", "excluded"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmCombination ────────────────────────────────────────────
+    // Returned as the output of sort_safeguard_combination_value and used as
+    // an output field across many other safeguard result structs.
+    #[test]
+    fn safeguard_wasm_combination_key_set_matches() {
+        let value = SafeguardWasmCombination {
+            slots: vec![1],
+            sets: vec![SafeguardWasmSetSelection { id: 1, excluded: false }],
+            meta_set_names: vec!["m".to_string()],
+            ranks: vec![1],
+            rarities: vec![1],
+            main_stats: vec![1],
+            factions: vec![1],
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCombination");
+        let expected = key_set(&[
+            "slots", "sets", "metaSetNames", "ranks", "rarities", "mainStats", "factions",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmCountMode ──────────────────────────────────────────────
+    // Echoed inside SafeguardWasmResolvedRuleOut.countMode and inside detection
+    // snapshot entries.  Pinning the toggle key set protects both surfaces.
+    #[test]
+    fn safeguard_wasm_count_mode_key_set_matches() {
+        let value = SafeguardWasmCountMode {
+            per_rule: true,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCountMode");
+        let expected = key_set(&[
+            "perRule", "perSet", "perFaction", "perMainStat", "perSlot",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmExpectedGroupDomainIn ──────────────────────────────────
+    // Returned by normalize_safeguard_expected_group_domain_value.  Note this
+    // type derives BOTH Serialize and Deserialize and is used as input/output;
+    // input fields are already covered by full_fixture_deserializes in the
+    // wasm crate — this test specifically gates the output wire shape.
+    // The allowed_main_by_slot HashMap field must serialize as a plain JSON
+    // object — we also assert that here.
+    #[test]
+    fn safeguard_wasm_expected_group_domain_in_key_set_matches() {
+        let mut allowed = HashMap::<String, Vec<i64>>::new();
+        allowed.insert("1".to_string(), vec![1]);
+        let value = SafeguardWasmExpectedGroupDomainIn {
+            slot_order: vec![1],
+            accessory_compatible_set_ids: vec![1],
+            armor_compatible_set_ids: vec![1],
+            allowed_main_by_slot: allowed,
+            all_faction_ids: vec![1],
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "slotOrder", "accessoryCompatibleSetIds", "armorCompatibleSetIds",
+            "allowedMainBySlot", "allFactionIds",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // HashMap field must serialize as plain object so JS consumers see a
+        // standard JS object rather than a JS Map.
+        let allowed_field = json.get("allowedMainBySlot").expect("allowedMainBySlot present");
+        assert!(
+            allowed_field.is_object(),
+            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
+        );
+    }
+
+    // ── SafeguardWasmResolvedRuleOut ────────────────────────────────────────
+    // Returned by resolve_safeguard_rules_with_metasets_value (Vec).  Note that
+    // substat_weights is a HashMap<String, f64>; we additionally assert it
+    // serializes to a plain JSON object (not a JS Map shape).
+    #[test]
+    fn safeguard_wasm_resolved_rule_out_key_set_matches() {
+        let mut weights = HashMap::<String, f64>::new();
+        weights.insert("1".to_string(), 1.0);
+        let value = SafeguardWasmResolvedRuleOut {
+            id: "rule1".to_string(),
+            name: "Rule 1".to_string(),
+            combination: SafeguardWasmCombination::default(),
+            required_count: 1,
+            activation: "Active".to_string(),
+            count_mode: SafeguardWasmCountMode::default(),
+            ignore_previous_safeguards: false,
+            ignore_equipped_in_collection: false,
+            ignore_equipped_in_vault: false,
+            substats: vec![],
+            substat_match: "any".to_string(),
+            substat_weights: weights,
+            // Use Array variant so serialization emits an array, not an object.
+            improvement_chance_threshold: Some(
+                ImprovementChanceThresholdIn::Array([0.0, 0.0, 0.0, 0.0]),
+            ),
+            tags: vec!["t".to_string()],
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "id", "name", "combination", "requiredCount", "activation",
+            "countMode", "ignorePreviousSafeguards",
+            "ignoreEquippedInCollection", "ignoreEquippedInVault",
+            "substats", "substatMatch", "substatWeights",
+            "improvementChanceThreshold", "tags",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // HashMap<String, f64> must serialize as a plain JSON object.
+        let weights_field = json.get("substatWeights").expect("substatWeights key present");
+        assert!(
+            weights_field.is_object(),
+            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
+        );
+    }
+
+    // ── SafeguardWasmCandidateOut ───────────────────────────────────────────
+    // Returned by score_safeguard_candidates_value (Vec) and also nested inside
+    // SafeguardWasmEntryOut.candidates of the detection snapshot.
+    #[test]
+    fn safeguard_wasm_candidate_out_key_set_matches() {
+        let value = SafeguardWasmCandidateOut {
+            item_key: 1,
+            score: 1.0,
+            candidate_rank: 1,
+            is_within_quota: true,
+        };
+        let actual = actual_keys(&value, "SafeguardWasmCandidateOut");
+        let expected = key_set(&["itemKey", "score", "candidateRank", "isWithinQuota"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmSnapshotOut ────────────────────────────────────────────
+    // Returned by compute_safeguard_protection_value and build_safeguard_rules_value;
+    // also nested in EvaluateAndCollectSnapshotOut.detection and
+    // SafeguardCollectedAndProtectedSnapshotOut.detection.  Construct via JSON
+    // round-trip so this test does not require pub access to crate-private fields.
+    #[test]
+    fn safeguard_wasm_snapshot_out_key_set_matches() {
+        let value: SafeguardWasmSnapshotOut = serde_json::from_str(
+            r#"{"scannedAt":0.0,"entries":[]}"#,
+        ).expect("snapshot literal must deserialize");
+        let actual = actual_keys(&value, "SafeguardWasmSnapshotOut");
+        let expected = key_set(&["scannedAt", "entries"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmEntryOut (nested inside SafeguardWasmSnapshotOut.entries) ──
+    // Crate-private struct; construct via JSON round-trip from a fully-populated
+    // fixture so the same key set is asserted on the way back out.
+    // ruleOrdinal carries skip_serializing_if = "Option::is_none", so we must
+    // populate it; substatVariants on placeholders has the same skip rule.
+    #[test]
+    fn safeguard_wasm_entry_out_key_set_matches() {
+        let fixture = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":"id","ruleOrdinal":1,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[1],"artifacts":[],"placeholders":[],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture}]}}"#),
+        ).expect("entry-bearing snapshot must deserialize");
+        // Round-trip the (sole) entry value via serde_json::to_value so its
+        // object key set can be inspected.  This keeps the test honest: the
+        // assertion runs against the same Serialize impl the wasm export uses.
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let entries = json.get("entries").and_then(|v| v.as_array()).expect("entries array");
+        let entry = entries.first().expect("at least one entry").as_object().expect("entry object");
+        let actual: BTreeSet<String> = entry.keys().cloned().collect();
+        let expected = key_set(&[
+            "hash", "combination", "ruleId", "ruleOrdinal", "ruleActivation",
+            "countMode", "perGroupRequiredCount", "groupsTracked",
+            "requiredCount", "currentCount", "projectedCount", "deficit",
+            "coveredByExisting", "itemKeys", "artifacts", "placeholders", "candidates",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmArtifactOut (nested inside entries.artifacts) ──────────
+    // Crate-private; construct via the JSON round-trip pattern used above.
+    #[test]
+    fn safeguard_wasm_artifact_out_key_set_matches() {
+        let fixture_entry = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":null,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[],"artifacts":[{
+            "itemKey":1,"slot":1,"set":1,"rank":1,"rarity":1,"level":1,
+            "exactLevel":null,"faction":0,"mainStat":1,"substats":[{"variant":1,"isFlat":false,"value":1.0}]
+          }],"placeholders":[],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture_entry}]}}"#),
+        ).expect("must deserialize");
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let artifact = json
+            .pointer("/entries/0/artifacts/0")
+            .and_then(|v| v.as_object())
+            .expect("artifacts[0] must be an object");
+        let actual: BTreeSet<String> = artifact.keys().cloned().collect();
+        let expected = key_set(&[
+            "itemKey", "slot", "set", "rank", "rarity", "level",
+            "exactLevel", "faction", "mainStat", "substats",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // Also pin the nested SafeguardWasmSubstatOut shape so a rename there
+        // (also crate-private) is caught by the same fixture.
+        let substat = json
+            .pointer("/entries/0/artifacts/0/substats/0")
+            .and_then(|v| v.as_object())
+            .expect("substats[0] must be an object");
+        let substat_keys: BTreeSet<String> = substat.keys().cloned().collect();
+        let substat_expected = key_set(&["variant", "isFlat", "value"]);
+        assert_eq!(substat_keys, substat_expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardWasmPlaceholderOut (nested inside entries.placeholders) ────
+    // Populated form (with substatVariants) to make sure that field appears.
+    #[test]
+    fn safeguard_wasm_placeholder_out_key_set_matches() {
+        let fixture_entry = r#"{
+          "hash":"h","combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+          "ruleId":null,"ruleActivation":"Active",
+          "countMode":{"perRule":true,"perSet":false,"perFaction":false,"perMainStat":false,"perSlot":false},
+          "perGroupRequiredCount":1,"groupsTracked":1,"requiredCount":1,
+          "currentCount":1,"projectedCount":1,"deficit":0,"coveredByExisting":false,
+          "itemKeys":[],"artifacts":[],"placeholders":[{
+            "combination":{"slots":[],"sets":[],"metaSetNames":[],"ranks":[],"rarities":[],"mainStats":[],"factions":[]},
+            "missing":1,"reason":"x","substatVariants":[1]
+          }],"candidates":[]
+        }"#;
+        let snapshot: SafeguardWasmSnapshotOut = serde_json::from_str(
+            &format!(r#"{{"scannedAt":0.0,"entries":[{fixture_entry}]}}"#),
+        ).expect("must deserialize");
+        let json = serde_json::to_value(&snapshot).expect("must serialize");
+        let placeholder = json
+            .pointer("/entries/0/placeholders/0")
+            .and_then(|v| v.as_object())
+            .expect("placeholders[0] must be an object");
+        let actual: BTreeSet<String> = placeholder.keys().cloned().collect();
+        let expected = key_set(&["combination", "missing", "reason", "substatVariants"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+}

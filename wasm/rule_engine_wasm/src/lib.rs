@@ -2659,3 +2659,47 @@ mod safeguard_count_key_value_wire_tests {
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
+
+// Output-wire snapshot test for ImprovementChanceOutput, which is the wrapper
+// type defined in this crate (not in rule_engine_core).  Serialize a fully
+// populated instance and assert the resulting JSON's top-level key set matches
+// a hand-listed expected set.  Drift triggers cargo test failure → forces
+// lockstep update of the test fixture and TS consumer.
+//
+// The inner `entries` and `diag` types live in rule_engine_core and have their
+// own snapshot tests there — this test only pins the wrapper-level shape.
+#[cfg(test)]
+mod improvement_chance_output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    // ImprovementChanceOutput borrows its inner references, so the test owns the
+    // backing values and constructs the wrapper from short-lived borrows.
+    #[test]
+    fn improvement_chance_output_key_set_matches() {
+        let entries = Vec::<ImprovementChanceEntry>::new();
+        let diag = ImprovementChancePerfDiag {
+            row_count: 0,
+            rule_count: 0,
+            scenario_count: 0,
+            artifacts_with_scenarios: 0,
+            artifacts_viable: 0,
+        };
+        let value = ImprovementChanceOutput { entries: &entries, diag: Some(&diag) };
+        let json = serde_json::to_value(&value).expect("ImprovementChanceOutput must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected: BTreeSet<String> = ["entries", "diag"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+}

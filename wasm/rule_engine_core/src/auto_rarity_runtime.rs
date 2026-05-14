@@ -622,3 +622,93 @@ pub fn expand_auto_flex_rarity_branches_core(
     // Delegate to the typed core so builder and direct payload paths stay aligned.
     expand_auto_flex_rarity_branches_typed_core(recipe, base_rarity_code as i64)
 }
+
+// Output-wire snapshot tests for the auto-flex rarity result structs.
+// expand_auto_flex_rarity_branches_value returns a Vec<AutoFlexRarityRecipeIn>;
+// each branch is round-tripped through Serialize on the way back to TS, so the
+// output shape needs its own drift gate even though the input side is covered
+// by the wasm-crate full_fixture_deserializes test.
+//
+// substatRollBoundsV is a HashMap<i64, AutoFlexRarityBoundsIn> serialized via
+// serialize_i64_key_map; we assert the field serializes to a plain JSON object
+// (the JS Map regression class).
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    // Shared drift message keeps the failure narrative consistent across modules.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── AutoFlexRarityBoundsIn (nested inside the recipe's bounds map) ──────
+    #[test]
+    fn auto_flex_rarity_bounds_in_key_set_matches() {
+        let value = AutoFlexRarityBoundsIn {
+            min: Some(1.0),
+            max: Some(3.0),
+            any: Some(false),
+            not: Some(false),
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&["min", "max", "any", "not"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── AutoFlexRarityRecipeIn ──────────────────────────────────────────────
+    // Returned as Vec entries from expand_auto_flex_rarity_branches_value.
+    // The substat_roll_bounds_v HashMap field must serialize as a plain JSON
+    // object (handled by the explicit serialize_with helper).
+    #[test]
+    fn auto_flex_rarity_recipe_in_key_set_matches() {
+        let mut bounds_map = HashMap::<i64, AutoFlexRarityBoundsIn>::new();
+        bounds_map.insert(1, AutoFlexRarityBoundsIn {
+            min: Some(0.0), max: Some(1.0), any: Some(false), not: Some(false),
+        });
+        let value = AutoFlexRarityRecipeIn {
+            rarity_mode: Some("auto".to_string()),
+            rarity_code: Some(5),
+            auto_substat_flex: Some(true),
+            auto_min_count: Some(false),
+            min_count: Some(2.0),
+            auto_min_required_rolls: Some(true),
+            min_required_rolls: Some(4.0),
+            substats_v: vec![20],
+            fixed_substats_v: vec![20],
+            substat_roll_bounds_v: bounds_map,
+            min_level: Some(1.0),
+            max_level: Some(20.0),
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "rarityMode", "rarityCode", "autoSubstatFlex", "autoMinCount",
+            "minCount", "autoMinRequiredRolls", "minRequiredRolls",
+            "substatsV", "fixedSubstatsV", "substatRollBoundsV",
+            "minLevel", "maxLevel",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // substatRollBoundsV serializes via serialize_i64_key_map which emits
+        // each entry with a stringified key — i.e. a plain JSON object.
+        let bounds_field = json.get("substatRollBoundsV").expect("substatRollBoundsV present");
+        assert!(
+            bounds_field.is_object(),
+            "HashMap fields must serialize as JSON objects (no plain to_js_value!)",
+        );
+    }
+}

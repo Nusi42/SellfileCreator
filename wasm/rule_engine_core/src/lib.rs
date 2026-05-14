@@ -1705,3 +1705,172 @@ pub fn emit_hsf_rules_for_filtered_distributions_compact_core(
     let rows = hsf_distribution_runtime::filter_roll_distributions_core(&filter_input);
     emit_hsf_rules_for_distributions_core(&input.emit, &rows)
 }
+
+// ─── output-wire snapshot tests ──────────────────────────────────────────────
+// Each test below serializes a fully-populated instance of an output struct and
+// asserts that the resulting JSON's top-level key set matches a hand-listed
+// expected set.  If a developer renames or removes a field on the Rust side,
+// the test will fail — forcing the rename to be made in lockstep with the
+// corresponding TS consumer.
+//
+// These tests catch: field renames, field removals, type-shape changes.
+// They do NOT catch field additions (those are usually safe back-compat moves
+// and would just expand the expected set on the next test update).
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use crate::safeguards::SafeguardWasmSnapshotOut;
+    use std::collections::BTreeSet;
+
+    // Helper turns a static slice of string literals into a BTreeSet<String>.
+    // Used by every snapshot test below for the expected-key comparison.
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    // Helper extracts the top-level object key set from a serialized Rust value.
+    // Panics with a descriptive label when the value does not serialize to an object.
+    fn actual_keys<T: Serialize>(value: &T, label: &str) -> BTreeSet<String> {
+        let json = serde_json::to_value(value).unwrap_or_else(|e| panic!("{label} must serialize: {e}"));
+        json.as_object()
+            .unwrap_or_else(|| panic!("{label} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    // The drift-detected error message is shared across every snapshot test so
+    // future failures point readers at the lockstep-update workflow.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    // ── RuleRaw (PascalCase HSF rule shape) ─────────────────────────────────
+    // Every field is Option<T>; without skip_serializing_if, serde_json emits
+    // null for None.  Populate every field with Some(...) so the key set is
+    // complete regardless of any future skip_serializing_if additions.
+    #[test]
+    fn rule_raw_key_set_matches() {
+        let value = RuleRaw {
+            RecipeID: Some(1),
+            RecipeName: Some(Arc::from("name")),
+            Keep: Some(true),
+            IsRuleTypeAND: Some(false),
+            Use: Some(true),
+            ArtifactSet: Some(vec![1]),
+            ArtifactType: Some(vec![1]),
+            Rank: Some(1),
+            Rarity: Some(1),
+            MainStatID: Some(1),
+            MainStatF: Some(1),
+            LVLForCheck: Some(1),
+            Faction: Some(1),
+            Substats: Some(vec![]),
+            source: Some(Arc::from("hsf")),
+            line_idx: Some(1),
+            all_known_sets: Some(true),
+            rank_mask: Some(1),
+            rarity_mask: Some(1),
+            safeguard_rule_id: Some(Arc::from("id")),
+            safeguard_rule_ordinal: Some(1),
+            safeguard_hash: Some(Arc::from("h")),
+            safeguard_required: Some(1),
+            safeguard_scan_ms: Some(1.0),
+            safeguard_projected: Some(1),
+            safeguard_deficit: Some(1),
+            safeguard_item_key: Some(1),
+            safeguard_placeholder: Some(true),
+            safeguard_placeholder_missing: Some(1),
+        };
+        let actual = actual_keys(&value, "RuleRaw");
+        // PascalCase for the documented HSF fields; __* for the extension fields
+        // that TS treats as opaque metadata.  Order in the array is alphabetical
+        // by convention only — BTreeSet comparison is order-independent.
+        let expected = key_set(&[
+            "ArtifactSet", "ArtifactType", "Faction", "IsRuleTypeAND", "Keep",
+            "LVLForCheck", "MainStatF", "MainStatID", "Rank", "Rarity",
+            "RecipeID", "RecipeName", "Substats", "Use",
+            "__allKnownSets", "__lineIdx", "__rankMask", "__rarityMask",
+            "__safeguardDeficit", "__safeguardHash", "__safeguardItemKey",
+            "__safeguardPlaceholder", "__safeguardPlaceholderMissing",
+            "__safeguardProjected", "__safeguardRequired", "__safeguardRuleId",
+            "__safeguardRuleOrdinal", "__safeguardScanMs", "__source",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── RuleSubRaw (nested inside RuleRaw.Substats) ─────────────────────────
+    #[test]
+    fn rule_sub_raw_key_set_matches() {
+        let value = RuleSubRaw {
+            ID: Some(1),
+            Value: Some(1.0),
+            IsFlat: Some(false),
+            NotAvailable: Some(false),
+            Condition: Some(Arc::from(">=")),
+        };
+        let actual = actual_keys(&value, "RuleSubRaw");
+        let expected = key_set(&["ID", "Value", "IsFlat", "NotAvailable", "Condition"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ObsoleteEntryOut ────────────────────────────────────────────────────
+    #[test]
+    fn obsolete_entry_out_key_set_matches() {
+        let value = ObsoleteEntryOut { index: 0, covered_by: 1, reason: "shadow".to_string() };
+        let actual = actual_keys(&value, "ObsoleteEntryOut");
+        let expected = key_set(&["index", "coveredBy", "reason"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ObsoleteReportOut ───────────────────────────────────────────────────
+    // No rename_all on this struct, so the field stays snake_case... actually
+    // `obsolete` is one lowercase token, so casing is irrelevant.
+    #[test]
+    fn obsolete_report_out_key_set_matches() {
+        let value = ObsoleteReportOut { obsolete: vec![] };
+        let actual = actual_keys(&value, "ObsoleteReportOut");
+        let expected = key_set(&["obsolete"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── SafeguardCollectedAndProtectedSnapshotOut ───────────────────────────
+    // Returned by collect_and_compute_safeguard_protection_value.
+    // SafeguardWasmSnapshotOut has crate-private fields, so construct it via
+    // JSON round-trip — the deserialize path is the same payload TS would send
+    // back, so behavior parity is preserved.
+    #[test]
+    fn safeguard_collected_and_protected_snapshot_out_key_set_matches() {
+        let detection: SafeguardWasmSnapshotOut = serde_json::from_str(
+            r#"{"scannedAt":0.0,"entries":[]}"#,
+        ).expect("snapshot literal must deserialize");
+        let value = SafeguardCollectedAndProtectedSnapshotOut {
+            candidates: vec![],
+            unique_item_keys: vec![],
+            detection,
+        };
+        let actual = actual_keys(&value, "SafeguardCollectedAndProtectedSnapshotOut");
+        let expected = key_set(&["candidates", "uniqueItemKeys", "detection"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── EvaluateAndCollectSnapshotOut ───────────────────────────────────────
+    // Returned by evaluate_and_collect_safeguard_protection_value.
+    #[test]
+    fn evaluate_and_collect_snapshot_out_key_set_matches() {
+        let detection: SafeguardWasmSnapshotOut = serde_json::from_str(
+            r#"{"scannedAt":0.0,"entries":[]}"#,
+        ).expect("snapshot literal must deserialize");
+        let value = EvaluateAndCollectSnapshotOut {
+            evaluate_results: vec![],
+            candidates: vec![],
+            unique_item_keys: vec![],
+            detection,
+        };
+        let actual = actual_keys(&value, "EvaluateAndCollectSnapshotOut");
+        let expected = key_set(&[
+            "evaluateResults", "candidates", "uniqueItemKeys", "detection",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+}

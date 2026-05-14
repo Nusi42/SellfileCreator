@@ -759,3 +759,121 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
 pub fn build_hsf_rules_runtime_core_fn(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
     build_hsf_rules_runtime_core(input)
 }
+
+// Output-wire snapshot tests for the HSF-builder result structs.
+// Each test serializes a fully-populated instance and asserts that the
+// resulting JSON's top-level key set matches a hand-listed expected set.
+// PrepareHsfBuilderRecipeOut owns four HashMap fields — the test additionally
+// asserts each one serializes to a plain JSON object, catching the
+// to_js_value vs wasm_to_js regression class at the type level.
+#[cfg(test)]
+mod output_wire_snapshot_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    // Shared drift message across modules so the cargo-test failure narrative
+    // points at the same lockstep-update workflow every time.
+    const DRIFT_MESSAGE: &str =
+        "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
+
+    fn key_set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── PrepareHsfBuilderRecipeOut (HashMap-bearing) ────────────────────────
+    // The four HashMap<i64, T> fields use #[serde(serialize_with = "...")] to
+    // stringify keys so wasm_to_js can emit a plain JS object on the way out.
+    // We assert each one serializes to a plain JSON object — drift detection
+    // for both the field name AND the map-shape contract.
+    #[test]
+    fn prepare_hsf_builder_recipe_out_key_set_matches() {
+        let mut current = HashMap::<i64, i32>::new();
+        current.insert(1, 1);
+        let mut factory = HashMap::<i64, Option<i32>>::new();
+        factory.insert(1, Some(1));
+        let mut overrides = HashMap::<i64, Option<i32>>::new();
+        overrides.insert(1, None);
+        let mut entries = HashMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
+        entries.insert(1, PrepareHsfBuilderTargetEntryOut {
+            base: Some(0.0),
+            increments: Some(vec![]),
+        });
+        let value = PrepareHsfBuilderRecipeOut {
+            selected_pool_v: vec![1],
+            required_v: vec![1],
+            optional_pool_v: vec![1],
+            min_target_count: 1,
+            max_target_count: 1,
+            max_selectable_count: 1,
+            had_requested_substats: true,
+            has_per_stat_min: true,
+            current_base_by_variant: current,
+            factory_base_by_variant: factory,
+            target_base_override_by_variant: overrides,
+            target_entries_by_variant: entries,
+        };
+        let json = serde_json::to_value(&value).expect("PrepareHsfBuilderRecipeOut must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&[
+            "selectedPoolV", "requiredV", "optionalPoolV",
+            "minTargetCount", "maxTargetCount", "maxSelectableCount",
+            "hadRequestedSubstats", "hasPerStatMin",
+            "currentBaseByVariant", "factoryBaseByVariant",
+            "targetBaseOverrideByVariant", "targetEntriesByVariant",
+        ]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+        // Every HashMap-backed field must serialize as a plain JSON object,
+        // not as a JS Map shape — this catches plain to_js_value misuse at the
+        // serde layer (belt-and-suspenders with the wasm crate's checklist).
+        for map_key in [
+            "currentBaseByVariant", "factoryBaseByVariant",
+            "targetBaseOverrideByVariant", "targetEntriesByVariant",
+        ] {
+            let field = json.get(map_key).unwrap_or_else(|| panic!("{map_key} present"));
+            assert!(
+                field.is_object(),
+                "HashMap field {map_key} must serialize as JSON object (no plain to_js_value!)",
+            );
+        }
+    }
+
+    // ── PrepareHsfBuilderTargetEntryOut (nested inside the recipe-out map) ──
+    #[test]
+    fn prepare_hsf_builder_target_entry_out_key_set_matches() {
+        let value = PrepareHsfBuilderTargetEntryOut {
+            base: Some(0.0),
+            increments: Some(vec![Some(1.0)]),
+        };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&["base", "increments"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+
+    // ── ExecuteHsfBuilderRuntimeOut ─────────────────────────────────────────
+    // Returned by build_hsf_rules_runtime_value.  Contains Vec<RuleRaw> but no
+    // HashMap field — to_js_value is correct (per wasm crate checklist).
+    #[test]
+    fn execute_hsf_builder_runtime_out_key_set_matches() {
+        let value = ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false };
+        let json = serde_json::to_value(&value).expect("must serialize");
+        let actual: BTreeSet<String> = json
+            .as_object()
+            .expect("must be an object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected = key_set(&["rules", "limitHit"]);
+        assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+}
