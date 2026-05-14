@@ -1,4 +1,6 @@
 use super::*;
+// ts-rs trait import enables `#[derive(TS)]` for the AutoFlexRarity* wire structs.
+use ts_rs::TS;
 
 pub(crate) fn auto_rarity_clamp_roll_requirement(value: Option<f64>) -> i64 {
     let numeric = value.unwrap_or(0.0);
@@ -424,8 +426,11 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 // serde_wasm_bindgen does not support #[serde(flatten)] for HashMap fields;
 // extra bound keys (if any) are silently dropped here and do not affect logic.
 // `not` must be included so branches round-trip it back to TS without stripping it.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: nested by name from AutoFlexRarityRecipeIn.substatRollBoundsV (HashMap value).
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct AutoFlexRarityBoundsIn {
     #[serde(default)]
     pub min: Option<f64>,
@@ -443,8 +448,12 @@ pub struct AutoFlexRarityBoundsIn {
 // to emit an empty JS Map instead of a plain object, making all fields invisible
 // to TS callers.  Non-declared recipe fields are restored by the TS wrapper via
 // {...originalRecipe, ...wasmBranch} after the WASM call returns.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: composes AutoFlexRarityBoundsIn via the HashMap<i64, _> field
+// (emits `{ [key in number]: AutoFlexRarityBoundsIn }`).
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct AutoFlexRarityRecipeIn {
     #[serde(default)]
     pub rarity_mode: Option<String>,

@@ -4,6 +4,9 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+// ts-rs derives generated TS interfaces during `cargo test`; output + input wire structs
+// pick up `#[derive(TS)]` so consumers never hand-mirror Rust shapes.
+use ts_rs::TS;
 
 // Shared domain constants are generated from shared/domain-constants.json.
 // This keeps TS and Rust sentinel/enum values synchronized automatically.
@@ -173,8 +176,14 @@ thread_local! {
 
 // Raw rule shape mirrors the subset consumed by matchRule/evaluate.
 // Keep fields optional because exports may omit values for "Any".
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: emits RuleRaw.ts with PascalCase property names (the struct uses
+// `allow(non_snake_case)` so Rust field names ARE the wire-form names — no rename
+// helper needed). The `__safeguard*` / `__source` / `__lineIdx` fields use
+// `#[serde(rename = "...")]`, which ts-rs honors via its serde-attr passthrough.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[allow(non_snake_case)]
+#[ts(export)]
 pub struct RuleRaw {
     pub RecipeID: Option<i64>,
     // Arc<str> so cloning a rule is O(1) for this field (ref-count bump, no allocation).
@@ -226,8 +235,12 @@ pub struct RuleRaw {
 }
 
 // Substat row shape follows the HSF payload fields.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: PascalCase property names (no rename helper); referenced by name from
+// the RuleRaw `Substats` array.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[allow(non_snake_case)]
+#[ts(export)]
 pub struct RuleSubRaw {
     pub ID: Option<i64>,
     pub Value: Option<f64>,
@@ -239,8 +252,11 @@ pub struct RuleSubRaw {
 }
 
 // Top-level item payload passed from worker evaluate calls.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: composes TestItemRaw; nested by EvaluateValueInWire.items.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateItemRaw {
     pub item_id: i64,
     pub item: TestItemRaw,
@@ -255,8 +271,11 @@ pub struct EvaluateItemRaw {
 // wasm-bindgen Vec::grow_one churn under talc.
 // `options` stays Option<EvaluateOptionsRaw> because the TS side omits the key
 // entirely when no filter options apply (matches EvaluateOptionsRaw::default).
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: top-level JSON-string wire input for evaluate_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateValueInWire {
     pub items: Vec<EvaluateItemRaw>,
     #[serde(default)]
@@ -265,8 +284,14 @@ pub struct EvaluateValueInWire {
 
 // TestItem mirrors src/lib/ruleEval.ts fields used for matching.
 // All optional fields remain optional for backward compatibility.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: top-level item payload nested by EvaluateItemRaw + SafeguardCollectRowFastIn.
+// The `sub_values` wire shape is a string-keyed object of variant id → value (parsed by
+// a custom deserializer into Vec<(i64, f64)> internally).  We pin the TS type with
+// `#[ts(type = ...)]` so consumers see the wire form, not the internal representation.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct TestItemRaw {
     pub slot: i64,
     pub set: i64,
@@ -277,15 +302,21 @@ pub struct TestItemRaw {
     pub main: Option<i64>,
     // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
     // Vec instead of HashMap: items have ≤4 substats so linear scan beats hashing.
+    // Wire shape is `Record<string, number>` (object keyed by stringified variant id);
+    // the Rust internal Vec<(i64, f64)> is invisible to consumers.
     #[serde(default, deserialize_with = "deserialize_sub_values_vec")]
+    #[ts(type = "{ [variant: string]: number } | null")]
     pub sub_values: Option<Vec<(i64, f64)>>,
     pub item_id: Option<i64>,
     pub preview_extras: Option<PreviewExtrasRaw>,
 }
 
 // previewExtras carries the fallback ID used by safeguard bindings.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by TestItemRaw.previewExtras.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct PreviewExtrasRaw {
     pub id: Option<i64>,
 }
@@ -392,8 +423,12 @@ where
 
 // Combined safeguard payload lets TS request candidate collection + detection
 // in one wasm call while preserving both legacy output shapes.
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: references SafeguardCollectedCandidateOut + SafeguardWasmSnapshotOut
+// by name; both are derived elsewhere.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectedAndProtectedSnapshotOut {
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     pub unique_item_keys: Vec<i64>,
@@ -401,8 +436,11 @@ pub struct SafeguardCollectedAndProtectedSnapshotOut {
 }
 
 // Obsolete-report payload mirrors src/lib/hsfObsolete.ts return shape.
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: simple tuple of (index, covered_by, reason).
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ObsoleteEntryOut {
     pub index: usize,
     pub covered_by: usize,
@@ -410,7 +448,9 @@ pub struct ObsoleteEntryOut {
 }
 
 // Obsolete report root keeps the same top-level property name.
-#[derive(Debug, Serialize)]
+// No serde camelCase rename on this struct (single snake-free field).
+#[derive(Debug, Serialize, TS)]
+#[ts(export)]
 pub struct ObsoleteReportOut {
     pub obsolete: Vec<ObsoleteEntryOut>,
 }
@@ -443,8 +483,11 @@ pub struct BuilderFinalizeEntry {
 }
 
 // Final-sell remainder recipe mirrors src/lib/logicHub.ts payload shape.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by BuildFinalSellRulesInWire.remainder.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct FinalSellRemainderIn {
     pub artifacts: bool,
     pub accessories: bool,
@@ -455,8 +498,12 @@ pub struct FinalSellRemainderIn {
 }
 
 // Merged-rule payload keeps orchestration inputs compact for one wasm call.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: composes RuleRaw, FinalSellRemainderIn, SafeguardWasmRuleIn, and
+// SafeguardWasmSnapshotOut — all derived elsewhere.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ComputeMergedRulesIn {
     #[serde(default)]
     pub base_rules: Vec<RuleRaw>,
@@ -479,15 +526,21 @@ pub struct ComputeMergedRulesIn {
 }
 
 // Auto-rarity bounds mirror BuilderRecipe.substatRollBoundsV row shape.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by AutoRarityResolve* via the substat_roll_bounds_v HashMap.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct AutoRarityResolveRollBoundsIn {
     pub min: Option<f64>,
 }
 
 // Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: composes AutoRarityResolveRollBoundsIn via HashMap<i64, ...>.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct AutoRarityResolveIn {
     #[serde(default)]
     pub auto_rarity_supplements_threshold: Option<String>,
@@ -510,8 +563,11 @@ pub struct AutoRarityResolveIn {
 }
 
 // Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: composes AutoRarityResolveRollBoundsIn via HashMap<i64, ...>.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct AutoRarityResolveBuilderIn {
     #[serde(default)]
     pub auto_rarity_supplements_threshold: Option<String>,
@@ -1153,8 +1209,12 @@ pub fn evaluate_engine(
 // Combined output for evaluate_engine_and_collect_safeguard_protection.
 // Carries per-item evaluation results alongside the safeguard candidate/detection payloads
 // so TS callers cross the WASM boundary only once for the detection phase.
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: composes EvaluateItemResult, SafeguardCollectedCandidateOut, and
+// SafeguardWasmSnapshotOut — all derived elsewhere.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateAndCollectSnapshotOut {
     // Per-item evaluation results (mirrors Vec<EvaluateItemResult> from evaluate_engine).
     pub evaluate_results: Vec<EvaluateItemResult>,
@@ -1343,16 +1403,21 @@ pub fn compute_improvement_chance_engine(
 }
 
 // Input payload for batch HSF rule emission from pre-filtered distributions.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: nested by HSF batch-emission inputs.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EmitHsfSubstatIn {
     pub id: i64,
     #[serde(default)]
     pub is_flat: bool,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: nested by BuildHsfRulesRuntimeIn.mainChoices.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EmitHsfMainChoiceIn {
     pub id: i64,
     pub f: Option<i64>,

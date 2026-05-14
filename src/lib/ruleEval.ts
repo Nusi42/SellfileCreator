@@ -16,6 +16,13 @@ import {
   type WasmRuleEngineEvaluateOptions,
 } from './wasm/wasmRuleEngine'
 import { resolveCanonicalTestItemId } from './itemIdentity'
+// ts-rs derived TS interfaces — SSOT for the WASM matcher's per-item output
+// shape.  Generated from the Rust structs `EvalMatch` and `MatchingRecipeDecision`
+// in `wasm/rule_engine_core/src/matcher_evaluator.rs` during `cargo test`.
+// Renaming a field on the Rust side regenerates the .ts file with the new
+// name, which breaks every TS consumer that still reads the old name.
+import type { EvalMatch } from './wasm/generated/rust-types/EvalMatch'
+import type { MatchingRecipeDecision as WasmMatchingRecipeDecision } from './wasm/generated/rust-types/MatchingRecipeDecision'
 
 // Attach provenance (recipe index) as done in merge.ts.
 export type GearInspectorItemPreviewExtras = {
@@ -69,7 +76,12 @@ export type TestItem = {
   previewExtras?: GearInspectorItemPreviewExtras
 }
 
-export type EvalResult = { ruleIndex: number; keep: boolean; recipeIdx: number | null } | null
+// EvalResult is the local nullable alias of the ts-rs-derived EvalMatch (i.e.,
+// `EvalMatch | null`).  The inner non-null shape is generated from the Rust
+// struct in matcher_evaluator.rs — see the import above.  This keeps a Rust
+// rename from drifting silently: the regenerated EvalMatch.ts changes the
+// field name, tsc errors at every consumer that reads the old name.
+export type EvalResult = EvalMatch | null
 
 export type EvalMatchesByRecipeOverrides = {
   // Optional per-recipe export modes (disabled/separator suppression).
@@ -82,7 +94,9 @@ export type EvalMatchesByRecipeOverrides = {
   ignoreSafeguardRecipeIndices?: ReadonlySet<number>
 }
 
-export type MatchingRecipeDecision = { recipeIdx: number; keep: boolean }
+// Per-recipe keep/sell decision row — re-exported from the ts-rs generated
+// interface so worker types and main-thread consumers share the SSOT shape.
+export type MatchingRecipeDecision = WasmMatchingRecipeDecision
 
 export type EvalMatchesByRecipeResult = {
   firstMatch: EvalResult | null

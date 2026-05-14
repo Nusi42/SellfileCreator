@@ -1,5 +1,9 @@
 use super::*;
 use std::sync::Arc;
+// ts-rs auto-generates TS interfaces from `#[derive(TS)]` structs during cargo
+// test runs, dropping the .ts files at `export_to` (see derives below).
+// Importing the trait directly keeps the attribute usage readable.
+use ts_rs::TS;
 
 // Rules bucketed by artifact slot for fast per-item evaluation.
 // from_rules partitions the flat rule list into shared (any-type) and per-slot buckets.
@@ -102,8 +106,11 @@ pub struct PreparedRuleSub {
 
 // Evaluate options mirror EvalMatchesByRecipeOverrides from TS.
 // Sets are converted once so each rule scan stays allocation-free.
-#[derive(Debug, Deserialize, Default, Clone)]
+//
+// ts-rs export: nested by EvaluateValueInWire.options + EvaluateAndCollectSafeguardProtectionInWire.options.
+#[derive(Debug, Deserialize, Default, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateOptionsRaw {
     pub exclude_sources: Option<Vec<String>>,
     pub exclude_recipe_indices: Option<Vec<i64>>,
@@ -239,29 +246,47 @@ pub fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrep
 
 // Serialized match result shape consumed by existing worker hooks.
 // All fields are plain data; Copy avoids manual field-by-field reconstruction at use sites.
-#[derive(Debug, Serialize, Clone, Copy)]
+//
+// ts-rs export: writes `EvalMatch.ts` to src/lib/wasm/generated/rust-types/ during
+// `cargo test`.  The build script runs cargo test with `TS_RS_LARGE_INT=number` so
+// i64 maps to TS `number` (matching serde_wasm_bindgen's default i64 → JS number
+// wire encoding — bigint would only apply if `serialize_large_number_types` were
+// enabled in the Serializer, which it is not).
+// `#[ts(rename_all = "camelCase")]` mirrors the #[serde(rename_all = ...)] attribute
+// so the generated TS interface uses ruleIndex/recipeIdx, not rule_index/recipe_idx.
+#[derive(Debug, Serialize, Clone, Copy, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvalMatch {
     pub rule_index: usize,
     pub keep: bool,
     pub recipe_idx: Option<i64>,
     // Runtime-only flag; not serialized to JS — used to decide if a baseline re-evaluation
     // is needed without looking up the rule from the bucketed structure.
+    // `#[ts(skip)]` mirrors `#[serde(skip)]` so the field disappears from the generated TS.
     #[serde(skip)]
+    #[ts(skip)]
     pub is_keep_override_source: bool,
 }
 
 // Serialized per-recipe keep/sell decision list.
-#[derive(Debug, Serialize)]
+// ts-rs: nested inside EvaluateItemResult.matchingRecipeDecisions — exported so the
+// generated TS interface can reference it by name (`MatchingRecipeDecision[]`).
+// i64 maps to TS `number` via TS_RS_LARGE_INT=number (set in the build script).
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct MatchingRecipeDecision {
     pub recipe_idx: i64,
     pub keep: bool,
 }
 
 // Serialized item result shape mirrors TesterMatchWorkerItemResult.
-#[derive(Debug, Serialize)]
+// ts-rs export: nested-types representative — Option<EvalMatch>,
+// Vec<MatchingRecipeDecision>, Vec<i64>.  All inner refs land via TS imports.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct EvaluateItemResult {
     pub item_id: i64,
     pub first_match: Option<EvalMatch>,
@@ -271,8 +296,11 @@ pub struct EvaluateItemResult {
 }
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by SafeguardCollectRowFastIn.baseMatch (fast-path input).
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCandidateResolveBaseMatchIn {
     pub keep: bool,
     pub recipe_idx: Option<i64>,
@@ -291,8 +319,11 @@ pub struct SafeguardCollectRowIn {
 
 // Candidate snapshot entry mirrors safeguards.ts SafeguardCandidate shape.
 // artifact is intentionally omitted: TS callers reconstruct it from rows[rowIndex].
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: referenced by name from SafeguardCollectedSnapshotOut.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectedCandidateOut {
     pub row_index: usize,
     pub item_key: i64,
@@ -301,8 +332,11 @@ pub struct SafeguardCollectedCandidateOut {
 }
 
 // Candidate snapshot payload also includes sold-item key dedupe set.
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: composes SafeguardCollectedCandidateOut.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectedSnapshotOut {
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     pub unique_item_keys: Vec<i64>,

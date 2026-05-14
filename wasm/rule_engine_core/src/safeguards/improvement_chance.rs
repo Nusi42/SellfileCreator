@@ -36,6 +36,8 @@ use crate::{
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::Serialize;
+// ts-rs trait import enables `#[derive(TS)]` on this submodule's output types.
+use ts_rs::TS;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -66,8 +68,10 @@ const TWO_VALUE_BRANCHING_MIN_MILESTONE: i64 = 12;
 
 // ─── public output types ─────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Clone)]
+// ts-rs export: optional diagnostics block embedded in ImprovementChanceEntry.debug.
+#[derive(Debug, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceDebug {
     // Number of viable scenarios that can match this artifact by +16.
     pub viable_scenario_count: u32,
@@ -91,8 +95,10 @@ pub struct ImprovementChanceDebug {
 // payload round-trips through serde_wasm_bindgen's to_js_value / from_js_value without needing
 // the maps-as-objects serializer. The consumer in mod.rs rebuilds a HashMap<(art_id, rule_ordinal), f64>
 // from these lists for O(1) lookup during threshold expansion.
-#[derive(Debug, Serialize, Clone)]
+// ts-rs export: leaf entry inside ImprovementChanceEntry.chancesByRuleOrdinal.
+#[derive(Debug, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceRuleEntry {
     // 1-based safeguard rule ordinal in the input rules list.
     pub rule_ordinal: i64,
@@ -100,8 +106,13 @@ pub struct ImprovementChanceRuleEntry {
     pub chance_percent: f64,
 }
 
-#[derive(Debug, Serialize, Clone)]
+// ts-rs export: artifact-keyed improvement-chance entry; debug is optional.
+// The matched_rule_ordinal field uses #[serde(rename = "ruleOrdinal")] which overrides
+// the struct-level camelCase rename to a literal "ruleOrdinal"; the same rename is
+// mirrored as a #[ts(rename = ...)] attribute so the generated TS field name agrees.
+#[derive(Debug, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
@@ -117,6 +128,7 @@ pub struct ImprovementChanceEntry {
     // Renamed to "ruleOrdinal" to match TS type ImprovementChanceWasmEntry; overrides the struct-level
     // camelCase rename which would otherwise produce "matchedRuleOrdinal".
     #[serde(rename = "ruleOrdinal")]
+    #[ts(rename = "ruleOrdinal")]
     pub matched_rule_ordinal: Option<i64>,
     // Per-rule chances keyed by 1-based safeguard rule ordinal. Used by mod.rs's
     // improvement_chance_threshold expansion so each rule consults the chance of the
@@ -132,8 +144,10 @@ pub struct ImprovementChanceEntry {
 // wasm32 without web_sys). JS times the outer call with performance.now() and
 // uses these counts to understand scaling (e.g. why 10k artifacts × N scenarios
 // is slow even when each compute_probability depth is bounded at 4).
-#[derive(Debug, Serialize, Clone)]
+// ts-rs export: per-call perf counters returned when debug=true.
+#[derive(Debug, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChancePerfDiag {
     // Total artifact rows passed to the function.
     pub row_count: u32,

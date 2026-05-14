@@ -2,6 +2,8 @@
 // These decode compact TS preview-row payloads into the canonical matcher shapes
 // used throughout the safeguards module.
 use serde::{Deserialize, Serialize};
+// ts-rs trait import enables `#[derive(TS)]` on the input wire structs below.
+use ts_rs::TS;
 use super::{
     SAFEGUARD_EQUIPPED_LOCATION_COLLECTION,
     SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT,
@@ -10,8 +12,10 @@ use super::{
 };
 use crate::{SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, TestItemRaw};
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: nested by SafeguardWasmArtifactIn.substats.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSubstatIn {
     pub variant: i64,
     #[serde(default)]
@@ -21,8 +25,10 @@ pub struct SafeguardWasmSubstatIn {
     pub rolls: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: top-level input artifact used across safeguard wasm entries.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmArtifactIn {
     pub id: Option<i64>,
     pub slot: i64,
@@ -51,8 +57,13 @@ pub(super) struct SafeguardWasmCandidateIn {
 }
 
 // Fast-path main-stat decoder accepts either numeric variants or `{ variant }` records.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: untagged enum → TS union `number | { variant?: number | null }`.
+// ts-rs honors the serde(untagged) discriminant strategy and emits each variant
+// inline without a tag field.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(untagged)]
+#[ts(export)]
 pub enum SafeguardWasmMainStatRawIn {
     Variant(i64),
     Record {
@@ -62,8 +73,11 @@ pub enum SafeguardWasmMainStatRawIn {
 }
 
 // Fast-path substat decoder accepts normalized preview payload fields directly.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by SafeguardWasmArtifactRawIn.substats.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSubstatRawIn {
     #[serde(default)]
     pub variant: i64,
@@ -81,8 +95,11 @@ pub struct SafeguardWasmSubstatRawIn {
 // Nested champion reference carries only the fields safeguards read from the
 // equipped-champion record (currently just `location`). Matches the TS
 // ChampionLookupRecord nested shape on NormalizedGearArtifact.
-#[derive(Debug, Deserialize, Clone, Default)]
+//
+// ts-rs export: nested by SafeguardWasmArtifactRawIn.equippedChampion.
+#[derive(Debug, Deserialize, Clone, Default, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmEquippedChampionRawIn {
     #[serde(default)]
     pub location: Option<String>,
@@ -91,8 +108,12 @@ pub struct SafeguardWasmEquippedChampionRawIn {
 // Fast-path artifact decoder mirrors normalized gear inspector artifact payloads.
 // The optional `gearInspectorItem` keeps row payloads compact when `item` is omitted.
 // Made pub because SafeguardCollectRowFastIn/SafeguardWasmCandidateFastIn (also pub) embed it.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: composes SafeguardWasmMainStatRawIn (untagged union),
+// SafeguardWasmSubstatRawIn, SafeguardWasmEquippedChampionRawIn, and TestItemRaw.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmArtifactRawIn {
     pub id: Option<i64>,
     pub slot: i64,
@@ -119,8 +140,12 @@ pub struct SafeguardWasmArtifactRawIn {
 // Fast-path collect row payload mirrors normalized preview rows consumed in TS.
 // Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardCollectRowFastIn>
 // and pass the result to safeguard_parse_collect_rows_payload.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: composes SafeguardWasmArtifactRawIn, TestItemRaw,
+// SafeguardCandidateResolveBaseMatchIn.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardCollectRowFastIn {
     pub artifact: SafeguardWasmArtifactRawIn,
     #[serde(default)]
@@ -134,8 +159,11 @@ pub struct SafeguardCollectRowFastIn {
 // Fast-path candidate payload mirrors compact safeguard candidate snapshots.
 // Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardWasmCandidateFastIn>
 // and pass the result to compute_safeguard_protection_core_pub.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: composes SafeguardWasmArtifactRawIn.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCandidateFastIn {
     #[serde(default)]
     pub item_key: Option<i64>,

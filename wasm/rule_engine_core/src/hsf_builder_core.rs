@@ -5,6 +5,9 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
+// ts-rs trait import enables `#[derive(TS)]` on the few hsf-builder input types
+// (BuildHsfComboBoundsIn, BuildHsfComboTargetEntryIn) that cross the wasm boundary.
+use ts_rs::TS;
 
 use crate::generated_domain_constants::*;
 use crate::safeguards::safeguard_variant_to_sub;
@@ -127,22 +130,30 @@ pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
 
 // Per-variant roll-bound payload used for combo vector normalization.
 // When `not` is true the stat must be absent (HSF Condition "¬"); min/max/any are ignored.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by BuildHsfRulesRuntimeIn.substatRollBoundsV (HashMap value).
+// Fields promoted to `pub` so ts-rs can export them.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct BuildHsfComboBoundsIn {
-    pub(crate) min: Option<f64>,
-    pub(crate) max: Option<f64>,
-    pub(crate) any: Option<bool>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub any: Option<bool>,
     #[serde(default)]
-    pub(crate) not: Option<bool>,
+    pub not: Option<bool>,
 }
 
 // Per-variant target override payload aligned to combo index order.
-#[derive(Debug, Deserialize, Clone)]
+//
+// ts-rs export: nested by BuildHsfRulesRuntimeIn.targetEntriesByVariant (HashMap value).
+// Fields promoted to `pub` so ts-rs can export them.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct BuildHsfComboTargetEntryIn {
-    pub(crate) base: Option<f64>,
-    pub(crate) increments: Option<Vec<Option<f64>>>,
+    pub base: Option<f64>,
+    pub increments: Option<Vec<Option<f64>>>,
 }
 
 // Input payload for combo-invariant vector derivation in hsfBuilder.

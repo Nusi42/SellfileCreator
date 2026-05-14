@@ -553,16 +553,11 @@ export type SafeguardDetectionSubstat = {
 }
 
 // Per-candidate scoring output from the WASM detection pass or live preview.
-// Mirrors SafeguardWasmCandidateOut on the Rust side.
-export type SafeguardCandidateOut = {
-  itemKey: number
-  // Weighted normalized substat score; 0 when no substats are selected.
-  score: number
-  // 1-based rank within the group; 0 when scoring is inactive (no substats).
-  candidateRank: number
-  // true when the candidate ranks within the rule's keep quota.
-  isWithinQuota: boolean
-}
+// Pure mirror of SafeguardWasmCandidateOut (Rust) — imported from the ts-rs
+// generated rust-types/ directory and re-exported under the legacy name so
+// downstream consumers (gear-inspector overlay, safeguard popover) don't move.
+import type { SafeguardWasmCandidateOut } from './wasm/generated/rust-types/SafeguardWasmCandidateOut'
+export type SafeguardCandidateOut = SafeguardWasmCandidateOut
 
 export type SafeguardDetectionEntry = {
   hash: string
@@ -1323,6 +1318,11 @@ export const toWasmArtifactStoreInput = (artifact: NormalizedGearArtifact): Wasm
   substats: artifact.substats.map((s) => ({
     variant: s.variant,
     isFlat: s.isFlat,
+    // `value` is the engine-canonical value (== totalValue for normalized substats);
+    // SafeguardWasmSubstatRawIn declares both, so the projection must populate both
+    // to keep ts-rs's strict `T | null` contract satisfied. Runtime Rust treats
+    // either as a fallback via #[serde(default)], so the duplication is harmless.
+    value: s.totalValue ?? null,
     totalValue: s.totalValue ?? null,
     rolls: s.rolls ?? null,
   })),

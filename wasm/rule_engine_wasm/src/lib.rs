@@ -35,6 +35,9 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
+// ts-rs trait import enables `#[derive(TS)]` on the wire wrapper structs
+// declared locally in this crate (e.g. ImprovementChanceOutput).
+use ts_rs::TS;
 // Minified wire format for compute_merged_rules_value — lives in rule_engine_core
 // so the consistency test can run via `cargo test` on the host target.
 use rule_engine_core::wasm_merged_rules_wire_format::{
@@ -140,18 +143,24 @@ fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usiz
 //
 // `chances_by_rule_ordinal` is the per-rule chance list — each entry pairs a 1-based
 // safeguard rule ordinal with the probability the artifact lands in THAT rule's top-N at +16.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: promoted to `pub` so ts-rs can export the type (mirror of the
+// per-artifact chance entries threaded back through compute_safeguard_protection_value).
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ImprovementChanceInput {
-    artifact_id: i64,
-    chances_by_rule_ordinal: Vec<ImprovementChanceRuleInput>,
+#[ts(export, rename_all = "camelCase")]
+pub struct ImprovementChanceInput {
+    pub artifact_id: i64,
+    pub chances_by_rule_ordinal: Vec<ImprovementChanceRuleInput>,
 }
 
-#[derive(Debug, Deserialize)]
+// ts-rs export: leaf entry inside ImprovementChanceInput.chancesByRuleOrdinal.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ImprovementChanceRuleInput {
-    rule_ordinal: i64,
-    chance_percent: f64,
+#[ts(export, rename_all = "camelCase")]
+pub struct ImprovementChanceRuleInput {
+    pub rule_ordinal: i64,
+    pub chance_percent: f64,
 }
 
 // Top-level JSON-string payload accepted by compute_safeguard_protection_value.
@@ -163,23 +172,25 @@ struct ImprovementChanceRuleInput {
 // (see ~/.cargo/registry/.../serde-wasm-bindgen-0.6.5/src/de.rs around
 // line 86-105: ObjectAccess::next_key_seed iterates the Rust field list rather
 // than the JS object's own keys, so unknown fields slip through silently).
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for compute_safeguard_protection_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ComputeSafeguardProtectionInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct ComputeSafeguardProtectionInWire {
     // Compact safeguard candidates produced by the TS-side projection helper.
-    candidates: Vec<SafeguardWasmCandidateFastIn>,
+    pub candidates: Vec<SafeguardWasmCandidateFastIn>,
     // Resolved safeguard rules (per-level thresholds already collapsed to [f64; 4]).
-    rules: Vec<SafeguardWasmRuleIn>,
+    pub rules: Vec<SafeguardWasmRuleIn>,
     // Optional expected-group wrapper (None when caller passes no precomputed groups).
     #[serde(default)]
-    expected_groups_by_rule_id: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_groups_by_rule_id: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     // Master toggle — when false the snapshot is built without scoring.
-    enabled: bool,
+    pub enabled: bool,
     // Snapshot timestamp surfaced to the caller; sanitised downstream.
-    now: f64,
+    pub now: f64,
     // Per-artifact / per-rule improvement chance entries (None disables thresholding).
     #[serde(default)]
-    improvement_chances: Option<Vec<ImprovementChanceInput>>,
+    pub improvement_chances: Option<Vec<ImprovementChanceInput>>,
 }
 
 // Top-level JSON-string payload accepted by collect_safeguard_candidates_value.
@@ -187,47 +198,53 @@ struct ComputeSafeguardProtectionInWire {
 // Option<...>.  deny_unknown_fields catches any TS-side drift; the underlying
 // RuleRaw struct intentionally keeps its legacy PascalCase HSF field set and
 // must NOT use deny_unknown_fields itself (see wasm/rule_engine_core/src/lib.rs).
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: top-level JSON-string input for collect_safeguard_candidates_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct CollectSafeguardCandidatesInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct CollectSafeguardCandidatesInWire {
     // Compact preview rows projected on the TS side via toWasmSafeguardCollectRow.
-    rows: Vec<SafeguardCollectRowFastIn>,
+    pub rows: Vec<SafeguardCollectRowFastIn>,
     // Merged base rules used for keep/sell candidate resolution.
-    rules: Vec<RuleRaw>,
+    pub rules: Vec<RuleRaw>,
     // Per-recipe visibility modes used by evaluate-item rule filtering.
-    recipe_modes: Vec<String>,
+    pub recipe_modes: Vec<String>,
     // Optional ignored-recipe list for safeguard suppression modes.
     #[serde(default)]
-    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
 }
 
 // Top-level JSON-string payload for collect_and_compute_safeguard_protection_value.
 // Combines candidate collection + protection scoring inputs in a single struct so
 // both halves of the combined pipeline share one parse / one deny_unknown_fields gate.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: top-level JSON-string input for collect_and_compute_safeguard_protection_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct CollectAndComputeSafeguardProtectionInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct CollectAndComputeSafeguardProtectionInWire {
     // Compact preview rows projected on the TS side via toWasmSafeguardCollectRow.
-    rows: Vec<SafeguardCollectRowFastIn>,
+    pub rows: Vec<SafeguardCollectRowFastIn>,
     // Merged base rules used for keep/sell candidate resolution.
-    rules: Vec<RuleRaw>,
+    pub rules: Vec<RuleRaw>,
     // Per-recipe visibility modes used by evaluate-item rule filtering.
-    recipe_modes: Vec<String>,
+    pub recipe_modes: Vec<String>,
     // Optional ignored-recipe list for safeguard suppression modes.
     #[serde(default)]
-    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     // Canonical safeguard rules (per-level thresholds already collapsed to [f64; 4]).
-    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
     // Optional expected-group wrapper payload (None when caller passes no precomputed groups).
     #[serde(default)]
-    expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     // Master toggle — when false the snapshot is built without scoring.
-    enabled: bool,
+    pub enabled: bool,
     // Snapshot timestamp surfaced to the caller; sanitised downstream.
-    now: f64,
+    pub now: f64,
     // Per-artifact / per-rule improvement chance entries (None disables thresholding).
     #[serde(default)]
-    improvement_chances: Option<Vec<ImprovementChanceInput>>,
+    pub improvement_chances: Option<Vec<ImprovementChanceInput>>,
 }
 
 // Top-level JSON-string payload accepted by resolve_safeguard_rules_with_metasets_value.
@@ -235,11 +252,13 @@ struct CollectAndComputeSafeguardProtectionInWire {
 // bundled into a single struct so deny_unknown_fields activates — serde_json::from_str
 // will reject unknown top-level fields, whereas serde-wasm-bindgen's from_value path
 // structurally ignores them.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for resolve_safeguard_rules_with_metasets_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ResolveSafeguardRulesWithMetasetsInWire {
-    rules: Vec<SafeguardWasmRuleIn>,
-    metasets: Vec<SafeguardWasmMetasetIn>,
+#[ts(export, rename_all = "camelCase")]
+pub struct ResolveSafeguardRulesWithMetasetsInWire {
+    pub rules: Vec<SafeguardWasmRuleIn>,
+    pub metasets: Vec<SafeguardWasmMetasetIn>,
 }
 
 // Top-level JSON-string payload accepted by build_safeguard_rules_value.
@@ -247,14 +266,16 @@ struct ResolveSafeguardRulesWithMetasetsInWire {
 // serde_json::from_str parse activates deny_unknown_fields against the JS object.
 // recipe_id_base stays as a separate primitive argument on the wasm boundary; it
 // is a plain i64 that wasm-bindgen passes natively without any JSON round-trip.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for build_safeguard_rules_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BuildSafeguardRulesInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct BuildSafeguardRulesInWire {
     // Resolved safeguard rules (per-level thresholds already collapsed to [f64; 4]).
-    rules: Vec<SafeguardWasmRuleIn>,
+    pub rules: Vec<SafeguardWasmRuleIn>,
     // Optional snapshot from the detection pipeline; None when TS passes null.
     #[serde(default)]
-    detection: Option<SafeguardWasmSnapshotOut>,
+    pub detection: Option<SafeguardWasmSnapshotOut>,
 }
 
 // Top-level JSON-string payload accepted by build_final_sell_rules_value.
@@ -262,14 +283,16 @@ struct BuildSafeguardRulesInWire {
 // single serde_json::from_str parse activates deny_unknown_fields against the JS
 // object.  Optional remainder lets TS pass null when no final-sell expansion is
 // requested, matching the historical signature.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for build_final_sell_rules_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BuildFinalSellRulesInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct BuildFinalSellRulesInWire {
     // Optional remainder recipe; None disables final-sell rule generation.
     #[serde(default)]
-    remainder: Option<FinalSellRemainderIn>,
+    pub remainder: Option<FinalSellRemainderIn>,
     // Full set-id universe used to expand the "all known sets" branch.
-    all_known_set_ids: Vec<i64>,
+    pub all_known_set_ids: Vec<i64>,
 }
 
 // Top-level JSON-string payload accepted by merge_safeguard_injected_rules_value.
@@ -280,15 +303,26 @@ struct BuildFinalSellRulesInWire {
 // and dedupe_hsf_rules_for_export_value.  The three-array layout is preserved as
 // requested; consolidating into a single Vec would lose the merge precedence
 // semantics that merge_safeguard_injected_rules_core_fn relies on.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for merge_safeguard_injected_rules_value.
+// The three Vec<RuleRawWire> fields carry the minified wire form (short field names
+// from shared/wasm-rule-wire-fields.json) — that minification is owned by the TS
+// helpers in `wasmRuleWireFields.ts`, NOT by hand-written TS types.  Override
+// `#[ts(type = ...)]` to expose the wire arrays as opaque records, so the generated
+// TS shape doesn't try to enumerate the 32-field short-name RuleRawWire layout (its
+// SSOT is the JSON file, not the Rust struct).
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct MergeSafeguardInjectedRulesInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct MergeSafeguardInjectedRulesInWire {
     // Pre-merge base rules emitted by the main HSF rule pipeline.
-    base_rules: Vec<RuleRawWire>,
+    #[ts(type = "Array<Record<string, unknown>>")]
+    pub base_rules: Vec<RuleRawWire>,
     // Custom user-authored rules merged in next; takes precedence over base.
-    custom_rules: Vec<RuleRawWire>,
+    #[ts(type = "Array<Record<string, unknown>>")]
+    pub custom_rules: Vec<RuleRawWire>,
     // Safeguard-injected candidate keep rules layered on top during merge.
-    candidate_safeguard_rules: Vec<RuleRawWire>,
+    #[ts(type = "Array<Record<string, unknown>>")]
+    pub candidate_safeguard_rules: Vec<RuleRawWire>,
 }
 
 // EvaluateValueInWire moved to rule_engine_core::lib so rule_engine_dsim_wasm
@@ -301,23 +335,25 @@ struct MergeSafeguardInjectedRulesInWire {
 // `enabled` (bool) and `now` (f64) stay as separate primitive wasm-bindgen arguments
 // because wasm-bindgen marshals primitives natively without any JSON round-trip —
 // same convention as build_safeguard_rules_value's recipe_id_base.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for evaluate_and_collect_safeguard_protection_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct EvaluateAndCollectSafeguardProtectionInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct EvaluateAndCollectSafeguardProtectionInWire {
     // Evaluate options used by the per-item rule scan; None applies all defaults.
     #[serde(default)]
-    options: Option<EvaluateOptionsRaw>,
+    pub options: Option<EvaluateOptionsRaw>,
     // Recipe indices ignored by safeguard precedence; None when no suppressions apply.
     #[serde(default)]
-    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     // Canonical safeguard rules consumed by protection scoring.
-    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
     // Optional expected-group wrapper (None when caller passes no precomputed groups).
     #[serde(default)]
-    expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
     // Per-artifact / per-rule improvement-chance entries (None disables thresholding).
     #[serde(default)]
-    improvement_chances: Option<Vec<ImprovementChanceInput>>,
+    pub improvement_chances: Option<Vec<ImprovementChanceInput>>,
 }
 
 // Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
@@ -475,14 +511,16 @@ pub fn build_safeguard_rules_value(
 // of the wasm surface and activates the deny_unknown_fields drift gate.  Do
 // NOT revert without coordinating the same revert across the entry points
 // migrated in batches D–G — and only after a measured regression.
-#[derive(Debug, Deserialize)]
+// ts-rs export: top-level JSON-string input for safeguard_count_key_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardCountKeyInWire {
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardCountKeyInWire {
     // Compact artifact tuple (slot/set/faction/mainStat) — already projected
     // on the TS side via toWasmSafeguardCountKeyArtifact.
-    artifact: SafeguardWasmCountKeyArtifactIn,
+    pub artifact: SafeguardWasmCountKeyArtifactIn,
     // Count-mode flags consumed by safeguard_count_key_core.
-    count_mode: SafeguardWasmCountMode,
+    pub count_mode: SafeguardWasmCountMode,
 }
 
 // Expose safeguard count-key derivation so JS expected-group precomputation
@@ -1251,11 +1289,18 @@ pub fn evaluate_and_collect_safeguard_protection_value(
 // Wrapper returned by compute_improvement_chance_value.
 // Bundles the entry array and optional perf diagnostics so the JS caller
 // can log the diag block in dev without a second round-trip.
-#[derive(Debug, Serialize)]
+//
+// ts-rs export: composes ImprovementChanceEntry + ImprovementChancePerfDiag (both
+// derived in rule_engine_core).  Switched from `&'a Vec<_>` + `Option<&'a _>` to
+// owned form so ts-rs can derive without lifetime introspection; the construction
+// site moves `entries`/`perf_diag` into the struct on the way out — no clone added
+// because the values are dropped immediately after serialization.
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ImprovementChanceOutput<'a> {
-    entries: &'a Vec<ImprovementChanceEntry>,
-    diag: Option<&'a ImprovementChancePerfDiag>,
+#[ts(export, rename_all = "camelCase")]
+struct ImprovementChanceOutput {
+    entries: Vec<ImprovementChanceEntry>,
+    diag: Option<ImprovementChancePerfDiag>,
 }
 
 // Compute improvement-chance percentages for all non-maxed artifacts in stored rows.
@@ -1284,7 +1329,9 @@ pub fn compute_improvement_chance_value(
         .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
     let (entries, perf_diag) = compute_improvement_chance_engine(parsed_rules, enabled, debug)
         .map_err(|error| JsValue::from_str(&error))?;
-    let output = ImprovementChanceOutput { entries: &entries, diag: perf_diag.as_ref() };
+    // Move entries + perf_diag into the owned wrapper — they're dropped after the
+    // serialize call below, so no clone is added.
+    let output = ImprovementChanceOutput { entries, diag: perf_diag };
     to_js_value(&output)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize improvement-chance entries: {error}")))
 }
@@ -2676,8 +2723,10 @@ mod improvement_chance_output_wire_snapshot_tests {
     const DRIFT_MESSAGE: &str =
         "Rust ↔ TS output drift detected.  If you renamed a field, update both the expected list here AND every TS consumer of this struct.";
 
-    // ImprovementChanceOutput borrows its inner references, so the test owns the
-    // backing values and constructs the wrapper from short-lived borrows.
+    // ImprovementChanceOutput switched from borrowed (`&Vec<_>`, `Option<&_>`) to
+    // owned form when ts-rs was wired up (lifetime generics block `#[derive(TS)]`).
+    // The test still pins the same wire-shape key set; the construction site moves
+    // owned values into the wrapper because each value is dropped after serialization.
     #[test]
     fn improvement_chance_output_key_set_matches() {
         let entries = Vec::<ImprovementChanceEntry>::new();
@@ -2688,7 +2737,7 @@ mod improvement_chance_output_wire_snapshot_tests {
             artifacts_with_scenarios: 0,
             artifacts_viable: 0,
         };
-        let value = ImprovementChanceOutput { entries: &entries, diag: Some(&diag) };
+        let value = ImprovementChanceOutput { entries, diag: Some(diag) };
         let json = serde_json::to_value(&value).expect("ImprovementChanceOutput must serialize");
         let actual: BTreeSet<String> = json
             .as_object()

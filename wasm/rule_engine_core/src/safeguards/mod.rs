@@ -3,6 +3,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
+// ts-rs trait import enables `#[derive(TS)]` on the wasm wire structs below; ts-rs
+// emits one .ts file per derived type into the rust-types/ output directory at
+// `cargo test` time (see ensure-rule-engine-wasm.mjs for the TS_RS_* env vars).
+use ts_rs::TS;
 
 // Fast-path input types and conversion functions live in a dedicated submodule
 // to keep this file focused on rule resolution and scoring logic.
@@ -129,16 +133,20 @@ fn safeguard_parse_rules_payload(rules: Vec<SafeguardWasmRuleIn>) -> Vec<Safegua
     rules
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+// ts-rs export: simple Selection record nested inside SafeguardWasmCombination.
+#[derive(Debug, Deserialize, Serialize, Clone, Default, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSetSelection {
     pub id: i64,
     #[serde(default)]
     pub excluded: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+// ts-rs export: composes SafeguardWasmSetSelection.
+#[derive(Debug, Deserialize, Serialize, Clone, Default, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCombination {
     #[serde(default)]
     pub slots: Vec<i64>,
@@ -174,8 +182,10 @@ where
     }))
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
+// ts-rs export: per-rule count-mode flags; consumed by detection grouping.
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, Default, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCountMode {
     #[serde(default)]
     pub per_rule: bool,
@@ -195,8 +205,14 @@ pub struct SafeguardWasmCountMode {
 //   from sfc_reader / direct WASM calls). Legacy single-number SFC files are normalized
 //   to the object form by sfcIO.ts before they reach Rust.
 // The untagged discriminant tries variants in declaration order: array first, then object.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+//
+// ts-rs export: untagged enums emit a TS union (`Array | Object`).  The Array variant
+// is `[number, number, number, number]` (fixed-length tuple) and the Object variant
+// emits an interface with at_level_0/at_level_4/... renamed via the field-level
+// `#[serde(rename = ...)]` attributes — ts-rs honors those passthroughs.
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[serde(untagged)]
+#[ts(export)]
 pub enum ImprovementChanceThresholdIn {
     // Resolved format: TypeScript has already applied inherit-from-left logic.
     Array([f64; 4]),
@@ -235,8 +251,13 @@ impl ImprovementChanceThresholdIn {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: top-level safeguard rule input shared by most safeguard wasm entries.
+// Composes SafeguardWasmCombination + SafeguardWasmCountMode + ImprovementChanceThresholdIn.
+// substat_weights HashMap<i64, f64> emits as `{ [key in number]: number }` (string-keyed
+// at runtime via serialize_i64_key_map — JS coerces numeric/string keys transparently).
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmRuleIn {
     #[serde(default)]
     pub id: Option<String>,
@@ -274,8 +295,13 @@ pub struct SafeguardWasmRuleIn {
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
-#[derive(Debug, Serialize, Clone)]
+//
+// ts-rs export: composes SafeguardWasmCombination, SafeguardWasmCountMode,
+// ImprovementChanceThresholdIn.  substat_weights is HashMap<String, f64> which ts-rs
+// emits as `{ [key in string]: number }` (matching wasm_to_js's plain-object output).
+#[derive(Debug, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmResolvedRuleOut {
     pub id: String,
     pub name: String,
@@ -336,38 +362,50 @@ fn safeguard_sort_unique_substats(values: Vec<i64>) -> Vec<i64> {
     deduped
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: nested by SafeguardWasmExpectedGroupIn.sample.  Promoted to `pub`.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmExpectedSampleIn {
-    slot: i64,
-    set: i64,
-    faction: i64,
-    main_stat: i64,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmExpectedSampleIn {
+    pub slot: i64,
+    pub set: i64,
+    pub faction: i64,
+    pub main_stat: i64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: nested by SafeguardWasmExpectedGroupsPayloadIn.expectedGroupsByRuleId.
+// Promoted to `pub` so ts-rs can resolve the nested reference.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmExpectedGroupIn {
-    key: String,
-    sample: SafeguardWasmExpectedSampleIn,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmExpectedGroupIn {
+    pub key: String,
+    pub sample: SafeguardWasmExpectedSampleIn,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: HashMap<String, Vec<i64>> serializes through serialize_maps_as_objects
+// to a plain JS object — ts-rs emits `{ [key in string]: Array<number> }`.
+// Fields are `pub` (required by ts-rs) but only the in-crate code mutates them.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmExpectedGroupDomainIn {
-    slot_order: Vec<i64>,
-    accessory_compatible_set_ids: Vec<i64>,
-    armor_compatible_set_ids: Vec<i64>,
-    allowed_main_by_slot: HashMap<String, Vec<i64>>,
-    all_faction_ids: Vec<i64>,
+    pub slot_order: Vec<i64>,
+    pub accessory_compatible_set_ids: Vec<i64>,
+    pub armor_compatible_set_ids: Vec<i64>,
+    pub allowed_main_by_slot: HashMap<String, Vec<i64>>,
+    pub all_faction_ids: Vec<i64>,
 }
 
-#[derive(Debug, Deserialize, Default, Clone)]
+// ts-rs export: input wrapper around the expected-group precomputation payload.
+// Fields are `pub` (required by ts-rs).
+#[derive(Debug, Deserialize, Default, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmExpectedGroupsPayloadIn {
     #[serde(default)]
-    expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
-    expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
+    pub expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
+    pub expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
 }
 
 // Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
@@ -402,42 +440,54 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
 
 // Metaset payload for in-wasm safeguard set expansion.
 // `name` is the primary key after the metaset ID→name migration.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: input metaset record for resolve_safeguard_rules_with_metasets_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmMetasetIn {
     pub name: String,
     #[serde(default)]
     pub sets: Vec<i64>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: nested by name from SafeguardWasmArtifactOut.substats.
+// Now `pub` (required by ts-rs for `export`) — fields pub for the same reason;
+// only emit-side code in this module constructs these values.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmSubstatOut {
-    variant: i64,
-    is_flat: bool,
-    value: f64,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmSubstatOut {
+    pub variant: i64,
+    pub is_flat: bool,
+    pub value: f64,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: nested by name from SafeguardWasmEntryOut.artifacts.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmArtifactOut {
-    item_key: i64,
-    slot: i64,
-    set: i64,
-    rank: i64,
-    rarity: i64,
-    level: i64,
-    exact_level: Option<i64>,
-    faction: i64,
-    main_stat: i64,
-    substats: Vec<SafeguardWasmSubstatOut>,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmArtifactOut {
+    pub item_key: i64,
+    pub slot: i64,
+    pub set: i64,
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
+    pub exact_level: Option<i64>,
+    pub faction: i64,
+    pub main_stat: i64,
+    pub substats: Vec<SafeguardWasmSubstatOut>,
 }
 
 // Per-candidate scored output exposed in detection entries for UI overlays.
 // candidateRank is 1-based (1 = best score); 0 means the non-ranking path was used.
 // isWithinQuota is true when the candidate is among the top-N selected for this rule.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+//
+// ts-rs export: leaf type referenced by SafeguardWasmEntryOut and the live preview path.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCandidateOut {
     pub item_key: i64,
     pub score: f64,
@@ -445,47 +495,54 @@ pub struct SafeguardWasmCandidateOut {
     pub is_within_quota: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: nested by name from SafeguardWasmEntryOut.placeholders.
+// Now `pub` (required by ts-rs `export`).
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmPlaceholderOut {
-    combination: SafeguardWasmCombination,
-    missing: i64,
-    reason: String,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmPlaceholderOut {
+    pub combination: SafeguardWasmCombination,
+    pub missing: i64,
+    pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    substat_variants: Option<Vec<i64>>,
+    pub substat_variants: Option<Vec<i64>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: composite output entry referenced by SafeguardWasmSnapshotOut.entries.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmEntryOut {
-    hash: String,
-    combination: SafeguardWasmCombination,
-    rule_id: Option<String>,
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmEntryOut {
+    pub hash: String,
+    pub combination: SafeguardWasmCombination,
+    pub rule_id: Option<String>,
     // 1-based position of this rule in the input list; matches __safeguardRuleOrdinal on HSF rules.
     #[serde(skip_serializing_if = "Option::is_none")]
-    rule_ordinal: Option<i64>,
-    rule_activation: String,
-    count_mode: SafeguardWasmCountMode,
-    per_group_required_count: i64,
-    groups_tracked: i64,
-    required_count: i64,
-    current_count: i64,
-    projected_count: i64,
-    deficit: i64,
-    covered_by_existing: bool,
-    item_keys: Vec<i64>,
-    artifacts: Vec<SafeguardWasmArtifactOut>,
-    placeholders: Vec<SafeguardWasmPlaceholderOut>,
+    pub rule_ordinal: Option<i64>,
+    pub rule_activation: String,
+    pub count_mode: SafeguardWasmCountMode,
+    pub per_group_required_count: i64,
+    pub groups_tracked: i64,
+    pub required_count: i64,
+    pub current_count: i64,
+    pub projected_count: i64,
+    pub deficit: i64,
+    pub covered_by_existing: bool,
+    pub item_keys: Vec<i64>,
+    pub artifacts: Vec<SafeguardWasmArtifactOut>,
+    pub placeholders: Vec<SafeguardWasmPlaceholderOut>,
     // All matched+scored candidates with their ranks; omitted from old snapshots (default = empty).
     #[serde(default)]
-    candidates: Vec<SafeguardWasmCandidateOut>,
+    pub candidates: Vec<SafeguardWasmCandidateOut>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+// ts-rs export: top-level safeguard snapshot returned by detection.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmSnapshotOut {
-    scanned_at: f64,
-    entries: Vec<SafeguardWasmEntryOut>,
+    pub scanned_at: f64,
+    pub entries: Vec<SafeguardWasmEntryOut>,
 }
 
 #[derive(Debug, Clone)]
@@ -558,49 +615,63 @@ struct SafeguardWasmEntryEvalOut {
     selected_candidate_indices: Vec<usize>,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy)]
+// ts-rs export: input wire struct for safeguard_count_key_value entry point.
+// Fields made `pub` for ts-rs export (only the matcher code reads them).
+#[derive(Debug, Deserialize, Clone, Copy, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmCountKeyArtifactIn {
-    slot: i64,
-    set: i64,
-    faction: i64,
-    main_stat: i64,
+    pub slot: i64,
+    pub set: i64,
+    pub faction: i64,
+    pub main_stat: i64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: nested by SafeguardWasmItemKeyTesterItemIn.previewExtras.
+// Promoted to `pub` (was private) so ts-rs can export it.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmItemKeyPreviewExtrasIn {
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmItemKeyPreviewExtrasIn {
     #[serde(default)]
-    id: Option<i64>,
+    pub id: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: nested by SafeguardWasmItemKeyArtifactIn.gearInspectorItem.
+// Promoted to `pub` (was private) so ts-rs can export it.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SafeguardWasmItemKeyTesterItemIn {
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmItemKeyTesterItemIn {
     #[serde(default)]
-    item_id: Option<i64>,
+    pub item_id: Option<i64>,
     #[serde(default)]
-    preview_extras: Option<SafeguardWasmItemKeyPreviewExtrasIn>,
+    pub preview_extras: Option<SafeguardWasmItemKeyPreviewExtrasIn>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: input wire struct for safeguard_item_key_value entry point.
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmItemKeyArtifactIn {
     #[serde(default)]
-    id: Option<i64>,
+    pub id: Option<i64>,
     #[serde(default)]
-    gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
+    pub gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// ts-rs export: input wire struct for safeguard_group_key_value entry point.
+// Carries SafeguardWasmMainStatRawIn (an untagged enum — ts-rs emits a union).
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmGroupKeyArtifactIn {
-    slot: i64,
-    set: i64,
+    pub slot: i64,
+    pub set: i64,
     #[serde(default)]
-    faction: i64,
+    pub faction: i64,
     #[serde(default)]
-    main_stat: Option<SafeguardWasmMainStatRawIn>,
+    pub main_stat: Option<SafeguardWasmMainStatRawIn>,
 }
 
 // pub(super) so improvement_chance submodule can derive faction-bucketing flags.
@@ -3740,8 +3811,11 @@ pub fn compute_safeguard_protection_from_collected_core(
 // Input payload for live preview scoring in the weight-configuration popover.
 // Allows TS to rescore candidates with in-progress (unsaved) weights without
 // re-running the full detection pass.
-#[derive(Debug, Deserialize)]
+//
+// ts-rs export: top-level input for score_safeguard_candidates_value.
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmScorePreviewIn {
     // Candidate artifacts to score (substats carry raw values from the detection snapshot).
     pub artifacts: Vec<SafeguardWasmArtifactIn>,
