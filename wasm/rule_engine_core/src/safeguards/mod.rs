@@ -3127,9 +3127,11 @@ fn safeguard_build_entry_for_substats(
         let sold_count = sold_indices.len() as i64;
         let required_total = required_per_group;
         let needed = (required_per_group - kept_count).max(0);
-        // Sort sold candidates deterministically before truncation.
-        safeguard_sort_candidate_indices(&mut sold_indices, candidates);
-        let selected_sold = if needed > 0 {
+        // Without substat filters there is no quality basis to pick among sold items — protect all.
+        let selected_sold = if !has_substat_filter {
+            sold_indices
+        } else if needed > 0 {
+            safeguard_sort_candidate_indices(&mut sold_indices, candidates);
             sold_indices.into_iter().take(needed as usize).collect::<Vec<_>>()
         } else {
             Vec::new()
@@ -3137,7 +3139,7 @@ fn safeguard_build_entry_for_substats(
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count
             + if prepared_rule.rule_active {
-                sold_count.min(needed)
+                if has_substat_filter { sold_count.min(needed) } else { sold_count }
             } else {
                 0
             };
@@ -3318,15 +3320,17 @@ fn safeguard_build_entry_for_substats(
         let needed = (required_per_group - kept_count).max(0);
         let projected_group = kept_count
             + if prepared_rule.rule_active {
-                sold_count.min(needed)
+                if has_substat_filter { sold_count.min(needed) } else { sold_count }
             } else {
                 0
             };
         projected_total += projected_group;
         let total_count = kept_count + sold_count;
         let deficit_group = (required_per_group - total_count).max(0);
-        if needed > 0 {
-            // Deterministic sold ordering ensures stable at-risk list.
+        // Without substat filters there is no quality basis to pick among sold items — protect all.
+        if !has_substat_filter {
+            at_risk.extend(group.sold.iter().copied());
+        } else if needed > 0 {
             let mut sorted_sold = group.sold.clone();
             safeguard_sort_candidate_indices(&mut sorted_sold, candidates);
             at_risk.extend(sorted_sold.into_iter().take(needed as usize));
@@ -4247,5 +4251,302 @@ mod output_wire_snapshot_tests {
         let actual: BTreeSet<String> = placeholder.keys().cloned().collect();
         let expected = key_set(&["combination", "missing", "reason", "substatVariants"]);
         assert_eq!(actual, expected, "{DRIFT_MESSAGE}");
+    }
+}
+
+// Tests for the no-substat non-ranking path: when a safeguard has no substats
+// set the engine has no quality basis, so it must protect every sold candidate
+// that matches the combination — not just enough to satisfy `requiredCount`.
+#[cfg(test)]
+mod no_substat_protect_all_tests {
+    use super::*;
+    use crate::safeguards::fast_path_types::SafeguardWasmSubstatIn;
+    use std::collections::HashMap;
+
+    // Minimal artifact builder — only the fields that combination filters inspect.
+    fn make_artifact(id: i64, slot: i64, set: i64, rank: i64, rarity: i64, faction: i64) -> SafeguardWasmArtifactIn {
+        SafeguardWasmArtifactIn {
+            id: Some(id),
+            slot,
+            set,
+            rank,
+            rarity,
+            level: 16,
+            exact_level: None,
+            faction,
+            main_stat: SAFEGUARD_MAIN_ANY,
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: vec![],
+        }
+    }
+
+    // Candidate wrapper that marks the item as sold.
+    fn sold(id: i64, slot: i64, set: i64, rank: i64, rarity: i64, faction: i64) -> SafeguardWasmCandidateIn {
+        SafeguardWasmCandidateIn {
+            item_key: id,
+            group_key: safeguard_group_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
+            is_sold: true,
+            artifact: make_artifact(id, slot, set, rank, rarity, faction),
+        }
+    }
+
+    // Candidate wrapper that marks the item as already kept.
+    fn kept(id: i64, slot: i64, set: i64, rank: i64, rarity: i64, faction: i64) -> SafeguardWasmCandidateIn {
+        SafeguardWasmCandidateIn {
+            item_key: id,
+            group_key: safeguard_group_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
+            is_sold: false,
+            artifact: make_artifact(id, slot, set, rank, rarity, faction),
+        }
+    }
+
+    // Minimal prepared-rule for the grouped no-substat path (perSet + perFaction).
+    fn make_grouped_rule(required_per_group: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
+        SafeguardWasmPreparedRule {
+            id: "test-rule".to_string(),
+            hash: "test-hash".to_string(),
+            combination: SafeguardWasmCombination {
+                slots: vec![slot],
+                sets: vec![SafeguardWasmSetSelection { id: set, excluded: false }],
+                meta_set_names: vec![],
+                ranks: vec![6],
+                rarities: vec![5, 6],
+                main_stats: vec![],
+                factions: vec![],
+            },
+            required_per_group,
+            activation: SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS.to_string(),
+            rule_active: true,
+            count_mode: SafeguardWasmCountMode {
+                per_rule: false,
+                per_set: true,
+                per_faction: true,
+                per_main_stat: false,
+                per_slot: true,
+            },
+            ignore_previous_safeguards: false,
+            ignore_equipped_in_collection: false,
+            ignore_equipped_in_vault: false,
+            improvement_chance_threshold: None,
+            selected_substats: vec![],
+            substat_match: SAFEGUARD_SUBSTAT_ANY.to_string(),
+            weights: HashMap::new(),
+            set_includes: std::iter::once(set).collect(),
+            set_excludes: std::collections::HashSet::new(),
+            expected_groups: vec![],
+        }
+    }
+
+    // Minimal prepared-rule for the per-rule no-substat path.
+    fn make_per_rule_rule(required_per_group: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
+        let mut r = make_grouped_rule(required_per_group, slot, set);
+        r.count_mode = SafeguardWasmCountMode {
+            per_rule: true,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        };
+        r
+    }
+
+    // ── grouped path ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn grouped_no_substat_all_sold_protected_when_below_quota() {
+        // 3 sold, 0 kept, requiredCount=5. Without substats the engine cannot
+        // rank them, so all 3 must be added to item_keys even though 3 < 5.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            sold(101, slot, set, 6, 6, faction),
+            sold(102, slot, set, 6, 6, faction),
+            sold(103, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(5, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(keys, vec![101, 102, 103], "all sold items must be protected");
+        assert_eq!(result.selected_candidate_indices.len(), 3);
+    }
+
+    #[test]
+    fn grouped_no_substat_surplus_sold_all_protected() {
+        // 7 sold, 0 kept, requiredCount=5. Old code would take only 5 (by ID
+        // order). Correct behavior: protect all 7 — no quality basis exists.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates: Vec<_> = (201..=207)
+            .map(|id| sold(id, slot, set, 6, 6, faction))
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(5, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.item_keys.len(), 7, "all 7 sold items must be protected");
+        assert_eq!(result.selected_candidate_indices.len(), 7);
+    }
+
+    #[test]
+    fn grouped_no_substat_kept_items_not_duplicated_in_item_keys() {
+        // 2 kept + 4 sold, requiredCount=3. Kept items are already safe;
+        // item_keys should contain only the sold ones (all 4).
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(301, slot, set, 6, 6, faction),
+            kept(302, slot, set, 6, 6, faction),
+            sold(303, slot, set, 6, 6, faction),
+            sold(304, slot, set, 6, 6, faction),
+            sold(305, slot, set, 6, 6, faction),
+            sold(306, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(3, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(keys, vec![303, 304, 305, 306], "all 4 sold items protected; kept items not re-listed");
+    }
+
+    #[test]
+    fn grouped_no_substat_projected_count_equals_total_matched() {
+        // projected_count must reflect all matched items (kept + sold), not just kept + min(sold, needed).
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(401, slot, set, 6, 6, faction),
+            sold(402, slot, set, 6, 6, faction),
+            sold(403, slot, set, 6, 6, faction),
+            sold(404, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(2, slot, set); // requiredCount=2, kept=1 → needed was 1
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        // 1 kept + 3 sold = 4 total; projected must be 4, not 2 (old capped behaviour).
+        assert_eq!(result.entry.projected_count, 4);
+    }
+
+    #[test]
+    fn grouped_no_substat_all_within_quota_flag_set() {
+        // is_within_quota must be true for every candidate (kept and sold alike).
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(501, slot, set, 6, 6, faction),
+            sold(502, slot, set, 6, 6, faction),
+            sold(503, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(5, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert!(
+            result.entry.candidates.iter().all(|c| c.is_within_quota),
+            "every candidate must be within quota when no substats are set",
+        );
+    }
+
+    // ── per-rule path ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn per_rule_no_substat_all_sold_protected_when_below_quota() {
+        let slot = ARTIFACT_TYPE_BANNER;
+        let set = 99i64;
+        let faction = 3i64;
+        let candidates = vec![
+            sold(601, slot, set, 6, 6, faction),
+            sold(602, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_per_rule_rule(5, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(keys, vec![601, 602]);
+    }
+
+    #[test]
+    fn per_rule_no_substat_surplus_sold_all_protected() {
+        let slot = ARTIFACT_TYPE_BANNER;
+        let set = 99i64;
+        let faction = 3i64;
+        let candidates: Vec<_> = (701..=708)
+            .map(|id| sold(id, slot, set, 6, 6, faction))
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_per_rule_rule(5, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.item_keys.len(), 8, "all 8 sold items must be protected");
+    }
+
+    // ── contrast: with substats, only top-N items are selected ──────────────
+
+    #[test]
+    fn grouped_with_substat_selects_only_top_scored() {
+        // Confirm the fix did not break the substat (ranking) path: with a
+        // substat filter and distinct scores the engine selects only the top-N
+        // (required_per_group = 3), not all 6.  Items need distinct scores to
+        // avoid the intentional tie-boundary extension in the ranking path.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let spd = STAT_VARIANT_SPD;
+        // Scores 10, 20, 30, 40, 50, 60 — top-3 are ids 804, 805, 806.
+        let candidates: Vec<_> = (801..=806)
+            .enumerate()
+            .map(|(i, id)| {
+                let mut c = sold(id, slot, set, 6, 6, faction);
+                c.artifact.substats = vec![SafeguardWasmSubstatIn {
+                    variant: spd,
+                    is_flat: false,
+                    value: (i as f64 + 1.0) * 10.0,
+                    rolls: None,
+                }];
+                c
+            })
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(3, slot, set);
+        let selected_substats = vec![spd];
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state,
+            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(
+            result.entry.item_keys.len(), 3,
+            "with substats and distinct scores the engine selects only the top-N",
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(keys, vec![804, 805, 806], "the three highest-scored items must be selected");
     }
 }
