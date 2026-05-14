@@ -104,12 +104,18 @@ export default function RslHelperConnectButton({
     setPort(n)
   }
 
-  // Tooltip primary line changes with state; port hint always appended below.
+  // Label text changes with state.
   const primaryTooltip =
     connectState === 'connected' ? t('connectRslHelperConnected')
     : connectState === 'connecting' ? t('connectRslHelperConnecting')
     : t('connectRslHelper')
-  const tooltipMd = `${primaryTooltip}\n\n${t('connectRslHelperPortHint')}`
+  // Tooltip = bold state label + click-action sentence + port hint.
+  // The action strings are separate i18n keys; the state description is reused from primaryTooltip.
+  const clickAction =
+    connectState === 'connected' ? t('connectRslHelperClickDisconnect')
+    : connectState === 'connecting' ? t('connectRslHelperClickCancel')
+    : t('connectRslHelperClickConnect')
+  const tooltipMd = `**${primaryTooltip}**\n\n${clickAction}\n\n${t('connectRslHelperPortHint')}`
 
   // Shared mouse handlers for the hint overlay (used by both rendering paths).
   const onMouseMove = (e: React.MouseEvent<HTMLElement>) => {
@@ -140,21 +146,23 @@ export default function RslHelperConnectButton({
   return (
     <>
       {showLabel ? (
-        // Labelled variant used in HelpDialog: icon + state text, no tooltip needed.
-        <Button
-          size="small"
-          variant={connectState === 'connected' ? 'contained' : 'outlined'}
-          color={connectState === 'connected' ? 'success' : 'primary'}
-          onClick={onToggleConnect}
-          onContextMenu={handleContextMenu}
-          onMouseMove={onMouseMove}
-          onMouseLeave={onMouseLeave}
-          startIcon={iconWithBadge}
-          aria-label={primaryTooltip}
-          sx={{ whiteSpace: 'nowrap', ...pulseSx }}
-        >
-          {primaryTooltip}
-        </Button>
+        // Labelled variant used in HelpDialog: icon + state text + tooltip.
+        <MarkdownTooltip markdown={tooltipMd}>
+          <Button
+            size="small"
+            variant={connectState === 'connected' ? 'contained' : 'outlined'}
+            color={connectState === 'connected' ? 'success' : 'primary'}
+            onClick={onToggleConnect}
+            onContextMenu={handleContextMenu}
+            onMouseMove={onMouseMove}
+            onMouseLeave={onMouseLeave}
+            startIcon={iconWithBadge}
+            aria-label={primaryTooltip}
+            sx={{ whiteSpace: 'nowrap', ...pulseSx }}
+          >
+            {primaryTooltip}
+          </Button>
+        </MarkdownTooltip>
       ) : (
         // Icon-only variant used in the toolbar.
         <MarkdownTooltip markdown={tooltipMd}>

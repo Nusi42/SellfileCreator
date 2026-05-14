@@ -1,6 +1,6 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -10,8 +10,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SendIcon from '@mui/icons-material/Send'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
+import { AppTitle } from './AppTitle'
+import { APP_VERSION } from '../version'
+import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
@@ -3072,7 +3075,11 @@ export default function NoteDialog({
   // Called when the express preset toggle changes; loads the full Basic or Endgame SFC.
   onLoadSimplePreset?: (variant: 'basic' | 'endgame') => void
 }) {
-  const { t, lang } = useI18n()
+  const { t, lang, setLang } = useI18n()
+  const languageOptions = useLanguageOptions()
+  const langSelectValue = useMemo(() => (
+    languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
+  ), [lang, languageOptions])
   // Cache view/edit labels so button widths can align across modes.
   const editNoteLabel = t('editNote')
   const viewNoteLabel = t('viewNote')
@@ -3571,10 +3578,23 @@ export default function NoteDialog({
           flexWrap: 'wrap',
         }}
       >
-        {/* Title text + optional "Simple Mode" back button when in expert mode of an express session. */}
+        {/* Left title area: app branding (simple mode) or "Note" title (expert/normal) — cross-faded via grid overlap. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span">{t('noteTitle')}</Box>
-          {/* Fade in from below to mirror the upward exit of the express action bar. */}
+          {/* Both items occupy the same grid cell so neither shifts layout during the cross-fade. */}
+          <Box sx={{ display: 'grid', '& > *': { gridColumn: 1, gridRow: 1 }, alignItems: 'center' }}>
+            <Fade in={isSimpleMode} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                <AppTitle compact />
+                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+                  v{APP_VERSION} · Nusi㊷
+                </Typography>
+              </Box>
+            </Fade>
+            <Fade in={!isSimpleMode} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
+              <Box component="span">{t('noteTitle')}</Box>
+            </Fade>
+          </Box>
+          {/* "Simple Mode" button — shown when the user entered expert mode during a simple session. */}
           <Fade in={Boolean(simpleMode && expertMode)} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <MarkdownTooltip markdown={t('simpleModeGoSimpleTooltip')}>
@@ -3585,8 +3605,23 @@ export default function NoteDialog({
             </Box>
           </Fade>
         </Box>
-        {/* Summary chip stays in the title bar so results are visible in view + edit. */}
-        {showNoteSummaryChip ? (
+        {/* Right side of title bar: language selector in simple mode, outcome chip otherwise. */}
+        {isSimpleMode ? (
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="simple-mode-lang-label">{t('helpLanguage')}</InputLabel>
+            <Select
+              labelId="simple-mode-lang-label"
+              id="simple-mode-lang-select"
+              label={t('helpLanguage')}
+              value={langSelectValue}
+              onChange={(e) => setLang(e.target.value as Language)}
+            >
+              {languageOptions.map((opt) => (
+                <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : showNoteSummaryChip ? (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
             <WorkloadProgressIndicator
               progressRatio={summaryProgressRatio}
@@ -3599,7 +3634,7 @@ export default function NoteDialog({
           </Box>
         ) : null}
       </DialogTitle>
-      {/* Preset toggle: Collapse animates the height as it enters/exits simple mode. */}
+      {/* Simple-mode strip: preset toggle + outcome chip. Collapses away in expert mode. */}
       <Collapse in={Boolean(simpleMode && !expertMode)} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
         <Box sx={{ px: 3, pb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
@@ -3615,6 +3650,19 @@ export default function NoteDialog({
             <ToggleButton value="basic">{t('simpleModeBasicSfc')}</ToggleButton>
             <ToggleButton value="endgame">{t('simpleModeEndgameSfc')}</ToggleButton>
           </ToggleButtonGroup>
+          <Box sx={{ flex: 1 }} />
+          {showNoteSummaryChip && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <WorkloadProgressIndicator
+                progressRatio={summaryProgressRatio}
+                ariaLabel={noteSummaryInFlight ? t('rulesBuilding') : undefined}
+              />
+              <GearInspectorOutcomeSummaryChip
+                summary={gearSummary}
+                dimmed={noteSummaryInFlight}
+              />
+            </Box>
+          )}
         </Box>
       </Collapse>
       {mode === 'view'

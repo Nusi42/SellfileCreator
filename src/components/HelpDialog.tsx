@@ -12,18 +12,11 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 // Values are raw Markdown strings.
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useLanguageOptions } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
 import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
-import {
-  DEFAULT_LANGUAGE,
-  DEV_LANGUAGES,
-  PRODUCTION_LANGUAGES,
-  type DevLanguage,
-  type Language,
-  type ProductionLanguage,
-} from '../lib/i18n/types'
+import { DEFAULT_LANGUAGE } from '../lib/i18n/types'
 
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
@@ -39,7 +32,7 @@ const getFaviconLinkHref = (): string | undefined => {
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
-  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const languageOptions = useLanguageOptions()
   const paperBackgroundImage = React.useMemo(() => {
     const decorativeLayer = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0))'
     const faviconHref = getFaviconLinkHref()
@@ -62,28 +55,6 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     }
     return '# Sellfile Creator for RSL Helper'
   }, [lang])
-  // Language selector is always visible; dev builds keep the blank-audit language.
-  const languageOptions: ReadonlyArray<{ code: Language; label: string }> = React.useMemo(() => {
-    const productionLabels: Record<ProductionLanguage, string> = {
-      'en-US': 'English (EN)',
-      'de-DE': 'Deutsch (DE)',
-      'fr-FR': 'Français (FR)',
-      'es-ES': 'Español (ES)',
-      'it-IT': 'Italiano (IT)',
-      'pt-BR': 'Português (BR)',
-      'pt-PT': 'Português (PT)',
-      'ru-RU': 'Русский (RU)',
-      'uk-UA': 'Українська (UK)',
-      'tr-TR': 'Türkçe (TR)',
-    }
-    const devLabels: Record<DevLanguage, string> = {
-      empty: 'Empty (dev)',
-    }
-    const production = PRODUCTION_LANGUAGES.map((code) => ({ code, label: productionLabels[code] }))
-    if (!isDev) return production
-    const dev = DEV_LANGUAGES.map((code) => ({ code, label: devLabels[code] }))
-    return [...dev, ...production]
-  }, [isDev])
   const selectValue = React.useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])

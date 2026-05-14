@@ -10,6 +10,7 @@ import { LANG_KEY, RULE_COUNT_LIMIT } from './constants'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGE_SET,
+  DEV_LANGUAGES,
   PRODUCTION_LANGUAGE_SET,
   PRODUCTION_LANGUAGES,
   type DevLanguage,
@@ -233,4 +234,30 @@ export function formatRecipesCount(
     return `${t('recipesSelectedCount', { selected: selectedClamped, total: denom, word: denomWord })}${hiddenSuffix}`
   }
   return `${t('recipesTotalCount', { count: effectiveVisible, word: visibleWord })}${hiddenSuffix}`
+}
+
+// Single definition of language display labels used by any language-selector component.
+// Includes dev-only languages in Vite dev builds.
+const PRODUCTION_LANGUAGE_LABELS: Record<ProductionLanguage, string> = {
+  'en-US': 'English (EN)',
+  'de-DE': 'Deutsch (DE)',
+  'fr-FR': 'Français (FR)',
+  'es-ES': 'Español (ES)',
+  'it-IT': 'Italiano (IT)',
+  'pt-BR': 'Português (BR)',
+  'pt-PT': 'Português (PT)',
+  'ru-RU': 'Русский (RU)',
+  'uk-UA': 'Українська (UK)',
+  'tr-TR': 'Türkçe (TR)',
+}
+const DEV_LANGUAGE_LABELS: Record<DevLanguage, string> = { empty: 'Empty (dev)' }
+const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+
+export function useLanguageOptions(): ReadonlyArray<{ code: Language; label: string }> {
+  // Stable between renders; isDev is a build-time constant, so the memo never re-runs.
+  return React.useMemo(() => {
+    const production = PRODUCTION_LANGUAGES.map((code) => ({ code, label: PRODUCTION_LANGUAGE_LABELS[code] }))
+    if (!isDev) return production
+    return [...DEV_LANGUAGES.map((code) => ({ code, label: DEV_LANGUAGE_LABELS[code] })), ...production]
+  }, [])
 }
