@@ -6,6 +6,8 @@ export const RSL_HELPER_DEFAULT_PORT = 8080
 export const RSL_HELPER_PORT_STORAGE_KEY = 'sellfileCreator.rslHelper.port.v1'
 // localStorage key that persists whether the user has enabled the RSL Helper connection.
 export const RSL_HELPER_CONNECT_ENABLED_KEY = 'sellfileCreator.rslHelper.connectEnabled.v1'
+// localStorage key that persists whether the user last chose Expert mode in a simple-mode session.
+export const SIMPLE_EXPERT_MODE_KEY = 'sellfileCreator.simple.expertMode.v1'
 
 // Read whether the user has previously toggled on the RSL Helper connection.
 export const getRslHelperConnectEnabled = (): boolean =>
@@ -17,6 +19,19 @@ export const setRslHelperConnectEnabled = (enabled: boolean): void => {
     localStorage.setItem(RSL_HELPER_CONNECT_ENABLED_KEY, 'true')
   } else {
     localStorage.removeItem(RSL_HELPER_CONNECT_ENABLED_KEY)
+  }
+}
+
+// Read whether the user was in Expert mode at the end of their last simple-mode session.
+export const getSimpleExpertMode = (): boolean =>
+  localStorage.getItem(SIMPLE_EXPERT_MODE_KEY) === 'true'
+
+// Persist the expert mode preference for the next simple-mode session.
+export const setSimpleExpertMode = (enabled: boolean): void => {
+  if (enabled) {
+    localStorage.setItem(SIMPLE_EXPERT_MODE_KEY, 'true')
+  } else {
+    localStorage.removeItem(SIMPLE_EXPERT_MODE_KEY)
   }
 }
 
@@ -59,6 +74,8 @@ export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
 // Sends the current gear-inspector selection to RSL Helper; params: { artifactIds: number[] }.
 export const EXTERNAL_WS_METHOD_SELECT_ARTIFACTS = 'selectArtifacts'
+// Asks RSL Helper to push all its current datasets immediately after connection.
+export const EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC = 'requestSfcSync'
 
 // Event names reuse the existing external command identifiers.
 export const EXTERNAL_WS_EVENT_SELECT_RULE = 'selectRule'
@@ -86,6 +103,7 @@ export type ExternalWsProtocol = typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 export type ExternalWsRequestMethod =
   | typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
   | typeof EXTERNAL_WS_METHOD_SELECT_ARTIFACTS
+  | typeof EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC
 
 // Normalized response shape for both protocols.
 export type ExternalWsResponse = {

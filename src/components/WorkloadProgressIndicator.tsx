@@ -12,6 +12,8 @@ const pendingPulse = keyframes`
 type WorkloadProgressIndicatorProps = {
   progressRatio: number
   ariaLabel?: string | undefined
+  // Override the default 20 px size; useful for contexts that need a larger indicator.
+  sizePx?: number
 }
 
 const PENDING_RING_SIZE_PX = 20 as const
@@ -21,7 +23,8 @@ const PENDING_RING_THICKNESS_PX = 3 as const
  * Shared determinate/pulsing indicator that sticks to the chip spec.
  * Callers pass normalized ratios so this component can decide between pulse vs determinate spinner.
  */
-export default function WorkloadProgressIndicator({ progressRatio, ariaLabel }: WorkloadProgressIndicatorProps) {
+export default function WorkloadProgressIndicator({ progressRatio, ariaLabel, sizePx }: WorkloadProgressIndicatorProps) {
+  const size = sizePx ?? PENDING_RING_SIZE_PX
   const clampedRatio = Math.max(0, Math.min(1, progressRatio))
   if (clampedRatio <= 0) return null
   const showPendingPulse = clampedRatio < 0.05
@@ -31,10 +34,10 @@ export default function WorkloadProgressIndicator({ progressRatio, ariaLabel }: 
         role={ariaLabel ? 'status' : undefined}
         aria-label={ariaLabel}
         sx={(theme) => ({
-          width: PENDING_RING_SIZE_PX,
-          height: PENDING_RING_SIZE_PX,
-          minWidth: PENDING_RING_SIZE_PX,
-          minHeight: PENDING_RING_SIZE_PX,
+          width: size,
+          height: size,
+          minWidth: size,
+          minHeight: size,
           aspectRatio: '1 / 1',
           flexShrink: 0,
           borderRadius: '50%',
@@ -50,6 +53,7 @@ export default function WorkloadProgressIndicator({ progressRatio, ariaLabel }: 
       variant="determinate"
       value={clampedRatio * 100}
       ariaLabel={ariaLabel}
+      {...(sizePx !== undefined ? { sizePx } : {})}
     />
   )
 }

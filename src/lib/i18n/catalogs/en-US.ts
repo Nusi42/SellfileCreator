@@ -215,11 +215,27 @@ const enUS: Catalog = {
   updateNoticeDismissAriaLabel: "Dismiss update notification",
   connectRslHelper: "Connect to RSL Helper",
   connectRslHelperConnecting: "Connecting to RSL Helper…",
-  connectRslHelperConnected: "Connected to RSL Helper — click to disconnect",
+  connectRslHelperConnected: "Connected to RSL Helper",
   connectRslHelperPortHint: "_Right-click to configure the port._",
+  connectRslHelperClickConnect: "Click to connect.",
+  connectRslHelperClickCancel: "Click to cancel.",
+  connectRslHelperClickDisconnect: "Click to disconnect.",
   rslHelperPortDialogTitle: "RSL Helper Port",
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "Port the app connects to when launching with RSL Helper. Default: 8080.",
+
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
+  simpleModeBasicSfc: "Beginner",
+  simpleModeEndgameSfc: "Midgame / Lategame / Endgame",
+  simpleModePresetLabel: "Gear Sell Rules",
+  simpleModeGoExpert: "Go Expert",
+  simpleModeGoExpertTooltip: "Switch to the full Sellfile Creator UI",
+  simpleModeGoSimple: "Simple Mode",
+  simpleModeGoSimpleTooltip: "Switch back to the simplified view",
+  simpleModeAutoPush: "Auto-Push",
+  simpleModeAutoPushOnTooltip: "**Auto-Push is on** — your sellfile is sent to RSL Helper automatically on every change. Click to disable.",
+  simpleModeAutoPushOffTooltip: "**Auto-Push is off** — click to send your sellfile to RSL Helper automatically whenever it changes.",
+
   counting: "Counting…",
 
   titleClearHistory: "Clear History?",

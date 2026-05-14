@@ -1,5 +1,7 @@
 export type RuntimeConfig = {
   pushEndpoint?: string
+  // True when the app was opened from RSL Helper via ?simple param — activates streamlined UI.
+  simple?: boolean
 }
 
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
@@ -59,9 +61,26 @@ function readPushEndpoint(): string | undefined {
 
 let cachedConfig: RuntimeConfig | null = null
 
+function readSimpleMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const currentUrl = new URL(window.location.href)
+    // Accept ?simple, ?simple=true, ?simple=1, or ?simple= (any presence counts).
+    if (currentUrl.searchParams.has('simple')) return true
+    if (currentUrl.hash && currentUrl.hash.length > 1) {
+      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
+      if (hashParams.has('simple')) return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}
+
 function computeRuntimeConfig(): RuntimeConfig {
   const pushEndpoint = readPushEndpoint()
-  return pushEndpoint ? { pushEndpoint } : {}
+  const simple = readSimpleMode() || undefined
+  return { ...(pushEndpoint ? { pushEndpoint } : {}), ...(simple ? { simple } : {}) }
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -73,4 +92,9 @@ export function getRuntimeConfig(): RuntimeConfig {
 
 export function getPushEndpoint(): string | undefined {
   return getRuntimeConfig().pushEndpoint
+}
+
+// True when the ?simple URL param was present at startup.
+export function getSimpleMode(): boolean {
+  return getRuntimeConfig().simple ?? false
 }
