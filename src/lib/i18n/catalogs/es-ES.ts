@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Todos",
   gearAnalyticsSlotModeArtifacts: "Artefactos",
   gearAnalyticsSlotModeAccessories: "Accesorios",
+  gearAnalyticsSlotModeRank: "Por rango",
+  gearAnalyticsSimulateSoldLabel: "Simular venta",
+  gearAnalyticsSimulateSoldDesc: "Cuando está activado, los espacios cuya pieza equipada se vendería con las reglas actuales se muestran en rojo y se cuentan como faltantes.",
   // Botón de colapso — clic derecho alterna todos los gráficos a la vez.
   gearAnalyticsCollapseChartTooltip: "Contraer gráfico\n\n_Clic derecho para alternar todos los gráficos._",
   dungeonDropsIntro: "Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.",

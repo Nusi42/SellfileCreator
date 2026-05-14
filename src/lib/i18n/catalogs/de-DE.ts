@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Alle",
   gearAnalyticsSlotModeArtifacts: "Artefakte",
   gearAnalyticsSlotModeAccessories: "Accessoires",
+  gearAnalyticsSlotModeRank: "Nach Rang",
+  gearAnalyticsSimulateSoldLabel: "Verkauf simulieren",
+  gearAnalyticsSimulateSoldDesc: "Wenn aktiv: Slots, deren ausgerüstete Ausrüstung von den aktuellen Regeln verkauft würde, werden rot dargestellt und als fehlend gezählt.",
   // Einklapp-Schaltfläche — Rechtsklick klappt alle Diagramme gleichzeitig ein/aus.
   gearAnalyticsCollapseChartTooltip: "Diagramm einklappen\n\n_Rechtsklick: alle Diagramme umschalten._",
   dungeonDropsIntro: "Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.",

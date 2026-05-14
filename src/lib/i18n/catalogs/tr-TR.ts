@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tümü",
   gearAnalyticsSlotModeArtifacts: "Eserler",
   gearAnalyticsSlotModeAccessories: "Aksesuarlar",
+  gearAnalyticsSlotModeRank: "Aşamaya göre",
+  gearAnalyticsSimulateSoldLabel: "Satışı simüle et",
+  gearAnalyticsSimulateSoldDesc: "Etkinleştirildiğinde, mevcut kurallara göre satılacak ekipmana sahip yuvalar kırmızıyla gösterilir ve eksik sayılır.",
   // Daralt düğmesi — sağ tık tüm grafikleri aynı anda değiştirir.
   gearAnalyticsCollapseChartTooltip: "Grafiği daralt\n\n_Tüm grafikleri değiştirmek için sağ tıklayın._",
 

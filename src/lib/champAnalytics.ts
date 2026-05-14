@@ -207,6 +207,40 @@ export function champProfileTiebreaker(a: ChampionGearProfile, b: ChampionGearPr
   return bAvgRank - aAvgRank
 }
 
+/**
+ * Sort comparator that emulates the in-game default champion roster order
+ * ("by rank"). Hierarchy, each step descending unless noted:
+ *   1. champAscensionLevel   — "rank" (ascended stars, 0–6)
+ *   2. rarity                — Mythical (6) → Common (1)
+ *   3. avgLevel              — proxy for empowerment (+N gear levels)
+ *   4. ascentionCount        — proxy for awakening (gear pieces with a glyph)
+ *   5. avgRank (rankSum/itemCount) — average gear star grade
+ *   6. championId asc        — final stable tiebreaker
+ *
+ * The "empowerment" and "awakening" proxies are gear-derived because the
+ * champion DB row (Champs table) carries only ID / BaseHeroID / HeroID /
+ * Rarity / Vault flags — no per-champion empowerment, awakening, or level
+ * fields exist to sort on directly.
+ */
+export function champProfileRankComparator(a: ChampionGearProfile, b: ChampionGearProfile): number {
+  // 1. "Rank" = champion ascension level. Unknown (null) sorts last.
+  const aRank = a.champAscensionLevel ?? -1
+  const bRank = b.champAscensionLevel ?? -1
+  if (bRank !== aRank) return bRank - aRank
+  // 2. Highest champion rarity (Mythical first).
+  if (b.rarity !== a.rarity) return b.rarity - a.rarity
+  // 3. Empowerment proxy: highest average gear level.
+  if (b.avgLevel !== a.avgLevel) return b.avgLevel - a.avgLevel
+  // 4. Awakening proxy: most gear pieces with a glyph (ascension stat).
+  if (b.ascentionCount !== a.ascentionCount) return b.ascentionCount - a.ascentionCount
+  // 5. Highest average gear star rank.
+  const aAvgRank = a.itemCount > 0 ? a.rankSum / a.itemCount : 0
+  const bAvgRank = b.itemCount > 0 ? b.rankSum / b.itemCount : 0
+  if (bAvgRank !== aAvgRank) return bAvgRank - aAvgRank
+  // 6. Stable tail tiebreaker keyed on championId (ascending = deterministic).
+  return a.championId - b.championId
+}
+
 // ── Per-champion substat totals ────────────────────────────────────────────────
 
 /**

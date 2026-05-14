@@ -8,12 +8,14 @@
  * then wrap horizontally.  A horizontal scrollbar appears when more columns
  * than fit in the container.
  *
- * Sort control (ToggleButtonGroup): Off / All / Artifacts / Accessories.
- * Naked toggle (PersonOff icon): also show champions with 0 gear equipped
- * (requires champion roster data from the loaded data set).
+ * Sort control (ToggleButtonGroup): Off / All / Artifacts / Accessories / By rank.
+ * Simulate-sold toggle (rightmost): treats every equipped piece the rules would
+ * sell as if its slot were empty — slot cells turn red and missing counts grow.
  *
- * Grid cells:  ■ colored = slot equipped
- *              □ outline = slot empty
+ * Grid cells:  ■ primary  = slot equipped (kept)
+ *              ■ error    = slot equipped but would be sold (only when sim is on)
+ *              □ outline  = slot empty
+ *              □ dashed   = slot locked (champion ascension level too low)
  *
  * Hovering a filled cell shows the equipped gear piece via GearInspectorGridCard.
  */
@@ -23,13 +25,14 @@ import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import {
   buildChampionGearProfiles,
   champProfileTiebreaker,
+  champProfileRankComparator,
   isSlotAvailableAtAscensionLevel,
   MAIN_ARMOR_SLOTS,
   ACCESSORY_SLOTS,
   type ChampionGearProfile,
 } from '../../lib/champAnalytics'
 import { PREFERRED_ARTIFACT_TYPE_ORDER } from '../../lib/types'
-import { artifactTypeI18nKey } from '../../lib/gearAnalytics'
+import { artifactTypeI18nKey, rowOutcome } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
@@ -70,37 +73,81 @@ const GEAR_CARD_COLUMNS = CHAMPION_ICON_LARGE_THRESHOLD
 const EMPTY_RECIPE_NAMES: Array<string | null> = []
 /** All 9 slots in preferred display order, mapping 1:1 to a 3×3 grid. */
 const SLOT_GRID: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER as readonly number[]
+/** Shared empty-set sentinel for slot collections (avoids per-render allocation). */
+const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
 
 // ── Sort mode ─────────────────────────────────────────────────────────────────
 
-/** Controls champion sort order. 'off' = default tiebreaker; others = sort by
- *  missing count for that slot group (most missing first). */
-type SortMode = 'off' | 'all' | 'artifacts' | 'accessories'
+/** Controls champion sort order. 'off' = default tiebreaker; 'rank' = in-game
+ *  default roster order; others = sort by missing count for that slot group
+ *  (most missing first). */
+type SortMode = 'off' | 'all' | 'artifacts' | 'accessories' | 'rank'
 
 const LS_SORT_MODE = 'gearAnalytics.notEquippedSortMode'
 const DEFAULT_SORT_MODE: SortMode = 'off'
 
 function readSortMode(): SortMode {
   const v = localStorage.getItem(LS_SORT_MODE)
-  if (v === 'off' || v === 'all' || v === 'artifacts' || v === 'accessories') return v
+  if (v === 'off' || v === 'all' || v === 'artifacts' || v === 'accessories' || v === 'rank') return v
   return DEFAULT_SORT_MODE
 }
 
-/** Slot list used for sorting and the missing count badge per sort mode. */
+// ── Simulate-sold toggle ──────────────────────────────────────────────────────
+
+/** Persisted on/off state for the "simulate sold gear" overlay. */
+const LS_SIMULATE_SOLD = 'gearAnalytics.notEquippedSimulateSold'
+const DEFAULT_SIMULATE_SOLD = false
+
+function readSimulateSold(): boolean {
+  return localStorage.getItem(LS_SIMULATE_SOLD) === '1'
+}
+
+/** Slot list used for sorting and the missing count badge per sort mode.
+ *  'rank' has no slot-group constraint — it sorts by ascension/rarity tiebreakers. */
 const SORT_SLOTS: Readonly<Record<SortMode, readonly number[]>> = {
   off:         SLOT_GRID,
   all:         SLOT_GRID,
   artifacts:   MAIN_ARMOR_SLOTS,
   accessories: ACCESSORY_SLOTS,
+  rank:        SLOT_GRID,
 }
 
 /**
- * Count of empty slots in the given slot list that are also available for this
- * champion's ascension level. Locked slots (e.g. amulet before ascension level 5, banner
- * before ascension level 6) are excluded — they cannot be "missing" if they cannot be equipped.
+ * Count of "missing" slots in the given slot list — i.e. slots that are
+ *   (1) available at the champion's ascension level (locked amulet/banner skipped), and
+ *   (2) NOT considered "effectively filled" by the caller.
+ * `effectivelyFilled` typically equals `p.slotsFilled` when the simulation toggle
+ * is off; when on, equipped-but-would-be-sold slots are removed from it so they
+ * count as missing.
  */
-function missingCount(p: ChampionGearProfile, slots: readonly number[]): number {
-  return slots.filter((s) => isSlotAvailableAtAscensionLevel(s, p.champAscensionLevel) && !p.slotsFilled.has(s)).length
+function missingCount(
+  p: ChampionGearProfile,
+  slots: readonly number[],
+  effectivelyFilled: ReadonlySet<number>,
+): number {
+  return slots.filter(
+    (s) => isSlotAvailableAtAscensionLevel(s, p.champAscensionLevel) && !effectivelyFilled.has(s),
+  ).length
+}
+
+/**
+ * Returns the per-champion "effectively filled" slot set used by the missing-count
+ * helper and the slot grid. When `simulateSold` is on, slots holding a piece the
+ * current rules would sell are dropped from the set — making the simulation flow
+ * through the existing missing-count and sort code paths.
+ */
+function effectiveFilledSlots(
+  p: ChampionGearProfile,
+  soldSlotsByChamp: ReadonlyMap<number, ReadonlySet<number>>,
+  simulateSold: boolean,
+): ReadonlySet<number> {
+  if (!simulateSold) return p.slotsFilled
+  const sold = soldSlotsByChamp.get(p.championId)
+  if (!sold || sold.size === 0) return p.slotsFilled
+  // Build a fresh set minus the sold slots; ChampionGearProfile.slotsFilled is readonly.
+  const next = new Set<number>(p.slotsFilled)
+  for (const s of sold) next.delete(s)
+  return next
 }
 
 // ── Gear preview card ─────────────────────────────────────────────────────────
@@ -182,9 +229,12 @@ type SlotGridProps = {
   rowByChampSlot: ReadonlyMap<string, GearInspectorPreviewRow>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  /** Set of slot IDs whose equipped piece would be sold under the active rules.
+   *  Always provided; empty when the simulate-sold toggle is off. */
+  soldSlots: ReadonlySet<number>
 }
 
-function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors }: SlotGridProps) {
+function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors, soldSlots }: SlotGridProps) {
   const { t } = useI18n()
   return (
     // Three rows of three in PREFERRED_ARTIFACT_TYPE_ORDER.
@@ -198,20 +248,23 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors 
       {SLOT_GRID.map((slotId) => {
         const filled = profile.slotsFilled.has(slotId)
         const available = isSlotAvailableAtAscensionLevel(slotId, profile.champAscensionLevel)
+        // Sold simulation only matters for currently-equipped slots; otherwise nothing to sell.
+        const wouldSell = filled && soldSlots.has(slotId)
 
-        // Three visual states — sort mode has no effect on the grid display:
-        //   filled    → primary.main solid    (slot has gear equipped)
-        //   available → neutral outline       (slot is empty but can be filled)
-        //   locked    → very dim, no border   (slot not yet unlocked for this ascension level)
+        // Four visual states — sort mode has no effect on the grid display:
+        //   filled+kept → primary.main solid (slot has gear that stays)
+        //   filled+sell → error.main solid   (sim is on; this piece would be sold)
+        //   available   → neutral outline    (slot is empty but can be filled)
+        //   locked      → very dim, no border (slot not yet unlocked for this ascension level)
         const cell = available
           ? (
             <Box sx={{
               width: SLOT_CELL, height: SLOT_CELL,
               borderRadius: '2px', boxSizing: 'border-box',
-              bgcolor: filled ? 'primary.main' : 'transparent',
+              bgcolor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'transparent',
               border: '1px solid',
-              borderColor: filled ? 'primary.main' : 'text.secondary',
-              opacity: filled ? 0.8 : 0.35,
+              borderColor: filled ? (wouldSell ? 'error.main' : 'primary.main') : 'text.secondary',
+              opacity: filled ? 0.85 : 0.35,
             }} />
           )
           : (
@@ -267,9 +320,13 @@ type ChampRowProps = {
   rowByChampSlot: ReadonlyMap<string, GearInspectorPreviewRow>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  /** Slots whose equipped piece would be sold (already filtered by simulate-sold toggle). */
+  soldSlots: ReadonlySet<number>
+  /** Effective filled set passed in so missingCount matches the sort/badge logic above. */
+  effectivelyFilled: ReadonlySet<number>
 }
 
-function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStatButtonColors }: ChampRowProps) {
+function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlots, effectivelyFilled }: ChampRowProps) {
   // Slot list matching the sort mode — drives the missing count badge.
   const slots = SORT_SLOTS[sortMode]
   return (
@@ -298,13 +355,14 @@ function ChampRow({ profile: p, sortMode, rowByChampSlot, substatColors, useStat
         rowByChampSlot={rowByChampSlot}
         substatColors={substatColors}
         useStatButtonColors={useStatButtonColors}
+        soldSlots={soldSlots}
       />
       {/* Missing count for the active sort dimension (red, tabular). */}
       <Typography sx={{
         fontSize: '0.65rem', color: 'error.main',
         fontVariantNumeric: 'tabular-nums', textAlign: 'right',
       }}>
-        -{missingCount(p, slots)}
+        -{missingCount(p, slots, effectivelyFilled)}
       </Typography>
     </Box>
   )
@@ -319,9 +377,13 @@ type LocationTableProps = {
   rowByChampSlot: ReadonlyMap<string, GearInspectorPreviewRow>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  /** Champion-id → set of slots whose equipped piece would be sold (empty map when sim is off). */
+  soldSlotsByChamp: ReadonlyMap<number, ReadonlySet<number>>
+  /** Whether the simulate-sold toggle is currently engaged. */
+  simulateSold: boolean
 }
 
-function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColors, useStatButtonColors }: LocationTableProps) {
+function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColors, useStatButtonColors, soldSlotsByChamp, simulateSold }: LocationTableProps) {
   if (profiles.length === 0) return null
   return (
     <Box>
@@ -346,16 +408,25 @@ function LocationTable({ profiles, title, sortMode, rowByChampSlot, substatColor
           rowGap: 1,     // 8px between rows
           columnGap: 2,  // 16px between columns
         }}>
-          {profiles.map((p) => (
-            <ChampRow
-              key={p.championId}
-              profile={p}
-              sortMode={sortMode}
-              rowByChampSlot={rowByChampSlot}
-              substatColors={substatColors}
-              useStatButtonColors={useStatButtonColors}
-            />
-          ))}
+          {profiles.map((p) => {
+            // Compute per-champion derived sets once per render. EMPTY_SET sentinel keeps
+            // the SlotGrid prop type non-optional without per-cell allocations when sim is off.
+            const soldSlots = soldSlotsByChamp.get(p.championId) ?? EMPTY_SLOT_SET
+            const effectivelyFilled = effectiveFilledSlots(p, soldSlotsByChamp, simulateSold)
+            return (
+              <ChampRow
+                key={p.championId}
+                profile={p}
+                sortMode={sortMode}
+                rowByChampSlot={rowByChampSlot}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
+                // When sim is off, soldSlots is the empty sentinel and the grid renders normally.
+                soldSlots={simulateSold ? soldSlots : EMPTY_SLOT_SET}
+                effectivelyFilled={effectivelyFilled}
+              />
+            )
+          })}
         </Box>
       </Box>
     </Box>
@@ -381,14 +452,17 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const { statButtonBorders } = useDisplayPreferences()
 
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
+  const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)
 
   useEffect(() => { localStorage.setItem(LS_SORT_MODE, sortMode) }, [sortMode])
+  useEffect(() => { localStorage.setItem(LS_SIMULATE_SOLD, simulateSold ? '1' : '0') }, [simulateSold])
   // Restore factory defaults when the parent increments resetKey.
   // "Adjust state directly during render" pattern avoids the one-render delay of useEffect.
   const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)
   if (prevResetKey !== resetKey && resetKey !== undefined) {
     setPrevResetKey(resetKey)
     setSortMode(DEFAULT_SORT_MODE)
+    setSimulateSold(DEFAULT_SIMULATE_SOLD)
   }
 
   // Build (championId_slotId) → row lookup for filled-slot gear previews.
@@ -403,41 +477,73 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     return map
   }, [rows])
 
-  // Build profiles: champions missing at least one of their 9 gear slots.
-  const notEquipped = useMemo(() => {
-    const profiles = buildChampionGearProfiles(rows)
-    return profiles.filter((p) => missingCount(p, SLOT_GRID) > 0)
+  // Build (championId → set of slots whose equipped piece would be sold). The map
+  // is keyed on rows regardless of the toggle so the React Hook deps stay simple;
+  // callers gate use of the map on `simulateSold`.
+  const soldSlotsByChamp = useMemo(() => {
+    const map = new Map<number, Set<number>>()
+    for (const row of rows) {
+      const { equippedToChampionId, slot } = row.artifact
+      // Only equipped rows can have a "sold slot" — unequipped gear has no host champion.
+      if (equippedToChampionId === null) continue
+      // Outcome 'sell' is the canonical sell classification (see lib/gearAnalytics rowOutcome).
+      if (rowOutcome(row) !== 'sell') continue
+      let set = map.get(equippedToChampionId)
+      if (!set) { set = new Set<number>(); map.set(equippedToChampionId, set) }
+      set.add(Number(slot))
+    }
+    return map
   }, [rows])
 
-  // Sort: 'off' = radar tiebreaker; others = most missing in that slot group first.
+  // Build profiles: champions with at least one missing slot — using the simulation-
+  // adjusted "effective filled" set so that toggling sim adds/removes champions naturally.
+  const notEquipped = useMemo(() => {
+    const profiles = buildChampionGearProfiles(rows)
+    return profiles.filter((p) => {
+      const eff = effectiveFilledSlots(p, soldSlotsByChamp, simulateSold)
+      return missingCount(p, SLOT_GRID, eff) > 0
+    })
+  }, [rows, soldSlotsByChamp, simulateSold])
+
+  // Sort: 'off' = radar tiebreaker; 'rank' = in-game roster comparator;
+  // others = most missing in that slot group first (also honors sim via effective filled).
   const sorted = useMemo(() => {
     const copy = [...notEquipped]
     if (sortMode === 'off') {
       copy.sort(champProfileTiebreaker)
+    } else if (sortMode === 'rank') {
+      copy.sort(champProfileRankComparator)
     } else {
       const slots = SORT_SLOTS[sortMode]
       copy.sort((a, b) => {
-        const da = missingCount(a, slots)
-        const db = missingCount(b, slots)
+        const da = missingCount(a, slots, effectiveFilledSlots(a, soldSlotsByChamp, simulateSold))
+        const db = missingCount(b, slots, effectiveFilledSlots(b, soldSlotsByChamp, simulateSold))
         return db !== da ? db - da : champProfileTiebreaker(a, b)
       })
     }
     return copy
-  }, [notEquipped, sortMode])
+  }, [notEquipped, sortMode, soldSlotsByChamp, simulateSold])
 
   const collection = useMemo(() => sorted.filter((p) => p.location === 'collection'), [sorted])
   const vault      = useMemo(() => sorted.filter((p) => p.location === 'vault'),      [sorted])
 
   if (collection.length === 0 && vault.length === 0) return null
 
-  const tableProps = { sortMode, rowByChampSlot, substatColors, useStatButtonColors: statButtonBorders }
+  const tableProps = {
+    sortMode,
+    rowByChampSlot,
+    substatColors,
+    useStatButtonColors: statButtonBorders,
+    soldSlotsByChamp,
+    simulateSold,
+  }
 
   return (
     <Box>
       {/* Title row — chevron toggles collapse; tooltip on the label for legend context. */}
       <GearAnalyticsChartHeader title={t('gearAnalyticsNotEquippedTitle')} description={t('gearAnalyticsNotEquippedTitleDesc')} collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       <Collapse in={!collapsed} timeout="auto">
-      {/* Controls row: Sort label + mode group. */}
+      {/* Controls row: Sort label + mode group, then the simulate-sold toggle on the right. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
           {t('gearAnalyticsSortLabel')}
@@ -460,7 +566,24 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
           <ToggleButton value="accessories" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
             {t('gearAnalyticsSlotModeAccessories')}
           </ToggleButton>
+          {/* In-game roster order; uses the dedicated champProfileRankComparator. */}
+          <ToggleButton value="rank" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
+            {t('gearAnalyticsSlotModeRank')}
+          </ToggleButton>
         </ToggleButtonGroup>
+        {/* Standalone single-button toggle for the simulate-sold overlay. */}
+        <Tooltip title={t('gearAnalyticsSimulateSoldDesc')} placement="top" arrow>
+          <ToggleButtonGroup
+            size="small"
+            value={simulateSold ? ['on'] : []}
+            onChange={() => setSimulateSold((v) => !v)}
+            sx={{ ml: 0.5 }}
+          >
+            <ToggleButton value="on" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
+              {t('gearAnalyticsSimulateSoldLabel')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Tooltip>
       </Box>
 
       {/* Collection and Vault sub-tables, stacked vertically (collection on top). */}

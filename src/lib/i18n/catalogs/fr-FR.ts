@@ -336,6 +336,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tous",
   gearAnalyticsSlotModeArtifacts: "Artefacts",
   gearAnalyticsSlotModeAccessories: "Accessoires",
+  gearAnalyticsSlotModeRank: "Par rang",
+  gearAnalyticsSimulateSoldLabel: "Simuler vente",
+  gearAnalyticsSimulateSoldDesc: "Lorsqu’il est activé, les emplacements dont la pièce équipée serait vendue par les règles actuelles sont colorés en rouge et comptés comme manquants.",
   // Bouton réduire — clic droit bascule tous les graphiques simultanément.
   gearAnalyticsCollapseChartTooltip: "Réduire le graphique\n\n_Clic droit pour basculer tous les graphiques._",
 

@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tutti",
   gearAnalyticsSlotModeArtifacts: "Artefatti",
   gearAnalyticsSlotModeAccessories: "Accessori",
+  gearAnalyticsSlotModeRank: "Per rango",
+  gearAnalyticsSimulateSoldLabel: "Simula vendita",
+  gearAnalyticsSimulateSoldDesc: "Se attivo, gli slot la cui pezza equipaggiata verrebbe venduta dalle regole correnti sono mostrati in rosso e contati come mancanti.",
   // Pulsante comprimi — clic destro alterna tutti i grafici contemporaneamente.
   gearAnalyticsCollapseChartTooltip: "Comprimi grafico\n\n_Clic destro per alternare tutti i grafici._",
   dungeonDropsIntro: "Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.",

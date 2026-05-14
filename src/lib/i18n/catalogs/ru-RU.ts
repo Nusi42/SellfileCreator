@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Все",
   gearAnalyticsSlotModeArtifacts: "Артефакты",
   gearAnalyticsSlotModeAccessories: "Аксессуары",
+  gearAnalyticsSlotModeRank: "По рангу",
+  gearAnalyticsSimulateSoldLabel: "Имитация продажи",
+  gearAnalyticsSimulateSoldDesc: "Если включено, ячейки, экипировка которых была бы продана текущими правилами, отображаются красным и засчитываются как отсутствующие.",
   // Кнопка свернуть — правый клик переключает все графики одновременно.
   gearAnalyticsCollapseChartTooltip: "Свернуть график\n\n_Правый клик — переключить все графики._",
 

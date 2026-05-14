@@ -340,6 +340,11 @@ const enUS: Catalog = {
   gearAnalyticsSlotModeAll: "All",
   gearAnalyticsSlotModeArtifacts: "Artifacts",
   gearAnalyticsSlotModeAccessories: "Accessories",
+  // In-game roster order: ascension level → rarity → empowerment proxy → awakening proxy → avg gear rank.
+  gearAnalyticsSlotModeRank: "By rank",
+  // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
+  gearAnalyticsSimulateSoldLabel: "Simulate sold",
+  gearAnalyticsSimulateSoldDesc: "When on, slots whose equipped piece would be sold by the current rules are drawn red and counted as missing.",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Collapse chart\n\n_Right-click to toggle all charts._",
   dungeonDropsIntro: "Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.",

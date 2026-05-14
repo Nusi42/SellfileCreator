@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Todos",
   gearAnalyticsSlotModeArtifacts: "Artefactos",
   gearAnalyticsSlotModeAccessories: "Acess\u00f3rios",
+  gearAnalyticsSlotModeRank: "Por rank",
+  gearAnalyticsSimulateSoldLabel: "Simular venda",
+  gearAnalyticsSimulateSoldDesc: "Quando ativado, espaços cuja peça equipada seria vendida pelas regras atuais aparecem a vermelho e são contados como em falta.",
   // Botão recolher — clique com o botão direito alterna todos os gráficos ao mesmo tempo.
   gearAnalyticsCollapseChartTooltip: "Recolher gráfico\n\n_Clique com o botão direito para alternar todos os gráficos._",
   dungeonDropsIntro: "Simule drops de masmorra usando as suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e por marco de nível.",

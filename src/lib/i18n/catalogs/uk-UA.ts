@@ -334,6 +334,9 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Усі",
   gearAnalyticsSlotModeArtifacts: "Артефакти",
   gearAnalyticsSlotModeAccessories: "Аксесуари",
+  gearAnalyticsSlotModeRank: "За рангом",
+  gearAnalyticsSimulateSoldLabel: "Імітація продажу",
+  gearAnalyticsSimulateSoldDesc: "Якщо увімкнено, комірки, екіпірування яких було б продане за поточними правилами, відображаються червоним і рахуються як відсутні.",
   // Кнопка згортання — правий клік перемикає всі графіки одночасно.
   gearAnalyticsCollapseChartTooltip: "Згорнути графік\n\n_Правий клік — перемкнути всі графіки._",
 
