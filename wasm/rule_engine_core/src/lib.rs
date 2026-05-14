@@ -240,7 +240,7 @@ pub struct RuleSubRaw {
 
 // Top-level item payload passed from worker evaluate calls.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvaluateItemRaw {
     pub item_id: i64,
     pub item: TestItemRaw,
@@ -249,7 +249,7 @@ pub struct EvaluateItemRaw {
 // TestItem mirrors src/lib/ruleEval.ts fields used for matching.
 // All optional fields remain optional for backward compatibility.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TestItemRaw {
     pub slot: i64,
     pub set: i64,
@@ -268,7 +268,7 @@ pub struct TestItemRaw {
 
 // previewExtras carries the fallback ID used by safeguard bindings.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewExtrasRaw {
     pub id: Option<i64>,
 }
@@ -376,7 +376,7 @@ where
 // Combined safeguard payload lets TS request candidate collection + detection
 // in one wasm call while preserving both legacy output shapes.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectedAndProtectedSnapshotOut {
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     pub unique_item_keys: Vec<i64>,
@@ -385,7 +385,7 @@ pub struct SafeguardCollectedAndProtectedSnapshotOut {
 
 // Obsolete-report payload mirrors src/lib/hsfObsolete.ts return shape.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ObsoleteEntryOut {
     pub index: usize,
     pub covered_by: usize,
@@ -400,7 +400,7 @@ pub struct ObsoleteReportOut {
 
 // Branch metadata mirrors merge.ts generated-entry shape.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GeneratedRuleEntryIn {
     pub rule: RuleRaw,
     pub branch_order: i64,
@@ -410,7 +410,7 @@ pub struct GeneratedRuleEntryIn {
 
 // Builder finalize payload carries per-rule emission ordering metadata.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BuilderFinalizeEmissionMetaIn {
     pub level_idx: i64,
     pub branch_idx: i64,
@@ -427,7 +427,7 @@ pub struct BuilderFinalizeEntry {
 
 // Final-sell remainder recipe mirrors src/lib/logicHub.ts payload shape.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinalSellRemainderIn {
     pub artifacts: bool,
     pub accessories: bool,
@@ -439,7 +439,7 @@ pub struct FinalSellRemainderIn {
 
 // Merged-rule payload keeps orchestration inputs compact for one wasm call.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ComputeMergedRulesIn {
     #[serde(default)]
     pub base_rules: Vec<RuleRaw>,
@@ -463,14 +463,14 @@ pub struct ComputeMergedRulesIn {
 
 // Auto-rarity bounds mirror BuilderRecipe.substatRollBoundsV row shape.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AutoRarityResolveRollBoundsIn {
     pub min: Option<f64>,
 }
 
 // Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AutoRarityResolveIn {
     #[serde(default)]
     pub auto_rarity_supplements_threshold: Option<String>,
@@ -494,7 +494,7 @@ pub struct AutoRarityResolveIn {
 
 // Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AutoRarityResolveBuilderIn {
     #[serde(default)]
     pub auto_rarity_supplements_threshold: Option<String>,
@@ -1137,7 +1137,7 @@ pub fn evaluate_engine(
 // Carries per-item evaluation results alongside the safeguard candidate/detection payloads
 // so TS callers cross the WASM boundary only once for the detection phase.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvaluateAndCollectSnapshotOut {
     // Per-item evaluation results (mirrors Vec<EvaluateItemResult> from evaluate_engine).
     pub evaluate_results: Vec<EvaluateItemResult>,
@@ -1327,7 +1327,7 @@ pub fn compute_improvement_chance_engine(
 
 // Input payload for batch HSF rule emission from pre-filtered distributions.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmitHsfSubstatIn {
     pub id: i64,
     #[serde(default)]
@@ -1335,14 +1335,14 @@ pub struct EmitHsfSubstatIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmitHsfMainChoiceIn {
     pub id: i64,
     pub f: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmitHsfRulesForDistributionsIn {
     pub base_rule: RuleRaw,
     pub substats: Vec<EmitHsfSubstatIn>,
@@ -1364,7 +1364,7 @@ pub struct EmitHsfRulesForDistributionsIn {
 // Compact filtered-emission payload keeps only base vectors at selected dims.
 // Rust widens them to requested dimensions for sink/other expansion.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmitHsfRulesForFilteredDistributionsCompactIn {
     pub dimensions: i32,
     pub total: i32,
@@ -1388,7 +1388,7 @@ pub struct EmitHsfRulesForFilteredDistributionsCompactIn {
 // Presence-only builder payload mirrors the selectedPoolV.length===0 branch in
 // hsfBuilder.ts while keeping the level/main unroll loops in Rust.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BuildHsfPresenceOnlyRulesIn {
     pub base_core: RuleRaw,
     pub main_choices: Vec<EmitHsfMainChoiceIn>,

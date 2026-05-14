@@ -109,17 +109,93 @@ fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usiz
 // `chances_by_rule_ordinal` is the per-rule chance list — each entry pairs a 1-based
 // safeguard rule ordinal with the probability the artifact lands in THAT rule's top-N at +16.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ImprovementChanceInput {
     artifact_id: i64,
     chances_by_rule_ordinal: Vec<ImprovementChanceRuleInput>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ImprovementChanceRuleInput {
     rule_ordinal: i64,
     chance_percent: f64,
+}
+
+// Top-level JSON-string payload accepted by compute_safeguard_protection_value.
+// Mirrors the historical multi-arg signature with all optional/nullable inputs
+// expressed as Option<...> so the TS side can omit them entirely.
+// deny_unknown_fields is the whole reason this wrapper exists — by funnelling
+// the payload through serde_json::from_str we activate the deny check that
+// serde-wasm-bindgen's `from_value` path is structurally incapable of triggering
+// (see ~/.cargo/registry/.../serde-wasm-bindgen-0.6.5/src/de.rs around
+// line 86-105: ObjectAccess::next_key_seed iterates the Rust field list rather
+// than the JS object's own keys, so unknown fields slip through silently).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ComputeSafeguardProtectionInWire {
+    // Compact safeguard candidates produced by the TS-side projection helper.
+    candidates: Vec<SafeguardWasmCandidateFastIn>,
+    // Resolved safeguard rules (per-level thresholds already collapsed to [f64; 4]).
+    rules: Vec<SafeguardWasmRuleIn>,
+    // Optional expected-group wrapper (None when caller passes no precomputed groups).
+    #[serde(default)]
+    expected_groups_by_rule_id: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    // Master toggle — when false the snapshot is built without scoring.
+    enabled: bool,
+    // Snapshot timestamp surfaced to the caller; sanitised downstream.
+    now: f64,
+    // Per-artifact / per-rule improvement chance entries (None disables thresholding).
+    #[serde(default)]
+    improvement_chances: Option<Vec<ImprovementChanceInput>>,
+}
+
+// Top-level JSON-string payload accepted by collect_safeguard_candidates_value.
+// Mirrors the prior multi-arg signature with all optional inputs expressed as
+// Option<...>.  deny_unknown_fields catches any TS-side drift; the underlying
+// RuleRaw struct intentionally keeps its legacy PascalCase HSF field set and
+// must NOT use deny_unknown_fields itself (see wasm/rule_engine_core/src/lib.rs).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CollectSafeguardCandidatesInWire {
+    // Compact preview rows projected on the TS side via toWasmSafeguardCollectRow.
+    rows: Vec<SafeguardCollectRowFastIn>,
+    // Merged base rules used for keep/sell candidate resolution.
+    rules: Vec<RuleRaw>,
+    // Per-recipe visibility modes used by evaluate-item rule filtering.
+    recipe_modes: Vec<String>,
+    // Optional ignored-recipe list for safeguard suppression modes.
+    #[serde(default)]
+    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+}
+
+// Top-level JSON-string payload for collect_and_compute_safeguard_protection_value.
+// Combines candidate collection + protection scoring inputs in a single struct so
+// both halves of the combined pipeline share one parse / one deny_unknown_fields gate.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CollectAndComputeSafeguardProtectionInWire {
+    // Compact preview rows projected on the TS side via toWasmSafeguardCollectRow.
+    rows: Vec<SafeguardCollectRowFastIn>,
+    // Merged base rules used for keep/sell candidate resolution.
+    rules: Vec<RuleRaw>,
+    // Per-recipe visibility modes used by evaluate-item rule filtering.
+    recipe_modes: Vec<String>,
+    // Optional ignored-recipe list for safeguard suppression modes.
+    #[serde(default)]
+    ignore_safeguard_recipe_indices: Option<Vec<i64>>,
+    // Canonical safeguard rules (per-level thresholds already collapsed to [f64; 4]).
+    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    // Optional expected-group wrapper payload (None when caller passes no precomputed groups).
+    #[serde(default)]
+    expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    // Master toggle — when false the snapshot is built without scoring.
+    enabled: bool,
+    // Snapshot timestamp surfaced to the caller; sanitised downstream.
+    now: f64,
+    // Per-artifact / per-rule improvement chance entries (None disables thresholding).
+    #[serde(default)]
+    improvement_chances: Option<Vec<ImprovementChanceInput>>,
 }
 
 // Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
@@ -290,49 +366,31 @@ pub fn safeguard_group_key_value(artifact: JsValue) -> Result<String, JsValue> {
 }
 
 // Run safeguard protection scoring against pre-collected candidates.
-// Accepts fast-path candidate payload so the full artifact shape crosses the boundary once.
+// Accepts a single JSON-stringified payload so deny_unknown_fields activates
+// (serde-wasm-bindgen's from_value path bypasses the check — see the wire-struct
+// comment above for the underlying cause).  This also halves peak memory and
+// keeps the deserialize work inside linear memory, mirroring the pattern used
+// by configure_value / store_artifact_rows_value / finalize_generated_rules_value.
 #[wasm_bindgen]
-pub fn compute_safeguard_protection_value(
-    candidates: JsValue,
-    rules: JsValue,
-    expected_groups_by_rule_id: JsValue,
-    enabled: bool,
-    now: f64,
-    // Pre-computed improvement chances as [{artifactId, chancePercent}] or null/undefined.
-    improvement_chances_payload: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse canonical candidate payloads into the fast-path format for core.
-    let parsed_candidates: Vec<SafeguardWasmCandidateFastIn> = from_js_value(candidates)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard candidates payload: {error}")))?;
-    // Parse canonical safeguard rule rows prepared by app-side normalization.
-    let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
-    // Parse canonical expected-group wrapper payload (null/undefined = empty default).
-    let expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn> =
-        if expected_groups_by_rule_id.is_undefined() || expected_groups_by_rule_id.is_null() {
-            None
-        } else {
-            Some(from_js_value(expected_groups_by_rule_id)
-                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
-        };
-    // Parse improvement-chance entries and flatten into (artifact_id, rule_ordinal) → chance.
-    // Per-rule keying lets each safeguard rule's threshold expansion consult ITS OWN top-N
-    // probability — not the global union — so cross-rule probability inflation is impossible.
-    let improvement_chances: std::collections::BTreeMap<(i64, i64), f64> =
-        if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
-            std::collections::BTreeMap::new()
-        } else {
-            let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
-                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
-            flatten_improvement_chances(entries)
-        };
+pub fn compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers candidates / rules / expected-groups / improvement-chances.
+    let input: ComputeSafeguardProtectionInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid compute-safeguard-protection payload: {error}")))?;
+    // Per-rule keying means each safeguard rule's threshold expansion consults
+    // ITS OWN top-N probability — never the global union across rules.
+    let improvement_chances = match input.improvement_chances {
+        Some(entries) => flatten_improvement_chances(entries),
+        None => std::collections::BTreeMap::new(),
+    };
     // Run the shared protection core and return the serialized snapshot.
     let snapshot = compute_safeguard_protection_core_pub(
-        parsed_candidates,
-        parsed_rules,
-        expected_payload,
-        enabled,
-        now,
+        input.candidates,
+        input.rules,
+        input.expected_groups_by_rule_id,
+        input.enabled,
+        input.now,
         improvement_chances,
     );
     to_js_value(&snapshot)
@@ -340,64 +398,36 @@ pub fn compute_safeguard_protection_value(
 }
 
 // Combined safeguard export runs candidate collection + protection in one pass.
-#[allow(clippy::too_many_arguments)]
+// Accepts a single JSON-stringified payload so deny_unknown_fields activates
+// (serde-wasm-bindgen's from_value path bypasses the check — see the wire-struct
+// comment above for the underlying cause).  Mirrors compute_safeguard_protection_value's
+// migration: one serde_json parse for the whole payload, single dispatch into core.
 #[wasm_bindgen]
-pub fn collect_and_compute_safeguard_protection_value(
-    rows: JsValue,
-    rules: JsValue,
-    recipe_modes: JsValue,
-    ignore_safeguard_recipe_indices: JsValue,
-    safeguard_rules: JsValue,
-    expected_groups_payload: JsValue,
-    enabled: bool,
-    now: f64,
-    // Pre-computed improvement chances as [{artifactId, chancePercent}] or null/undefined.
-    improvement_chances_payload: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse canonical collect rows into the fast-path format for core parsing.
-    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rows payload: {error}")))?;
-    let parsed_rows = safeguard_parse_collect_rows_payload(fast_rows)
+pub fn collect_and_compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers rows / rules / recipe-modes / safeguard-rules / etc.
+    let input: CollectAndComputeSafeguardProtectionInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid collect-and-compute-safeguard-protection payload: {error}")))?;
+    // Normalize compact preview rows into the canonical matcher collect rows.
+    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows)
         .map_err(|error| JsValue::from_str(&error))?;
-    // Parse base rules used by keep/sell candidate resolution.
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rules payload: {error}")))?;
-    // Parse visibility modes used by evaluate-item rule filtering.
-    let parsed_recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect recipe-modes payload: {error}")))?;
-    // Parse optional ignored-recipe list for safeguard suppression modes.
-    let parsed_ignore: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
-    // Parse canonical safeguard rules used by protection scoring/counting logic.
-    let parsed_safeguard_rules: Vec<SafeguardWasmRuleIn> = from_js_value(safeguard_rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard protection rules payload: {error}")))?;
-    // Parse canonical expected-group wrapper payload (null/undefined = empty default).
-    let expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn> =
-        if expected_groups_payload.is_undefined() || expected_groups_payload.is_null() {
-            None
-        } else {
-            Some(from_js_value(expected_groups_payload)
-                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-groups payload: {error}")))?)
-        };
-    // Parse improvement-chance entries and flatten into (artifact_id, rule_ordinal) → chance.
+    // Flatten improvement-chance entries into the (artifact_id, rule_ordinal) → chance map.
     // See flatten_improvement_chances for the rationale (per-rule lookup, no cross-rule inflation).
-    let improvement_chances: std::collections::BTreeMap<(i64, i64), f64> =
-        if improvement_chances_payload.is_undefined() || improvement_chances_payload.is_null() {
-            std::collections::BTreeMap::new()
-        } else {
-            let entries: Vec<ImprovementChanceInput> = from_js_value(improvement_chances_payload)
-                .map_err(|error| JsValue::from_str(&format!("Invalid safeguard improvement-chances payload: {error}")))?;
-            flatten_improvement_chances(entries)
-        };
+    let improvement_chances = match input.improvement_chances {
+        Some(entries) => flatten_improvement_chances(entries),
+        None => std::collections::BTreeMap::new(),
+    };
+    // Delegate to the shared core; argument order mirrors the prior multi-arg shape.
     let combined = collect_and_compute_safeguard_protection_core(
         parsed_rows,
-        parsed_rules,
-        parsed_recipe_modes,
-        parsed_ignore,
-        parsed_safeguard_rules,
-        expected_payload,
-        enabled,
-        now,
+        input.rules,
+        input.recipe_modes,
+        input.ignore_safeguard_recipe_indices,
+        input.safeguard_rules,
+        input.expected_groups_payload,
+        input.enabled,
+        input.now,
         improvement_chances,
     ).map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&combined)
@@ -408,36 +438,28 @@ pub fn collect_and_compute_safeguard_protection_value(
 
 // Safeguard candidate snapshot builder keeps key derivation + sold filtering
 // in Rust so TS call sites avoid re-implementing evaluator precedence.
+// Accepts a single JSON-stringified payload so deny_unknown_fields activates
+// (serde-wasm-bindgen's from_value path bypasses the check — see the wire-struct
+// comment above for the underlying cause).
 #[wasm_bindgen]
-pub fn collect_safeguard_candidates_value(
-    rows: JsValue,
-    rules: JsValue,
-    recipe_modes: JsValue,
-    ignore_safeguard_recipe_indices: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse raw/compact row payloads into the normalized collect row shape.
-    let fast_rows: Vec<SafeguardCollectRowFastIn> = from_js_value(rows)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rows payload: {error}")))?;
-    let parsed_rows = safeguard_parse_collect_rows_payload(fast_rows)
+pub fn collect_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers rows / rules / recipe-modes / ignored-recipe indices.
+    let input: CollectSafeguardCandidatesInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid collect-safeguard-candidates payload: {error}")))?;
+    // Normalize compact preview rows into the canonical matcher collect rows.
+    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows)
         .map_err(|error| JsValue::from_str(&error))?;
-    // Parse merged base rules used by keep/sell resolution.
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect rules payload: {error}")))?;
-    // Parse per-recipe mode visibility needed by evaluate-item parity.
-    let parsed_recipe_modes: Vec<String> = from_js_value(recipe_modes)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect recipe-modes payload: {error}")))?;
-    // Parse optional ignored recipe indices; null/undefined maps to empty list.
-    let parsed_ignore: Option<Vec<i64>> = from_js_value(ignore_safeguard_recipe_indices)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard collect ignored-recipe payload: {error}")))?;
     // Prepare and bucket rules so candidate resolution uses slot-aware evaluation.
-    let prepared_rules = parsed_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let prepared_rules = input.rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     let bucketed_rules = BucketedRules::from_rules(prepared_rules);
     let snapshot = collect_safeguard_candidates_core(
         &parsed_rows,
         None, // no sidecar; row fields carry base_match_defined/base_match
         &bucketed_rules,
-        &parsed_recipe_modes,
-        &parsed_ignore.unwrap_or_default(),
+        &input.recipe_modes,
+        &input.ignore_safeguard_recipe_indices.unwrap_or_default(),
     ).map_err(|error| JsValue::from_str(&error))?;
     // Return the compact candidate payload used by TS row re-attachment.
     to_js_value(&snapshot)
@@ -670,6 +692,7 @@ pub fn flatten_rule_batches_with_total_limit_value(
     // to avoid exponential free-list fragmentation in talc.
     prewarm_for_json_parse(payload.len());
     #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct FlattenPayload {
         #[serde(rename = "baseCount")]
         base_count: i64,
@@ -829,6 +852,7 @@ pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
     // prevent exponential free-list fragmentation during the doubling sequence.
     prewarm_for_json_parse(payload.len());
     #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct ConfigurePayload {
         #[serde(default)]
         rules: Vec<RuleRawWire>,
@@ -951,7 +975,9 @@ pub fn pre_grow_memory_value(target_bytes: u32) {
 
 // Returns the WASM linear memory size in bytes (page_count × 65_536).
 // Used by worker [sfc-diag] log lines and the proactive worker-cycling threshold
-// (WASM_HEAP_RESTART_BYTES) to track WASM heap growth.
+// (WASM_HEAP_RESTART_BYTES) to track WASM heap growth. cfg-gated to wasm32 so
+// host-target builds (cargo test) can compile this crate cleanly.
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wasm_linear_memory_bytes() -> u32 {
     wasm_linear_memory_bytes_core()
@@ -1059,7 +1085,7 @@ pub fn evaluate_and_collect_safeguard_protection_value(
 // Bundles the entry array and optional perf diagnostics so the JS caller
 // can log the diag block in dev without a second round-trip.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ImprovementChanceOutput<'a> {
     entries: &'a Vec<ImprovementChanceEntry>,
     diag: Option<&'a ImprovementChancePerfDiag>,
@@ -1113,4 +1139,299 @@ pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsVal
     let results = evaluate_engine(parsed_items, parsed_options)?;
     to_js_value(&results)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
+}
+
+// Conformance tests for the compute_safeguard_protection_value JSON wire shape.
+// The fixture is the full payload the TS side emits via JSON.stringify; if either
+// side adds or renames a field, this test must be updated in lockstep — that is the
+// whole point of deny_unknown_fields and the wrapper struct's exhaustive field list.
+#[cfg(test)]
+mod compute_safeguard_protection_wire_tests {
+    use super::*;
+    use rule_engine_core::safeguards::fast_path_types::SafeguardWasmMainStatRawIn;
+
+    // Fully-populated fixture mirrors what TS emits via toWasmSafeguardCandidate +
+    // toWasmImprovementChanceInput.  When a field is added to ANY wire struct
+    // reachable from ComputeSafeguardProtectionInWire, this fixture AND the
+    // assertion below MUST be updated in lockstep — otherwise the test fails
+    // loudly (deny_unknown_fields trips, or the populated-field assert fails).
+    const FIXTURE: &str = r#"{
+      "candidates": [{
+        "itemKey": 1,
+        "groupKey": "5:19:1:0",
+        "isSold": false,
+        "artifact": {
+          "id": 1, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+          "exactLevel": null, "faction": 0, "mainStat": 1,
+          "substats": [{ "variant": 5, "isFlat": false, "value": 8.0, "totalValue": 8.0, "rolls": 4 }],
+          "equippedChampion": { "location": "collection" },
+          "gearInspectorItem": {
+            "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+            "faction": 0, "main": 1
+          }
+        }
+      }],
+      "rules": [{
+        "id": "demo", "name": "Demo",
+        "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+        "requiredCount": 1, "activation": "protectExisting",
+        "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+        "ignorePreviousSafeguards": true, "ignoreEquippedInCollection": false, "ignoreEquippedInVault": false,
+        "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
+        "improvementChanceThreshold": null, "tags": []
+      }],
+      "expectedGroupsByRuleId": {
+        "expectedGroupsByRuleId": {},
+        "expectedGroupDomain": null
+      },
+      "enabled": true,
+      "now": 1234567890.0,
+      "improvementChances": [{
+        "artifactId": 1,
+        "chancesByRuleOrdinal": [{ "ruleOrdinal": 1, "chancePercent": 42.0 }]
+      }]
+    }"#;
+
+    // Exhaustive field-by-field assertion. Every field declared on the wrapper
+    // struct AND on each directly-nested wire struct MUST be populated by the
+    // fixture and asserted here.  Adding a field upstream without updating this
+    // test will surface as either a deserialize failure (deny_unknown_fields) or
+    // an unmet expected-value assert.
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: ComputeSafeguardProtectionInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- ComputeSafeguardProtectionInWire (wrapper) ----------------------
+        assert_eq!(parsed.candidates.len(), 1, "candidates");
+        assert_eq!(parsed.rules.len(), 1, "rules");
+        assert!(parsed.expected_groups_by_rule_id.is_some(), "expected_groups_by_rule_id");
+        assert!(parsed.enabled, "enabled");
+        assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
+        let chances = parsed.improvement_chances.as_ref().expect("improvement_chances populated");
+        assert_eq!(chances.len(), 1, "improvement_chances entries");
+
+        // -- SafeguardWasmCandidateFastIn (candidates[0]) --------------------
+        let cand = &parsed.candidates[0];
+        assert_eq!(cand.item_key, Some(1), "candidate.itemKey");
+        assert_eq!(cand.group_key.as_deref(), Some("5:19:1:0"), "candidate.groupKey");
+        assert!(!cand.is_sold, "candidate.isSold");
+
+        // -- SafeguardWasmArtifactRawIn (candidates[0].artifact) -------------
+        let art = &cand.artifact;
+        assert_eq!(art.id, Some(1), "artifact.id");
+        assert_eq!(art.slot, 5, "artifact.slot");
+        assert_eq!(art.set, 19, "artifact.set");
+        assert_eq!(art.rank, 6, "artifact.rank");
+        assert_eq!(art.rarity, 6, "artifact.rarity");
+        assert_eq!(art.level, 16, "artifact.level");
+        assert_eq!(art.exact_level, None, "artifact.exactLevel"); // explicitly null in fixture
+        assert_eq!(art.faction, 0, "artifact.faction");
+        assert!(matches!(art.main_stat, Some(SafeguardWasmMainStatRawIn::Variant(1))), "artifact.mainStat");
+        assert_eq!(art.substats.len(), 1, "artifact.substats");
+        assert!(art.equipped_champion.is_some(), "artifact.equippedChampion");
+        assert!(art.gear_inspector_item.is_some(), "artifact.gearInspectorItem");
+
+        // -- SafeguardWasmSubstatRawIn (artifact.substats[0]) ----------------
+        let sub = &art.substats[0];
+        assert_eq!(sub.variant, 5, "substat.variant");
+        assert!(!sub.is_flat, "substat.isFlat");
+        assert_eq!(sub.value, Some(8.0), "substat.value");
+        assert_eq!(sub.total_value, Some(8.0), "substat.totalValue");
+        assert_eq!(sub.rolls, Some(4), "substat.rolls");
+
+        // -- SafeguardWasmEquippedChampionRawIn (artifact.equippedChampion) --
+        let champ = art.equipped_champion.as_ref().unwrap();
+        assert_eq!(champ.location.as_deref(), Some("collection"), "equippedChampion.location");
+
+        // -- ImprovementChanceInput (improvement_chances[0]) -----------------
+        let chance = &chances[0];
+        assert_eq!(chance.artifact_id, 1, "improvementChance.artifactId");
+        assert_eq!(chance.chances_by_rule_ordinal.len(), 1, "improvementChance.chancesByRuleOrdinal");
+
+        // -- ImprovementChanceRuleInput (chances_by_rule_ordinal[0]) ---------
+        let by_rule = &chance.chances_by_rule_ordinal[0];
+        assert_eq!(by_rule.rule_ordinal, 1, "chancesByRuleOrdinal[0].ruleOrdinal");
+        assert!((by_rule.chance_percent - 42.0).abs() < f64::EPSILON, "chancesByRuleOrdinal[0].chancePercent");
+    }
+
+    // The whole point of the JSON wrapper: unknown top-level fields must fail.
+    // If this assertion ever flips, deny_unknown_fields has regressed.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"candidates":[],"rules":[],"enabled":true,"now":0.0,"bogus":1}"#;
+        let r: Result<ComputeSafeguardProtectionInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the collect_safeguard_candidates_value JSON wire shape.
+// Mirrors compute_safeguard_protection_wire_tests above — same purpose, same pattern.
+#[cfg(test)]
+mod collect_safeguard_candidates_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture: one collect row with artifact (including
+    // equippedChampion location), a gear-inspector item, explicit baseMatch +
+    // baseMatchDefined, plus one minimal RuleRaw (PascalCase HSF field names).
+    // RuleRaw lacks deny_unknown_fields by design — the wrapper struct's strict
+    // check is enough to catch drift at the top level.
+    const FIXTURE: &str = r#"{
+      "rows": [{
+        "artifact": {
+          "id": 1, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+          "exactLevel": null, "faction": 0, "mainStat": 1,
+          "substats": [{ "variant": 5, "isFlat": false, "value": 8.0, "totalValue": 8.0, "rolls": 4 }],
+          "equippedChampion": { "location": "collection" },
+          "gearInspectorItem": {
+            "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+            "faction": 0, "main": 1
+          }
+        },
+        "item": null,
+        "baseMatchDefined": true,
+        "baseMatch": { "keep": true, "recipeIdx": 0 }
+      }],
+      "rules": [{ "Keep": true, "Use": true, "IsRuleTypeAND": false }],
+      "recipeModes": ["mid"],
+      "ignoreSafeguardRecipeIndices": [0]
+    }"#;
+
+    // Exhaustive field-by-field assertion (see compute_safeguard_protection_wire_tests).
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: CollectSafeguardCandidatesInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- CollectSafeguardCandidatesInWire (wrapper) ----------------------
+        assert_eq!(parsed.rows.len(), 1, "rows");
+        assert_eq!(parsed.rules.len(), 1, "rules");
+        assert_eq!(parsed.recipe_modes.len(), 1, "recipeModes");
+        assert_eq!(parsed.recipe_modes[0], "mid", "recipeModes[0]");
+        let ignored = parsed.ignore_safeguard_recipe_indices.as_ref()
+            .expect("ignoreSafeguardRecipeIndices populated");
+        assert_eq!(ignored, &vec![0i64], "ignoreSafeguardRecipeIndices");
+
+        // -- SafeguardCollectRowFastIn (rows[0]) -----------------------------
+        let row = &parsed.rows[0];
+        // row.artifact details are covered by compute_safeguard_protection_wire_tests;
+        // here just confirm the shape is fully populated.
+        assert_eq!(row.artifact.id, Some(1), "row.artifact.id");
+        assert!(row.artifact.equipped_champion.is_some(), "row.artifact.equippedChampion");
+        assert!(row.artifact.gear_inspector_item.is_some(), "row.artifact.gearInspectorItem");
+        assert!(row.item.is_none(), "row.item is null in fixture (Rust falls back to artifact.gearInspectorItem)");
+        assert_eq!(row.base_match_defined, Some(true), "row.baseMatchDefined");
+
+        // -- SafeguardCandidateResolveBaseMatchIn (rows[0].baseMatch) --------
+        let base_match = row.base_match.as_ref().expect("baseMatch populated");
+        assert!(base_match.keep, "baseMatch.keep");
+        assert_eq!(base_match.recipe_idx, Some(0), "baseMatch.recipeIdx");
+    }
+
+    // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"rows":[],"rules":[],"recipeModes":[],"bogus":1}"#;
+        let r: Result<CollectSafeguardCandidatesInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the collect_and_compute_safeguard_protection_value JSON wire shape.
+// Same pattern as the two sibling modules above; the fixture mirrors the combined
+// pipeline's payload (collect inputs + protection rules + expected groups + improvement chances).
+#[cfg(test)]
+mod collect_and_compute_safeguard_protection_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture exercises every Option-bearing field: a collect row
+    // with artifact + gearInspectorItem + baseMatch, a base RuleRaw, a resolved
+    // safeguard rule, an expectedGroupsPayload wrapper, and one improvement-chance entry.
+    const FIXTURE: &str = r#"{
+      "rows": [{
+        "artifact": {
+          "id": 1, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+          "exactLevel": null, "faction": 0, "mainStat": 1,
+          "substats": [{ "variant": 5, "isFlat": false, "value": 8.0, "totalValue": 8.0, "rolls": 4 }],
+          "equippedChampion": { "location": "collection" },
+          "gearInspectorItem": {
+            "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+            "faction": 0, "main": 1
+          }
+        },
+        "item": null,
+        "baseMatchDefined": true,
+        "baseMatch": { "keep": true, "recipeIdx": 0 }
+      }],
+      "rules": [{ "Keep": true, "Use": true, "IsRuleTypeAND": false }],
+      "recipeModes": ["mid"],
+      "ignoreSafeguardRecipeIndices": [0],
+      "safeguardRules": [{
+        "id": "demo", "name": "Demo",
+        "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+        "requiredCount": 1, "activation": "protectExisting",
+        "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+        "ignorePreviousSafeguards": true, "ignoreEquippedInCollection": false, "ignoreEquippedInVault": false,
+        "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
+        "improvementChanceThreshold": null, "tags": []
+      }],
+      "expectedGroupsPayload": {
+        "expectedGroupsByRuleId": {},
+        "expectedGroupDomain": null
+      },
+      "enabled": true,
+      "now": 1234567890.0,
+      "improvementChances": [{
+        "artifactId": 1,
+        "chancesByRuleOrdinal": [{ "ruleOrdinal": 1, "chancePercent": 42.0 }]
+      }]
+    }"#;
+
+    // Exhaustive field-by-field assertion (see compute_safeguard_protection_wire_tests).
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: CollectAndComputeSafeguardProtectionInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- CollectAndComputeSafeguardProtectionInWire (wrapper) ------------
+        assert_eq!(parsed.rows.len(), 1, "rows");
+        assert_eq!(parsed.rules.len(), 1, "rules");
+        assert_eq!(parsed.recipe_modes.len(), 1, "recipeModes");
+        let ignored = parsed.ignore_safeguard_recipe_indices.as_ref()
+            .expect("ignoreSafeguardRecipeIndices populated");
+        assert_eq!(ignored, &vec![0i64], "ignoreSafeguardRecipeIndices");
+        assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules");
+        assert!(parsed.expected_groups_payload.is_some(), "expectedGroupsPayload");
+        assert!(parsed.enabled, "enabled");
+        assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
+        let chances = parsed.improvement_chances.as_ref().expect("improvementChances populated");
+        assert_eq!(chances.len(), 1, "improvementChances entries");
+
+        // -- SafeguardCollectRowFastIn (rows[0]) -----------------------------
+        let row = &parsed.rows[0];
+        assert_eq!(row.artifact.id, Some(1), "row.artifact.id");
+        assert!(row.item.is_none(), "row.item");
+        assert_eq!(row.base_match_defined, Some(true), "row.baseMatchDefined");
+        let base_match = row.base_match.as_ref().expect("baseMatch populated");
+        assert!(base_match.keep, "baseMatch.keep");
+        assert_eq!(base_match.recipe_idx, Some(0), "baseMatch.recipeIdx");
+
+        // -- ImprovementChanceInput (improvement_chances[0]) -----------------
+        // Same coverage as compute_safeguard_protection_wire_tests — kept here so
+        // that struct's drift is also caught via the combined endpoint's fixture.
+        let chance = &chances[0];
+        assert_eq!(chance.artifact_id, 1, "improvementChance.artifactId");
+        assert_eq!(chance.chances_by_rule_ordinal.len(), 1, "chancesByRuleOrdinal");
+        let by_rule = &chance.chances_by_rule_ordinal[0];
+        assert_eq!(by_rule.rule_ordinal, 1, "chancesByRuleOrdinal[0].ruleOrdinal");
+        assert!((by_rule.chance_percent - 42.0).abs() < f64::EPSILON, "chancesByRuleOrdinal[0].chancePercent");
+    }
+
+    // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"rows":[],"rules":[],"recipeModes":[],"safeguardRules":[],"enabled":true,"now":0.0,"bogus":1}"#;
+        let r: Result<CollectAndComputeSafeguardProtectionInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
 }

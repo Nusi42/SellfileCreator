@@ -17,7 +17,7 @@ use crate::RARITY_CODE_RARE;
 // Collapse profile is precomputed per combo in TS and reused across levels.
 // Keep only the fields needed for collapse emission in this runtime payload.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct HsfComboCollapseProfileIn {
     pub(crate) base_vals: Vec<i32>,
     pub(crate) factory_eligible: bool,
@@ -27,7 +27,7 @@ pub(crate) struct HsfComboCollapseProfileIn {
 // Level-combo execution payload replaces the remaining largest TS branch.
 // It decides collapse/presence/runtime paths and emits concrete rules.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfLevelComboIn {
     pub(crate) sentinel_already_collapsed: bool,
     pub(crate) combo: Vec<i32>,
@@ -49,7 +49,7 @@ pub(crate) struct ExecuteHsfLevelComboIn {
 // Output keeps rule rows plus the sentinel-collapse state update.
 // TS uses sentinelCollapsed=true to memoize LEVEL_ANY collapse coverage.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfLevelComboOut {
     pub(crate) rules: Vec<RuleRaw>,
     pub(crate) sentinel_collapsed: bool,

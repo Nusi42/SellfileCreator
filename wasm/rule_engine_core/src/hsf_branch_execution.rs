@@ -35,7 +35,7 @@ use crate::RARITY_CODE_RARE;
 // Branch runtime payload replaces the largest remaining TS branch in hsfBuilder.
 // One call executes all level+combo+fallback rows for a single rarity branch.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ExecuteHsfBranchRuntimeIn {
     pub(crate) rarity_code: i64,
     pub(crate) baseline: Option<String>,

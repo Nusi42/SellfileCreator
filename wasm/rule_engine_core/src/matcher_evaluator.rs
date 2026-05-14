@@ -103,7 +103,7 @@ pub struct PreparedRuleSub {
 // Evaluate options mirror EvalMatchesByRecipeOverrides from TS.
 // Sets are converted once so each rule scan stays allocation-free.
 #[derive(Debug, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvaluateOptionsRaw {
     pub exclude_sources: Option<Vec<String>>,
     pub exclude_recipe_indices: Option<Vec<i64>>,
@@ -240,7 +240,7 @@ pub fn prepare_evaluate_options(raw: &EvaluateOptionsRaw) -> EvaluateOptionsPrep
 // Serialized match result shape consumed by existing worker hooks.
 // All fields are plain data; Copy avoids manual field-by-field reconstruction at use sites.
 #[derive(Debug, Serialize, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvalMatch {
     pub rule_index: usize,
     pub keep: bool,
@@ -253,7 +253,7 @@ pub struct EvalMatch {
 
 // Serialized per-recipe keep/sell decision list.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MatchingRecipeDecision {
     pub recipe_idx: i64,
     pub keep: bool,
@@ -261,7 +261,7 @@ pub struct MatchingRecipeDecision {
 
 // Serialized item result shape mirrors TesterMatchWorkerItemResult.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvaluateItemResult {
     pub item_id: i64,
     pub first_match: Option<EvalMatch>,
@@ -272,7 +272,7 @@ pub struct EvaluateItemResult {
 
 // Only the fields needed for keep/sell fallback logic cross the boundary.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCandidateResolveBaseMatchIn {
     pub keep: bool,
     pub recipe_idx: Option<i64>,
@@ -280,7 +280,7 @@ pub struct SafeguardCandidateResolveBaseMatchIn {
 
 // Candidate collection input extends resolver rows with normalized artifact data.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectRowIn {
     pub item: TestItemRaw,
     #[serde(default)]
@@ -292,7 +292,7 @@ pub struct SafeguardCollectRowIn {
 // Candidate snapshot entry mirrors safeguards.ts SafeguardCandidate shape.
 // artifact is intentionally omitted: TS callers reconstruct it from rows[rowIndex].
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectedCandidateOut {
     pub row_index: usize,
     pub item_key: i64,
@@ -302,7 +302,7 @@ pub struct SafeguardCollectedCandidateOut {
 
 // Candidate snapshot payload also includes sold-item key dedupe set.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectedSnapshotOut {
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     pub unique_item_keys: Vec<i64>,

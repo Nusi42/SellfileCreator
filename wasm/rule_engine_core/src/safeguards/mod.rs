@@ -130,7 +130,7 @@ fn safeguard_parse_rules_payload(rules: Vec<SafeguardWasmRuleIn>) -> Vec<Safegua
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmSetSelection {
     pub id: i64,
     #[serde(default)]
@@ -138,7 +138,7 @@ pub struct SafeguardWasmSetSelection {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmCombination {
     #[serde(default)]
     pub slots: Vec<i64>,
@@ -175,7 +175,7 @@ where
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmCountMode {
     #[serde(default)]
     pub per_rule: bool,
@@ -236,7 +236,7 @@ impl ImprovementChanceThresholdIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmRuleIn {
     #[serde(default)]
     pub id: Option<String>,
@@ -275,7 +275,7 @@ pub struct SafeguardWasmRuleIn {
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
 #[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmResolvedRuleOut {
     pub id: String,
     pub name: String,
@@ -337,7 +337,7 @@ fn safeguard_sort_unique_substats(values: Vec<i64>) -> Vec<i64> {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmExpectedSampleIn {
     slot: i64,
     set: i64,
@@ -346,14 +346,14 @@ struct SafeguardWasmExpectedSampleIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmExpectedGroupIn {
     key: String,
     sample: SafeguardWasmExpectedSampleIn,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmExpectedGroupDomainIn {
     slot_order: Vec<i64>,
     accessory_compatible_set_ids: Vec<i64>,
@@ -363,7 +363,7 @@ pub struct SafeguardWasmExpectedGroupDomainIn {
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmExpectedGroupsPayloadIn {
     #[serde(default)]
     expected_groups_by_rule_id: HashMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
@@ -403,7 +403,7 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
 // Metaset payload for in-wasm safeguard set expansion.
 // `name` is the primary key after the metaset ID→name migration.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmMetasetIn {
     pub name: String,
     #[serde(default)]
@@ -411,7 +411,7 @@ pub struct SafeguardWasmMetasetIn {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmSubstatOut {
     variant: i64,
     is_flat: bool,
@@ -419,7 +419,7 @@ struct SafeguardWasmSubstatOut {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmArtifactOut {
     item_key: i64,
     slot: i64,
@@ -437,7 +437,7 @@ struct SafeguardWasmArtifactOut {
 // candidateRank is 1-based (1 = best score); 0 means the non-ranking path was used.
 // isWithinQuota is true when the candidate is among the top-N selected for this rule.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmCandidateOut {
     pub item_key: i64,
     pub score: f64,
@@ -446,7 +446,7 @@ pub struct SafeguardWasmCandidateOut {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmPlaceholderOut {
     combination: SafeguardWasmCombination,
     missing: i64,
@@ -456,7 +456,7 @@ struct SafeguardWasmPlaceholderOut {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmEntryOut {
     hash: String,
     combination: SafeguardWasmCombination,
@@ -482,7 +482,7 @@ struct SafeguardWasmEntryOut {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmSnapshotOut {
     scanned_at: f64,
     entries: Vec<SafeguardWasmEntryOut>,
@@ -559,7 +559,7 @@ struct SafeguardWasmEntryEvalOut {
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmCountKeyArtifactIn {
     slot: i64,
     set: i64,
@@ -568,14 +568,14 @@ pub struct SafeguardWasmCountKeyArtifactIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmItemKeyPreviewExtrasIn {
     #[serde(default)]
     id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SafeguardWasmItemKeyTesterItemIn {
     #[serde(default)]
     item_id: Option<i64>,
@@ -584,7 +584,7 @@ struct SafeguardWasmItemKeyTesterItemIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmItemKeyArtifactIn {
     #[serde(default)]
     id: Option<i64>,
@@ -593,7 +593,7 @@ pub struct SafeguardWasmItemKeyArtifactIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmGroupKeyArtifactIn {
     slot: i64,
     set: i64,
@@ -3741,7 +3741,7 @@ pub fn compute_safeguard_protection_from_collected_core(
 // Allows TS to rescore candidates with in-progress (unsaved) weights without
 // re-running the full detection pass.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmScorePreviewIn {
     // Candidate artifacts to score (substats carry raw values from the detection snapshot).
     pub artifacts: Vec<SafeguardWasmArtifactIn>,

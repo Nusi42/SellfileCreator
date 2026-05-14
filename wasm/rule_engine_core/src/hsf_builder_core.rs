@@ -20,7 +20,7 @@ use crate::{
 
 // Input for builder rarity-branch expansion (Late+Auto supplement tiers).
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfRarityBranchesIn {
     pub(crate) rarity_mode: Option<String>,
     pub(crate) early_keep_mode: Option<String>,
@@ -30,7 +30,7 @@ pub(crate) struct BuildHsfRarityBranchesIn {
 
 // Output row describing one branch code and optional restricted levels.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfRarityBranchOut {
     pub(crate) code: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,7 +39,7 @@ pub(crate) struct BuildHsfRarityBranchOut {
 
 // Input payload for branch-level milestone context expansion.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfLevelContextsIn {
     pub(crate) rarity_code: i64,
     pub(crate) baseline: Option<String>,
@@ -53,7 +53,7 @@ pub(crate) struct BuildHsfLevelContextsIn {
 
 // Input payload for branch-level collapse profile derivation.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfBranchCollapseProfileIn {
     pub(crate) rarity_code: i64,
     pub(crate) baseline: Option<String>,
@@ -66,7 +66,7 @@ pub(crate) struct BuildHsfBranchCollapseProfileIn {
 
 // Output payload carries collapse feasibility and branch roll timeline.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfBranchCollapseProfileOut {
     pub(crate) collapse_global_ok: bool,
     pub(crate) max_rolls_at_target: i64,
@@ -75,7 +75,7 @@ pub(crate) struct BuildHsfBranchCollapseProfileOut {
 
 // Output row with all per-level counters consumed by hsfBuilder inner loops.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfLevelContextOut {
     pub(crate) level: i64,
     pub(crate) rolls_up_to_start: i64,
@@ -89,7 +89,7 @@ pub(crate) struct BuildHsfLevelContextOut {
 
 // Input payload for per-level selected-substat combo expansion.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfLevelCombosIn {
     pub(crate) required_v: Vec<i32>,
     pub(crate) optional_pool_v: Vec<i32>,
@@ -103,7 +103,7 @@ pub(crate) struct BuildHsfLevelCombosIn {
 
 // Input payload for intro-assignment timeline-cap expansion.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfTimelineCapsIn {
     pub(crate) intro_assignments: Vec<Vec<i32>>,
     pub(crate) roll_timeline: Vec<i32>,
@@ -116,7 +116,7 @@ pub(crate) struct BuildHsfTimelineCapsIn {
 
 // Input payload for per-level intro-assignment expansion.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
     pub(crate) count: i32,
     pub(crate) base_slots: i32,
@@ -128,7 +128,7 @@ pub(crate) struct BuildHsfIntroAssignmentsForLevelIn {
 // Per-variant roll-bound payload used for combo vector normalization.
 // When `not` is true the stat must be absent (HSF Condition "¬"); min/max/any are ignored.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BuildHsfComboBoundsIn {
     pub(crate) min: Option<f64>,
     pub(crate) max: Option<f64>,
@@ -139,7 +139,7 @@ pub struct BuildHsfComboBoundsIn {
 
 // Per-variant target override payload aligned to combo index order.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BuildHsfComboTargetEntryIn {
     pub(crate) base: Option<f64>,
     pub(crate) increments: Option<Vec<Option<f64>>>,
@@ -147,7 +147,7 @@ pub struct BuildHsfComboTargetEntryIn {
 
 // Input payload for combo-invariant vector derivation in hsfBuilder.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfComboVectorsIn {
     pub(crate) combo: Vec<i32>,
     pub(crate) required_v: Vec<i32>,
@@ -159,7 +159,7 @@ pub(crate) struct BuildHsfComboVectorsIn {
 
 // Output payload with normalized vectors used across intro assignment loops.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfComboVectorsOut {
     pub(crate) mins: Vec<i32>,
     pub(crate) max_caps: Vec<i32>,
@@ -179,7 +179,7 @@ pub(crate) struct BuildHsfComboVectorsOut {
 
 // Input payload for late-mode bounded candidate-row generation.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfLateBoundedRowsIn {
     pub(crate) mode: String,
     pub(crate) mins: Vec<i32>,
@@ -200,7 +200,7 @@ pub(crate) struct BuildHsfLateBoundedRowsIn {
 
 // Input payload for combo-policy vector derivation used by hsfBuilder branches.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfComboPolicyVectorsIn {
     pub(crate) mins: Vec<i32>,
     pub(crate) any_flags: Vec<u8>,
@@ -216,7 +216,7 @@ pub(crate) struct BuildHsfComboPolicyVectorsIn {
 
 // Output payload keeps aggregate sums and deficit vectors in one wasm result.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfComboPolicyVectorsOut {
     pub(crate) sum_min_targeted: i32,
     pub(crate) min_non_target_now: i32,
@@ -227,7 +227,7 @@ pub(crate) struct BuildHsfComboPolicyVectorsOut {
 
 // Output payload carries both base values and collapse eligibility.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfFactoryComboRowsOut {
     pub(crate) base_vals: Vec<i32>,
     pub(crate) factory_eligible: bool,
@@ -236,7 +236,7 @@ pub(crate) struct BuildHsfFactoryComboRowsOut {
 
 // Input payload for builder preflight cap-feasibility and mode toggles.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfPreflightFlagsIn {
     pub(crate) selected_pool_v: Vec<i32>,
     pub(crate) required_v: Vec<i32>,
@@ -253,7 +253,7 @@ pub(crate) struct BuildHsfPreflightFlagsIn {
 
 // Output payload keeps preflight decisions in one rust-owned computation.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfPreflightFlagsOut {
     pub(crate) aggregate_feasible_by_caps: bool,
     pub(crate) has_circled: bool,

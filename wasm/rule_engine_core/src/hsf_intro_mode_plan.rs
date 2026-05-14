@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 // Intro policy input mirrors hsfBuilder.ts per-intro decision state.
 // Keep this payload numeric/boolean-only so serialization stays predictable.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfIntroModePlanIn {
     pub(crate) effective_mode: String,
     pub(crate) early_mode: String,
@@ -32,7 +32,7 @@ pub(crate) struct BuildHsfIntroModePlanIn {
 
 // Plan output keeps execution in TS simple: iterate steps in-order and execute.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildHsfIntroModePlanOut {
     pub(crate) steps: Vec<HsfIntroModePlanStepOut>,
 }

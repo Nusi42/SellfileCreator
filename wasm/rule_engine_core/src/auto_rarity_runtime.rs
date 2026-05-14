@@ -425,7 +425,7 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 // extra bound keys (if any) are silently dropped here and do not affect logic.
 // `not` must be included so branches round-trip it back to TS without stripping it.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AutoFlexRarityBoundsIn {
     #[serde(default)]
     pub min: Option<f64>,
@@ -444,7 +444,7 @@ pub struct AutoFlexRarityBoundsIn {
 // to TS callers.  Non-declared recipe fields are restored by the TS wrapper via
 // {...originalRecipe, ...wasmBranch} after the WASM call returns.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AutoFlexRarityRecipeIn {
     #[serde(default)]
     pub rarity_mode: Option<String>,

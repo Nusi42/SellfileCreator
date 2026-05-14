@@ -60,7 +60,7 @@ fn append_not_substats(rule: &mut RuleRaw, entries: &[RuleSubRaw]) {
 // Builder prep payload moves selected/fixed pool normalization and base-target map
 // preparation out of hsfBuilder.ts so TS no longer loops large variant sets.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrepareHsfBuilderRecipeIn {
     pub(crate) min_count: i64,
     pub(crate) auto_substat_flex: bool,
@@ -85,7 +85,7 @@ pub struct PrepareHsfBuilderRecipeIn {
 
 // Output carries normalized pools and per-variant maps consumed by branch runtime.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrepareHsfBuilderRecipeOut {
     pub(crate) selected_pool_v: Vec<i32>,
     pub(crate) required_v: Vec<i32>,
@@ -109,7 +109,7 @@ pub struct PrepareHsfBuilderRecipeOut {
 // Output target-entry payload mirrors the runtime input entry schema.
 // We keep this local so serialization does not depend on internal input-only types.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrepareHsfBuilderTargetEntryOut {
     pub(crate) base: Option<f64>,
     pub(crate) increments: Option<Vec<Option<f64>>>,
@@ -278,7 +278,7 @@ pub fn prepare_hsf_builder_recipe_core_fn(input: &PrepareHsfBuilderRecipeIn) -> 
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteHsfBuilderBranchIn {
     code: i64,
     #[serde(default)]
@@ -287,7 +287,7 @@ struct ExecuteHsfBuilderBranchIn {
 
 // Builder runtime payload collapses all branch orchestration into one input.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteHsfBuilderRuntimeIn {
     rarity_branches: Vec<ExecuteHsfBuilderBranchIn>,
     baseline: Option<String>,
@@ -322,7 +322,7 @@ struct ExecuteHsfBuilderRuntimeIn {
 
 // Builder runtime output carries rules plus a hard-limit signal for TS parity.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExecuteHsfBuilderRuntimeOut {
     pub(crate) rules: Vec<RuleRaw>,
     pub(crate) limit_hit: bool,
@@ -331,7 +331,7 @@ pub struct ExecuteHsfBuilderRuntimeOut {
 // High-level runtime payload lets TS issue one wasm call after prep.
 // Rust then runs preflight, rarity-branch planning, and final execution.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BuildHsfRulesRuntimeIn {
     pub(crate) recipe_id: Option<i64>,
     pub(crate) keep: Option<bool>,

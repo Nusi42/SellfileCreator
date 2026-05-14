@@ -11,7 +11,7 @@ use super::{
 use crate::{SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, TestItemRaw};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmSubstatIn {
     pub variant: i64,
     #[serde(default)]
@@ -22,7 +22,7 @@ pub struct SafeguardWasmSubstatIn {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmArtifactIn {
     pub id: Option<i64>,
     pub slot: i64,
@@ -42,7 +42,7 @@ pub struct SafeguardWasmArtifactIn {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct SafeguardWasmCandidateIn {
     pub(super) item_key: i64,
     pub(super) group_key: String,
@@ -63,7 +63,7 @@ pub enum SafeguardWasmMainStatRawIn {
 
 // Fast-path substat decoder accepts normalized preview payload fields directly.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmSubstatRawIn {
     #[serde(default)]
     pub variant: i64,
@@ -82,7 +82,7 @@ pub struct SafeguardWasmSubstatRawIn {
 // equipped-champion record (currently just `location`). Matches the TS
 // ChampionLookupRecord nested shape on NormalizedGearArtifact.
 #[derive(Debug, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmEquippedChampionRawIn {
     #[serde(default)]
     pub location: Option<String>,
@@ -92,7 +92,7 @@ pub struct SafeguardWasmEquippedChampionRawIn {
 // The optional `gearInspectorItem` keeps row payloads compact when `item` is omitted.
 // Made pub because SafeguardCollectRowFastIn/SafeguardWasmCandidateFastIn (also pub) embed it.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmArtifactRawIn {
     pub id: Option<i64>,
     pub slot: i64,
@@ -120,7 +120,7 @@ pub struct SafeguardWasmArtifactRawIn {
 // Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardCollectRowFastIn>
 // and pass the result to safeguard_parse_collect_rows_payload.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardCollectRowFastIn {
     pub artifact: SafeguardWasmArtifactRawIn,
     #[serde(default)]
@@ -135,7 +135,7 @@ pub struct SafeguardCollectRowFastIn {
 // Made pub so rule_engine_wasm can deserialize JsValue → Vec<SafeguardWasmCandidateFastIn>
 // and pass the result to compute_safeguard_protection_core_pub.
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SafeguardWasmCandidateFastIn {
     #[serde(default)]
     pub item_key: Option<i64>,

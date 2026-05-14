@@ -67,7 +67,7 @@ const TWO_VALUE_BRANCHING_MIN_MILESTONE: i64 = 12;
 // ─── public output types ─────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImprovementChanceDebug {
     // Number of viable scenarios that can match this artifact by +16.
     pub viable_scenario_count: u32,
@@ -92,7 +92,7 @@ pub struct ImprovementChanceDebug {
 // the maps-as-objects serializer. The consumer in mod.rs rebuilds a HashMap<(art_id, rule_ordinal), f64>
 // from these lists for O(1) lookup during threshold expansion.
 #[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImprovementChanceRuleEntry {
     // 1-based safeguard rule ordinal in the input rules list.
     pub rule_ordinal: i64,
@@ -101,7 +101,7 @@ pub struct ImprovementChanceRuleEntry {
 }
 
 #[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImprovementChanceEntry {
     // Artifact id this entry describes.
     pub artifact_id: i64,
@@ -133,7 +133,7 @@ pub struct ImprovementChanceEntry {
 // uses these counts to understand scaling (e.g. why 10k artifacts × N scenarios
 // is slow even when each compute_probability depth is bounded at 4).
 #[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImprovementChancePerfDiag {
     // Total artifact rows passed to the function.
     pub row_count: u32,

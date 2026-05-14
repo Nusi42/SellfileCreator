@@ -45,6 +45,9 @@ import type { HsfRule } from '../hsfTypes'
 import type { BuilderRecipe, SellfileExportMode } from '../hsfBuilder'
 import {
   resolveImprovementChanceThresholds,
+  toWasmImprovementChanceInput,
+  toWasmSafeguardCandidate,
+  toWasmSafeguardCollectRow,
   type SafeguardCandidate,
   type SafeguardCandidateOut,
   type SafeguardDetectionSnapshot,
@@ -64,11 +67,17 @@ import {
 // Compact WASM substat input — only the fields SafeguardWasmSubstatRawIn reads.
 // Trimmed from NormalizedStat (9+ fields) to eliminate serde_wasm_bindgen overhead
 // from iterating ignored properties, which is catastrophically slow in Firefox.
+//
+// Every field is REQUIRED on this type — even nullable ones must be explicitly set
+// (`T | null` rather than `T?`). This forces helper authors to acknowledge each
+// field's presence at compile time; a silent omission of an optional field on the
+// helper would otherwise produce a JSON payload that Rust deserialises as `None`
+// — the exact bug class the wire-shape types exist to prevent.
 export type WasmSubstatStoreInput = {
   variant: number
   isFlat: boolean
-  totalValue?: number
-  rolls?: number
+  totalValue: number | null
+  rolls: number | null
 }
 
 // Compact WASM artifact input — only the fields SafeguardWasmArtifactRawIn reads.
@@ -76,6 +85,8 @@ export type WasmSubstatStoreInput = {
 // substats (~9 fields each) through serde_wasm_bindgen.
 // mainStat is passed as a plain number (variant only) so serde immediately matches
 // the Variant(i64) branch of the untagged enum, skipping the failed object-try.
+//
+// All fields REQUIRED (see WasmSubstatStoreInput comment for rationale).
 export type WasmArtifactStoreInput = {
   id: number
   slot: number
@@ -83,13 +94,13 @@ export type WasmArtifactStoreInput = {
   rank: number
   rarity: number
   level: number
-  exactLevel?: number | null
+  exactLevel: number | null
   faction: number
-  mainStat?: number | null
+  mainStat: number | null
   substats: WasmSubstatStoreInput[]
   // Nested champion reference matches the TS NormalizedGearArtifact shape.
   // Safeguards read `equippedChampion.location` to derive collection/vault flags.
-  equippedChampion?: { location: string | null } | null
+  equippedChampion: { location: string | null } | null
   gearInspectorItem: TestItem
 }
 
@@ -97,6 +108,51 @@ export type WasmArtifactStoreInput = {
 // Only artifact is required; SafeguardCollectRowFastIn's other fields default via #[serde(default)].
 export type WasmArtifactStoreRow = {
   artifact: WasmArtifactStoreInput
+}
+
+// Compact safeguard candidate input — only the fields SafeguardWasmCandidateFastIn declares.
+// Excludes the TS `row: GearInspectorPreviewRow` reference (Rust never reads it; carrying it
+// across the boundary would just feed serde-wasm-bindgen useless externref work — and once
+// the JSON-string path activates deny_unknown_fields, would outright reject the payload).
+// All fields REQUIRED (see WasmSubstatStoreInput comment for rationale).
+export type WasmSafeguardCandidateInput = {
+  itemKey: number | null
+  groupKey: string | null
+  isSold: boolean
+  artifact: WasmArtifactStoreInput
+}
+
+// Compact collect-row input — mirrors SafeguardCollectRowFastIn in
+// wasm/rule_engine_core/src/safeguards/fast_path_types.rs. Only fields the Rust
+// collect-row deserializer reads. The TS `GearInspectorPreviewRow` carries extra
+// fields (`match`, `matchingRecipeIndices`, `matchingRecipeDecisions`) that the
+// Rust struct does NOT declare — once collect_safeguard_candidates_value uses
+// serde_json::from_str, deny_unknown_fields rejects them. The TS-side helper
+// (toWasmSafeguardCollectRow) strips down before stringify.
+// All fields REQUIRED (see WasmSubstatStoreInput comment for rationale).
+export type WasmSafeguardCollectRowInput = {
+  artifact: WasmArtifactStoreInput
+  item: TestItem | null
+  // Explicit flag mirrors SafeguardCollectRowFastIn.base_match_defined; null lets
+  // Rust derive presence from baseMatch (the existing `unwrap_or(base_match.is_some())`).
+  baseMatchDefined: boolean | null
+  // Trimmed to only the fields SafeguardCandidateResolveBaseMatchIn declares
+  // (wasm/rule_engine_core/src/matcher_evaluator.rs around line 276): keep + recipeIdx.
+  // The full GearInspectorPreviewMatch carries display-only extras (recipeName,
+  // ruleIndex, ruleLabel, ruleSource, safeguardRuleId, safeguardRuleOrdinal) that
+  // deny_unknown_fields rejects — STRIP them in the helper.
+  baseMatch: { keep: boolean; recipeIdx: number | null } | null
+}
+
+// Compact improvement-chance input — only the two fields ImprovementChanceInput in
+// rule_engine_wasm/src/lib.rs declares (artifactId + chancesByRuleOrdinal).  The full
+// ImprovementChanceWasmEntry shape carries display-only extras (chancePercent,
+// hasMatchingSafeguard, matchedRuleId, ruleOrdinal, debug) that the Rust wire struct
+// does NOT declare.  deny_unknown_fields rejects them post-migration, so we strip down
+// here rather than loosening the Rust side.
+export type WasmImprovementChanceInput = {
+  artifactId: number
+  chancesByRuleOrdinal: ReadonlyArray<{ ruleOrdinal: number; chancePercent: number }>
 }
 
 // Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
@@ -440,6 +496,14 @@ const resolveRulesForWasm = (rules: readonly SafeguardRule[]): readonly Safeguar
 
 // Synchronous safeguard detector runs candidate/rule loops inside wasm.
 // Callers must warm wasm first; invalid payloads are surfaced by callers.
+//
+// Payload crosses the boundary as a single JSON string (not JsValue) because
+// serde-wasm-bindgen 0.6.5's `from_value` path is structurally incapable of
+// triggering `#[serde(deny_unknown_fields)]` — its ObjectAccess::next_key_seed
+// iterates the Rust struct's declared fields instead of the JS object's own
+// keys, so unknown TS-side fields are silently dropped on the way in.  Routing
+// through serde_json::from_str activates the deny check (and also halves peak
+// memory + dodges the wasm externref churn that has produced talc OOB crashes).
 export const computeSafeguardProtectionWithLoadedWasm = (params: {
   candidates: readonly SafeguardCandidate[]
   rules: readonly SafeguardRule[]
@@ -452,27 +516,32 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
 }): SafeguardDetectionSnapshot => {
   assertWasmInitializedSync()
   // Wrapper payload carries canonical expected-group metadata into wasm.
-  const expectedGroupsPayload = (
-    params.expectedGroupsByRuleId !== undefined
-    || params.expectedGroupDomain !== undefined
-  )
-    ? {
-      ...(params.expectedGroupsByRuleId !== undefined
-        ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
-        : {}),
-      ...(params.expectedGroupDomain !== undefined
-        ? { expectedGroupDomain: params.expectedGroupDomain }
-        : {}),
-    }
-    : undefined
-  const result = computeSafeguardProtectionValueWasmBinding(
-    params.candidates,
-    resolveRulesForWasm(params.rules),
-    expectedGroupsPayload,
-    params.enabled === true,
-    Number.isFinite(params.now) ? params.now : 0,
-    params.improvementChances?.length ? params.improvementChances : null,
-  )
+  const expectedGroupsByRuleId =
+    params.expectedGroupsByRuleId !== undefined || params.expectedGroupDomain !== undefined
+      ? {
+          ...(params.expectedGroupsByRuleId !== undefined
+            ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
+            : {}),
+          ...(params.expectedGroupDomain !== undefined
+            ? { expectedGroupDomain: params.expectedGroupDomain }
+            : {}),
+        }
+      : undefined
+  // Project every wire-bound field down to the exact shape the Rust wrapper
+  // (ComputeSafeguardProtectionInWire) declares.  deny_unknown_fields rejects
+  // any stray TS key — including the `row` field on SafeguardCandidate — so
+  // the helpers strip down before stringify.
+  const payload = JSON.stringify({
+    candidates: params.candidates.map(toWasmSafeguardCandidate),
+    rules: resolveRulesForWasm(params.rules),
+    ...(expectedGroupsByRuleId !== undefined ? { expectedGroupsByRuleId } : {}),
+    enabled: params.enabled === true,
+    now: Number.isFinite(params.now) ? params.now : 0,
+    ...(params.improvementChances?.length
+      ? { improvementChances: params.improvementChances.map(toWasmImprovementChanceInput) }
+      : {}),
+  })
+  const result = computeSafeguardProtectionValueWasmBinding(payload)
   if (result && typeof result === 'object' && Array.isArray((result as { entries?: unknown }).entries)) {
     return result as SafeguardDetectionSnapshot
   }
@@ -481,6 +550,13 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
 
 // Candidate collection keeps keep-flag resolution + item/group key derivation
 // in Rust; TS callers reattach row references for compatibility.
+//
+// Payload crosses the boundary as a single JSON string (not multiple JsValues)
+// for the same reason as compute_safeguard_protection_value: serde-wasm-bindgen's
+// from_value path cannot trigger #[serde(deny_unknown_fields)] — its ObjectAccess
+// iterates the Rust struct's declared fields instead of the JS object's own keys.
+// Routing through serde_json::from_str activates the deny check, halves peak
+// memory, and dodges the wasm externref churn that produces talc OOB crashes.
 export const collectSafeguardCandidatesWithLoadedWasm = (params: {
   rows: readonly GearInspectorPreviewRow[]
   rules: HsfRuleWithRecipe[]
@@ -489,12 +565,19 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
 }): WasmCollectedSafeguardSnapshot => {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
-  const result = collectSafeguardCandidatesWasmValueBinding(
-    params.rows,
-    params.rules,
-    params.recipeModes,
-    ignored,
-  ) as WasmCollectedSafeguardSnapshot
+  // Project every wire-bound field down to the exact shape the Rust wrapper
+  // (CollectSafeguardCandidatesInWire) declares.  toWasmSafeguardCollectRow
+  // strips the TS-only display fields (match / matchingRecipeIndices / etc.)
+  // that deny_unknown_fields would otherwise reject.  rules pass through as-is:
+  // RuleRaw intentionally lacks deny_unknown_fields and accepts the PascalCase
+  // HSF shape directly.
+  const payload = JSON.stringify({
+    rows: params.rows.map(toWasmSafeguardCollectRow),
+    rules: params.rules,
+    recipeModes: params.recipeModes,
+    ...(ignored !== null ? { ignoreSafeguardRecipeIndices: ignored } : {}),
+  })
+  const result = collectSafeguardCandidatesWasmValueBinding(payload) as WasmCollectedSafeguardSnapshot
   if (result && Array.isArray(result.candidates) && Array.isArray(result.uniqueItemKeys)) {
     return result
   }
@@ -503,6 +586,8 @@ export const collectSafeguardCandidatesWithLoadedWasm = (params: {
 
 // Combined safeguard pipeline runs candidate collection + detection in one
 // wasm call so TS orchestration avoids two separate Rust roundtrips.
+//
+// Same JSON-string rationale as collectSafeguardCandidatesWithLoadedWasm above.
 export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   rows: readonly GearInspectorPreviewRow[]
   rules: HsfRuleWithRecipe[]
@@ -531,17 +616,23 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
         : {}),
     }
     : undefined
-  const result = collectAndComputeSafeguardProtectionWasmValueBinding(
-    params.rows,
-    params.rules,
-    params.recipeModes,
-    ignored,
-    resolveRulesForWasm(params.safeguardRules),
-    expectedGroupsPayload,
-    params.enabled === true,
-    Number.isFinite(params.now) ? params.now : 0,
-    params.improvementChances?.length ? params.improvementChances : null,
-  ) as WasmCollectedAndProtectedSafeguardSnapshot
+  // Project every wire-bound field down to the exact shape the Rust wrapper
+  // (CollectAndComputeSafeguardProtectionInWire) declares.  Helpers strip the
+  // TS-only display fields that deny_unknown_fields would otherwise reject.
+  const payload = JSON.stringify({
+    rows: params.rows.map(toWasmSafeguardCollectRow),
+    rules: params.rules,
+    recipeModes: params.recipeModes,
+    ...(ignored !== null ? { ignoreSafeguardRecipeIndices: ignored } : {}),
+    safeguardRules: resolveRulesForWasm(params.safeguardRules),
+    ...(expectedGroupsPayload !== undefined ? { expectedGroupsPayload } : {}),
+    enabled: params.enabled === true,
+    now: Number.isFinite(params.now) ? params.now : 0,
+    ...(params.improvementChances?.length
+      ? { improvementChances: params.improvementChances.map(toWasmImprovementChanceInput) }
+      : {}),
+  })
+  const result = collectAndComputeSafeguardProtectionWasmValueBinding(payload) as WasmCollectedAndProtectedSafeguardSnapshot
   if (
     result
     && Array.isArray(result.candidates)
