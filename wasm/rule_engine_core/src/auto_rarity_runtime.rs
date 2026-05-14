@@ -427,18 +427,23 @@ fn clamp_builder_min_count(value: i64) -> i64 {
 // extra bound keys (if any) are silently dropped here and do not affect logic.
 // `not` must be included so branches round-trip it back to TS without stripping it.
 //
-// ts-rs export: nested by name from AutoFlexRarityRecipeIn.substatRollBoundsV (BTreeMap value).
+// ts-rs export: nested by name from AutoFlexRarityRecipeIn.srb (BTreeMap value).
+// Wire names are short for compact payload crossing the WASM boundary.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct AutoFlexRarityBoundsIn {
-    #[serde(default)]
+    #[serde(rename = "mn", alias = "min", default)]
+    #[ts(rename = "mn")]
     pub min: Option<f64>,
-    #[serde(default)]
+    #[serde(rename = "mx", alias = "max", default)]
+    #[ts(rename = "mx")]
     pub max: Option<f64>,
-    #[serde(default)]
+    #[serde(rename = "a", alias = "any", default)]
+    #[ts(rename = "a")]
     pub any: Option<bool>,
-    #[serde(default)]
+    #[serde(rename = "n", alias = "not", default)]
+    #[ts(rename = "n")]
     pub not: Option<bool>,
 }
 
@@ -451,34 +456,47 @@ pub struct AutoFlexRarityBoundsIn {
 //
 // ts-rs export: composes AutoFlexRarityBoundsIn via the BTreeMap<i64, _> field
 // (emits `{ [key in number]: AutoFlexRarityBoundsIn }`).
+// Wire names are short (1-3 chars) for compact payload crossing the WASM boundary.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct AutoFlexRarityRecipeIn {
-    #[serde(default)]
+    #[serde(rename = "rm", alias = "rarityMode", default)]
+    #[ts(rename = "rm")]
     pub rarity_mode: Option<String>,
-    #[serde(default)]
+    #[serde(rename = "rc", alias = "rarityCode", default)]
+    #[ts(rename = "rc")]
     pub rarity_code: Option<i64>,
-    #[serde(default)]
+    #[serde(rename = "asf", alias = "autoSubstatFlex", default)]
+    #[ts(rename = "asf")]
     pub auto_substat_flex: Option<bool>,
-    #[serde(default)]
+    #[serde(rename = "amc", alias = "autoMinCount", default)]
+    #[ts(rename = "amc")]
     pub auto_min_count: Option<bool>,
-    #[serde(default)]
+    #[serde(rename = "mc", alias = "minCount", default)]
+    #[ts(rename = "mc")]
     pub min_count: Option<f64>,
-    #[serde(default)]
+    #[serde(rename = "amr", alias = "autoMinRequiredRolls", default)]
+    #[ts(rename = "amr")]
     pub auto_min_required_rolls: Option<bool>,
-    #[serde(default)]
+    #[serde(rename = "mrr", alias = "minRequiredRolls", default)]
+    #[ts(rename = "mrr")]
     pub min_required_rolls: Option<f64>,
-    #[serde(default)]
+    #[serde(rename = "sv", alias = "substatsV", default)]
+    #[ts(rename = "sv")]
     pub substats_v: Vec<i64>,
-    #[serde(default)]
+    #[serde(rename = "fsv", alias = "fixedSubstatsV", default)]
+    #[ts(rename = "fsv")]
     pub fixed_substats_v: Vec<i64>,
     // deserialize_with parses string keys → i64; serialize_with reverses for output.
-    #[serde(default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(rename = "srb", alias = "substatRollBoundsV", default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
+    #[ts(rename = "srb")]
     pub substat_roll_bounds_v: BTreeMap<i64, AutoFlexRarityBoundsIn>,
-    #[serde(default)]
+    #[serde(rename = "ml", alias = "minLevel", default)]
+    #[ts(rename = "ml")]
     pub min_level: Option<f64>,
-    #[serde(default)]
+    #[serde(rename = "xl", alias = "maxLevel", default)]
+    #[ts(rename = "xl")]
     pub max_level: Option<f64>,
 }
 

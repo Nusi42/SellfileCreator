@@ -63,7 +63,9 @@ const RUST_TYPES_OUTPUTS = [
   path.join(RUST_TYPES_OUT_DIR, 'ImprovementChanceRuleEntry.ts'),
   // ── rule_engine_core: input/wire structs ────────────────────────────────
   path.join(RUST_TYPES_OUT_DIR, 'RuleRaw.ts'),
+  path.join(RUST_TYPES_OUT_DIR, 'RuleRawWire.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'RuleSubRaw.ts'),
+  path.join(RUST_TYPES_OUT_DIR, 'RuleSubRawWire.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'EvaluateItemRaw.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'EvaluateValueInWire.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'EvaluateOptionsRaw.ts'),
@@ -130,12 +132,7 @@ const DIRECT_RELEVANT_SOURCES = [
   path.join(WORKSPACE_DIR, 'rule_engine_core', 'Cargo.toml'),
   path.join(WORKSPACE_DIR, 'rule_engine_wasm', 'Cargo.toml'),
   path.join(REPO_ROOT, 'shared', 'domain-constants.json'),
-  // Wire-format SSOT for compute_merged_rules_value minification.  Changes
-  // here must re-trigger a wasm rebuild so the hand-written serde rename
-  // attrs stay in sync via the generated field-map consistency test.
-  path.join(REPO_ROOT, 'shared', 'wasm-rule-wire-fields.json'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs'),
-  path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-wasm-rule-wire-fields.mjs'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.mjs'),
 ]
 

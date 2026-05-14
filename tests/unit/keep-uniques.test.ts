@@ -222,7 +222,7 @@ test('computeSafeguardProtection aggregates combination counts', () => {
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.currentCount, 2, 'tracks all sold artifacts')
-  assert.strictEqual(entry.projectedCount, 1, 'projected count caps at the required quota when enabled')
+  assert.strictEqual(entry.projectedCount, 2, 'no substat filter: all sold items are protected (not capped at quota)')
   assert.strictEqual(entry.deficit, 0, 'no deficit once sold artifacts cover the quota')
 })
 
@@ -339,8 +339,8 @@ test('equipped ignore toggles exclude matching collection/vault artifacts', () =
     rules: [collectionRule, vaultRule],
     enabled: true,
   })
-  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9202], 'collection filter should skip collection-equipped candidate')
-  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [9201], 'vault filter should skip vault-equipped candidate')
+  assert.deepStrictEqual(snapshot.entries[0]?.itemKeys, [9202, 9203], 'collection filter skips collection-equipped; remaining sold items all protected (no substat filter)')
+  assert.deepStrictEqual(snapshot.entries[1]?.itemKeys, [9201, 9203], 'vault filter skips vault-equipped; remaining sold items all protected (no substat filter)')
 })
 
 test('per combination mode multiplies targets and deficits', () => {

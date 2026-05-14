@@ -4,7 +4,7 @@
 // boundary (~45k rules × 29 fields on realistic workloads).  With full field
 // names (RecipeID, __safeguardPlaceholderMissing, etc) the JSON payload is
 // ~27 MiB dominated by property keys.  This module defines parallel "Wire"
-// structs with short serde rename aliases so the JSON actually serialised and
+// structs with short serde renames so the JSON actually serialised and
 // parsed at the wasm boundary is ~40% smaller — relieving both wasm-bindgen's
 // string-passing path and talc's allocator pressure, which otherwise surfaced
 // as "memory access out of bounds" deallocate crashes several pipeline runs
@@ -12,12 +12,13 @@
 //
 // The Wire structs also accept the full-length names as serde aliases, so
 // existing callers that still send long-name JSON keep working without change.
-// A unit test (see the generated_wasm_rule_wire_fields tables) verifies that
-// the rename values here match the SSOT at shared/wasm-rule-wire-fields.json.
+// The serde rename attributes in this file ARE the SSOT for wire field names;
+// the generated_wasm_rule_wire_fields.rs table file has been deleted.
 //
 // Conversion impls translate to/from the canonical core types so the core
 // compute_merged_rules_core function is unchanged.
 use std::sync::Arc;
+use ts_rs::TS;
 use crate::{
     ComputeMergedRulesIn, FinalSellRemainderIn, RuleRaw, RuleSubRaw,
     SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
@@ -26,19 +27,22 @@ use serde::{Deserialize, Serialize};
 
 // Wire form of RuleSubRaw — one substat inside a rule.  Skips serialising
 // None fields to keep the output compact; the original struct does the same.
-#[derive(Debug, Default, Deserialize, Serialize)]
+// ts-rs generates the short-name TypeScript type so wireProjections.ts can
+// reference it as the typed target of projectRuleSubRawToWire.
+#[derive(Debug, Default, Deserialize, Serialize, TS)]
 #[serde(default, deny_unknown_fields)]
+#[ts(export)]
 pub struct RuleSubRawWire {
     #[serde(rename = "id", alias = "ID", skip_serializing_if = "Option::is_none")]
-    id: Option<i64>,
+    pub id: Option<i64>,
     #[serde(rename = "v", alias = "Value", skip_serializing_if = "Option::is_none")]
-    value: Option<f64>,
+    pub value: Option<f64>,
     #[serde(rename = "if", alias = "IsFlat", skip_serializing_if = "Option::is_none")]
-    is_flat: Option<bool>,
+    pub is_flat: Option<bool>,
     #[serde(rename = "na", alias = "NotAvailable", skip_serializing_if = "Option::is_none")]
-    not_available: Option<bool>,
+    pub not_available: Option<bool>,
     #[serde(rename = "c", alias = "Condition", skip_serializing_if = "Option::is_none")]
-    condition: Option<String>,
+    pub condition: Option<String>,
 }
 
 impl From<RuleSubRaw> for RuleSubRawWire {
@@ -72,68 +76,71 @@ impl From<RuleSubRawWire> for RuleSubRaw {
 }
 
 // Wire form of RuleRaw — the dominant row type in the merge payload.
-// Short aliases match shared/wasm-rule-wire-fields.json (SSOT).
-#[derive(Debug, Default, Deserialize, Serialize)]
+// Short field names match the SSOT defined by these serde rename attrs.
+// ts-rs generates the TypeScript interface so wireProjections.ts can type the
+// projectRuleRawToWire return value against the Rust-declared field names.
+#[derive(Debug, Default, Deserialize, Serialize, TS)]
 #[serde(default, deny_unknown_fields)]
+#[ts(export)]
 pub struct RuleRawWire {
     #[serde(rename = "r_id", alias = "RecipeID", skip_serializing_if = "Option::is_none")]
-    recipe_id: Option<i64>,
+    pub recipe_id: Option<i64>,
     #[serde(rename = "r_n", alias = "RecipeName", skip_serializing_if = "Option::is_none")]
-    recipe_name: Option<String>,
+    pub recipe_name: Option<String>,
     #[serde(rename = "k", alias = "Keep", skip_serializing_if = "Option::is_none")]
-    keep: Option<bool>,
+    pub keep: Option<bool>,
     #[serde(rename = "and", alias = "IsRuleTypeAND", skip_serializing_if = "Option::is_none")]
-    is_rule_type_and: Option<bool>,
+    pub is_rule_type_and: Option<bool>,
     #[serde(rename = "u", alias = "Use", skip_serializing_if = "Option::is_none")]
-    use_flag: Option<bool>,
+    pub use_flag: Option<bool>,
     #[serde(rename = "as", alias = "ArtifactSet", skip_serializing_if = "Option::is_none")]
-    artifact_set: Option<Vec<i64>>,
+    pub artifact_set: Option<Vec<i64>>,
     #[serde(rename = "at", alias = "ArtifactType", skip_serializing_if = "Option::is_none")]
-    artifact_type: Option<Vec<i64>>,
+    pub artifact_type: Option<Vec<i64>>,
     #[serde(rename = "rk", alias = "Rank", skip_serializing_if = "Option::is_none")]
-    rank: Option<i64>,
+    pub rank: Option<i64>,
     #[serde(rename = "ra", alias = "Rarity", skip_serializing_if = "Option::is_none")]
-    rarity: Option<i64>,
+    pub rarity: Option<i64>,
     #[serde(rename = "ms", alias = "MainStatID", skip_serializing_if = "Option::is_none")]
-    main_stat_id: Option<i64>,
+    pub main_stat_id: Option<i64>,
     #[serde(rename = "mf", alias = "MainStatF", skip_serializing_if = "Option::is_none")]
-    main_stat_f: Option<i64>,
+    pub main_stat_f: Option<i64>,
     #[serde(rename = "lvl", alias = "LVLForCheck", skip_serializing_if = "Option::is_none")]
-    lvl_for_check: Option<i64>,
+    pub lvl_for_check: Option<i64>,
     #[serde(rename = "f", alias = "Faction", skip_serializing_if = "Option::is_none")]
-    faction: Option<i64>,
+    pub faction: Option<i64>,
     #[serde(rename = "ss", alias = "Substats", skip_serializing_if = "Option::is_none")]
-    substats: Option<Vec<RuleSubRawWire>>,
+    pub substats: Option<Vec<RuleSubRawWire>>,
     #[serde(rename = "_s", alias = "__source", skip_serializing_if = "Option::is_none")]
-    source: Option<String>,
+    pub source: Option<String>,
     #[serde(rename = "_li", alias = "__lineIdx", skip_serializing_if = "Option::is_none")]
-    line_idx: Option<i64>,
+    pub line_idx: Option<i64>,
     #[serde(rename = "_aks", alias = "__allKnownSets", skip_serializing_if = "Option::is_none")]
-    all_known_sets: Option<bool>,
+    pub all_known_sets: Option<bool>,
     #[serde(rename = "_rkm", alias = "__rankMask", skip_serializing_if = "Option::is_none")]
-    rank_mask: Option<i64>,
+    pub rank_mask: Option<i64>,
     #[serde(rename = "_ram", alias = "__rarityMask", skip_serializing_if = "Option::is_none")]
-    rarity_mask: Option<i64>,
+    pub rarity_mask: Option<i64>,
     #[serde(rename = "_sri", alias = "__safeguardRuleId", skip_serializing_if = "Option::is_none")]
-    safeguard_rule_id: Option<String>,
+    pub safeguard_rule_id: Option<String>,
     #[serde(rename = "_sro", alias = "__safeguardRuleOrdinal", skip_serializing_if = "Option::is_none")]
-    safeguard_rule_ordinal: Option<i64>,
+    pub safeguard_rule_ordinal: Option<i64>,
     #[serde(rename = "_sh", alias = "__safeguardHash", skip_serializing_if = "Option::is_none")]
-    safeguard_hash: Option<String>,
+    pub safeguard_hash: Option<String>,
     #[serde(rename = "_srq", alias = "__safeguardRequired", skip_serializing_if = "Option::is_none")]
-    safeguard_required: Option<i64>,
+    pub safeguard_required: Option<i64>,
     #[serde(rename = "_ssm", alias = "__safeguardScanMs", skip_serializing_if = "Option::is_none")]
-    safeguard_scan_ms: Option<f64>,
+    pub safeguard_scan_ms: Option<f64>,
     #[serde(rename = "_sp", alias = "__safeguardProjected", skip_serializing_if = "Option::is_none")]
-    safeguard_projected: Option<i64>,
+    pub safeguard_projected: Option<i64>,
     #[serde(rename = "_sd", alias = "__safeguardDeficit", skip_serializing_if = "Option::is_none")]
-    safeguard_deficit: Option<i64>,
+    pub safeguard_deficit: Option<i64>,
     #[serde(rename = "_sik", alias = "__safeguardItemKey", skip_serializing_if = "Option::is_none")]
-    safeguard_item_key: Option<i64>,
+    pub safeguard_item_key: Option<i64>,
     #[serde(rename = "_sph", alias = "__safeguardPlaceholder", skip_serializing_if = "Option::is_none")]
-    safeguard_placeholder: Option<bool>,
+    pub safeguard_placeholder: Option<bool>,
     #[serde(rename = "_spm", alias = "__safeguardPlaceholderMissing", skip_serializing_if = "Option::is_none")]
-    safeguard_placeholder_missing: Option<i64>,
+    pub safeguard_placeholder_missing: Option<i64>,
 }
 
 impl From<RuleRaw> for RuleRawWire {
@@ -292,85 +299,6 @@ impl From<GeneratedRuleEntryInWire> for crate::GeneratedRuleEntryIn {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        RULE_RAW_FIELD_MAP, RULE_SUB_RAW_FIELD_MAP, COMPUTE_MERGED_RULES_IN_FIELD_MAP,
-    };
-
-    // Serialise a sample struct and verify every expected short-name key is
-    // present in the output.  Guards against drift between the hand-written
-    // serde rename attributes above and the SSOT JSON.
-    fn assert_serialised_keys<T: Serialize + Default>(
-        label: &str,
-        map: &[(&str, &str)],
-        sample: T,
-    ) {
-        // Force every optional field to Some(...) in a second sample so that
-        // skip_serializing_if doesn't hide fields from the key check.
-        let json = serde_json::to_string(&sample).expect("serialize");
-        // The output uses the short names; each long->short pair must have
-        // a corresponding key appear when the source field is non-None.
-        // For this test we only verify that no LONG key appears in the output.
-        for (long, _short) in map {
-            let long_key = format!("\"{}\":", long);
-            assert!(
-                !json.contains(&long_key),
-                "{label}: long key {long_key} leaked into wire output",
-            );
-        }
-        // And at least one short key from the map must appear (as a sanity
-        // check that the serialisation ran and produced something).
-        let _ = map;
-    }
-
-    #[test]
-    fn rule_sub_raw_wire_uses_short_keys() {
-        // Populate every field so skip_serializing_if doesn't hide them.
-        let wire = RuleSubRawWire {
-            id: Some(1),
-            value: Some(1.0),
-            is_flat: Some(true),
-            not_available: Some(true),
-            condition: Some("c".to_string()),
-        };
-        assert_serialised_keys("RuleSubRawWire", RULE_SUB_RAW_FIELD_MAP, wire);
-    }
-
-    #[test]
-    fn rule_raw_wire_uses_short_keys() {
-        // Populate every field so skip_serializing_if doesn't hide them.
-        let wire = RuleRawWire {
-            recipe_id: Some(1),
-            recipe_name: Some("r".to_string()),
-            keep: Some(true),
-            is_rule_type_and: Some(true),
-            use_flag: Some(true),
-            artifact_set: Some(vec![1]),
-            artifact_type: Some(vec![1]),
-            rank: Some(1),
-            rarity: Some(1),
-            main_stat_id: Some(1),
-            main_stat_f: Some(1),
-            lvl_for_check: Some(1),
-            faction: Some(1),
-            substats: Some(vec![]),
-            source: Some("s".to_string()),
-            line_idx: Some(1),
-            all_known_sets: Some(true),
-            rank_mask: Some(1),
-            rarity_mask: Some(1),
-            safeguard_rule_id: Some("id".to_string()),
-            safeguard_rule_ordinal: Some(1),
-            safeguard_hash: Some("h".to_string()),
-            safeguard_required: Some(1),
-            safeguard_scan_ms: Some(1.0),
-            safeguard_projected: Some(1),
-            safeguard_deficit: Some(1),
-            safeguard_item_key: Some(1),
-            safeguard_placeholder: Some(true),
-            safeguard_placeholder_missing: Some(1),
-        };
-        assert_serialised_keys("RuleRawWire", RULE_RAW_FIELD_MAP, wire);
-    }
 
     #[test]
     fn rule_raw_wire_accepts_long_key_aliases() {
@@ -390,17 +318,6 @@ mod tests {
         let subs = wire.substats.expect("substats present");
         assert_eq!(subs.len(), 1);
         assert_eq!(subs[0].id, Some(1));
-    }
-
-    #[test]
-    fn compute_merged_rules_in_wire_uses_short_keys() {
-        // Use the #[serde(default)] derived default; we don't need every field
-        // to be non-empty for the top-level key check, because non-Option
-        // fields always serialise and are therefore always present.
-        let _ = COMPUTE_MERGED_RULES_IN_FIELD_MAP;
-        // Not much to test here without a Serialize impl on the envelope
-        // (envelope is deserialize-only).  The long-key alias test below
-        // covers correctness.
     }
 
     #[test]

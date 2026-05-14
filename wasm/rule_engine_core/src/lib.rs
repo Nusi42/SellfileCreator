@@ -15,10 +15,6 @@ mod generated_domain_constants;
 // can import them without duplicating the generated_domain_constants module.
 pub use generated_domain_constants::*;
 // Field-name map SSOT for the compute_merged_rules_value wire format.  Used by
-// the wire-format unit test to verify the hand-written #[serde(rename)]
-// attributes match shared/wasm-rule-wire-fields.json.
-mod generated_wasm_rule_wire_fields;
-pub use generated_wasm_rule_wire_fields::*;
 // Minified wire-format structs (RuleRawWire, ComputeMergedRulesInWire) used
 // only at the compute_merged_rules_value boundary.  Kept in rule_engine_core
 // so the consistency test can run natively (cargo test).
@@ -1212,17 +1208,26 @@ pub fn evaluate_engine(
 //
 // ts-rs export: composes EvaluateItemResult, SafeguardCollectedCandidateOut, and
 // SafeguardWasmSnapshotOut — all derived elsewhere.
+// Wire names are short for compact payload crossing the WASM boundary.
 #[derive(Debug, Serialize, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct EvaluateAndCollectSnapshotOut {
     // Per-item evaluation results (mirrors Vec<EvaluateItemResult> from evaluate_engine).
+    #[serde(rename = "er")]
+    #[ts(rename = "er")]
     pub evaluate_results: Vec<EvaluateItemResult>,
     // Safeguard candidate rows in row-index order for TS row re-attachment.
+    #[serde(rename = "ca")]
+    #[ts(rename = "ca")]
     pub candidates: Vec<SafeguardCollectedCandidateOut>,
     // Deduplicated sold-item keys for protection quota tracking.
+    #[serde(rename = "uik")]
+    #[ts(rename = "uik")]
     pub unique_item_keys: Vec<i64>,
     // Detection snapshot produced by protection scoring.
+    #[serde(rename = "dt")]
+    #[ts(rename = "dt")]
     pub detection: SafeguardWasmSnapshotOut,
 }
 

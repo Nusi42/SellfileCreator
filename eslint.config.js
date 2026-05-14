@@ -25,6 +25,9 @@ export default [
       // Rust build artifacts — cargo doc generates thousands of .js files that
       // are not part of the TS project and cause ESLint to segfault on large runs.
       'wasm/target/**',
+      // ts-rs generated TypeScript bindings — generated code, not part of the app source.
+      'wasm/rule_engine_core/bindings/**',
+      'wasm/rule_engine_wasm/bindings/**',
     ],
   },
 

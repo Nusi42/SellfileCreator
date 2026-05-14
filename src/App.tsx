@@ -7158,7 +7158,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Show the deferred first-run help dialog once the user is in expert mode AND
   // has closed the NoteDialog, so it never overlays the note dialog.
+  // (legitimate multi-condition watch; no single event triggers this transition)
   const simpleDeferredHelpDoneRef = useRef(false)
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
   useEffect(() => {
     if (!tutorial.helpFirstRunPending) return
     if (!expertMode || noteOpen) return
@@ -7167,6 +7169,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tutorial.setHelpOpen(true)
     tutorial.setHelpFirstRunMode(true)
   }, [expertMode, noteOpen, tutorial])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   // Global file-drag overlay and file routing handled by hook.
   // During the tutorial all file drops are silently ignored so the user cannot

@@ -13,7 +13,7 @@
 // Build as Linux .so for WSL testing:
 //   cargo build -p rule_engine_native
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::ffi::{CStr, CString, c_char};
 use serde::{Deserialize, Serialize};
 
@@ -263,7 +263,7 @@ fn run(input_json: &str) -> Result<String, String> {
             None,                           // expected_payload
             true,
             0.0,                            // now (timestamp; not used for rule logic)
-            HashMap::new(),                 // improvement_chances: empty = threshold gating disabled
+            BTreeMap::new(),                // improvement_chances: empty = threshold gating disabled
         ).map_err(|e| format!("Safeguard detection error: {e}"))?;
         Some(combined.detection)
     } else {

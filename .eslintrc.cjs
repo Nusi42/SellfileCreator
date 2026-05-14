@@ -11,5 +11,7 @@ module.exports = {
     'docs/reference/',
     'src/lib/wasm/generated/',
     'wasm/target/',
+    'wasm/rule_engine_core/bindings/',
+    'wasm/rule_engine_wasm/bindings/',
   ],
 }

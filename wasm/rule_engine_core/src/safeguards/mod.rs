@@ -386,14 +386,25 @@ pub struct SafeguardWasmExpectedGroupIn {
 // ts-rs export: BTreeMap<String, Vec<i64>> serializes through serialize_maps_as_objects
 // to a plain JS object — ts-rs emits `{ [key in string]: Array<number> }`.
 // Fields are `pub` (required by ts-rs) but only the in-crate code mutates them.
+// Wire names are short (1-3 chars) for compact payload crossing the boundary.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct SafeguardWasmExpectedGroupDomainIn {
+    #[serde(rename = "so", alias = "slotOrder")]
+    #[ts(rename = "so")]
     pub slot_order: Vec<i64>,
+    #[serde(rename = "acs", alias = "accessoryCompatibleSetIds")]
+    #[ts(rename = "acs")]
     pub accessory_compatible_set_ids: Vec<i64>,
+    #[serde(rename = "ams", alias = "armorCompatibleSetIds")]
+    #[ts(rename = "ams")]
     pub armor_compatible_set_ids: Vec<i64>,
+    #[serde(rename = "amb", alias = "allowedMainBySlot")]
+    #[ts(rename = "amb")]
     pub allowed_main_by_slot: BTreeMap<String, Vec<i64>>,
+    #[serde(rename = "afi", alias = "allFactionIds")]
+    #[ts(rename = "afi")]
     pub all_faction_ids: Vec<i64>,
 }
 
@@ -509,39 +520,78 @@ pub struct SafeguardWasmPlaceholderOut {
 }
 
 // ts-rs export: composite output entry referenced by SafeguardWasmSnapshotOut.entries.
+// Wire names are short (1-3 chars) for compact payload; nested combination/count_mode
+// keep their camelCase names (SafeguardWasmCombination / SafeguardWasmCountMode are not minified).
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct SafeguardWasmEntryOut {
+    #[serde(rename = "h")]
+    #[ts(rename = "h")]
     pub hash: String,
+    #[serde(rename = "co")]
+    #[ts(rename = "co")]
     pub combination: SafeguardWasmCombination,
+    #[serde(rename = "ri")]
+    #[ts(rename = "ri")]
     pub rule_id: Option<String>,
     // 1-based position of this rule in the input list; matches __safeguardRuleOrdinal on HSF rules.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "ro", skip_serializing_if = "Option::is_none")]
+    #[ts(rename = "ro")]
     pub rule_ordinal: Option<i64>,
+    #[serde(rename = "ra")]
+    #[ts(rename = "ra")]
     pub rule_activation: String,
+    #[serde(rename = "cm")]
+    #[ts(rename = "cm")]
     pub count_mode: SafeguardWasmCountMode,
+    #[serde(rename = "pgc")]
+    #[ts(rename = "pgc")]
     pub per_group_required_count: i64,
+    #[serde(rename = "gt")]
+    #[ts(rename = "gt")]
     pub groups_tracked: i64,
+    #[serde(rename = "rc")]
+    #[ts(rename = "rc")]
     pub required_count: i64,
+    #[serde(rename = "cc")]
+    #[ts(rename = "cc")]
     pub current_count: i64,
+    #[serde(rename = "pc")]
+    #[ts(rename = "pc")]
     pub projected_count: i64,
+    #[serde(rename = "d")]
+    #[ts(rename = "d")]
     pub deficit: i64,
+    #[serde(rename = "cbe")]
+    #[ts(rename = "cbe")]
     pub covered_by_existing: bool,
+    #[serde(rename = "ik")]
+    #[ts(rename = "ik")]
     pub item_keys: Vec<i64>,
+    #[serde(rename = "ar")]
+    #[ts(rename = "ar")]
     pub artifacts: Vec<SafeguardWasmArtifactOut>,
+    #[serde(rename = "pl")]
+    #[ts(rename = "pl")]
     pub placeholders: Vec<SafeguardWasmPlaceholderOut>,
     // All matched+scored candidates with their ranks; omitted from old snapshots (default = empty).
-    #[serde(default)]
+    #[serde(rename = "ca", default)]
+    #[ts(rename = "ca")]
     pub candidates: Vec<SafeguardWasmCandidateOut>,
 }
 
 // ts-rs export: top-level safeguard snapshot returned by detection.
+// Wire names are short for compact payload crossing the WASM boundary.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct SafeguardWasmSnapshotOut {
+    #[serde(rename = "sa")]
+    #[ts(rename = "sa")]
     pub scanned_at: f64,
+    #[serde(rename = "e")]
+    #[ts(rename = "e")]
     pub entries: Vec<SafeguardWasmEntryOut>,
 }
 

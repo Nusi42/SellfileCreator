@@ -21,9 +21,9 @@ import type { HsfRuleWithRecipe } from '../merge'
 import type { SellfileExportMode } from '../hsfBuilder'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import { buildEvaluatePayload, type WasmRuleEngineEvaluateOptions } from './wasmRuleEngine'
-// Shared wire-format minify helper — same SSOT used by the full rule_engine_wasm
-// binary.  Required to match the configure_value payload shape the dsim binary expects.
-import { minifyRuleRawForWire } from '../generated/wasmRuleWireFields'
+// Shared wire-format minify helper — same SSOT as the full rule_engine_wasm binary.
+// Required to match the configure_value payload shape the dsim binary expects.
+import { minifyRuleRawForWire } from './wireProjections'
 
 // -- Init state --
 

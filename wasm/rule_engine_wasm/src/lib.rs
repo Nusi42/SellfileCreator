@@ -195,9 +195,9 @@ pub struct ComputeSafeguardProtectionInWire {
 
 // Top-level JSON-string payload accepted by collect_safeguard_candidates_value.
 // Mirrors the prior multi-arg signature with all optional inputs expressed as
-// Option<...>.  deny_unknown_fields catches any TS-side drift; the underlying
-// RuleRaw struct intentionally keeps its legacy PascalCase HSF field set and
-// must NOT use deny_unknown_fields itself (see wasm/rule_engine_core/src/lib.rs).
+// Option<...>.  deny_unknown_fields rejects extra keys from the TS side; the
+// underlying RuleRaw struct intentionally keeps its legacy PascalCase HSF field
+// set and must NOT use deny_unknown_fields itself (see wasm/rule_engine_core/src/lib.rs).
 //
 // ts-rs export: top-level JSON-string input for collect_safeguard_candidates_value.
 #[derive(Debug, Deserialize, TS)]
@@ -305,11 +305,10 @@ pub struct BuildFinalSellRulesInWire {
 // semantics that merge_safeguard_injected_rules_core_fn relies on.
 // ts-rs export: top-level JSON-string input for merge_safeguard_injected_rules_value.
 // The three Vec<RuleRawWire> fields carry the minified wire form (short field names
-// from shared/wasm-rule-wire-fields.json) — that minification is owned by the TS
-// helpers in `wasmRuleWireFields.ts`, NOT by hand-written TS types.  Override
-// `#[ts(type = ...)]` to expose the wire arrays as opaque records, so the generated
-// TS shape doesn't try to enumerate the 32-field short-name RuleRawWire layout (its
-// SSOT is the JSON file, not the Rust struct).
+// from RuleRawWire serde renames) — that minification is performed by `minifyRuleRawForWire`
+// in `wireProjections.ts`.  Override `#[ts(type = ...)]` to expose the wire arrays
+// as opaque records, so the generated TS shape doesn't enumerate the 32-field
+// short-name RuleRawWire layout (SSOT is the serde renames in rule_engine_core, not a separate file).
 #[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -371,10 +370,34 @@ fn flatten_improvement_chances(
     out
 }
 
+// Marker trait: implement on output structs that contain BTreeMap fields
+// (directly or via transitively-nested types).  `wasm_to_js` requires this
+// bound so the compiler rejects `to_js_value(x)` for BTreeMap-containing
+// types — the only valid path is `wasm_to_js(x)`.
+//
+// Limitation: stable Rust cannot express negative bounds, so mistakenly
+// calling `to_js_value` on a type that does NOT implement `BTreeMapOutput`
+// still compiles.  The bound only helps in the other direction: if a type
+// implements `BTreeMapOutput`, the `wasm_to_js` call CONFIRMS the intent.
+// A new output type with BTreeMap fields that forgets to implement the trait
+// would reach a runtime defect (Map instead of plain object) — the OUTPUT
+// HELPER RULE at the top of this file is the defence against that.
+pub trait BTreeMapOutput {}
+
+// BTreeMapOutput propagates through Vec and Option so wasm_to_js(&vec) works.
+impl<T: BTreeMapOutput> BTreeMapOutput for Vec<T> {}
+impl<T: BTreeMapOutput> BTreeMapOutput for Option<T> {}
+
+// Register every output type that contains BTreeMap fields (directly or nested).
+impl BTreeMapOutput for rule_engine_core::PrepareHsfBuilderRecipeOut {}
+impl BTreeMapOutput for rule_engine_core::AutoFlexRarityRecipeIn {}
+impl BTreeMapOutput for rule_engine_core::SafeguardWasmExpectedGroupDomainIn {}
+
 // Shared serializer used for all wasm outputs that contain BTreeMap fields.
 // serialize_maps_as_objects ensures BTreeMap<K, V> round-trips as a plain JS
 // object rather than an ES2015 Map, removing the need for TS-side toPlainObjectDeep.
-fn wasm_to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
+// MUST be used (not `to_js_value`) for any type that impls `BTreeMapOutput`.
+fn wasm_to_js<T: serde::Serialize + BTreeMapOutput>(value: &T) -> Result<JsValue, JsValue> {
     value
         .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .map_err(|e| JsValue::from_str(&e.to_string()))
@@ -508,7 +531,7 @@ pub fn build_safeguard_rules_value(
 // loops over ~8–10k items per render).  Each call now incurs a small JSON
 // stringify + parse round-trip (~5–10μs each side per call).  The trade-off is
 // accepted intentionally: it brings count-key derivation in line with the rest
-// of the wasm surface and activates the deny_unknown_fields drift gate.  Do
+// of the wasm surface and activates the deny_unknown_fields extra-key check.  Do
 // NOT revert without coordinating the same revert across the entry points
 // migrated in batches D–G — and only after a measured regression.
 // ts-rs export: top-level JSON-string input for safeguard_count_key_value.
@@ -955,15 +978,15 @@ pub fn build_final_sell_rules_value(payload: &str) -> Result<JsValue, JsValue> {
 // single UTF-8 string + serde_json::from_str is dramatically faster and stays
 // in linear memory the whole time — no externref handles at all.
 //
-// The JSON uses a MINIFIED field format (see wire_format module + the SSOT at
-// shared/wasm-rule-wire-fields.json). Short keys like "r_id" / "_spm" cut the
+// The JSON uses a MINIFIED field format (see wasm_merged_rules_wire_format.rs for
+// the serde renames that ARE the SSOT). Short keys like "r_id" / "_spm" cut the
 // payload size by ~40% (from ~27 MiB → ~17 MiB on 45k-rule workloads),
 // relieving allocator pressure that manifested as talc deallocate OOB crashes
 // after a few pipeline runs. Long-form keys still deserialise via serde
 // aliases for forward/backward compatibility.
 //
 // Caller is responsible for JSON.stringify on the way in (with the TS-side
-// minify helpers from wasmRuleWireFields.ts) and JSON.parse + expand on the
+// minify helpers from wireProjections.ts) and JSON.parse + expand on the
 // way out; both are cheap in V8 compared to the serde_wasm_bindgen cost.
 #[wasm_bindgen]
 pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
@@ -988,7 +1011,7 @@ pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
 // Safeguard injected merge/dedupe/sort delegates to postprocess helpers.
 // Single JSON-string payload (MergeSafeguardInjectedRulesInWire) lets serde_json
 // activate the deny_unknown_fields gate on every top-level key; the three rule
-// arrays each go through RuleRawWire so per-rule TS-side drift is also caught.
+// arrays each go through RuleRawWire so extra per-rule TS-side keys are also rejected.
 // RuleRaw stays intentionally lax — wire-form is the only strict enforcement
 // point, matching find_obsolete_value and dedupe_hsf_rules_for_export_value.
 // Output is Vec<RuleRaw> (no BTreeMap fields) so plain to_js_value is correct.
@@ -1011,8 +1034,8 @@ pub fn merge_safeguard_injected_rules_value(payload: &str) -> Result<JsValue, Js
 
 // Export-dedupe path reuses the same postprocess module for consistency.
 // Accepts a minified RuleRawWire JSON array (no top-level wrapper).  The wire
-// struct's deny_unknown_fields gate catches per-rule TS-side drift; RuleRaw is
-// intentionally lax so the wire-form parse is the only enforcement point.
+// struct's deny_unknown_fields rejects extra TS-side keys per rule; RuleRaw is
+// intentionally lax so the wire-form parse is the only extra-key enforcement point.
 #[wasm_bindgen]
 pub fn dedupe_hsf_rules_for_export_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
@@ -1065,7 +1088,7 @@ pub fn finalize_generated_rules_value(
 //
 // Payload shape: { "rules": [minified RuleRawWire...], "recipeModes": [...] }
 // Caller is responsible for the minify+stringify (TS-side helpers in
-// wasmRuleWireFields.ts) and must send short-key wire-format rules.
+// wireProjections.ts) and must send short-key wire-format rules.
 #[wasm_bindgen]
 pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm the allocator before the Vec<RuleRawWire> deserialization to
@@ -1170,7 +1193,7 @@ pub fn prewarm_heap_value(bytes: u32) {
 // Called by the TS warmup path (warmupWasmRuleEngine → preGrowMemoryWithLoadedWasm)
 // before any pipeline runs.
 #[wasm_bindgen]
-pub fn pre_grow_memory_value(target_bytes: u32) {
+pub fn pre_grow_memory_value(#[allow(unused_variables)] target_bytes: u32) {
     #[cfg(target_arch = "wasm32")]
     {
         const PAGE_SIZE: usize = 65_536;
@@ -1261,7 +1284,7 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     // Pre-warm so the Vec growth during deserialization stays in a clean block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers options + ignored-recipes + safeguard rules + expected
-    // groups + improvement chances; deny_unknown_fields rejects any drift.
+    // groups + improvement chances; deny_unknown_fields rejects extra fields from the TS side.
     let parsed: EvaluateAndCollectSafeguardProtectionInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect payload: {error}")))?;
     // Default options when caller omits the field entirely (null on the wire).
@@ -1324,7 +1347,7 @@ pub fn compute_improvement_chance_value(
     // stays in a clean block (matches the find_obsolete_value pattern).
     prewarm_for_json_parse(payload.len());
     // Direct Vec parse — SafeguardWasmRuleIn already carries deny_unknown_fields
-    // on the element type, so no wrapper struct is required for the drift gate.
+    // on the element type, so no wrapper struct is required for the extra-key check.
     let parsed_rules: Vec<SafeguardWasmRuleIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
     let (entries, perf_diag) = compute_improvement_chance_engine(parsed_rules, enabled, debug)
@@ -1367,7 +1390,7 @@ pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec<EvaluateItemRaw> growth during deserialization stays
     // in a clean large block instead of fragmenting talc's free list.
     prewarm_for_json_parse(payload.len());
-    // Single parse covers items + options; deny_unknown_fields rejects any drift.
+    // Single parse covers items + options; deny_unknown_fields rejects extra fields from the TS side.
     let parsed: EvaluateValueInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid evaluate payload: {error}")))?;
     // Default options when caller omits the field entirely (matches null/undefined
@@ -1512,7 +1535,7 @@ mod collect_safeguard_candidates_wire_tests {
     // equippedChampion location), a gear-inspector item, explicit baseMatch +
     // baseMatchDefined, plus one minimal RuleRaw (PascalCase HSF field names).
     // RuleRaw lacks deny_unknown_fields by design — the wrapper struct's strict
-    // check is enough to catch drift at the top level.
+    // check rejects extra top-level keys without inflating every per-rule parse.
     const FIXTURE: &str = r#"{
       "rows": [{
         "artifact": {
@@ -1967,8 +1990,8 @@ mod build_hsf_rules_runtime_value_wire_tests {
 // Conformance tests for the build_safeguard_rules_value JSON wire shape.
 // Mirrors compute_safeguard_protection_wire_tests — same purpose, same pattern.
 // The fixture covers both wrapper fields (rules + detection) plus the full
-// nested SafeguardWasmSnapshotOut shape so any TS drift inside the detection
-// payload trips the deny_unknown_fields gate at the inner struct level.
+// nested SafeguardWasmSnapshotOut shape so extra fields inside the detection
+// payload trip the deny_unknown_fields gate at the inner struct level.
 #[cfg(test)]
 mod build_safeguard_rules_value_wire_tests {
     use super::*;
@@ -1988,41 +2011,41 @@ mod build_safeguard_rules_value_wire_tests {
         "improvementChanceThreshold": null, "tags": []
       }],
       "detection": {
-        "scannedAt": 1234567890.0,
-        "entries": [{
-          "hash": "abc",
-          "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
-          "ruleId": "demo",
-          "ruleOrdinal": 1,
-          "ruleActivation": "protectExisting",
-          "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
-          "perGroupRequiredCount": 1,
-          "groupsTracked": 1,
-          "requiredCount": 1,
-          "currentCount": 1,
-          "projectedCount": 1,
-          "deficit": 0,
-          "coveredByExisting": true,
-          "itemKeys": [42],
-          "artifacts": [{
+        "sa": 1234567890.0,
+        "e": [{
+          "h": "abc",
+          "co": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+          "ri": "demo",
+          "ro": 1,
+          "ra": "protectExisting",
+          "cm": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+          "pgc": 1,
+          "gt": 1,
+          "rc": 1,
+          "cc": 1,
+          "pc": 1,
+          "d": 0,
+          "cbe": true,
+          "ik": [42],
+          "ar": [{
             "itemKey": 42, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
             "exactLevel": null, "faction": 0, "mainStat": 1,
             "substats": [{ "variant": 5, "isFlat": false, "value": 8.0 }]
           }],
-          "placeholders": [{
+          "pl": [{
             "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
             "missing": 0,
             "reason": "global"
           }],
-          "candidates": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "isWithinQuota": true }]
+          "ca": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "isWithinQuota": true }]
         }]
       }
     }"#;
 
     // Exhaustive field-by-field assertion. Every top-level wrapper field plus
-    // the first-array-element of each nested wire struct is drilled into so any
-    // TS-side drift surfaces as either a deserialize failure (deny_unknown_fields)
-    // or an unmet expected-value assert.
+    // the first-array-element of each nested wire struct is drilled into so that
+    // extra TS-side keys (caught by deny_unknown_fields) and value mismatches
+    // (caught by the assertions below) both cause test failures.
     #[test]
     fn full_fixture_deserializes() {
         let parsed: BuildSafeguardRulesInWire = serde_json::from_str(FIXTURE)
@@ -2053,39 +2076,40 @@ mod build_safeguard_rules_value_wire_tests {
         // Fields are private inside the safeguards module; round-trip through
         // serde to confirm structure (re-serializing then parsing as Value is
         // the most stable cross-module check available).
+        // Re-serialize and drill into short-name wire fields.
         let round_trip = serde_json::to_value(detection).expect("detection re-serialize");
         let snapshot_obj = round_trip.as_object().expect("detection is object");
         assert!(
-            (snapshot_obj.get("scannedAt").and_then(|v| v.as_f64()).unwrap() - 1234567890.0).abs() < f64::EPSILON,
-            "detection.scannedAt"
+            (snapshot_obj.get("sa").and_then(|v| v.as_f64()).unwrap() - 1234567890.0).abs() < f64::EPSILON,
+            "detection.sa (scannedAt)"
         );
-        let entries = snapshot_obj.get("entries").and_then(|v| v.as_array()).expect("detection.entries");
-        assert_eq!(entries.len(), 1, "detection.entries length");
+        let entries = snapshot_obj.get("e").and_then(|v| v.as_array()).expect("detection.e (entries)");
+        assert_eq!(entries.len(), 1, "detection.e length");
 
-        // -- SafeguardWasmEntryOut (detection.entries[0]) -------------------
+        // -- SafeguardWasmEntryOut (detection.e[0]) — short wire names -------
         let entry = &entries[0];
-        assert_eq!(entry.get("hash").and_then(|v| v.as_str()), Some("abc"), "entry.hash");
-        assert_eq!(entry.get("ruleId").and_then(|v| v.as_str()), Some("demo"), "entry.ruleId");
-        assert_eq!(entry.get("ruleOrdinal").and_then(|v| v.as_i64()), Some(1), "entry.ruleOrdinal");
-        assert_eq!(entry.get("ruleActivation").and_then(|v| v.as_str()), Some("protectExisting"), "entry.ruleActivation");
-        assert_eq!(entry.get("perGroupRequiredCount").and_then(|v| v.as_i64()), Some(1), "entry.perGroupRequiredCount");
-        assert_eq!(entry.get("groupsTracked").and_then(|v| v.as_i64()), Some(1), "entry.groupsTracked");
-        assert_eq!(entry.get("requiredCount").and_then(|v| v.as_i64()), Some(1), "entry.requiredCount");
-        assert_eq!(entry.get("currentCount").and_then(|v| v.as_i64()), Some(1), "entry.currentCount");
-        assert_eq!(entry.get("projectedCount").and_then(|v| v.as_i64()), Some(1), "entry.projectedCount");
-        assert_eq!(entry.get("deficit").and_then(|v| v.as_i64()), Some(0), "entry.deficit");
-        assert_eq!(entry.get("coveredByExisting").and_then(|v| v.as_bool()), Some(true), "entry.coveredByExisting");
-        let item_keys = entry.get("itemKeys").and_then(|v| v.as_array()).expect("entry.itemKeys");
-        assert_eq!(item_keys.len(), 1, "entry.itemKeys length");
-        assert_eq!(item_keys[0].as_i64(), Some(42), "entry.itemKeys[0]");
-        let artifacts = entry.get("artifacts").and_then(|v| v.as_array()).expect("entry.artifacts");
-        assert_eq!(artifacts.len(), 1, "entry.artifacts length");
-        assert_eq!(artifacts[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.artifacts[0].itemKey");
-        let placeholders = entry.get("placeholders").and_then(|v| v.as_array()).expect("entry.placeholders");
-        assert_eq!(placeholders.len(), 1, "entry.placeholders length");
-        let candidates = entry.get("candidates").and_then(|v| v.as_array()).expect("entry.candidates");
-        assert_eq!(candidates.len(), 1, "entry.candidates length");
-        assert_eq!(candidates[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.candidates[0].itemKey");
+        assert_eq!(entry.get("h").and_then(|v| v.as_str()), Some("abc"), "entry.h (hash)");
+        assert_eq!(entry.get("ri").and_then(|v| v.as_str()), Some("demo"), "entry.ri (ruleId)");
+        assert_eq!(entry.get("ro").and_then(|v| v.as_i64()), Some(1), "entry.ro (ruleOrdinal)");
+        assert_eq!(entry.get("ra").and_then(|v| v.as_str()), Some("protectExisting"), "entry.ra (ruleActivation)");
+        assert_eq!(entry.get("pgc").and_then(|v| v.as_i64()), Some(1), "entry.pgc (perGroupRequiredCount)");
+        assert_eq!(entry.get("gt").and_then(|v| v.as_i64()), Some(1), "entry.gt (groupsTracked)");
+        assert_eq!(entry.get("rc").and_then(|v| v.as_i64()), Some(1), "entry.rc (requiredCount)");
+        assert_eq!(entry.get("cc").and_then(|v| v.as_i64()), Some(1), "entry.cc (currentCount)");
+        assert_eq!(entry.get("pc").and_then(|v| v.as_i64()), Some(1), "entry.pc (projectedCount)");
+        assert_eq!(entry.get("d").and_then(|v| v.as_i64()), Some(0), "entry.d (deficit)");
+        assert_eq!(entry.get("cbe").and_then(|v| v.as_bool()), Some(true), "entry.cbe (coveredByExisting)");
+        let item_keys = entry.get("ik").and_then(|v| v.as_array()).expect("entry.ik (itemKeys)");
+        assert_eq!(item_keys.len(), 1, "entry.ik length");
+        assert_eq!(item_keys[0].as_i64(), Some(42), "entry.ik[0]");
+        let artifacts = entry.get("ar").and_then(|v| v.as_array()).expect("entry.ar (artifacts)");
+        assert_eq!(artifacts.len(), 1, "entry.ar length");
+        assert_eq!(artifacts[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ar[0].itemKey");
+        let placeholders = entry.get("pl").and_then(|v| v.as_array()).expect("entry.pl (placeholders)");
+        assert_eq!(placeholders.len(), 1, "entry.pl length");
+        let candidates = entry.get("ca").and_then(|v| v.as_array()).expect("entry.ca (candidates)");
+        assert_eq!(candidates.len(), 1, "entry.ca length");
+        assert_eq!(candidates[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ca[0].itemKey");
     }
 
     // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
@@ -2098,8 +2122,8 @@ mod build_safeguard_rules_value_wire_tests {
 }
 
 // Conformance tests for the build_final_sell_rules_value JSON wire shape.
-// Covers the wrapper top-level + the nested FinalSellRemainderIn shape so any
-// TS drift in the FinalSellRemainderConfig fields trips the deny check.
+// Covers the wrapper top-level + the nested FinalSellRemainderIn shape so extra
+// TS-side fields in FinalSellRemainderConfig trip the deny_unknown_fields check.
 #[cfg(test)]
 mod build_final_sell_rules_value_wire_tests {
     use super::*;

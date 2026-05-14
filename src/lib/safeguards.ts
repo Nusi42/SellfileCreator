@@ -1171,7 +1171,8 @@ type SafeguardWasmExpectedGroupDomainPayload = {
 
 // Build a compact domain payload so wasm can enumerate expected scope groups
 // without duplicating TS-only catalogs or runtime set expansion logic.
-const buildSafeguardExpectedGroupDomain = (): SafeguardWasmExpectedGroupDomainPayload => {
+// Returns the normalized domain as an opaque wire object (short field names) for WASM consumption.
+const buildSafeguardExpectedGroupDomain = (): Record<string, unknown> => {
   // Serialize slot->main map as plain arrays so wasm can normalize ordering.
   const allowedMainBySlot: Record<string, StatVariant[]> = {}
   for (const [slotKey, allowed] of Object.entries(ALLOWED_MAIN_BY_SLOT)) {

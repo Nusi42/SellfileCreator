@@ -99,37 +99,62 @@ pub struct PrepareHsfBuilderRecipeIn {
 // JS object keyed by stringified i64.  With `TS_RS_LARGE_INT=number` (set in the
 // build script), ts-rs emits BTreeMap<i64, V> as `{ [key in number]: V }` — JS index
 // access coerces between number/string keys so this matches the wire shape.
+// Wire names are short (1-3 chars) for compact payload crossing the WASM boundary.
 #[derive(Debug, Serialize, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct PrepareHsfBuilderRecipeOut {
+    #[serde(rename = "sp")]
+    #[ts(rename = "sp")]
     pub selected_pool_v: Vec<i32>,
+    #[serde(rename = "rv")]
+    #[ts(rename = "rv")]
     pub required_v: Vec<i32>,
+    #[serde(rename = "op")]
+    #[ts(rename = "op")]
     pub optional_pool_v: Vec<i32>,
+    #[serde(rename = "mn")]
+    #[ts(rename = "mn")]
     pub min_target_count: i32,
+    #[serde(rename = "mx")]
+    #[ts(rename = "mx")]
     pub max_target_count: i32,
+    #[serde(rename = "ms")]
+    #[ts(rename = "ms")]
     pub max_selectable_count: i32,
+    #[serde(rename = "hrs")]
+    #[ts(rename = "hrs")]
     pub had_requested_substats: bool,
+    #[serde(rename = "hps")]
+    #[ts(rename = "hps")]
     pub has_per_stat_min: bool,
     // serialize_with stringifies i64 keys so wasm_to_js can emit plain JS objects.
-    #[serde(serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(rename = "cbv", serialize_with = "crate::serialize_i64_key_map")]
+    #[ts(rename = "cbv")]
     pub current_base_by_variant: BTreeMap<i64, i32>,
-    #[serde(serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(rename = "fbv", serialize_with = "crate::serialize_i64_key_map")]
+    #[ts(rename = "fbv")]
     pub factory_base_by_variant: BTreeMap<i64, Option<i32>>,
-    #[serde(serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(rename = "tbv", serialize_with = "crate::serialize_i64_key_map")]
+    #[ts(rename = "tbv")]
     pub target_base_override_by_variant: BTreeMap<i64, Option<i32>>,
-    #[serde(serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(rename = "tev", serialize_with = "crate::serialize_i64_key_map")]
+    #[ts(rename = "tev")]
     pub target_entries_by_variant: BTreeMap<i64, PrepareHsfBuilderTargetEntryOut>,
 }
 
 // Output target-entry payload mirrors the runtime input entry schema.
 // We keep this local so serialization does not depend on internal input-only types.
-// ts-rs: referenced by name from PrepareHsfBuilderRecipeOut.targetEntriesByVariant.
+// ts-rs: referenced by name from PrepareHsfBuilderRecipeOut.tev.
 #[derive(Debug, Serialize, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
 pub struct PrepareHsfBuilderTargetEntryOut {
+    #[serde(rename = "b")]
+    #[ts(rename = "b")]
     pub base: Option<f64>,
+    #[serde(rename = "inc")]
+    #[ts(rename = "inc")]
     pub increments: Option<Vec<Option<f64>>>,
 }
 
