@@ -3127,10 +3127,12 @@ fn safeguard_build_entry_for_substats(
         let sold_count = sold_indices.len() as i64;
         let required_total = required_per_group;
         let needed = (required_per_group - kept_count).max(0);
-        // Without substat filters there is no quality basis to pick among sold items — protect all.
-        let selected_sold = if !has_substat_filter {
+        // Without substat filters there is no quality basis to choose among sold items.
+        // When the quota is unmet, protect every sold candidate rather than picking arbitrarily.
+        // When the quota is already met (needed=0), sold items need no protection.
+        let selected_sold = if !has_substat_filter && needed > 0 {
             sold_indices
-        } else if needed > 0 {
+        } else if has_substat_filter && needed > 0 {
             safeguard_sort_candidate_indices(&mut sold_indices, candidates);
             sold_indices.into_iter().take(needed as usize).collect::<Vec<_>>()
         } else {
@@ -3139,7 +3141,9 @@ fn safeguard_build_entry_for_substats(
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count
             + if prepared_rule.rule_active {
-                if has_substat_filter { sold_count.min(needed) } else { sold_count }
+                if has_substat_filter { sold_count.min(needed) }
+                else if needed > 0 { sold_count }
+                else { 0 }
             } else {
                 0
             };
@@ -3320,17 +3324,21 @@ fn safeguard_build_entry_for_substats(
         let needed = (required_per_group - kept_count).max(0);
         let projected_group = kept_count
             + if prepared_rule.rule_active {
-                if has_substat_filter { sold_count.min(needed) } else { sold_count }
+                if has_substat_filter { sold_count.min(needed) }
+                else if needed > 0 { sold_count }
+                else { 0 }
             } else {
                 0
             };
         projected_total += projected_group;
         let total_count = kept_count + sold_count;
         let deficit_group = (required_per_group - total_count).max(0);
-        // Without substat filters there is no quality basis to pick among sold items — protect all.
-        if !has_substat_filter {
+        // Without substat filters there is no quality basis to choose among sold items.
+        // When the quota is unmet, protect every sold candidate rather than picking arbitrarily.
+        // When the quota is already met (needed=0), sold items need no protection.
+        if !has_substat_filter && needed > 0 {
             at_risk.extend(group.sold.iter().copied());
-        } else if needed > 0 {
+        } else if has_substat_filter && needed > 0 {
             let mut sorted_sold = group.sold.clone();
             safeguard_sort_candidate_indices(&mut sorted_sold, candidates);
             at_risk.extend(sorted_sold.into_iter().take(needed as usize));
@@ -4094,9 +4102,35 @@ mod no_substat_protect_all_tests {
     }
 
     #[test]
-    fn grouped_no_substat_kept_items_not_duplicated_in_item_keys() {
-        // 2 kept + 4 sold, requiredCount=3. Kept items are already safe;
-        // item_keys should contain only the sold ones (all 4).
+    fn grouped_no_substat_quota_already_met_no_sold_protected() {
+        // 4 kept + 4 sold, requiredCount=3. Quota is already satisfied by kept
+        // items (needed=0), so no sold items should be added to item_keys.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(301, slot, set, 6, 6, faction),
+            kept(302, slot, set, 6, 6, faction),
+            kept(303, slot, set, 6, 6, faction),
+            kept(304, slot, set, 6, 6, faction),
+            sold(305, slot, set, 6, 6, faction),
+            sold(306, slot, set, 6, 6, faction),
+            sold(307, slot, set, 6, 6, faction),
+            sold(308, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(3, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert!(result.entry.item_keys.is_empty(), "sold items must not be protected when quota is already met by kept items");
+    }
+
+    #[test]
+    fn grouped_no_substat_quota_partially_met_all_sold_protected() {
+        // 2 kept + 4 sold, requiredCount=5. needed=3, so the engine cannot pick
+        // 3 of the 4 without quality basis — all 4 sold must be protected.
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -4109,7 +4143,7 @@ mod no_substat_protect_all_tests {
             sold(306, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
-        let rule = make_grouped_rule(3, slot, set);
+        let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -4120,8 +4154,9 @@ mod no_substat_protect_all_tests {
     }
 
     #[test]
-    fn grouped_no_substat_projected_count_equals_total_matched() {
-        // projected_count must reflect all matched items (kept + sold), not just kept + min(sold, needed).
+    fn grouped_no_substat_projected_count_is_kept_plus_all_sold_when_quota_unmet() {
+        // When the quota is unmet and no substats exist, all sold items are protected.
+        // projected_count must therefore be kept + all_sold, not kept + min(sold, needed).
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -4132,18 +4167,43 @@ mod no_substat_protect_all_tests {
             sold(404, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
-        let rule = make_grouped_rule(2, slot, set); // requiredCount=2, kept=1 → needed was 1
+        // requiredCount=5, kept=1 → needed=4 > 0 → all 3 sold are protected.
+        let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
-        // 1 kept + 3 sold = 4 total; projected must be 4, not 2 (old capped behaviour).
+        // 1 kept + 3 sold = 4 projected (not capped at needed=4 since sold<needed).
         assert_eq!(result.entry.projected_count, 4);
     }
 
     #[test]
-    fn grouped_no_substat_all_within_quota_flag_set() {
-        // is_within_quota must be true for every candidate (kept and sold alike).
+    fn grouped_no_substat_projected_count_is_kept_only_when_quota_met() {
+        // When kept already satisfies the quota (needed=0), no sold items are protected
+        // and projected_count must equal kept_count alone.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(411, slot, set, 6, 6, faction),
+            kept(412, slot, set, 6, 6, faction),
+            kept(413, slot, set, 6, 6, faction),
+            sold(414, slot, set, 6, 6, faction),
+            sold(415, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(2, slot, set); // kept=3 satisfies requiredCount=2
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.projected_count, 3, "projected must be kept_count only when quota met");
+    }
+
+    #[test]
+    fn grouped_no_substat_all_within_quota_when_quota_unmet() {
+        // When quota is unmet and no substats exist, all sold items are at-risk
+        // and is_within_quota must be true for every candidate (kept and sold alike).
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -4153,6 +4213,7 @@ mod no_substat_protect_all_tests {
             sold(503, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        // requiredCount=5, kept=1 → needed=4 > 0 → all sold protected.
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
@@ -4160,7 +4221,35 @@ mod no_substat_protect_all_tests {
         );
         assert!(
             result.entry.candidates.iter().all(|c| c.is_within_quota),
-            "every candidate must be within quota when no substats are set",
+            "every candidate must be within quota when quota is unmet and no substats are set",
+        );
+    }
+
+    #[test]
+    fn grouped_no_substat_sold_not_within_quota_when_quota_already_met() {
+        // When kept items already satisfy the quota (needed=0), sold items are not
+        // at-risk and is_within_quota must be false for them.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(511, slot, set, 6, 6, faction),
+            kept(512, slot, set, 6, 6, faction),
+            sold(513, slot, set, 6, 6, faction),
+            sold(514, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let rule = make_grouped_rule(1, slot, set); // kept=2 satisfies requiredCount=1
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let sold_candidates: Vec<_> = result.entry.candidates.iter()
+            .filter(|c| c.item_key == 513 || c.item_key == 514)
+            .collect();
+        assert!(
+            sold_candidates.iter().all(|c| !c.is_within_quota),
+            "sold items must not be within quota when kept items already satisfy the requirement",
         );
     }
 
