@@ -4,6 +4,34 @@ use serde::{Deserialize, Serialize};
 // `from_value` consumer.  All inbound payloads now flow through `serde_json::from_str`
 // so `deny_unknown_fields` activates on every entry point.  Output side still uses
 // the `to_value` / `wasm_to_js` helpers (no JSON marshalling on the return path).
+//
+// ──────────────────────────────────────────────────────────────────────────────
+// OUTPUT HELPER RULE — `wasm_to_js` vs `to_js_value`
+// ──────────────────────────────────────────────────────────────────────────────
+// When adding a new wasm export, audit the reachable type graph of the result
+// value:
+//
+//   • If the result's type (transitively, through any nested struct/Vec/Option)
+//     contains a `HashMap<K, V>` field, you MUST use `wasm_to_js(&result)`.
+//     `wasm_to_js` sets `serialize_maps_as_objects(true)` so HashMaps emit as
+//     plain JS objects.
+//   • If there is no HashMap anywhere in the reachable type graph, plain
+//     `to_js_value(&result)` is correct and slightly cheaper.
+//
+// Why this matters: plain `to_js_value` serializes a HashMap as an ES2015 Map
+// instance.  Downstream TS code that does `JSON.stringify(result)` on the
+// payload silently loses every entry — `JSON.stringify(new Map())` returns
+// `"{}"`, with no warning.  This already shipped once: see commit `9f384b5c`
+// (and the `prepare_hsf_builder_recipe_value` comment around line 740 plus
+// the `expand_auto_flex_rarity_branches_value` comment around line 350 for
+// the canonical precedents).
+//
+// Quick checklist when reviewing a new export:
+//   1. Find the type of `result`.
+//   2. Recursively check every field for `HashMap<_, _>`.
+//   3. If ANY HashMap is reachable → `wasm_to_js`. Otherwise → `to_js_value`.
+//   4. Add a one-line comment above the call explaining the choice.
+// ──────────────────────────────────────────────────────────────────────────────
 use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
