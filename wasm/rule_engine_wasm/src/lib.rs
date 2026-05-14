@@ -285,9 +285,10 @@ pub fn expand_auto_flex_rarity_branches_value(
 // Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
 // de-duplication, and slot ordering remain single-sourced with matcher logic.
 #[wasm_bindgen]
-pub fn normalize_safeguard_expected_group_domain_value(payload: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: SafeguardWasmExpectedGroupDomainIn = from_js_value(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard expected-group domain payload: {error}")))?;
+pub fn normalize_safeguard_expected_group_domain_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let parsed: SafeguardWasmExpectedGroupDomainIn = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid normalize-safeguard-expected-group-domain payload: {error}")))?;
     let normalized = normalize_safeguard_expected_group_domain_core(parsed);
     // Use maps-as-objects so allowed_main_by_slot (HashMap<String, Vec<i64>>) emits plain JS object.
     wasm_to_js(&normalized)
@@ -295,17 +296,19 @@ pub fn normalize_safeguard_expected_group_domain_value(payload: JsValue) -> Resu
 
 // Expose combination hashing so TS reuses Rust canonical token construction.
 #[wasm_bindgen]
-pub fn hash_safeguard_combination_value(combination: JsValue) -> Result<String, JsValue> {
-    let parsed: SafeguardWasmCombination = from_js_value(combination)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard combination hash payload: {error}")))?;
+pub fn hash_safeguard_combination_value(payload: &str) -> Result<String, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let parsed: SafeguardWasmCombination = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid hash-safeguard-combination payload: {error}")))?;
     Ok(hash_safeguard_combination_core(&parsed))
 }
 
 // Expose substat sorting so TS can reuse Rust priority + dedupe semantics.
 #[wasm_bindgen]
-pub fn sort_safeguard_substats_value(values: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: Vec<i64> = from_js_value(values)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard substats payload: {error}")))?;
+pub fn sort_safeguard_substats_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let parsed: Vec<i64> = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid sort-safeguard-substats payload: {error}")))?;
     let sorted = sort_safeguard_substats_core(parsed);
     to_js_value(&sorted)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard sorted substats: {error}")))
@@ -313,9 +316,10 @@ pub fn sort_safeguard_substats_value(values: JsValue) -> Result<JsValue, JsValue
 
 // Expose full-combination sorting so TS can reuse Rust canonical ordering.
 #[wasm_bindgen]
-pub fn sort_safeguard_combination_value(combination: JsValue) -> Result<JsValue, JsValue> {
-    let parsed: SafeguardWasmCombination = from_js_value(combination)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard combination payload: {error}")))?;
+pub fn sort_safeguard_combination_value(payload: &str) -> Result<JsValue, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let parsed: SafeguardWasmCombination = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid sort-safeguard-combination payload: {error}")))?;
     let sorted = sort_safeguard_combination_core(parsed);
     to_js_value(&sorted)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard sorted combination: {error}")))
@@ -1502,5 +1506,96 @@ mod resolve_safeguard_rules_with_metasets_wire_tests {
         let bad = r#"{"rules":[],"metasets":[],"bogus":1}"#;
         let r: Result<ResolveSafeguardRulesWithMetasetsInWire, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod hash_safeguard_combination_value_wire_tests {
+    use super::*;
+
+    const FIXTURE: &str = r#"{"slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": []}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed.slots, vec![5], "slots");
+        assert_eq!(parsed.sets.len(), 1, "sets length");
+        assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
+        assert_eq!(parsed.sets[0].excluded, false, "sets[0].excluded");
+        assert_eq!(parsed.meta_set_names.len(), 0, "metaSetNames");
+        assert_eq!(parsed.ranks, vec![6], "ranks");
+        assert_eq!(parsed.rarities, vec![6], "rarities");
+        assert_eq!(parsed.main_stats, vec![1], "mainStats");
+        assert_eq!(parsed.factions.len(), 0, "factions");
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"slots": [], "sets": [], "metaSetNames": [], "ranks": [], "rarities": [], "mainStats": [], "factions": [], "bogus": 1}"#;
+        let r: Result<SafeguardWasmCombination, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod sort_safeguard_combination_value_wire_tests {
+    use super::*;
+
+    const FIXTURE: &str = r#"{"slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": []}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed.slots, vec![5], "slots");
+        assert_eq!(parsed.sets.len(), 1, "sets length");
+        assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
+        assert_eq!(parsed.sets[0].excluded, false, "sets[0].excluded");
+        assert_eq!(parsed.meta_set_names.len(), 0, "metaSetNames");
+        assert_eq!(parsed.ranks, vec![6], "ranks");
+        assert_eq!(parsed.rarities, vec![6], "rarities");
+        assert_eq!(parsed.main_stats, vec![1], "mainStats");
+        assert_eq!(parsed.factions.len(), 0, "factions");
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"slots": [], "sets": [], "metaSetNames": [], "ranks": [], "rarities": [], "mainStats": [], "factions": [], "bogus": 1}"#;
+        let r: Result<SafeguardWasmCombination, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod normalize_safeguard_expected_group_domain_value_wire_tests {
+    use super::*;
+
+    const FIXTURE: &str = r#"{"slotOrder": [1, 2, 3], "accessoryCompatibleSetIds": [10, 20], "armorCompatibleSetIds": [30, 40], "allowedMainBySlot": {"1": [1, 2], "2": [3, 4]}, "allFactionIds": [100, 200]}"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let _parsed: SafeguardWasmExpectedGroupDomainIn = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        // Fields are private; fixture validity is confirmed by successful parse.
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"slotOrder": [], "accessoryCompatibleSetIds": [], "armorCompatibleSetIds": [], "allowedMainBySlot": {}, "allFactionIds": [], "bogus": 1}"#;
+        let r: Result<SafeguardWasmExpectedGroupDomainIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+#[cfg(test)]
+mod sort_safeguard_substats_value_wire_tests {
+    const FIXTURE: &str = r#"[1, 2, 3]"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: Vec<i64> = serde_json::from_str(FIXTURE)
+            .expect("fixture must deserialize");
+        assert_eq!(parsed, vec![1i64, 2, 3], "substats array");
     }
 }

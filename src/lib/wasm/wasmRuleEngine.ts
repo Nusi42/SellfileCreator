@@ -1126,7 +1126,7 @@ export const prepareHsfBuilderRecipeWithLoadedWasm = (payload: {
 // Safeguard substat sorting runs in Rust so TS reuses one priority ordering.
 export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
   assertWasmInitializedSync()
-  const sorted = sortSafeguardSubstatsWasmValueBinding(values)
+  const sorted = sortSafeguardSubstatsWasmValueBinding(JSON.stringify(values))
   if (sorted instanceof Int32Array) return Array.from(sorted, (value) => Math.floor(Number(value)))
   if (Array.isArray(sorted)) return sorted.map((value) => Math.floor(Number(value)))
   throw new Error('WASM safeguard substat sorter returned an invalid payload.')
@@ -1159,7 +1159,7 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
 // Safeguard combination sorting runs in Rust so TS reuses one canonical order.
 export const sortSafeguardCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
   assertWasmInitializedSync()
-  const sorted = sortSafeguardCombinationWasmValueBinding(combination)
+  const sorted = sortSafeguardCombinationWasmValueBinding(JSON.stringify(combination))
   if (sorted && typeof sorted === 'object') return sorted as T
   throw new Error('WASM safeguard combination sorter returned an invalid payload.')
 }
@@ -1168,7 +1168,7 @@ export const sortSafeguardCombinationWithLoadedWasm = <T extends object>(combina
 // tokenization implementation for snapshots + rule metadata.
 export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): string => {
   assertWasmInitializedSync()
-  const hash = hashSafeguardCombinationWasmValueBinding(combination)
+  const hash = hashSafeguardCombinationWasmValueBinding(JSON.stringify(combination))
   if (typeof hash === 'string') return hash
   throw new Error('WASM safeguard combination hash helper returned an invalid payload.')
 }
@@ -1233,7 +1233,7 @@ export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = <
   },
 >(domain: T): T => {
   assertWasmInitializedSync()
-  const result = normalizeSafeguardExpectedGroupDomainWasmValueBinding(domain)
+  const result = normalizeSafeguardExpectedGroupDomainWasmValueBinding(JSON.stringify(domain))
   if (result && typeof result === 'object') return result as T
   throw new Error('WASM safeguard expected-group domain normalizer returned an invalid payload.')
 }
