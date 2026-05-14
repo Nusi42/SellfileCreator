@@ -370,19 +370,20 @@ const parseLastUsedArray = (value: unknown): GearDbLastUsedRow[] => {
 // The JSON endpoint uses camelCase names that differ from the SQL column names;
 // each canonical key maps to the alternate names to try when the primary lookup
 // returns undefined.
+// Maps each SQL column to the alternate names the WebSocket payload may use.
+// Only WebSocket-canonical names are listed — `getValueIgnoreCase` already handles
+// case folding, so SQL-shaped names like `EmpLvl` don't need their own alias.
+// `Rarity` and `Name` ship under their canonical capitalisation — no alias needed.
+// `BGrade` lives at the nested path `doubleAscend.grade` and is extracted by an
+// explicit fallback in `parseChampionRow`, so no flat alias is registered here.
+// `Affinity` is not yet sent by the helper; once it ships (planned, SQL encoding)
+// the canonical `Affinity` key will resolve directly.
 const CHAMPION_FIELD_ALIASES: Partial<Record<keyof GearDbChampionRow, readonly string[]>> = {
-  // typeId is the variant/ascension ID (e.g. 2066) — identical to the SQL HeroID
-  // column. BaseHeroID is absent from the endpoint and is derived in parseChampionRow
-  // as Math.floor(HeroID / 10) * 10 (e.g. 2060), matching the SQL column and icon
-  // file name.
-  HeroID: ['typeId'],
-  // Rarity (1–6 rarity tier) and Name are present verbatim in the endpoint
-  // payload with the same capitalization as the SQL column names — no aliases
-  // needed; getValueIgnoreCase resolves them via the canonical key directly.
-  // grade is the champion's current star count and is NOT the rarity tier;
-  // it is left unmapped since Rarity already carries the correct value.
-  // inStorage is a boolean flag; Number(true/false) → 1/0 so coercion is fine.
-  Vault: ['inStorage'],
+  HeroID: ['typeId'],        // WS variant/ascension ID
+  Vault:  ['inStorage'],     // WS storage flag (boolean → 1/0)
+  EmpLvl: ['empower'],       // WS empowerment 0–4
+  Rang:   ['grade'],         // WS current star count (NOT doubleAscend.grade)
+  Lvl:    ['level'],         // WS champion XP level 1–60
 }
 
 // Try the canonical SQL column name first, then any known endpoint aliases.
@@ -438,8 +439,34 @@ const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
   if (row.BaseHeroID != null && row.BaseHeroID > 0) {
     row.BaseHeroID = Math.floor(row.BaseHeroID / 10) * 10
   }
+  // Nested-path fallback for BGrade: when the flat aliases didn't resolve (e.g. live
+  // WebSocket payloads never expose a flat field), check `doubleAscend.grade`. SQL
+  // dumps and JSON snapshots that already include a flat `BGrade` key keep their value
+  // — the flat loop above set `row.BGrade` first, and we only patch when it's still null.
+  if (row.BGrade == null) {
+    const doubleAscend = getValueIgnoreCase(record, 'doubleAscend')
+    if (isObject(doubleAscend)) {
+      const nestedGrade = toNumber(getValueIgnoreCase(doubleAscend as UnknownRecord, 'grade'))
+      if (nestedGrade != null) row.BGrade = nestedGrade
+    }
+  }
+  // Dev-only signal: once RSL Helper starts including `Affinity` in the WebSocket
+  // payload, the per-field merge protection in `upsertChampionRow` becomes overhead.
+  // Log a one-shot warning so we notice and can simplify. The structural access
+  // through a typed alias keeps this safe under both the Vite-aware app tsconfig
+  // (where `import.meta.env` is typed) and the node-test tsconfig (where it isn't).
+  const importMetaEnv = (import.meta as { env?: { DEV?: boolean } }).env
+  if (importMetaEnv?.DEV && row.Affinity !== undefined && !affinityFromWebSocketWarned) {
+    affinityFromWebSocketWarned = true
+    console.warn(
+      '[champions] WebSocket payload now contains `Affinity` — the upsertChampionRow ' +
+      'merge protection for Affinity can be simplified or removed. See gearDbLookups.ts.'
+    )
+  }
   return row as GearDbChampionRow
 }
+// Module-scoped one-shot flag for the dev-only Affinity signal above.
+let affinityFromWebSocketWarned = false
 
 const parseLastUsedRow = (value: unknown): GearDbLastUsedRow | null => {
   if (!isObject(value)) return null

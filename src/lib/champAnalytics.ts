@@ -44,6 +44,16 @@ export type ChampionGearProfile = {
   rankSum: number
   /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when DB data is absent. */
   champAscensionLevel: number | null
+  /** Champion empowerment level (DB `EmpLvl`, 0–4 observed); null when absent. */
+  champEmpowermentLevel: number | null
+  /** Champion affinity numeric code (1=Magic, 2=Force, 3=Spirit, 4=Void); null when unknown. */
+  champAffinity: number | null
+  /** Champion Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6); null when unknown. */
+  champBlessingGrade: number | null
+  /** Champion current star count (1–6, yellow stars on the icon); null when unknown. */
+  champStarGrade: number | null
+  /** Champion XP level (1–60); null when unknown. */
+  champExperienceLevel: number | null
 }
 
 // ── Slot availability ─────────────────────────────────────────────────────────
@@ -104,6 +114,16 @@ export function buildChampionGearProfiles(
       rankSum: number
       /** Ascension level from the first artifact seen for this champion. */
       ascensionLevel: number | null
+      /** Empowerment level from the first artifact seen for this champion. */
+      empowermentLevel: number | null
+      /** Affinity numeric code from the first artifact seen for this champion. */
+      affinity: number | null
+      /** Blessing grade (Double-Ascension / Awakening level) from the first artifact seen for this champion. */
+      blessingGrade: number | null
+      /** Current star count (Rang, 1–6) from the first artifact seen for this champion. */
+      starGrade: number | null
+      /** Champion XP level (Lvl, 1–60) from the first artifact seen for this champion. */
+      experienceLevel: number | null
     }
   >()
 
@@ -128,8 +148,14 @@ export function buildChampionGearProfiles(
         rarity: Number(a.equippedChampionRarity ?? 0),
         ascentionCount: 0,
         rankSum: 0,
-        // Ascension level is constant per champion; capture it on first entry creation.
+        // Ascension, empowerment, affinity, blessing, star grade, and XP level are constant
+        // per champion; capture them on first entry creation.
         ascensionLevel: a.equippedChampionAscensionLevel ?? null,
+        empowermentLevel: a.equippedChampionEmpowermentLevel ?? null,
+        affinity: a.equippedChampionAffinity ?? null,
+        blessingGrade: a.equippedChampionBlessingGrade ?? null,
+        starGrade: a.equippedChampionStarGrade ?? null,
+        experienceLevel: a.equippedChampionExperienceLevel ?? null,
       }
       map.set(id, entry)
     }
@@ -162,6 +188,11 @@ export function buildChampionGearProfiles(
       ascentionCount: entry.ascentionCount,
       rankSum: entry.rankSum,
       champAscensionLevel: entry.ascensionLevel,
+      champEmpowermentLevel: entry.empowermentLevel,
+      champAffinity: entry.affinity,
+      champBlessingGrade: entry.blessingGrade,
+      champStarGrade: entry.starGrade,
+      champExperienceLevel: entry.experienceLevel,
     })
   }
   return profiles
@@ -190,37 +221,94 @@ export function filterChampionProfiles(
 // ── Profile comparator ────────────────────────────────────────────────────────
 
 /**
+ * Numeric codes for the `Champs.Affinity` column / WebSocket `Affinity` field
+ * (planned). Named constants keep callers honest — `AFFINITY_ROSTER_PRIORITY`
+ * and any future affinity-aware logic reference these instead of bare digits.
+ */
+export const Affinity = {
+  Magic:  1,
+  Force:  2,
+  Spirit: 3,
+  Void:   4,
+} as const
+// eslint-disable-next-line no-redeclare -- share the value name so callers import `Affinity` for both runtime and typing
+export type Affinity = number
+
+/**
+ * In-game roster priority for the affinity field. Higher number = sorted earlier.
+ * Order is Void > Force > Magic > Spirit; unknown / unmapped affinities get the
+ * lowest priority so they sort to the end of their (rarity, empowerment) group.
+ */
+const AFFINITY_ROSTER_PRIORITY: Readonly<Record<Affinity, number>> = {
+  [Affinity.Void]:   4, // highest
+  [Affinity.Force]:  3,
+  [Affinity.Magic]:  2,
+  [Affinity.Spirit]: 1, // lowest
+}
+
+/** Resolve the roster-sort priority for an affinity code; null / unknown → -1. */
+function affinityRosterPriority(affinity: number | null): number {
+  if (affinity == null) return -1
+  return AFFINITY_ROSTER_PRIORITY[affinity as Affinity] ?? -1
+}
+
+/**
  * Sort comparator that emulates the in-game default champion roster order
  * ("by rank"). Hierarchy, each step descending unless noted:
- *   1. champAscensionLevel   — "rank" (ascended stars, 0–6)
- *   2. rarity                — Mythical (6) → Common (1)
- *   3. avgLevel              — proxy for empowerment (+N gear levels)
- *   4. ascentionCount        — proxy for awakening (gear pieces with a glyph)
- *   5. avgRank (rankSum/itemCount) — average gear star grade
- *   6. championId asc        — final stable tiebreaker
+ *   1. rarity                  — Mythical (6) → Common (1)
+ *   2. champEmpowermentLevel   — DB `EmpLvl`, 0–4 observed; unknown (null) sorts last
+ *   3. champBlessingGrade      — Double-Ascension / "Awakening" grade (DB `BGrade`,
+ *                                WebSocket `doubleAscend.grade`, 0–6); unknown sorts last
+ *   4. champAffinity (Void > Force > Magic > Spirit) — DB `Affinity` 1–4; unknown sorts last
+ *   5. champAscensionLevel     — ascended stars beyond base (= HeroID − BaseHeroID, 0–6); null sorts last
+ *   6. champStarGrade          — current star count (DB `Rang`, WS `grade`, 1–6); null sorts last
+ *   7. champExperienceLevel    — champion XP level (DB `Lvl`, WS `level`, 1–60); null sorts last
+ *   8. baseId desc             — empirical tail tiebreaker (RSL internal hero release
+ *                                order); confirmed against the in-game vault order
+ *   9. championId desc         — same-hero duplicates: newer copy (higher instance id) first
  *
- * The "empowerment" and "awakening" proxies are gear-derived because the
- * champion DB row (Champs table) carries only ID / BaseHeroID / HeroID /
- * Rarity / Vault flags — no per-champion empowerment, awakening, or level
- * fields exist to sort on directly.
+ * Gear-level / average-gear-rank / ascentionCount are excluded because the
+ * in-game roster sort does not depend on what gear a champion happens to be wearing.
  */
 export function champProfileRankComparator(a: ChampionGearProfile, b: ChampionGearProfile): number {
-  // 1. "Rank" = champion ascension level. Unknown (null) sorts last.
+  // 1. Highest champion rarity first (Mythical → Common).
+  if (b.rarity !== a.rarity) return b.rarity - a.rarity
+  // 2. Highest empowerment next; unknown (null) sorts last by treating it as -1.
+  const aEmp = a.champEmpowermentLevel ?? -1
+  const bEmp = b.champEmpowermentLevel ?? -1
+  if (bEmp !== aEmp) return bEmp - aEmp
+  // 3. Blessing grade desc — higher Double-Ascension / Awakening level first.
+  const aBg = a.champBlessingGrade ?? -1
+  const bBg = b.champBlessingGrade ?? -1
+  if (bBg !== aBg) return bBg - aBg
+  // 4. Affinity priority (Void > Force > Magic > Spirit); unknown → -1.
+  const aAff = affinityRosterPriority(a.champAffinity)
+  const bAff = affinityRosterPriority(b.champAffinity)
+  if (bAff !== aAff) return bAff - aAff
+  // 5. Highest ascension level; unknown (null) sorts last.
   const aRank = a.champAscensionLevel ?? -1
   const bRank = b.champAscensionLevel ?? -1
   if (bRank !== aRank) return bRank - aRank
-  // 2. Highest champion rarity (Mythical first).
-  if (b.rarity !== a.rarity) return b.rarity - a.rarity
-  // 3. Empowerment proxy: highest average gear level.
-  if (b.avgLevel !== a.avgLevel) return b.avgLevel - a.avgLevel
-  // 4. Awakening proxy: most gear pieces with a glyph (ascension stat).
-  if (b.ascentionCount !== a.ascentionCount) return b.ascentionCount - a.ascentionCount
-  // 5. Highest average gear star rank.
-  const aAvgRank = a.itemCount > 0 ? a.rankSum / a.itemCount : 0
-  const bAvgRank = b.itemCount > 0 ? b.rankSum / b.itemCount : 0
-  if (bAvgRank !== aAvgRank) return bAvgRank - aAvgRank
-  // 6. Stable tail tiebreaker keyed on championId (ascending = deterministic).
-  return a.championId - b.championId
+  // 6. Star grade (current yellow-star count) desc — higher first.
+  const aSg = a.champStarGrade ?? -1
+  const bSg = b.champStarGrade ?? -1
+  if (bSg !== aSg) return bSg - aSg
+  // 7. Champion XP level desc — fully-levelled first.
+  const aXp = a.champExperienceLevel ?? -1
+  const bXp = b.champExperienceLevel ?? -1
+  if (bXp !== aXp) return bXp - aXp
+  // 8. BaseHeroID desc — empirical tail tiebreaker. Comparing the in-game vault order
+  //    of two otherwise-tied heroes confirmed the higher BaseHeroID comes first.
+  //    BaseHeroID has no in-game-visible meaning on its own; it correlates with the
+  //    hero's release order, so this effectively puts newer heroes ahead of older
+  //    ones when every other sort key ties.
+  const aBase = a.baseId ?? -1
+  const bBase = b.baseId ?? -1
+  if (bBase !== aBase) return bBase - aBase
+  // 9. Same-hero duplicates: sort the newer instance (higher championId) first —
+  //    confirmed by two copies of the same hero in the in-game roster. Only fires
+  //    when every preceding step ties, which in practice means same-hero copies.
+  return b.championId - a.championId
 }
 
 // ── Per-champion substat totals ────────────────────────────────────────────────

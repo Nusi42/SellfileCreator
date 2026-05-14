@@ -89,6 +89,15 @@ export function buildPreviewArtifactFromGearInspectorItem(
   const equippedChampionRarity = (extras?.equippedChampionRarity ?? null) as RankValue | null
   // Ascension level is only present for DB-imported rows; manual entries leave it null.
   const equippedChampionAscensionLevel = extras?.equippedChampionAscensionLevel ?? null
+  // Empowerment level — same provenance as ascension level: DB / endpoint only.
+  const equippedChampionEmpowermentLevel = extras?.equippedChampionEmpowermentLevel ?? null
+  // Affinity — same provenance: DB / endpoint only; null for manual entries.
+  const equippedChampionAffinity = extras?.equippedChampionAffinity ?? null
+  // Blessing grade (Double-Ascension / "Awakening" level) — null for manual entries.
+  const equippedChampionBlessingGrade = extras?.equippedChampionBlessingGrade ?? null
+  // Current star count (Rang, 1–6) and XP level (1–60) — null for manual entries.
+  const equippedChampionStarGrade = extras?.equippedChampionStarGrade ?? null
+  const equippedChampionExperienceLevel = extras?.equippedChampionExperienceLevel ?? null
   const equippedChampionName = extras?.equippedChampionName ?? null
   const equippedChampionLocation = extras?.equippedChampionLocation ?? null
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
@@ -122,6 +131,11 @@ export function buildPreviewArtifactFromGearInspectorItem(
     equippedChampionBaseId,
     equippedChampionRarity,
     equippedChampionAscensionLevel,
+    equippedChampionEmpowermentLevel,
+    equippedChampionAffinity,
+    equippedChampionBlessingGrade,
+    equippedChampionStarGrade,
+    equippedChampionExperienceLevel,
     source,
     equippedChampionName,
     equippedChampionLocation,

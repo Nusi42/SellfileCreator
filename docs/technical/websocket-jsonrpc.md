@@ -170,30 +170,42 @@ Champion roster. Provides display names and equipped-slot context.
 
 **Params**
 - `champions` (array of champion rows) — fields consumed by the importer:
-  - `id` (number) — champion instance id
-  - `typeId` (number) — variant/ascension ID (e.g. `2066`); base hero ID is derived as `Math.floor(typeId / 10) * 10` (e.g. `2060`)
-  - `Name` (string) — champion name; present in the first send of each sync cycle, absent in the second (see double-send behaviour below)
-  - `Rarity` (number) — rarity tier 1–6; present in the first send, absent in the second
-  - `grade` (number) — current star count
-  - `inStorage` (boolean) — `true` if the champion is in the vault
-  - `artifacts` (object) — maps slot numbers (`"1"`–`"9"`) to the equipped artifact's instance id; used to resolve which artifact belongs to which champion. Empty slots are absent from the map.
-  - Additional fields (`level`, `empower`, `locked`, `skills`, `mastery`, etc.) are present in the payload but not used.
+
+  | WS field | Maps to SQL column | Used for |
+  |---|---|---|
+  | `id` | `Champs.ID` | champion instance id |
+  | `typeId` | `Champs.HeroID` | variant/ascension ID (e.g. `2066`); base hero ID is derived as `Math.floor(typeId / 10) * 10` |
+  | `Name` | `Champs.Name` | display name (present only in first send of each sync cycle) |
+  | `Rarity` | `Champs.Rarity` | rarity tier 1–6 (present only in first send) |
+  | `Affinity` | `Champs.Affinity` | **planned but not yet sent** — once shipped, will use the SQL encoding 1=Magic, 2=Force, 3=Spirit, 4=Void |
+  | `grade` | `Champs.Rang` | current yellow-star count (1–6) — **not** the blessing grade |
+  | `level` | `Champs.Lvl` | champion XP level 1–60 |
+  | `empower` | `Champs.EmpLvl` | empowerment level 0–4 |
+  | `doubleAscend.grade` | `Champs.BGrade` | Double-Ascension / "Awakening" grade 0–6 (nested path; extracted by an explicit fallback in `parseChampionRow`) |
+  | `inStorage` | `Champs.Vault` | `true` when in vault |
+  | `artifacts` | (not a column) | object mapping slot `"1"`–`"9"` to the equipped artifact's instance id; resolves which artifact belongs to which champion |
+
+  Other fields in the payload (`locked`, `inBathhouse`, `marker`, `skills`, `mastery`, `exp`, `fullExp`, `recentBattleTicks`, `doubleAscend.blessingId`, etc.) are ignored.
 
 **Example**
 ```json
 {"jsonrpc":"2.0","method":"champions","params":{"champions":[
   {
-    "id":37727,"typeId":2066,"grade":6,"level":60,"Name":"Warpriest","Rarity":3,
+    "id":37727,"typeId":2066,"grade":6,"level":60,"empower":0,
+    "doubleAscend":{"grade":0,"blessingId":0,"freeResetUsed":false},
+    "Name":"Warpriest","Rarity":3,
     "inStorage":true,"artifacts":{"1":71830,"2":101913,"5":123429}
   },
   {
-    "id":2742,"typeId":36,"grade":6,"level":60,"Name":"Athel","Rarity":5,
+    "id":2742,"typeId":36,"grade":6,"level":60,"empower":2,
+    "doubleAscend":{"grade":4,"blessingId":102,"freeResetUsed":false},
+    "Name":"Athel","Rarity":5,
     "inStorage":false,"artifacts":{"1":235431,"3":312005}
   }
 ]}}
 ```
 
-**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Incoming rows are merged against the previously received champion list so that display metadata from the first message is not overwritten by the second.
+**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. `upsertChampionRow` in `gearDbLookups.ts` merges field-by-field — when an incoming row leaves a column `undefined`, the previously-known value is preserved. This protects the first-send metadata (Name, Rarity) and also makes the importer forward-compatible: when `Affinity` arrives, it gets recorded; until then, any earlier-known Affinity is not nulled out by a follow-up packet that omits it. A one-shot dev-only `console.warn` in `parseChampionRow` flags when `Affinity` finally appears so the merge overhead can be simplified.
 
 See `docs/orig/sampleLog/` for a full captured session split into per-message files. Each file is one full JSON-RPC envelope, named `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json`; the zero-padded numeric `<index>` is the order in which RSL Helper emitted the packet. The current sample (captured 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6, `lastUsed` ×2, and `ArtifactByHeroID` ×1.
 

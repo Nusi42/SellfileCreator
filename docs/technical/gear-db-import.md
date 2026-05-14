@@ -112,9 +112,22 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
 
 ### Champion Metadata
 
-- `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in Gear Inspector preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
-- Champion ascension level = `HeroID − BaseHeroID` (0–6). The importer captures this as `NormalizedGearArtifact.equippedChampionAscensionLevel`. Ascension level ≥ 5 unlocks the Amulet slot; ascension level = 6 (fully ascended) additionally unlocks the Banner slot. `Rang`/`grade` is the current star count and must **not** be used for ascension level — it incorporates base rarity stars, not just ascension steps.
-- **JSON endpoint field mapping**: the `champions` JSON-RPC notification uses `typeId` (= SQL `HeroID`, e.g. `2066`) instead of `HeroID`; `BaseHeroID` is absent and derived as `Math.floor(typeId / 10) * 10`. `Name` and `Rarity` are present verbatim (same capitalisation as SQL columns). RSL Helper sends `champions` twice per sync; the second message omits `Name` and `Rarity` — the importer merges rows to preserve those fields. See `docs/technical/websocket-jsonrpc.md` § champions for details.
+The importer captures the following champion-intrinsic fields from `Champs` and the WebSocket `champions` payload, exposing them via `NormalizedGearArtifact` (and `previewExtras` for Gear Inspector cards):
+
+| Field on artifact | SQL column | WebSocket field | Range | Used for |
+|---|---|---|---|---|
+| `equippedChampionRarity` | `Rarity` | `Rarity` | 1–6 | Icon border colour; primary sort key |
+| `equippedChampionAscensionLevel` | derived `HeroID − BaseHeroID` | derived | 0–6 | Slot unlocks (≥5 amulet, =6 banner); roster sort |
+| `equippedChampionEmpowermentLevel` | `EmpLvl` | `empower` | 0–4 | Roster sort |
+| `equippedChampionAffinity` | `Affinity` | (planned) | 1=Magic, 2=Force, 3=Spirit, 4=Void | Roster sort (`AFFINITY_ROSTER_PRIORITY`: Void > Force > Magic > Spirit) |
+| `equippedChampionBlessingGrade` | `BGrade` | `doubleAscend.grade` (nested) | 0–6 | Roster sort. The `B` is "Blessing" / "Double-Ascension" (RSL UI: "Awakening"), **not** "Base" |
+| `equippedChampionStarGrade` | `Rang` | `grade` (top level — NOT `doubleAscend.grade`) | 1–6 | Roster sort tail. Current yellow-star count |
+| `equippedChampionExperienceLevel` | `Lvl` | `level` | 1–60 | Roster sort tail |
+| `equippedChampionBaseId` | `BaseHeroID` | derived from `typeId` as `Math.floor(typeId / 10) * 10` | — | Icon lookup, empirical roster-sort tail (RSL hero-release order) |
+
+None of these affect rule evaluation; they exist for UI display and the Gear Analytics roster sort.
+
+**WebSocket quirks.** `parseChampionRow` (`externalCommands.ts`) iterates `CHAMPION_COLUMN_KEYS` with case-insensitive resolution + a small alias table for fields the helper sends under a different name (e.g. `EmpLvl` ← `empower`). `BGrade` is at the nested path `doubleAscend.grade` — extracted by an explicit fallback at the end of `parseChampionRow`. `Affinity` is **not yet** in the payload; planned to ship under the canonical name `Affinity` with the SQL encoding (1=Magic, 2=Force, 3=Spirit, 4=Void). RSL Helper sends `champions` twice per sync — the second message omits `Name` and `Rarity` — and `upsertChampionRow` (`gearDbLookups.ts`) merges field-by-field so any undefined value preserves the previously-known one (critical so a follow-up message doesn't null out `Affinity` once it's known). See `docs/technical/websocket-jsonrpc.md` § champions for the wire-format details.
 
 ### Normalization Helper
 

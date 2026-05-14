@@ -167,6 +167,24 @@ export type GearDbChampionRow = {
   RVault?: number | null
   BaseHeroID?: number | null
   Rarity?: number | null
+  /** Empowerment level (0–4 in observed data). Independent of ascension; comes from the
+   *  `EmpLvl` column in the SQL dump or `empLvl` (camelCase aliases) in JSON endpoint payloads. */
+  EmpLvl?: number | null
+  /** Champion affinity (1=Magic, 2=Force, 3=Spirit, 4=Void). Roster sort key between
+   *  blessing-grade and ascension; the desired order is Void > Force > Magic > Spirit
+   *  (see `AFFINITY_ROSTER_PRIORITY` in `champAnalytics.ts`). */
+  Affinity?: number | null
+  /** Champion Double-Ascension / Blessing grade — the `B` is "Blessing", NOT "Base".
+   *  Equivalent to RSL's in-game "Awakening" level (0–6). Mirrors the WebSocket
+   *  `doubleAscend.grade` field. Roster sort key between empowerment and affinity. */
+  BGrade?: number | null
+  /** Current star count (1–6, the yellow stars on the champion icon). Equivalent to
+   *  the WebSocket `grade` field at top level (NOT `doubleAscend.grade`). Used as a
+   *  Gear Analytics roster sort tail tiebreaker after ascensionLevel. */
+  Rang?: number | null
+  /** Champion XP level (1–60). Equivalent to the WebSocket `level` field. Used as a
+   *  Gear Analytics roster sort tail tiebreaker after Rang. */
+  Lvl?: number | null
 }
 
 export type GearDbLastUsedRow = {
@@ -190,6 +208,16 @@ export type ChampionLookupRecord = {
   rarity: RankValue | null
   /** Champion ascension level (HeroID − BaseHeroID, 0–6); null when absent in the DB row. */
   ascensionLevel: number | null
+  /** Champion empowerment level (0–4 observed); null when absent (e.g. older dumps without EmpLvl). */
+  empowermentLevel: number | null
+  /** Champion affinity numeric code (1=Magic, 2=Force, 3=Spirit, 4=Void); null when unknown. */
+  affinity: number | null
+  /** Champion Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6); null when absent. */
+  blessingGrade: number | null
+  /** Current star count (1–6); null when absent. */
+  starGrade: number | null
+  /** Champion XP level (1–60); null when absent. */
+  experienceLevel: number | null
 }
 
 export type NormalizedStat = {
@@ -222,8 +250,21 @@ export type NormalizedGearArtifact = {
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
   equippedChampionRarity: RankValue | null
-  /** Ascension level (star grade, Rang) of the equipped champion; null when unknown. */
+  /** Ascension stars of the equipped champion (post-6★ colored stars, computed as
+   *  HeroID − BaseHeroID, 0–6). Distinct from `equippedChampionStarGrade` (= SQL
+   *  `Rang`, current yellow-star count) and from the artifact-level `ascension`
+   *  field (= glyph stat applied to a piece of gear). Null when unknown. */
   equippedChampionAscensionLevel: number | null
+  /** Empowerment level of the equipped champion (0–4 observed); null when unknown. */
+  equippedChampionEmpowermentLevel: number | null
+  /** Affinity of the equipped champion (1=Magic, 2=Force, 3=Spirit, 4=Void); null when unknown. */
+  equippedChampionAffinity: number | null
+  /** Equipped champion's Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6); null when unknown. */
+  equippedChampionBlessingGrade: number | null
+  /** Equipped champion's current star count (1–6, yellow stars); null when unknown. */
+  equippedChampionStarGrade: number | null
+  /** Equipped champion's XP level (1–60); null when unknown. */
+  equippedChampionExperienceLevel: number | null
   source: 'artifacts' | 'inbox' | 'manual'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
@@ -468,6 +509,11 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const equippedChampionBaseId = championRecord?.baseHeroId ?? null
   const equippedChampionRarity = championRecord?.rarity ?? null
   const equippedChampionAscensionLevel = championRecord?.ascensionLevel ?? null
+  const equippedChampionEmpowermentLevel = championRecord?.empowermentLevel ?? null
+  const equippedChampionAffinity = championRecord?.affinity ?? null
+  const equippedChampionBlessingGrade = championRecord?.blessingGrade ?? null
+  const equippedChampionStarGrade = championRecord?.starGrade ?? null
+  const equippedChampionExperienceLevel = championRecord?.experienceLevel ?? null
   const source = options.source ?? 'artifacts'
   const lastUseLocalTimestamp = sanitizeLastUseTimestamp(options.lastUseLocalTimestamp)
 
@@ -491,6 +537,11 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       equippedChampionBaseId,
       equippedChampionRarity,
       equippedChampionAscensionLevel,
+      equippedChampionEmpowermentLevel,
+      equippedChampionAffinity,
+      equippedChampionBlessingGrade,
+      equippedChampionStarGrade,
+      equippedChampionExperienceLevel,
       equippedChampionName,
       equippedChampionLocation,
       mainStat,
@@ -520,6 +571,11 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     equippedChampionBaseId,
     equippedChampionRarity,
     equippedChampionAscensionLevel,
+    equippedChampionEmpowermentLevel,
+    equippedChampionAffinity,
+    equippedChampionBlessingGrade,
+    equippedChampionStarGrade,
+    equippedChampionExperienceLevel,
     source,
     equippedChampionName,
     equippedChampionLocation,

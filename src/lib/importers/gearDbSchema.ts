@@ -80,4 +80,22 @@ export const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
   'RVault',
   'BaseHeroID',
   'Rarity',
+  // Empowerment level (0–4). Independent of ascension. Used as a roster sort key
+  // between rarity and ascension to mirror the in-game default order.
+  'EmpLvl',
+  // Affinity (1=Magic, 2=Force, 3=Spirit, 4=Void). Roster sort key between
+  // base-grade and ascension — order is Void > Force > Magic > Spirit (see
+  // AFFINITY_ROSTER_PRIORITY in champAnalytics.ts).
+  'Affinity',
+  // BGrade = Double-Ascension / Blessing grade (RSL "Awakening" level, 0–6).
+  // The `B` is "Blessing", NOT "Base". Equivalent to the WebSocket field
+  // `doubleAscend.grade`. Roster sort key between empowerment and affinity.
+  'BGrade',
+  // Rang = current star count (1–6). The yellow stars on the champion icon.
+  // Equivalent to the WebSocket `grade` field (top-level, NOT `doubleAscend.grade`).
+  // Roster sort key — tail tiebreaker after ascensionLevel.
+  'Rang',
+  // Lvl = champion XP level (1–60). Equivalent to the WebSocket `level` field.
+  // Roster sort key — tail tiebreaker after Rang.
+  'Lvl',
 ] as const

@@ -52,6 +52,31 @@ const computeAscensionLevel = (heroId: unknown, baseHeroId: unknown): number | n
 }
 
 /**
+ * Coerce a raw value to a non-negative integer (0 inclusive). Use for fields where
+ * 0 is a meaningful value — e.g. unempowered champions (`EmpLvl=0`) or unblessed
+ * champions (`BGrade=0`). Returns null when missing or unparseable.
+ */
+const sanitizeNonNegativeInt = (value: unknown): number | null => {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return null
+  return Math.max(0, Math.round(num))
+}
+
+/**
+ * Coerce a raw value to a positive integer (≥1). Use for 1-based codes and ranges:
+ * `Affinity` (1–4), `Rang` (1–6 stars), `Lvl` (1–60). Returns null when missing,
+ * unparseable, or zero/negative — the comparator then sorts the champion after
+ * every champion with a known value.
+ */
+const sanitizePositiveInt = (value: unknown): number | null => {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return null
+  const rounded = Math.round(num)
+  if (rounded <= 0) return null
+  return rounded
+}
+
+/**
  * Convert a Champs row into the normalized lookup entry the Gear Inspector uses.
  * Returns `null` when the row lacks a usable ID so callers can skip it.
  */
@@ -62,6 +87,14 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
   const rarity = sanitizeRarity(row.Rarity)
   // Ascension level = HeroID − BaseHeroID (0–6); null in older dumps without HeroID.
   const ascensionLevel = computeAscensionLevel(row.HeroID, row.BaseHeroID)
+  // Empowerment level — null in dumps that predate the EmpLvl column.
+  // Empowerment (0–4) and blessing grade (0–6) accept 0 = unempowered / unblessed.
+  const empowermentLevel = sanitizeNonNegativeInt(row.EmpLvl)
+  const blessingGrade = sanitizeNonNegativeInt(row.BGrade)
+  // Affinity (1–4 code), star grade (1–6) and XP level (1–60) are 1-based; reject 0.
+  const affinity = sanitizePositiveInt(row.Affinity)
+  const starGrade = sanitizePositiveInt(row.Rang)
+  const experienceLevel = sanitizePositiveInt(row.Lvl)
   return {
     id,
     name: name && name.length > 0 ? name : null,
@@ -70,6 +103,11 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
     baseHeroId: sanitizeBaseHeroId(row.BaseHeroID),
     rarity,
     ascensionLevel,
+    empowermentLevel,
+    affinity,
+    blessingGrade,
+    starGrade,
+    experienceLevel,
   }
 }
 
@@ -85,10 +123,38 @@ export const createChampionLookup = (rows: Iterable<GearDbChampionRow>): Champio
   return map
 }
 
+/**
+ * Field-level merge for upsert. When the new row's source key is `undefined`
+ * (the payload did not include this field at all), we keep the value the
+ * existing record already had. Distinct from "the new row explicitly set it
+ * to null/0" — that case lets the new value through and clears the field.
+ *
+ * Why: live WebSocket updates do not currently include `Affinity`, so a refresh
+ * after an initial SQL/JSON-snapshot load would otherwise null out the affinity.
+ * The same protection applies to every champion-intrinsic field that may be
+ * absent from a given payload (rarity, blessing grade, etc).
+ */
 export const upsertChampionRow = (map: ChampionLookup, row: GearDbChampionRow): ChampionLookupRecord | null => {
   const record = championRowToLookupRecord(row)
   if (!record) return null
-  // Replace-in-place so artifacts immediately see the refreshed metadata.
+  const previous = map.get(record.id)
+  if (previous) {
+    // For each source column that's undefined on the incoming row, prefer the
+    // previously-known value. Numeric columns: undefined → keep. Name/Vault
+    // booleans: also preserved.
+    if (row.Name === undefined && previous.name !== null) record.name = previous.name
+    if (row.Vault === undefined) record.vault = previous.vault
+    if (row.RVault === undefined) record.reserveVault = previous.reserveVault
+    if (row.BaseHeroID === undefined) record.baseHeroId = previous.baseHeroId
+    if (row.Rarity === undefined) record.rarity = previous.rarity
+    // Ascension is derived from HeroID+BaseHeroID; if either is missing, keep previous.
+    if (row.HeroID === undefined || row.BaseHeroID === undefined) record.ascensionLevel = previous.ascensionLevel
+    if (row.EmpLvl === undefined) record.empowermentLevel = previous.empowermentLevel
+    if (row.Affinity === undefined) record.affinity = previous.affinity
+    if (row.BGrade === undefined) record.blessingGrade = previous.blessingGrade
+    if (row.Rang === undefined) record.starGrade = previous.starGrade
+    if (row.Lvl === undefined) record.experienceLevel = previous.experienceLevel
+  }
   map.set(record.id, record)
   return record
 }

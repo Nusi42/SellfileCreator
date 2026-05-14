@@ -33,6 +33,17 @@ export type GearInspectorItemPreviewExtras = {
   equippedChampionRarity?: number | null
   // Champion ascension level (HeroID − BaseHeroID, 0–6) gates amulet/banner slot availability.
   equippedChampionAscensionLevel?: number | null
+  // Champion empowerment level (DB `EmpLvl`, 0–4 observed); roster-sort key only — no rule impact.
+  equippedChampionEmpowermentLevel?: number | null
+  // Champion affinity (DB `Affinity`, 1=Magic 2=Force 3=Spirit 4=Void); roster-sort key only.
+  equippedChampionAffinity?: number | null
+  // Champion Double-Ascension / Blessing grade (DB `BGrade`, WS `doubleAscend.grade`,
+  // RSL "Awakening" level, 0–6); roster-sort key only — no rule impact.
+  equippedChampionBlessingGrade?: number | null
+  // Champion current star count (DB `Rang`, WS `grade`, 1–6); roster-sort key only.
+  equippedChampionStarGrade?: number | null
+  // Champion XP level (DB `Lvl`, WS `level`, 1–60); roster-sort key only.
+  equippedChampionExperienceLevel?: number | null
   // Champion display name used by preview row labels.
   equippedChampionName?: string | null
   // Champion location helps filter/display context in Gear Inspector tables.
