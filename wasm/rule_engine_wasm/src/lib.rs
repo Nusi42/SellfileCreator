@@ -210,6 +210,36 @@ struct ResolveSafeguardRulesWithMetasetsInWire {
     metasets: Vec<SafeguardWasmMetasetIn>,
 }
 
+// Top-level JSON-string payload accepted by build_safeguard_rules_value.
+// Wraps the prior multi-arg (rules + detection) JsValue inputs so the single
+// serde_json::from_str parse activates deny_unknown_fields against the JS object.
+// recipe_id_base stays as a separate primitive argument on the wasm boundary; it
+// is a plain i64 that wasm-bindgen passes natively without any JSON round-trip.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BuildSafeguardRulesInWire {
+    // Resolved safeguard rules (per-level thresholds already collapsed to [f64; 4]).
+    rules: Vec<SafeguardWasmRuleIn>,
+    // Optional snapshot from the detection pipeline; None when TS passes null.
+    #[serde(default)]
+    detection: Option<SafeguardWasmSnapshotOut>,
+}
+
+// Top-level JSON-string payload accepted by build_final_sell_rules_value.
+// Wraps the prior multi-arg (remainder + all_known_set_ids) JsValue inputs so the
+// single serde_json::from_str parse activates deny_unknown_fields against the JS
+// object.  Optional remainder lets TS pass null when no final-sell expansion is
+// requested, matching the historical signature.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BuildFinalSellRulesInWire {
+    // Optional remainder recipe; None disables final-sell rule generation.
+    #[serde(default)]
+    remainder: Option<FinalSellRemainderIn>,
+    // Full set-id universe used to expand the "all known sets" branch.
+    all_known_set_ids: Vec<i64>,
+}
+
 // Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
 // BTreeMap consumed by the safeguard protection core. BTreeMap chosen for memory stability
 // under the talc allocator (matches the convention used elsewhere in this crate).
@@ -328,27 +358,26 @@ pub fn sort_safeguard_combination_value(payload: &str) -> Result<JsValue, JsValu
 }
 
 // Safeguard HSF rule generation now lives in wasm (merge.ts SSOT path).
-// Deserializes rules + detection from JsValue, delegates to core, returns rules.
+// Takes a JSON-string payload (rules + detection bundled) so serde_json::from_str
+// activates deny_unknown_fields against the JS object — the serde-wasm-bindgen
+// from_value path structurally cannot trigger that check.  recipe_id_base stays
+// a separate i64 arg because wasm-bindgen marshals primitives natively.
 #[wasm_bindgen]
 pub fn build_safeguard_rules_value(
-    rules: JsValue,
-    detection: JsValue,
+    payload: &str,
     recipe_id_base: i64,
 ) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
-    let parsed_detection: Option<SafeguardWasmSnapshotOut> = if detection.is_undefined() || detection.is_null() {
-        None
-    } else {
-        Some(from_js_value(detection).map_err(|error| {
-            JsValue::from_str(&format!("Invalid safeguard detection payload: {error}"))
-        })?)
-    };
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers rules + optional detection snapshot.
+    let input: BuildSafeguardRulesInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid build-safeguard-rules payload: {error}")))?;
     let safeguard_rules = build_safeguard_rules_core(
-        &parsed_rules,
-        parsed_detection.as_ref(),
+        &input.rules,
+        input.detection.as_ref(),
         recipe_id_base,
     );
+    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
     to_js_value(&safeguard_rules)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
 }
@@ -685,13 +714,23 @@ fn flatten_i32_rows(rows: &[Vec<i32>]) -> Vec<i32> {
 
 // --- Obsolete-rule detection exports ---
 
-// Fast obsolete export accepts JS arrays directly and returns a JS object.
+// Fast obsolete export accepts a minified RuleRawWire JSON array (no top-level
+// wrapper).  serde_json::from_str against Vec<RuleRawWire> activates the
+// per-rule deny_unknown_fields gate.  RuleRaw itself is intentionally lax and
+// must NOT have deny_unknown_fields — the wire-form struct is the strict gate.
 #[wasm_bindgen]
-pub fn find_obsolete_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid obsolete-rules value: {error}")))?;
+pub fn find_obsolete_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Parse the minified wire array, then convert to canonical RuleRaw for the
+    // core function — same pattern as flatten_rule_batches / configure / finalize.
+    let wire_rules: Vec<RuleRawWire> = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid obsolete-rules payload: {error}")))?;
+    let parsed_rules: Vec<RuleRaw> = wire_rules.into_iter().map(RuleRaw::from).collect();
     let obsolete = rule_dedupe::collect_obsolete_entries(&parsed_rules);
     let report = ObsoleteReportOut { obsolete };
+    // Output is ObsoleteReportOut { obsolete: Vec<ObsoleteEntryOut> } — no
+    // HashMap fields, plain to_js_value is correct.
     to_js_value(&report)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete value: {error}")))
 }
@@ -744,21 +783,17 @@ pub fn flatten_rule_batches_with_total_limit_value(
 
 // Final Sell builder/export lives in the postprocess module to keep merge
 // orchestration logic grouped with other rule-assembly helpers.
+// Takes a JSON-string payload (remainder + all_known_set_ids bundled) so
+// serde_json::from_str activates deny_unknown_fields against the JS object.
 #[wasm_bindgen]
-pub fn build_final_sell_rules_value(
-    remainder: JsValue,
-    all_known_set_ids: JsValue,
-) -> Result<JsValue, JsValue> {
-    let parsed_remainder: Option<FinalSellRemainderIn> =
-        if remainder.is_undefined() || remainder.is_null() {
-            None
-        } else {
-            Some(from_js_value(remainder)
-                .map_err(|error| JsValue::from_str(&format!("Invalid final-sell remainder payload: {error}")))?)
-        };
-    let parsed_set_ids: Vec<i64> = from_js_value(all_known_set_ids)
-        .map_err(|error| JsValue::from_str(&format!("Invalid final-sell set ids payload: {error}")))?;
-    let result = build_final_sell_rules_core(parsed_remainder.as_ref(), &parsed_set_ids);
+pub fn build_final_sell_rules_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers the optional remainder recipe and the set-id universe.
+    let input: BuildFinalSellRulesInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid build-final-sell-rules payload: {error}")))?;
+    let result = build_final_sell_rules_core(input.remainder.as_ref(), &input.all_known_set_ids);
+    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules: {error}")))
 }
@@ -821,11 +856,19 @@ pub fn merge_safeguard_injected_rules_value(
 }
 
 // Export-dedupe path reuses the same postprocess module for consistency.
+// Accepts a minified RuleRawWire JSON array (no top-level wrapper).  The wire
+// struct's deny_unknown_fields gate catches per-rule TS-side drift; RuleRaw is
+// intentionally lax so the wire-form parse is the only enforcement point.
 #[wasm_bindgen]
-pub fn dedupe_hsf_rules_for_export_value(rules: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
+pub fn dedupe_hsf_rules_for_export_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Parse wire array then convert to canonical RuleRaw for the core function.
+    let wire_rules: Vec<RuleRawWire> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid dedupe-hsf-rules payload: {error}")))?;
+    let parsed_rules: Vec<RuleRaw> = wire_rules.into_iter().map(RuleRaw::from).collect();
     let result = dedupe_hsf_rules_for_export_core(&parsed_rules);
+    // Output is Vec<RuleRaw> — no HashMap fields, plain to_js_value is correct.
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize deduped hsf rules: {error}")))
 }
@@ -1748,5 +1791,275 @@ mod build_hsf_rules_runtime_value_wire_tests {
         let bad = r#"{"useFlag":true,"rankCode":4,"rarityCode":5,"factionCode":1,"mainChoices":[],"emitAnyMainWhenNoChoices":false,"effectiveStart":1,"suppressRollThresholds":false,"levelWindowMin":1,"levelWindowMax":20,"requiredV":[],"optionalPoolV":[],"selectedPoolV":[],"flexActive":true,"aggregateMinActive":true,"minTargetCount":2,"maxTargetCount":4,"aggregateTargetsLocked":false,"aggregateMinValue":5,"lockedMinActive":false,"lockedMinValue":0,"substatRollBoundsV":{},"targetEntriesByVariant":{},"currentBaseByVariant":{},"factoryBaseByVariant":{},"targetBaseOverrideByVariant":{},"earlyMode":"early","unknownField":"bogus"}"#;
         let r: Result<BuildHsfRulesRuntimeIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the build_safeguard_rules_value JSON wire shape.
+// Mirrors compute_safeguard_protection_wire_tests — same purpose, same pattern.
+// The fixture covers both wrapper fields (rules + detection) plus the full
+// nested SafeguardWasmSnapshotOut shape so any TS drift inside the detection
+// payload trips the deny_unknown_fields gate at the inner struct level.
+#[cfg(test)]
+mod build_safeguard_rules_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture: one safeguard rule + a detection snapshot with
+    // one entry, one artifact, one placeholder, and one scored candidate.
+    // When a field is added to BuildSafeguardRulesInWire or any nested wire
+    // struct, this fixture AND the assertions below MUST be updated in lockstep.
+    const FIXTURE: &str = r#"{
+      "rules": [{
+        "id": "demo", "name": "Demo",
+        "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+        "requiredCount": 1, "activation": "protectExisting",
+        "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+        "ignorePreviousSafeguards": true, "ignoreEquippedInCollection": false, "ignoreEquippedInVault": false,
+        "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
+        "improvementChanceThreshold": null, "tags": []
+      }],
+      "detection": {
+        "scannedAt": 1234567890.0,
+        "entries": [{
+          "hash": "abc",
+          "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+          "ruleId": "demo",
+          "ruleOrdinal": 1,
+          "ruleActivation": "protectExisting",
+          "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+          "perGroupRequiredCount": 1,
+          "groupsTracked": 1,
+          "requiredCount": 1,
+          "currentCount": 1,
+          "projectedCount": 1,
+          "deficit": 0,
+          "coveredByExisting": true,
+          "itemKeys": [42],
+          "artifacts": [{
+            "itemKey": 42, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
+            "exactLevel": null, "faction": 0, "mainStat": 1,
+            "substats": [{ "variant": 5, "isFlat": false, "value": 8.0 }]
+          }],
+          "placeholders": [{
+            "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+            "missing": 0,
+            "reason": "global"
+          }],
+          "candidates": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "isWithinQuota": true }]
+        }]
+      }
+    }"#;
+
+    // Exhaustive field-by-field assertion. Every top-level wrapper field plus
+    // the first-array-element of each nested wire struct is drilled into so any
+    // TS-side drift surfaces as either a deserialize failure (deny_unknown_fields)
+    // or an unmet expected-value assert.
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: BuildSafeguardRulesInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- BuildSafeguardRulesInWire (wrapper) -----------------------------
+        assert_eq!(parsed.rules.len(), 1, "rules");
+        let detection = parsed.detection.as_ref().expect("detection populated");
+
+        // -- SafeguardWasmRuleIn (rules[0]) ---------------------------------
+        let rule = &parsed.rules[0];
+        assert_eq!(rule.id.as_deref(), Some("demo"), "rule.id");
+        assert_eq!(rule.name.as_deref(), Some("Demo"), "rule.name");
+        assert!(rule.combination.is_some(), "rule.combination");
+        assert_eq!(rule.required_count, Some(1), "rule.requiredCount");
+        assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rule.activation");
+        assert!(rule.count_mode.is_some(), "rule.countMode");
+        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rule.ignorePreviousSafeguards");
+        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rule.ignoreEquippedInCollection");
+        assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rule.ignoreEquippedInVault");
+        assert_eq!(rule.substats.as_ref().map(|v| v.len()), Some(1), "rule.substats");
+        assert_eq!(rule.substat_match.as_deref(), Some("any"), "rule.substatMatch");
+        assert!(rule.substat_weights.is_some(), "rule.substatWeights");
+        assert!(rule.improvement_chance_threshold.is_none(), "rule.improvementChanceThreshold");
+        assert_eq!(rule.tags.as_ref().map(|v| v.len()), Some(0), "rule.tags");
+
+        // -- SafeguardWasmSnapshotOut (detection) ---------------------------
+        // Fields are private inside the safeguards module; round-trip through
+        // serde to confirm structure (re-serializing then parsing as Value is
+        // the most stable cross-module check available).
+        let round_trip = serde_json::to_value(detection).expect("detection re-serialize");
+        let snapshot_obj = round_trip.as_object().expect("detection is object");
+        assert!(
+            (snapshot_obj.get("scannedAt").and_then(|v| v.as_f64()).unwrap() - 1234567890.0).abs() < f64::EPSILON,
+            "detection.scannedAt"
+        );
+        let entries = snapshot_obj.get("entries").and_then(|v| v.as_array()).expect("detection.entries");
+        assert_eq!(entries.len(), 1, "detection.entries length");
+
+        // -- SafeguardWasmEntryOut (detection.entries[0]) -------------------
+        let entry = &entries[0];
+        assert_eq!(entry.get("hash").and_then(|v| v.as_str()), Some("abc"), "entry.hash");
+        assert_eq!(entry.get("ruleId").and_then(|v| v.as_str()), Some("demo"), "entry.ruleId");
+        assert_eq!(entry.get("ruleOrdinal").and_then(|v| v.as_i64()), Some(1), "entry.ruleOrdinal");
+        assert_eq!(entry.get("ruleActivation").and_then(|v| v.as_str()), Some("protectExisting"), "entry.ruleActivation");
+        assert_eq!(entry.get("perGroupRequiredCount").and_then(|v| v.as_i64()), Some(1), "entry.perGroupRequiredCount");
+        assert_eq!(entry.get("groupsTracked").and_then(|v| v.as_i64()), Some(1), "entry.groupsTracked");
+        assert_eq!(entry.get("requiredCount").and_then(|v| v.as_i64()), Some(1), "entry.requiredCount");
+        assert_eq!(entry.get("currentCount").and_then(|v| v.as_i64()), Some(1), "entry.currentCount");
+        assert_eq!(entry.get("projectedCount").and_then(|v| v.as_i64()), Some(1), "entry.projectedCount");
+        assert_eq!(entry.get("deficit").and_then(|v| v.as_i64()), Some(0), "entry.deficit");
+        assert_eq!(entry.get("coveredByExisting").and_then(|v| v.as_bool()), Some(true), "entry.coveredByExisting");
+        let item_keys = entry.get("itemKeys").and_then(|v| v.as_array()).expect("entry.itemKeys");
+        assert_eq!(item_keys.len(), 1, "entry.itemKeys length");
+        assert_eq!(item_keys[0].as_i64(), Some(42), "entry.itemKeys[0]");
+        let artifacts = entry.get("artifacts").and_then(|v| v.as_array()).expect("entry.artifacts");
+        assert_eq!(artifacts.len(), 1, "entry.artifacts length");
+        assert_eq!(artifacts[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.artifacts[0].itemKey");
+        let placeholders = entry.get("placeholders").and_then(|v| v.as_array()).expect("entry.placeholders");
+        assert_eq!(placeholders.len(), 1, "entry.placeholders length");
+        let candidates = entry.get("candidates").and_then(|v| v.as_array()).expect("entry.candidates");
+        assert_eq!(candidates.len(), 1, "entry.candidates length");
+        assert_eq!(candidates[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.candidates[0].itemKey");
+    }
+
+    // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"rules":[],"bogus":1}"#;
+        let r: Result<BuildSafeguardRulesInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the build_final_sell_rules_value JSON wire shape.
+// Covers the wrapper top-level + the nested FinalSellRemainderIn shape so any
+// TS drift in the FinalSellRemainderConfig fields trips the deny check.
+#[cfg(test)]
+mod build_final_sell_rules_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture: optional remainder set, every nested field
+    // populated, and a non-empty allKnownSetIds list.
+    const FIXTURE: &str = r#"{
+      "remainder": {
+        "artifacts": true,
+        "accessories": false,
+        "levels": [4, 8, 12, 16],
+        "setsMode": "all"
+      },
+      "allKnownSetIds": [1, 2, 3]
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: BuildFinalSellRulesInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- BuildFinalSellRulesInWire (wrapper) -----------------------------
+        let remainder = parsed.remainder.as_ref().expect("remainder populated");
+        assert_eq!(parsed.all_known_set_ids, vec![1i64, 2, 3], "allKnownSetIds");
+
+        // -- FinalSellRemainderIn (remainder) -------------------------------
+        assert!(remainder.artifacts, "remainder.artifacts");
+        assert!(!remainder.accessories, "remainder.accessories");
+        assert_eq!(remainder.levels, vec![4i64, 8, 12, 16], "remainder.levels");
+        assert_eq!(remainder.sets_mode.as_deref(), Some("all"), "remainder.setsMode");
+    }
+
+    // deny_unknown_fields gate — extra top-level keys must error.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"allKnownSetIds":[],"bogus":1}"#;
+        let r: Result<BuildFinalSellRulesInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the find_obsolete_value JSON wire shape.
+// Payload is a bare Vec<RuleRawWire> (no top-level wrapper) — the per-rule
+// deny_unknown_fields gate on RuleRawWire is the only enforcement point;
+// RuleRaw itself is intentionally lax and must NOT have deny_unknown_fields.
+// RuleRawWire fields are private, so internal asserts go through the canonical
+// RuleRaw via the From<RuleRawWire> conversion.
+#[cfg(test)]
+mod find_obsolete_value_wire_tests {
+    use super::*;
+
+    // Fixture is a JSON array (matches what the TS side stringifies via
+    // `JSON.stringify(rules.map(minifyRuleRawForWire))`).  Uses the short
+    // wire keys so the test covers the actual on-wire shape, not just the
+    // long-form aliases.
+    const FIXTURE: &str = r#"[{"r_id":1,"r_n":"Demo","k":true,"and":false,"u":true,"as":[19],"at":[5],"rk":6,"ra":6,"ms":1,"mf":0,"lvl":16,"f":0}]"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        assert_eq!(parsed.len(), 1, "rules count");
+        // Convert through the From impl so we can assert on the canonical pub
+        // RuleRaw fields (RuleRawWire's own fields are module-private).
+        let canonical: Vec<RuleRaw> = parsed.into_iter().map(RuleRaw::from).collect();
+        let rule = &canonical[0];
+        assert_eq!(rule.RecipeID, Some(1), "rule.RecipeID");
+        assert_eq!(rule.RecipeName.as_deref(), Some("Demo"), "rule.RecipeName");
+        assert_eq!(rule.Keep, Some(true), "rule.Keep");
+        assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
+        assert_eq!(rule.Use, Some(true), "rule.Use");
+        assert_eq!(rule.ArtifactSet.as_ref().map(|v| v.as_slice()), Some([19i64].as_slice()), "rule.ArtifactSet");
+        assert_eq!(rule.ArtifactType.as_ref().map(|v| v.as_slice()), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(rule.Rank, Some(6), "rule.Rank");
+        assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
+        assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
+        assert_eq!(rule.MainStatF, Some(0), "rule.MainStatF");
+        assert_eq!(rule.LVLForCheck, Some(16), "rule.LVLForCheck");
+        assert_eq!(rule.Faction, Some(0), "rule.Faction");
+    }
+
+    // Unknown-field gate must catch drift INSIDE a rule entry (the array
+    // itself has no wrapper, so the bogus key lives at the per-rule level).
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"[{"k": true, "bogus_extra": 1}]"#;
+        let r: Result<Vec<RuleRawWire>, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown per-rule keys");
+    }
+}
+
+// Conformance tests for the dedupe_hsf_rules_for_export_value JSON wire shape.
+// Same shape as find_obsolete_value — a bare Vec<RuleRawWire>; the per-rule
+// deny_unknown_fields gate on RuleRawWire is the enforcement point.
+#[cfg(test)]
+mod dedupe_hsf_rules_for_export_value_wire_tests {
+    use super::*;
+
+    // Fixture uses short wire keys to exercise the actual on-wire format
+    // emitted by `JSON.stringify(rules.map(minifyRuleRawForWire))`.
+    const FIXTURE: &str = r#"[{"r_id":1,"r_n":"Demo","k":true,"and":false,"u":true,"as":[19],"at":[5],"rk":6,"ra":6,"ms":1,"mf":0,"lvl":16,"f":0}]"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        assert_eq!(parsed.len(), 1, "rules count");
+        // Drill into canonical fields via From — RuleRawWire's fields are private.
+        let canonical: Vec<RuleRaw> = parsed.into_iter().map(RuleRaw::from).collect();
+        let rule = &canonical[0];
+        assert_eq!(rule.RecipeID, Some(1), "rule.RecipeID");
+        assert_eq!(rule.RecipeName.as_deref(), Some("Demo"), "rule.RecipeName");
+        assert_eq!(rule.Keep, Some(true), "rule.Keep");
+        assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
+        assert_eq!(rule.Use, Some(true), "rule.Use");
+        assert_eq!(rule.ArtifactSet.as_ref().map(|v| v.as_slice()), Some([19i64].as_slice()), "rule.ArtifactSet");
+        assert_eq!(rule.ArtifactType.as_ref().map(|v| v.as_slice()), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(rule.Rank, Some(6), "rule.Rank");
+        assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
+        assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
+        assert_eq!(rule.MainStatF, Some(0), "rule.MainStatF");
+        assert_eq!(rule.LVLForCheck, Some(16), "rule.LVLForCheck");
+        assert_eq!(rule.Faction, Some(0), "rule.Faction");
+    }
+
+    // Unknown-field gate — bogus key must live inside a rule entry.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"[{"k": true, "bogus_extra": 1}]"#;
+        let r: Result<Vec<RuleRawWire>, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown per-rule keys");
     }
 }

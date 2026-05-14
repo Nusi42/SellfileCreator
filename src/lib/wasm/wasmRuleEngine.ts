@@ -432,17 +432,26 @@ type WasmCollectedAndProtectedSafeguardSnapshot = {
 
 // Synchronous obsolete-pruning helper used by generation code paths that must
 // stay sync; it only runs after the async warmup initialized the module.
+// Payload is a JSON-stringified array of minified RuleRawWire rows so the Rust
+// side parses through serde_json::from_str and the per-rule deny_unknown_fields
+// gate on RuleRawWire activates (serde-wasm-bindgen's from_value path cannot).
 export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteReport | null => {
   assertWasmInitializedSync()
-  const report = findObsoleteRuleEngineWasmValueBinding(rules) as WasmObsoleteReport
+  // Wire format minification keeps the payload compact and aligned with the
+  // rest of the RuleRaw-handling exports (configure, finalize, flatten, merge).
+  const payloadJson = JSON.stringify(rules.map(minifyRuleRawForWire))
+  const report = findObsoleteRuleEngineWasmValueBinding(payloadJson) as WasmObsoleteReport
   if (report && Array.isArray(report.obsolete)) return report
   throw new Error('WASM obsolete-rule detector returned an invalid payload.')
 }
 
 // Export dedupe helper; normalization + coverage matching live in Rust as the single source of truth.
+// Payload is JSON-stringified minified RuleRawWire rows (same pattern as
+// findObsoleteRulesWithLoadedWasm above) so the strict per-rule wire-form check applies.
 export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithRecipe[]): HsfRuleWithRecipe[] | null => {
   assertWasmInitializedSync()
-  const result = dedupeHsfRulesForExportWasmValueBinding(rules) as HsfRuleWithRecipe[]
+  const payloadJson = JSON.stringify(rules.map(minifyRuleRawForWire))
+  const result = dedupeHsfRulesForExportWasmValueBinding(payloadJson) as HsfRuleWithRecipe[]
   if (Array.isArray(result)) return result
   throw new Error('WASM export-rule dedupe returned an invalid payload.')
 }
@@ -827,6 +836,10 @@ export const mergeSafeguardInjectedRulesWithLoadedWasm = (params: {
 
 // Safeguard HSF rule construction moved to Rust so merge.ts no longer
 // maintains duplicate placeholder/artifact expansion logic.
+// Payload is a JSON-stringified { rules, detection } wrapper so serde_json
+// activates BuildSafeguardRulesInWire's deny_unknown_fields gate on every
+// nested key.  recipe_id_base stays a primitive bigint argument because
+// wasm-bindgen marshals i64 natively without JSON overhead.
 export const buildSafeguardRulesWithLoadedWasm = (params: {
   rules: readonly SafeguardRule[]
   detection: SafeguardDetectionSnapshot | null
@@ -834,9 +847,15 @@ export const buildSafeguardRulesWithLoadedWasm = (params: {
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   if (!params.detection) return []
+  // Single wrapper object so Rust's serde_json::from_str sees one JSON document.
+  // The detection field is required by the wrapper type but stays Option-typed
+  // on the Rust side so future callers can omit it without breaking the schema.
+  const payloadJson = JSON.stringify({
+    rules: resolveRulesForWasm(params.rules),
+    detection: params.detection,
+  })
   const result = buildSafeguardRulesWasmValueBinding(
-    resolveRulesForWasm(params.rules),
-    params.detection,
+    payloadJson,
     BigInt(Math.floor(params.recipeIdBase)),
   )
   if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
@@ -845,15 +864,22 @@ export const buildSafeguardRulesWithLoadedWasm = (params: {
 
 // Final-sell HSF remainder generation runs in Rust so merge.ts no longer owns
 // level/type/set expansion loops.
+// Payload is a JSON-stringified { remainder, allKnownSetIds } wrapper so the
+// Rust side activates BuildFinalSellRulesInWire's deny_unknown_fields gate.
+// FinalSellRemainderIn is strict-deserialized too, so any drift in the TS
+// FinalSellRemainderConfig shape fails fast at the boundary.
 export const buildFinalSellRulesWithLoadedWasm = (params: {
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  const result = buildFinalSellRulesWasmValueBinding(
-    params.finalSellRemainder ?? null,
-    params.allKnownSetIds,
-  )
+  // Build the wrapper payload — remainder may be null/undefined when no
+  // final-sell expansion is requested; the wrapper's Option<...> handles both.
+  const payloadJson = JSON.stringify({
+    remainder: params.finalSellRemainder ?? null,
+    allKnownSetIds: params.allKnownSetIds,
+  })
+  const result = buildFinalSellRulesWasmValueBinding(payloadJson)
   if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM final-sell rule builder returned an invalid payload.')
 }
