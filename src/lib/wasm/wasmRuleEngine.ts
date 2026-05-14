@@ -799,7 +799,11 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
 ): T[] => {
   assertWasmInitializedSync()
   if (rules.length === 0 || metasets.length === 0) return rules as T[]
-  const result = resolveSafeguardRulesWithMetasetsWasmValueBinding(rules, metasets) as T[]
+  const payload = JSON.stringify({
+    rules,
+    metasets,
+  })
+  const result = resolveSafeguardRulesWithMetasetsWasmValueBinding(payload) as T[]
   if (Array.isArray(result)) return result
   throw new Error('WASM safeguard metaset resolver returned an invalid payload.')
 }

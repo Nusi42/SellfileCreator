@@ -198,6 +198,18 @@ struct CollectAndComputeSafeguardProtectionInWire {
     improvement_chances: Option<Vec<ImprovementChanceInput>>,
 }
 
+// Top-level JSON-string payload accepted by resolve_safeguard_rules_with_metasets_value.
+// Mirrors the prior multi-arg signature with safeguard rules and metaset definitions
+// bundled into a single struct so deny_unknown_fields activates — serde_json::from_str
+// will reject unknown top-level fields, whereas serde-wasm-bindgen's from_value path
+// structurally ignores them.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ResolveSafeguardRulesWithMetasetsInWire {
+    rules: Vec<SafeguardWasmRuleIn>,
+    metasets: Vec<SafeguardWasmMetasetIn>,
+}
+
 // Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
 // BTreeMap consumed by the safeguard protection core. BTreeMap chosen for memory stability
 // under the talc allocator (matches the convention used elsewhere in this crate).
@@ -468,16 +480,14 @@ pub fn collect_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsVa
 
 // Expand safeguard metaset ids into concrete set selections inside wasm.
 #[wasm_bindgen]
-pub fn resolve_safeguard_rules_with_metasets_value(
-    rules: JsValue,
-    metasets: JsValue,
-) -> Result<JsValue, JsValue> {
-    // Parse safeguard rule payloads with nullable-field tolerance.
-    let mut rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard rules payload: {error}")))?;
-    // Parse metaset definitions into a fast lookup table.
-    let metasets: Vec<SafeguardWasmMetasetIn> = from_js_value(metasets)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard metasets payload: {error}")))?;
+pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers rules and metasets with deny_unknown_fields activated.
+    let input: ResolveSafeguardRulesWithMetasetsInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid resolve-safeguard-rules-with-metasets payload: {error}")))?;
+    let mut rules: Vec<SafeguardWasmRuleIn> = input.rules;
+    let metasets: Vec<SafeguardWasmMetasetIn> = input.metasets;
     let mut meta_map = HashMap::<String, Vec<i64>>::new();
     for meta in metasets {
         meta_map.insert(meta.name, meta.sets);
@@ -1432,6 +1442,65 @@ mod collect_and_compute_safeguard_protection_wire_tests {
     fn unknown_top_level_field_rejected() {
         let bad = r#"{"rows":[],"rules":[],"recipeModes":[],"safeguardRules":[],"enabled":true,"now":0.0,"bogus":1}"#;
         let r: Result<CollectAndComputeSafeguardProtectionInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the resolve_safeguard_rules_with_metasets_value JSON wire shape.
+// Mirrors compute_safeguard_protection_wire_tests — same purpose, same pattern.
+#[cfg(test)]
+mod resolve_safeguard_rules_with_metasets_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture mirrors what TS emits. When a field is added to
+    // ResolveSafeguardRulesWithMetasetsInWire or any nested wire struct, this
+    // fixture AND the assertion below MUST be updated in lockstep.
+    const FIXTURE: &str = r#"{
+      "rules": [{
+        "id": "demo", "name": "Demo",
+        "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+        "requiredCount": 1, "activation": "protectExisting",
+        "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+        "ignorePreviousSafeguards": true, "ignoreEquippedInCollection": false, "ignoreEquippedInVault": false,
+        "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
+        "improvementChanceThreshold": null, "tags": []
+      }],
+      "metasets": [{ "name": "DemoMeta", "sets": [19, 20] }]
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: ResolveSafeguardRulesWithMetasetsInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        // Wrapper top-level
+        assert_eq!(parsed.rules.len(), 1, "rules");
+        assert_eq!(parsed.metasets.len(), 1, "metasets");
+        // First rule fields — drill into every Option/scalar
+        let rule = &parsed.rules[0];
+        assert_eq!(rule.id.as_deref(), Some("demo"), "rule.id");
+        assert_eq!(rule.name.as_deref(), Some("Demo"), "rule.name");
+        assert!(rule.combination.is_some(), "rule.combination");
+        assert_eq!(rule.required_count, Some(1), "rule.requiredCount");
+        assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rule.activation");
+        assert!(rule.count_mode.is_some(), "rule.countMode");
+        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rule.ignorePreviousSafeguards");
+        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rule.ignoreEquippedInCollection");
+        assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rule.ignoreEquippedInVault");
+        assert_eq!(rule.substats.as_ref().map(|v| v.len()), Some(1), "rule.substats");
+        assert_eq!(rule.substat_match.as_deref(), Some("any"), "rule.substatMatch");
+        assert!(rule.substat_weights.is_some(), "rule.substatWeights");
+        assert!(rule.improvement_chance_threshold.is_none(), "rule.improvementChanceThreshold");
+        assert_eq!(rule.tags.as_ref().map(|v| v.len()), Some(0), "rule.tags");
+        // First metaset
+        let meta = &parsed.metasets[0];
+        assert_eq!(meta.name, "DemoMeta", "metaset.name");
+        assert_eq!(meta.sets.len(), 2, "metaset.sets");
+    }
+
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"rules":[],"metasets":[],"bogus":1}"#;
+        let r: Result<ResolveSafeguardRulesWithMetasetsInWire, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
