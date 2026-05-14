@@ -246,6 +246,23 @@ pub struct EvaluateItemRaw {
     pub item: TestItemRaw,
 }
 
+// Top-level JSON-string payload accepted by evaluate_value (rule_engine_wasm and
+// rule_engine_dsim_wasm both consume this shape). Wraps the prior (items, options)
+// JsValue argument pair so the single serde_json::from_str parse activates
+// deny_unknown_fields at the wrapper level. Hot-path entry — worker calls this
+// with batches of up to PIPELINE_MATCH_BATCH_SIZE items, so switching from
+// externref-driven serde_wasm_bindgen to linear-memory JSON parsing also reduces
+// wasm-bindgen Vec::grow_one churn under talc.
+// `options` stays Option<EvaluateOptionsRaw> because the TS side omits the key
+// entirely when no filter options apply (matches EvaluateOptionsRaw::default).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EvaluateValueInWire {
+    pub items: Vec<EvaluateItemRaw>,
+    #[serde(default)]
+    pub options: Option<EvaluateOptionsRaw>,
+}
+
 // TestItem mirrors src/lib/ruleEval.ts fields used for matching.
 // All optional fields remain optional for backward compatibility.
 #[derive(Debug, Deserialize, Clone)]

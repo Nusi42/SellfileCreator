@@ -274,7 +274,10 @@ const toSortedNumberArray = (input?: ReadonlySet<number>): number[] | undefined 
 // filter is active; an empty object would still parse but skipping the key keeps
 // the on-wire payload smaller and lets the Rust wrapper short-circuit via
 // EvaluateOptionsRaw::default() instead of allocating an empty options struct.
-const buildEvaluatePayload = (
+// Exported so the DSIM wrapper (wasmDsimRuleEngine.ts) reuses the same payload
+// shape and projection logic — both binaries consume the EvaluateValueInWire
+// wrapper defined in rule_engine_core, so any drift here would diverge them.
+export const buildEvaluatePayload = (
   items: GearInspectorMatchWorkerEvaluateItem[],
   options?: WasmRuleEngineEvaluateOptions,
 ): string => {

@@ -263,21 +263,8 @@ struct MergeSafeguardInjectedRulesInWire {
     candidate_safeguard_rules: Vec<RuleRawWire>,
 }
 
-// Top-level JSON-string payload accepted by evaluate_value.  Wraps the prior
-// (items, options) JsValue argument pair so the single serde_json::from_str
-// parse activates deny_unknown_fields at the wrapper level.  Hot-path entry —
-// worker calls this with batches of up to PIPELINE_MATCH_BATCH_SIZE items, so
-// switching from externref-driven serde_wasm_bindgen to linear-memory JSON
-// parsing also reduces wasm-bindgen Vec::grow_one churn under talc.
-// `options` stays Option<EvaluateOptionsRaw> because the TS side omits the key
-// entirely when no filter options apply (matches EvaluateOptionsRaw::default).
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct EvaluateValueInWire {
-    items: Vec<EvaluateItemRaw>,
-    #[serde(default)]
-    options: Option<EvaluateOptionsRaw>,
-}
+// EvaluateValueInWire moved to rule_engine_core::lib so rule_engine_dsim_wasm
+// can share the same wrapper shape (re-exported via `use rule_engine_core::*`).
 
 // Top-level JSON-string payload accepted by evaluate_and_collect_safeguard_protection_value.
 // Bundles the five prior JsValue arguments (options, ignore-recipe list, safeguard rules,
