@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, Button, Box, Typography } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography } from '@mui/material'
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
@@ -195,7 +195,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       PaperProps={{
         sx: {
           maxHeight: '84vh',
-          overflow: 'visible',
+          overflow: 'hidden',
           position: 'relative',
           backgroundColor: 'background.paper',
           '&::before': {
@@ -217,31 +217,29 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
     >
-      <DialogContent dividers>
-        {/* Language selector — right-aligned, no sticky behaviour */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
-            <Select
-              labelId="i18n-language-select-label"
-              id="i18n-language-select"
-              label={languageLabel}
-              value={selectValue}
-              onChange={(e) => setLang(e.target.value as typeof lang)}
-            >
-              {languageOptions.map((opt) => (
-                <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        {/* App title — replaces the stripped README H1; shared component with main screen */}
-        <Box sx={{ mb: 1.5 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
           <AppTitle />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.6 }}>
             v{APP_VERSION} — © Nusi㊷ - 2026
           </Typography>
         </Box>
+        <FormControl size="small" sx={{ minWidth: 220, flexShrink: 0 }}>
+          <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
+          <Select
+            labelId="i18n-language-select-label"
+            id="i18n-language-select"
+            label={languageLabel}
+            value={selectValue}
+            onChange={(e) => setLang(e.target.value as typeof lang)}
+          >
+            {languageOptions.map((opt) => (
+              <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </DialogTitle>
+      <DialogContent dividers>
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
