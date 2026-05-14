@@ -302,6 +302,9 @@ export type UseTutorialCoachStateParams = {
   // Suppress history snapshots during tutorial-driven resets and restores.
   suppressHistorySnapshot: () => void
   t: Translate
+  // When true, the first-run help dialog is NOT auto-opened on mount. The caller
+  // is responsible for opening it later (e.g. when the user leaves simple mode).
+  suppressInitialHelpOpen?: boolean
 }
 
 export type UseTutorialCoachStateResult = {
@@ -309,6 +312,8 @@ export type UseTutorialCoachStateResult = {
   setHelpOpen: Dispatch<SetStateAction<boolean>>
   helpFirstRunMode: boolean
   setHelpFirstRunMode: Dispatch<SetStateAction<boolean>>
+  // True when first-run was detected but suppressed by suppressInitialHelpOpen.
+  helpFirstRunPending: boolean
   tutorialOpen: boolean
   tutorialSteps: TutorialStep[]
   tutorialIdx: number
@@ -368,6 +373,7 @@ export function useTutorialCoachState({
   setBuilderMode,
   suppressHistorySnapshot,
   t,
+  suppressInitialHelpOpen = false,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
   const initialHelpFirstRun = useMemo(() => {
     try {
@@ -377,8 +383,10 @@ export function useTutorialCoachState({
     }
   }, [])
 
-  const [helpOpen, setHelpOpen] = useState<boolean>(initialHelpFirstRun)
-  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(initialHelpFirstRun)
+  // When suppressed, the dialog is deferred; the caller triggers it via helpFirstRunPending.
+  const helpFirstRunPending = initialHelpFirstRun && suppressInitialHelpOpen
+  const [helpOpen, setHelpOpen] = useState<boolean>(initialHelpFirstRun && !suppressInitialHelpOpen)
+  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(initialHelpFirstRun && !suppressInitialHelpOpen)
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
   const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
   const [tutorialIdx, setTutorialIdx] = useState<number>(0)
@@ -2079,6 +2087,7 @@ export function useTutorialCoachState({
     helpOpen,
     setHelpOpen,
     helpFirstRunMode,
+    helpFirstRunPending,
     setHelpFirstRunMode,
     tutorialOpen,
     tutorialSteps,

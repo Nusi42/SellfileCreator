@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -240,11 +241,13 @@ export default function MetasetsDialog({
       run()
     })
   }, [publishDraftNow])
+  // Shrinks the dialog toward its trigger button when closing.
+  const { paperRef: metasetsPaperRef, animateClose: metasetsAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.manage-metasets"]')
   // Dialog close should never drop unsynced local edits.
   const handleDialogClose = useCallback(() => {
     publishDraftNow()
-    onClose()
-  }, [onClose, publishDraftNow])
+    metasetsAnimateClose(onClose)
+  }, [onClose, publishDraftNow, metasetsAnimateClose])
   // Follow parent snapshots only when no local draft publish is queued.
   // Render-time state adjustment: sync draft to parent metasets when no publish is pending.
   const [prevMetasets, setPrevMetasets] = useState(metasets)
@@ -548,7 +551,7 @@ export default function MetasetsDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth>
+      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth transitionDuration={{ exit: 0 }} PaperProps={{ ref: metasetsPaperRef }}>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}

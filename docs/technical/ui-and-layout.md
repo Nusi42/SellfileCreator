@@ -110,7 +110,36 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ### Note Dialog Sizing
 
 - The Note dialog uses a fixed height (`84vh`) so sparse content does not shrink the shell.
+- In Simple Mode the preset toggle adds ~50 px; the dialog grows to `92vh` to compensate (`NOTE_DIALOG_PAPER_SX_SIMPLE` in `NoteDialog.tsx`).
 - View and edit modes share the same width and height constraints for a consistent toggle experience.
+
+### Simple Mode
+
+Activated when RSL Helper appends `&simple` to the deep-link URL it opens:
+
+```
+http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
+```
+
+**Layout**: The header, builder column, and preview panel are hidden (`display: none`). The Note dialog opens automatically and is the sole visible surface. It cannot be dismissed — close button, Escape key, and backdrop click are all disabled.
+
+**Preset toggle**: A Basic / Mid-to-Endgame toggle bar appears between the dialog title and the note content. Switching immediately loads the full corresponding preset SFC (recipes + note). Defaults to Mid-to-Endgame.
+
+**Action bar** (bottom of dialog):
+- Left — *Reset to Defaults* (red): resets all dynamic override answers.
+- Centre — *RSL Helper connection indicator* + *Auto-Push* toggle.
+- Right — *Go Expert*: switches to the full UI.
+
+**Auto-Push** defaults to on; the button pulses briefly after each successful silent push.
+
+**Autosave**: The SFC autosave is discarded on startup (the preset SFC is the source of truth). Previously loaded Gear Inspector items are silently restored so the Gear Inspector stays populated.
+
+**Go Expert / Simple Mode toggle**:
+- *Go Expert* reveals the full UI and persists the choice in `localStorage` (`sellfileCreator.simple.expertMode.v1`).
+- On the next `?simple` launch, if Expert was the last state, the full UI loads directly and the Note button pulses twice to signal where the note lives.
+- *Simple Mode* in the dialog title bar returns to the streamlined view and clears the persisted preference.
+
+**Transitions**: Switching between Simple and Expert mode is animated — the SFC toggle collapses (height), the action bar crossfades with a directional translateY, and the *Simple Mode* / *Go Expert* buttons fade in sync. Closing the dialog in Expert mode animates it shrinking toward the Note button.
 
 ### Verification checklist
 

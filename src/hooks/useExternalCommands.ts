@@ -4,6 +4,7 @@ import {
   buildExternalWsRequest,
   EXTERNAL_WS_PROTOCOL_DEFAULT,
   EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY,
+  EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC,
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   isRecord,
   parseExternalWsMessage,
@@ -183,6 +184,16 @@ export function useExternalCommands({
           protocolRef.current = negotiated ?? EXTERNAL_WS_PROTOCOL_DEFAULT
           // Mark the endpoint as reachable once the socket opens.
           onReachabilityChange(true)
+          // Ask RSL Helper to push all current datasets so we get a full snapshot
+          // immediately rather than waiting for the next natural push cycle.
+          // Fire-and-forget: unmatched responses are silently dropped by handleInboundMessage.
+          try {
+            const id = nextIdRef.current++
+            socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
+          } catch {
+            // Non-fatal — older RSL Helper versions that do not support requestSfcSync will simply not respond.
+            if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on connect')
+          }
         }
 
         socket.onmessage = (event) => {

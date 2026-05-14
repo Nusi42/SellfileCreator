@@ -2529,6 +2529,7 @@ export default function SafeguardBuilderPanel({
                 size="small"
                 variant="outlined"
                 onClick={onManageMetasets}
+                data-tour-id="builder.manage-metasets"
                 sx={{ minWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
               >
                 <Box component="span" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>

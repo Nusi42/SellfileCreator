@@ -6,6 +6,7 @@
  * feeds the Gear Inspector preview grid on the main screen.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { JSX, ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -127,6 +128,13 @@ const gearInspectorCookieFlip = keyframes`
   0% { transform: rotate(0deg); }
   50% { transform: rotate(90deg); }
   100% { transform: rotate(0deg); }
+`
+
+// Speech bubble pops in, bounces slightly, then stays visible.
+const gearInspectorCookieSpeechIn = keyframes`
+  0%   { opacity: 0; transform: translateY(6px) scale(0.82); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.05); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 `
 
 // cloneNormalizedStat ensures duplicate rows never mutate the original stat metadata.
@@ -276,6 +284,8 @@ export function GearInspectorTabContent({
   useEffect(() => { itemsRef.current = items }, [items])
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
+  // Tracks the DOM element of each row's controls column so the portal halo can be positioned via getBoundingClientRect.
+  const cookieControlsMapRef = useRef<Map<number, HTMLElement>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
   const [compactByItemId, setCompactByItemId] = useState<Map<number, boolean>>(() => new Map())
 
@@ -366,6 +376,18 @@ export function GearInspectorTabContent({
     cookieTimeoutRef.current.clear()
     toggleHistoryRef.current.clear()
   }, [])
+
+  // Drop active portal overlays immediately when the dialog hides so the fixed-position elements
+  // don't linger over the page while the dialog fade-out transition is still running.
+  useEffect(() => {
+    if (isActive) return
+    cookieTimeoutRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    cookieTimeoutRef.current.clear()
+    toggleHistoryRef.current.clear()
+    // Coupled to clearTimeout above — the derived-state pattern cannot cancel timers, so useEffect is correct here.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-hooks/set-state-in-effect
+    setCookieMonsterExpiryByRow({})
+  }, [isActive])
 
   const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     setScrollTop(event.currentTarget.scrollTop)
@@ -821,36 +843,19 @@ export function GearInspectorTabContent({
           direction="column"
           spacing={0.5}
           alignItems="stretch"
+          ref={(el: HTMLElement | null) => {
+            // Register this row's controls column so the cookie portal can read its viewport position.
+            if (el) cookieControlsMapRef.current.set(it.itemId, el)
+            else cookieControlsMapRef.current.delete(it.itemId)
+          }}
           sx={{
             mr: 0.5,
             gridColumn: '1',
             gridRow: '1',
             position: 'relative',
             width: GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX,
-            ...(cookieMonsterActive
-              ? {
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    width: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
-                    height: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    opacity: 0.92,
-                    transform: 'translate(-50%, -50%)',
-                    pointerEvents: 'none',
-                    boxShadow: (theme) => `0 0 18px ${theme.palette.primary.light}b0`,
-                    animation: `${gearInspectorCookiePulse} 1.5s ease-in-out infinite`,
-                    zIndex: 0,
-                  },
-                  '& > *': {
-                    position: 'relative',
-                    zIndex: 1,
-                  },
-                }
-              : {}),
+            // Invisible during the animation; the portal face overlay renders the icons above the circle.
+            ...(cookieMonsterActive ? { opacity: 0 } : {}),
           }}
         >
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
@@ -927,6 +932,108 @@ export function GearInspectorTabContent({
             </Button>
           </MarkdownTooltip>
         </Stack>
+        {cookieMonsterActive && typeof document !== 'undefined' && (() => {
+          // Portal escapes the dialog's overflow:hidden and scroll-container clipping so the halo
+          // and speech bubble can paint freely over the dialog at the correct viewport position.
+          const el = cookieControlsMapRef.current.get(it.itemId)
+          if (!el) return null
+          const rect = el.getBoundingClientRect()
+          const cx = Math.round(rect.left + rect.width / 2)
+          const cy = Math.round(rect.top + rect.height / 2)
+          const radius = GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX / 2
+          return createPortal(
+            <>
+              {/* Blue circle halo — Portal escapes dialog overflow clipping */}
+              <Box
+                sx={(theme) => ({
+                  position: 'fixed',
+                  left: cx,
+                  top: cy,
+                  width: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
+                  height: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
+                  borderRadius: '50%',
+                  bgcolor: theme.palette.primary.main,
+                  opacity: 0.92,
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                  boxShadow: `0 0 18px ${theme.palette.primary.light}b0`,
+                  animation: `${gearInspectorCookiePulse} 1.5s ease-in-out infinite`,
+                  zIndex: theme.zIndex.modal + 50,
+                })}
+              />
+              {/* Face overlay — icon copies above the circle; the originals are opacity:0 but still clickable */}
+              <Box
+                sx={(theme) => ({
+                  position: 'fixed',
+                  left: rect.left,
+                  top: rect.top,
+                  width: rect.width,
+                  height: rect.height,
+                  pointerEvents: 'none',
+                  zIndex: theme.zIndex.modal + 51,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px',
+                  pt: 0.25,
+                })}
+              >
+                {/* Eyes: add icon (primary) and delete icon (warning) */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                  <AddCircleOutlineIcon fontSize="small" sx={{
+                    animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
+                    transformOrigin: '50% 50%',
+                  }} />
+                  <RemoveCircleOutlineIcon fontSize="small" sx={{
+                    color: 'warning.main',
+                    animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
+                    animationDelay: '0.18s',
+                    transformOrigin: '50% 50%',
+                  }} />
+                </Box>
+                {/* Mouth: compact/expand icon */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 24, width: '100%' }}>
+                  {isCompact
+                    ? <OpenInFullIcon fontSize="small" sx={{ animation: `${gearInspectorCookieFlip} 1.2s ease-in-out infinite`, transformOrigin: '50% 50%' }} />
+                    : <CloseFullscreenIcon fontSize="small" sx={{ animation: `${gearInspectorCookieFlip} 1.2s ease-in-out infinite`, transformOrigin: '50% 50%' }} />}
+                </Box>
+              </Box>
+              {/* Speech bubble to the upper-right */}
+              <Box
+                sx={(theme) => ({
+                  position: 'fixed',
+                  left: cx + radius + 6,
+                  top: cy - radius - 4,
+                  bgcolor: theme.palette.primary.main,
+                  color: theme.palette.common.white,
+                  borderRadius: '12px',
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: theme.typography.body2.fontSize,
+                  fontWeight: 700,
+                  pointerEvents: 'none',
+                  letterSpacing: 0.5,
+                  boxShadow: theme.shadows[4],
+                  animation: `${gearInspectorCookieSpeechIn} 0.4s ease-out forwards`,
+                  zIndex: theme.zIndex.modal + 51,
+                  whiteSpace: 'nowrap',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    right: '100%',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    border: '6px solid transparent',
+                    borderRightColor: theme.palette.primary.main,
+                  },
+                })}
+              >
+                Coookieees!
+              </Box>
+            </>,
+            document.body
+          )
+        })()}
         {isCompact ? (
           <Box
             // Compact summary: show the item snapshot when editor controls are collapsed.
@@ -1665,6 +1772,7 @@ export function GearInspectorTabContent({
         {items.length > 0 ? (
           <Box sx={{ position: 'relative' }}>
             {topSpacerHeight > 0 ? <Box sx={{ height: topSpacerHeight }} /> : null}
+            {/* eslint-disable-next-line react-hooks/refs -- renderGearInspectorRow reads cookieControlsMapRef (a callback-ref Map) only when cookieMonsterActive is true; guarded by cookieMonsterActive check inside */}
             {visibleIndices.map((idx) => {
               const item = items[idx] as GearInspectorItemLocal
               return (

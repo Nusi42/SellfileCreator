@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, Button, Box, Typography } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography } from '@mui/material'
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
@@ -12,18 +12,11 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 // Values are raw Markdown strings.
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useLanguageOptions } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
 import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
-import {
-  DEFAULT_LANGUAGE,
-  DEV_LANGUAGES,
-  PRODUCTION_LANGUAGES,
-  type DevLanguage,
-  type Language,
-  type ProductionLanguage,
-} from '../lib/i18n/types'
+import { DEFAULT_LANGUAGE } from '../lib/i18n/types'
 
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
@@ -39,7 +32,7 @@ const getFaviconLinkHref = (): string | undefined => {
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
-  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const languageOptions = useLanguageOptions()
   const paperBackgroundImage = React.useMemo(() => {
     const decorativeLayer = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0))'
     const faviconHref = getFaviconLinkHref()
@@ -62,28 +55,6 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     }
     return '# Sellfile Creator for RSL Helper'
   }, [lang])
-  // Language selector is always visible; dev builds keep the blank-audit language.
-  const languageOptions: ReadonlyArray<{ code: Language; label: string }> = React.useMemo(() => {
-    const productionLabels: Record<ProductionLanguage, string> = {
-      'en-US': 'English (EN)',
-      'de-DE': 'Deutsch (DE)',
-      'fr-FR': 'Français (FR)',
-      'es-ES': 'Español (ES)',
-      'it-IT': 'Italiano (IT)',
-      'pt-BR': 'Português (BR)',
-      'pt-PT': 'Português (PT)',
-      'ru-RU': 'Русский (RU)',
-      'uk-UA': 'Українська (UK)',
-      'tr-TR': 'Türkçe (TR)',
-    }
-    const devLabels: Record<DevLanguage, string> = {
-      empty: 'Empty (dev)',
-    }
-    const production = PRODUCTION_LANGUAGES.map((code) => ({ code, label: productionLabels[code] }))
-    if (!isDev) return production
-    const dev = DEV_LANGUAGES.map((code) => ({ code, label: devLabels[code] }))
-    return [...dev, ...production]
-  }, [isDev])
   const selectValue = React.useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])
@@ -224,7 +195,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       PaperProps={{
         sx: {
           maxHeight: '84vh',
-          overflow: 'visible',
+          overflow: 'hidden',
           position: 'relative',
           backgroundColor: 'background.paper',
           '&::before': {
@@ -246,31 +217,29 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
     >
-      <DialogContent dividers>
-        {/* Language selector — right-aligned, no sticky behaviour */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
-            <Select
-              labelId="i18n-language-select-label"
-              id="i18n-language-select"
-              label={languageLabel}
-              value={selectValue}
-              onChange={(e) => setLang(e.target.value as typeof lang)}
-            >
-              {languageOptions.map((opt) => (
-                <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        {/* App title — replaces the stripped README H1; shared component with main screen */}
-        <Box sx={{ mb: 1.5 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
           <AppTitle />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.6 }}>
             v{APP_VERSION} — © Nusi㊷ - 2026
           </Typography>
         </Box>
+        <FormControl size="small" sx={{ minWidth: 220, flexShrink: 0 }}>
+          <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
+          <Select
+            labelId="i18n-language-select-label"
+            id="i18n-language-select"
+            label={languageLabel}
+            value={selectValue}
+            onChange={(e) => setLang(e.target.value as typeof lang)}
+          >
+            {languageOptions.map((opt) => (
+              <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </DialogTitle>
+      <DialogContent dividers>
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}

@@ -1,4 +1,5 @@
 import { useCallback, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
+import { useDialogMinimizeAnimation } from '../../hooks/useDialogMinimizeAnimation'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import {
@@ -107,6 +108,9 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onGearItemsSelect,
   } = props
   const { t } = useI18n()
+  // Shrinks the dialog toward its trigger button when closing.
+  const { paperRef: logicHubPaperRef, animateClose: logicHubAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.tools-button"]')
+  const handleClose = useCallback(() => { logicHubAnimateClose(onClose) }, [logicHubAnimateClose, onClose])
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
   const [confirmResetSubstatTargets, setConfirmResetSubstatTargets] = useState(false)
@@ -237,10 +241,11 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     <>
       <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       fullWidth
       maxWidth={false}
-      PaperProps={{ sx: paperSx }}
+      transitionDuration={{ exit: 0 }}
+      PaperProps={{ sx: paperSx, ref: logicHubPaperRef }}
     >
       <DialogTitle sx={{ p: 0 }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>
@@ -566,7 +571,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             {t('resetToDefaults')}
           </Button>
         )}
-        <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
+        <Button onClick={handleClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
       {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping Gear Inspector entries. */}
