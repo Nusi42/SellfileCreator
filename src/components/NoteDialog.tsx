@@ -1,13 +1,15 @@
-import React, { use, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, Typography } from '@mui/material'
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
+import RslHelperConnectButton from './RslHelperConnectButton'
+import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { useI18n } from '../lib/i18n'
 import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
 import { refractor } from 'refractor'
@@ -197,6 +199,22 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
+// In simple mode the preset toggle takes ~50px; grow the dialog to compensate so the note content keeps its full height.
+const NOTE_DIALOG_PAPER_SX_SIMPLE = {
+  ...NOTE_DIALOG_PAPER_SX,
+  height: '92vh',
+  minHeight: '92vh',
+  maxHeight: '92vh',
+}
+// Brief glow pulse played on the auto-push button after each successful push.
+const autoPushBlink = keyframes`
+  0%   { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+  50%  { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+`
+// Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
+// Duration for all express↔expert mode transitions (ms).
+const SIMPLE_MODE_TRANSITION_MS = 220 as const
 const RECIPE_COMMENT_REGEX = /^\s*recipes\s*:\s*([0-9,\s]+)\s*$/i
 const RECIPE_MARKER_REGEX = /<!--\s*recipes\s*:\s*([0-9,\s]+)\s*-->/i
 const RECIPE_REGEX_COMMENT_REGEX = /^\s*recipes-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
@@ -2997,6 +3015,17 @@ export default function NoteDialog({
   hideEditButton,
   rules,
   substatTargets,
+  simpleMode,
+  expertMode,
+  onGoExpert,
+  onGoSimple,
+  autoPushExpressEnabled,
+  onToggleAutoPushExpress,
+  autoPushFlashSeq,
+  rslHelperConnectEnabled,
+  pushEndpointReachable,
+  onToggleRslHelperConnect,
+  onLoadSimplePreset,
 }: {
   open: boolean
   mode: 'view' | 'edit'
@@ -3030,6 +3059,23 @@ export default function NoteDialog({
   // Merged rules + substat targets for the dungeon simulator embedded via <!-- dungeon-simulator -->.
   rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
+  // Express mode: active when the app was launched via ?express URL param.
+  simpleMode?: boolean
+  // Expert mode: user clicked "Go Expert" inside an express session — full UI is shown.
+  expertMode?: boolean
+  onGoExpert?: () => void
+  onGoSimple?: () => void
+  // Auto-push state surfaced in the express-mode action bar.
+  autoPushExpressEnabled?: boolean
+  onToggleAutoPushExpress?: (enabled: boolean) => void
+  // Increments on each successful silent push; drives the blink animation on the button.
+  autoPushFlashSeq?: number
+  // Connection state for the RslHelperConnectButton shown in express mode.
+  rslHelperConnectEnabled?: boolean
+  pushEndpointReachable?: boolean
+  onToggleRslHelperConnect?: () => void
+  // Called when the express preset toggle changes; loads the full Basic or Endgame SFC.
+  onLoadSimplePreset?: (variant: 'basic' | 'endgame') => void
 }) {
   const { t, lang } = useI18n()
   // Cache view/edit labels so button widths can align across modes.
@@ -3063,6 +3109,23 @@ export default function NoteDialog({
   const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
+
+  // Express mode: tracks which preset note is currently shown in the toggle.
+  // Default to endgame — it is the richer, more flexible preset.
+  const [simpleSfcVariant, setSimpleSfcVariant] = useState<'basic' | 'endgame'>('endgame')
+  // Load the chosen preset when the express SFC toggle changes.
+  const handleSimpleVariantChange = useCallback(
+    (_: React.MouseEvent, value: 'basic' | 'endgame' | null) => {
+      if (!value) return
+      setSimpleSfcVariant(value)
+      onLoadSimplePreset?.(value)
+    },
+    [onLoadSimplePreset],
+  )
+
+  // Derived once so multiple render paths can read it without recomputing.
+  const isSimpleMode = Boolean(simpleMode && !expertMode)
+
   // Resolve recipe markers for embedded recipe chips.
   const markerResolutions = useMemo(() => buildRecipeMarkerResolutions(renderNote ?? '', recipes), [renderNote, recipes])
   // Resolve safeguard markers for embedded rule summaries.
@@ -3142,6 +3205,58 @@ export default function NoteDialog({
     openDisableRecipeOverridesDialog,
     viewRecipeOverridesMenuAction,
   ])
+  // Full-width action strip for express simple mode.
+  // Layout: [Reset — left] [Connect · AutoPush — center] [Go Expert — right]
+  const simpleActionsNode: React.ReactNode = isSimpleMode ? (
+    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+      {/* Left: Reset to Defaults */}
+      <Box sx={{ flex: 1 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          color="error"
+          onClick={handleResetRecipeOverridesAnswers}
+        >
+          {t('noteDynamicOverridesResetDefaults')}
+        </Button>
+      </Box>
+      {/* Center: connection notifier + auto-push */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+        {rslHelperConnectEnabled !== undefined && (
+          <RslHelperConnectButton
+            connectEnabled={rslHelperConnectEnabled ?? false}
+            pushEndpointReachable={pushEndpointReachable ?? false}
+            onToggleConnect={onToggleRslHelperConnect ?? (() => {})}
+            showLabel
+          />
+        )}
+        {autoPushExpressEnabled !== undefined && (
+          <MarkdownTooltip markdown={t('simpleModeAutoPushTooltip')}>
+            {/* key change on each push remounts the button so the CSS animation replays. */}
+            <Button
+              key={autoPushFlashSeq}
+              size="small"
+              variant={autoPushExpressEnabled ? 'contained' : 'outlined'}
+              color="success"
+              onClick={() => onToggleAutoPushExpress?.(!autoPushExpressEnabled)}
+              sx={(autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}}
+            >
+              {t('simpleModeAutoPush')}
+            </Button>
+          </MarkdownTooltip>
+        )}
+      </Box>
+      {/* Right: Go Expert */}
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+        <MarkdownTooltip markdown={t('simpleModeGoExpertTooltip')}>
+          <Button size="small" variant="outlined" onClick={onGoExpert}>
+            {t('simpleModeGoExpert')}
+          </Button>
+        </MarkdownTooltip>
+      </Box>
+    </Box>
+  ) : null
+
   // Apply or discard all dynamic overrides (recipes + safeguards) before disabling them in the session.
   const handleDisableRecipeOverridesConfirm = React.useCallback((applyOverrides: boolean) => {
     const context = disableRecipeOverridesContext
@@ -3408,18 +3523,39 @@ export default function NoteDialog({
     }
   }, [mode, onClose])
 
+  // Shared minimize animation: shrinks the paper toward the Note button in the builder.
+  const { paperRef, animateClose } = useDialogMinimizeAnimation('[data-tour-id="note.toggle"]')
+
+  // In expert mode of a simple session, animate toward the Note button; otherwise close directly.
+  const handleAnimatedClose = useCallback(() => {
+    if (simpleMode && expertMode) {
+      animateClose(onClose)
+    } else {
+      onClose()
+    }
+  }, [simpleMode, expertMode, animateClose, onClose])
+
   const handleDialogClose = React.useCallback(() => {
-    try { editCommitRef.current() } catch { onClose() }
-  }, [onClose])
+    if (simpleMode && expertMode) {
+      handleAnimatedClose()
+    } else {
+      try { editCommitRef.current() } catch { onClose() }
+    }
+  }, [onClose, simpleMode, expertMode, handleAnimatedClose])
 
   return (
     <NoteRenderContext value={contextValue}>
       <Dialog
         open={open}
-        onClose={handleDialogClose}
+        // In express simple mode the dialog is permanently visible — disable all dismiss gestures.
+        onClose={isSimpleMode ? undefined : handleDialogClose}
+        disableEscapeKeyDown={isSimpleMode}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX }}
+        // In express expert mode our custom shrink animation handles the exit visual;
+        // suppress MUI's own Fade exit so the paper doesn't flash back to full size afterwards.
+        transitionDuration={simpleMode && expertMode ? { exit: 0 } : undefined}
+        PaperProps={{ sx: isSimpleMode ? NOTE_DIALOG_PAPER_SX_SIMPLE : NOTE_DIALOG_PAPER_SX, ref: paperRef }}
       >
       <DialogTitle
         sx={{
@@ -3430,11 +3566,23 @@ export default function NoteDialog({
           flexWrap: 'wrap',
         }}
       >
-        <Box component="span">{t('noteTitle')}</Box>
+        {/* Title text + optional "Simple Mode" back button when in expert mode of an express session. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box component="span">{t('noteTitle')}</Box>
+          {/* Fade in from below to mirror the upward exit of the express action bar. */}
+          <Fade in={Boolean(simpleMode && expertMode)} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              <MarkdownTooltip markdown={t('simpleModeGoSimpleTooltip')}>
+                <Button size="small" variant="outlined" onClick={onGoSimple} sx={{ fontSize: '0.75rem', py: 0.25 }}>
+                  {t('simpleModeGoSimple')}
+                </Button>
+              </MarkdownTooltip>
+            </Box>
+          </Fade>
+        </Box>
         {/* Summary chip stays in the title bar so results are visible in view + edit. */}
         {showNoteSummaryChip ? (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-            {/* Progress ring sits left of the chip to mirror the preview header indicator. */}
             <WorkloadProgressIndicator
               progressRatio={summaryProgressRatio}
               ariaLabel={noteSummaryInFlight ? t('rulesBuilding') : undefined}
@@ -3446,6 +3594,24 @@ export default function NoteDialog({
           </Box>
         ) : null}
       </DialogTitle>
+      {/* Preset toggle: Collapse animates the height as it enters/exits simple mode. */}
+      <Collapse in={Boolean(simpleMode && !expertMode)} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
+        <Box sx={{ px: 3, pb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+            {t('simpleModePresetLabel')}
+          </Typography>
+          <ToggleButtonGroup
+            value={simpleSfcVariant}
+            exclusive
+            size="small"
+            onChange={handleSimpleVariantChange}
+            aria-label={t('simpleModePresetLabel')}
+          >
+            <ToggleButton value="basic">{t('simpleModeBasicSfc')}</ToggleButton>
+            <ToggleButton value="endgame">{t('simpleModeEndgameSfc')}</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Collapse>
       {mode === 'view'
         ? (
           <>
@@ -3496,67 +3662,86 @@ export default function NoteDialog({
                 />
               </Box>
             </DialogContent>
-            <DialogActions>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  {/* Keep note action buttons aligned to the clear-note height. */}
-                  {!hideEditButton ? (
-                    // Switch to edit mode without closing the dialog.
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={onRequestEdit}
-                      sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
-                    >
-                      {editNoteLabel}
-                    </Button>
-                  ) : null}
-                  {hasRecipeOverridesMarkers ? (
-                    <>
-                      {/* Group recipe overrides actions under a compact menu. */}
+            <DialogActions sx={{ p: 0 }}>
+              {/* CSS-grid overlap: both layouts share the same cell so neither causes a height jump.
+                  The one sliding out moves toward the title (negative Y); the one coming in
+                  arrives from the opposite direction. pointer-events are blocked on the hidden layer. */}
+              <Box sx={{ display: 'grid', width: '100%', '& > *': { gridColumn: 1, gridRow: 1 } }}>
+                {/* Express simple layer: slides up (toward title) when expert mode activates. */}
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', p: 1,
+                  opacity: isSimpleMode ? 1 : 0,
+                  transform: isSimpleMode ? 'translateY(0)' : 'translateY(-8px)',
+                  pointerEvents: isSimpleMode ? 'auto' : 'none',
+                  transition: `opacity ${SIMPLE_MODE_TRANSITION_MS}ms ease, transform ${SIMPLE_MODE_TRANSITION_MS}ms ease`,
+                }}>
+                  {simpleActionsNode}
+                </Box>
+                {/* Expert / normal layer: slides in from below when expert mode activates. */}
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
+                  justifyContent: 'space-between', p: 1,
+                  opacity: isSimpleMode ? 0 : 1,
+                  transform: isSimpleMode ? 'translateY(8px)' : 'translateY(0)',
+                  pointerEvents: isSimpleMode ? 'none' : 'auto',
+                  transition: `opacity ${SIMPLE_MODE_TRANSITION_MS}ms ease, transform ${SIMPLE_MODE_TRANSITION_MS}ms ease`,
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    {/* Edit button is hidden in express mode — use Go Expert to access editing. */}
+                    {!hideEditButton && !simpleMode ? (
                       <Button
                         size="small"
                         variant="outlined"
-                        endIcon={<ExpandMoreIcon fontSize="small" />}
-                        onClick={openViewRecipeOverridesMenu}
-                        sx={{ whiteSpace: 'nowrap', px: 1.25 }}
-                        aria-haspopup="true"
-                        aria-controls={viewRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-view' : undefined}
-                        aria-expanded={viewRecipeOverridesMenuOpen ? 'true' : undefined}
+                        onClick={onRequestEdit}
+                        sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
                       >
-                        {t('noteDynamicOverridesMenu')}
+                        {editNoteLabel}
                       </Button>
-                      <Menu
-                        id="note-recipe-overrides-menu-view"
-                        anchorEl={viewRecipeOverridesMenuAnchor}
-                        open={viewRecipeOverridesMenuOpen}
-                        onClose={closeViewRecipeOverridesMenu}
-                        MenuListProps={{ dense: true }}
-                        TransitionProps={{ onExited: handleViewRecipeOverridesMenuExited }}
-                      >
-                        <MenuItem
-                          onClick={() => {
-                            queueViewRecipeOverridesMenuAction({ kind: 'reset' })
-                          }}
+                    ) : null}
+                    {hasRecipeOverridesMarkers ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          endIcon={<ExpandMoreIcon fontSize="small" />}
+                          onClick={openViewRecipeOverridesMenu}
+                          sx={{ whiteSpace: 'nowrap', px: 1.25 }}
+                          aria-haspopup="true"
+                          aria-controls={viewRecipeOverridesMenuOpen ? 'note-recipe-overrides-menu-view' : undefined}
+                          aria-expanded={viewRecipeOverridesMenuOpen ? 'true' : undefined}
                         >
-                          {t('noteDynamicOverridesResetDefaults')}
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() => {
-                            queueViewRecipeOverridesMenuAction(
-                              noteOverridesDisabled
-                                ? { kind: 'enable' }
-                                : { kind: 'disable', noteText: note ?? '' },
-                            )
-                          }}
+                          {t('noteDynamicOverridesMenu')}
+                        </Button>
+                        <Menu
+                          id="note-recipe-overrides-menu-view"
+                          anchorEl={viewRecipeOverridesMenuAnchor}
+                          open={viewRecipeOverridesMenuOpen}
+                          onClose={closeViewRecipeOverridesMenu}
+                          MenuListProps={{ dense: true }}
+                          TransitionProps={{ onExited: handleViewRecipeOverridesMenuExited }}
                         >
-                          {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
-                        </MenuItem>
-                      </Menu>
-                    </>
-                  ) : null}
+                          <MenuItem onClick={() => { queueViewRecipeOverridesMenuAction({ kind: 'reset' }) }}>
+                            {t('noteDynamicOverridesResetDefaults')}
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              queueViewRecipeOverridesMenuAction(
+                                noteOverridesDisabled
+                                  ? { kind: 'enable' }
+                                  : { kind: 'disable', noteText: note ?? '' },
+                              )
+                            }}
+                          >
+                            {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
+                          </MenuItem>
+                        </Menu>
+                      </>
+                    ) : null}
+                  </Box>
+                  <Button onClick={simpleMode && expertMode ? handleAnimatedClose : onClose}>
+                    {t('close')}
+                  </Button>
                 </Box>
-                <Button onClick={onClose}>{t('close')}</Button>
               </Box>
             </DialogActions>
           </>
@@ -3568,7 +3753,7 @@ export default function NoteDialog({
             lang={lang}
             rehypePluginsSafe={rehypePluginsSafe}
             onChange={onChange}
-            onClose={onClose}
+            onClose={simpleMode && expertMode ? handleAnimatedClose : onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
             onRequestView={onRequestView}
             onResetRecipeOverridesAnswers={handleResetRecipeOverridesAnswers}
@@ -3583,6 +3768,7 @@ export default function NoteDialog({
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
             noteModeButtonMinWidth={noteModeButtonMinWidth}
+            simpleActionsNode={simpleActionsNode}
           />
         )}
       </Dialog>
@@ -3627,6 +3813,7 @@ function NoteEditorContent({
   markdownComponents,
   allowElement,
   noteModeButtonMinWidth,
+  simpleActionsNode,
 }: {
   note: string
   t: ReturnType<typeof useI18n>['t']
@@ -3652,6 +3839,8 @@ function NoteEditorContent({
   allowElement: MarkdownAllowElement
   // Match the view/edit button widths to keep the action row stable.
   noteModeButtonMinWidth: number | undefined
+  // When set, replaces the Close button in the action row (used in express simple mode).
+  simpleActionsNode?: React.ReactNode
 }) {
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
@@ -4370,9 +4559,12 @@ function NoteEditorContent({
             {t('noteClear')}
           </Button>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={commitAndClose}>{t('close')}</Button>
-        </Box>
+        {/* In express simple mode the close button is hidden; express actions replace it. */}
+        {simpleActionsNode ?? (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={commitAndClose}>{t('close')}</Button>
+          </Box>
+        )}
       </DialogActions>
       {/* EBNF reference popover — opened by clicking the Insert Recipe Overrides toolbar button. */}
       <Popover

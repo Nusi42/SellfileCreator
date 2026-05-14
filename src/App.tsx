@@ -9,12 +9,16 @@
  */
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
+import basicSfcRaw from '../examples/Basic.sfc?raw'
+import nusiSfcRaw from '../examples/example.sfc?raw'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
-import { getPushEndpoint } from './lib/runtimeConfig'
+import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   EXTERNAL_WS_METHOD_SELECT_ARTIFACTS,
   buildRslHelperWsEndpoint,
+  getSimpleExpertMode,
+  setSimpleExpertMode as persistSimpleExpertMode,
   getRslHelperConnectEnabled,
   getRslHelperPort,
   // Aliased so the React state setter can follow the setX naming convention without conflict.
@@ -455,6 +459,8 @@ type PipelineCacheEntry = {
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
+  // Session-constant: true when ?express was present in the URL at load time.
+  const [simpleMode] = useState(getSimpleMode)
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const {
@@ -2377,14 +2383,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearDbCommandToast, setGearDbCommandToast] = useState<GearDbCommandToastState | null>(null)
   // Small helper centralizes toast creation so every command path feels consistent.
   const showGearDbCommandToast = useCallback((message: string, severity: 'success' | 'error') => {
+    // Gear update toasts are not useful in express mode — suppress them.
+    if (simpleMode) return
     // Clear any prior diff payload so text stays compact.
     setGearDbCommandToast({ message, severity })
-  }, [])
+  }, [simpleMode])
   // Diff toasts carry rich UI payloads instead of plain strings.
   const showGearDbDiffToast = useCallback((payload: GearDbDiffToastPayload) => {
+    // Gear update toasts are not useful in express mode — suppress them.
+    if (simpleMode) return
     // Force success styling so the diff list stays readable.
     setGearDbCommandToast({ severity: 'success', diff: payload })
-  }, [])
+  }, [simpleMode])
   // Keep a single pending diff so rapid endpoint updates collapse into the latest toast.
   const gearDbDiffToastPendingRef = useRef<{
     // Monotonic id for the queued payload.
@@ -3230,6 +3240,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [setRslHelperConnectEnabled])
 
+  // Expert mode: restored from localStorage so the app skips express UI if the user was expert last time.
+  const [expertMode, setExpertMode] = useState(() => simpleMode ? getSimpleExpertMode() : false)
+  // True when express UI should be shown (builder/preview/header hidden, dialog-only view).
+  const isSimpleView = simpleMode && !expertMode
+  // Captured once at startup — false when express was requested but expert was already persisted.
+  // Used to gate auto-behaviors (preset load, note auto-open) that should only run in simple mode.
+  const [isSimpleViewAtStart] = useState(() => simpleMode && !expertMode)
+  // Increments each time a silent auto-push succeeds; drives the blink animation on the button.
+  const [autoPushFlashSeq, setAutoPushFlashSeq] = useState(0)
+
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = createRecipesClearedDescriptor(customRecipes.length)
     describeNextChange(descriptor)
@@ -3940,7 +3960,58 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDialogPending) filtersResetRef.current = false
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
-  const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
+  // Suppress in express simple mode — the preset SFC is the source of truth there.
+  // When express was requested but expert was already on (isSimpleViewAtStart=false), restore normally.
+  const restoreDlgOpen = !isSimpleViewAtStart && !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
+
+  // Silent gear-only restore used when starting in express mode.
+  // Applies the saved Gear Inspector items without touching recipes, notes, or any other SFC data.
+  // The SFC autosave (restoreDialogPending) is simply dismissed — the preset SFC takes priority.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
+  const handleSilentGearRestore = useCallback(() => {
+    if (gearInspectorRestoreDraft) {
+      beginGearInspectorMatchReset('restore')
+      setGearInspectorItemsTransition(gearInspectorRestoreDraft.items)
+      const maxItemId = gearInspectorRestoreDraft.items.reduce((max, item) => (
+        Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
+      ), 0)
+      gearInspectorItemIdRef.current = Math.max(gearInspectorItemIdRef.current, (maxItemId || 0) + 1)
+    }
+    markNextSnapshotAsSaved()
+    setLastExportSig(null)
+    setExportBaselineResetPending(true)
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => { markSavedNow() })
+    } else {
+      setTimeout(() => { markSavedNow() }, 0)
+    }
+    restoringAutosaveRef.current = true
+    acceptRestore()
+    setGearInspectorRestoreDraft(null)
+    setTimeout(() => {
+      restoringAutosaveRef.current = false
+      flushTransientUi()
+    }, 0)
+  }, [
+    gearInspectorRestoreDraft,
+    beginGearInspectorMatchReset,
+    setGearInspectorItemsTransition,
+    markNextSnapshotAsSaved,
+    setLastExportSig,
+    setExportBaselineResetPending,
+    markSavedNow,
+    acceptRestore,
+    flushTransientUi,
+  ])
+
+  // In express simple mode: dismiss the SFC autosave (preset overrides) and silently restore gear data.
+  // When expert was already on at startup (isSimpleViewAtStart=false), the restore dialog runs normally.
+  useEffect(() => {
+    if (!isSimpleViewAtStart) return
+    if (restoreDialogPending) dismissRestore()
+    if (gearInspectorRestoreDraft) handleSilentGearRestore()
+  }, [isSimpleViewAtStart, restoreDialogPending, dismissRestore, gearInspectorRestoreDraft, handleSilentGearRestore])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
 
   const { applyGearDbDiff } = useGearInspectorItemsActions({
     allocGearInspectorItemId,
@@ -7026,6 +7097,62 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleUnknownImportedFile,
   ])
 
+  // Loads the Basic or Example preset SFC directly without a confirmation dialog.
+  // Used by the express-mode preset toggle in NoteDialog.
+  const handleLoadSimplePreset = useCallback((variant: 'basic' | 'endgame') => {
+    const raw = variant === 'basic' ? basicSfcRaw : nusiSfcRaw
+    const filename = variant === 'basic' ? 'Basic.sfc' : 'example.sfc'
+    const file = new File([raw], filename, { type: 'application/json' })
+    void handleManualFileSelection(file, { shiftKey: false })
+  }, [handleManualFileSelection])
+
+  // Auto-load the Mid-to-Endgame preset SFC once when starting in express simple mode.
+  // Skipped when expert mode was already on — the user gets the normal app.
+  const simplePresetLoadDoneRef = useRef(false)
+  useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+    if (!isSimpleViewAtStart || simplePresetLoadDoneRef.current) return
+    simplePresetLoadDoneRef.current = true
+    handleLoadSimplePreset('endgame')
+  }, [isSimpleViewAtStart, handleLoadSimplePreset])
+
+  // Keep the openNoteViewer ref stable so the auto-open effect can call it once.
+  const openNoteViewerRef = useRef(openNoteViewer)
+  useLayoutEffect(() => { openNoteViewerRef.current = openNoteViewer })
+
+  // Auto-open the note dialog and enable auto-push when starting in express simple mode.
+  // Skipped when expert mode was already on.
+  const simpleAutoOpenDoneRef = useRef(false)
+  useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+    if (!isSimpleViewAtStart || simpleAutoOpenDoneRef.current) return
+    simpleAutoOpenDoneRef.current = true
+    openNoteViewerRef.current()
+    // Default auto-push to on in express mode if the user has not previously enabled it.
+    if (!autoPushEnabled) setAutoPushEnabled(true)
+  }, [isSimpleViewAtStart, autoPushEnabled, setAutoPushEnabled])
+
+  // When express was requested but expert mode was already on, briefly pulse the Note button
+  // to draw attention to it — the user opted for the full UI last time.
+  // Waits for the Restore dialog to close before starting so it doesn't compete with it.
+  const simpleNoteBlinkDoneRef = useRef(false)
+  useEffect(() => {
+    if (!simpleMode || isSimpleViewAtStart) return
+    if (restoreDlgOpen) return // restore dialog still visible — wait
+    if (simpleNoteBlinkDoneRef.current) return // already played once
+    simpleNoteBlinkDoneRef.current = true
+    const btn = typeof document !== 'undefined'
+      ? (document.querySelector('[data-tour-id="note.toggle"]') as HTMLElement | null)
+      : null
+    if (!btn) return
+    const anim = btn.animate([
+      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(25, 118, 210, 0.7)' },
+      { transform: 'scale(1.12)', boxShadow: '0 0 0 10px rgba(25, 118, 210, 0)' },
+      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(25, 118, 210, 0)' },
+    ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
+    return () => { anim.cancel() }
+  }, [simpleMode, isSimpleViewAtStart, restoreDlgOpen])
+
   // Global file-drag overlay and file routing handled by hook.
   // During the tutorial all file drops are silently ignored so the user cannot
   // accidentally import data that would clobber tutorial-driven state.
@@ -7578,6 +7705,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           updatePushEndpointReachable(true)
           pushToast = 'success'
           setLastExportSig(hsfExportStateSig)
+          // Notify the express-mode button so it plays its blink animation.
+          if (silent) setAutoPushFlashSeq((s) => s + 1)
         } else {
           console.error(`${ts()} [push] endpoint error: ${JSON.stringify(response.error)}`)
           pushToast = 'failure'
@@ -7609,6 +7738,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hsfExportStateSig,
     pushExportEndpoint,
     sendExternalRequest,
+    setAutoPushFlashSeq,
     updatePushEndpointReachable,
     showToast,
     t,
@@ -7732,9 +7862,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           filter: theme.palette.mode === 'dark' ? 'invert(0.8)' : 'none',
         },
       })} />
+      {/* Header: hidden in express simple mode — the dialog is the whole UI. */}
       <Box
         sx={{
           mb: 1,
+          // Hide the full header when in express simple mode.
+          ...(isSimpleView ? { display: 'none' } : {}),
           // Side-by-side: escape the MUI Container max-width cap so the header spans
           // the full two-panel width. Single-column: fill the Container width, same as
           // the BuilderColumn paper (which uses maxWidth:none / width:100%).
@@ -7824,7 +7957,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         </Box>
       </Box>
 
-      <Stack spacing={2}>
+      {/* Main panels: hidden in express simple mode — the note dialog is the whole UI. */}
+      <Stack spacing={2} sx={isSimpleView ? { display: 'none' } : undefined}>
         {/* Layout container: stacks vertically in single-column mode, flex-row in side-by-side.
             In side-by-side, the GRID_COLUMN_GAP_PX gap is replaced by the SideBySideSplitter
             handle so the user can drag to resize both panels. */}
@@ -8224,6 +8358,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           hideEditButton={noteAutoOpenedFromSfc}
           rules={mergedRules}
           substatTargets={effectiveSubstatTargets}
+          simpleMode={simpleMode}
+          expertMode={expertMode}
+          onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true) }}
+          onGoSimple={() => { setExpertMode(false); persistSimpleExpertMode(false) }}
+          autoPushExpressEnabled={autoPushEnabled}
+          onToggleAutoPushExpress={setAutoPushEnabled}
+          autoPushFlashSeq={autoPushFlashSeq}
+          rslHelperConnectEnabled={rslHelperConnectEnabled}
+          pushEndpointReachable={pushEndpointReachable}
+          onToggleRslHelperConnect={handleToggleRslHelperConnect}
+          onLoadSimplePreset={handleLoadSimplePreset}
         />
       ) : null}
       <Snackbar

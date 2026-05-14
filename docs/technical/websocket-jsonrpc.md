@@ -3,6 +3,17 @@
 This protocol describes the JSON-RPC 2.0 transport used by Sellfile Creator
 when communicating over WebSockets.
 
+## Launch URL
+
+RSL Helper opens Sellfile Creator by navigating to the distributed HTML file with query parameters:
+
+```
+file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple
+```
+
+- `endpoint` — WebSocket URL of the locally running RSL Helper server (required for any connection).
+- `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
+
 ## Transport
 
 - WebSocket URL: `ws://<host>:<port>/`
@@ -53,6 +64,31 @@ Upload a generated sellfile.
 **Result**
 - `ok` (boolean)
 - `savedAs` (string)
+
+### requestSfcSync
+
+Ask RSL Helper to push all its current datasets. Sent automatically on every connection so the app receives a full snapshot without waiting for the next natural push cycle.
+
+**Params**
+- _(none — send an empty params object `{}`)_
+
+**Result**
+- `ok` (boolean)
+
+RSL Helper responds by emitting its standard notifications in any order
+(`artifacts`, `inboxArtifacts`, `champions`, `lastUsed`, etc.).
+
+**Request example**
+```json
+{"jsonrpc":"2.0","id":2,"method":"requestSfcSync","params":{}}
+```
+
+**Success response example**
+```json
+{"jsonrpc":"2.0","id":2,"result":{"ok":true}}
+```
+
+---
 
 ### selectArtifacts
 

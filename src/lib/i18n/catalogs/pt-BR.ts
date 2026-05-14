@@ -218,6 +218,7 @@ const catalog: Catalog = {
   rslHelperPortDialogTitle: "Porta do RSL Helper",
   rslHelperPortLabel: "Porta",
   rslHelperPortHelper: "Porta à qual o app se conecta ao iniciar com o RSL Helper. Padrão: 8080.",
+
   counting: "Contando…",
 
   titleClearHistory: "Limpar histórico?",

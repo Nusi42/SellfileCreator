@@ -218,6 +218,7 @@ const overrides: Catalog = {
   rslHelperPortDialogTitle: "RSL Helper Portu",
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "RSL Helper ile başlatılırken uygulamanın bağlandığı port. Varsayılan: 8080.",
+
   counting: "Sayılıyor…",
 
   titleClearHistory: "Geçmiş temizlensin mi?",

@@ -218,6 +218,7 @@ const overrides: Catalog = {
   rslHelperPortDialogTitle: "Porta do RSL Helper",
   rslHelperPortLabel: "Porta",
   rslHelperPortHelper: "Porta à qual a aplicação se liga ao iniciar com o RSL Helper. Predefinição: 8080.",
+
   counting: "A contar…",
 
   titleClearHistory: "Limpar histórico?",

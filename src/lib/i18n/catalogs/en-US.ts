@@ -220,6 +220,18 @@ const enUS: Catalog = {
   rslHelperPortDialogTitle: "RSL Helper Port",
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "Port the app connects to when launching with RSL Helper. Default: 8080.",
+
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
+  simpleModeBasicSfc: "Beginner",
+  simpleModeEndgameSfc: "Midgame / Lategame / Endgame",
+  simpleModePresetLabel: "Gear Sell Rules",
+  simpleModeGoExpert: "Go Expert",
+  simpleModeGoExpertTooltip: "Switch to the full Sellfile Creator UI",
+  simpleModeGoSimple: "Simple Mode",
+  simpleModeGoSimpleTooltip: "Switch back to the simplified view",
+  simpleModeAutoPush: "Auto-Push",
+  simpleModeAutoPushTooltip: "Automatically push the sellfile to RSL Helper whenever it changes",
+
   counting: "Counting…",
 
   titleClearHistory: "Clear History?",

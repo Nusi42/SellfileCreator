@@ -218,6 +218,7 @@ const overrides: Catalog = {
   rslHelperPortDialogTitle: "Порт RSL Helper",
   rslHelperPortLabel: "Порт",
   rslHelperPortHelper: "Порт, до якого програма підключається при запуску з RSL Helper. За замовчуванням: 8080.",
+
   counting: "Підрахунок…",
 
   titleClearHistory: "Очистити історію?",
