@@ -3497,6 +3497,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setBuilderMode,
     suppressHistorySnapshot: suppressNextSnapshot,
     t,
+    // In simple mode the full UI is hidden on first run; defer the first-run
+    // help dialog until the user explicitly switches to expert mode.
+    suppressInitialHelpOpen: isSimpleViewAtStart,
   })
 
   // Compute a stable key for recipes that affects HSF rule generation (ignores display-only fields like `name`).
@@ -7152,6 +7155,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
     return () => { anim.cancel() }
   }, [simpleMode, isSimpleViewAtStart, restoreDlgOpen])
+
+  // Show the deferred first-run help dialog once the user is in expert mode AND
+  // has closed the NoteDialog, so it never overlays the note dialog.
+  const simpleDeferredHelpDoneRef = useRef(false)
+  useEffect(() => {
+    if (!tutorial.helpFirstRunPending) return
+    if (!expertMode || noteOpen) return
+    if (simpleDeferredHelpDoneRef.current) return
+    simpleDeferredHelpDoneRef.current = true
+    tutorial.setHelpOpen(true)
+    tutorial.setHelpFirstRunMode(true)
+  }, [expertMode, noteOpen, tutorial])
 
   // Global file-drag overlay and file routing handled by hook.
   // During the tutorial all file drops are silently ignored so the user cannot
