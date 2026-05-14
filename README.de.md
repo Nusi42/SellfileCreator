@@ -192,8 +192,8 @@ Hinweise:
 - Läuft mit etwa 100.000 Drops pro Stufe und aktualisiert sich währenddessen.
 - Drop-Raten und Rolls sind simuliert, die Zahlen sind Schätzungen.
 
-### Gear Lens
-Öffne „Tools" und wechsle zum Tab **Gear Lens** für eine Analyseübersicht deiner importierten Ausrüstung.
+### Ausrüstungsanalyse
+Öffne „Tools" und wechsle zum Tab **Ausrüstungsanalyse** für eine Analyseübersicht deiner importierten Ausrüstung.
 
 **KPI-Karten (obere Zeile):** Acht Prozentkarten — **6★-Rate**, **Legendär+**, **Maxed (+16)**, **Angelegt**, **Tresor-gesperrt**, **Chaos'd**, **Glyphed**, **Aufgestiegen** — jeweils mit Tooltip.
 
@@ -215,8 +215,10 @@ Hinweise:
 
 **Champion-Stats-Tab:** Substat-Gesamtwerte summiert über angelegte Teile pro Champion. Filtere nach Standort (**Alle** / **Sammlung** / **Tresor**), schalte **Voll ausgerüstet** ein und schließe Glyphen ein oder aus. Zeigt Min/Ø/Median/Max-Reihen.
 
+**Champion-Ausrüstung:** Ausrüstungsabdeckung pro Champion in zwei kompakten Tabellen (**Sammlung** / **Tresor**). Jede Zeile zeigt ein 3×3-Slot-Raster (gefüllt = ausgerüstet, Umriss = leer, gestrichelt = bis zur Aszension gesperrt). Klicke auf einen gefüllten Slot, um das Teil auszuwählen — die Auswahl wird mit dem Ausrüstungsinspektor geteilt. Aktiviere **Verkauf simulieren**, um verkaufte Slots rot zu zeichnen und als fehlend zu zählen, oder **Voll ausgerüstete zeigen**, um auch vollständig ausgerüstete Champions zu listen.
+
 **Buttons:**
-- **Snapshot kopieren:** Rendert die vollständige Analyseansicht als PNG und kopiert sie in die Zwischenablage.
+- **Snapshot kopieren:** Rendert die vollständige Analyseansicht als PNG und kopiert sie in die Zwischenablage. Hinweis: Die Champion-Ausrüstung wird nicht im Snapshot mit kopiert.
 - **Im Ausrüstungsinspektor anwenden:** Überträgt den aktiven Crossfilter in den Listenfilter des Ausrüstungsinspektors (nur sichtbar, wenn ein Filter aktiv ist).
 
 ### Rezepte verwalten

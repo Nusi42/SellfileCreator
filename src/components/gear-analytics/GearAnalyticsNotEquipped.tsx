@@ -1,16 +1,18 @@
 /**
  * GearAnalyticsNotEquipped.tsx
  *
- * Two compact tables (Collection / Vault, stacked) of champions that are not
- * fully equipped (missing at least one of their 9 gear slots).
+ * Two compact tables (Collection / Vault, stacked) of champions and their gear-slot
+ * coverage. By default only champions with at least one empty slot are listed; the
+ * "Show fully equipped" toggle expands the view to every champion.
  *
  * Layout: champions flow into a column-grid — ROWS_PER_COL rows per column,
  * then wrap horizontally.  A horizontal scrollbar appears when more columns
  * than fit in the container.
  *
  * Sort control (ToggleButtonGroup): By rank (default) / All / Artifacts / Accessories.
- * Simulate-sold toggle (rightmost): treats every equipped piece the rules would
- * sell as if its slot were empty — slot cells turn red and missing counts grow.
+ * Simulate-sold toggle: treats every equipped piece the rules would sell as if its
+ * slot were empty — slot cells turn red and missing counts grow.
+ * Show-fully-equipped toggle: also lists champions whose available slots are all filled.
  *
  * Grid cells:  ■ primary  = slot equipped (kept)
  *              ■ error    = slot equipped but would be sold (only when sim is on)
@@ -83,7 +85,7 @@ const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
  *  for that slot group (most missing first). */
 type SortMode = 'rank' | 'all' | 'artifacts' | 'accessories'
 
-const LS_SORT_MODE = 'gearAnalytics.notEquippedSortMode'
+const LS_SORT_MODE = 'gearAnalytics.visibleChampionsSortMode'
 const DEFAULT_SORT_MODE: SortMode = 'rank'
 
 function readSortMode(): SortMode {
@@ -98,11 +100,21 @@ function readSortMode(): SortMode {
 // ── Simulate-sold toggle ──────────────────────────────────────────────────────
 
 /** Persisted on/off state for the "simulate sold gear" overlay. */
-const LS_SIMULATE_SOLD = 'gearAnalytics.notEquippedSimulateSold'
+const LS_SIMULATE_SOLD = 'gearAnalytics.visibleChampionsSimulateSold'
 const DEFAULT_SIMULATE_SOLD = false
 
 function readSimulateSold(): boolean {
   return localStorage.getItem(LS_SIMULATE_SOLD) === '1'
+}
+
+// ── Show-fully-equipped toggle ────────────────────────────────────────────────
+
+/** Persisted on/off state for the "show fully equipped champions" expansion. */
+const LS_SHOW_FULLY_EQUIPPED = 'gearAnalytics.visibleChampionsShowFullyEquipped'
+const DEFAULT_SHOW_FULLY_EQUIPPED = false
+
+function readShowFullyEquipped(): boolean {
+  return localStorage.getItem(LS_SHOW_FULLY_EQUIPPED) === '1'
 }
 
 /** Slot list used for sorting and the missing count badge per sort mode.
@@ -497,9 +509,11 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
 
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
   const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)
+  const [showFullyEquipped, setShowFullyEquipped] = useState<boolean>(readShowFullyEquipped)
 
   useEffect(() => { localStorage.setItem(LS_SORT_MODE, sortMode) }, [sortMode])
   useEffect(() => { localStorage.setItem(LS_SIMULATE_SOLD, simulateSold ? '1' : '0') }, [simulateSold])
+  useEffect(() => { localStorage.setItem(LS_SHOW_FULLY_EQUIPPED, showFullyEquipped ? '1' : '0') }, [showFullyEquipped])
   // Restore factory defaults when the parent increments resetKey.
   // "Adjust state directly during render" pattern avoids the one-render delay of useEffect.
   const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)
@@ -507,6 +521,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     setPrevResetKey(resetKey)
     setSortMode(DEFAULT_SORT_MODE)
     setSimulateSold(DEFAULT_SIMULATE_SOLD)
+    setShowFullyEquipped(DEFAULT_SHOW_FULLY_EQUIPPED)
   }
 
   // Build (championId_slotId) → row lookup for filled-slot gear previews.
@@ -539,21 +554,26 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     return map
   }, [rows])
 
-  // Build profiles: champions with at least one missing slot — using the simulation-
-  // adjusted "effective filled" set so that toggling sim adds/removes champions naturally.
-  const notEquipped = useMemo(() => {
+  // Build the visible-champion list. Three toggles compose:
+  //   • showFullyEquipped = false (default) → only champions missing ≥1 slot are listed.
+  //   • showFullyEquipped = true            → every champion appears (fully-equipped land
+  //     at the end of missing-count sorts, with a -0 badge).
+  // The simulation-adjusted "effective filled" set still drives the missing-count check,
+  // so toggling simulate-sold can move champions between the two buckets naturally.
+  const visibleChampions = useMemo(() => {
     const profiles = buildChampionGearProfiles(rows)
+    if (showFullyEquipped) return profiles
     return profiles.filter((p) => {
       const eff = effectiveFilledSlots(p, soldSlotsByChamp, simulateSold)
       return missingCount(p, SLOT_GRID, eff) > 0
     })
-  }, [rows, soldSlotsByChamp, simulateSold])
+  }, [rows, soldSlotsByChamp, simulateSold, showFullyEquipped])
 
   // Sort: 'rank' = in-game roster comparator (default); others = most missing in
   // that slot group first, with champProfileRankComparator as the tail tiebreaker so
   // groups of champs with equal missing counts still flow in the natural roster order.
   const sorted = useMemo(() => {
-    const copy = [...notEquipped]
+    const copy = [...visibleChampions]
     if (sortMode === 'rank') {
       copy.sort(champProfileRankComparator)
     } else {
@@ -565,7 +585,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
       })
     }
     return copy
-  }, [notEquipped, sortMode, soldSlotsByChamp, simulateSold])
+  }, [visibleChampions, sortMode, soldSlotsByChamp, simulateSold])
 
   const collection = useMemo(() => sorted.filter((p) => p.location === 'collection'), [sorted])
   const vault      = useMemo(() => sorted.filter((p) => p.location === 'vault'),      [sorted])
@@ -644,6 +664,19 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
           >
             <ToggleButton value="on" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
               {t('gearAnalyticsSimulateSoldLabel')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Tooltip>
+        {/* Standalone single-button toggle that expands the list to include fully-equipped champions. */}
+        <Tooltip title={t('gearAnalyticsShowFullyEquippedDesc')} placement="top" arrow>
+          <ToggleButtonGroup
+            size="small"
+            value={showFullyEquipped ? ['on'] : []}
+            onChange={() => setShowFullyEquipped((v) => !v)}
+            sx={{ ml: 0.25 }}
+          >
+            <ToggleButton value="on" sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem' }}>
+              {t('gearAnalyticsShowFullyEquippedLabel')}
             </ToggleButton>
           </ToggleButtonGroup>
         </Tooltip>

@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Mediana",
   gearAnalyticsSeriesMax: "Máx",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "No completamente equipado",
-  gearAnalyticsNotEquippedTitleDesc: "Campeones con al menos una ranura de equipo vac\u00eda. Cuadr\u00edcula: relleno = equipado, contorno = vac\u00edo.",
+  gearAnalyticsNotEquippedTitle: "Equipo de campeones",
+  gearAnalyticsNotEquippedTitleDesc: "Cobertura de equipo por campeón. Rejilla: lleno = equipado, contorno = vacío, discontinuo = bloqueado (asciende al campeón). Conmutadores para simular venta e incluir campeones totalmente equipados.",
   gearAnalyticsSlotNotUnlocked: "Aún no desbloqueado — asciende al campeón para desbloquearlo",
   gearAnalyticsSortLabel: "Ordenar",
   gearAnalyticsSlotModeAll: "Todos",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Por rango",
   gearAnalyticsSimulateSoldLabel: "Simular venta",
   gearAnalyticsSimulateSoldDesc: "Cuando está activado, los espacios cuya pieza equipada se vendería con las reglas actuales se muestran en rojo y se cuentan como faltantes.",
+  gearAnalyticsShowFullyEquippedLabel: "Mostrar completos",
+  gearAnalyticsShowFullyEquippedDesc: "Cuando está activado, también se listan los campeones cuyas casillas disponibles están todas llenas (se ordenan al final en los modos por casillas faltantes).",
   // Botón de colapso — clic derecho alterna todos los gráficos a la vez.
   gearAnalyticsCollapseChartTooltip: "Contraer gráfico\n\n_Clic derecho para alternar todos los gráficos._",
   dungeonDropsIntro: "Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.",

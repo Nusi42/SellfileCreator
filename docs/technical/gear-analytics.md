@@ -18,7 +18,7 @@ All aggregation logic lives in `src/lib/gearAnalytics.ts` (pure functions, no Re
 | `src/components/gear-analytics/GearAnalyticsHeatmap.tsx` | Slot × main stat count heatmap |
 | `src/components/gear-analytics/GearAnalyticsTreemap.tsx` | Squarified treemap for set cross-filter |
 | `src/components/gear-analytics/GearAnalyticsChampStats.tsx` | Per-champion gear summary table |
-| `src/components/gear-analytics/GearAnalyticsNotEquipped.tsx` | "Not Fully Equipped" champion grid (Collection / Vault) |
+| `src/components/gear-analytics/GearAnalyticsNotEquipped.tsx` | "Champion Equipment" champion grid (Collection / Vault) |
 
 ## Cross-filter pattern
 
@@ -190,9 +190,9 @@ All chip labels are localized via `t()`:
 - Level chips: `levelLabel(lvl)` (e.g. `+16`)
 - Main stat chips: `t(statVariantI18nKey(Number(id)))`
 
-## Not Fully Equipped table
+## Champion Equipment table
 
-`GearAnalyticsNotEquipped` lists every champion missing at least one of their nine gear slots, split into two stacked sub-tables — **Collection** and **Vault** — that flow column-by-column inside a horizontally scrollable container (`ROWS_PER_COL` rows per column). Each row shows a 20 px champion avatar, an ellipsis-tooltipped name, a 3×3 slot grid in `PREFERRED_ARTIFACT_TYPE_ORDER`, and a red `-N` missing-count badge for the active sort dimension.
+`GearAnalyticsNotEquipped` (component name retained for stability — the section was previously titled "Not Fully Equipped") lists champions and their gear-slot coverage, split into two stacked sub-tables — **Collection** and **Vault** — that flow column-by-column inside a horizontally scrollable container (`ROWS_PER_COL` rows per column). Each row shows a 20 px champion avatar, an ellipsis-tooltipped name, a 3×3 slot grid in `PREFERRED_ARTIFACT_TYPE_ORDER`, and a red `-N` missing-count badge for the active sort dimension. By default only champions with at least one missing slot are shown; the **Show fully equipped** toggle expands the list to every champion (those with no missing slots get a `-0` badge and naturally sink to the end of missing-count sort modes).
 
 ### Slot grid cell states
 
@@ -209,12 +209,13 @@ Filled cells with selection: a `theme.palette.warning.main` outline (1.5 px, 1 p
 
 ### Controls
 
-Two grouped controls sit above the tables, persisted to `localStorage`:
+Three grouped controls sit above the tables, persisted to `localStorage`:
 
 | Key | localStorage | Effect |
 |---|---|---|
 | `SortMode` (`'rank' \| 'all' \| 'artifacts' \| 'accessories'`) | `gearAnalytics.notEquippedSortMode` | Order of the champion rows |
 | `simulateSold` (`boolean`) | `gearAnalytics.notEquippedSimulateSold` | When on, equipped pieces with `rowOutcome === 'sell'` are treated as missing |
+| `showFullyEquipped` (`boolean`) | `gearAnalytics.notEquippedShowFullyEquipped` | When on, champions with no missing slots are also listed |
 
 **Sort modes.** `'rank'` is the default and uses `champProfileRankComparator` (in `champAnalytics.ts`) to emulate the in-game roster sort: champAscensionLevel desc → rarity desc → avgLevel desc → ascentionCount desc → avgRank desc → championId asc. The remaining three modes (`'all'`, `'artifacts'`, `'accessories'`) sort by missing-count descending within their slot group (`SORT_SLOTS` map: all 9 slots, the 6 main armor slots, or the 3 accessory slots), with `champProfileRankComparator` as the tail tiebreaker so equally-missing champions still flow in natural order. Legacy `'off'` values in `localStorage` migrate to `'rank'` transparently.
 

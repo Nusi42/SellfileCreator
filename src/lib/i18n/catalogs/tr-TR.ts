@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Medyan",
   gearAnalyticsSeriesMax: "Maks",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Tamamen donatılmamış",
-  gearAnalyticsNotEquippedTitleDesc: "En az bir boş ekipman slotu olan şampiyonlar. Izgara: dolu = donatılmış, kontur = boş.",
+  gearAnalyticsNotEquippedTitle: "Şampiyon ekipmanı",
+  gearAnalyticsNotEquippedTitleDesc: "Şampiyon başına ekipman kapsamı. Izgara: dolu = takılı, ana hat = boş, kesik çizgi = kilitli (şampiyonu yükselt). Satışı simüle etmek ve tam donanımlı şampiyonları dahil etmek için anahtarlar.",
   gearAnalyticsSlotNotUnlocked: "Henüz açılmadı — açmak için şampiyonu yükseltin",
   gearAnalyticsSortLabel: "Sırala",
   gearAnalyticsSlotModeAll: "Tümü",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Aşamaya göre",
   gearAnalyticsSimulateSoldLabel: "Satışı simüle et",
   gearAnalyticsSimulateSoldDesc: "Etkinleştirildiğinde, mevcut kurallara göre satılacak ekipmana sahip yuvalar kırmızıyla gösterilir ve eksik sayılır.",
+  gearAnalyticsShowFullyEquippedLabel: "Tam donanımı göster",
+  gearAnalyticsShowFullyEquippedDesc: "Etkinleştirildiğinde, mevcut tüm yuvaları zaten dolu olan şampiyonlar da listelenir (eksik sayım modlarında sona sıralanır).",
   // Daralt düğmesi — sağ tık tüm grafikleri aynı anda değiştirir.
   gearAnalyticsCollapseChartTooltip: "Grafiği daralt\n\n_Tüm grafikleri değiştirmek için sağ tıklayın._",
 

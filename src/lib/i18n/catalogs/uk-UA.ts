@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Медіана",
   gearAnalyticsSeriesMax: "Макс",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Не повністю екіпірований",
-  gearAnalyticsNotEquippedTitleDesc: "Чемпіони з хоча б одним порожнім слотом снарядження. Сітка: заповнено = вдягнено, контур = порожньо.",
+  gearAnalyticsNotEquippedTitle: "Спорядження чемпіонів",
+  gearAnalyticsNotEquippedTitleDesc: "Покриття спорядження по кожному чемпіону. Сітка: заповнено = екіпіровано, контур = порожньо, пунктир = заблоковано (вознесіть чемпіона). Перемикачі для імітації продажу та для включення повністю екіпірованих чемпіонів.",
   gearAnalyticsSlotNotUnlocked: "Ще не розблоковано — підніміть чемпіона для розблокування",
   gearAnalyticsSortLabel: "Сортування",
   gearAnalyticsSlotModeAll: "Усі",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "За рангом",
   gearAnalyticsSimulateSoldLabel: "Імітація продажу",
   gearAnalyticsSimulateSoldDesc: "Якщо увімкнено, комірки, екіпірування яких було б продане за поточними правилами, відображаються червоним і рахуються як відсутні.",
+  gearAnalyticsShowFullyEquippedLabel: "Показати повних",
+  gearAnalyticsShowFullyEquippedDesc: "Якщо увімкнено, чемпіони, у яких усі доступні комірки вже заповнені, також відображаються (сортуються в кінець у режимах за відсутніми комірками).",
   // Кнопка згортання — правий клік перемикає всі графіки одночасно.
   gearAnalyticsCollapseChartTooltip: "Згорнути графік\n\n_Правий клік — перемкнути всі графіки._",
 

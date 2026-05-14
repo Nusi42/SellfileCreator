@@ -328,8 +328,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Médiane",
   gearAnalyticsSeriesMax: "Max",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Pas entièrement équipé",
-  gearAnalyticsNotEquippedTitleDesc: "Champions avec au moins un emplacement d'\u00e9quipement vide. Grille\u00a0: rempli = équipé, contour = vide.",
+  gearAnalyticsNotEquippedTitle: "Équipement des champions",
+  gearAnalyticsNotEquippedTitleDesc: "Couverture d’équipement par champion. Grille : rempli = équipé, contour = vide, pointillé = verrouillé (faire ascension). Commutateurs pour simuler la vente et inclure les champions entièrement équipés.",
   gearAnalyticsSlotNotUnlocked: "Pas encore débloqué — montez le champion en grade",
   gearAnalyticsSortLabel: "Trier",
   gearAnalyticsSlotModeAll: "Tous",
@@ -338,6 +338,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Par rang",
   gearAnalyticsSimulateSoldLabel: "Simuler vente",
   gearAnalyticsSimulateSoldDesc: "Lorsqu’il est activé, les emplacements dont la pièce équipée serait vendue par les règles actuelles sont colorés en rouge et comptés comme manquants.",
+  gearAnalyticsShowFullyEquippedLabel: "Afficher les complets",
+  gearAnalyticsShowFullyEquippedDesc: "Lorsqu’il est activé, les champions dont tous les emplacements disponibles sont déjà remplis sont également listés (triés à la fin dans les modes par emplacements manquants).",
   // Bouton réduire — clic droit bascule tous les graphiques simultanément.
   gearAnalyticsCollapseChartTooltip: "Réduire le graphique\n\n_Clic droit pour basculer tous les graphiques._",
 

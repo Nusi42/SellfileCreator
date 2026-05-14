@@ -197,8 +197,8 @@ Notes :
 - Environ 100 000 drops par palier, avec mise à jour pendant l’exécution.
 - Les taux de drop et les rolls sont simulés : considérez les chiffres comme des estimations.
 
-### Gear Lens
-Ouvrez « Outils » et passez sur l'onglet **Gear Lens** pour un aperçu analytique de votre équipement importé.
+### Analyse d’équipement
+Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un aperçu analytique de votre équipement importé.
 
 **Cartes KPI (ligne du haut) :** Huit cartes de pourcentage — **Taux 6★**, **Légendaire+**, **Maxé (+16)**, **Équipé**, **Verrouillé au coffre**, **Chaos'd**, **Glyphed**, **Éveillé** — chacune avec une infobulle.
 
@@ -220,8 +220,10 @@ Ouvrez « Outils » et passez sur l'onglet **Gear Lens** pour un aperçu analyti
 
 **Onglet Statistiques des champions :** Totaux de sous-stats cumulés sur les pièces équipées par champion. Filtrez par emplacement (**Tous** / **Collection** / **Coffre**), activez **Entièrement équipé** uniquement, et incluez ou excluez les glyphes. Affiche les séries Min/Moy/Médiane/Max.
 
+**Équipement des champions :** Couverture d’équipement par champion en deux tableaux compacts (**Collection** / **Coffre**). Chaque ligne affiche une grille 3×3 (rempli = équipé, contour = vide, pointillé = verrouillé tant que le champion n’a pas ascensionné). Cliquez sur un emplacement rempli pour sélectionner cette pièce — la sélection est partagée avec l’Inspecteur d’équipement. Activez **Simuler vente** pour colorer en rouge les emplacements dont la pièce serait vendue et les compter comme manquants, ou **Afficher les complets** pour lister également les champions entièrement équipés.
+
 **Boutons :**
-- **Copier l'instantané :** Rend la vue analytique complète en PNG et la copie dans le presse-papiers.
+- **Copier l'instantané :** Rend la vue analytique complète en PNG et la copie dans le presse-papiers. Note : l’Équipement des champions n’est pas inclus dans l’instantané.
 - **Appliquer à l'Inspecteur d'équipement :** Envoie le filtre croisé actif dans le filtre de liste de l'Inspecteur d'équipement (visible uniquement quand un filtre est actif).
 
 ### Gestion des recettes

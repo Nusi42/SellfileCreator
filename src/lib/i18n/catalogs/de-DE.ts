@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Median",
   gearAnalyticsSeriesMax: "Max",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Nicht vollst\u00e4ndig ausr\u00fcstung",
-  gearAnalyticsNotEquippedTitleDesc: "Champions mit mindestens einem leeren Ausr\u00fcstungsslot. Raster: ausgef\u00fcllt = ausr\u00fcstung, Umriss = leer.",
+  gearAnalyticsNotEquippedTitle: "Champion-Ausrüstung",
+  gearAnalyticsNotEquippedTitleDesc: "Ausrüstungsabdeckung pro Champion. Raster: gefüllt = ausgerüstet, Umriss = leer, gestrichelt = gesperrt (Champion aszendieren). Schalter zum Simulieren von Verkauf und zum Einblenden voll ausgerüsteter Champions.",
   gearAnalyticsSlotNotUnlocked: "Noch nicht freigeschaltet — Champion aufsteigen lassen",
   gearAnalyticsSortLabel: "Sortieren",
   gearAnalyticsSlotModeAll: "Alle",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Nach Rang",
   gearAnalyticsSimulateSoldLabel: "Verkauf simulieren",
   gearAnalyticsSimulateSoldDesc: "Wenn aktiv: Slots, deren ausgerüstete Ausrüstung von den aktuellen Regeln verkauft würde, werden rot dargestellt und als fehlend gezählt.",
+  gearAnalyticsShowFullyEquippedLabel: "Voll ausgerüstete zeigen",
+  gearAnalyticsShowFullyEquippedDesc: "Wenn aktiv: Champions, bei denen alle verfügbaren Slots bereits gefüllt sind, werden ebenfalls aufgelistet (in den fehlt-Zählmodi an das Ende sortiert).",
   // Einklapp-Schaltfläche — Rechtsklick klappt alle Diagramme gleichzeitig ein/aus.
   gearAnalyticsCollapseChartTooltip: "Diagramm einklappen\n\n_Rechtsklick: alle Diagramme umschalten._",
   dungeonDropsIntro: "Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.",

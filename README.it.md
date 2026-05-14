@@ -181,8 +181,8 @@ Note:
 - Circa 100.000 drop per fase e si aggiorna mentre gira.
 - Tassi di drop e roll sono simulati, quindi i numeri sono stime.
 
-### Gear Lens
-Apri "Strumenti" e passa alla scheda **Gear Lens** per una panoramica analitica del tuo equipaggiamento importato.
+### Analisi Equipaggiamento
+Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoramica analitica del tuo equipaggiamento importato.
 
 **Schede KPI (riga superiore):** Otto schede percentuale — **Tasso 6★**, **Leggendaria+**, **Maxed (+16)**, **Equipaggiata**, **Bloccata nel forziere**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip.
 
@@ -204,8 +204,10 @@ Apri "Strumenti" e passa alla scheda **Gear Lens** per una panoramica analitica 
 
 **Scheda Statistiche campioni:** Totali delle sotto-stat sommati sui pezzi equipaggiati per campione. Filtra per posizione (**Tutti** / **Collezione** / **Forziere**), attiva solo **Completamente equipaggiato** e includi o escludi i glifi. Mostra le serie Min/Media/Mediana/Max.
 
+**Equipaggiamento campioni:** Copertura degli slot di equipaggiamento per campione in due tabelle compatte (**Collezione** / **Forziere**). Ogni riga mostra una griglia 3×3 (pieno = equipaggiato, contorno = vuoto, tratteggiato = bloccato finché il campione non ascende). Clicca uno slot pieno per selezionare quel pezzo — la selezione è condivisa con l’Ispettore equipaggiamento. Attiva **Simula vendita** per colorare di rosso gli slot la cui pezza verrebbe venduta e contarli come mancanti, o **Mostra completi** per elencare anche i campioni completamente equipaggiati.
+
 **Pulsanti:**
-- **Copia istantanea:** Renderizza l'intera vista analitica come PNG e la copia negli appunti.
+- **Copia istantanea:** Renderizza l'intera vista analitica come PNG e la copia negli appunti. Nota: la sezione Equipaggiamento campioni non è inclusa nell’istantanea.
 - **Applica all'Ispettore Equipaggiamento:** Invia il filtro incrociato attivo nel filtro elenco dell'Ispettore Equipaggiamento (visibile solo quando è attivo un filtro).
 
 ### Gestione delle ricette

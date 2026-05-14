@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Mediana",
   gearAnalyticsSeriesMax: "Máx",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Não totalmente equipado",
-  gearAnalyticsNotEquippedTitleDesc: "Campeões com pelo menos um slot de equipamento em falta. Grelha: preenchido = equipado, contorno = em falta.",
+  gearAnalyticsNotEquippedTitle: "Equipamento de campeões",
+  gearAnalyticsNotEquippedTitleDesc: "Cobertura de equipamento por campeão. Grelha: preenchido = equipado, contorno = vazio, tracejado = bloqueado (ascender campeão). Comutadores para simular venda e incluir campeões totalmente equipados.",
   gearAnalyticsSlotNotUnlocked: "Ainda não desbloqueado — eleve o campeão para desbloquear",
   gearAnalyticsSortLabel: "Ordenar",
   gearAnalyticsSlotModeAll: "Todos",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Por rank",
   gearAnalyticsSimulateSoldLabel: "Simular venda",
   gearAnalyticsSimulateSoldDesc: "Quando ativado, espaços cuja peça equipada seria vendida pelas regras atuais aparecem a vermelho e são contados como em falta.",
+  gearAnalyticsShowFullyEquippedLabel: "Mostrar completos",
+  gearAnalyticsShowFullyEquippedDesc: "Quando ativado, campeões com todos os espaços disponíveis já equipados também são listados (ordenados no fim nos modos por espaços em falta).",
   // Botão recolher — clique com o botão direito alterna todos os gráficos ao mesmo tempo.
   gearAnalyticsCollapseChartTooltip: "Recolher gráfico\n\n_Clique com o botão direito para alternar todos os gráficos._",
   dungeonDropsIntro: "Simule drops de masmorra usando as suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e por marco de nível.",

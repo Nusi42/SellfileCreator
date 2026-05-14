@@ -331,9 +331,10 @@ const enUS: Catalog = {
   gearAnalyticsSeriesAvg: "Avg",
   gearAnalyticsSeriesMedian: "Median",
   gearAnalyticsSeriesMax: "Max",
-  // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Not Fully Equipped",
-  gearAnalyticsNotEquippedTitleDesc: "Champions with at least one empty gear slot. Grid: filled = equipped, outline = empty, dashed = locked (ascend champion).",
+  // Champion Equipment section (formerly "Not Fully Equipped" — i18n keys kept stable so
+  // localStorage and snapshot identifiers do not have to migrate).
+  gearAnalyticsNotEquippedTitle: "Champion Equipment",
+  gearAnalyticsNotEquippedTitleDesc: "Per-champion gear coverage. Grid: filled = equipped, outline = empty, dashed = locked (ascend champion). Toggles to simulate sold gear and to also include fully-equipped champions.",
   gearAnalyticsSlotNotUnlocked: "Not yet unlocked — ascend champion to unlock",
   gearAnalyticsSortLabel: "Sort",
   gearAnalyticsSlotModeAll: "All",
@@ -344,6 +345,9 @@ const enUS: Catalog = {
   // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
   gearAnalyticsSimulateSoldLabel: "Simulate sold",
   gearAnalyticsSimulateSoldDesc: "When on, slots whose equipped piece would be sold by the current rules are drawn red and counted as missing.",
+  // Show-fully-equipped toggle: expands the list to also include champions with no missing slots.
+  gearAnalyticsShowFullyEquippedLabel: "Show fully equipped",
+  gearAnalyticsShowFullyEquippedDesc: "When on, champions with every available slot already filled are also listed (sorted to the end of missing-count modes).",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Collapse chart\n\n_Right-click to toggle all charts._",
   dungeonDropsIntro: "Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.",

@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Mediana",
   gearAnalyticsSeriesMax: "Max",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Non completamente equipaggiato",
-  gearAnalyticsNotEquippedTitleDesc: "Campioni con almeno uno slot equipaggiamento vuoto. Griglia: pieno = equipaggiato, contorno = vuoto.",
+  gearAnalyticsNotEquippedTitle: "Equipaggiamento campioni",
+  gearAnalyticsNotEquippedTitleDesc: "Copertura equipaggiamento per campione. Griglia: pieno = equipaggiato, contorno = vuoto, tratteggiato = bloccato (ascendi il campione). Interruttori per simulare la vendita e includere campioni completamente equipaggiati.",
   gearAnalyticsSlotNotUnlocked: "Non ancora sbloccato — ascendi il campione per sbloccare",
   gearAnalyticsSortLabel: "Ordina",
   gearAnalyticsSlotModeAll: "Tutti",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "Per rango",
   gearAnalyticsSimulateSoldLabel: "Simula vendita",
   gearAnalyticsSimulateSoldDesc: "Se attivo, gli slot la cui pezza equipaggiata verrebbe venduta dalle regole correnti sono mostrati in rosso e contati come mancanti.",
+  gearAnalyticsShowFullyEquippedLabel: "Mostra completi",
+  gearAnalyticsShowFullyEquippedDesc: "Se attivo, vengono elencati anche i campioni con tutti gli slot disponibili già equipaggiati (ordinati alla fine nelle modalità per slot mancanti).",
   // Pulsante comprimi — clic destro alterna tutti i grafici contemporaneamente.
   gearAnalyticsCollapseChartTooltip: "Comprimi grafico\n\n_Clic destro per alternare tutti i grafici._",
   dungeonDropsIntro: "Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.",

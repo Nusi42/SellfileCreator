@@ -191,8 +191,8 @@ Notlar:
 - Her aşama için yaklaşık 100.000 düşüş çalıştırır ve çalışırken günceller.
 - Düşüş oranları ve roll’lar simülasyondur; sayılar tahmindir.
 
-### Gear Lens
-Araçlar'ı açıp **Gear Lens** sekmesine geçin — içe aktarılan ekipmanınızın analitik görünümü.
+### Ekipman Analizi
+Araçlar'ı açıp **Ekipman Analizi** sekmesine geçin — içe aktarılan ekipmanınızın analitik görünümü.
 
 **KPI Kartları (üst satır):** Sekiz yüzde kartı — **6★ Oranı**, **Efsanevi+**, **Maksimum (+16)**, **Giyili**, **Kasaya Kilitli**, **Chaos'd**, **Glyphed**, **Yükselmiş** — her biri tooltip ile gösterilir.
 
@@ -214,8 +214,10 @@ Araçlar'ı açıp **Gear Lens** sekmesine geçin — içe aktarılan ekipmanın
 
 **Şampiyon İstatistikleri Sekmesi:** Şampiyon başına giyili parçalar üzerinden toplam alt stat değerleri. Konuma göre filtreleyin (**Tümü** / **Koleksiyon** / **Kasa**), **Tam giyili** öğesini açıp glifleri dahil edin veya hariç tutun. Min/Ort/Medyan/Maks serilerini gösterir.
 
+**Şampiyon ekipmanı:** Şampiyon başına ekipman yuvası kapsamı, iki kompakt tablo (**Koleksiyon** / **Kasa**) halinde. Her satır 3×3 yuva ızgarası gösterir (dolu = takılı, ana hat = boş, kesik çizgi = ascensiona kadar kilitli). Dolu bir yuvaya tıklayarak o parçayı seçin — seçim Ekipman İnceleyicisi ile paylaşılır. **Satışı simüle et** ile satılacak ekipmanın bulunduğu yuvaları kırmızıyla boyayıp eksik olarak sayabilir, veya **Tam donanımı göster** ile tüm yuvaları dolu olan şampiyonları da listeleyebilirsiniz.
+
 **Düğmeler:**
-- **Anlık görüntü kopyala:** Analitik görünümün tamamını PNG olarak render eder ve panoya kopyalar.
+- **Anlık görüntü kopyala:** Analitik görünümün tamamını PNG olarak render eder ve panoya kopyalar. Not: Şampiyon ekipmanı bölümü anlık görüntüye dahil edilmez.
 - **Ekipman Denetçisi'ne uygula:** Etkin çapraz filtreyi Ekipman Denetçisi liste filtresine gönderir (yalnızca filtre etkinken görünür).
 
 ### Reçete yönetimi

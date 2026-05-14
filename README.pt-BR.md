@@ -191,8 +191,8 @@ Notas:
 - Roda cerca de 100.000 drops por estágio e atualiza enquanto roda.
 - Taxas de drop e rolls são simulados; trate os números como estimativas.
 
-### Gear Lens
-Abra «Ferramentas» e vá para a aba **Gear Lens** para uma visão analítica do seu equipamento importado.
+### Análise de Equipamentos
+Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma visão analítica do seu equipamento importado.
 
 **Cartões KPI (linha superior):** Oito cartões de porcentagem — **Taxa 6★**, **Lendária+**, **Maxed (+16)**, **Equipada**, **Bloqueada no cofre**, **Chaos'd**, **Glyphed**, **Ascendida** — cada um com um tooltip.
 
@@ -214,8 +214,10 @@ Abra «Ferramentas» e vá para a aba **Gear Lens** para uma visão analítica d
 
 **Aba Estatísticas de campeões:** Totais de substats somados nas peças equipadas por campeão. Filtre por localização (**Todos** / **Coleção** / **Cofre**), ative apenas **Totalmente equipado** e inclua ou exclua os glifos. Exibe séries Min/Média/Mediana/Máx.
 
+**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grade 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique em um slot preenchido para selecionar essa peça — a seleção é compartilhada com o Inspetor de equipamento. Ative **Simular venda** para pintar de vermelho os slots cuja peça seria vendida e contá-los como ausentes, ou **Mostrar completos** para também listar campeões totalmente equipados.
+
 **Botões:**
-- **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e a copia para a área de transferência.
+- **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e a copia para a área de transferência. Nota: o Equipamento de campeões não é incluído no instantâneo.
 - **Aplicar ao Inspetor de Equipamento:** Envia o filtro cruzado ativo para o filtro de lista do Inspetor de Equipamento (visível apenas quando há um filtro ativo).
 
 ### Gestão de receitas

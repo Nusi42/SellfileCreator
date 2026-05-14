@@ -326,8 +326,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesMedian: "Медиана",
   gearAnalyticsSeriesMax: "Макс",
   // Not Fully Equipped section.
-  gearAnalyticsNotEquippedTitle: "Не полностью экипирован",
-  gearAnalyticsNotEquippedTitleDesc: "Чемпионы хотя бы с одним пустым слотом снаряжения. Сетка: заполнено = одето, контур = пусто.",
+  gearAnalyticsNotEquippedTitle: "Экипировка чемпионов",
+  gearAnalyticsNotEquippedTitleDesc: "Охват экипировки по каждому чемпиону. Сетка: заполнено = экипировано, контур = пусто, пунктир = заблокировано (вознесите чемпиона). Переключатели имитации продажи и включения полностью экипированных чемпионов.",
   gearAnalyticsSlotNotUnlocked: "Ещё не разблокировано — улучшите чемпиона для разблокировки",
   gearAnalyticsSortLabel: "Сортировка",
   gearAnalyticsSlotModeAll: "Все",
@@ -336,6 +336,8 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeRank: "По рангу",
   gearAnalyticsSimulateSoldLabel: "Имитация продажи",
   gearAnalyticsSimulateSoldDesc: "Если включено, ячейки, экипировка которых была бы продана текущими правилами, отображаются красным и засчитываются как отсутствующие.",
+  gearAnalyticsShowFullyEquippedLabel: "Показывать полных",
+  gearAnalyticsShowFullyEquippedDesc: "Если включено, чемпионы, у которых все доступные ячейки уже заполнены, также отображаются (сортируются в конец в режимах по недостающим ячейкам).",
   // Кнопка свернуть — правый клик переключает все графики одновременно.
   gearAnalyticsCollapseChartTooltip: "Свернуть график\n\n_Правый клик — переключить все графики._",
 

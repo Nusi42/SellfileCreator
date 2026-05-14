@@ -191,8 +191,8 @@ Notas:
 - Corre unas 100.000 drops por etapa y se actualiza mientras corre.
 - Las tasas de drop y los rolls son simulados; toma los números como estimaciones.
 
-### Gear Lens
-Abre «Herramientas» y cambia a la pestaña **Gear Lens** para una vista analítica de tu equipamiento importado.
+### Análisis de Equipo
+Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vista analítica de tu equipamiento importado.
 
 **Tarjetas KPI (fila superior):** Ocho tarjetas de porcentaje — **Tasa 6★**, **Legendario+**, **Maxeado (+16)**, **Equipado**, **Bloqueado en el cofre**, **Chaos'd**, **Glyphed**, **Ascendido** — cada una con un tooltip.
 
@@ -214,8 +214,10 @@ Abre «Herramientas» y cambia a la pestaña **Gear Lens** para una vista analí
 
 **Pestaña Estadísticas de campeones:** Totales de substats sumados de las piezas equipadas por campeón. Filtra por ubicación (**Todos** / **Colección** / **Cofre**), activa solo **Totalmente equipado** e incluye o excluye los glifos. Muestra series Min/Prom/Mediana/Máx.
 
+**Equipo de campeones:** Cobertura de espacios de equipo por campeón en dos tablas compactas (**Colección** / **Cofre**). Cada fila muestra una rejilla 3×3 (lleno = equipado, contorno = vacío, discontinuo = bloqueado hasta ascender). Haz clic en una casilla llena para seleccionar esa pieza — la selección se comparte con el Inspector de equipo. Activa **Simular venta** para pintar de rojo los espacios cuya pieza se vendería y contarlos como faltantes, o **Mostrar completos** para listar también los campeones totalmente equipados.
+
 **Botones:**
-- **Copiar captura:** Renderiza la vista analítica completa como PNG y la copia al portapapeles.
+- **Copiar captura:** Renderiza la vista analítica completa como PNG y la copia al portapapeles. Nota: la sección Equipo de campeones no se incluye en la captura.
 - **Aplicar al Inspector de Equipo:** Envía el filtro cruzado activo al filtro de lista del Inspector de Equipo (solo visible cuando hay un filtro activo).
 
 ### Gestión de recetas

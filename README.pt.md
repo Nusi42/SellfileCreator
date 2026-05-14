@@ -191,8 +191,8 @@ Notas:
 - Corre cerca de 100.000 drops por etapa e atualiza enquanto corre.
 - As taxas de drop e os rolls são simulados, por isso os números são estimativas.
 
-### Gear Lens
-Abra «Ferramentas» e mude para o separador **Gear Lens** para uma visão analítica do seu equipamento importado.
+### Análise de Equipamento
+Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para uma visão analítica do seu equipamento importado.
 
 **Cartões KPI (linha superior):** Oito cartões de percentagem — **Taxa 6★**, **Lendária+**, **Maxed (+16)**, **Equipada**, **Bloqueada no cofre**, **Chaos'd**, **Glyphed**, **Ascendida** — cada um com um tooltip.
 
@@ -214,8 +214,10 @@ Abra «Ferramentas» e mude para o separador **Gear Lens** para uma visão anal�
 
 **Separador Estatísticas de campeões:** Totais de substats somados nas peças equipadas por campeão. Filtre por localização (**Todos** / **Coleção** / **Cofre**), ative apenas **Totalmente equipado** e inclua ou exclua os glifos. Mostra séries Min/Média/Mediana/Máx.
 
+**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grelha 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique num slot preenchido para selecionar essa peça — a seleção é partilhada com o Inspetor de equipamento. Ative **Simular venda** para pintar a vermelho os slots cuja peça seria vendida e contá-los como em falta, ou **Mostrar completos** para também listar campeões totalmente equipados.
+
 **Botões:**
-- **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e copia-a para o porta-papéis.
+- **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e copia-a para o porta-papéis. Nota: o Equipamento de campeões não é incluído no instantâneo.
 - **Aplicar ao Inspetor de Equipamento:** Envia o filtro cruzado ativo para o filtro de lista do Inspetor de Equipamento (apenas visível quando há um filtro ativo).
 
 ### Gestão de receitas
