@@ -259,6 +259,22 @@ struct MergeSafeguardInjectedRulesInWire {
     candidate_safeguard_rules: Vec<RuleRawWire>,
 }
 
+// Top-level JSON-string payload accepted by evaluate_value.  Wraps the prior
+// (items, options) JsValue argument pair so the single serde_json::from_str
+// parse activates deny_unknown_fields at the wrapper level.  Hot-path entry —
+// worker calls this with batches of up to PIPELINE_MATCH_BATCH_SIZE items, so
+// switching from externref-driven serde_wasm_bindgen to linear-memory JSON
+// parsing also reduces wasm-bindgen Vec::grow_one churn under talc.
+// `options` stays Option<EvaluateOptionsRaw> because the TS side omits the key
+// entirely when no filter options apply (matches EvaluateOptionsRaw::default).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EvaluateValueInWire {
+    items: Vec<EvaluateItemRaw>,
+    #[serde(default)]
+    options: Option<EvaluateOptionsRaw>,
+}
+
 // Top-level JSON-string payload accepted by evaluate_and_collect_safeguard_protection_value.
 // Bundles the five prior JsValue arguments (options, ignore-recipe list, safeguard rules,
 // expected-group wrapper, improvement-chance entries) into a single struct so the parse
@@ -1197,13 +1213,25 @@ struct ImprovementChanceOutput<'a> {
 // Reads ENGINE_STATE.stored_rows (requires store_artifact_rows_value first).
 // Returns { entries, diag } where diag is populated only when debug=true.
 // Uses to_js_value (not wasm_to_js) because the output types have no HashMap fields.
+//
+// Migrated to a JSON-string payload so serde_json::from_str activates
+// deny_unknown_fields on every SafeguardWasmRuleIn entry — matching the
+// find_obsolete_value convention of parsing directly into a Vec<T> when the
+// element type already carries the strict gate (no wrapper struct needed for
+// a single-array payload).  `enabled` and `debug` stay as primitive wasm-bindgen
+// args because wasm-bindgen marshals primitives natively without JSON round-trip.
 #[wasm_bindgen]
 pub fn compute_improvement_chance_value(
-    rules: JsValue,
+    payload: &str,
     enabled: bool,
     debug: bool,
 ) -> Result<JsValue, JsValue> {
-    let parsed_rules: Vec<SafeguardWasmRuleIn> = from_js_value(rules)
+    // Pre-warm so the Vec<SafeguardWasmRuleIn> growth during deserialization
+    // stays in a clean block (matches the find_obsolete_value pattern).
+    prewarm_for_json_parse(payload.len());
+    // Direct Vec parse — SafeguardWasmRuleIn already carries deny_unknown_fields
+    // on the element type, so no wrapper struct is required for the drift gate.
+    let parsed_rules: Vec<SafeguardWasmRuleIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
     let (entries, perf_diag) = compute_improvement_chance_engine(parsed_rules, enabled, debug)
         .map_err(|error| JsValue::from_str(&error))?;
@@ -1228,18 +1256,28 @@ pub fn score_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsValu
 
 // Evaluate a batch of Gear Inspector items against the configured rules.
 // Returns a JS value matching the existing worker result shape.
-// Fast evaluate variant accepts JS objects directly and returns a JS value.
+//
+// Migrated to a single JSON-string payload (EvaluateValueInWire) so
+// serde_json::from_str activates deny_unknown_fields at both the wrapper and
+// the per-item TestItemRaw level — serde-wasm-bindgen's from_value path
+// structurally ignores deny_unknown_fields because its ObjectAccess iterates
+// the Rust struct's declared fields rather than the JS object's own keys.
+// Hot path: worker batches thousands of items per call; UTF-8 parsing in
+// linear memory beats externref-driven property reads for that volume.
+// Output type Vec<EvaluateItemResult> → { EvalMatch, MatchingRecipeDecision }
+// — no HashMap on any node — so plain to_js_value remains correct.
 #[wasm_bindgen]
-pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
-    let parsed_items: Vec<EvaluateItemRaw> = from_js_value(items)
-        .map_err(|error| JsValue::from_str(&format!("Invalid items value: {error}")))?;
-    let parsed_options: EvaluateOptionsRaw = if options.is_undefined() || options.is_null() {
-        EvaluateOptionsRaw::default()
-    } else {
-        from_js_value(options)
-            .map_err(|error| JsValue::from_str(&format!("Invalid options value: {error}")))?
-    };
-    let results = evaluate_engine(parsed_items, parsed_options)?;
+pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
+    // Pre-warm so the Vec<EvaluateItemRaw> growth during deserialization stays
+    // in a clean large block instead of fragmenting talc's free list.
+    prewarm_for_json_parse(payload.len());
+    // Single parse covers items + options; deny_unknown_fields rejects any drift.
+    let parsed: EvaluateValueInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid evaluate payload: {error}")))?;
+    // Default options when caller omits the field entirely (matches null/undefined
+    // semantics of the legacy two-arg JsValue signature).
+    let parsed_options = parsed.options.unwrap_or_default();
+    let results = evaluate_engine(parsed.items, parsed_options)?;
     to_js_value(&results)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
 }
@@ -2264,5 +2302,156 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
         let bad = r#"{"safeguardRules":[],"bogus":1}"#;
         let r: Result<EvaluateAndCollectSafeguardProtectionInWire, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the evaluate_value JSON wire shape.  Wrapper carries
+// items (Vec<EvaluateItemRaw>) and Option<EvaluateOptionsRaw>.  Fixture drills
+// into the first item's TestItemRaw fields (slot/set/.../subValues/previewExtras)
+// so any drift between TS toWasmTestItem and the Rust wire shape trips the test.
+#[cfg(test)]
+mod evaluate_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture covers every wrapper field plus every TestItemRaw
+    // field reachable through items[0].item.  subValues uses a string-keyed map
+    // because OptionSubValuesVisitor parses keys as strings before coercing to i64
+    // (matches the on-wire shape emitted by toWasmTestItem).
+    const FIXTURE: &str = r#"{
+      "items": [{
+        "itemId": 7,
+        "item": {
+          "slot": 5,
+          "set": 19,
+          "rank": 6,
+          "rarity": 6,
+          "level": 16,
+          "faction": 1,
+          "main": 1,
+          "subValues": { "5": 8.0, "7": 12.5 },
+          "itemId": 7,
+          "previewExtras": { "id": 7 }
+        }
+      }],
+      "options": {
+        "excludeSources": ["safeguard"],
+        "excludeRecipeIndices": [1],
+        "ignoreSafeguardRecipeIndices": [2],
+        "baselineExcludeSources": ["userBaseline"]
+      }
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: EvaluateValueInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- EvaluateValueInWire (wrapper) ----------------------------------
+        assert_eq!(parsed.items.len(), 1, "items length");
+        let options = parsed.options.as_ref().expect("options populated");
+        assert_eq!(options.exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.excludeSources");
+        assert_eq!(options.exclude_recipe_indices.as_ref().map(|v| v.as_slice()), Some([1i64].as_slice()), "options.excludeRecipeIndices");
+        assert_eq!(options.ignore_safeguard_recipe_indices.as_ref().map(|v| v.as_slice()), Some([2i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
+        assert_eq!(options.baseline_exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.baselineExcludeSources");
+
+        // -- items[0] (EvaluateItemRaw → TestItemRaw) ----------------------
+        let entry = &parsed.items[0];
+        assert_eq!(entry.item_id, 7, "items[0].itemId");
+        assert_eq!(entry.item.slot, 5, "items[0].item.slot");
+        assert_eq!(entry.item.set, 19, "items[0].item.set");
+        assert_eq!(entry.item.rank, 6, "items[0].item.rank");
+        assert_eq!(entry.item.rarity, 6, "items[0].item.rarity");
+        assert_eq!(entry.item.level, 16, "items[0].item.level");
+        assert_eq!(entry.item.faction, Some(1), "items[0].item.faction");
+        assert_eq!(entry.item.main, Some(1), "items[0].item.main");
+        assert_eq!(entry.item.item_id, Some(7), "items[0].item.itemId");
+
+        // -- items[0].item.subValues (string-keyed → Vec<(i64, f64)>) ------
+        let subs = entry.item.sub_values.as_ref().expect("subValues populated");
+        // Visitor preserves insertion order from the JSON object; assert both pairs.
+        assert_eq!(subs.len(), 2, "subValues length");
+        assert!(subs.iter().any(|(k, v)| *k == 5 && (*v - 8.0).abs() < f64::EPSILON), "subValues contains (5, 8.0)");
+        assert!(subs.iter().any(|(k, v)| *k == 7 && (*v - 12.5).abs() < f64::EPSILON), "subValues contains (7, 12.5)");
+
+        // -- items[0].item.previewExtras (PreviewExtrasRaw) ----------------
+        let preview = entry.item.preview_extras.as_ref().expect("previewExtras populated");
+        assert_eq!(preview.id, Some(7), "items[0].item.previewExtras.id");
+    }
+
+    // deny_unknown_fields gate — wrapper rejects extra top-level keys.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"items":[],"bogus":1}"#;
+        let r: Result<EvaluateValueInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the compute_improvement_chance_value JSON wire shape.
+// Payload deserializes directly into Vec<SafeguardWasmRuleIn> — no wrapper
+// struct, mirroring the find_obsolete_value convention because the element
+// type already carries deny_unknown_fields.  The unknown-field test therefore
+// places the stray key inside the first rule entry, not at the array level.
+#[cfg(test)]
+mod compute_improvement_chance_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture covers every SafeguardWasmRuleIn field the TS side
+    // emits via resolveRulesForWasm.  When a field is added to SafeguardWasmRuleIn,
+    // this fixture AND the assertions below MUST be updated in lockstep.
+    const FIXTURE: &str = r#"[{
+      "id": "demo",
+      "name": "Demo",
+      "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
+      "requiredCount": 1,
+      "activation": "protectExisting",
+      "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "substats": [5, 7],
+      "substatMatch": "any",
+      "substatWeights": { "5": 1.0, "7": 0.5 },
+      "improvementChanceThreshold": [0.0, 5.0, 25.0, 50.0],
+      "tags": ["foo", "bar"]
+    }]"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: Vec<SafeguardWasmRuleIn> = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+
+        // -- Top-level Vec ---------------------------------------------------
+        assert_eq!(parsed.len(), 1, "rules length");
+
+        // -- rules[0] (SafeguardWasmRuleIn) ---------------------------------
+        let rule = &parsed[0];
+        assert_eq!(rule.id.as_deref(), Some("demo"), "rules[0].id");
+        assert_eq!(rule.name.as_deref(), Some("Demo"), "rules[0].name");
+        assert!(rule.combination.is_some(), "rules[0].combination");
+        assert_eq!(rule.required_count, Some(1), "rules[0].requiredCount");
+        assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rules[0].activation");
+        assert!(rule.count_mode.is_some(), "rules[0].countMode");
+        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rules[0].ignorePreviousSafeguards");
+        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rules[0].ignoreEquippedInCollection");
+        assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rules[0].ignoreEquippedInVault");
+        assert_eq!(rule.substats.as_ref().map(|v| v.as_slice()), Some([5i64, 7].as_slice()), "rules[0].substats");
+        assert_eq!(rule.substat_match.as_deref(), Some("any"), "rules[0].substatMatch");
+        let weights = rule.substat_weights.as_ref().expect("substatWeights populated");
+        assert_eq!(weights.len(), 2, "rules[0].substatWeights length");
+        assert!(weights.get(&5).map(|v| (*v - 1.0).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[5]");
+        assert!(weights.get(&7).map(|v| (*v - 0.5).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[7]");
+        assert!(rule.improvement_chance_threshold.is_some(), "rules[0].improvementChanceThreshold");
+        assert_eq!(rule.tags.as_ref().map(|v| v.as_slice()), Some(["foo".to_string(), "bar".to_string()].as_slice()), "rules[0].tags");
+    }
+
+    // deny_unknown_fields gate — per-rule schema rejects unknown keys because
+    // SafeguardWasmRuleIn itself carries deny_unknown_fields (the array has no
+    // wrapper struct to gate at the outer level).
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"[{"id":"x","bogus":1}]"#;
+        let r: Result<Vec<SafeguardWasmRuleIn>, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown per-rule keys");
     }
 }

@@ -37,7 +37,6 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
-import type { TestItem } from './ruleEval'
 import type {
   ImprovementChanceWasmEntry,
   WasmArtifactStoreInput,
@@ -63,6 +62,8 @@ import {
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
   scoreSafeguardCandidatesWithLoadedWasm,
+  // toWasmTestItem SSOT moved here; re-exported below for downstream consumers.
+  toWasmTestItem,
 } from './wasm/wasmRuleEngine'
 import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
 import {
@@ -1293,27 +1294,13 @@ export function collectAndComputeSafeguardProtection(
   }
 }
 
-// Trim a TestItem to only the fields TestItemRaw reads (wasm/rule_engine_core/src/lib.rs:239).
-// Must be applied before passing any TestItem across the JS↔WASM boundary — both for
-// storeArtifactRows (store path) and evaluateWasmRuleEngineItems (evaluate path).
-// Passing the full item forces serde_wasm_bindgen to traverse previewExtras.mainStat /
-// .substats / .ascension (up to ~50 NormalizedStat properties per artifact) and to allocate
-// temporary Rust Strings for champion-name/location fields. PreviewExtrasRaw in Rust only
-// reads `id`. With large artifact sets (~8–25 k items) this causes hundreds of thousands of
-// unnecessary property accesses and short-lived heap allocations → WASM heap fragmentation
-// → Chrome renderer OOM / "Access Violation" crash.
-export const toWasmTestItem = (item: TestItem): TestItem => ({
-  slot: item.slot,
-  set: item.set,
-  rank: item.rank,
-  rarity: item.rarity,
-  level: item.level,
-  ...(item.faction != null ? { faction: item.faction } : {}),
-  ...(item.main != null ? { main: item.main } : {}),
-  ...(item.subValues != null ? { subValues: item.subValues } : {}),
-  // Forward only previewExtras.id — all other extras fields are not in PreviewExtrasRaw.
-  ...(item.previewExtras?.id != null ? { previewExtras: { id: item.previewExtras.id } } : {}),
-})
+// toWasmTestItem now lives in ./wasm/wasmRuleEngine.ts (SSOT moved alongside the
+// evaluate wrappers that depend on it).  Re-exported here so downstream callers
+// importing from './safeguards' keep working without changing their import paths,
+// and so the toWasmSafeguardCandidate helper below can keep calling it locally.
+// See the canonical definition for the full rationale (drift gate +
+// heap-fragmentation mitigation).
+export { toWasmTestItem }
 
 // Build a compact WASM artifact payload from a NormalizedGearArtifact.
 // Includes only the fields SafeguardWasmArtifactRawIn reads, eliminating

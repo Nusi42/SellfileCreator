@@ -155,6 +155,36 @@ export type WasmImprovementChanceInput = {
   chancesByRuleOrdinal: ReadonlyArray<{ ruleOrdinal: number; chancePercent: number }>
 }
 
+// Trim a TestItem to only the fields TestItemRaw reads (wasm/rule_engine_core/src/lib.rs
+// around line 244).  Must be applied before any TestItem crosses the JS↔WASM boundary —
+// both for storeArtifactRows (store path) and evaluate_value (evaluate path).
+//
+// Two reasons this projection cannot be skipped:
+//   1. Drift gate: previewExtras on the TS side (GearInspectorItemPreviewExtras) carries
+//      9+ fields (source, rerollCount, equippedChampion, mainStat, substats, ascension,
+//      exactLevel, lastUseLocalTimestamp, isLocked).  PreviewExtrasRaw on the Rust side
+//      declares only `id`, with deny_unknown_fields.  After the evaluate_value JSON
+//      migration, the JSON parse REJECTS the extras unless they are stripped here.
+//   2. Memory: passing the full item forced serde_wasm_bindgen to traverse and allocate
+//      Rust Strings for previewExtras.mainStat / .substats / .ascension on every artifact.
+//      With large artifact sets (~8–25 k items) this caused hundreds of thousands of
+//      unnecessary heap allocations → WASM heap fragmentation → Chrome renderer OOM.
+//
+// SSOT lives here (used by the evaluate wrappers below); re-exported from safeguards.ts
+// for downstream consumers that import from the safeguards module.
+export const toWasmTestItem = (item: TestItem): TestItem => ({
+  slot: item.slot,
+  set: item.set,
+  rank: item.rank,
+  rarity: item.rarity,
+  level: item.level,
+  ...(item.faction != null ? { faction: item.faction } : {}),
+  ...(item.main != null ? { main: item.main } : {}),
+  ...(item.subValues != null ? { subValues: item.subValues } : {}),
+  // Forward only previewExtras.id — every other extras field is not in PreviewExtrasRaw.
+  ...(item.previewExtras?.id != null ? { previewExtras: { id: item.previewExtras.id } } : {}),
+})
+
 // Evaluate options mirror evaluateMatchesByRecipe inputs used by worker paths.
 // The WASM engine accepts object values and applies the same source/recipe gating.
 export type WasmRuleEngineEvaluateOptions = {
@@ -231,6 +261,30 @@ const toFlooredI32 = (values: ReadonlyArray<number> | Int32Array): Int32Array =>
 const toSortedNumberArray = (input?: ReadonlySet<number>): number[] | undefined => {
   if (!input || input.size === 0) return undefined
   return Array.from(input).sort((a, b) => a - b)
+}
+
+// Build the single JSON-stringified payload accepted by evaluate_value (Rust side
+// EvaluateValueInWire).  Both async and sync evaluate wrappers route through this
+// helper so the wire-shape projection stays SSOT — adding a new field here is the
+// only place TS needs to touch when the Rust wrapper grows.
+//
+// Items are projected through toWasmTestItem so the inner TestItem matches
+// TestItemRaw EXACTLY — deny_unknown_fields on the Rust side rejects any stray
+// previewExtras fields beyond `id`.  Options are emitted only when at least one
+// filter is active; an empty object would still parse but skipping the key keeps
+// the on-wire payload smaller and lets the Rust wrapper short-circuit via
+// EvaluateOptionsRaw::default() instead of allocating an empty options struct.
+const buildEvaluatePayload = (
+  items: GearInspectorMatchWorkerEvaluateItem[],
+  options?: WasmRuleEngineEvaluateOptions,
+): string => {
+  // Normalize optional filters into the compact wasm payload shape.
+  const optionsPayload = toEvaluateOptionsPayload(options)
+  // Stringify a single object so the Rust side performs exactly one parse.
+  return JSON.stringify({
+    items: items.map((entry) => ({ itemId: entry.itemId, item: toWasmTestItem(entry.item) })),
+    ...(Object.keys(optionsPayload).length ? { options: optionsPayload } : {}),
+  })
 }
 
 // Keep options payload construction in one place so async/sync evaluate wrappers
@@ -329,16 +383,27 @@ export const configureWasmRuleEngine = async (params: {
 
 // Evaluate a batch of Gear Inspector items through the WASM matcher implementation.
 // Results are parsed back into the existing worker item-result shape.
+//
+// Payload crosses the boundary as a single JSON string (EvaluateValueInWire on
+// the Rust side) so serde_json::from_str activates deny_unknown_fields at both
+// the wrapper and the per-item TestItemRaw level — serde-wasm-bindgen's
+// from_value path cannot trigger deny_unknown_fields because its ObjectAccess
+// iterates the Rust struct's declared fields rather than the JS object's own
+// keys.  Each item.item is projected via toWasmTestItem because TS-side
+// GearInspectorItemPreviewExtras carries fields beyond PreviewExtrasRaw's
+// single `id` field; deny_unknown_fields rejects the rest.
 export const evaluateWasmRuleEngineItems = async (params: {
   items: GearInspectorMatchWorkerEvaluateItem[]
   options?: WasmRuleEngineEvaluateOptions
 }): Promise<GearInspectorMatchWorkerItemResult[]> => {
   // Ensure module init before invoking wasm evaluate binding.
   await ensureWasmInitialized()
-  // Normalize optional filters into the compact wasm payload shape.
-  const optionsPayload = toEvaluateOptionsPayload(params.options)
+  // Build the JSON wire payload — single stringify so the Rust side parses once.
+  // Options are omitted entirely when empty so the Rust wrapper falls through to
+  // EvaluateOptionsRaw::default() (matches the previous null/undefined semantics).
+  const payloadJson = buildEvaluatePayload(params.items, params.options)
   // Evaluate all provided items using the configured matcher state.
-  const result = evaluateRuleEngineWasmValueBinding(params.items, optionsPayload)
+  const result = evaluateRuleEngineWasmValueBinding(payloadJson)
   // Return parsed results when binding returned the expected array payload.
   if (Array.isArray(result)) return result as GearInspectorMatchWorkerItemResult[]
   // Fail loudly on malformed payloads instead of masking with fallback rows.
@@ -359,16 +424,17 @@ export const configureWasmRuleEngineWithLoadedWasm = (params: {
 
 // Sync evaluate helper mirrors the async wrapper but skips init checks.
 // This keeps matcher adapters WASM-only while still exposing sync call sites.
+// Same JSON wire-format projection as the async wrapper — see buildEvaluatePayload.
 export const evaluateWasmRuleEngineItemsWithLoadedWasm = (params: {
   items: GearInspectorMatchWorkerEvaluateItem[]
   options?: WasmRuleEngineEvaluateOptions
 }): GearInspectorMatchWorkerItemResult[] => {
   // Sync helper is fail-closed: caller must have warmed wasm already.
   assertWasmInitializedSync()
-  // Normalize optional filters into the compact wasm payload shape.
-  const optionsPayload = toEvaluateOptionsPayload(params.options)
+  // Build the JSON wire payload — single stringify so the Rust side parses once.
+  const payloadJson = buildEvaluatePayload(params.items, params.options)
   // Evaluate all provided items using the configured matcher state.
-  const result = evaluateRuleEngineWasmValueBinding(params.items, optionsPayload)
+  const result = evaluateRuleEngineWasmValueBinding(payloadJson)
   // Return parsed results when binding returned the expected array payload.
   if (Array.isArray(result)) return result as GearInspectorMatchWorkerItemResult[]
   // Fail loudly when wasm returns an unexpected payload type.
@@ -1485,14 +1551,22 @@ export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] =
 // Reads ENGINE_STATE.stored_rows — store_artifact_rows_value must be called first.
 // Returns null on invalid WASM output (defensive guard).
 // When debug=true, the returned diag block is populated with work counters for dev tracing.
+//
+// Rules cross the boundary as a single JSON-stringified Vec<SafeguardWasmRuleIn>
+// (no wrapper struct — same convention as find_obsolete_value, since
+// SafeguardWasmRuleIn itself carries deny_unknown_fields).  `enabled` and
+// `debug` stay as primitive wasm-bindgen args because wasm-bindgen marshals
+// primitives natively without any JSON round-trip.
 export const computeImprovementChanceWithLoadedWasm = (params: {
   rules: readonly SafeguardRule[]
   enabled: boolean
   debug?: boolean
 }): { entries: ImprovementChanceWasmEntry[]; diag: ImprovementChanceWasmPerfDiag | null } | null => {
   assertWasmInitializedSync()
+  // Resolve per-level threshold inheritance once, then stringify into the wire shape.
+  const payloadJson = JSON.stringify(resolveRulesForWasm(params.rules))
   const raw = computeImprovementChanceWasmValueBinding(
-    resolveRulesForWasm(params.rules),
+    payloadJson,
     params.enabled === true,
     params.debug === true,
   )
