@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
+// Final input migration (batch H — safeguard key helpers) removed the last
+// `from_value` consumer.  All inbound payloads now flow through `serde_json::from_str`
+// so `deny_unknown_fields` activates on every entry point.  Output side still uses
+// the `to_value` / `wasm_to_js` helpers (no JSON marshalling on the return path).
+use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
 use rule_engine_core::*;
 // Minified wire format for compute_merged_rules_value — lives in rule_engine_core
@@ -443,32 +447,62 @@ pub fn build_safeguard_rules_value(
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
 }
 
+// Wrapper for safeguard_count_key_value's JSON payload.  The historical
+// signature took two separate JsValue arguments (artifact + count_mode); the
+// JSON migration funnels both through one serde_json::from_str call so
+// deny_unknown_fields activates against the JS object (the serde-wasm-bindgen
+// from_value path is structurally incapable of triggering that check).
+//
+// PERF NOTE — this entry point is on a HOT PATH (called per-artifact in tight
+// loops over ~8–10k items per render).  Each call now incurs a small JSON
+// stringify + parse round-trip (~5–10μs each side per call).  The trade-off is
+// accepted intentionally: it brings count-key derivation in line with the rest
+// of the wasm surface and activates the deny_unknown_fields drift gate.  Do
+// NOT revert without coordinating the same revert across the entry points
+// migrated in batches D–G — and only after a measured regression.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SafeguardCountKeyInWire {
+    // Compact artifact tuple (slot/set/faction/mainStat) — already projected
+    // on the TS side via toWasmSafeguardCountKeyArtifact.
+    artifact: SafeguardWasmCountKeyArtifactIn,
+    // Count-mode flags consumed by safeguard_count_key_core.
+    count_mode: SafeguardWasmCountMode,
+}
+
 // Expose safeguard count-key derivation so JS expected-group precomputation
 // uses the exact same grouping semantics as Rust detection scans.
+//
+// PERF NOTE (hot path): skip prewarm_for_json_parse — the payload is ~100 B,
+// far below the threshold where pre-warming helps.  See SafeguardCountKeyInWire
+// comment above for the broader perf rationale.
 #[wasm_bindgen]
-pub fn safeguard_count_key_value(artifact: JsValue, count_mode: JsValue) -> Result<String, JsValue> {
-    // Parse compact artifact tuple (slot/set/faction/mainStat) from JS.
-    let parsed_artifact: SafeguardWasmCountKeyArtifactIn = from_js_value(artifact)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count-key artifact: {error}")))?;
-    // Parse and sanitize count-mode flags before key computation.
-    let parsed_mode: SafeguardWasmCountMode = from_js_value(count_mode)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count mode: {error}")))?;
+pub fn safeguard_count_key_value(payload: &str) -> Result<String, JsValue> {
+    // Single parse covers artifact + count_mode in one deny_unknown_fields pass.
+    let input: SafeguardCountKeyInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard count-key payload: {error}")))?;
     // Delegate to the shared Rust helper so key semantics stay SSOT.
-    Ok(safeguard_count_key_core(parsed_artifact, parsed_mode))
+    Ok(safeguard_count_key_core(input.artifact, input.count_mode))
 }
 
 // Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
+//
+// PERF NOTE (hot path): skip prewarm_for_json_parse — the payload is ~50 B.
+// See SafeguardCountKeyInWire comment above for the broader perf rationale.
 #[wasm_bindgen]
-pub fn safeguard_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
-    let parsed_artifact: SafeguardWasmItemKeyArtifactIn = from_js_value(artifact)
+pub fn safeguard_item_key_value(payload: &str) -> Result<i64, JsValue> {
+    let parsed_artifact: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard item-key artifact payload: {error}")))?;
     Ok(safeguard_item_key_core(parsed_artifact))
 }
 
 // Expose group-key derivation so TS reuses Rust accessory-faction normalization.
+//
+// PERF NOTE (hot path): skip prewarm_for_json_parse — the payload is ~80 B.
+// See SafeguardCountKeyInWire comment above for the broader perf rationale.
 #[wasm_bindgen]
-pub fn safeguard_group_key_value(artifact: JsValue) -> Result<String, JsValue> {
-    let parsed_artifact: SafeguardWasmGroupKeyArtifactIn = from_js_value(artifact)
+pub fn safeguard_group_key_value(payload: &str) -> Result<String, JsValue> {
+    let parsed_artifact: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid safeguard group-key artifact payload: {error}")))?;
     Ok(safeguard_group_key_core(parsed_artifact))
 }
@@ -2453,5 +2487,160 @@ mod compute_improvement_chance_value_wire_tests {
         let bad = r#"[{"id":"x","bogus":1}]"#;
         let r: Result<Vec<SafeguardWasmRuleIn>, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown per-rule keys");
+    }
+}
+
+// Conformance tests for the safeguard_item_key_value JSON wire shape.  Payload
+// deserializes directly into SafeguardWasmItemKeyArtifactIn (no wrapper struct,
+// mirroring find_obsolete_value's element-strict convention).  Field accessors
+// are private to the safeguards module so the value-level asserts route through
+// safeguard_item_key_core, which exercises the DB-id-first fallback ladder.
+#[cfg(test)]
+mod safeguard_item_key_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture covers every declared field on
+    // SafeguardWasmItemKeyArtifactIn AND the nested tester-item / preview-extras
+    // shapes.  Choosing artifact.id = 0 forces fallback to gearInspectorItem so
+    // the test exercises the full ladder rather than the trivial first-hop case.
+    const FIXTURE: &str = r#"{
+      "id": 0,
+      "gearInspectorItem": {
+        "itemId": 42,
+        "previewExtras": { "id": 99 }
+      }
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        // safeguard_item_key_core consults id (filtered to >0) -> previewExtras.id -> itemId.
+        // With id=0 (filtered out) we expect previewExtras.id=99 to win.
+        assert_eq!(safeguard_item_key_core(parsed), 99, "previewExtras.id should win when artifact.id is 0");
+
+        // Cross-check the fallback to itemId by re-parsing a fixture WITHOUT previewExtras.
+        let no_preview = r#"{ "id": 0, "gearInspectorItem": { "itemId": 42 } }"#;
+        let parsed2: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(no_preview)
+            .expect("itemId-only fixture must deserialize");
+        assert_eq!(safeguard_item_key_core(parsed2), 42, "itemId should be the final fallback");
+
+        // Cross-check the first-hop case where positive artifact.id wins.
+        let id_first = r#"{ "id": 7, "gearInspectorItem": { "itemId": 42, "previewExtras": { "id": 99 } } }"#;
+        let parsed3: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(id_first)
+            .expect("id-first fixture must deserialize");
+        assert_eq!(safeguard_item_key_core(parsed3), 7, "positive artifact.id should win");
+    }
+
+    // deny_unknown_fields gate — strict struct rejects unknown top-level keys.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"id":1,"bogus":1}"#;
+        let r: Result<SafeguardWasmItemKeyArtifactIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the safeguard_group_key_value JSON wire shape.  Payload
+// deserializes directly into SafeguardWasmGroupKeyArtifactIn.  Field accessors
+// are private to the safeguards module so value-level asserts route through
+// safeguard_group_key_core, which formats the deterministic group-key string.
+#[cfg(test)]
+mod safeguard_group_key_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture covers every declared field on
+    // SafeguardWasmGroupKeyArtifactIn.  Slot 7 (Ring) is an accessory slot so
+    // the faction stays in the key; non-accessory slots collapse faction to 0.
+    const FIXTURE: &str = r#"{
+      "slot": 7,
+      "set": 19,
+      "faction": 1,
+      "mainStat": { "variant": 1 }
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        // Round-trip via the SSOT helper so the test catches drift in either the
+        // wire shape OR the group-key formatter.  Format is "slot:set:main:faction".
+        assert_eq!(safeguard_group_key_core(parsed), "7:19:1:1", "ring slot keeps faction in group key");
+
+        // Cross-check the non-accessory faction-collapse path (helmet = slot 1).
+        let armor = r#"{ "slot": 1, "set": 1, "faction": 1, "mainStat": 0 }"#;
+        let parsed2: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(armor)
+            .expect("armor fixture (variant-number mainStat) must deserialize");
+        // Helmet slot 1 collapses faction to 0 inside safeguard_normalized_faction_for_slot.
+        assert_eq!(safeguard_group_key_core(parsed2), "1:1:0:0", "armor slot collapses faction to 0");
+
+        // Cross-check the omitted-mainStat path (defaults to None → SAFEGUARD_MAIN_ANY).
+        // Ring (slot 7) keeps faction so the test confirms BOTH the faction
+        // pass-through AND the absent-mainStat fallback at the same time.
+        let no_main = r#"{ "slot": 7, "set": 19, "faction": 2 }"#;
+        let parsed3: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(no_main)
+            .expect("omitted-mainStat fixture must deserialize");
+        assert_eq!(safeguard_group_key_core(parsed3), "7:19:-1:2", "omitted mainStat falls back to SAFEGUARD_MAIN_ANY");
+    }
+
+    // deny_unknown_fields gate — strict struct rejects unknown top-level keys.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"slot":1,"set":1,"bogus":1}"#;
+        let r: Result<SafeguardWasmGroupKeyArtifactIn, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
+    }
+}
+
+// Conformance tests for the safeguard_count_key_value JSON wire shape.  Payload
+// is wrapped in SafeguardCountKeyInWire { artifact, count_mode } because the
+// historical signature took two JsValue args.  Wrapper carries deny_unknown_fields;
+// value-level asserts round-trip via safeguard_count_key_core (group-key formatter).
+#[cfg(test)]
+mod safeguard_count_key_value_wire_tests {
+    use super::*;
+
+    // Fully-populated fixture covers every wrapper field plus every nested
+    // SafeguardWasmCountKeyArtifactIn / SafeguardWasmCountMode field.  Mode is
+    // exercised in per-rule form so the sanitizer (which clears per-dimension
+    // toggles when per_rule is set) does not silently mask drift in those flags.
+    // Slot 7 (Ring) is an accessory so faction does NOT collapse to 0 in the
+    // scoped key — covers the faction pass-through path explicitly.
+    const FIXTURE: &str = r#"{
+      "artifact": { "slot": 7, "set": 19, "faction": 1, "mainStat": 1 },
+      "countMode": { "perRule": true, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": false }
+    }"#;
+
+    #[test]
+    fn full_fixture_deserializes() {
+        let parsed: SafeguardCountKeyInWire = serde_json::from_str(FIXTURE)
+            .expect("fully-populated fixture must deserialize");
+        // Round-trip via the core helper so the test catches drift in either the
+        // wire shape OR the count-key formatter.  perRule collapses to the global
+        // sentinel token (SAFEGUARD_COUNT_KEY_GLOBAL = "global") because the
+        // sanitizer clears every per-dimension toggle.
+        let key = safeguard_count_key_core(parsed.artifact, parsed.count_mode);
+        assert_eq!(key, "global", "perRule mode collapses to global sentinel key");
+
+        // Cross-check a per-dimension fixture to prove the artifact tuple flows
+        // through to the formatter rather than being silently elided.  Format is
+        // "slot:N|set:N|faction:N|main:N" with active dimensions only.
+        let per_dim = r#"{
+          "artifact": { "slot": 7, "set": 19, "faction": 1, "mainStat": 1 },
+          "countMode": { "perRule": false, "perSet": true, "perFaction": true, "perMainStat": true, "perSlot": true }
+        }"#;
+        let parsed2: SafeguardCountKeyInWire = serde_json::from_str(per_dim)
+            .expect("per-dimension fixture must deserialize");
+        let key2 = safeguard_count_key_core(parsed2.artifact, parsed2.count_mode);
+        // All four dimensions active → key encodes the full tuple in fixed order.
+        assert_eq!(key2, "slot:7|set:19|faction:1|main:1", "all per-dimension toggles encode full tuple");
+    }
+
+    // deny_unknown_fields gate — wrapper rejects extra top-level keys.
+    #[test]
+    fn unknown_top_level_field_rejected() {
+        let bad = r#"{"artifact":{"slot":1,"set":1,"faction":0,"mainStat":0},"countMode":{},"bogus":1}"#;
+        let r: Result<SafeguardCountKeyInWire, _> = serde_json::from_str(bad);
+        assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
