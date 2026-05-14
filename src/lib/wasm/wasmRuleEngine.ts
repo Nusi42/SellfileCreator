@@ -767,25 +767,43 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
 }): WasmEvaluateAndCollectSnapshot => {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
-  // Build evaluate options payload (mirrors evaluateWasmRuleEngineItems).
+  // Build the evaluate-options object that maps onto EvaluateOptionsRaw on the
+  // Rust side.  Each field is only emitted when the caller supplied a value;
+  // omitting the whole `options` key when the object is empty lets the Rust
+  // wrapper use its serde default (EvaluateOptionsRaw::default()).
   const evaluatePayload: WasmRuleEngineEvaluatePayload = {}
   const opts = params.options
   if (opts?.excludeSources?.length) evaluatePayload.excludeSources = [...opts.excludeSources]
   if (opts?.baselineExcludeSources?.length) evaluatePayload.baselineExcludeSources = [...opts.baselineExcludeSources]
   if (opts?.excludeRecipeIndices?.size) evaluatePayload.excludeRecipeIndices = [...opts.excludeRecipeIndices]
   if (opts?.ignoreSafeguardRecipeIndices?.size) evaluatePayload.ignoreSafeguardRecipeIndices = [...opts.ignoreSafeguardRecipeIndices]
+  // Expected-groups wrapper maps onto SafeguardWasmExpectedGroupsPayloadIn; only
+  // emit it when the caller actually supplied an expected-group domain.
   const expectedGroupsPayload = params.expectedGroupDomain !== undefined
     ? { expectedGroupDomain: params.expectedGroupDomain }
     : undefined
+  // Single JSON-stringified wrapper so the Rust side activates
+  // deny_unknown_fields on EvaluateAndCollectSafeguardProtectionInWire.
+  // `enabled` and `now` stay as primitive wasm-bindgen arguments because
+  // wasm-bindgen marshals primitives natively (same convention as
+  // build_safeguard_rules_value's recipe_id_base).
+  // improvementChances are projected through toWasmImprovementChanceInput so
+  // the inbound shape matches ImprovementChanceInput exactly (drops display-only
+  // fields that deny_unknown_fields would otherwise reject).
+  const payloadJson = JSON.stringify({
+    ...(Object.keys(evaluatePayload).length ? { options: evaluatePayload } : {}),
+    ...(ignored !== null ? { ignoreSafeguardRecipeIndices: ignored } : {}),
+    safeguardRules: resolveRulesForWasm(params.safeguardRules),
+    ...(expectedGroupsPayload !== undefined ? { expectedGroupsPayload } : {}),
+    ...(params.improvementChances?.length
+      ? { improvementChances: params.improvementChances.map(toWasmImprovementChanceInput) }
+      : {}),
+  })
   // Rows are read from ENGINE_STATE.stored_rows (populated by storeArtifactRowsWithLoadedWasm).
   const result = evaluateAndCollectSafeguardProtectionWasmValueBinding(
-    Object.keys(evaluatePayload).length ? evaluatePayload : null,
-    ignored,
-    resolveRulesForWasm(params.safeguardRules),
-    expectedGroupsPayload,
+    payloadJson,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
-    params.improvementChances?.length ? params.improvementChances : null,
   ) as WasmEvaluateAndCollectSnapshot
   if (
     result
@@ -819,17 +837,24 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
 
 // Injected safeguard merge filtering/sorting runs in Rust so canonicalization
 // and dedupe precedence are defined in one implementation.
+//
+// Payload crosses the boundary as a single JSON-stringified wrapper so the Rust
+// side (MergeSafeguardInjectedRulesInWire) activates deny_unknown_fields at the
+// wrapper level and again on every per-rule RuleRawWire entry.  Each rules array
+// goes through minifyRuleRawForWire to produce the short-key on-wire format.
+// RuleRaw stays intentionally lax — wire-form is the only strict gate.
 export const mergeSafeguardInjectedRulesWithLoadedWasm = (params: {
   baseRules: HsfRuleWithRecipe[]
   customRules: HsfRuleWithRecipe[]
   candidateSafeguardRules: HsfRuleWithRecipe[]
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  const result = mergeSafeguardInjectedRulesWasmValueBinding(
-    params.baseRules,
-    params.customRules,
-    params.candidateSafeguardRules,
-  )
+  const payloadJson = JSON.stringify({
+    baseRules: params.baseRules.map(minifyRuleRawForWire),
+    customRules: params.customRules.map(minifyRuleRawForWire),
+    candidateSafeguardRules: params.candidateSafeguardRules.map(minifyRuleRawForWire),
+  })
+  const result = mergeSafeguardInjectedRulesWasmValueBinding(payloadJson)
   if (Array.isArray(result)) return result as HsfRuleWithRecipe[]
   throw new Error('WASM safeguard injected-rule merge returned an invalid payload.')
 }
