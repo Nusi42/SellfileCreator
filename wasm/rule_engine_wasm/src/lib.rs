@@ -146,21 +146,15 @@ fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usiz
 //
 // ts-rs export: promoted to `pub` so ts-rs can export the type (mirror of the
 // per-artifact chance entries threaded back through compute_safeguard_protection_value).
+// The element type ImprovementChanceRuleEntry is shared with the output side
+// (rule_engine_core::safeguards::improvement_chance); ImprovementChanceRuleInput was
+// deleted because the two structs were identical.
 #[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceInput {
     pub artifact_id: i64,
-    pub chances_by_rule_ordinal: Vec<ImprovementChanceRuleInput>,
-}
-
-// ts-rs export: leaf entry inside ImprovementChanceInput.chancesByRuleOrdinal.
-#[derive(Debug, Deserialize, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
-pub struct ImprovementChanceRuleInput {
-    pub rule_ordinal: i64,
-    pub chance_percent: f64,
+    pub chances_by_rule_ordinal: Vec<ImprovementChanceRuleEntry>,
 }
 
 // Top-level JSON-string payload accepted by compute_safeguard_protection_value.

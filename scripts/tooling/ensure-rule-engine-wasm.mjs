@@ -112,7 +112,6 @@ const RUST_TYPES_OUTPUTS = [
   // ── rule_engine_wasm: JSON-string input wrappers + output wrapper ───────
   path.join(RUST_TYPES_OUT_DIR, 'ImprovementChanceOutput.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'ImprovementChanceInput.ts'),
-  path.join(RUST_TYPES_OUT_DIR, 'ImprovementChanceRuleInput.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'ComputeSafeguardProtectionInWire.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'CollectSafeguardCandidatesInWire.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'CollectAndComputeSafeguardProtectionInWire.ts'),

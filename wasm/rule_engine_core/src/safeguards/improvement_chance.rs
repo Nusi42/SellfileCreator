@@ -35,7 +35,7 @@ use crate::{
     // Per-star substat roll ranges for two-value branching.
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 // ts-rs trait import enables `#[derive(TS)]` on this submodule's output types.
 use ts_rs::TS;
 use std::collections::{BTreeMap, HashSet};
@@ -96,7 +96,10 @@ pub struct ImprovementChanceDebug {
 // the maps-as-objects serializer. The consumer in mod.rs rebuilds a BTreeMap<(art_id, rule_ordinal), f64>
 // from these lists for O(1) lookup during threshold expansion.
 // ts-rs export: leaf entry inside ImprovementChanceEntry.chancesByRuleOrdinal.
-#[derive(Debug, Serialize, Clone, TS)]
+// Also used as the element type for ImprovementChanceInput.chancesByRuleOrdinal (the
+// round-trip from TS back to Rust); Deserialize is added so one struct serves both
+// directions and ImprovementChanceRuleInput (wasm crate) can be deleted.
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
 pub struct ImprovementChanceRuleEntry {
@@ -121,9 +124,6 @@ pub struct ImprovementChanceEntry {
     pub chance_percent: f64,
     // True when at least one substat safeguard applies to this artifact.
     pub has_matching_safeguard: bool,
-    // Preferred safeguard rule id for overlay click-through navigation (legacy; always None now that
-    // SafeguardRule carries no id — kept in payload for backward-compatible deserialization).
-    pub matched_rule_id: Option<String>,
     // 1-based ordinal of the preferred safeguard rule (the rule with the max chance); None when no rule matched.
     // Renamed to "ruleOrdinal" to match TS type ImprovementChanceWasmEntry; overrides the struct-level
     // camelCase rename which would otherwise produce "matchedRuleOrdinal".
@@ -166,7 +166,6 @@ pub struct ImprovementChancePerfDiag {
 // Prepared rule distilled from SafeguardWasmRuleIn; all parsing done once.
 struct PreparedUpgradeRule {
     rule_order: usize,
-    rule_id: String,
     combination: SafeguardWasmCombination,
     required_per_group: i64,
     count_mode: SafeguardWasmCountMode,
@@ -183,7 +182,6 @@ struct PreparedUpgradeRule {
 // One ranking scenario expanded from a rule; perSubstat splits into N Any scenarios.
 struct UpgradeScenario {
     rule_order: usize,
-    rule_id: String,
     // Full rule substat list preserved for debug/tie-break (perSubstat expansion splits this).
     rule_selected_substats: Vec<i64>,
     // Original match mode before per-substat expansion.
@@ -1179,7 +1177,6 @@ fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRu
             safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
         prepared.push(PreparedUpgradeRule {
             rule_order,
-            rule_id: rule.id.as_deref().unwrap_or("").trim().to_string(),
             combination,
             required_per_group: rule.required_count.unwrap_or(1).max(1),
             count_mode,
@@ -1340,7 +1337,6 @@ fn build_scenarios(
             let scenario_idx = scenarios.len();
             scenarios.push(UpgradeScenario {
                 rule_order: rule.rule_order,
-                rule_id: rule.rule_id.clone(),
                 rule_selected_substats: rule.selected_substats.clone(),
                 rule_substat_match: rule.substat_match.clone(),
                 selected_substats: def.selected_substats,
@@ -1424,7 +1420,7 @@ fn resolve_most_likely_scenario_idx<'a>(
         .filter(|&&i| viable[i].rule_order == best_order)
         .copied()
         .collect();
-    // Final tie-break: first by position (rule_id is no longer set on incoming rules).
+    // Final tie-break: first scenario by position in the expanded list.
     order_best.first().copied()
 }
 
@@ -1544,7 +1540,6 @@ pub fn compute_improvement_chance_core(
                 artifact_id,
                 chance_percent: 0.0,
                 has_matching_safeguard: false,
-                matched_rule_id: None,
                 matched_rule_ordinal: None,
                 chances_by_rule_ordinal: Vec::new(),
                 debug: None,
@@ -1564,7 +1559,6 @@ pub fn compute_improvement_chance_core(
                 artifact_id,
                 chance_percent: 0.0,
                 has_matching_safeguard: false,
-                matched_rule_id: None,
                 matched_rule_ordinal: None,
                 chances_by_rule_ordinal: Vec::new(),
                 debug: None,
@@ -1587,17 +1581,12 @@ pub fn compute_improvement_chance_core(
         let debug_snapshot = preferred.map(|s| {
             build_chance_debug(&row.artifact, s, &viability, viable.len() as u32)
         });
-        // matched_rule_id is always None now that SafeguardRule carries no id field;
-        // kept in struct for backward-compatible deserialization of old payloads.
-        let matched_rule_id = preferred
-            .and_then(|s| if s.rule_id.is_empty() { None } else { Some(s.rule_id.clone()) });
         // 1-based ordinal derived from the 0-based rule_order; used by TypeScript for navigation.
         let matched_rule_ordinal = preferred.map(|s| s.rule_order as i64 + 1);
         output.push(ImprovementChanceEntry {
             artifact_id,
             chance_percent: chance,
             has_matching_safeguard: true,
-            matched_rule_id,
             matched_rule_ordinal,
             chances_by_rule_ordinal,
             debug: debug_snapshot,

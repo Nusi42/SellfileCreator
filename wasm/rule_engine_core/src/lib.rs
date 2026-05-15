@@ -120,6 +120,7 @@ pub use safeguards::improvement_chance::{
     ImprovementChanceDebug,
     ImprovementChanceEntry,
     ImprovementChancePerfDiag,
+    ImprovementChanceRuleEntry,
 };
 pub use hsf_builder_execution::{
     prepare_hsf_builder_recipe_core_fn,
