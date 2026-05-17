@@ -57,7 +57,7 @@ import {
 } from './safeguards'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { parseRecipeNameDirectives } from './recipeNameDirectives'
+import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
 
@@ -460,17 +460,8 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
     enabled: typeof rec['enabled'] === 'boolean' ? rec['enabled'] : null,
   })
 
-  // Resolve appearance (name + optional fgColor) from flat SFC fields with legacy migration.
-  const baseAppearance = (() => {
-    let rawName = typeof rec['name'] === 'string' ? String(rec['name']) : ''
-    let fgColor = typeof rec['fgcolor'] === 'string' && rec['fgcolor'] ? rec['fgcolor'] as string : undefined
-    // Legacy: migrate [#RRGGBB] color directive embedded in name string.
-    if (!fgColor) {
-      const legacy = parseRecipeNameDirectives(rawName, '')
-      if (legacy.hasExplicitColor) { fgColor = legacy.resolvedColor; rawName = legacy.displayName }
-    }
-    return (rawName || fgColor) ? { name: rawName, ...(fgColor ? { fgColor } : {}) } : undefined
-  })()
+  // Resolve appearance from the current nested form or legacy flat fields (incl. [#RRGGBB]).
+  const baseAppearance = readAppearanceFromRecord(rec)
   const baseRecipe: BuilderRecipe = {
     ...(baseAppearance ? { appearance: baseAppearance } : {}),
     // Normalize tag metadata from either "Tags" or legacy "tags".
@@ -754,9 +745,8 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
   // Canonicalize tags for SFC output (includes legacy safeguard-ignore aliases).
   const tags = normalizeTagList(recipe.tags) ?? []
   return {
-    // Persist appearance as flat fields; omit both when appearance is absent.
-    ...(recipe.appearance?.name ? { name: recipe.appearance.name } : {}),
-    ...(recipe.appearance?.fgColor ? { fgcolor: recipe.appearance.fgColor } : {}),
+    // Appearance is persisted as a nested record and spread first so it leads the entry.
+    ...appearancePersistField(recipe.appearance),
     // Emit tags only when non-empty to keep payloads clean.
     ...(tags.length > 0 ? { Tags: tags } : {}),
     keep: recipe.keep,
@@ -1130,9 +1120,8 @@ type ReadableSafeguardTuple = {
 }
 
 export type ReadableSafeguardRuleEntry = {
-  name?: string
-  // Optional foreground color for display (hex, e.g. "#FF5733").
-  fgcolor?: string
+  // Nested appearance record (name + optional fgColor). Emitted first when present.
+  appearance?: NameAppearance
   // Tags for safeguard-overrides DSL targeting; omitted when empty.
   tags?: string[]
   requiredCount: number
@@ -1185,9 +1174,6 @@ const buildReadableSafeguardTuple = (combination: SafeguardRule['combination']):
 export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSafeguardRuleEntry => {
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
   const mode = sanitizeSafeguardCountMode(rule.countMode)
-  // Resolve appearance fields for serialization.
-  const trimmedName = (rule.appearance?.name ?? '').trim()
-  const trimmedFgColor = (rule.appearance?.fgColor ?? '').trim()
   // Capture selected substats in readable form so exports stay user-friendly.
   const substatVariants = sortSafeguardSubstats(rule.substats ?? [])
   // Map variants to readable labels; fall back to numeric IDs if needed.
@@ -1222,8 +1208,10 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
       substatWeights[key] = weight
     }
   }
-  // Build the base export entry in readable SFC form.
+  // Build the base export entry in readable SFC form. The appearance record is spread
+  // first so it appears as the leading field of every serialized safeguard entry.
   const entry: ReadableSafeguardRuleEntry = {
+    ...appearancePersistField(rule.appearance),
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
     activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: {
@@ -1238,9 +1226,6 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
     tuple: buildReadableSafeguardTuple(rule.combination),
   }
-  // Only persist name/fgcolor when non-empty.
-  if (trimmedName) entry.name = trimmedName
-  if (trimmedFgColor) entry.fgcolor = trimmedFgColor
   // Serialize tags when the rule has any; omit the key for backward-compat.
   const normalizedTags = normalizeTagList(rule.tags)
   if (normalizedTags && normalizedTags.length > 0) entry.tags = normalizedTags
