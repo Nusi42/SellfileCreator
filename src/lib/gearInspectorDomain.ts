@@ -30,6 +30,13 @@ export function isAccessorySlot(slot: ArtifactTypeId): boolean {
     || numeric === ArtifactType.Banner
 }
 
+/** All three accessory slot IDs in a stable order. */
+export const ACCESSORY_SLOT_IDS: readonly ArtifactTypeId[] = Object.freeze([
+  ArtifactType.Ring as ArtifactTypeId,
+  ArtifactType.Amulet as ArtifactTypeId,
+  ArtifactType.Banner as ArtifactTypeId,
+])
+
 /** True when a slot selection can include accessories (ring/amulet/banner). */
 export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[] | null): boolean {
   // Empty selections map to "Any slot", which still includes accessories.

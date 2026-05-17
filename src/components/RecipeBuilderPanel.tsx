@@ -42,6 +42,7 @@ import {
   isMilestoneThresholdsActive,
   normalizeRecipeKeepState,
   normalizeLevelWindow,
+  normalizeSlotsOverrideFaction,
 } from '../lib/recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from '../lib/raritySupplements'
 import {
@@ -1171,7 +1172,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
   const rankSectionDirty = (recipe.rankCode ?? 0) !== 0
   const raritySectionDirty = (recipe.rarityMode ?? 'code') !== 'code' || (recipe.rarityCode ?? 0) !== 0
+  // In multi-edit, faction is "active" when the common value is non-zero OR when it is mixed
+  // (some recipes have faction set) — both cases require armor slots to be blocked.
   const factionSectionDirty = (recipe.factionCode ?? 0) !== 0
+    || (multiEditActive && multiFactionField?.status === 'mixed')
+  // In multi-edit, treat any armor slot present across ANY selected recipe as "has armor",
+  // so the faction control is disabled as long as armor slots appear in the selection.
+  const hasArmorSlot = (multiEditActive && multiSummary != null)
+    ? Array.from(multiSummary.slotCounts.entries()).some(([id, count]) => count > 0 && !isAccessorySlot(id))
+    : (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
   // minRollsSectionDirty: also fires when auto mode is turned off (even with value 0),
   // since hasManualAggregateMin inside milestoneThresholdsActive requires value > 0.
   const minRollsSectionDirty = recipe.autoMinRequiredRolls === false || milestoneThresholdsActive
@@ -3553,7 +3562,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         </FormControl>
 
         {/* Faction selection (accessories only) — shrinks to header width when collapsed */}
-        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
+        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={hasArmorSlot}>
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
@@ -5526,6 +5535,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   key={id}
                   value={`${id}`}
                   selected={selected}
+                  // Armor slots are incompatible with a faction filter; block when faction is active.
+                  disabled={factionSectionDirty && !isAccessorySlot(id)}
                   onClick={(event) => {
                     if (multiEditActive && multiEdit) {
                       event.preventDefault()
@@ -5535,7 +5546,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                     const set = new Set(recipe.artifactTypes ?? [])
                     if (set.has(id)) set.delete(id); else set.add(id)
-                    update('artifactTypes', Array.from(set))
+                    // If an armor slot was toggled, clear faction (slots take priority).
+                    onChange(normalizeSlotsOverrideFaction({ ...recipe, artifactTypes: Array.from(set) }))
                   }}
                   onDoubleClick={(event) => {
                     // Double-click selects/deselects the entire group (artefacts or accessories).
@@ -5550,7 +5562,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     const set = new Set(current)
                     if (allSelected) groupIds.forEach((sid) => set.delete(sid))
                     else groupIds.forEach((sid) => set.add(sid))
-                    update('artifactTypes', Array.from(set))
+                    // Clear faction if the resulting slot set includes any armor piece.
+                    onChange(normalizeSlotsOverrideFaction({ ...recipe, artifactTypes: Array.from(set) }))
                   }}
                   sx={(theme) => ({
                     display: 'flex',

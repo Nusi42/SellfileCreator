@@ -70,9 +70,11 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
       return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
     })
     const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
-    const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
+    // Clear factions when any armor slot is present — faction filters only apply to accessories.
+    // Empty slot selection means "Any slot" (includes accessories), so factions are kept.
+    const hasArmor = normalizedSlots.length > 0 && normalizedSlots.some((slotId) => !isAccessorySlot(slotId))
     const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
-    const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
+    const filteredFactions = hasArmor ? [] : dedupeNumericArray(combination.factions ?? [])
     const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetNames?.length ?? 0) > 0
     // Skip the no-set sentinel when choosing a fallback real set — it sorts first
     // (most-negative ID) but is not a meaningful default for any slot type.

@@ -7,8 +7,8 @@
  * and merge layer so they all agree on the same rules.
  */
 import type { BuilderRecipe } from './hsfBuilder'
-import { LEVEL_MILESTONES, type LevelMilestone, isLevelMilestone, ArtifactType, type ArtifactTypeId } from './types'
-import { isAccessorySlot } from './gearInspectorDomain'
+import { LEVEL_MILESTONES, type LevelMilestone, isLevelMilestone, type ArtifactTypeId } from './types'
+import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 
 export type AutoRaritySupplementsThreshold = 'uncommon' | 'rare' | 'epic'
 
@@ -277,13 +277,6 @@ export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 
   return { ...recipe, minLevel: min, maxLevel: max } as T
 }
 
-// All three accessory slot IDs used as the fallback when faction is set but no accessory slots are selected.
-const ALL_ACCESSORY_SLOTS: readonly ArtifactTypeId[] = [
-  ArtifactType.Ring as ArtifactTypeId,
-  ArtifactType.Amulet as ArtifactTypeId,
-  ArtifactType.Banner as ArtifactTypeId,
-]
-
 /**
  * When a recipe has a specific faction set, restrict artifact slots to accessories only.
  * Faction filters have no effect on armor pieces so including them is misleading.
@@ -295,11 +288,24 @@ const ALL_ACCESSORY_SLOTS: readonly ArtifactTypeId[] = [
 export function normalizeFactionSlotScope<T extends Pick<BuilderRecipe, 'factionCode' | 'artifactTypes'>>(recipe: T): T {
   if (!recipe.factionCode) return recipe
   const accessoryOnly = (recipe.artifactTypes ?? []).filter((s) => isAccessorySlot(s))
-  const next = accessoryOnly.length > 0 ? accessoryOnly : (ALL_ACCESSORY_SLOTS as ArtifactTypeId[])
+  const next = accessoryOnly.length > 0 ? accessoryOnly : (ACCESSORY_SLOT_IDS as ArtifactTypeId[])
   // Return the same object when nothing changed to preserve reference equality.
   const current = recipe.artifactTypes ?? []
   if (current.length === next.length && current.every((s, i) => s === next[i])) return recipe
   return { ...recipe, artifactTypes: next }
+}
+
+/**
+ * When the slot scope includes any armor piece, faction has no meaning — clear it.
+ * This is the slots-win direction; `normalizeFactionSlotScope` is the faction-wins direction.
+ * Apply when the user explicitly changes slots; do NOT include in `normalizeRecipeKeepState`
+ * so the two normalizations cannot conflict at import time.
+ */
+export function normalizeSlotsOverrideFaction<T extends Pick<BuilderRecipe, 'factionCode' | 'artifactTypes'>>(recipe: T): T {
+  if (!recipe.factionCode) return recipe
+  const hasArmor = (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
+  if (!hasArmor) return recipe
+  return { ...recipe, factionCode: 0 as BuilderRecipe['factionCode'] }
 }
 
 const hasSubstatThresholds = (recipe: Pick<BuilderRecipe, 'substatRollBoundsV'>): boolean => {

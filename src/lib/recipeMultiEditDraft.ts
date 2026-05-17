@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
-import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope } from './recipeNormalization'
+import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope, normalizeSlotsOverrideFaction } from './recipeNormalization'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import type { NameAppearance } from './nameAppearance'
@@ -797,7 +797,10 @@ export function applyMultiEditFieldToRecipe(
     ? cloneFieldPatch(key, field.patch as MultiEditFieldPatch<typeof key>)
     : null
   if (patch) {
-    return applyPatchForKey(recipe, key, patch)
+    const patched = applyPatchForKey(recipe, key, patch)
+    // Slot changes can make faction irrelevant; apply the slots-win direction here.
+    if (key === 'artifactTypes') return normalizeSlotsOverrideFaction(patched)
+    return patched
   }
   const nextValue = cloneBuilderFieldValue(key, field.value)
   if (areBuilderFieldValuesEqual(key, getRecipeFieldValue(recipe, key), nextValue)) return recipe
@@ -822,6 +825,9 @@ export function applyMultiEditFieldToRecipe(
     case 'rarityMode':
     case 'autoRaritySupplementsThreshold':
       nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
+      break
+    case 'artifactTypes':
+      nextRecipe = normalizeSlotsOverrideFaction(nextRecipe)
       break
     case 'factionCode':
       nextRecipe = normalizeFactionSlotScope(nextRecipe)
