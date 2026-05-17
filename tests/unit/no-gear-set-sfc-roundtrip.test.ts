@@ -25,11 +25,11 @@ test('parseSfcText resolves "No Gear-Set" name to ACCESSORY_NO_SET_ID (-99)', ()
   assert.equal(recipes.length, 3, 'all three recipes should load')
   for (const recipe of recipes) {
     const sets = recipe.artifactSets ?? []
-    assert.equal(sets.length, 1, `recipe "${recipe.name}" should have exactly one set entry`)
+    assert.equal(sets.length, 1, `recipe "${recipe.appearance?.name}" should have exactly one set entry`)
     assert.equal(
       Number(sets[0]!.id),
       ACCESSORY_NO_SET_ID,
-      `recipe "${recipe.name}" set id should be -99`,
+      `recipe "${recipe.appearance?.name}" set id should be -99`,
     )
   }
 })

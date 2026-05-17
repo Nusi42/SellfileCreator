@@ -33,7 +33,7 @@ const RECIPE_CHIPS_CONTEXT_HINT_ID = 'builderRecipeChips'
 function buildRecipeKeys(recipes: BuilderRecipe[]): string[] {
   const counts = new Map<string, number>()
   return recipes.map((r) => {
-    const fp = `${r.name ?? ''}_${r.exportMode}_${r.keep}_${r.rankCode}_${r.rarityCode}`
+    const fp = `${r.appearance?.name ?? ''}_${r.exportMode}_${r.keep}_${r.rankCode}_${r.rarityCode}`
     const n = (counts.get(fp) ?? 0) + 1
     counts.set(fp, n)
     return `${fp}__${n}`

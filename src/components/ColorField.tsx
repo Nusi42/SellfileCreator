@@ -1,10 +1,16 @@
 import React from 'react'
 import { HexColorPicker, HexAlphaColorPicker } from 'react-colorful'
 import { Box, Button, Popover, Typography, TextField } from '@mui/material'
+import BlockIcon from '@mui/icons-material/Block'
 import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
 import { useI18n } from '../lib/i18n'
 import { useRecentColors, addRecentColor } from '../state/recentColorsPreference'
+
+/** Sx props for the "no color set" swatch — checkerboard pattern indicates transparency. */
+const NO_COLOR_SWATCH_SX = {
+  background: 'repeating-conic-gradient(#8884 0% 25%, transparent 0% 50%) 0 0 / 8px 8px',
+}
 
 /** Default starting color used when opening the picker without a prior selection. */
 export const COLOR_FIELD_DEFAULT_VALUE = '#90CAF9'
@@ -23,11 +29,13 @@ function ColorPickerContent({
   allowAlpha,
   onCommit,
   onClose,
+  onClear,
 }: {
   initialValue: string
   allowAlpha: boolean
   onCommit: (value: string) => boolean
   onClose: () => void
+  onClear?: () => void
 }) {
   // pickerColor is always a valid hex fed to the gradient picker.
   const [pickerColor, setPickerColor] = React.useState(() =>
@@ -108,6 +116,20 @@ function ColorPickerContent({
         />
         <Button size="small" variant="contained" onClick={handleOk}>{t('close')}</Button>
       </Box>
+      {/* "No color" clear option — only shown when the parent provides onClear. */}
+      {onClear && (
+        <Box sx={{ mt: 1 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<BlockIcon fontSize="small" />}
+            onClick={() => { onClear(); onClose() }}
+            sx={{ width: '100%', color: 'text.secondary', borderColor: 'divider' }}
+          >
+            {t('colorFieldNoColor')}
+          </Button>
+        </Box>
+      )}
     </Box>
   )
 }
@@ -116,6 +138,7 @@ export function ColorField({
   value,
   onChange,
   onChangeCommitted,
+  onClear,
   label,
   allowAlpha = false,
 }: {
@@ -124,6 +147,8 @@ export function ColorField({
   /** Fired once when the popover closes, with the final committed color — analogous to MUI
    *  Slider's onChangeCommitted. Use this to throttle expensive parent re-renders. */
   onChangeCommitted?: (v: string) => void
+  /** When provided, adds a "No color" button inside the picker that calls this and closes. */
+  onClear?: () => void
   label?: string
   allowAlpha?: boolean
 }) {
@@ -157,14 +182,35 @@ export function ColorField({
     setAnchorEl(null)
   }, [onChangeCommitted])
 
+  const handleClear = React.useCallback(() => {
+    lastCommittedRef.current = null
+    onClear?.()
+    setAnchorEl(null)
+  }, [onClear])
+
+  const hasColor = Boolean(value)
   const button = (
     <Button
       size="small"
       variant="outlined"
       onClick={handleOpen}
-      sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000', maxWidth: COLOR_FIELD_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', justifyContent: 'flex-start' }}
+      sx={{
+        minWidth: 0, px: 1, py: 0.25,
+        borderColor: hasColor ? value : 'divider',
+        color: hasColor ? value : 'text.disabled',
+        bgcolor: '#0000',
+        maxWidth: COLOR_FIELD_BUTTON_MAX_WIDTH_PX,
+        overflow: 'hidden',
+        justifyContent: 'flex-start',
+        opacity: hasColor ? 1 : 0.7,
+      }}
     >
-      <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75, flexShrink: 0 }} />
+      <Box sx={{
+        width: 16, height: 16, borderRadius: 0.5,
+        border: '1px solid', borderColor: 'divider',
+        mr: label ? 0.75 : 0, flexShrink: 0,
+        ...(hasColor ? { bgcolor: value } : NO_COLOR_SWATCH_SX),
+      }} />
       {label ? (
         <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
           {label}
@@ -179,10 +225,11 @@ export function ColorField({
         {open ? (
           <ColorPickerContent
             key={allowAlpha ? 'alpha' : 'solid'}
-            initialValue={value}
+            initialValue={value || COLOR_FIELD_DEFAULT_VALUE}
             allowAlpha={allowAlpha}
             onCommit={commit}
             onClose={handleClose}
+            {...(onClear ? { onClear: handleClear } : {})}
           />
         ) : null}
       </Popover>

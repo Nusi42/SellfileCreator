@@ -122,7 +122,7 @@ const makeArtifact = (params: {
 }
 
 const makeSpdRule = (name: string, improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null = null): SafeguardRule => ({
-  name,
+  ...(name ? { appearance: { name } } : {}),
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],

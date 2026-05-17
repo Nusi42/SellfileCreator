@@ -522,14 +522,23 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
  *  object with inherited nulls that the TS layer stores.
  *  Idempotent: rules whose threshold is already a resolved array (e.g., from WASM echo-back)
  *  are passed through unchanged. */
-const resolveRulesForWasm = (rules: readonly SafeguardRule[]): readonly SafeguardRule[] =>
+// Project a TypeScript SafeguardRule to the flat wire shape Rust deserializes.
+// Rust uses `name: String` (flat); TS now uses `appearance: { name, fgColor }`.
+// `appearance` is presentation-only so fgColor is dropped at this boundary.
+const projectRuleForWasm = (r: SafeguardRule): Record<string, unknown> => {
+  const { appearance, ...rest } = r as SafeguardRule & Record<string, unknown>
+  return { ...rest, name: (appearance as { name?: string } | undefined)?.name ?? '' }
+}
+
+const resolveRulesForWasm = (rules: readonly SafeguardRule[]): readonly Record<string, unknown>[] =>
   rules.map((r) => {
-    if (r.improvementChanceThreshold === null || r.improvementChanceThreshold === undefined) return r
+    const projected = projectRuleForWasm(r)
+    if (r.improvementChanceThreshold === null || r.improvementChanceThreshold === undefined) return projected
     // Already resolved to a concrete array (WASM echo-back path).
-    if (Array.isArray(r.improvementChanceThreshold)) return r
+    if (Array.isArray(r.improvementChanceThreshold)) return projected
     const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(r.improvementChanceThreshold)
     // Cast through unknown — the serialized shape is [f64;4] and Rust deserializes it as such.
-    return { ...r, improvementChanceThreshold: [l0, l4, l8, l12] as unknown as typeof r.improvementChanceThreshold }
+    return { ...projected, improvementChanceThreshold: [l0, l4, l8, l12] }
   })
 
 // Synchronous safeguard detector runs candidate/rule loops inside wasm.
@@ -833,13 +842,30 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
     const src = m as { name: string; sets: readonly number[] }
     return { name: src.name, sets: src.sets }
   })
+  // Rust SafeguardRule uses flat `name: String`; project appearance→name before the boundary
+  // so the Rust serde deny_unknown_fields does not reject the payload.
+  const rulesWire = rules.map((r) => {
+    const src = r as { appearance?: { name?: string; fgColor?: string }; name?: string }
+    const { appearance: _appearance, ...rest } = src as Record<string, unknown>
+    return { name: src.appearance?.name ?? src.name ?? '', ...rest }
+  })
   const payload = JSON.stringify({
-    rules,
+    rules: rulesWire,
     metasets: metasetsWire,
   })
-  const result = resolveSafeguardRulesWithMetasetsWasmValueBinding(payload) as T[]
-  if (Array.isArray(result)) return result
-  throw new Error('WASM safeguard metaset resolver returned an invalid payload.')
+  const rawResult = resolveSafeguardRulesWithMetasetsWasmValueBinding(payload) as Array<Record<string, unknown>>
+  if (!Array.isArray(rawResult)) throw new Error('WASM safeguard metaset resolver returned an invalid payload.')
+  // Restore appearance from the flat `name` the Rust side may have updated, preserving fgColor.
+  return rawResult.map((res, idx) => {
+    const original = rules[idx] as Record<string, unknown>
+    const src = original as { appearance?: { name?: string; fgColor?: string } }
+    const wasmName = typeof res.name === 'string' ? res.name : ''
+    const { name: _n, ...restRes } = res
+    const nextAppearance = (wasmName || src.appearance?.fgColor)
+      ? { name: wasmName, ...(src.appearance?.fgColor ? { fgColor: src.appearance.fgColor } : {}) }
+      : undefined
+    return (nextAppearance ? { ...restRes, appearance: nextAppearance } : restRes) as T
+  })
 }
 
 // Injected safeguard merge filtering/sorting runs in Rust so canonicalization

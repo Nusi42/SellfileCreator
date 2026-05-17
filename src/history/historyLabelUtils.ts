@@ -21,7 +21,7 @@ export type RecipeInsertionLocation =
 // snapshotRecipeLabel captures the index + name at creation time.
 export const snapshotRecipeLabel = (index: number, recipe: BuilderRecipe): RecipeLabelSnapshot => {
   // Trim once so future edits do not rewrite stored labels.
-  const rawName = (recipe.name ?? '').trim()
+  const rawName = (recipe.appearance?.name ?? '').trim()
   // Persist the trimmed name or null when blank.
   const name = rawName.length > 0 ? rawName : null
   // Return the snapshot so formatting can be localized later.

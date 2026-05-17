@@ -27,7 +27,6 @@ import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsf
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useI18n } from '../lib/i18n'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
@@ -69,15 +68,16 @@ type SeparatorDividerDecoration = {
   minLineWidthPx: number
 }
 
-// Separator dividers treat leading directives as styling hints instead of text (e.g. "#" for dashed lines, "[FFAA00]" for color).
-function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor: string): SeparatorDividerDecoration {
+// Separator dividers treat leading "#" prefixes as style hints (dash/dot width), and fgColor as the line color.
+function deriveSeparatorDividerDecoration(rawName: string | undefined, fgColor: string | undefined, baseColor: string): SeparatorDividerDecoration {
   const trimmed = (rawName ?? '').trim()
   const hashMatch = trimmed.match(/^(#+)/)
   const hashPrefix = hashMatch?.[1] ?? ''
   const hashCount = hashPrefix.length
 
-  const rest = trimmed.slice(hashPrefix.length).trimStart()
-  const { displayName, resolvedColor } = parseRecipeNameDirectives(rest, baseColor)
+  const displayName = trimmed.slice(hashPrefix.length).trimStart()
+  // Use fgColor from appearance when set; fall back to the theme base color.
+  const resolvedColor = fgColor || baseColor
   const hasLabel = displayName.length > 0
 
   if (hashCount === 0) {
@@ -173,17 +173,19 @@ function RecipeChip({
   const primaryColor = theme.palette.primary.main
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
-  const nameDecoration = useMemo(
-    () => parseRecipeNameDirectives(recipe.name, primaryColor),
-    [recipe.name, primaryColor],
-  )
+  // Derive display name and color directly from the first-class appearance field.
+  const nameDecoration = useMemo(() => ({
+    displayName: recipe.appearance?.name ?? '',
+    resolvedColor: recipe.appearance?.fgColor ?? primaryColor,
+    hasExplicitColor: Boolean(recipe.appearance?.fgColor),
+  }), [recipe.appearance, primaryColor])
   // Allow callers to override the export mode for recipe overrides previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? recipe.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'
   const separatorDecoration = useMemo(
-    () => deriveSeparatorDividerDecoration(recipe.name, primaryColor),
-    [recipe.name, primaryColor],
+    () => deriveSeparatorDividerDecoration(recipe.appearance?.name, recipe.appearance?.fgColor, primaryColor),
+    [recipe.appearance, primaryColor],
   )
   // Build compact summary without redundant labels; act is rendered separately
   const actText = recipe.keep ? t('keepValueKeep') : t('keepValueSell')

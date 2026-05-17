@@ -53,7 +53,7 @@ test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', 
 
 test('locked minimum forces extra rolls on locked stats before collapsing to min-only rows', () => {
   const cfg = baseBuilderRecipe({
-    name: 'gauntlet sample',
+    appearance: { name: 'gauntlet sample' },
     minCount: 3,
     autoMinCount: false,
     artifactTypes: [ArtifactType.Gauntlets],
@@ -104,7 +104,7 @@ test('locked minimum forces extra rolls on locked stats before collapsing to min
 test('locked minimum enforcement survives buildRulesForRecipe wrappers', () => {
   const targets = defaultSubstatTargets()
   const cfg = baseBuilderRecipe({
-    name: 'gauntlet sample',
+    appearance: { name: 'gauntlet sample' },
     minCount: 3,
     autoMinCount: false,
     artifactTypes: [ArtifactType.Gauntlets],

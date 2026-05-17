@@ -9,7 +9,6 @@ import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 // MarkdownTooltip keeps the jump hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 
 type GearInspectorRuleReferenceChipProps = {
@@ -91,16 +90,15 @@ export function GearInspectorRuleReferenceChip({
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
   const recipeIdx = typeof match.recipeIdx === 'number' ? match.recipeIdx : null
-  const recipeDecoration = parseRecipeNameDirectives(match.recipeName ?? undefined, theme.palette.primary.main)
-  const trimmedDecoratedName = recipeDecoration.displayName.trim()
+  const trimmedDecoratedName = (match.recipeName ?? '').trim()
   const fallbackRuleLabel = match.ruleLabel ? match.ruleLabel.trim() : ''
   const formattedRecipeName = trimmedDecoratedName.length > 0
     ? trimmedDecoratedName
     : (fallbackRuleLabel.length > 0
       ? fallbackRuleLabel
       : (recipeIdx != null ? `#${recipeIdx + 1}` : ''))
-  const textColor = recipeDecoration.hasExplicitColor && trimmedDecoratedName.length > 0
-    ? recipeDecoration.resolvedColor
+  const textColor = (match.recipeFgColor && trimmedDecoratedName.length > 0)
+    ? match.recipeFgColor
     : null
   // Number segment is intentionally lightweight: recipe index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.

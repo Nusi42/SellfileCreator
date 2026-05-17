@@ -37,6 +37,8 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
+import type { NameAppearance } from './nameAppearance'
+import { parseRecipeNameDirectives } from './recipeNameDirectives'
 import type {
   ImprovementChanceWasmEntry,
   WasmArtifactStoreInput,
@@ -435,6 +437,8 @@ export const createEmptySafeguardCombination = (): SafeguardCombination => ({
 export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   // Preserve all scalar fields.
   ...rule,
+  // Clone appearance so edits to the copy don't mutate the source.
+  ...(rule.appearance ? { appearance: { ...rule.appearance } } : {}),
   // Preserve cascade toggle with explicit default for legacy snapshots.
   ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
   // Preserve equipped filters with explicit defaults for legacy snapshots.
@@ -463,7 +467,8 @@ export const cloneSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardR
 )
 
 export type SafeguardRule = {
-  name: string
+  // Optional display appearance (name + foreground color). Absent means unnamed and unstyled.
+  appearance?: NameAppearance
   // Optional tags for identifying this rule in safeguard-overrides DSL and note display.
   tags?: string[]
   combination: SafeguardCombination
@@ -498,7 +503,6 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
 // draft. Used to seed user-defaults logic (save / reset).
 export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
   combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
-  name: '',
   // Tags default to empty; users add them to enable safeguard-overrides targeting.
   tags: [],
   requiredCount: 1,
@@ -518,7 +522,8 @@ export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
 // isDefaultRule (vs effective defaults) and dirty detection (vs selected rule).
 export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): SafeguardRule => ({
   combination: rule.combination,
-  name: rule.name ?? '',
+  // appearance included so equality checks detect name/color changes correctly.
+  ...(rule.appearance ? { appearance: rule.appearance } : {}),
   // Tags included so equality checks detect tag changes correctly.
   tags: rule.tags ?? [],
   requiredCount: rule.requiredCount,
@@ -929,7 +934,16 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   if (!combination) return null
 
   // IDs are not persisted; the `id` field on legacy payloads is ignored.
-  const name = typeof record.name === 'string' ? record.name.trim() : ''
+  let rawName = typeof record.name === 'string' ? record.name.trim() : ''
+  let fgColor = typeof record.fgcolor === 'string' && record.fgcolor ? record.fgcolor : undefined
+  // Legacy migration: extract [#RRGGBB] color directive embedded in name string.
+  if (!fgColor) {
+    const legacy = parseRecipeNameDirectives(rawName, '')
+    if (legacy.hasExplicitColor) { fgColor = legacy.resolvedColor; rawName = legacy.displayName }
+  }
+  const appearance: NameAppearance | undefined = (rawName || fgColor)
+    ? { name: rawName, ...(fgColor ? { fgColor } : {}) }
+    : undefined
   const requiredCount = Math.max(1, toFiniteFloor(record.requiredCount) ?? 1)
   const countMode = (
     Object.prototype.hasOwnProperty.call(record, 'countMode')
@@ -974,7 +988,7 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // Run the substat-dependents gate so no caller receives a rule where
   // improvement-chance or weights are set without any substats to back them.
   return normalizeSafeguardSubstatDependents({
-    name,
+    ...(appearance ? { appearance } : {}),
     tags,
     combination,
     requiredCount,
@@ -1556,7 +1570,10 @@ export function buildSafeguardCombinationFromRecipe(recipe: BuilderRecipe): Safe
 
 export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string | null {
   if (!source) return null
-  const rawName = 'name' in source ? source.name : source.RecipeName
+  // SafeguardRule carries appearance.name; HsfRuleWithRecipe carries RecipeName.
+  const rawName = 'RecipeName' in source
+    ? (source as HsfRuleWithRecipe).RecipeName
+    : (source as SafeguardRule).appearance?.name
   const normalizedName = normalizeRecipeName(rawName ?? null)
   if (normalizedName) return normalizedName
   const ordinal = ((): number | null => {
@@ -1569,7 +1586,7 @@ export function resolveSafeguardRuleLabel(source: SafeguardLabelSource): string 
   })()
   if (ordinal) return `#${ordinal}`
   // Fall back to the legacy __safeguardRuleId stamp on injected HSF rows (HsfRuleWithRecipe).
-  const fallbackId = 'name' in source ? null : source.__safeguardRuleId
+  const fallbackId = 'RecipeName' in source ? (source as HsfRuleWithRecipe).__safeguardRuleId : null
   if (typeof fallbackId === 'string') {
     const trimmed = fallbackId.trim()
     if (trimmed.length > 0) return `#${trimmed}`

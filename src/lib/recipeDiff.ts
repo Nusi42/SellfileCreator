@@ -11,9 +11,12 @@ export function hasRecipeMeaningfulDifferences(
   target: BuilderRecipe,
   substatTargetsKey: string,
 ): boolean {
-  const builderName = typeof builder?.name === 'string' ? builder.name : ''
-  const targetName = typeof target?.name === 'string' ? target.name : ''
+  const builderName = builder?.appearance?.name ?? ''
+  const targetName = target?.appearance?.name ?? ''
   if (builderName !== targetName) return true
+  const builderColor = builder?.appearance?.fgColor ?? ''
+  const targetColor = target?.appearance?.fgColor ?? ''
+  if (builderColor !== targetColor) return true
   // Tags are part of editable metadata and should mark the builder dirty.
   const builderTags = Array.isArray(builder?.tags) ? builder.tags.map(String) : []
   const targetTags = Array.isArray(target?.tags) ? target.tags.map(String) : []

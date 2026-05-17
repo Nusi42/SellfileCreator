@@ -49,8 +49,8 @@ const stubT: TranslateFn = (key, params) => {
 }
 
 test('describeBuilderRecipeUpdate summarizes changed fields', () => {
-  const previous = makeRecipe({ name: '', keep: true })
-  const next = makeRecipe({ name: 'Speed Farm', keep: false })
+  const previous = makeRecipe({ keep: true })
+  const next = makeRecipe({ appearance: { name: 'Speed Farm' }, keep: false })
   const descriptor = describeBuilderRecipeUpdate({
     previous,
     next,
@@ -118,8 +118,8 @@ test('formatHistoryTooltipText returns fallback when no descriptor is available'
 })
 
 test('formatHistoryTooltipText includes descriptor lines without shortcut hint', () => {
-  const previous = makeRecipe({ name: '', keep: true })
-  const next = makeRecipe({ name: 'Speed Farm', keep: false })
+  const previous = makeRecipe({ keep: true })
+  const next = makeRecipe({ appearance: { name: 'Speed Farm' }, keep: false })
   const descriptor = createBuilderRecipeUpdateDescriptor({
     previous,
     next,

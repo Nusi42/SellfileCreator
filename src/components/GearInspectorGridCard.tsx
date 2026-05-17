@@ -40,7 +40,6 @@ import {
   formatStatPreGlyph,
   getItemSourceDescriptor,
 } from '../lib/gearInspectorPreviewFormatting'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import type { GearInspectorContextGroup, GearInspectorSourceFilter } from '../lib/rulesFilter'
 import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
@@ -370,6 +369,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   cardHeightPx,
   gridColumnCount,
   recipeNames,
+  recipeFgColors,
   onJumpToRule,
   onCreateRuleTemplate,
   highlightedRowPredicate = null,
@@ -402,6 +402,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   cardHeightPx: number
   gridColumnCount: number
   recipeNames: Array<string | null>
+  recipeFgColors?: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
@@ -437,7 +438,6 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t, lang } = useI18n()
   const theme = useTheme()
-  const recipeTextFallbackColor = theme.palette.primary.main
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
@@ -528,22 +528,19 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
-      const decoration = parseRecipeNameDirectives(
-        recipeNames[numericIdx] ?? undefined,
-        recipeTextFallbackColor,
-      )
-      const cleanedLabel = decoration.displayName.trim()
+      const cleanedLabel = (recipeNames[numericIdx] ?? '').trim()
+      const textColor = recipeFgColors?.[numericIdx] ?? null
       entries.push({
         recipeIdx: numericIdx,
         label: cleanedLabel.length > 0
           ? cleanedLabel
           : `#${numericIdx + 1}`,
-        textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
+        textColor,
         keep: matchingRecipeKeepMap.get(numericIdx) ?? null,
       })
     }
     return entries
-  }, [cardContentReady, row.matchingRecipeIndices, matchingRecipeKeepMap, recipeNames, recipeTextFallbackColor])
+  }, [cardContentReady, row.matchingRecipeIndices, matchingRecipeKeepMap, recipeNames, recipeFgColors])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a recipe, so keep all recipe matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_SAFEGUARDS

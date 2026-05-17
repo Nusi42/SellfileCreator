@@ -350,7 +350,7 @@ function mergeDetailLines(location: RecipeInsertionLocation | null, labels: Reci
 }
 
 const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> = {
-  name: 'builderRecipeName',
+  appearance: 'builderRecipeName',
   keep: 'builderAction',
   exportMode: 'historyBuilderExportModeLabel',
   rankCode: 'builderRank',

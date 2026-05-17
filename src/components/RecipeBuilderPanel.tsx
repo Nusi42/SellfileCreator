@@ -86,6 +86,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
+import { ColorField } from './ColorField'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
@@ -239,7 +240,7 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   const multiFactionField = multiFields?.factionCode ?? null
   const multiMinLevelField = multiFields?.minLevel ?? null
   const multiMaxLevelField = multiFields?.maxLevel ?? null
-  const multiNameField = multiFields?.name ?? null
+  const multiNameField = multiFields?.appearance ?? null
   const multiTagsField = multiFields?.tags ?? null
   const multiMainStatsField = multiFields?.mainStatsV ?? null
   const multiSubstatsField = multiFields?.substatsV ?? null
@@ -1969,21 +1970,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     ? (() => {
         if (!multiNameField) return ''
         if (multiNameField.status === 'mixed' && !multiNameField.dirty) return ''
-        const value = multiNameField.value
-        if (typeof value === 'string') return value
-        if (value == null) return ''
-        return String(value)
+        const value = multiNameField.value as { name?: string } | undefined
+        return value?.name ?? ''
       })()
     : ''
   const commitName = React.useCallback((value: string) => {
     const next = value
-    const current = recipe.name ?? ''
+    const current = recipe.appearance?.name ?? ''
     if (current === next) {
       setNameDraft('')
       setNameDraftKey(null)
       return next
     }
-    onChange({ ...recipe, name: next })
+    const fgColor = recipe.appearance?.fgColor
+    const nextAppearance = (next || fgColor) ? { name: next, ...(fgColor ? { fgColor } : {}) } : undefined
+    onChange({ ...recipe, ...(nextAppearance ? { appearance: nextAppearance } : {}) })
     setNameDraft('')
     setNameDraftKey(null)
     return next
@@ -1993,6 +1994,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     if (!nameDraftDirty) return
     commitName(nameDraft)
   }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
+  const commitFgColor = React.useCallback((color: string | undefined) => {
+    if (multiEditActive) {
+      const stagedName = (multiNameField?.value as { name?: string } | undefined)?.name ?? recipe.appearance?.name ?? ''
+      const nextAppearance = (stagedName || color)
+        ? { name: stagedName, ...(color ? { fgColor: color } : {}) }
+        : undefined
+      multiEdit?.updateField('appearance', { value: nextAppearance, status: 'common' })
+    } else {
+      const currentName = recipe.appearance?.name ?? ''
+      const nextAppearance = (currentName || color)
+        ? { name: currentName, ...(color ? { fgColor: color } : {}) }
+        : undefined
+      onChange({ ...recipe, ...(nextAppearance ? { appearance: nextAppearance } : {}) })
+    }
+  }, [multiEditActive, multiEdit, multiNameField, recipe, onChange])
   const getTagBaseState = useCallback((tag: string): TriStateBase => {
     // Default to "none" when multi-edit has no aggregate tag data yet.
     if (!tagPresence) return 'none'
@@ -2206,7 +2222,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }), [theme])
   const renderedName = usingMultiName
     ? multiNameDraftValue
-    : (nameDraftDirty ? nameDraft : (recipe.name ?? ''))
+    : (nameDraftDirty ? nameDraft : (recipe.appearance?.name ?? ''))
   const namePlaceholder = usingMultiName && multiNameMixed ? t('builderMultiNamePlaceholder') : undefined
   const userDisabledFlexRef = useRef(false)
   const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
@@ -2402,7 +2418,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       return !v
     }
     return (
-      (recipe.name ?? '') === (target.name ?? '') &&
+      (recipe.appearance?.name ?? '') === (target.appearance?.name ?? '') &&
+      (recipe.appearance?.fgColor ?? '') === (target.appearance?.fgColor ?? '') &&
       recipe.keep === Boolean(target.keep) &&
       recipe.exportMode === target.exportMode &&
       Number(recipe.rankCode) === Number(target.rankCode) &&
@@ -2714,7 +2731,12 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             {...(namePlaceholder ? { placeholder: namePlaceholder } : {})}
             onChange={(e) => {
               if (usingMultiName) {
-                multiEdit?.updateField('name', { value: e.target.value, status: 'common' })
+                const newName = e.target.value
+                const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
+                const nextAppearance = (newName || stagedFgColor)
+                  ? { name: newName, ...(stagedFgColor ? { fgColor: stagedFgColor } : {}) }
+                  : undefined
+                multiEdit?.updateField('appearance', { value: nextAppearance, status: 'common' })
               } else {
                 setNameDraft(e.target.value)
                 setNameDraftKey(currentDraftKey)
@@ -2724,25 +2746,35 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             onBlur={commitNameDraftIfNeeded}
             InputProps={{
               endAdornment: (() => {
+                const currentFgColor = usingMultiName
+                  ? ((multiNameField?.value as { fgColor?: string } | undefined)?.fgColor ?? '')
+                  : (recipe.appearance?.fgColor ?? '')
                 const showClear = usingMultiName
-                  ? Boolean(multiNameField && String(multiNameField.value ?? '') !== '' && multiNameField.status !== 'mixed')
+                  ? Boolean(multiNameField && (multiNameField.value as { name?: string } | undefined)?.name && multiNameField.status !== 'mixed')
                   : renderedName !== ''
-                if (!showClear) return undefined
                 return (
-                  <InputAdornment position="end">
-                    <ClearIconButton
-                      size="small"
-                      edge="end"
-                      aria-label={t('builderClearRecipeName')}
-                      tooltip={t('builderClearRecipeName')}
-                      onClick={() => {
-                        if (usingMultiName) {
-                          multiEdit?.updateField('name', { value: '', status: 'common' })
-                        } else if (renderedName !== '') {
-                          commitName('')
-                        }
-                      }}
+                  <InputAdornment position="end" sx={{ gap: 0.5 }}>
+                    <ColorField
+                      value={currentFgColor}
+                      onChange={commitFgColor}
+                      onClear={() => commitFgColor(undefined)}
                     />
+                    {showClear && (
+                      <ClearIconButton
+                        size="small"
+                        edge="end"
+                        aria-label={t('builderClearRecipeName')}
+                        tooltip={t('builderClearRecipeName')}
+                        onClick={() => {
+                          if (usingMultiName) {
+                            const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
+                            multiEdit?.updateField('appearance', { value: stagedFgColor ? { name: '', fgColor: stagedFgColor } : undefined, status: 'common' })
+                          } else if (renderedName !== '') {
+                            commitName('')
+                          }
+                        }}
+                      />
+                    )}
                   </InputAdornment>
                 )
               })(),
@@ -7286,7 +7318,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               // remove the override to keep storage clean and restore factory behavior.
               const factory = createFactoryBuilderDefaults()
               const current: BuilderRecipe = {
-                name: recipe.name ?? '',
+                ...(recipe.appearance ? { appearance: recipe.appearance } : {}),
                 keep: recipe.keep,
                 exportMode: recipe.exportMode,
                 rankCode: recipe.rankCode,

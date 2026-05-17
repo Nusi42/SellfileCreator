@@ -26,7 +26,7 @@ type RuleChangeSummary = {
 }
 
 type SafeguardRuleSignature = {
-  name: string
+  appearance: { name: string; fgColor?: string } | undefined
   requiredCount: number
   activation: SafeguardRuleActivation
   ignorePreviousSafeguards: boolean
@@ -263,7 +263,7 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     : []
   // Return the normalized typed signature so callers can compare structurally.
   return {
-    name: rule.name,
+    appearance: rule.appearance,
     requiredCount: rule.requiredCount,
     activation: rule.activation,
     // Keep toggle fields in the signature so history detects their edits.
@@ -290,7 +290,8 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
 
 function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: SafeguardRuleSignature): boolean {
   if (
-    left.name !== right.name
+    left.appearance?.name !== right.appearance?.name
+    || left.appearance?.fgColor !== right.appearance?.fgColor
     || left.requiredCount !== right.requiredCount
     || left.activation !== right.activation
     || left.ignorePreviousSafeguards !== right.ignorePreviousSafeguards
@@ -381,7 +382,7 @@ function summarizeRuleOrder(next: SafeguardRule[], t: TranslateFn): string[] {
 
 function formatRuleName(rule: SafeguardRule, t: TranslateFn): string {
   // Keep rule names stable; fall back to the empty marker when unnamed.
-  const raw = (rule.name ?? '').trim()
+  const raw = (rule.appearance?.name ?? '').trim()
   return raw.length > 0 ? raw : t('historyValueEmpty')
 }
 

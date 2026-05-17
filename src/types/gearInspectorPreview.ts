@@ -5,6 +5,8 @@ export type GearInspectorPreviewMatch = {
   keep: boolean
   recipeIdx: number | null
   recipeName: string | null
+  // Optional foreground color for the matching recipe name chip.
+  recipeFgColor: string | null
   ruleIndex: number | null
   ruleLabel: string | null
   ruleSource: string | null

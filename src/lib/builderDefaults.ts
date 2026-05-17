@@ -2,8 +2,8 @@ import type { BuilderRecipe } from './hsfBuilder'
 
 // Central factory defaults keep builder clones consistent across UI + history helpers.
 export const createFactoryBuilderDefaults = (): BuilderRecipe => ({
-  // Empty label keeps new recipes unnamed until the user edits the field.
-  name: '',
+  // No appearance by default; users set name/color via the builder.
+
   // Tags default to empty so note-driven recipe overrides start clean.
   tags: [],
   // New recipes keep by default to match the builder baseline.

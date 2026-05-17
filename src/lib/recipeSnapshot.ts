@@ -13,7 +13,7 @@ const IGNORED_KEYS = new Set([
   'artifactTypeNames',
   'artifactSetNames',
   'artifactMetaSetNames',
-  'name',
+  'appearance',
   'tags',
 ])
 

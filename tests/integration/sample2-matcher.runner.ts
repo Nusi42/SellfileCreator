@@ -72,6 +72,7 @@ const toPreviewMatch = (
     keep: result.keep,
     recipeIdx: result.recipeIdx ?? null,
     recipeName: null,
+    recipeFgColor: null,
     ruleIndex: result.ruleIndex ?? null,
     ruleLabel: null,
     ruleSource: matchedRule?.__source ?? null,

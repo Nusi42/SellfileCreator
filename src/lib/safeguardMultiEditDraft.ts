@@ -17,6 +17,7 @@ import type {
   MultiEditArrayPatch,
 } from './recipeMultiEditDraft'
 import { areSelectionsIdentical } from './recipeMultiEditDraft'
+import type { NameAppearance } from './nameAppearance'
 import type {
   ArtifactTypeId,
   FactionId,
@@ -47,8 +48,8 @@ import { normalizeArtifactSetSelections } from './gearSets/selection'
  * applyEditableFieldKeyToRule.
  */
 export type SafeguardEditableFields = {
-  // Scalar identity/mode fields
-  name: string
+  // Display appearance — name and optional foreground color tracked as one unit.
+  appearance: NameAppearance | undefined
   activation: SafeguardRuleActivation
   requiredCount: number
   countMode: SafeguardRuleCountMode
@@ -74,7 +75,7 @@ export type SafeguardEditableFields = {
 }
 
 export const SAFEGUARD_FIELD_KEYS = [
-  'name',
+  'appearance',
   'activation',
   'requiredCount',
   'countMode',
@@ -185,7 +186,7 @@ export interface SafeguardMultiEditDraftHandle {
 export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEditableFields {
   const combo = rule.combination
   return {
-    name: rule.name ?? '',
+    appearance: rule.appearance,
     activation: rule.activation,
     requiredCount: rule.requiredCount,
     countMode: { ...rule.countMode },
@@ -233,6 +234,14 @@ export function applyEditableFieldKeyToRule(
       const nextCombo: SafeguardCombination = { ...rule.combination, [key]: value as unknown[] }
       return { ...rule, combination: nextCombo }
     }
+    case 'appearance': {
+      // appearance is optional — avoid assigning undefined to satisfy exactOptionalPropertyTypes.
+      const next = value as NameAppearance | undefined
+      const base = { ...rule }
+      if (next) return { ...base, appearance: next }
+      delete (base as { appearance?: NameAppearance }).appearance
+      return base
+    }
     default:
       // All other keys map 1:1 to SafeguardRule top-level fields.
       return { ...rule, [key]: value }
@@ -266,6 +275,11 @@ export function areSafeguardFieldValuesEqual(
     case 'tags':
     case 'metaSetNames':
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
+    case 'appearance': {
+      const l = left as NameAppearance | undefined
+      const r = right as NameAppearance | undefined
+      return l?.name === r?.name && l?.fgColor === r?.fgColor
+    }
     case 'sets':
       return areSetSelectionsEqual(left, right)
     case 'countMode': {
@@ -336,6 +350,8 @@ export function cloneSafeguardFieldValue(key: SafeguardFieldKey, value: unknown)
       return normalizeArtifactSetSelections(Array.isArray(value) ? value : []).map((e) =>
         e.excluded ? { id: e.id, excluded: true } : { id: e.id },
       )
+    case 'appearance':
+      return value == null ? value : { ...(value as NameAppearance) }
     case 'countMode':
       return { ...(value as SafeguardRuleCountMode) }
     case 'substatWeights':

@@ -72,7 +72,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
 
 const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
-  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'sfc', safeguardRuleId: null, safeguardRuleOrdinal: null } : null
+  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', recipeFgColor: null, ruleIndex: 0, ruleLabel: null, ruleSource: 'sfc', safeguardRuleId: null, safeguardRuleOrdinal: null } : null
   return {
     artifact,
     match,
@@ -82,8 +82,10 @@ const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, k
   }
 }
 
-const makeRule = (overrides: Partial<SafeguardRule> = {}): SafeguardRule => {
+const makeRule = (overrides: Partial<SafeguardRule> & { name?: string } = {}): SafeguardRule => {
   const rule = normalizeSafeguardRule({
+    // normalizeSafeguardRule reads flat `name` from the raw record.
+    name: overrides.name ?? overrides.appearance?.name ?? '',
     combination: overrides.combination ?? {
       slots: [ArtifactType.Weapon],
       // Default to a single entry object to match selection shape.
@@ -156,7 +158,7 @@ test('normalizeSafeguardRule supports readable wrapper payloads', () => {
     },
   })
   assert.ok(normalized, 'wrapper payload should normalize into a safeguard rule')
-  assert.strictEqual(normalized.name, 'Reserve: Speed Banner')
+  assert.strictEqual(normalized.appearance?.name, 'Reserve: Speed Banner')
   assert.deepStrictEqual(normalized.combination.slots, [ArtifactType.Banner])
   assert.deepStrictEqual(normalized.combination.ranks, [5, 6])
   assert.deepStrictEqual(normalized.combination.rarities, [
@@ -905,7 +907,7 @@ test('wasm safeguard merge binding preserves injected payload fields', async () 
 
 test('resolveSafeguardRuleLabel prefers trimmed rule names', () => {
   const rule = makeRule()
-  const label = resolveSafeguardRuleLabel({ ...rule, name: '  Demo Rule  ' })
+  const label = resolveSafeguardRuleLabel({ ...rule, appearance: { ...(rule.appearance ?? {}), name: '  Demo Rule  ' } })
   assert.strictEqual(label, 'Demo Rule')
 })
 

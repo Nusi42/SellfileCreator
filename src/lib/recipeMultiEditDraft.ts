@@ -11,7 +11,7 @@ import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 
 export const BUILDER_FIELD_KEYS = [
-  'name',
+  'appearance',
   'tags',
   'keep',
   'exportMode',

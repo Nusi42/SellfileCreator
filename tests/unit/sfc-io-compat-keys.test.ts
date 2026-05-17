@@ -9,7 +9,7 @@ import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuil
 import { StatVariant } from '../../src/lib/types.js'
 
 const buildRecipe = (name: string): BuilderRecipe => ({
-  name,
+  ...(name ? { appearance: { name } } : {}),
   keep: true,
   exportMode: 'active',
   rankCode: 0,

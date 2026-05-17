@@ -1,3 +1,8 @@
+/**
+ * Legacy wire-format parser for color directives embedded in name strings.
+ * Called ONLY during SFC load (sfcIO.ts, safeguards.ts) to migrate old files.
+ * Display code must NOT call this — use recipe.appearance / rule.appearance directly.
+ */
 const RECIPE_NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
 
 export type RecipeNameDecoration = {
@@ -6,7 +11,6 @@ export type RecipeNameDecoration = {
   hasExplicitColor: boolean
 }
 
-// Recipe names may start with [rrggbb]; we reuse that tag to color chips consistently.
 export function parseRecipeNameDirectives(rawName: string | undefined, fallbackColor: string): RecipeNameDecoration {
   const source = rawName ?? ''
   const match = source.match(RECIPE_NAME_COLOR_DIRECTIVE_PATTERN)

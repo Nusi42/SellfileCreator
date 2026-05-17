@@ -1205,7 +1205,7 @@ function collectRecipeIds(text: string, recipes: BuilderRecipe[]): Set<number> {
 
 function recipeMatchesNotePattern(recipe: BuilderRecipe, pattern: RegExp): boolean {
   // Match the recipe name first to preserve the existing regex behavior.
-  const name = typeof recipe?.name === 'string' ? recipe.name : ''
+  const name = recipe?.appearance?.name ?? ''
   if (name) {
     pattern.lastIndex = 0
     if (pattern.test(name)) return true
@@ -1323,7 +1323,7 @@ function buildSafeguardMarkerResolutions(text: string, safeguardRules: Safeguard
         entries = safeguardRules
           .map((rule, idx) => ({ rule, idx }))
           .filter(({ rule }) => {
-            const name = typeof rule?.name === 'string' ? rule.name : ''
+            const name = rule?.appearance?.name ?? ''
             safeCompiled.lastIndex = 0
             return safeCompiled.test(name)
           })
@@ -2497,7 +2497,7 @@ function SafeguardBlock({ node }: SafeguardBlockProps): JSX.Element | null {
         resolvedEntries = safeguardRules
           .map((rule, idx) => ({ rule, idx }))
           .filter(({ rule }) => {
-            const name = typeof rule?.name === 'string' ? rule.name : ''
+            const name = rule?.appearance?.name ?? ''
             safeCompiled.lastIndex = 0
             return safeCompiled.test(name)
           })
@@ -2589,7 +2589,7 @@ function SafeguardSummaryCard({
   ]
   const activeScopeFlags = scopeFlags.filter((flag) => flag.active)
   // Surface explicit names when present so ordered exports stay recognizable.
-  const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
+  const ruleName = (rule.appearance?.name ?? '').trim()
   const titleLabel = ruleName || t('noteSafeguardRuleTitle', { index: id })
   const formatList = (values: string[]): string => values.join(', ')
 

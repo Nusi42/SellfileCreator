@@ -44,7 +44,7 @@ import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
+import type { NameAppearance } from '../lib/nameAppearance'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -138,9 +138,8 @@ export type SafeguardCandidateRankListProps = {
   // When provided, candidates whose itemKey is not in this set are slightly dimmed
   // (the Gear Inspector filter is hiding them from the current grid view).
   visibleItemKeys?: ReadonlySet<number> | null
-  // Name of the current safeguard rule — shown as the match source label when a candidate
-  // is kept by this safeguard (isWithinQuota = true).
-  ruleName?: string
+  // Appearance (name + optional color) of the current safeguard rule — shown as match source label.
+  ruleAppearance?: NameAppearance
   // 1-based ordinal of the current safeguard rule — used for identity comparisons.
   // Replaces the old ruleOrdinal approach now that SafeguardRule carries no id field.
   ruleOrdinal?: number
@@ -165,7 +164,7 @@ export default function SafeguardCandidateRankList({
   useStatButtonColors,
   onSelectCandidate,
   visibleItemKeys,
-  ruleName,
+  ruleAppearance,
   ruleOrdinal,
   countMode,
   combination,
@@ -240,7 +239,7 @@ export default function SafeguardCandidateRankList({
           showFactionIcons={showFactionIcons}
           substats={substats}
           weights={weights}
-          ruleName={ruleName}
+          ruleAppearance={ruleAppearance}
           ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
@@ -289,7 +288,7 @@ export default function SafeguardCandidateRankList({
           showFactionIcons={showFactionIcons}
           substats={substats}
           weights={weights}
-          ruleName={ruleName}
+          ruleAppearance={ruleAppearance}
           ruleOrdinal={ruleOrdinal}
           mainstatCellWidthPx={mainstatCellWidthPx}
           substatCellWidthPx={substatCellWidthPx}
@@ -318,7 +317,7 @@ function CandidateRow({
   showFactionIcons,
   substats,
   weights,
-  ruleName,
+  ruleAppearance,
   ruleOrdinal,
   mainstatCellWidthPx,
   substatCellWidthPx,
@@ -338,7 +337,7 @@ function CandidateRow({
   showFactionIcons: boolean
   substats: StatVariant[]
   weights: Partial<Record<StatVariant, number>>
-  ruleName: string | undefined
+  ruleAppearance: NameAppearance | undefined
   ruleOrdinal: number | undefined
   // Uniform fixed pixel width for the mainstat cell — measured from the longest label at runtime.
   mainstatCellWidthPx: number
@@ -382,14 +381,18 @@ function CandidateRow({
   // or final-sell rule that determined the result — so keep/sell/guard rows all display their
   // real reason. Show nothing when there is no match data (unmatched or no preview yet).
   // Without preview data, fall back to the rule name only when the candidate is within quota.
+  // When no preview is available fall back to the rule's own name for within-quota candidates.
+  const isRuleNameSource = !previewRow && candidate.isWithinQuota
   const matchSourceRaw: string | null = previewRow
     ? (previewRow.match?.ruleSource === RULE_SOURCE_FINAL_SELL
         ? t('gearInspectorFinalSell')
         : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null))
-    : (candidate.isWithinQuota ? (ruleName ?? null) : null)
-  // Parse [rrggbb] color directives from the match source for colored display.
-  // White is the default text color so names without a directive stand out on the dark row background.
-  const matchSourceDecoration = parseRecipeNameDirectives(matchSourceRaw ?? undefined, theme.palette.common.white)
+    : (isRuleNameSource ? (ruleAppearance?.name ?? null) : null)
+  // Use fgColor from appearance when the source is the rule name; white otherwise.
+  const matchSourceColor = (isRuleNameSource && ruleAppearance?.fgColor)
+    ? ruleAppearance.fgColor
+    : theme.palette.common.white
+  const matchSourceDecoration = { displayName: matchSourceRaw ?? '', resolvedColor: matchSourceColor }
   // Slot: icon replaces text when showSlotIcons is on.
   const slotIconType = (showSlotIcons && artifact) ? artifactTypeIconFor(artifact.slot) : null
   const slotLabel = (!showSlotIcons && artifact) ? t(artifactTypeI18nKey(artifact.slot)) : null

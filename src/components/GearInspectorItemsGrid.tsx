@@ -153,6 +153,7 @@ type GearInspectorItemsGridProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   recipeNames: Array<string | null>
+  recipeFgColors?: Array<string | null>
   // Optional one-shot request to expand + scroll to a concrete artifact card.
   focusArtifactRequest?: { artifactId: number; token: number } | null
   // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
@@ -247,6 +248,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     onChangeColorBlindMode,
     colorIconSrc,
     recipeNames,
+    recipeFgColors,
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
@@ -569,7 +571,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         return `\u2265${Number.isFinite(n) && n >= 1 ? n : 1}`
       })()
       const safeguardName = (() => {
-        const trimmedName = matchedRule?.name?.trim() ?? ''
+        const trimmedName = (matchedRule?.appearance?.name ?? '').trim()
         if (trimmedName.length > 0) return trimmedName
         return t('gearInspectorGridSafeguardChanceUnknownRule')
       })()
@@ -737,13 +739,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
       // ruleOrdinal is 1-based; safeguardRules array is 0-based.
       const primaryRule = ruleOrdinal != null ? (safeguardRules?.[ruleOrdinal - 1] ?? null) : null
-      const primaryRuleName = primaryRule?.name?.trim() || null
+      const primaryRuleName = (primaryRule?.appearance?.name ?? '').trim() || null
       type RankRow = { rank: number; name: string; isPrimary: boolean }
       const rankRows: RankRow[] = []
       if (primaryRuleName) rankRows.push({ rank, name: primaryRuleName, isPrimary: true })
       for (const other of otherRules) {
         const otherRule = safeguardRules?.[other.ruleOrdinal - 1]
-        const otherName = otherRule?.name?.trim()
+        const otherName = (otherRule?.appearance?.name ?? '').trim() || undefined
         if (otherName) rankRows.push({ rank: other.rank, name: otherName, isPrimary: false })
       }
       // JSX table: localized title + rank badge column (monospace, fixed width) + name column.
@@ -2166,6 +2168,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   // Preserve real row chunking (1/2) while card internals use the 4-column visual profile.
                   gridColumnCount={cardStyleProfileColumnCount}
                   recipeNames={recipeNames}
+                  {...(recipeFgColors ? { recipeFgColors } : {})}
                   onJumpToRule={onJumpToRule}
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}

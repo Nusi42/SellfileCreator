@@ -8,6 +8,7 @@ import type {
   StatVariant,
 } from '../types'
 import type { ArtifactSetSelectionEntry } from '../gearSets/selection'
+import type { NameAppearance } from '../nameAppearance'
 
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
 
@@ -16,8 +17,8 @@ export type Star = RankValue
 // BuilderRecipe mirrors the SFC schema but uses strongly-typed enums so the UI
 // and build steps guarantee we emit valid HSF payloads.
 export interface BuilderRecipe {
-  // Optional display name for this recipe (saved in SFC)
-  name?: string
+  // Optional display name and foreground color for this recipe (saved in SFC).
+  appearance?: NameAppearance
   // Optional recipe overrides tags used to enable/disable recipes via note prompts.
   tags?: string[]
   keep: boolean

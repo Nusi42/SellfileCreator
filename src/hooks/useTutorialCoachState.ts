@@ -88,7 +88,6 @@ type ViewStateSnapshot = {
 // Blank builder state used to start a fresh tutorial session and as the base for the
 // handleTutorialSkipTo replay pass. Single source of truth — do not duplicate inline.
 const TUTORIAL_INITIAL_BUILDER: BuilderRecipe = {
-  name: '',
   keep: true,
   exportMode: 'active',
   rankCode: RankCode.Any,
@@ -205,7 +204,7 @@ const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
 ]
 
 const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
-  name: 'Refresh RES Banner',
+  appearance: { name: 'Refresh RES Banner' },
   combination: {
     slots: [ArtifactType.Banner],
     sets: [{ id: ArtifactSet.Refresh }],
@@ -1620,7 +1619,7 @@ export function useTutorialCoachState({
             break
           }
           case 'name': {
-            nextBuilder = { ...nextBuilder, name: 'DPS Core Rolls' }
+            nextBuilder = { ...nextBuilder, appearance: { name: 'DPS Core Rolls' } }
             break
           }
           case 'subs': {
@@ -1726,7 +1725,7 @@ export function useTutorialCoachState({
             // Min Rolls is Auto here — the substats step overrides it to 3.
             nextBuilder = {
               ...nextBuilder,
-              name: 'Banner SPD — Late 3 rolls',
+              appearance: { name: 'Banner SPD — Late 3 rolls' },
               artifactTypes: [ArtifactType.Banner],
               artifactSets: [],
               artifactMetaSets: [],

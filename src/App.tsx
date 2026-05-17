@@ -35,7 +35,6 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
-import { parseRecipeNameDirectives } from './lib/recipeNameDirectives'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
   loadRuntimeGearSetsFromStorage,
@@ -539,7 +538,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsOverridesActive = recipeOverridesSubstatTargetsResolution.overridesActive
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleRecipes = useMemo(() => recipesForRuleBuild(recipeOverridesRecipesForRules), [recipeOverridesRecipesForRules])
-  const recipeNames = useMemo(() => customRecipes.map((recipe) => (typeof recipe?.name === 'string' ? recipe.name : '')), [customRecipes])
+  const recipeNames = useMemo(() => customRecipes.map((recipe) => recipe?.appearance?.name ?? ''), [customRecipes])
+  const recipeFgColors = useMemo(() => customRecipes.map((recipe) => recipe?.appearance?.fgColor ?? null), [customRecipes])
   // Normalize tags once so every filter path uses the same tag tokens.
   const normalizeRecipeTags = useCallback((recipe: BuilderRecipe | null | undefined): string[] => {
     // Coerce tags into strings so recipe filters can consume them safely.
@@ -560,10 +560,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const recipeModes = useMemo(() => recipeOverridesExportModes.modes, [recipeOverridesExportModes])
   const metasetsForPreview = useDeferredValue(metasets)
   const recipeNamesForPreview = useDeferredValue(recipeNames)
+  const recipeFgColorsForPreview = useDeferredValue(recipeFgColors)
   // Keep Gear Inspector math reusable so seeding hooks share the same normalization as the dialog.
   const gearInspectorMath = useMemo(() => createGearInspectorMath(effectiveSubstatTargets), [effectiveSubstatTargets])
   // State (not ref) so the useMemo below can read it during render without violating react-hooks/refs.
   const [lastRecipeNames, setLastRecipeNames] = useState<string[]>(recipeNamesForPreview)
+  const [lastRecipeFgColors, setLastRecipeFgColors] = useState<Array<string | null>>(recipeFgColorsForPreview)
   const gearInspectorItemIdRef = useRef(1)
   const allocGearInspectorItemId = useCallback(() => {
     const id = gearInspectorItemIdRef.current
@@ -1001,12 +1003,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => ((rulesBuilding || gearEntriesBuilding) ? lastRecipeNames : recipeNamesForPreview),
     [rulesBuilding, gearEntriesBuilding, recipeNamesForPreview, lastRecipeNames],
   )
+  const recipeFgColorsForGrid = useMemo(
+    () => ((rulesBuilding || gearEntriesBuilding) ? lastRecipeFgColors : recipeFgColorsForPreview),
+    [rulesBuilding, gearEntriesBuilding, recipeFgColorsForPreview, lastRecipeFgColors],
+  )
   // Keep Gear Inspector chip labels in sync with the frozen recipe-name snapshot so chips never display mid-build indices.
   const gearInspectorRecipeNamesForGrid = useMemo(() => recipeNamesForGrid.map((name) => {
     if (typeof name !== 'string') return null
     const trimmed = name.trim()
     return trimmed.length > 0 ? trimmed : null
   }), [recipeNamesForGrid])
+  const gearInspectorRecipeFgColorsForGrid = useMemo(
+    () => recipeFgColorsForGrid.map((c) => (typeof c === 'string' && c.trim() ? c.trim() : null)),
+    [recipeFgColorsForGrid],
+  )
   // Preview mode is still tracked for UI layout, but pipeline matching is always computed.
   const [previewMode, setPreviewMode] = useState<'rules' | 'gearInspector'>(() => {
     if (typeof window === 'undefined') return 'rules'
@@ -1196,6 +1206,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const recipesForBuild = recipesEnabled ? ruleRecipes : []
     // Keep recipe-name snapshots aligned with the same immediate payload so remaps stay deterministic.
     const recipeNamesForBuild = recipeNames
+    const recipeFgColorsForBuild = recipeFgColors
     // Recipe modes gate matcher behavior, so keep the same immediate snapshot as recipes/metasets.
     const recipeModesForBuild = recipeModes
     // Keep metasets/substat targets on the same immediate snapshot used for recipes.
@@ -1238,6 +1249,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const rule = rules[result.ruleIndex]
         const recipeIdx = result.recipeIdx ?? null
         const recipeName = resolveMatchRecipeName(recipeIdx, recipeNamesForBuild, rule)
+        const recipeFgColor = (recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeFgColorsForBuild.length)
+          ? (recipeFgColorsForBuild[recipeIdx] ?? null)
+          : null
         // Safeguards use rule ordinals instead of recipe names.
         const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
           ? resolveSafeguardRuleLabel(rule)
@@ -1250,6 +1264,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keep: result.keep,
           recipeIdx,
           recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
+          recipeFgColor,
           ruleLabel: safeguardLabel ?? null,
           ruleSource: rule?.__source ?? null,
           // Legacy ID field; always null in new sessions since SafeguardRule no longer carries id.
@@ -1366,6 +1381,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setImprovementChanceByArtifactId(cachedEntry.processedImprovementChance)
             })
             setLastRecipeNames(recipeNamesForBuild)
+            setLastRecipeFgColors(recipeFgColorsForBuild)
             recoverMissingRulesRef.current = false
             return
           }
@@ -1525,6 +1541,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   setImprovementChanceByArtifactId(retryImprovementChanceResult ?? null)
                 })
                 setLastRecipeNames(recipeNamesForBuild)
+            setLastRecipeFgColors(recipeFgColorsForBuild)
               })
               .catch((error: unknown) => {
                 if (isAbortError(error)) return
@@ -1594,6 +1611,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     runPipeline,
     ruleRecipes,
     recipeNames,
+    recipeFgColors,
     metasets,
     effectiveSubstatTargets,
     hsf,
@@ -2298,11 +2316,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const recipe = customRecipes[recipeIndex]
     if (!recipe || recipe.exportMode === 'separator') return null
     const combination = buildSafeguardCombinationFromRecipe(recipe)
-    const rawName = parseRecipeNameDirectives(recipe.name, '').displayName.trim()
+    const rawName = (recipe.appearance?.name ?? '').trim()
     const safeguardName = `Protect: ${rawName || `Recipe ${recipeIndex + 1}`}`
     return {
       ...cloneSafeguardRule(safeguardBuilderRef.current),
-      name: safeguardName,
+      appearance: { name: safeguardName },
       combination,
       requiredCount: 2,
       activation: SafeguardRuleActivation.AnticipateGaps,
@@ -3864,7 +3882,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
     const payload = {
       recipeNumber: idx + 1,
-      name: recipe.name ?? null,
+      name: recipe.appearance?.name ?? null,
       builderRecipe: builderSnapshot,
       readableRecipe: readable,
       previewLines: rulesForRecipe.map(r => r.line),
@@ -5453,7 +5471,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Combine the labels into the final recipe name.
     const name = t('gearInspectorRuleTemplateName', { slot: slotLabel, set: setSuffix }).trim()
     // Clone to ensure the new recipe has unique references for history + multi-edit.
-    const nextRecipe = cloneBuilderRecipe({ ...baseRecipe, name })
+    const nextRecipe = cloneBuilderRecipe({ ...baseRecipe, appearance: { name } })
     // Insert after the current selection when possible so creation feels local.
     const previous = customRecipesRef.current
     const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < previous.length)
@@ -5701,7 +5719,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Otherwise, predict whether the inserted recipe would survive the current rules filter.
     const names = recipeNames.slice()
-    names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
+    names.splice(prospectiveInsertIndex, 0, builder.appearance?.name ?? '')
     // Keep tag filters aligned with the name list for the insert prediction.
     const tags = recipeTags.slice()
     // Normalize builder tags so preview name filters see the same tokens.
@@ -5744,7 +5762,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (editingRecipeIndex === null || editingRecipeIndex < 0 || editingRecipeIndex >= customRecipes.length) return true
     // Predict whether the saved recipe at its current index would survive the active rules filter.
     const names = recipeNames.slice()
-    names[editingRecipeIndex] = builder.name ?? ''
+    names[editingRecipeIndex] = builder.appearance?.name ?? ''
     // Keep tag filters aligned with the name list for the save prediction.
     const tags = recipeTags.slice()
     // Normalize builder tags so preview name filters see the same tokens.
@@ -8244,6 +8262,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 onChangeColorBlindMode={setColorBlindMode}
                 colorIconSrc={colorIconSrc}
                 recipeNames={gearInspectorRecipeNamesForGrid}
+                recipeFgColors={gearInspectorRecipeFgColorsForGrid}
                 focusArtifactRequest={gearInspectorArtifactFocusRequest}
                 onFocusArtifactFilteredOut={handleGearInspectorFocusArtifactFilteredOut}
                 onJumpToRule={handleGearInspectorRuleView}
@@ -8288,6 +8307,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               <HsfRulesTableMemo
                 rules={hsfRulesForTable}
                 recipeNames={recipeNamesForGrid}
+                recipeFgColors={recipeFgColorsForGrid}
                 setHoveredRecipeIdx={setHoveredRecipeIdx}
                 selectedRecipeIdx={previewSelectedRecipeIdx}
                 selectedSafeguardOrdinal={previewSelectedSafeguardOrdinal}

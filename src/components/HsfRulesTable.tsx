@@ -8,7 +8,6 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -109,9 +108,10 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
+  recipeFgColors?: readonly (string | null | undefined)[]
   setHoveredRecipeIdx: (idx: number | null) => void
   selectedRecipeIdx: number | null
   // 1-based safeguard ordinal to highlight (mirrors selectedRecipeIdx for safeguard rows).
@@ -456,6 +456,12 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
     const recipeIdx = resolveDisplayRecipeIdx(rule)
     return resolveMatchRecipeName(recipeIdx, recipeNames, rule) ?? ''
   }, [recipeNames, t])
+  const resolvePreviewRuleFgColor = useCallback((rule: HsfRuleWithRecipe, isSafeguardRow: boolean): string => {
+    if (isSafeguardRow) return ''
+    const recipeIdx = resolveDisplayRecipeIdx(rule)
+    if (recipeIdx == null || recipeIdx < 0 || recipeIdx >= recipeFgColors.length) return ''
+    return recipeFgColors[recipeIdx] ?? ''
+  }, [recipeFgColors])
   const handleSafeguardStarClick = useCallback((rule: HsfRuleWithRecipe) => {
     // Safeguard rows carry a 1-based ordinal for cross-view routing.
     const ruleOrdinal = typeof rule.__safeguardRuleOrdinal === 'number' ? rule.__safeguardRuleOrdinal : null
@@ -1365,12 +1371,9 @@ export function HsfRulesTable({ rules, recipeNames = [], setHoveredRecipeIdx, se
                     })()
                     // Keep overrides include safeguards injection rows.
                     const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
-                    const rawPreviewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
-                    // Parse [rrggbb] color directives so the display name is clean and the color can tint recipe-related columns.
-                    const ruleDecoration = parseRecipeNameDirectives(rawPreviewRuleName, '')
-                    const previewRuleName = ruleDecoration.displayName || rawPreviewRuleName
-                    // Resolved color from the directive (empty string when absent).
-                    const previewRuleColor = ruleDecoration.hasExplicitColor ? ruleDecoration.resolvedColor : ''
+                    const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
+                    // Color comes from the recipe's appearance.fgColor; empty string when absent.
+                    const previewRuleColor = resolvePreviewRuleFgColor(rule, isKeepOverrideSource)
                     // Determine whether this row should play the enter or change-pulse animation.
                     const ruleKey = computeRuleAnimKey(rule, idx)
                     const isNewRow = enteringRuleKeys.has(ruleKey)

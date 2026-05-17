@@ -112,7 +112,7 @@ export function summarizeBuilderRecipeDiff(params: SummarizeBuilderRecipeDiffPar
   let metasetDiffLine: string | null = null
   let artifactSetsDiffLine: string | null = null
 
-  if (changed.has('name')) {
+  if (changed.has('appearance')) {
     pushDiff(detailLines, t, t('builderRecipeName'), formatName(previous, t), formatName(next, t))
   }
   if (changed.has('keep')) {
@@ -431,7 +431,7 @@ export function buildRecipeLabel(index: number, recipe: BuilderRecipe, t: Transl
 }
 
 function formatName(recipe: BuilderRecipe, t: TranslateFn): string {
-  const raw = (recipe.name ?? '').trim()
+  const raw = (recipe.appearance?.name ?? '').trim()
   return raw ? `"${raw}"` : t('historyValueEmpty')
 }
 

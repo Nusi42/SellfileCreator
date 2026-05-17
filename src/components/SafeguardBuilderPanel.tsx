@@ -115,7 +115,6 @@ import BuilderSectionHeader from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
@@ -140,6 +139,7 @@ import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, G
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
+import { ColorField } from './ColorField'
 import SafeguardCandidateRankList from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
@@ -222,9 +222,9 @@ const MIXED_TOGGLE_GROUP_OVERRIDES = (mixedBorderColor: string, mixedTextColor: 
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// Strips heading markers and color/style directives from separator names for display.
+// Strips leading "#" heading markers from separator names for display (color directives no longer live in the name).
 function parseSeparatorLabel(rawName: string | undefined): string {
-  return parseRecipeNameDirectives(rawName, '').displayName.replace(/^#+\s*/, '').trim()
+  return (rawName ?? '').replace(/^#+\s*/, '').trim()
 }
 
 // ── component ────────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ export default function SafeguardBuilderPanel({
   const multiEditActive = multiEditSelectionCount >= 2
   const multiFields = multiEdit?.state.fields ?? null
   // Per-field state shortcuts — null when single-edit mode.
-  const multiNameField = multiFields?.name ?? null
+  const multiNameField = multiFields?.appearance ?? null
   const multiActivationField = multiFields?.activation ?? null
   // True when the selected rules have different activation modes and no staged change yet.
   const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
@@ -523,9 +523,8 @@ export default function SafeguardBuilderPanel({
     return recipes
       .map((recipe, originalIdx) => {
         const isSep = recipe.exportMode === 'separator'
-        const nameDecoration = isSep ? null : parseRecipeNameDirectives(recipe.name, '')
-        const displayName = nameDecoration?.displayName.trim() ?? ''
-        const nameColor = nameDecoration?.hasExplicitColor ? nameDecoration.resolvedColor : undefined
+        const displayName = isSep ? '' : (recipe.appearance?.name ?? '').trim()
+        const nameColor = isSep ? undefined : recipe.appearance?.fgColor
         return { recipe, originalIdx, displayName, nameColor }
       })
       .filter(({ recipe, displayName }) => {
@@ -538,6 +537,27 @@ export default function SafeguardBuilderPanel({
   const updateRule = useCallback((updater: (prev: SafeguardRule) => SafeguardRule) => {
     onChange((prev) => updater(prev))
   }, [onChange])
+
+  const commitFgColor = useCallback((color: string | undefined) => {
+    if (multiEditActive && multiEdit) {
+      const stagedName = (multiNameField?.value as { name?: string } | undefined)?.name ?? rule.appearance?.name ?? ''
+      const nextAppearance = (stagedName || color)
+        ? { name: stagedName, ...(color ? { fgColor: color } : {}) }
+        : undefined
+      multiEdit.updateField('appearance', { value: nextAppearance, status: 'common' })
+    } else {
+      updateRule((prev) => {
+        const currentName = prev.appearance?.name ?? ''
+        const nextAppearance = (currentName || color)
+          ? { name: currentName, ...(color ? { fgColor: color } : {}) }
+          : undefined
+        const base = { ...prev }
+        if (nextAppearance) return { ...base, appearance: nextAppearance }
+        delete (base as { appearance?: typeof prev.appearance }).appearance
+        return base
+      })
+    }
+  }, [multiEditActive, multiEdit, multiNameField, rule.appearance, updateRule])
 
   // Resolve effective rule up front — used both for override badge tooltips and for displaying
   // effective values in controls when a safeguard-overrides block is active (consistent with the
@@ -1153,36 +1173,64 @@ export default function SafeguardBuilderPanel({
           value={multiEditActive
             ? (multiNameField?.status === 'mixed' && !multiNameField.dirty
               ? ''
-              : String(multiNameField?.value ?? rule.name ?? ''))
-            : (rule.name ?? '')}
+              : ((multiNameField?.value as { name?: string } | undefined)?.name ?? rule.appearance?.name ?? ''))
+            : (rule.appearance?.name ?? '')}
           {...(multiEditActive && multiNameField?.status === 'mixed' && !multiNameField.dirty
             ? { placeholder: t('builderMultiEditMixedPlaceholder') }
             : {})}
           onChange={(e) => {
+            const newName = e.target.value
             if (multiEditActive && multiEdit) {
-              multiEdit.updateField('name', { value: e.target.value, status: 'common' })
+              // Preserve staged fgColor when user updates only the name.
+              const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
+              const nextAppearance = (newName || stagedFgColor)
+                ? { name: newName, ...(stagedFgColor ? { fgColor: stagedFgColor } : {}) }
+                : undefined
+              multiEdit.updateField('appearance', { value: nextAppearance, status: 'common' })
             } else {
-              updateRule((prev) => ({ ...prev, name: e.target.value }))
+              updateRule((prev) => {
+                const fgColor = prev.appearance?.fgColor
+                return { ...prev, ...(newName || fgColor
+                  ? { appearance: { name: newName, ...(fgColor ? { fgColor } : {}) } }
+                  : {}) }
+              })
             }
           }}
           InputProps={{
-            endAdornment: (multiEditActive ? (multiNameField?.dirty) : rule.name) ? (
-              <InputAdornment position="end">
-                <ClearIconButton
-                  size="small"
-                  edge="end"
-                  aria-label={t('builderClearRecipeName')}
-                  tooltip={t('builderClearRecipeName')}
-                  onClick={() => {
-                    if (multiEditActive && multiEdit) {
-                      multiEdit.updateField('name', { value: '', status: 'common' })
-                    } else {
-                      updateRule((prev) => ({ ...prev, name: '' }))
-                    }
-                  }}
-                />
-              </InputAdornment>
-            ) : undefined,
+            endAdornment: (() => {
+              const currentFgColor = multiEditActive
+                ? ((multiNameField?.value as { fgColor?: string } | undefined)?.fgColor ?? '')
+                : (rule.appearance?.fgColor ?? '')
+              const showClear = multiEditActive ? Boolean(multiNameField?.dirty) : Boolean(rule.appearance?.name)
+              return (
+                <InputAdornment position="end" sx={{ gap: 0.5 }}>
+                  <ColorField
+                    value={currentFgColor}
+                    onChange={commitFgColor}
+                    onClear={() => commitFgColor(undefined)}
+                  />
+                  {showClear && (
+                    <ClearIconButton
+                      size="small"
+                      edge="end"
+                      aria-label={t('builderClearRecipeName')}
+                      tooltip={t('builderClearRecipeName')}
+                      onClick={() => {
+                        if (multiEditActive && multiEdit) {
+                          const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
+                          multiEdit.updateField('appearance', { value: stagedFgColor ? { name: '', fgColor: stagedFgColor } : undefined, status: 'common' })
+                        } else {
+                          updateRule((prev) => {
+                            const fgColor = prev.appearance?.fgColor
+                            return { ...prev, ...(fgColor ? { appearance: { name: '', fgColor } } : {}) }
+                          })
+                        }
+                      }}
+                    />
+                  )}
+                </InputAdornment>
+              )
+            })(),
           }}
           fullWidth
         />
@@ -2716,7 +2764,7 @@ export default function SafeguardBuilderPanel({
               const factory = createFactorySafeguardBuilderDefaults()
               const current: Omit<SafeguardRule, 'id'> = {
                 combination: rule.combination,
-                name: rule.name ?? '',
+                ...(rule.appearance ? { appearance: rule.appearance } : {}),
                 requiredCount: rule.requiredCount,
                 activation: rule.activation,
                 countMode: rule.countMode,
@@ -2793,7 +2841,7 @@ export default function SafeguardBuilderPanel({
           )}
           {filteredScaffoldEntries.map(({ recipe, originalIdx, displayName, nameColor }) => {
             if (recipe.exportMode === 'separator') {
-              const sepLabel = parseSeparatorLabel(recipe.name)
+              const sepLabel = parseSeparatorLabel(recipe.appearance?.name)
               return (
                 <Box key={originalIdx} sx={{ py: 0.5, px: 1.5 }}>
                   <Divider>
@@ -3181,7 +3229,7 @@ export default function SafeguardBuilderPanel({
               useStatButtonColors={useStatButtonColors}
               previewRowByItemKey={previewRowByItemKey ?? null}
               substatColumnCount={substatColumnCount}
-              {...(rule?.name ? { ruleName: rule.name } : {})}
+              {...(rule?.appearance ? { ruleAppearance: rule.appearance } : {})}
               {...(editingRuleIdx !== null ? { ruleOrdinal: editingRuleIdx + 1 } : {})}
               {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
               {...(onSelectCandidate ? { onSelectCandidate } : {})}

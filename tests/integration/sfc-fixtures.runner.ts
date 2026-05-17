@@ -152,7 +152,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario A: Auto + Late + thresholds active -> writer includes field
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'epic',
       factionCode: 0,
@@ -176,7 +176,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario B: Auto + Early + active -> writer omits; reader drops
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'uncommon',
       factionCode: 0,
@@ -196,7 +196,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario C: Code mode -> writer omits; reader drops
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 8, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
@@ -216,7 +216,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario D: Auto + Late but thresholds inactive -> writer omits; reader drops
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
@@ -261,7 +261,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario E: Substat roll expectations serialize/deserialize
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'code',
       factionCode: 0,
@@ -296,7 +296,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario Draft: Draft recipes act as dividers and emit no rules
   {
     const cfg: BuilderRecipe = {
-      name: 'Divider', keep: true, exportMode: 'separator',
+      appearance: { name: 'Divider' }, keep: true, exportMode: 'separator',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto',
       factionCode: 0,
@@ -321,7 +321,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     substatTargets.six[StatVariant.SPD] = 67
 
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'code',
       factionCode: 0,
@@ -344,7 +344,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario F: Factory minima collapse triggers only when targets match the factory roll floors
   {
     const cfg: BuilderRecipe = {
-      name: '', keep: true, exportMode: 'active',
+      keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto',
       factionCode: 0,

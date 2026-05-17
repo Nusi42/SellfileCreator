@@ -9,8 +9,8 @@ import { RarityCode, StatVariant } from '../../src/lib/types.js'
 const SUBSTAT_TARGETS_KEY = '::test-targets'
 
 test('name-only changes mark the builder as dirty', () => {
-  const baseline = createHistoryBuilderBaseline({ name: 'Arena' })
-  const renamed = { ...baseline, name: 'Arena - Speed' }
+  const baseline = createHistoryBuilderBaseline({ appearance: { name: 'Arena' } })
+  const renamed = { ...baseline, appearance: { name: 'Arena - Speed' } }
 
   assert.equal(
     fingerprintRecipeForRules(renamed, SUBSTAT_TARGETS_KEY),
@@ -26,7 +26,7 @@ test('name-only changes mark the builder as dirty', () => {
 })
 
 test('identical recipes remain clean', () => {
-  const baseline = createHistoryBuilderBaseline({ name: 'Faction Wars' })
+  const baseline = createHistoryBuilderBaseline({ appearance: { name: 'Faction Wars' } })
   const clone = structuredClone(baseline)
 
   assert.equal(

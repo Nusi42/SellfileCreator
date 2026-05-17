@@ -135,7 +135,6 @@ function parseSnapshot(entry: HistoryEntry): SfcSnapshot | null {
         if (sel !== null && sel >= 0 && sel < customRecipes.length && customRecipes[sel]) return customRecipes[sel]!
         if (customRecipes.length > 0 && customRecipes[0]) return customRecipes[0]!
         const fallback: BuilderRecipe = {
-          name: '',
           keep: true,
           exportMode: 'active',
           rankCode: 0,

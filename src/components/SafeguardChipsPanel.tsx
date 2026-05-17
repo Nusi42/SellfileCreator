@@ -52,7 +52,6 @@ import type { Metaset } from '../lib/metasets'
 import { buildReadableSafeguardRuleEntry } from '../lib/sfcIO'
 import { useI18n } from '../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../lib/clipboard'
-import { parseRecipeNameDirectives } from '../lib/recipeNameDirectives'
 import { RecipeContextMenu } from './RecipeContextMenu'
 import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -182,10 +181,11 @@ const SafeguardChip = React.memo(function SafeguardChip({
   onDeleteRequest, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
 }: SafeguardChipProps) {
   // Derive display values from the rule; recomputed only when this chip's props change.
-  const rawName = (pendingName ?? rule.name ?? '').trim()
+  const rawName = (pendingName ?? rule.appearance?.name ?? '').trim()
   const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
-  const nameDecoration = parseRecipeNameDirectives(rawName || undefined, 'inherit')
-  const displayName = nameDecoration.displayName || fallbackName
+  // Color comes from fgColor; fall back to inherit when unset.
+  const resolvedNameColor = rule.appearance?.fgColor ?? 'inherit'
+  const displayName = rawName || fallbackName
   // Activation badge color and label text.
   const actColor = safeguardActivationColor(rule.activation)
   const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
@@ -271,7 +271,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
           <TextField
             size="small"
             autoFocus
-            value={pendingName ?? rule.name ?? ''}
+            value={pendingName ?? rule.appearance?.name ?? ''}
             onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
             onChange={(e) => {
               const raw = e.target.value ?? ''
@@ -300,17 +300,15 @@ const SafeguardChip = React.memo(function SafeguardChip({
               {`${ruleIndex + 1}. `}
               <Box
                 component="span"
-                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.name ?? '') }}
+                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.appearance?.name ?? '') }}
                 onKeyDown={(e) => {
                   if (e.key !== 'F2') return
                   e.preventDefault(); e.stopPropagation()
-                  onStartEdit(ruleIndex, rule.name ?? '')
+                  onStartEdit(ruleIndex, rule.appearance?.name ?? '')
                 }}
                 sx={{
                   fontStyle: rawName ? 'normal' : 'italic',
-                  color: rawName
-                    ? (nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : 'inherit')
-                    : 'text.secondary',
+                  color: rawName ? resolvedNameColor : 'text.secondary',
                 }}
               >
                 {displayName}
@@ -470,7 +468,18 @@ export default function SafeguardChipsPanel({
     const nextName = pendingNameByIdx.get(ruleIdx)
     if (nextName === undefined) return
     // Apply to the rule at the stored index; no-op when the name is already current.
-    mutateRules((prev) => prev.map((r, i) => i === ruleIdx ? (r.name === nextName ? r : { ...r, name: nextName }) : r))
+    mutateRules((prev) => prev.map((r, i) => {
+      if (i !== ruleIdx) return r
+      if (r.appearance?.name === nextName) return r
+      // Preserve fgColor so inline-name edits don't clobber the color.
+      const nextAppearance = (nextName || r.appearance?.fgColor)
+        ? { name: nextName, ...(r.appearance?.fgColor ? { fgColor: r.appearance.fgColor } : {}) }
+        : undefined
+      const base = { ...r }
+      if (nextAppearance) return { ...base, appearance: nextAppearance }
+      delete (base as { appearance?: typeof r.appearance }).appearance
+      return base
+    }))
   }, [pendingNameByIdx, mutateRules])
 
   const scheduleNameCommit = useCallback((ruleIdx: number) => {

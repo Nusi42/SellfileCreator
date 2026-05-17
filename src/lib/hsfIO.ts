@@ -10,7 +10,6 @@
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
-import { parseRecipeNameDirectives } from './recipeNameDirectives'
 import { RULE_SOURCE_FINAL_SELL } from './ruleSources'
 
 type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
@@ -88,9 +87,9 @@ export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
     const stripped = stripUiMetadata(r) as ExportableRule & { rowIdx?: number }
     // Preserve RecipeID/RecipeName ordering for readability while omitting diagnostics.
     const { RecipeID, RecipeName: rawRecipeName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...rest } = stripped
-    // Strip [rrggbb] color directives from RecipeName — they are UI display hints and must not appear in exports.
+    // RecipeName comes from recipe.appearance?.name which is already clean (no color directives).
     const RecipeName = rawRecipeName != null
-      ? (parseRecipeNameDirectives(rawRecipeName, '').displayName || undefined)
+      ? (rawRecipeName.trim() || undefined)
       : rawRecipeName
     // Builders already emit fields in the desired order; we simply reattach Recipe metadata.
     const others = rest as HsfRule
