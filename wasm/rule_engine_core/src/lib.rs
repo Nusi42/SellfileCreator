@@ -534,31 +534,6 @@ pub struct AutoRarityResolveRollBoundsIn {
 
 // Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
 //
-// ts-rs export: composes AutoRarityResolveRollBoundsIn via BTreeMap<i64, ...>.
-#[derive(Debug, Deserialize, Clone, TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[ts(export, rename_all = "camelCase")]
-pub struct AutoRarityResolveIn {
-    #[serde(default)]
-    pub auto_rarity_supplements_threshold: Option<String>,
-    #[serde(default)]
-    pub auto_min_required_rolls: Option<bool>,
-    #[serde(default)]
-    pub min_required_rolls: Option<f64>,
-    #[serde(default)]
-    pub locked_min_required_rolls: Option<f64>,
-    #[serde(default)]
-    pub min_count: Option<f64>,
-    #[serde(default)]
-    pub early_keep_mode: Option<String>,
-    #[serde(default)]
-    pub selected_pool_v: Vec<i64>,
-    #[serde(default)]
-    pub fixed_pool_v: Vec<i64>,
-    #[serde(default, deserialize_with = "deserialize_i64_key_map")]
-    pub substat_roll_bounds_v: BTreeMap<i64, AutoRarityResolveRollBoundsIn>,
-}
-
 // Builder-facing auto-rarity payload accepts raw recipe vectors plus allowed ids.
 //
 // ts-rs export: composes AutoRarityResolveRollBoundsIn via BTreeMap<i64, ...>.

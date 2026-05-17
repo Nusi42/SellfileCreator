@@ -138,7 +138,14 @@ fn auto_rarity_present_at_level(rarity_code: i64, level: i64) -> i64 {
 
 // Auto-rarity resolver core mirrors hsfBuilder.ts::resolveAutoRarityCode,
 // with slot/main compatibility filtering performed in TS before this call.
-pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 {
+// `input` supplies the 6 shared option fields; the three pool/bounds args carry
+// pre-filtered variants that callers derive from their own raw inputs.
+pub(crate) fn resolve_auto_rarity_code_core(
+    input: &AutoRarityResolveBuilderIn,
+    selected_pool_v: &[i64],
+    fixed_pool_v: &[i64],
+    substat_roll_bounds_v: &BTreeMap<i64, AutoRarityResolveRollBoundsIn>,
+) -> i64 {
     // Optional floor threshold clamps auto output upward when configured.
     let min_floor_code = match input
         .auto_rarity_supplements_threshold
@@ -174,8 +181,8 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
     };
 
     // Inputs are already slot/main filtered in TS to keep compatibility SSOT there.
-    let selected_pool_v = input.selected_pool_v.clone();
-    let fixed_pool_raw_v = input.fixed_pool_v.clone();
+    let selected_pool_v = selected_pool_v.to_vec();
+    let fixed_pool_raw_v = fixed_pool_v.to_vec();
     if selected_pool_v.is_empty() {
         return apply_floor(RARITY_CODE_ANY);
     }
@@ -208,8 +215,7 @@ pub(crate) fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 
     // Parse per-substat mins from normalized bounds payload.
     let mut per_min = BTreeMap::<i64, i64>::new();
     for variant in &selected_pool_v {
-        let min_value = input
-            .substat_roll_bounds_v
+        let min_value = substat_roll_bounds_v
             .get(variant)
             .and_then(|entry| entry.min);
         per_min.insert(*variant, auto_rarity_clamp_roll_requirement(min_value));
@@ -401,19 +407,8 @@ pub fn resolve_auto_rarity_code_for_builder_core(input: &AutoRarityResolveBuilde
             substat_roll_bounds_v.insert(*variant, normalized);
         }
     }
-    // Reuse the shared core so builder and direct payload paths stay aligned.
-    let core_payload = AutoRarityResolveIn {
-        auto_rarity_supplements_threshold: input.auto_rarity_supplements_threshold.clone(),
-        auto_min_required_rolls: input.auto_min_required_rolls,
-        min_required_rolls: input.min_required_rolls,
-        locked_min_required_rolls: input.locked_min_required_rolls,
-        min_count: input.min_count,
-        early_keep_mode: input.early_keep_mode.clone(),
-        selected_pool_v,
-        fixed_pool_v,
-        substat_roll_bounds_v,
-    };
-    let code = resolve_auto_rarity_code_core(&core_payload);
+    // Pass the filtered pools and compacted bounds directly — no intermediate struct needed.
+    let code = resolve_auto_rarity_code_core(input, &selected_pool_v, &fixed_pool_v, &substat_roll_bounds_v);
     code as i32
 }
 

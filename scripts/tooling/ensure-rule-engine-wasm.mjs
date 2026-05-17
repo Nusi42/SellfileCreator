@@ -73,7 +73,6 @@ const RUST_TYPES_OUTPUTS = [
   path.join(RUST_TYPES_OUT_DIR, 'PreviewExtrasRaw.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'ComputeMergedRulesIn.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'FinalSellRemainderIn.ts'),
-  path.join(RUST_TYPES_OUT_DIR, 'AutoRarityResolveIn.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'AutoRarityResolveBuilderIn.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'AutoRarityResolveRollBoundsIn.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'AutoFlexRarityBoundsIn.ts'),

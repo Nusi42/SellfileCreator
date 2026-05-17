@@ -61,11 +61,51 @@ if (!cargoBin) {
   console.error('error: cargo not found. Install Rust via rustup for this environment.')
   process.exit(1)
 }
-const wasmBindgenBin = resolveCommand('wasm-bindgen')
-if (!wasmBindgenBin) {
-  console.error('error: wasm-bindgen not found. Run: cargo install wasm-bindgen-cli')
+
+// Read the wasm-bindgen version that Cargo resolved so the CLI always matches.
+const cargoLockPath = path.join(WORKSPACE_DIR, 'Cargo.lock')
+const requiredWasmBindgenVersion = (() => {
+  const lock = fs.readFileSync(cargoLockPath, 'utf8')
+  // First [[package]] block whose name = "wasm-bindgen" (not wasm-bindgen-*)
+  const match = lock.match(/\[\[package\]\]\s+name = "wasm-bindgen"\s+version = "([^"]+)"/)
+  return match?.[1] ?? null
+})()
+if (!requiredWasmBindgenVersion) {
+  console.error('error: could not determine wasm-bindgen version from Cargo.lock')
   process.exit(1)
 }
+
+// Ensure the installed wasm-bindgen-cli matches the crate version; auto-install if not.
+const ensureWasmBindgen = () => {
+  const probe = resolveCommand('wasm-bindgen')
+  if (probe) {
+    const result = spawnSync(probe, ['--version'], { encoding: 'utf8', shell: false })
+    // Output is e.g. "wasm-bindgen 0.2.121"
+    const installed = result.stdout?.trim().split(' ')[1]
+    if (installed === requiredWasmBindgenVersion) return probe
+    console.log(
+      `wasm-bindgen CLI ${installed ?? '(unknown)'} ≠ required ${requiredWasmBindgenVersion} — auto-installing...`,
+    )
+  } else {
+    console.log(`wasm-bindgen CLI not found — installing ${requiredWasmBindgenVersion}...`)
+  }
+  const install = spawnSync(
+    cargoBin,
+    ['install', '--force', 'wasm-bindgen-cli', '--version', requiredWasmBindgenVersion],
+    { stdio: 'inherit', shell: false },
+  )
+  if ((install.status ?? 1) !== 0) {
+    console.error('error: failed to install wasm-bindgen-cli')
+    process.exit(install.status ?? 1)
+  }
+  const resolved = resolveCommand('wasm-bindgen')
+  if (!resolved) {
+    console.error('error: wasm-bindgen still not found after install')
+    process.exit(1)
+  }
+  return resolved
+}
+const wasmBindgenBin = ensureWasmBindgen()
 
 // Regenerate shared constants first so TS and Rust sentinels stay in sync.
 run(process.execPath, [path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs')])
