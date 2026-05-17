@@ -24,6 +24,7 @@ import {
 import {
   BUILDER_FIELD_KEYS,
   areBuilderFieldValuesEqual,
+  getRecipeFieldValue,
   type BuilderFieldKey,
 } from '../lib/recipeMultiEditDraft'
 import { createFactoryBuilderDefaults } from '../lib/builderDefaults'
@@ -112,7 +113,7 @@ export function summarizeBuilderRecipeDiff(params: SummarizeBuilderRecipeDiffPar
   let metasetDiffLine: string | null = null
   let artifactSetsDiffLine: string | null = null
 
-  if (changed.has('appearance')) {
+  if (changed.has('appearanceName') || changed.has('appearanceFgColor')) {
     pushDiff(detailLines, t, t('builderRecipeName'), formatName(previous, t), formatName(next, t))
   }
   if (changed.has('keep')) {
@@ -201,7 +202,7 @@ export function makeBuilderRecipeSnapshotLines(params: { recipe: BuilderRecipe; 
 export function collectChangedFields(previous: BuilderRecipe, next: BuilderRecipe): Set<BuilderFieldKey> {
   const changed = new Set<BuilderFieldKey>()
   for (const key of BUILDER_FIELD_KEYS) {
-    if (!areBuilderFieldValuesEqual(key, previous[key], next[key])) {
+    if (!areBuilderFieldValuesEqual(key, getRecipeFieldValue(previous, key), getRecipeFieldValue(next, key))) {
       changed.add(key)
     }
   }

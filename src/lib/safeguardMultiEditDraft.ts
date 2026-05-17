@@ -48,8 +48,9 @@ import { normalizeArtifactSetSelections } from './gearSets/selection'
  * applyEditableFieldKeyToRule.
  */
 export type SafeguardEditableFields = {
-  // Display appearance — name and optional foreground color tracked as one unit.
-  appearance: NameAppearance | undefined
+  // Appearance sub-fields tracked independently so name and fgColor each have their own mixed state.
+  appearanceName: string
+  appearanceFgColor: string | undefined
   activation: SafeguardRuleActivation
   requiredCount: number
   countMode: SafeguardRuleCountMode
@@ -75,7 +76,8 @@ export type SafeguardEditableFields = {
 }
 
 export const SAFEGUARD_FIELD_KEYS = [
-  'appearance',
+  'appearanceName',
+  'appearanceFgColor',
   'activation',
   'requiredCount',
   'countMode',
@@ -186,7 +188,8 @@ export interface SafeguardMultiEditDraftHandle {
 export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEditableFields {
   const combo = rule.combination
   return {
-    appearance: rule.appearance,
+    appearanceName: rule.appearance?.name ?? '',
+    appearanceFgColor: rule.appearance?.fgColor,
     activation: rule.activation,
     requiredCount: rule.requiredCount,
     countMode: { ...rule.countMode },
@@ -234,9 +237,19 @@ export function applyEditableFieldKeyToRule(
       const nextCombo: SafeguardCombination = { ...rule.combination, [key]: value as unknown[] }
       return { ...rule, combination: nextCombo }
     }
-    case 'appearance': {
-      // appearance is optional — avoid assigning undefined to satisfy exactOptionalPropertyTypes.
-      const next = value as NameAppearance | undefined
+    case 'appearanceName': {
+      const name = (value as string) ?? ''
+      const fgColor = rule.appearance?.fgColor
+      const next = (name || fgColor) ? { name, ...(fgColor ? { fgColor } : {}) } : undefined
+      const base = { ...rule }
+      if (next) return { ...base, appearance: next }
+      delete (base as { appearance?: NameAppearance }).appearance
+      return base
+    }
+    case 'appearanceFgColor': {
+      const fgColor = value as string | undefined
+      const name = rule.appearance?.name ?? ''
+      const next = (name || fgColor) ? { name, ...(fgColor ? { fgColor } : {}) } : undefined
       const base = { ...rule }
       if (next) return { ...base, appearance: next }
       delete (base as { appearance?: NameAppearance }).appearance
@@ -275,11 +288,9 @@ export function areSafeguardFieldValuesEqual(
     case 'tags':
     case 'metaSetNames':
       return arePrimitiveArraysEqual(left as readonly unknown[], right as readonly unknown[])
-    case 'appearance': {
-      const l = left as NameAppearance | undefined
-      const r = right as NameAppearance | undefined
-      return l?.name === r?.name && l?.fgColor === r?.fgColor
-    }
+    case 'appearanceName':
+    case 'appearanceFgColor':
+      return left === right
     case 'sets':
       return areSetSelectionsEqual(left, right)
     case 'countMode': {
@@ -350,8 +361,9 @@ export function cloneSafeguardFieldValue(key: SafeguardFieldKey, value: unknown)
       return normalizeArtifactSetSelections(Array.isArray(value) ? value : []).map((e) =>
         e.excluded ? { id: e.id, excluded: true } : { id: e.id },
       )
-    case 'appearance':
-      return value == null ? value : { ...(value as NameAppearance) }
+    case 'appearanceName':
+    case 'appearanceFgColor':
+      return value  // primitives — no cloning needed
     case 'countMode':
       return { ...(value as SafeguardRuleCountMode) }
     case 'substatWeights':

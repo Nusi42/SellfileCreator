@@ -316,7 +316,8 @@ export default function SafeguardBuilderPanel({
   const multiEditActive = multiEditSelectionCount >= 2
   const multiFields = multiEdit?.state.fields ?? null
   // Per-field state shortcuts — null when single-edit mode.
-  const multiNameField = multiFields?.appearance ?? null
+  const multiNameField = multiFields?.appearanceName ?? null
+  const multiFgColorField = multiFields?.appearanceFgColor ?? null
   const multiActivationField = multiFields?.activation ?? null
   // True when the selected rules have different activation modes and no staged change yet.
   const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
@@ -540,11 +541,7 @@ export default function SafeguardBuilderPanel({
 
   const commitFgColor = useCallback((color: string | undefined) => {
     if (multiEditActive && multiEdit) {
-      const stagedName = (multiNameField?.value as { name?: string } | undefined)?.name ?? rule.appearance?.name ?? ''
-      const nextAppearance = (stagedName || color)
-        ? { name: stagedName, ...(color ? { fgColor: color } : {}) }
-        : undefined
-      multiEdit.updateField('appearance', { value: nextAppearance, status: 'common' })
+      multiEdit.updateField('appearanceFgColor', { value: color, status: 'common' })
     } else {
       updateRule((prev) => {
         const currentName = prev.appearance?.name ?? ''
@@ -557,7 +554,7 @@ export default function SafeguardBuilderPanel({
         return base
       })
     }
-  }, [multiEditActive, multiEdit, multiNameField, rule.appearance, updateRule])
+  }, [multiEditActive, multiEdit, updateRule])
 
   // Resolve effective rule up front — used both for override badge tooltips and for displaying
   // effective values in controls when a safeguard-overrides block is active (consistent with the
@@ -1173,7 +1170,7 @@ export default function SafeguardBuilderPanel({
           value={multiEditActive
             ? (multiNameField?.status === 'mixed' && !multiNameField.dirty
               ? ''
-              : ((multiNameField?.value as { name?: string } | undefined)?.name ?? rule.appearance?.name ?? ''))
+              : ((multiNameField?.value as string) ?? rule.appearance?.name ?? ''))
             : (rule.appearance?.name ?? '')}
           {...(multiEditActive && multiNameField?.status === 'mixed' && !multiNameField.dirty
             ? { placeholder: t('builderMultiEditMixedPlaceholder') }
@@ -1181,12 +1178,7 @@ export default function SafeguardBuilderPanel({
           onChange={(e) => {
             const newName = e.target.value
             if (multiEditActive && multiEdit) {
-              // Preserve staged fgColor when user updates only the name.
-              const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
-              const nextAppearance = (newName || stagedFgColor)
-                ? { name: newName, ...(stagedFgColor ? { fgColor: stagedFgColor } : {}) }
-                : undefined
-              multiEdit.updateField('appearance', { value: nextAppearance, status: 'common' })
+              multiEdit.updateField('appearanceName', { value: newName, status: 'common' })
             } else {
               updateRule((prev) => {
                 const fgColor = prev.appearance?.fgColor
@@ -1199,7 +1191,7 @@ export default function SafeguardBuilderPanel({
           InputProps={{
             endAdornment: (() => {
               const currentFgColor = multiEditActive
-                ? ((multiNameField?.value as { fgColor?: string } | undefined)?.fgColor ?? '')
+                ? ((multiFgColorField?.value as string) ?? '')
                 : (rule.appearance?.fgColor ?? '')
               const showClear = multiEditActive ? Boolean(multiNameField?.dirty) : Boolean(rule.appearance?.name)
               return (
@@ -1217,8 +1209,7 @@ export default function SafeguardBuilderPanel({
                       tooltip={t('builderClearRecipeName')}
                       onClick={() => {
                         if (multiEditActive && multiEdit) {
-                          const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
-                          multiEdit.updateField('appearance', { value: stagedFgColor ? { name: '', fgColor: stagedFgColor } : undefined, status: 'common' })
+                          multiEdit.updateField('appearanceName', { value: '', status: 'common' })
                         } else {
                           updateRule((prev) => {
                             const fgColor = prev.appearance?.fgColor

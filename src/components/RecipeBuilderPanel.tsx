@@ -240,7 +240,8 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   const multiFactionField = multiFields?.factionCode ?? null
   const multiMinLevelField = multiFields?.minLevel ?? null
   const multiMaxLevelField = multiFields?.maxLevel ?? null
-  const multiNameField = multiFields?.appearance ?? null
+  const multiNameField = multiFields?.appearanceName ?? null
+  const multiFgColorField = multiFields?.appearanceFgColor ?? null
   const multiTagsField = multiFields?.tags ?? null
   const multiMainStatsField = multiFields?.mainStatsV ?? null
   const multiSubstatsField = multiFields?.substatsV ?? null
@@ -1970,8 +1971,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     ? (() => {
         if (!multiNameField) return ''
         if (multiNameField.status === 'mixed' && !multiNameField.dirty) return ''
-        const value = multiNameField.value as { name?: string } | undefined
-        return value?.name ?? ''
+        return (multiNameField.value as string) ?? ''
       })()
     : ''
   const commitName = React.useCallback((value: string) => {
@@ -1996,11 +1996,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
   const commitFgColor = React.useCallback((color: string | undefined) => {
     if (multiEditActive) {
-      const stagedName = (multiNameField?.value as { name?: string } | undefined)?.name ?? recipe.appearance?.name ?? ''
-      const nextAppearance = (stagedName || color)
-        ? { name: stagedName, ...(color ? { fgColor: color } : {}) }
-        : undefined
-      multiEdit?.updateField('appearance', { value: nextAppearance, status: 'common' })
+      multiEdit?.updateField('appearanceFgColor', { value: color, status: 'common' })
     } else {
       const currentName = recipe.appearance?.name ?? ''
       const nextAppearance = (currentName || color)
@@ -2008,7 +2004,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         : undefined
       onChange({ ...recipe, ...(nextAppearance ? { appearance: nextAppearance } : {}) })
     }
-  }, [multiEditActive, multiEdit, multiNameField, recipe, onChange])
+  }, [multiEditActive, multiEdit, recipe, onChange])
   const getTagBaseState = useCallback((tag: string): TriStateBase => {
     // Default to "none" when multi-edit has no aggregate tag data yet.
     if (!tagPresence) return 'none'
@@ -2731,12 +2727,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             {...(namePlaceholder ? { placeholder: namePlaceholder } : {})}
             onChange={(e) => {
               if (usingMultiName) {
-                const newName = e.target.value
-                const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
-                const nextAppearance = (newName || stagedFgColor)
-                  ? { name: newName, ...(stagedFgColor ? { fgColor: stagedFgColor } : {}) }
-                  : undefined
-                multiEdit?.updateField('appearance', { value: nextAppearance, status: 'common' })
+                multiEdit?.updateField('appearanceName', { value: e.target.value, status: 'common' })
               } else {
                 setNameDraft(e.target.value)
                 setNameDraftKey(currentDraftKey)
@@ -2747,10 +2738,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             InputProps={{
               endAdornment: (() => {
                 const currentFgColor = usingMultiName
-                  ? ((multiNameField?.value as { fgColor?: string } | undefined)?.fgColor ?? '')
+                  ? ((multiFgColorField?.value as string) ?? '')
                   : (recipe.appearance?.fgColor ?? '')
                 const showClear = usingMultiName
-                  ? Boolean(multiNameField && (multiNameField.value as { name?: string } | undefined)?.name && multiNameField.status !== 'mixed')
+                  ? Boolean(multiNameField && (multiNameField.value as string) && multiNameField.status !== 'mixed')
                   : renderedName !== ''
                 return (
                   <InputAdornment position="end" sx={{ gap: 0.5 }}>
@@ -2767,8 +2758,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                         tooltip={t('builderClearRecipeName')}
                         onClick={() => {
                           if (usingMultiName) {
-                            const stagedFgColor = (multiNameField?.value as { fgColor?: string } | undefined)?.fgColor
-                            multiEdit?.updateField('appearance', { value: stagedFgColor ? { name: '', fgColor: stagedFgColor } : undefined, status: 'common' })
+                            multiEdit?.updateField('appearanceName', { value: '', status: 'common' })
                           } else if (renderedName !== '') {
                             commitName('')
                           }

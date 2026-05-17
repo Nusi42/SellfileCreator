@@ -29,6 +29,7 @@ import {
   cloneBuilderRecipe,
   type MultiEditDraftState,
   type BuilderFieldKey,
+  type BuilderFieldValue,
   type MultiEditFieldCommit,
   type MultiEditDraftHandle,
   type MultiEditFields,
@@ -205,7 +206,7 @@ export function useRecipeSelection({
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
     key: K,
-    commit: MultiEditFieldCommit<BuilderRecipe[K], K>,
+    commit: MultiEditFieldCommit<BuilderFieldValue<K>, K>,
   ) => {
     setMultiEditDraftState(prev => {
       if (!prev) return prev

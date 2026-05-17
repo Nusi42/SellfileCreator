@@ -9,9 +9,13 @@ import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
 import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats } from './recipeNormalization'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
+import type { NameAppearance } from './nameAppearance'
 
+// Virtual sub-keys for appearance — tracked independently so name and fgColor each have
+// their own mixed/dirty state. Not real keys of BuilderRecipe; read/write via helpers below.
 export const BUILDER_FIELD_KEYS = [
-  'appearance',
+  'appearanceName',   // maps to recipe.appearance?.name ?? ''
+  'appearanceFgColor', // maps to recipe.appearance?.fgColor
   'tags',
   'keep',
   'exportMode',
@@ -37,9 +41,20 @@ export const BUILDER_FIELD_KEYS = [
   'artifactTypes',
   'artifactSets',
   'artifactMetaSets',
-] as const satisfies ReadonlyArray<keyof BuilderRecipe>
+] as const  // no satisfies constraint — virtual sub-keys can't satisfy keyof BuilderRecipe
 
 export type BuilderFieldKey = typeof BUILDER_FIELD_KEYS[number]
+
+/**
+ * Maps each BuilderFieldKey to the value type it carries.
+ * Virtual sub-keys (`appearanceName`, `appearanceFgColor`) are not real properties
+ * of BuilderRecipe; read/write via getRecipeFieldValue / setRecipeFieldValue.
+ */
+export type BuilderFieldValue<K extends BuilderFieldKey> =
+  K extends 'appearanceName' ? string :
+  K extends 'appearanceFgColor' ? string | undefined :
+  K extends keyof BuilderRecipe ? BuilderRecipe[K] :
+  never
 
 export type MultiEditStatus = 'common' | 'mixed'
 
@@ -111,7 +126,7 @@ export interface MultiEditFieldCommit<T, K extends BuilderFieldKey = BuilderFiel
 
 export type MultiEditUpdateFn = <K extends BuilderFieldKey>(
   key: K,
-  commit: MultiEditFieldCommit<BuilderRecipe[K], K>,
+  commit: MultiEditFieldCommit<BuilderFieldValue<K>, K>,
 ) => void
 
 export type MultiEditResetFn = (key: BuilderFieldKey) => void
@@ -248,6 +263,42 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
 }
 
 /**
+ * Read a field value from a recipe, including virtual sub-keys that are not
+ * real properties of BuilderRecipe (appearanceName, appearanceFgColor).
+ */
+export function getRecipeFieldValue(recipe: BuilderRecipe, key: BuilderFieldKey): unknown {
+  if (key === 'appearanceName') return recipe.appearance?.name ?? ''
+  if (key === 'appearanceFgColor') return recipe.appearance?.fgColor
+  return recipe[key as keyof BuilderRecipe]
+}
+
+/**
+ * Write a field value back into a recipe, composing appearance from its
+ * virtual sub-keys to preserve the peer sub-field on the existing recipe.
+ */
+function setRecipeFieldValue(recipe: BuilderRecipe, key: BuilderFieldKey, value: unknown): BuilderRecipe {
+  if (key === 'appearanceName') {
+    const name = (value as string) ?? ''
+    const fgColor = recipe.appearance?.fgColor
+    const next: NameAppearance | undefined = (name || fgColor) ? { name, ...(fgColor ? { fgColor } : {}) } : undefined
+    const base = { ...recipe }
+    if (next) return { ...base, appearance: next }
+    delete (base as { appearance?: NameAppearance }).appearance
+    return base
+  }
+  if (key === 'appearanceFgColor') {
+    const fgColor = value as string | undefined
+    const name = recipe.appearance?.name ?? ''
+    const next: NameAppearance | undefined = (name || fgColor) ? { name, ...(fgColor ? { fgColor } : {}) } : undefined
+    const base = { ...recipe }
+    if (next) return { ...base, appearance: next }
+    delete (base as { appearance?: NameAppearance }).appearance
+    return base
+  }
+  return { ...recipe, [key]: value }
+}
+
+/**
  * cloneBuilderRecipe
  *
  * Creates a field-aware clone so recipes stored elsewhere never share object
@@ -255,19 +306,19 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
  * must receive fresh objects even when their payloads match.
  */
 export function cloneBuilderRecipe(source: BuilderRecipe): BuilderRecipe {
-  const clone: BuilderRecipe = { ...source }
+  let clone: BuilderRecipe = { ...source }
   for (const key of BUILDER_FIELD_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(source, key)) continue
-    // Use the per-field clone helper so nested collections are detached.
-    const clonedValue = cloneBuilderFieldValue(key, source[key]) as BuilderRecipe[typeof key]
-    (clone as Record<BuilderFieldKey, BuilderRecipe[BuilderFieldKey]>)[key] = clonedValue
+    const rawValue = getRecipeFieldValue(source, key)
+    if (rawValue === undefined && key !== 'appearanceFgColor') continue
+    const clonedValue = cloneBuilderFieldValue(key, rawValue)
+    clone = setRecipeFieldValue(clone, key, clonedValue)
   }
   return clone
 }
 
 function createFieldStateForKey(recipes: BuilderRecipe[], key: BuilderFieldKey): MultiEditFieldState {
   const first = recipes[0]!
-  const firstValue = first[key]
+  const firstValue = getRecipeFieldValue(first, key)
   const uniqueValues = collectUniqueValues(recipes, key)
   const status: MultiEditStatus = uniqueValues.length > 1 ? 'mixed' : 'common'
   const clonedValue = cloneBuilderFieldValue(key, firstValue)
@@ -349,7 +400,7 @@ function areRollBoundsEqual(
 function collectUniqueValues(recipes: BuilderRecipe[], key: BuilderFieldKey): unknown[] {
   const unique: unknown[] = []
   outer: for (const recipe of recipes) {
-    const candidate = recipe[key]
+    const candidate = getRecipeFieldValue(recipe, key)
     for (const existing of unique) {
       if (areBuilderFieldValuesEqual(key, existing, candidate)) {
         continue outer
@@ -748,9 +799,9 @@ export function applyMultiEditFieldToRecipe(
   if (patch) {
     return applyPatchForKey(recipe, key, patch)
   }
-  const nextValue = cloneBuilderFieldValue(key, field.value) as BuilderRecipe[typeof key]
-  if (areBuilderFieldValuesEqual(key, recipe[key], nextValue)) return recipe
-  let nextRecipe: BuilderRecipe = { ...recipe, [key]: nextValue }
+  const nextValue = cloneBuilderFieldValue(key, field.value)
+  if (areBuilderFieldValuesEqual(key, getRecipeFieldValue(recipe, key), nextValue)) return recipe
+  let nextRecipe: BuilderRecipe = setRecipeFieldValue(recipe, key, nextValue)
   switch (key) {
     case 'autoMinCount':
     case 'minCount':
