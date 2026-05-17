@@ -580,7 +580,6 @@ pub fn evaluate_item(
 
     let mut first_match: Option<EvalMatch> = None;
     let mut first_non_excluded_match: Option<EvalMatch> = None;
-    let mut non_keep_override_keep_matched = false;
     // First keep_override rule that passes the recipe gate and is not source-excluded.
     // prekeep_override captures the first keep_override match before recipe gating,
     // used as a fallback when no post-gate keep_override is available.
@@ -644,10 +643,6 @@ pub fn evaluate_item(
                 });
             }
         } else {
-            let ignored_for_safeguard = options.safeguard_cfg_is_ignored(rule.recipe_idx);
-            if keep && !is_excluded && !ignored_for_safeguard {
-                non_keep_override_keep_matched = true;
-            }
             if first_match.is_none() && !is_excluded {
                 first_match = Some(EvalMatch {
                     rule_index,
@@ -680,7 +675,11 @@ pub fn evaluate_item(
         .map(|entry| entry.keep && !options.safeguard_cfg_is_ignored(entry.recipe_idx))
         .unwrap_or(false);
 
-    let allow_keep_override = !non_keep_override_keep_matched && !first_match_is_keep;
+    // A keep-recipe matching but losing first-match to an earlier sell-recipe is dead code under
+    // HSF first-match semantics — the only signal that "the recipes keep this item" is whether
+    // first_match itself is a non-ignored keep. Tracking any-keep-recipe-matched would block
+    // safeguard overrides for items the engine actually sells.
+    let allow_keep_override = !first_match_is_keep;
     if allow_keep_override {
         // pending_keep_override: first post-gate, non-excluded keep_override hit.
         // prekeep_override: pre-gate fallback (matched before recipe visibility check).
