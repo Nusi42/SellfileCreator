@@ -130,7 +130,7 @@ const mergedRules = computeMergedRules({
 
 // Attach recipe names for readability and strip UI-only metadata fields.
 const hsf = buildHsfFileFromMerged(mergedRules, {
-  recipeNames: modifiedRecipes.map((r) => r.name ?? null),
+  recipeNames: modifiedRecipes.map((r) => r.appearance?.name ?? null),
 })
 
 writeFileSync(outputPath, JSON.stringify(hsf, null, 2), 'utf8')
