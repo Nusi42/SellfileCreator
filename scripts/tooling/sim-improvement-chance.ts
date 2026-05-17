@@ -150,7 +150,7 @@ const run = async (): Promise<void> => {
   const unpatchedEntry = unpatched.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${unpatchedEntry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${unpatchedEntry?.hasMatchingSafeguard ?? 'N/A'}`)
-  console.log(`matchedRuleId: ${unpatchedEntry?.matchedRuleId ?? 'N/A'}`)
+  console.log(`ruleOrdinal: ${unpatchedEntry?.ruleOrdinal ?? 'N/A'}`)
   if (unpatchedEntry?.debug) {
     const d = unpatchedEntry.debug
     console.log(`debug: bucketCandidates=${d.bucketCandidateCount}, betterCandidates=${d.betterCandidateCount}`)
@@ -163,7 +163,7 @@ const run = async (): Promise<void> => {
   const entry = result.get(TARGET_ARTIFACT_ID)
   console.log(`chancePercent: ${entry?.chancePercent ?? 'N/A'}`)
   console.log(`hasMatchingSafeguard: ${entry?.hasMatchingSafeguard ?? 'N/A'}`)
-  console.log(`matchedRuleId: ${entry?.matchedRuleId ?? 'N/A'}`)
+  console.log(`ruleOrdinal: ${entry?.ruleOrdinal ?? 'N/A'}`)
   if (entry?.debug) {
     const d = entry.debug
     console.log(`debug: bucketCandidates=${d.bucketCandidateCount}, betterCandidates=${d.betterCandidateCount}`)
