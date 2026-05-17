@@ -56,6 +56,16 @@ export type UseSafeguardSelectionParams = {
    * Call with cloneSafeguardRule(rule).
    */
   setSafeguardBuilder: React.Dispatch<React.SetStateAction<SafeguardRule>>
+  /**
+   * Route single-rule deletes through a confirmation dialog instead of the
+   * manager's direct-filter fallback. Omit to keep the legacy direct delete.
+   */
+  requestDeleteSingle?: (idx: number) => void
+  /**
+   * Route multi-rule deletes through a confirmation dialog. Required for the
+   * count-aware safeguard delete UX (mirrors the recipe builder).
+   */
+  requestDeleteMulti?: (indices: number[]) => void
 }
 
 export type UseSafeguardSelectionResult = {
@@ -110,6 +120,8 @@ export function useSafeguardSelection({
   onSelectionScrollRequest,
   visibleRuleIndicesRef,
   setSafeguardBuilder,
+  requestDeleteSingle,
+  requestDeleteMulti,
 }: UseSafeguardSelectionParams): UseSafeguardSelectionResult {
   // ── generic core ────────────────────────────────────────────────────────
 
@@ -123,6 +135,11 @@ export function useSafeguardSelection({
     onWillChangeSelection,
     onSelectionScrollRequest,
     visibleIndicesRef: visibleRuleIndicesRef,
+    // Forward delete-request callbacks so chip deletes open the centralized
+    // ConfirmDialogs (count-aware) instead of the manager's direct-filter
+    // fallback. Absent ⇒ manager keeps the legacy direct-delete behavior.
+    ...(requestDeleteSingle ? { requestDeleteSingle } : {}),
+    ...(requestDeleteMulti ? { requestDeleteMulti } : {}),
     // Safeguards have no history tracking — no suppressSelectionDraft or onDescribeNextChange.
     // Multi-edit draft: selection keys are string-converted indices per SafeguardMultiEditDraftState.
     createDraft: (items, indices) =>

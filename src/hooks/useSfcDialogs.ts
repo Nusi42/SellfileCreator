@@ -7,6 +7,10 @@ type UseSfcDialogsParams = {
   onConfirmClearAll: () => void
   onConfirmDeleteSingle: (targetIdx: number) => void
   onConfirmDeleteMulti: (targets: number[] | null) => void
+  // Safeguard delete confirm callbacks — mirror the recipe pair so the
+  // SafeguardChipsPanel can route through the centralized ConfirmDialogs.
+  onConfirmDeleteSafeguardSingle: (targetIdx: number) => void
+  onConfirmDeleteSafeguardMulti: (targets: number[] | null) => void
 }
 
 export type UseSfcDialogsResult = {
@@ -16,12 +20,22 @@ export type UseSfcDialogsResult = {
   setConfirmDeleteIdx: Dispatch<SetStateAction<number | null>>
   confirmDeleteTargets: number[] | null
   setConfirmDeleteTargets: Dispatch<SetStateAction<number[] | null>>
+  // Safeguard counterparts — separate state so safeguard and recipe delete
+  // confirmations stay independent (mirrors the recipe pair).
+  confirmDeleteSafeguardIdx: number | null
+  setConfirmDeleteSafeguardIdx: Dispatch<SetStateAction<number | null>>
+  confirmDeleteSafeguardTargets: number[] | null
+  setConfirmDeleteSafeguardTargets: Dispatch<SetStateAction<number[] | null>>
   requestClearAll: () => void
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
+  requestDeleteSafeguardSingle: (idx: number) => void
+  requestDeleteSafeguardMulti: (targets: number[]) => void
   handleConfirmClear: () => void
   handleConfirmDelete: () => void
   handleConfirmDeleteMulti: () => void
+  handleConfirmDeleteSafeguard: () => void
+  handleConfirmDeleteSafeguardMulti: () => void
   autosaveSilencedByClear: boolean
   noteOpen: boolean
   noteMode: 'view' | 'edit'
@@ -58,10 +72,16 @@ export function useSfcDialogs({
   onConfirmClearAll,
   onConfirmDeleteSingle,
   onConfirmDeleteMulti,
+  onConfirmDeleteSafeguardSingle,
+  onConfirmDeleteSafeguardMulti,
 }: UseSfcDialogsParams): UseSfcDialogsResult {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const [confirmDeleteTargets, setConfirmDeleteTargets] = useState<number[] | null>(null)
+  // Safeguard delete state — parallel to the recipe pair so confirmations
+  // stay independent across builder modes.
+  const [confirmDeleteSafeguardIdx, setConfirmDeleteSafeguardIdx] = useState<number | null>(null)
+  const [confirmDeleteSafeguardTargets, setConfirmDeleteSafeguardTargets] = useState<number[] | null>(null)
   const [autosaveSilencedByClear, setAutosaveSilencedByClear] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
@@ -106,6 +126,21 @@ export function useSfcDialogs({
     setConfirmDeleteTargets(targets.slice())
   }, [])
 
+  // Safeguard request helpers — symmetric with the recipe pair above so
+  // useItemListManager.handleItemDelete can route safeguard chip deletes
+  // through the centralized ConfirmDialogs instead of direct-filtering.
+  const requestDeleteSafeguardSingle = useCallback((idx: number) => {
+    setConfirmDeleteSafeguardIdx(idx)
+  }, [])
+
+  const requestDeleteSafeguardMulti = useCallback((targets: number[]) => {
+    if (!targets.length) {
+      setConfirmDeleteSafeguardTargets(null)
+      return
+    }
+    setConfirmDeleteSafeguardTargets(targets.slice())
+  }, [])
+
   const handleConfirmClear = useCallback(() => {
     setConfirmClearOpen(false)
     setAutosaveSilencedByClear(true)
@@ -126,6 +161,20 @@ export function useSfcDialogs({
     onConfirmDeleteMulti(confirmDeleteTargets ?? null)
     setConfirmDeleteTargets(null)
   }, [confirmDeleteTargets, onConfirmDeleteMulti])
+
+  // Safeguard confirm handlers — read state outside the setters to keep the
+  // delete side-effect immune to Strict Mode double-invocation (mirrors the
+  // recipe handlers above).
+  const handleConfirmDeleteSafeguard = useCallback(() => {
+    if (confirmDeleteSafeguardIdx == null) return
+    onConfirmDeleteSafeguardSingle(confirmDeleteSafeguardIdx)
+    setConfirmDeleteSafeguardIdx(null)
+  }, [confirmDeleteSafeguardIdx, onConfirmDeleteSafeguardSingle])
+
+  const handleConfirmDeleteSafeguardMulti = useCallback(() => {
+    onConfirmDeleteSafeguardMulti(confirmDeleteSafeguardTargets ?? null)
+    setConfirmDeleteSafeguardTargets(null)
+  }, [confirmDeleteSafeguardTargets, onConfirmDeleteSafeguardMulti])
 
   const openNoteEditor = useCallback(() => {
     cancelPendingNoteClose()
@@ -217,12 +266,20 @@ export function useSfcDialogs({
     setConfirmDeleteIdx,
     confirmDeleteTargets,
     setConfirmDeleteTargets,
+    confirmDeleteSafeguardIdx,
+    setConfirmDeleteSafeguardIdx,
+    confirmDeleteSafeguardTargets,
+    setConfirmDeleteSafeguardTargets,
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,
+    requestDeleteSafeguardSingle,
+    requestDeleteSafeguardMulti,
     handleConfirmClear,
     handleConfirmDelete,
     handleConfirmDeleteMulti,
+    handleConfirmDeleteSafeguard,
+    handleConfirmDeleteSafeguardMulti,
     autosaveSilencedByClear,
     noteOpen,
     noteMode,
@@ -249,12 +306,18 @@ export function useSfcDialogs({
     confirmClearOpen,
     confirmDeleteIdx,
     confirmDeleteTargets,
+    confirmDeleteSafeguardIdx,
+    confirmDeleteSafeguardTargets,
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,
+    requestDeleteSafeguardSingle,
+    requestDeleteSafeguardMulti,
     handleConfirmClear,
     handleConfirmDelete,
     handleConfirmDeleteMulti,
+    handleConfirmDeleteSafeguard,
+    handleConfirmDeleteSafeguardMulti,
     autosaveSilencedByClear,
     noteOpen,
     noteMode,

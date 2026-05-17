@@ -1713,6 +1713,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
   const requestDeleteSingleRef = useRef<(idx: number) => void>(() => {})
   const requestDeleteMultiRef = useRef<(targets: number[]) => void>(() => {})
+  // Forward-bound safeguard request callbacks — wired to useSfcDialogs below.
+  // Safeguard chip deletes call these, which open the centralized count-aware
+  // ConfirmDialogs (mirrors the recipe pair above).
+  let requestDeleteSafeguardSingleForSelection: (idx: number) => void = () => {}
+  let requestDeleteSafeguardMultiForSelection: (targets: number[]) => void = () => {}
   const describeNextChangeRef = React.useRef<DescribeNextChangeFn>(() => {})
   // Track explicit selection scroll requests so preview auto-scroll stays intentional.
   // Why: endpoint updates re-render selections without user intent.
@@ -2245,6 +2250,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     visibleRuleIndicesRef: visibleSafeguardRuleIdsRef,
     setSafeguardBuilder,
+    // Route safeguard chip deletes through the centralized ConfirmDialogs so
+    // multi-select deletes show the count instead of the singular dialog.
+    requestDeleteSingle: (idx) => { requestDeleteSafeguardSingleForSelection(idx) },
+    requestDeleteMulti: (targets) => { requestDeleteSafeguardMultiForSelection(targets) },
   })
 
   // Insert the draft as a new rule after the currently selected rule (or at end).
@@ -3326,12 +3335,48 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
   }, [describeNextChange, metasets, selectedRecipeIndices, setCustomRecipesTransition, syncSelectedRecipeIdx])
+  // Safeguard single-delete confirm: filter out the index, then collapse focus
+  // and multi-select state. Mirrors the recipe handler pair above. History is
+  // captured automatically by applySafeguardRulesChange via its descriptor.
+  const handleConfirmDeleteSafeguardSingle = useCallback((idx: number) => {
+    applySafeguardRulesChange((prev) => {
+      if (idx < 0 || idx >= prev.length) return prev
+      return prev.filter((_, i) => i !== idx)
+    })
+    // Drop or shift the focused rule index so the builder form stays consistent.
+    setSelectedSafeguardRuleIdx((sel) => {
+      if (sel === null) return sel
+      if (sel === idx) return null
+      if (sel > idx) return sel - 1
+      return sel
+    })
+    // Collapse the multi-select set (matches recipe collapse-on-delete UX).
+    setSelectedSafeguardRuleIndices([], { suppressWillChange: true })
+  }, [applySafeguardRulesChange, setSelectedSafeguardRuleIndices])
+
+  // Safeguard multi-delete confirm: filter out all targets, then clear focus
+  // and multi-select state. Deduplicates and bounds-checks the incoming list
+  // exactly like handleDeleteMultiConfirmed does for recipes.
+  const handleConfirmDeleteSafeguardMulti = useCallback((targetsParam: number[] | null) => {
+    if (!targetsParam || targetsParam.length === 0) return
+    const uniqueTargets = Array.from(
+      new Set(targetsParam.filter((idx) => Number.isInteger(idx) && idx >= 0)),
+    ).sort((a, b) => a - b)
+    if (uniqueTargets.length === 0) return
+    const deleteSet = new Set(uniqueTargets)
+    applySafeguardRulesChange((prev) => prev.filter((_, i) => !deleteSet.has(i)))
+    setSelectedSafeguardRuleIdx(null)
+    setSelectedSafeguardRuleIndices([], { suppressWillChange: true })
+  }, [applySafeguardRulesChange, setSelectedSafeguardRuleIndices])
+
   const sfcDialogs = useSfcDialogs({
     customRecipeCount: customRecipes.length,
     safeguardRuleCount: safeguardRules.length,
     onConfirmClearAll: handleConfirmClearAll,
     onConfirmDeleteSingle: handleConfirmDeleteSingle,
     onConfirmDeleteMulti: handleDeleteMultiConfirmed,
+    onConfirmDeleteSafeguardSingle: handleConfirmDeleteSafeguardSingle,
+    onConfirmDeleteSafeguardMulti: handleConfirmDeleteSafeguardMulti,
   })
   const {
     confirmClearOpen,
@@ -3343,6 +3388,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,
+    requestDeleteSafeguardSingle,
+    requestDeleteSafeguardMulti,
+    confirmDeleteSafeguardIdx,
+    setConfirmDeleteSafeguardIdx,
+    confirmDeleteSafeguardTargets,
+    setConfirmDeleteSafeguardTargets,
+    handleConfirmDeleteSafeguard,
+    handleConfirmDeleteSafeguardMulti: confirmDeleteSafeguardMultiDialog,
     handleConfirmClear,
     handleConfirmDelete,
     handleConfirmDeleteMulti: confirmDeleteMultiDialog,
@@ -3385,6 +3438,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   requestDeleteMultiForSelection = requestDeleteMulti
   useLayoutEffect(() => { requestDeleteSingleRef.current = requestDeleteSingle })
   useLayoutEffect(() => { requestDeleteMultiRef.current = requestDeleteMulti })
+  // Bind the safeguard forward callbacks now that the request helpers exist.
+  requestDeleteSafeguardSingleForSelection = requestDeleteSafeguardSingle
+  requestDeleteSafeguardMultiForSelection = requestDeleteSafeguardMulti
   const [confirmClearHistoryOpen, setConfirmClearHistoryOpen] = useState(false)
   const requestClearHistory = useCallback(() => {
     setConfirmClearHistoryOpen(true)
@@ -8499,6 +8555,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         deleteMultiTargets={confirmDeleteTargets}
         setDeleteMultiTargets={setConfirmDeleteTargets}
         onConfirmDeleteMulti={confirmDeleteMultiDialog}
+        deleteSafeguardIdx={confirmDeleteSafeguardIdx}
+        setDeleteSafeguardIdx={setConfirmDeleteSafeguardIdx}
+        onConfirmDeleteSafeguard={handleConfirmDeleteSafeguard}
+        deleteSafeguardMultiTargets={confirmDeleteSafeguardTargets}
+        setDeleteSafeguardMultiTargets={setConfirmDeleteSafeguardTargets}
+        onConfirmDeleteSafeguardMulti={confirmDeleteSafeguardMultiDialog}
         clearHistoryOpen={confirmClearHistoryOpen}
         setClearHistoryOpen={setConfirmClearHistoryOpen}
         onConfirmClearHistory={handleConfirmClearHistory}

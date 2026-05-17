@@ -12,6 +12,12 @@ export default function ConfirmDialogs({
   deleteMultiTargets,
   setDeleteMultiTargets,
   onConfirmDeleteMulti,
+  deleteSafeguardIdx,
+  setDeleteSafeguardIdx,
+  onConfirmDeleteSafeguard,
+  deleteSafeguardMultiTargets,
+  setDeleteSafeguardMultiTargets,
+  onConfirmDeleteSafeguardMulti,
   clearHistoryOpen,
   setClearHistoryOpen,
   onConfirmClearHistory,
@@ -25,12 +31,21 @@ export default function ConfirmDialogs({
   deleteMultiTargets: number[] | null
   setDeleteMultiTargets: (v: number[] | null) => void
   onConfirmDeleteMulti: () => void
+  // Safeguard variants — independent state so a safeguard delete dialog never
+  // collides with a recipe delete dialog when both states transition.
+  deleteSafeguardIdx: number | null
+  setDeleteSafeguardIdx: (v: number | null) => void
+  onConfirmDeleteSafeguard: () => void
+  deleteSafeguardMultiTargets: number[] | null
+  setDeleteSafeguardMultiTargets: (v: number[] | null) => void
+  onConfirmDeleteSafeguardMulti: () => void
   clearHistoryOpen: boolean
   setClearHistoryOpen: (v: boolean) => void
   onConfirmClearHistory: () => void
 }) {
   const { t } = useI18n()
   const deleteMultiCount = deleteMultiTargets?.length ?? 0
+  const deleteSafeguardMultiCount = deleteSafeguardMultiTargets?.length ?? 0
   return (
     <>
       {clearHistoryOpen ? (
@@ -81,6 +96,34 @@ export default function ConfirmDialogs({
         <DialogActions>
           <Button onClick={() => setDeleteMultiTargets(null)}>{t('cancel')}</Button>
           <Button color="error" onClick={() => { onConfirmDeleteMulti() }}>{t('delete')}</Button>
+        </DialogActions>
+      </Dialog>
+      ) : null}
+
+      {/* Single safeguard delete — reuses the long-standing singular safeguard strings. */}
+      {deleteSafeguardIdx !== null ? (
+      <Dialog open={deleteSafeguardIdx !== null} onClose={() => setDeleteSafeguardIdx(null)}>
+        <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSafeguardIdx(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { onConfirmDeleteSafeguard() }}>{t('delete')}</Button>
+        </DialogActions>
+      </Dialog>
+      ) : null}
+
+      {/* Multi safeguard delete — count-parametrized title/message mirror the recipe pair. */}
+      {deleteSafeguardMultiTargets !== null ? (
+      <Dialog open={deleteSafeguardMultiTargets !== null} onClose={() => setDeleteSafeguardMultiTargets(null)}>
+        <DialogTitle>{t('safeguardsDeleteSelectedRulesTitle', { n: deleteSafeguardMultiCount })}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('safeguardsDeleteSelectedRulesMessage', { n: deleteSafeguardMultiCount })}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSafeguardMultiTargets(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { onConfirmDeleteSafeguardMulti() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
       ) : null}

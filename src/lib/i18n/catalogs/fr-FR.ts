@@ -443,6 +443,8 @@ const overrides: Catalog = {
   safeguardsDeleteRule: "Supprimer la règle de conservation",
   safeguardsDeleteRuleTitle: "Supprimer la règle de conservation ?",
   safeguardsDeleteRuleMessage: "Cette règle sera supprimée immédiatement. Cette action est irréversible.",
+  safeguardsDeleteSelectedRulesTitle: "Supprimer {n} règle(s) de conservation ?",
+  safeguardsDeleteSelectedRulesMessage: "Cela supprimera les {n} règle(s) de conservation sélectionnées.",
   safeguardsRuleModeLabel: "Mode",
   safeguardsRuleModeOffShort: "Désactivé",
   safeguardsRuleModeOff: "Désactivée",

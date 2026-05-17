@@ -441,6 +441,8 @@ const overrides: Catalog = {
   safeguardsDeleteRule: "Удалить правило сохранения",
   safeguardsDeleteRuleTitle: "Удалить правило сохранения?",
   safeguardsDeleteRuleMessage: "Это правило сохранения будет удалено сразу. Действие нельзя отменить.",
+  safeguardsDeleteSelectedRulesTitle: "Удалить {n} правил сохранения?",
+  safeguardsDeleteSelectedRulesMessage: "Это удалит выбранные {n} правил сохранения.",
   safeguardsRuleModeLabel: "Режим",
   safeguardsRuleModeOffShort: "Выкл.",
   safeguardsRuleModeOff: "Выкл.",

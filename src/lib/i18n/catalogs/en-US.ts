@@ -457,6 +457,8 @@ const enUS: Catalog = {
   safeguardsDeleteRule: "Delete Safeguard",
   safeguardsDeleteRuleTitle: "Delete Safeguard?",
   safeguardsDeleteRuleMessage: "This safeguard will be removed immediately. This action cannot be undone.",
+  safeguardsDeleteSelectedRulesTitle: "Delete {n} Safeguards?",
+  safeguardsDeleteSelectedRulesMessage: "This will remove the selected {n} safeguards from your recipe file.",
   safeguardsRuleModeLabel: "Mode",
   safeguardsRuleModeOffShort: "Off",
   safeguardsRuleModeOff: "Off",

@@ -162,7 +162,9 @@ type SafeguardChipProps = {
   onChipPointerDown?: ((e: React.PointerEvent<HTMLElement>, ruleIndex: number) => void) | null
   onMoveRule: (ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => void
   onDuplicate: (ruleIndex: number) => void
-  onDeleteRequest: (ruleIndex: number) => void
+  // Direct delete trigger — routed through the multi-aware manager which opens
+  // the count-aware ConfirmDialogs (recipe parity). No local dialog state.
+  onDelete: (ruleIndex: number) => void
   onStartEdit: (ruleIndex: number, name: string) => void
   onFinishEdit: (ruleIndex: number, commit: boolean) => void
   onPendingNameChange: (ruleIndex: number, value: string) => void
@@ -178,7 +180,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   showTagsInChips,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
-  onDeleteRequest, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
+  onDelete, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
 }: SafeguardChipProps) {
   // Derive display values from the rule; recomputed only when this chip's props change.
   const rawName = (pendingName ?? rule.appearance?.name ?? '').trim()
@@ -363,7 +365,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
       <IconButton
         size="small"
         aria-label={t('safeguardsDeleteRule')}
-        onClick={(e) => { e.stopPropagation(); onDeleteRequest(ruleIndex) }}
+        onClick={(e) => { e.stopPropagation(); onDelete(ruleIndex) }}
         color="error"
         sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
       >
@@ -425,8 +427,8 @@ export default function SafeguardChipsPanel({
   const [editingRuleNameIdx, setEditingRuleNameIdx] = useState<number | null>(null)
   // Buffered pending names keyed by rule index so typing is fast.
   const [pendingNameByIdx, setPendingNameByIdx] = useState<Map<number, string>>(() => new Map())
-  // Index of the rule awaiting delete confirmation; null when none.
-  const [pendingDeleteRuleIdx, setPendingDeleteRuleIdx] = useState<number | null>(null)
+  // Delete confirmation for single/multi rule chip clicks now lives in the
+  // centralized ConfirmDialogs via useSfcDialogs (recipe parity).
   const [pendingDeleteAll, setPendingDeleteAll] = useState(false)
   // Context menu anchor for a specific chip.
   const [ruleMenu, setRuleMenu] = useState<{ ruleIdx: number; x: number; y: number } | null>(null)
@@ -623,13 +625,6 @@ export default function SafeguardChipsPanel({
       onSelect(0)
     }
   }, [mutateRules, onRuleDelete, ruleMenu, selectedRuleIdx, onSelect])
-
-  const handleConfirmDeleteRule = useCallback(() => {
-    if (pendingDeleteRuleIdx === null) return
-    handleDeleteRule(pendingDeleteRuleIdx)
-    // Clear the pending index after the delete so the confirmation dialog closes.
-    setPendingDeleteRuleIdx(null)
-  }, [handleDeleteRule, pendingDeleteRuleIdx])
 
   const handleConfirmDeleteAll = useCallback(() => {
     mutateRules([])
@@ -940,16 +935,6 @@ export default function SafeguardChipsPanel({
         onCancel={closePasteDialog}
         onConfirm={handleConfirmPasteDialog}
       />
-      <Dialog open={pendingDeleteRuleIdx !== null} onClose={() => setPendingDeleteRuleIdx(null)}>
-        <DialogTitle>{t('safeguardsDeleteRuleTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">{t('safeguardsDeleteRuleMessage')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingDeleteRuleIdx(null)}>{t('cancel')}</Button>
-          <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
-        </DialogActions>
-      </Dialog>
       <Dialog open={pendingDeleteAll} onClose={() => setPendingDeleteAll(false)}>
         <DialogTitle>{t('safeguardsDeleteAllTitle')}</DialogTitle>
         <DialogContent>
@@ -1063,7 +1048,7 @@ export default function SafeguardChipsPanel({
                 onChipPointerDown={handleChipPointerDown}
                 onMoveRule={moveRule}
                 onDuplicate={handleDuplicateRule}
-                onDeleteRequest={setPendingDeleteRuleIdx}
+                onDelete={handleDeleteRule}
                 onStartEdit={startRuleNameEdit}
                 onFinishEdit={finishRuleNameEdit}
                 onPendingNameChange={handlePendingNameChange}
