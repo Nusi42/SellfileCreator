@@ -9,7 +9,7 @@
  * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeAutoSubstatFlex, normalizeAggregateRollTargets, countPositiveSubstats } from './recipeNormalization'
+import { normalizeRecipeKeepState, isMilestoneThresholdsActive, canEnableSubstatFlex, countPositiveSubstats } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasets, type Metaset } from './metasets'
@@ -645,12 +645,9 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
   }
 
   normalized = normalizeExportModeFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderRecipe
-  // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
-  normalized = normalizeKeepMode(normalized)
-  normalized = normalizeAggregateRollTargets(normalized)
-  normalized = normalizeAutoSubstatFlex(normalized)
-  // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)
-  normalized = normalizeAutoRaritySupplements(normalized)
+  // Full keep-state pipeline (includes faction/slot scope, keep mode, aggregate roll targets,
+  // auto rarity supplements, auto substat flex) — single SSOT for all recipe normalizations.
+  normalized = normalizeRecipeKeepState(normalized)
   if (legacyLockedCarryValue !== null && ((normalized.lockedMinRequiredRolls ?? 0) <= 0)) {
     const clamped = Math.max(0, Math.min(5, legacyLockedCarryValue)) as LockedMinValue
     normalized.lockedMinRequiredRolls = clamped

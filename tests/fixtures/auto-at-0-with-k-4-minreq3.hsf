@@ -3,24 +3,22 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": -1,
     "MainStatF": 1,
-    "LVLForCheck": 99,
+    "LVLForCheck": 0,
     "Faction": 10,
     "Substats": [
       {
         "ID": 4,
         "Value": 5,
         "IsFlat": true,
-        "NotAvailable": false,
-        "Condition": ">="
-      },
-      {
-        "ID": 7,
-        "Value": 5,
-        "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
       },
@@ -37,8 +35,1378 @@
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
       }
     ],
     "RowIdx": 1
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 4,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 2
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 4,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 3
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 4,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 4
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 27,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 5
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 6
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 15,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 7
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 8
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 9
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 8,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 10
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 36,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 11
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 27,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 12
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 15,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 13
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 20,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 14
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 27,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 15
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 16
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 15,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 17
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 18
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 19
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 12,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 20,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 20
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 36,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 21
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 27,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 22
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 15,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 23
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 5,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 20,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 24
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 27,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 25
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 26
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 10,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 15,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 27
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 18,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 28
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 10,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 29
+  },
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 16,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 4,
+        "Value": 20,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 8,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 6,
+        "Value": 9,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
+      }
+    ],
+    "RowIdx": 30
   }
 ]

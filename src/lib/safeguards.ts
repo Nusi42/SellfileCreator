@@ -1,4 +1,4 @@
-import { isAccessorySlot } from './gearInspectorDomain'
+import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
 import { normalizeSubstatByMax6, getGlyphAverageForVariant } from './substatRollNormalization'
 import { retainAllowedSubstats } from './statCompatibility'
@@ -935,14 +935,25 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
     metaSetNames.push(trimmed)
   })
 
+  // Faction wins: if factions are set, restrict slots to accessories only.
+  // Armor pieces cannot carry faction, so including them would be misleading.
+  const dedupedFactions = Array.from(new Set(factions)).sort((a, b) => a - b)
+  const dedupedSlots = Array.from(new Set(slots)).sort((left, right) => compareArtifactTypes(left, right))
+  let normalizedSlots = dedupedSlots
+  if (dedupedFactions.length > 0) {
+    const accessoryOnly = dedupedSlots.filter((s) => isAccessorySlot(s))
+    normalizedSlots = accessoryOnly.length > 0
+      ? accessoryOnly
+      : (ACCESSORY_SLOT_IDS as typeof dedupedSlots)
+  }
   return {
-    slots: Array.from(new Set(slots)).sort((left, right) => compareArtifactTypes(left, right)),
+    slots: normalizedSlots,
     sets: parseSetSelections(record.sets),
     metaSetNames: sortUniqueMetaSetNames(metaSetNames),
     ranks: Array.from(new Set(ranks)).sort((a, b) => a - b),
     rarities: Array.from(new Set(rarities)).sort((a, b) => a - b),
     mainStats: sortSafeguardSubstats(Array.from(new Set(mainStats))),
-    factions: Array.from(new Set(factions)).sort((a, b) => a - b),
+    factions: dedupedFactions,
   }
 }
 

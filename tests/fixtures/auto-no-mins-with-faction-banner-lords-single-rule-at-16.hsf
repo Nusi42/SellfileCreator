@@ -3,6 +3,11 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactType": [
+      7,
+      8,
+      9
+    ],
     "Rank": 0,
     "Rarity": 0,
     "MainStatID": -1,
