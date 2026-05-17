@@ -67,7 +67,7 @@ import {
   // toWasmTestItem SSOT moved here; re-exported below for downstream consumers.
   toWasmTestItem,
 } from './wasm/wasmRuleEngine'
-import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
+import type { WasmEvaluateAndCollectSnapshot, SafeguardWasmArtifactIn } from './wasm/wasmRuleEngine'
 export { ensureWasmRuleEngineReady } from './wasm/wasmRuleEngine'
 import {
   SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
@@ -848,10 +848,24 @@ export const scoreSafeguardCandidates = (params: {
   // How many items the rule intends to keep.
   requiredCount: number
 }): SafeguardCandidateOut[] =>
-  // The scoring WASM function expects `id` for the artifact key while
-  // SafeguardDetectionArtifact uses `itemKey` — rename before serializing.
+  // Map to the WASM wire type explicitly so tsc catches field renames on either side.
+  // SafeguardDetectionArtifact.itemKey → SafeguardWasmArtifactIn.id (camelCase of Rust `id`).
+  // equippedInCollection/equippedInVault default to false; rolls default to null.
   scoreSafeguardCandidatesWithLoadedWasm({
-    artifacts: params.artifacts.map(({ itemKey: id, ...rest }) => ({ id, ...rest })) as unknown[],
+    artifacts: params.artifacts.map(({ itemKey, slot, set, rank, rarity, level, exactLevel, faction, mainStat, substats }): SafeguardWasmArtifactIn => ({
+      id: itemKey,
+      slot,
+      set,
+      rank,
+      rarity,
+      level,
+      exactLevel,
+      faction,
+      mainStat,
+      equippedInCollection: false,
+      equippedInVault: false,
+      substats: substats.map(({ variant, isFlat, value }) => ({ variant, isFlat, value, rolls: null })),
+    })),
     substats: params.substats,
     weights: params.weights,
     requiredCount: params.requiredCount,
