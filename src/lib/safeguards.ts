@@ -68,6 +68,7 @@ import {
   toWasmTestItem,
 } from './wasm/wasmRuleEngine'
 import type { WasmEvaluateAndCollectSnapshot } from './wasm/wasmRuleEngine'
+export { ensureWasmRuleEngineReady } from './wasm/wasmRuleEngine'
 import {
   SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
   SAFEGUARD_ACTIVATION_OFF,
@@ -847,9 +848,10 @@ export const scoreSafeguardCandidates = (params: {
   // How many items the rule intends to keep.
   requiredCount: number
 }): SafeguardCandidateOut[] =>
-  // Pass through to the wasm binding; result is already sorted by score desc.
+  // The scoring WASM function expects `id` for the artifact key while
+  // SafeguardDetectionArtifact uses `itemKey` — rename before serializing.
   scoreSafeguardCandidatesWithLoadedWasm({
-    artifacts: params.artifacts as unknown[],
+    artifacts: params.artifacts.map(({ itemKey: id, ...rest }) => ({ id, ...rest })) as unknown[],
     substats: params.substats,
     weights: params.weights,
     requiredCount: params.requiredCount,

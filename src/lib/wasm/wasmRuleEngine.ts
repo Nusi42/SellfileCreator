@@ -319,6 +319,10 @@ const ensureWasmInitialized = async (): Promise<void> => {
 // that causes the worker to cycle after every single pipeline instead of every N.
 export const PRE_GROW_TARGET_BYTES = 256 * 1024 * 1024
 
+// Lightweight init for callers that need WASM ready but don't require the
+// pipeline-sized heap pre-growth (e.g., main-thread scoring in the weight popover).
+export const ensureWasmRuleEngineReady = (): Promise<void> => ensureWasmInitialized()
+
 // Warmup helper allows callers with async control flow to preload the wasm
 // module so later sync helpers (e.g., obsolete pruning) can run in-process.
 export const warmupWasmRuleEngine = async (): Promise<void> => {

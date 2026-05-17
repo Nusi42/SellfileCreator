@@ -10,6 +10,7 @@
  * When no rule is selected the form renders disabled so the panel height remains stable.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ScoringWorker from '../workers/safeguardScoringWorker?worker&inline'
 import {
   Box,
   Button,
@@ -54,7 +55,6 @@ import {
   pruneSafeguardsSubstatWeights,
   sanitizeSafeguardCountMode,
   safeguardRedundantCountModeDimensions,
-  scoreSafeguardCandidates,
   sortSafeguardCombination,
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
@@ -496,6 +496,25 @@ export default function SafeguardBuilderPanel({
   const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
   // Ref used to cancel in-flight debounce timers when the popover closes or weights change quickly.
   const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Dedicated WASM scoring worker — avoids main-thread WASM init issues.
+  const scoringWorkerRef = useRef<Worker | null>(null)
+  // Monotonic id; the worker response handler discards responses from superseded dispatches.
+  const scoringRequestIdRef = useRef(0)
+  // Spawn the scoring worker once on mount; terminate on unmount.
+  useEffect(() => {
+    const worker = new ScoringWorker()
+    scoringWorkerRef.current = worker
+    worker.onmessage = (event: MessageEvent<{ id: number; candidates?: SafeguardCandidateOut[]; error?: string }>) => {
+      const { id, candidates, error } = event.data
+      // Discard response if a newer request was dispatched while this one was in flight.
+      if (id !== scoringRequestIdRef.current) return
+      setLivePreviewCandidates(!error && candidates ? candidates : null)
+    }
+    return () => {
+      worker.terminate()
+      scoringWorkerRef.current = null
+    }
+  }, [])
   const [improvementChanceAnchorEl, setImprovementChanceAnchorEl] = useState<HTMLElement | null>(null)
   // Frozen position captured at open time — prevents the popover from drifting when the
   // chip label resizes (which moves the anchor button) while the user edits values.
@@ -919,23 +938,21 @@ export default function SafeguardBuilderPanel({
     if (livePreviewTimerRef.current !== null) clearTimeout(livePreviewTimerRef.current)
     livePreviewTimerRef.current = setTimeout(() => {
       livePreviewTimerRef.current = null
-      try {
-        const weightRecord: Record<number, number> = {}
-        for (const v of currentSubstats) {
-          weightRecord[v] = normalizeGearInspectorSortWeight(Number(nextWeights[v] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT))
-        }
-        // Call WASM to re-score; result is sorted by rank ascending.
-        const result = scoreSafeguardCandidates({
-          artifacts: detectionEntry.artifacts,
-          substats: currentSubstats as StatVariant[],
-          weights: weightRecord,
-          requiredCount: rule?.requiredCount ?? 1,
-        })
-        setLivePreviewCandidates(result)
-      } catch {
-        // Scoring failed (WASM not ready); clear live preview to fall back to snapshot.
-        setLivePreviewCandidates(null)
+      const worker = scoringWorkerRef.current
+      if (!worker) return
+      const weightRecord: Record<number, number> = {}
+      for (const v of currentSubstats) {
+        weightRecord[v] = normalizeGearInspectorSortWeight(Number(nextWeights[v] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT))
       }
+      // Dispatch to the dedicated scoring worker; response is handled in the worker's onmessage.
+      const id = ++scoringRequestIdRef.current
+      worker.postMessage({
+        id,
+        artifacts: detectionEntry.artifacts,
+        substats: Array.from(currentSubstats),
+        weights: weightRecord,
+        requiredCount: rule?.requiredCount ?? 1,
+      })
     }, 150)
   }, [detectionEntry, rule])
 
