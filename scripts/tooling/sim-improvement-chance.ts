@@ -177,7 +177,7 @@ const run = async (): Promise<void> => {
   // --- TS challenger pool for Survivability Top Row (manual reconstruction) ---
   // Rules no longer carry a string id; look up by name instead.
   const SURV_RULE_NAME = 'Survivability Top Row'
-  const survRule = safeguardRules.find((r) => r.name === SURV_RULE_NAME)
+  const survRule = safeguardRules.find((r) => r.appearance?.name === SURV_RULE_NAME)
   if (survRule) {
     console.log('\n--- TS challenger pool for Survivability Top Row (patched gear) ---')
     const selectedSubstats = survRule.substats.map((s) => Number(s)).filter((v) => v > 0)
@@ -225,7 +225,7 @@ const run = async (): Promise<void> => {
   // Pass minimal GearInspectorPreviewRow objects with match=null so the WASM collect step
   // treats every item as sold. baseRules=[] means no HSF keep-rules exist.
   // Rules are identified by 1-based ordinal; derive it from the array index.
-  const survivabilityRuleOrdinal = safeguardRules.findIndex((r) => r.name === SURV_RULE_NAME) + 1
+  const survivabilityRuleOrdinal = safeguardRules.findIndex((r) => r.appearance?.name === SURV_RULE_NAME) + 1
 
   const runWasmDetection = (label: string, artifacts: NormalizedGearArtifact[]) => {
     const rows = artifacts.map((a) => ({
@@ -246,7 +246,7 @@ const run = async (): Promise<void> => {
     })
     const targetArtifact = artifacts.find((a) => a.id === TARGET_ARTIFACT_ID)!
     const targetItemKey = getSafeguardItemKey(targetArtifact)
-    const targetCountKey = getSafeguardCountKey(targetArtifact, safeguardRules.find((r) => r.name === SURV_RULE_NAME)!.countMode)
+    const targetCountKey = getSafeguardCountKey(targetArtifact, safeguardRules.find((r) => r.appearance?.name === SURV_RULE_NAME)!.countMode)
     const matchingEntry = detection.entries.find((e) => e.itemKeys.includes(targetItemKey))
     const survivabilityEntry = detection.entries.find((e) => e.ruleOrdinal === survivabilityRuleOrdinal)
 
@@ -269,7 +269,7 @@ const run = async (): Promise<void> => {
       const bucketArtifacts = survivabilityEntry.artifacts.filter((a) => {
         const art = artifacts.find((x) => getSafeguardItemKey(x) === a.itemKey)
         if (!art) return false
-        const ck = getSafeguardCountKey(art, safeguardRules.find((r) => r.name === SURV_RULE_NAME)!.countMode)
+        const ck = getSafeguardCountKey(art, safeguardRules.find((r) => r.appearance?.name === SURV_RULE_NAME)!.countMode)
         return ck === targetCountKey
       })
       console.log(`\n  Items in same countKey bucket as target (${bucketArtifacts.length}):`)
@@ -295,7 +295,7 @@ const run = async (): Promise<void> => {
     }
 
     // --- Extended diagnostics: all slot=6/set=44 candidates ---
-    const survRule = safeguardRules.find((r) => r.name === SURV_RULE_NAME)!
+    const survRule = safeguardRules.find((r) => r.appearance?.name === SURV_RULE_NAME)!
     const shieldGuardianCandidates = candidateSnapshot.candidates.filter((c) => {
       const a = c.artifact as NormalizedGearArtifact
       return Number(a.slot) === 6 && Number(a.set) === 44
@@ -345,7 +345,7 @@ const run = async (): Promise<void> => {
     const slots = rule.combination.slots.map((s) => Number(s)).join(',')
     const sets = rule.combination.sets.map((s) => `id=${Number(s.id)}`).join(',')
     const rarities = rule.combination.rarities.map((r) => Number(r)).join(',')
-    console.log(`  [${rule.name}] act=${rule.activation} slots=[${slots}] sets=[${sets || 'ANY'}] rarities=[${rarities}] substats=[${sub}] match=${rule.substatMatch}`)
+    console.log(`  [${rule.appearance?.name ?? '(unnamed)'}] act=${rule.activation} slots=[${slots}] sets=[${sets || 'ANY'}] rarities=[${rarities}] substats=[${sub}] match=${rule.substatMatch}`)
   }
 }
 
