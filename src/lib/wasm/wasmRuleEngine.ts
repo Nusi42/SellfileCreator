@@ -93,6 +93,8 @@ import type { SafeguardWasmCandidateFastIn } from './generated/rust-types/Safegu
 import type { SafeguardCollectRowFastIn } from './generated/rust-types/SafeguardCollectRowFastIn'
 import type { ImprovementChanceInput } from './generated/rust-types/ImprovementChanceInput'
 import type { TestItemRaw } from './generated/rust-types/TestItemRaw'
+import type { SafeguardWasmArtifactIn } from './generated/rust-types/SafeguardWasmArtifactIn'
+export type { SafeguardWasmArtifactIn }
 
 // Input-wire types — pure mirrors of the Rust `*RawIn` / `*FastIn` / `*Input`
 // structs in rule_engine_core + rule_engine_wasm.  The hand-written variants
@@ -1232,7 +1234,8 @@ export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): 
 // Returns candidates sorted by score descending with 1-based rank and quota flag.
 export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   // Artifacts to score — sourced from SafeguardDetectionEntry.artifacts in the snapshot.
-  artifacts: unknown[]
+  // Typed against the generated WASM wire struct so tsc catches field renames.
+  artifacts: SafeguardWasmArtifactIn[]
   // Substat variant IDs to include in the scoring formula.
   substats: number[]
   // Per-variant weight multipliers (variant id → weight).
