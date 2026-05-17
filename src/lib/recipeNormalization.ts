@@ -7,7 +7,8 @@
  * and merge layer so they all agree on the same rules.
  */
 import type { BuilderRecipe } from './hsfBuilder'
-import { LEVEL_MILESTONES, type LevelMilestone, isLevelMilestone } from './types'
+import { LEVEL_MILESTONES, type LevelMilestone, isLevelMilestone, ArtifactType, type ArtifactTypeId } from './types'
+import { isAccessorySlot } from './gearInspectorDomain'
 
 export type AutoRaritySupplementsThreshold = 'uncommon' | 'rare' | 'epic'
 
@@ -246,7 +247,8 @@ export function normalizeRecipeKeepState(
   recipe: BuilderRecipe,
   options?: { defaultThreshold?: AutoRaritySupplementsThreshold },
 ): BuilderRecipe {
-  const withKeep = normalizeKeepMode(recipe)
+  const withSlotScope = normalizeFactionSlotScope(recipe)
+  const withKeep = normalizeKeepMode(withSlotScope)
   const withAggregate = normalizeAggregateRollTargets(withKeep)
   const withAuto = normalizeAutoRaritySupplements(withAggregate, options)
   return normalizeAutoSubstatFlex(withAuto)
@@ -273,6 +275,31 @@ export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 
   if (!isLevelMilestone(max)) max = defaultMax
   if (min > max) min = max
   return { ...recipe, minLevel: min, maxLevel: max } as T
+}
+
+// All three accessory slot IDs used as the fallback when faction is set but no accessory slots are selected.
+const ALL_ACCESSORY_SLOTS: readonly ArtifactTypeId[] = [
+  ArtifactType.Ring as ArtifactTypeId,
+  ArtifactType.Amulet as ArtifactTypeId,
+  ArtifactType.Banner as ArtifactTypeId,
+]
+
+/**
+ * When a recipe has a specific faction set, restrict artifact slots to accessories only.
+ * Faction filters have no effect on armor pieces so including them is misleading.
+ *
+ * - Armor slots are stripped from `artifactTypes`.
+ * - If no accessory slots survive (or none were selected), all three are substituted.
+ * - When faction is 0 / absent the recipe is returned unchanged.
+ */
+export function normalizeFactionSlotScope<T extends Pick<BuilderRecipe, 'factionCode' | 'artifactTypes'>>(recipe: T): T {
+  if (!recipe.factionCode) return recipe
+  const accessoryOnly = (recipe.artifactTypes ?? []).filter((s) => isAccessorySlot(s))
+  const next = accessoryOnly.length > 0 ? accessoryOnly : (ALL_ACCESSORY_SLOTS as ArtifactTypeId[])
+  // Return the same object when nothing changed to preserve reference equality.
+  const current = recipe.artifactTypes ?? []
+  if (current.length === next.length && current.every((s, i) => s === next[i])) return recipe
+  return { ...recipe, artifactTypes: next }
 }
 
 const hasSubstatThresholds = (recipe: Pick<BuilderRecipe, 'substatRollBoundsV'>): boolean => {

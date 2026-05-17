@@ -3586,7 +3586,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   if (!Number.isFinite(next)) return
                   multiEdit?.updateField('factionCode', { value: next as BuilderRecipe['factionCode'], status: 'common' })
                 } else {
-                  update('factionCode', Number(raw))
+                  onChange(normalizeKeepWithAuto({ ...recipe, factionCode: Number(raw) as FactionId }))
                 }
               }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
