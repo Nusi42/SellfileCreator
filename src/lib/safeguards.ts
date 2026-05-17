@@ -501,21 +501,26 @@ export function buildDefaultSafeguardRules(): SafeguardRule[] {
 
 // Returns the factory (shipping) default field values for the safeguard builder
 // draft. Used to seed user-defaults logic (save / reset).
-export const createFactorySafeguardBuilderDefaults = (): SafeguardRule => ({
-  combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
-  // Tags default to empty; users add them to enable safeguard-overrides targeting.
-  tags: [],
-  requiredCount: 1,
-  activation: SafeguardRuleActivation.ProtectExisting,
-  countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
-  ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
-  ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
-  ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
-  substats: [],
-  substatMatch: SafeguardSubstatMatch.Min1,
-  substatWeights: {},
-  improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
-})
+export const createFactorySafeguardBuilderDefaults = (): SafeguardRule =>
+  // Normalize at the source so every consumer receives a consistent rule regardless
+  // of how individual fields are set — field combinations that conflict (e.g. improvement
+  // threshold without substats) are resolved here rather than at each callsite.
+  normalizeSafeguardSubstatDependents({
+    combination: { slots: [], sets: [], metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+    // No appearance by default; users set name/color via the builder.
+    // Tags default to empty; users add them to enable safeguard-overrides targeting.
+    tags: [],
+    requiredCount: 1,
+    activation: SafeguardRuleActivation.ProtectExisting,
+    countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+    ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+    ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
+    ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
+    substats: [],
+    substatMatch: SafeguardSubstatMatch.Min1,
+    substatWeights: {},
+    improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
+  })
 
 // Extracts the content fields of a SafeguardRule in the same stable key order as
 // createFactorySafeguardBuilderDefaults. Used as the SSOT for equality checks:

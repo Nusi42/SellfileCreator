@@ -40,10 +40,7 @@ import {
   countPositiveSubstats,
   deriveRollBaselineMode,
   isMilestoneThresholdsActive,
-  normalizeAggregateRollTargets,
-  normalizeAutoRaritySupplements,
-  normalizeAutoSubstatFlex,
-  normalizeKeepMode,
+  normalizeRecipeKeepState,
   normalizeLevelWindow,
 } from '../lib/recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from '../lib/raritySupplements'
@@ -304,18 +301,9 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
     })
   ), [aggregateRollRecipes])
   const normalizeKeepWithAuto = React.useCallback((next: BuilderRecipe): BuilderRecipe => {
-    // Normalize keep mode and aggregate rolls first.
-    const withKeep = normalizeKeepMode(next)
-    const withAggregate = normalizeAggregateRollTargets(withKeep)
-    // Pick the default Auto rarity supplements threshold from the resolved rarity.
-    const fallback = pickAutoRaritySupplementsThreshold(withAggregate)
-    // Ensure Auto rarity supplements stay aligned with the current recipe.
-    const withAuto = normalizeAutoRaritySupplements(
-      withAggregate,
-      { defaultThreshold: fallback },
-    )
-    // Clamp auto substat flex after all rarity/keep normalization.
-    return normalizeAutoSubstatFlex(withAuto)
+    // Compute the WASM-derived threshold before delegating to the WASM-free pipeline.
+    const fallback = pickAutoRaritySupplementsThreshold(next)
+    return normalizeRecipeKeepState(next, { defaultThreshold: fallback })
   }, [])
   const commitRollState = React.useCallback((nextState: AggregateRollState) => {
     onChange(normalizeKeepWithAuto({
@@ -2549,9 +2537,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
-    onChange({ ...recipe, ...eff })
+    // Normalize after merge so transient fields like autoRaritySupplementsThreshold are
+    // stripped when they don't apply (e.g. early-mode recipes don't use the supplements floor).
+    onChange(normalizeKeepWithAuto({ ...recipe, ...eff }))
     setHoverReset(false)
-  }, [recipe, getEffectiveDefaults, onChange])
+  }, [recipe, getEffectiveDefaults, normalizeKeepWithAuto, onChange])
 
   // Wrap insert to optionally reset builder controls to defaults (no dialog)
   const handleAddToCustom = () => {
@@ -2559,7 +2549,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     onAddToCustom()
     if (autoResetAfterInsert) {
       const eff = getEffectiveDefaults()
-      onChange({ ...recipe, ...eff })
+      // Same normalization as handleResetBuilder to avoid stale threshold in next builder state.
+      onChange(normalizeKeepWithAuto({ ...recipe, ...eff }))
     }
   }
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
@@ -7351,10 +7342,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               closeResetMenu()
               // Reset the builder to factory defaults explicitly
               const factory = createFactoryBuilderDefaults()
-              onChange({
-                ...recipe,
-                ...factory,
-              })
+              onChange(normalizeKeepWithAuto({ ...recipe, ...factory }))
             }}
           >
             {t('builderMenuResetFactoryDefaults')}
