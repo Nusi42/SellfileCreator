@@ -2746,7 +2746,7 @@ export default function SafeguardBuilderPanel({
             disabled={(() => { try { return !localStorage.getItem(SAFEGUARD_BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
             onClick={() => {
               closeResetMenu()
-              // Apply factory defaults to the current draft.
+              // Factory defaults are already normalized at the source.
               const factory = createFactorySafeguardBuilderDefaults()
               onChange(() => ({ ...factory }))
             }}

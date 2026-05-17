@@ -1,7 +1,12 @@
 import type { BuilderRecipe } from './hsfBuilder'
+import { normalizeRecipeKeepState } from './recipeNormalization'
 
 // Central factory defaults keep builder clones consistent across UI + history helpers.
-export const createFactoryBuilderDefaults = (): BuilderRecipe => ({
+export const createFactoryBuilderDefaults = (): BuilderRecipe =>
+  // Normalize at the source so field combinations stay consistent regardless of
+  // how individual fields are set — mirrors createFactorySafeguardBuilderDefaults.
+  // normalizeRecipeKeepState is WASM-free so this is safe at module init time.
+  normalizeRecipeKeepState({
   // Empty label keeps new recipes unnamed until the user edits the field.
   name: '',
   // Tags default to empty so note-driven recipe overrides start clean.
@@ -14,7 +19,8 @@ export const createFactoryBuilderDefaults = (): BuilderRecipe => ({
   rankCode: 0,
   rarityCode: 0,
   rarityMode: 'auto',
-  // Auto rarity supplements mirror the builder toggle default.
+  // autoRaritySupplementsThreshold is set here for late-mode awareness; normalizeAutoRaritySupplements
+  // strips it for early-mode (the default), and injects it when applicable via normalizeKeepWithAuto.
   autoRaritySupplementsThreshold: 'rare',
   // Faction default is Any to avoid accessory lock-in.
   factionCode: 0,

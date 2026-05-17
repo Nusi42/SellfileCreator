@@ -233,6 +233,26 @@ export function normalizeAggregateRollTargets<T extends Pick<BuilderRecipe, 'loc
 }
 
 /**
+ * Apply the full keep-state normalization pipeline without any WASM dependency.
+ * Combines normalizeKeepMode + normalizeAggregateRollTargets +
+ * normalizeAutoRaritySupplements + normalizeAutoSubstatFlex in order.
+ *
+ * When `options.defaultThreshold` is omitted the supplements normalizer falls back
+ * to 'rare' for late-mode recipes that have no threshold stored yet. Callers with
+ * WASM available (e.g. RecipeBuilderPanel) should compute the threshold via
+ * pickAutoRaritySupplementsThreshold and pass it here for a more accurate default.
+ */
+export function normalizeRecipeKeepState(
+  recipe: BuilderRecipe,
+  options?: { defaultThreshold?: AutoRaritySupplementsThreshold },
+): BuilderRecipe {
+  const withKeep = normalizeKeepMode(recipe)
+  const withAggregate = normalizeAggregateRollTargets(withKeep)
+  const withAuto = normalizeAutoRaritySupplements(withAggregate, options)
+  return normalizeAutoSubstatFlex(withAuto)
+}
+
+/**
  * Keep min/max level milestones within the allowed window and maintain `min <= max`.
  * Falls back to the builder defaults (0/16) when values are missing or invalid.
  */
