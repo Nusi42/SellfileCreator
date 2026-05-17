@@ -78,6 +78,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   statVariantI18nKey,
   type StatVariant,
+  type FactionId,
 } from '../lib/types'
 import {
   BUILDER_LABEL_TEXT_SX,
@@ -335,7 +336,10 @@ export default function SafeguardBuilderPanel({
   const multiIgnoreCollectionField = multiFields?.ignoreEquippedInCollection ?? null
   const multiIgnoreVaultField = multiFields?.ignoreEquippedInVault ?? null
   const multiSlotsField = multiFields?.slots ?? null
-  // Ranks/rarities/factions are select-based; summary counts drive their mixed badge only.
+  // Faction edits flow through the multi-edit draft so Apply activates on toggle
+  // and the staged selection lands on every selected rule. Rank/rarity remain
+  // summary-driven (mixed badge only) until they get the same treatment.
+  const multiFactionsField = multiFields?.factions ?? null
   const multiMainStatsField = multiFields?.mainStats ?? null
   const multiSubstatsField = multiFields?.substats ?? null
   const multiSubstatMatchField = multiFields?.substatMatch ?? null
@@ -371,6 +375,11 @@ export default function SafeguardBuilderPanel({
   // Rarity is mixed by the same logic applied to rarity counts.
   const rarityMixed = multiEditActive && multiSummary !== null
     && Array.from(multiSummary.rarityCounts.values()).some(c => c > 0 && c < multiSummary.total)
+  // Factions are mixed by the same rule; a staged (dirty) edit overrides the mixed
+  // badge so the user sees the value they're about to apply, not the prior state.
+  const factionMixed = multiEditActive && multiSummary !== null
+    && !multiFactionsField?.dirty
+    && Array.from(multiSummary.factionCounts.values()).some(c => c > 0 && c < multiSummary.total)
   const theme = useTheme()
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   // Mixed-state colors — mirror RecipeBuilderPanel: use text.primary + shared alpha constants.
@@ -1876,11 +1885,33 @@ export default function SafeguardBuilderPanel({
             <GearFactionSelect
               multiple
               disabled={!hasAccessorySlot}
-              value={factionSelection}
+              // Mixed display collapses to empty so the dropdown can render the
+              // "Mixed" label; a staged multi-edit value wins over the mixed badge.
+              value={
+                multiEditActive && multiFactionsField?.dirty
+                  ? (multiFactionsField.value as FactionId[] ?? [])
+                  : (factionMixed ? [] : factionSelection)
+              }
               onChange={(nextFactions) => {
                 if (!hasAccessorySlot) return
+                if (multiEditActive && multiEdit) {
+                  // Multi-edit: stage a replace patch so every selected rule converges
+                  // to the picked factions. The faction→accessory-slots invariant is
+                  // enforced by the apply-time normalizer, not here, so the slot
+                  // selection stays untouched while the user is still editing.
+                  const patch: MultiEditArrayPatch<FactionId> = nextFactions.length > 0
+                    ? { replace: nextFactions }
+                    : { clear: true }
+                  multiEdit.updateField('factions', {
+                    value: nextFactions,
+                    status: 'common',
+                    patch,
+                  })
+                  return
+                }
                 if (nextFactions.length > 0) {
-                  // Faction set → restrict slots to accessories (mirrors normalizeFactionSlotScope).
+                  // Single-edit: faction set → restrict slots to accessories
+                  // (mirrors normalizeFactionSlotScope on the recipe side).
                   updateRule((prev) => {
                     const slotsAreAccessoryOnly = prev.combination.slots.length > 0
                       && prev.combination.slots.every((s) => isAccessorySlot(s))
@@ -1895,7 +1926,13 @@ export default function SafeguardBuilderPanel({
                 }
               }}
               anyLabel={t('any')}
-              sx={SELECT_BOX_HEIGHT_SX}
+              {...(factionMixed ? { mixedLabel: t('builderMultiMixedValue') } : {})}
+              sx={factionMixed ? {
+                ...SELECT_BOX_HEIGHT_SX,
+                // Dashed border + diagonal gradient mirrors rank/rarity mixed display.
+                '& .MuiOutlinedInput-notchedOutline': { borderStyle: 'dashed', borderColor: mixedBorderColor },
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              } : SELECT_BOX_HEIGHT_SX}
             />
             {/* Negative mb cancels the chip's contribution to the Collapse height so the
                 faction section does not inflate the grid row. MUI Collapse switches to

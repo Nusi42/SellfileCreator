@@ -37,6 +37,27 @@ export const ACCESSORY_SLOT_IDS: readonly ArtifactTypeId[] = Object.freeze([
   ArtifactType.Banner as ArtifactTypeId,
 ])
 
+/**
+ * True when a slot-array multi-edit patch would introduce an armor (non-accessory) slot.
+ * Used by the recipe and safeguard multi-edit apply paths as the SSOT for the
+ * "this patch conflicts with a faction filter on this rule" check. `remove` and `clear`
+ * cannot introduce a slot; only `add`/`replace` are inspected.
+ */
+export function slotPatchIntroducesArmor(
+  patch: { add?: readonly number[]; replace?: readonly number[] } | null | undefined,
+): boolean {
+  if (!patch) return false
+  // `replace` overrides everything else when present — treat its contents as the new slots.
+  if (patch.replace && patch.replace.length > 0) {
+    return patch.replace.some((s) => !isAccessorySlot(s as ArtifactTypeId))
+  }
+  // Otherwise inspect additive entries.
+  if (patch.add && patch.add.length > 0) {
+    return patch.add.some((s) => !isAccessorySlot(s as ArtifactTypeId))
+  }
+  return false
+}
+
 /** True when a slot selection can include accessories (ring/amulet/banner). */
 export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[] | null): boolean {
   // Empty selections map to "Any slot", which still includes accessories.

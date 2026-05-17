@@ -33,9 +33,11 @@ import {
   type SafeguardImprovementChanceLevelThresholds,
   cloneSafeguardCombination,
   normalizeSafeguardSubstatDependents,
+  normalizeSafeguardFactionSlotScope,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { isAccessorySlot, slotPatchIntroducesArmor } from './gearInspectorDomain'
 
 // ── editable field projection ─────────────────────────────────────────────────
 
@@ -655,6 +657,10 @@ export function applyMultiEditFieldsToSafeguardRule(
   // This mirrors the single-edit constraint in constrainSafeguardSubstats and ensures
   // rules that have no substats are not left with a stale improvement-chance or match setting.
   nextRule = normalizeSafeguardSubstatDependents(nextRule)
+  // Faction filters only apply to accessories — fill empty slot scope with all three
+  // accessory ids so a multi-edit that picks a faction (or skips it via mutual-exclusivity)
+  // can never leave a rule in an internally inconsistent state at save time.
+  nextRule = normalizeSafeguardFactionSlotScope(nextRule)
   return nextRule
 }
 
@@ -691,6 +697,14 @@ function applyPatchForKey(
 // ── array patch helpers ───────────────────────────────────────────────────────
 
 function applySlotsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<ArtifactTypeId>): SafeguardRule {
+  // Mutual exclusivity guard: introducing an armor slot on a rule that already has
+  // a faction selected would create an internally inconsistent combination (the
+  // single-edit sanitizeCombinationForSlots would never emit). Skip per-rule so
+  // mixed-state multi-edit clicks only apply to compatible rules.
+  if ((rule.combination.factions?.length ?? 0) > 0
+    && slotPatchIntroducesArmor(patch as { add?: readonly number[]; replace?: readonly number[] })) {
+    return rule
+  }
   const current = Array.isArray(rule.combination.slots) ? rule.combination.slots.map(Number) : []
   const next = applyNumberArrayPatch(current, patch)
   if (arraysNumEqual(current, next)) return rule
@@ -722,6 +736,12 @@ function applyFactionsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<Fact
   const current = Array.isArray(rule.combination.factions) ? rule.combination.factions.map(Number) : []
   const next = applyNumberArrayPatch(current, patch)
   if (arraysNumEqual(current, next)) return rule
+  // Symmetric guard: if applying the patch would yield a non-empty factions list on
+  // a rule whose slot scope includes any armor piece, skip — the rule keeps both
+  // its armor slot(s) and its existing factions instead of one silently overwriting
+  // the other.
+  const hasArmorSlot = (rule.combination.slots ?? []).some((s) => !isAccessorySlot(s))
+  if (hasArmorSlot && next.length > 0) return rule
   return { ...rule, combination: { ...rule.combination, factions: next as FactionId[] } }
 }
 

@@ -1020,7 +1020,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const tags = normalizeTagList(record.tags) ?? []
   // Run the substat-dependents gate so no caller receives a rule where
   // improvement-chance or weights are set without any substats to back them.
-  return normalizeSafeguardSubstatDependents({
+  // Also enforce the faction→accessory-slots invariant so loaded payloads
+  // cannot smuggle in a faction filter with empty slots.
+  return normalizeSafeguardFactionSlotScope(normalizeSafeguardSubstatDependents({
     ...(appearance ? { appearance } : {}),
     tags,
     combination,
@@ -1034,7 +1036,32 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     substatMatch,
     substatWeights: parseSubstatWeights(weightsSource),
     improvementChanceThreshold,
-  })
+  }))
+}
+
+/**
+ * normalizeSafeguardFactionSlotScope
+ *
+ * Faction filters only apply to accessory artifacts (ring/amulet/banner). A rule
+ * with `factions` set but `slots = []` ("Any slot") would silently target armor
+ * pieces that can never satisfy the faction filter. This mirrors
+ * normalizeFactionSlotScope on the recipe side: when factions are non-empty and
+ * slots are empty, fill slots with all three accessory ids so the saved rule is
+ * internally consistent. Called by the multi-edit apply pipeline and by the
+ * single-edit insert/apply handlers in App.tsx.
+ */
+export function normalizeSafeguardFactionSlotScope(rule: SafeguardRule): SafeguardRule {
+  const factions = rule.combination.factions ?? []
+  if (factions.length === 0) return rule
+  const slots = rule.combination.slots ?? []
+  if (slots.length > 0) return rule
+  return {
+    ...rule,
+    combination: {
+      ...rule.combination,
+      slots: [...ACCESSORY_SLOT_IDS] as typeof rule.combination.slots,
+    },
+  }
 }
 
 /**

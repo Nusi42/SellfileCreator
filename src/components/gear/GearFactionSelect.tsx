@@ -22,6 +22,13 @@ type FactionSelectBaseProps = {
   disabled?: boolean
   allowAny?: boolean
   anyLabel?: string
+  /**
+   * When provided, replaces the empty-value display text (shown when no factions are
+   * selected) without changing the "Any" menu item label. Use this for multi-edit
+   * mixed-state display — pass mixedLabel and value=[] to show "mixed" in the
+   * closed select while keeping the dropdown items unchanged.
+   */
+  mixedLabel?: string
   size?: SelectProps<string | string[]>['size']
   menuProps?: SelectProps<string | string[]>['MenuProps']
   sx?: SxProps<Theme>
@@ -47,6 +54,7 @@ export function GearFactionSelect({
   disabled = false,
   allowAny = true,
   anyLabel,
+  mixedLabel,
   size = 'small',
   menuProps,
   sx,
@@ -55,6 +63,9 @@ export function GearFactionSelect({
   const { t } = useI18n()
   // Allow callers to override the empty-state label without changing global strings.
   const anyText = anyLabel ?? t('any')
+  // mixedLabel overrides the empty-value display text without touching menu items;
+  // callers pass it together with value=[] to render a "Mixed" closed-select state.
+  const emptyDisplayText = mixedLabel ?? anyText
   const resolvedSx = sx
   const isMulti = Boolean(multiple)
   const multiValues = useMemo<FactionId[]>(() => {
@@ -105,7 +116,7 @@ export function GearFactionSelect({
   // Multi-select only renders text (no icons) so height stays fixed; long lists collapse behind an ellipsis.
   const renderMultiSelected = (selected: unknown) => {
     const entries = Array.isArray(selected) ? selected : []
-    if (entries.length === 0) return anyText
+    if (entries.length === 0) return emptyDisplayText
     const numericEntries = entries
       .map((entry) => Number(entry))
       .filter((entry) => Number.isFinite(entry))

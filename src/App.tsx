@@ -34,6 +34,7 @@ import type {
 } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
+import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
@@ -119,6 +120,7 @@ import {
   createFactorySafeguardBuilderDefaults,
   createSafeguardRuleContentSnapshot,
   normalizeSafeguardRule,
+  normalizeSafeguardFactionSlotScope,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -2251,7 +2253,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Auto-reset-after-insert is applied by SafeguardBuilderPanel after calling this.
   const handleInsertSafeguardFromBuilder = useCallback(() => {
     const current = safeguardBuilderRef.current
-    const newRule: SafeguardRule = { ...cloneSafeguardRule(current) }
+    // Enforce the faction→accessory-slots invariant at save: empty slots with a
+    // faction set would silently target armor that can never match.
+    const newRule: SafeguardRule = normalizeSafeguardFactionSlotScope({ ...cloneSafeguardRule(current) })
     // Compute insertion index from current state before enqueuing the updater.
     // Why: functional state updaters are lazy — React evaluates them at render time,
     // not synchronously, so any index captured inside the updater is unavailable here.
@@ -2281,7 +2285,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleApplySafeguardFromBuilder = useCallback(() => {
     if (selectedSafeguardRuleIdx === null) return
     const current = safeguardBuilderRef.current
-    const updated: SafeguardRule = { ...cloneSafeguardRule(current) }
+    // Same faction→accessory-slots normalization as the insert path.
+    const updated: SafeguardRule = normalizeSafeguardFactionSlotScope({ ...cloneSafeguardRule(current) })
     applySafeguardRulesChange((prev) => prev.map((r, i) => (i === selectedSafeguardRuleIdx ? updated : r)))
   }, [applySafeguardRulesChange, selectedSafeguardRuleIdx])
 
@@ -6368,7 +6373,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
         // Clone the builder snapshot so recipes never share object identity.
-        const insertedRecipe = cloneBuilderRecipe(currentBuilder)
+        // Enforce the faction→accessory-slots invariant: faction set + empty slots
+        // would silently target armor that can never match.
+        const insertedRecipe = normalizeFactionSlotScope(cloneBuilderRecipe(currentBuilder))
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < customRecipes.length)
           ? selectedRecipeIdx + 1
           : customRecipes.length
@@ -6403,7 +6410,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (selectedRecipeIdx === null) return
         const currentBuilder = builderRef.current
         // Clone once so history + state updates see the same detached snapshot.
-        const nextRecipe = cloneBuilderRecipe(currentBuilder)
+        // Same faction→accessory-slots normalization as the insert path.
+        const nextRecipe = normalizeFactionSlotScope(cloneBuilderRecipe(currentBuilder))
         const previousRecipe = customRecipes[selectedRecipeIdx] ?? null
         if (previousRecipe) {
           const descriptor = createBuilderRecipeUpdateDescriptor({
