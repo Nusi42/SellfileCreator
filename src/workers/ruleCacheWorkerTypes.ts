@@ -7,6 +7,7 @@ import type {
   SafeguardCandidateOut,
   SafeguardDetectionArtifact,
   SafeguardDetectionSnapshot,
+  SafeguardRuleCountMode,
   SafeguardsMergeInput,
 } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -105,6 +106,11 @@ export type RuleCacheScoreCandidatesRequest = {
     // Per-variant weight multipliers (variant id → weight).
     weights: Record<number, number>
     requiredCount: number
+    // Editing rule's count-mode flags. Threaded through so the live preview's
+    // isWithinQuota partition matches detection's (perSet/perFaction/perMain/
+    // perSlot bucketing with tie extension). Omitting it lets the WASM side
+    // resolve the canonical default count mode.
+    countMode?: SafeguardRuleCountMode
   }
 }
 

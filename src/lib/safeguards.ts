@@ -838,6 +838,8 @@ export const sortSafeguardSubstats = (values: readonly StatVariant[]): StatVaria
 
 // Score and rank candidate artifacts with the given substats/weights for live
 // popover preview. Delegates to WASM to preserve SSOT on the scoring formula.
+// countMode is forwarded so isWithinQuota bucketing (perSet/perFaction/perMain/
+// perSlot) matches the detection pass that produced the popover's initial view.
 export const scoreSafeguardCandidates = (params: {
   // Serialized artifacts from SafeguardDetectionEntry.artifacts.
   artifacts: SafeguardDetectionArtifact[]
@@ -847,6 +849,9 @@ export const scoreSafeguardCandidates = (params: {
   weights: Record<number, number>
   // How many items the rule intends to keep.
   requiredCount: number
+  // Editing rule's count-mode flags; optional so legacy callers pre-dating the
+  // partitioning fix keep working (Rust resolves to the canonical default).
+  countMode?: SafeguardRuleCountMode
 }): SafeguardCandidateOut[] =>
   // Map to the WASM wire type explicitly so tsc catches field renames on either side.
   // SafeguardDetectionArtifact.itemKey → SafeguardWasmArtifactIn.id (camelCase of Rust `id`).
@@ -869,6 +874,9 @@ export const scoreSafeguardCandidates = (params: {
     substats: params.substats,
     weights: params.weights,
     requiredCount: params.requiredCount,
+    // Pass-through only when caller supplied a mode; undefined drops the field
+    // entirely so the wasm wrapper substitutes its `countMode: null` default.
+    ...(params.countMode ? { countMode: params.countMode } : {}),
   })
 
 // sortSafeguardCombination enforces stable ordering across every safeguard filter.

@@ -14,6 +14,7 @@ import type {
   SafeguardCandidateOut,
   SafeguardDetectionArtifact,
   SafeguardDetectionSnapshot,
+  SafeguardRuleCountMode,
   SafeguardsMergeInput,
 } from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -75,6 +76,10 @@ export type ScoreCandidatesParams = {
   // Per-variant weight multipliers (variant id → weight).
   weights: Record<number, number>
   requiredCount: number
+  // Editing rule's count-mode flags. Required for popover-cutoff parity with
+  // detection — without it the WASM partition falls back to top-N and the
+  // cutoff divider visibly snaps to row `requiredCount` after weight nudges.
+  countMode?: SafeguardRuleCountMode
 }
 
 type PendingRequest<T> = {
@@ -658,6 +663,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substats: params.substats,
         weights: params.weights,
         requiredCount: params.requiredCount,
+        // Conditional spread keeps the payload shape stable when caller omits
+        // count-mode (legacy callers / tests). The worker handler treats an
+        // absent key as "use canonical default."
+        ...(params.countMode ? { countMode: params.countMode } : {}),
       },
     }
     worker.postMessage(message)

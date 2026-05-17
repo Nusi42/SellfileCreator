@@ -61,7 +61,6 @@ import {
   detectImprovementChancePresetId,
   resolveImprovementChanceThresholds,
   type SafeguardCandidateOut,
-  type SafeguardDetectionArtifact,
   type SafeguardDetectionEntry,
   type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
@@ -101,6 +100,9 @@ import {
 
 import type { BuilderRecipe } from '../lib/hsfBuilder/types'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+// SSOT request shape for live-preview scoring — keeps the prop signature in
+// lockstep with the worker request type (countMode, requiredCount, …).
+import type { ScoreCandidatesParams } from '../hooks/useRuleCacheWorker'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
@@ -276,12 +278,9 @@ export type SafeguardBuilderPanelProps = {
   // Off-main-thread candidate scoring for the live-preview weights popover.
   // Routed through the shared rule-cache worker so the rule-engine WASM is inlined
   // into the bundle only once per worker instead of once per consumer.
-  scoreCandidates: (params: {
-    artifacts: SafeguardDetectionArtifact[]
-    substats: number[]
-    weights: Record<number, number>
-    requiredCount: number
-  }) => Promise<SafeguardCandidateOut[]>
+  // Uses ScoreCandidatesParams (SSOT) so countMode and other live-preview fields
+  // can be threaded without redeclaring the request shape in two places.
+  scoreCandidates: (params: ScoreCandidatesParams) => Promise<SafeguardCandidateOut[]>
 }
 
 export default function SafeguardBuilderPanel({
@@ -950,6 +949,15 @@ export default function SafeguardBuilderPanel({
         substats: Array.from(currentSubstats),
         weights: weightRecord,
         requiredCount: rule?.requiredCount ?? 1,
+        // Mirror detection's count-mode so the WASM preview's isWithinQuota
+        // partition (perSet/perFaction/perMain/perSlot bucketing with tie
+        // extension) matches what populated the candidate list on first open.
+        // Without this, weight nudges would snap the cutoff divider to row
+        // `requiredCount`, drifting away from detection's grouped quota.
+        // detectionEntry.countMode is authoritative because it is the exact
+        // mode the snapshot was computed under — even when the editing rule
+        // has since drifted (multi-edit / pending re-detection).
+        countMode: detectionEntry.countMode,
       }).then((candidates) => {
         if (id !== scoringRequestIdRef.current) return
         setLivePreviewCandidates(candidates)
