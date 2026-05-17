@@ -57,6 +57,7 @@ import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
 import type { TestItem } from '../ruleEval'
+import { isAccessorySlot } from '../gearInspectorDomain'
 // Wire projection / expansion helpers for the WASM boundary.
 // The Rust #[serde(rename = "short")] attrs are the SSOT; wireProjections.ts is the TS side.
 import {
@@ -146,7 +147,8 @@ export const toWasmTestItem = (item: TestItem): TestItemRaw => ({
   rank: item.rank,
   rarity: item.rarity,
   level: item.level,
-  faction: item.faction ?? null,
+  // Non-accessories cannot carry faction; null signals Rust to skip the faction check.
+  faction: isAccessorySlot(item.slot) ? (item.faction ?? null) : null,
   main: item.main ?? null,
   subValues: item.subValues ?? null,
   itemId: null,

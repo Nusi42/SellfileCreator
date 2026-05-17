@@ -473,8 +473,15 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         return false;
     }
 
-    if rule.faction != 0 && item.faction.unwrap_or(0) != rule.faction {
-        return false;
+    // Non-accessories send faction as None; Helper ignores faction constraints
+    // for items that cannot carry faction, so skip the check in that case.
+    // Accessories with faction 0 ("Any") still correctly fail faction-specific rules.
+    if rule.faction != 0 {
+        if let Some(item_faction) = item.faction {
+            if item_faction != rule.faction {
+                return false;
+            }
+        }
     }
 
     let rank_bit = bit_for_rank_or_rarity(item.rank);
