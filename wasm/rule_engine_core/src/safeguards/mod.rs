@@ -3880,48 +3880,392 @@ pub fn compute_safeguard_protection_from_collected_core(
 #[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmScorePreviewIn {
     // Candidate artifacts to score (substats carry raw values from the detection snapshot).
+    // Caller is responsible for filtering by combination/dimensions before invocation —
+    // the preview reuses the artifact set surfaced by the detection pass.
     pub artifacts: Vec<SafeguardWasmArtifactIn>,
     // Selected substat variants used in the scoring formula.
     pub substats: Vec<i64>,
     // Per-variant weight multipliers (key = variant as string, default = 1.0).
     pub weights: BTreeMap<i64, f64>,
-    // Number of items the rule intends to keep (used for isWithinQuota).
+    // Required count per group: same field consumed by detection so isWithinQuota
+    // bucketing produces the same partition seen on first open.
     pub required_count: i64,
+    // Optional bucket-mode flags. When omitted defaults to the canonical per-rule mode
+    // (one global bucket), preserving the legacy preview behaviour for older callers.
+    #[serde(default)]
+    pub count_mode: Option<SafeguardWasmCountMode>,
 }
 
 // Score and rank candidates with the given substats/weights for live popover preview.
-// Uses a simplified single-group ranking (no tie-boundary extension) sufficient for UI.
+// Mirrors the detection-side ranking partition: groups by count_mode, picks top-N per group
+// with the same tie-boundary extension used by safeguard_build_entry_for_substats, then
+// unions per-group selections into isWithinQuota. The output therefore matches what the
+// candidate list shows on first open of the popover — the cutoff stays anchored across
+// weight nudges instead of snapping to `rank < requiredCount`.
 pub fn score_safeguard_candidates_for_preview_core(
     input: SafeguardWasmScorePreviewIn,
 ) -> Vec<SafeguardWasmCandidateOut> {
-    // Score each artifact; skip items with zero score (no matching substat rolls).
-    let mut scored: Vec<(usize, f64)> = input
+    // Honor the same sanitization detection applies so per-rule fallback and
+    // mutually-exclusive flag handling stay in lockstep.
+    let count_mode = safeguard_resolve_count_mode(input.count_mode);
+    // Detection clamps required-count up to 1; replicate so the per-group quota
+    // here matches the detection-side partition exactly.
+    let required_per_group = input.required_count.max(1);
+    // Wrap each input artifact in a synthetic candidate so we can reuse the detection
+    // helpers (count-key, tie-extension top-N) without forking ranking semantics.
+    let candidates: Vec<SafeguardWasmCandidateIn> = input
         .artifacts
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, artifact)| {
-            let score = safeguard_compute_score(artifact, &input.substats, &input.weights);
-            if score > 0.0 { Some((idx, score)) } else { None }
+        .into_iter()
+        .map(|artifact| {
+            let group_key = safeguard_group_key_from_artifact(&artifact);
+            // item_key resolves from artifact.id when present; UI maps look up by this
+            // value, so missing ids fall back to a stable but unique sentinel later.
+            let item_key = artifact.id.unwrap_or(0);
+            SafeguardWasmCandidateIn {
+                item_key,
+                group_key,
+                // Preview never represents the sold/kept axis — it only ranks.
+                is_sold: false,
+                artifact,
+            }
         })
         .collect();
-    // Sort by score descending for rank assignment.
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-    let required = input.required_count.max(0) as usize;
-    scored
+    // Score and drop zero-score entries; matches detection's `score <= 0` filter.
+    let scored: Vec<SafeguardWasmScoredCandidate> = candidates
         .iter()
         .enumerate()
-        .map(|(rank_idx, &(artifact_idx, score))| {
-            // Resolve item key: use artifact id if present, otherwise fall back to index.
-            let item_key = input.artifacts[artifact_idx].id.unwrap_or(artifact_idx as i64);
+        .filter_map(|(idx, candidate)| {
+            let score = safeguard_compute_score(&candidate.artifact, &input.substats, &input.weights);
+            if score > 0.0 {
+                Some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
+            } else {
+                None
+            }
+        })
+        .collect();
+    // Bucket scored entries the same way detection does for the ranking path.
+    let mut groups = BTreeMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
+    if count_mode.per_rule {
+        // per_rule collapses every candidate into a single global bucket.
+        if !scored.is_empty() {
+            groups.insert(SafeguardCountKey::Global, scored.clone());
+        }
+    } else {
+        for entry in &scored {
+            // Route by the same count_key helper detection uses so bucket identity
+            // (slot/set/faction/main_stat selection) stays SSOT.
+            let key = safeguard_count_key(&candidates[entry.candidate_idx].artifact, count_mode);
+            groups.entry(key).or_default().push(entry.clone());
+        }
+    }
+    // Accumulate the union of per-group top-N selections — this drives is_within_quota.
+    let mut within_quota_indices = HashSet::<usize>::new();
+    for bucket in groups.values() {
+        // Reuse the detection top-N picker so tie-boundary expansion stays identical.
+        let selected = safeguard_select_top_scored_candidates(bucket, required_per_group, &candidates);
+        for entry in selected {
+            within_quota_indices.insert(entry.candidate_idx);
+        }
+    }
+    // Sort all scored entries by score descending for rank assignment in output order.
+    let mut ordered = scored;
+    ordered.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
+    ordered
+        .iter()
+        .enumerate()
+        .map(|(rank_idx, entry)| {
+            // Resolve item key: prefer artifact id; fall back to candidate index so the
+            // emitted key stays unique across artifacts that omit ids.
+            let candidate = &candidates[entry.candidate_idx];
+            let item_key = candidate.artifact.id.unwrap_or(entry.candidate_idx as i64);
             SafeguardWasmCandidateOut {
                 item_key,
-                score,
+                score: entry.score,
                 candidate_rank: (rank_idx + 1) as u32,
-                // Simplified quota: top-N without tie-boundary extension for preview use.
-                is_within_quota: rank_idx < required,
+                // Mirrors detection: union of per-group top-N with tie extension.
+                is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
             }
         })
         .collect()
+}
+
+// Verifies the live preview function reproduces detection-side isWithinQuota
+// partitioning across count-mode combinations. This is the regression suite for
+// the popover cutoff divider: when the popover first opens the divider sits at
+// the position implied by detection, so the preview must mirror those semantics
+// or weight nudges would visibly snap the divider to a different row.
+#[cfg(test)]
+mod score_safeguard_candidates_for_preview_core_tests {
+    use super::*;
+    // Substat wire struct lives in fast_path_types and is not re-exported from
+    // mod.rs (`pub use` only surfaces SafeguardWasmArtifactIn). Tests pull it in
+    // directly so the artifact factory can populate the substats vector.
+    use crate::safeguards::fast_path_types::SafeguardWasmSubstatIn;
+
+    // Variant chosen so glyph_average_for_variant returns 0.0 — keeps the score
+    // formula collapsed to `weight * raw / max6` for predictable assertions.
+    const TEST_VARIANT: i64 = STAT_VARIANT_CR;
+    const TEST_MAX6: f64 = 7.0;
+
+    // Helper: build a minimal artifact carrying a single CR substat. Slot/set/
+    // faction/main are exposed so per-* count modes can bucket the artifact.
+    fn make_artifact(id: i64, slot: i64, set: i64, faction: i64, main: i64, cr_value: f64) -> SafeguardWasmArtifactIn {
+        SafeguardWasmArtifactIn {
+            id: Some(id),
+            slot,
+            set,
+            // Rank 1 keeps glyph_average_for_variant returning 0.0 for CR (the
+            // function short-circuits for CR/CDMG regardless of rank, but
+            // pinning rank also stops other normalizations from drifting).
+            rank: 1,
+            rarity: 6,
+            level: 16,
+            exact_level: Some(16),
+            faction,
+            main_stat: main,
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: vec![SafeguardWasmSubstatIn {
+                variant: TEST_VARIANT,
+                is_flat: false,
+                value: cr_value,
+                rolls: Some(1),
+            }],
+        }
+    }
+
+    // Helper: weights map with a single CR weight (defaults the rest to 1.0).
+    fn cr_weights(weight: f64) -> BTreeMap<i64, f64> {
+        let mut map = BTreeMap::<i64, f64>::new();
+        map.insert(TEST_VARIANT, weight);
+        map
+    }
+
+    // Omitted count_mode resolves through safeguard_resolve_count_mode to the
+    // canonical detection default (currently per_set). Pinning all artifacts to
+    // one set makes that bucket the only bucket, so requiredCount=2 selects the
+    // top two by score — independent of which dimensions the default activates.
+    #[test]
+    fn missing_count_mode_resolves_to_canonical_default() {
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                make_artifact(1, 1, 10, 0, 1, 7.0),
+                make_artifact(2, 1, 10, 0, 1, 5.0),
+                make_artifact(3, 1, 10, 0, 1, 3.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 2,
+            count_mode: None,
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].item_key, 1);
+        assert!(out[0].is_within_quota, "top-ranked within single bucket");
+        assert_eq!(out[1].item_key, 2);
+        assert!(out[1].is_within_quota, "second rank within single bucket N=2");
+        assert_eq!(out[2].item_key, 3);
+        assert!(!out[2].is_within_quota, "third rank exceeds single bucket N=2");
+    }
+
+    // perRule explicit mode collapses every bucket dimension into one global pool
+    // regardless of slot/set/faction/main differences. Mirrors detection's
+    // SafeguardCountKey::Global branch — important so the preview matches what
+    // detection shows for rules that opt into perRule counting.
+    #[test]
+    fn per_rule_collapses_buckets_globally() {
+        let mode = SafeguardWasmCountMode {
+            per_rule: true,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        };
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                make_artifact(1, 1, 10, 0, 1, 7.0), // strongest
+                make_artifact(2, 1, 20, 0, 1, 5.0), // mid (different set)
+                make_artifact(3, 1, 30, 0, 1, 3.0), // weakest (different set)
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 2,
+            count_mode: Some(mode),
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        assert_eq!(out.len(), 3);
+        let kept: Vec<i64> = out
+            .iter()
+            .filter(|c| c.is_within_quota)
+            .map(|c| c.item_key)
+            .collect();
+        assert_eq!(kept.len(), 2, "perRule mode keeps only required_count globally");
+        assert!(kept.contains(&1));
+        assert!(kept.contains(&2));
+    }
+
+    // perSet bucketing — with 3 sets and N=1 per group, each set's top item is
+    // in_quota even though required_count is 1: this is exactly the case where
+    // the legacy preview function placed the cutoff at row 1 by mistake.
+    #[test]
+    fn per_set_keeps_top_per_bucket_above_required_count() {
+        let mode = SafeguardWasmCountMode {
+            per_rule: false,
+            per_set: true,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        };
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                // Set 10: A (high) > B (low)
+                make_artifact(1, 1, 10, 0, 1, 7.0),
+                make_artifact(2, 1, 10, 0, 1, 1.0),
+                // Set 20: C (mid) > D (lowest)
+                make_artifact(3, 1, 20, 0, 1, 6.0),
+                make_artifact(4, 1, 20, 0, 1, 0.5),
+                // Set 30: E (single entry)
+                make_artifact(5, 1, 30, 0, 1, 4.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 1,
+            count_mode: Some(mode),
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        // Three bucket winners → in_quota even though required_count = 1.
+        let kept: Vec<i64> = out
+            .iter()
+            .filter(|c| c.is_within_quota)
+            .map(|c| c.item_key)
+            .collect();
+        // Order in `kept` follows score-desc rank emission, not bucket order.
+        assert_eq!(kept.len(), 3, "one winner per set bucket");
+        assert!(kept.contains(&1), "set 10 winner kept");
+        assert!(kept.contains(&3), "set 20 winner kept");
+        assert!(kept.contains(&5), "set 30 winner kept");
+    }
+
+    // perSlot bucketing — verifies the slot dimension routes correctly. Two
+    // slots, both with two candidates; with N=1 per slot, only one per slot
+    // is kept regardless of cross-slot ranking.
+    #[test]
+    fn per_slot_buckets_independently_of_global_rank() {
+        let mode = SafeguardWasmCountMode {
+            per_rule: false,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: true,
+        };
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                // Slot 1: weak winner (loses to slot-2 candidates globally).
+                make_artifact(1, 1, 10, 0, 1, 3.0),
+                make_artifact(2, 1, 10, 0, 1, 1.0),
+                // Slot 2: two stronger items, but only one is kept (per-slot N=1).
+                make_artifact(3, 2, 10, 0, 1, 7.0),
+                make_artifact(4, 2, 10, 0, 1, 6.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 1,
+            count_mode: Some(mode),
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        let kept: Vec<i64> = out
+            .iter()
+            .filter(|c| c.is_within_quota)
+            .map(|c| c.item_key)
+            .collect();
+        assert_eq!(kept.len(), 2, "one winner per slot bucket");
+        assert!(kept.contains(&1), "slot 1 winner kept despite weak score");
+        assert!(kept.contains(&3), "slot 2 strongest kept; slot 2 second drops");
+    }
+
+    // Zero-score artifacts are filtered out before ranking, so they neither
+    // occupy a rank nor consume a quota slot.
+    #[test]
+    fn zero_score_artifacts_are_dropped() {
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                make_artifact(1, 1, 10, 0, 1, 7.0),
+                // value=0 → safeguard_normalize_substat_value returns 0 → score=0 → dropped.
+                make_artifact(2, 1, 10, 0, 1, 0.0),
+                make_artifact(3, 1, 10, 0, 1, 3.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 2,
+            count_mode: Some(SafeguardWasmCountMode::default()),
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        assert_eq!(out.len(), 2, "zero-score entry filtered out before rank");
+        let keys: Vec<i64> = out.iter().map(|c| c.item_key).collect();
+        assert!(!keys.contains(&2), "id=2 dropped from output entirely");
+    }
+
+    // Output sort is score-descending and ranks are 1-based contiguous.
+    #[test]
+    fn output_ranks_are_score_descending_and_one_based() {
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                make_artifact(1, 1, 10, 0, 1, 2.0),
+                make_artifact(2, 1, 10, 0, 1, 6.0),
+                make_artifact(3, 1, 10, 0, 1, 4.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 1,
+            count_mode: None,
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].candidate_rank, 1);
+        assert_eq!(out[1].candidate_rank, 2);
+        assert_eq!(out[2].candidate_rank, 3);
+        // 6 > 4 > 2 in raw value → same order in score (linear scaling).
+        assert_eq!(out[0].item_key, 2);
+        assert_eq!(out[1].item_key, 3);
+        assert_eq!(out[2].item_key, 1);
+        // Each successive score must be strictly less than the prior — confirms
+        // sort key, not just order coincidence.
+        let max6 = TEST_MAX6;
+        assert!((out[0].score - 6.0 / max6).abs() < 1e-9);
+        assert!((out[1].score - 4.0 / max6).abs() < 1e-9);
+        assert!((out[2].score - 2.0 / max6).abs() < 1e-9);
+    }
+
+    // required_count <= 0 collapses to 1 (mirrors detection's required_per_group.max(1)).
+    // Without this guard the preview would emit zero kept items, which would
+    // contradict what detection reports on first open.
+    #[test]
+    fn required_count_zero_clamps_to_one() {
+        let input = SafeguardWasmScorePreviewIn {
+            artifacts: vec![
+                make_artifact(1, 1, 10, 0, 1, 7.0),
+                make_artifact(2, 1, 10, 0, 1, 3.0),
+            ],
+            substats: vec![TEST_VARIANT],
+            weights: cr_weights(1.0),
+            required_count: 0,
+            count_mode: None,
+        };
+        let out = score_safeguard_candidates_for_preview_core(input);
+        let kept_count = out.iter().filter(|c| c.is_within_quota).count();
+        assert_eq!(kept_count, 1, "required_count=0 clamps up to 1");
+    }
+
+    // ts-rs wire test: count_mode is optional on the input struct so callers
+    // built before this change keep working when they omit the field. Belt-and-
+    // suspenders: this also guards against accidental deny_unknown_fields drift.
+    #[test]
+    fn count_mode_field_is_optional_on_wire() {
+        let json = r#"{"artifacts":[],"substats":[],"weights":{},"requiredCount":1}"#;
+        let parsed: SafeguardWasmScorePreviewIn = serde_json::from_str(json)
+            .expect("count_mode must be optional on the deserialized wire form");
+        assert!(parsed.count_mode.is_none(), "omitted field deserializes as None");
+    }
 }
 
 #[cfg(test)]

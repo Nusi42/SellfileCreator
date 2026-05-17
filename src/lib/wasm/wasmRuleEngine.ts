@@ -52,6 +52,7 @@ import {
   type SafeguardCandidateOut,
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
+  type SafeguardRuleCountMode,
 } from '../safeguards'
 import type { FinalSellRemainderConfig } from '../logicHub'
 import type { GearInspectorMatchWorkerEvaluateItem, GearInspectorMatchWorkerItemResult } from '../../workers/gearInspectorMatchWorkerTypes'
@@ -1234,6 +1235,10 @@ export const sortSafeguardSubstatsWithLoadedWasm = (values: readonly number[]): 
 // Live preview scoring for the weight popover: scores candidates with the
 // given substats/weights without running the full detection pass.
 // Returns candidates sorted by score descending with 1-based rank and quota flag.
+// countMode mirrors the editing rule's count-mode so isWithinQuota partitioning
+// (per-set/per-faction/per-main-stat/per-slot bucketing with tie extension)
+// matches what detection produced on first open — without it the cutoff would
+// snap to `rank < requiredCount` after any weight nudge.
 export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   // Artifacts to score — sourced from SafeguardDetectionEntry.artifacts in the snapshot.
   // Typed against the generated WASM wire struct so tsc catches field renames.
@@ -1244,6 +1249,9 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   weights: Record<number, number>
   // How many items the rule intends to keep (quota for isWithinQuota).
   requiredCount: number
+  // Bucketing flags from the editing rule. Omit to let Rust resolve canonical
+  // detection defaults; callers in the popover always pass the live rule's mode.
+  countMode?: SafeguardRuleCountMode
 }): SafeguardCandidateOut[] => {
   assertWasmInitializedSync()
   const result = scoreSafeguardCandidatesWasmValueBinding(JSON.stringify({
@@ -1251,6 +1259,10 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
     substats: params.substats,
     weights: params.weights,
     requiredCount: params.requiredCount,
+    // Forward as null when caller skipped countMode so the Rust side falls
+    // through to safeguard_resolve_count_mode (matches the wire form of an
+    // omitted Option<SafeguardWasmCountMode>).
+    countMode: params.countMode ?? null,
   }))
   if (Array.isArray(result)) return result as SafeguardCandidateOut[]
   throw new Error('WASM safeguard score preview returned an invalid payload.')

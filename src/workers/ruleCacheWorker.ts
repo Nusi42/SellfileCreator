@@ -507,6 +507,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         substats: payload.substats as unknown as StatVariant[],
         weights: payload.weights,
         requiredCount: payload.requiredCount,
+        // Forward count-mode when caller supplied it so the WASM partition
+        // matches detection-side bucketing. Drop the key when absent so the
+        // wasm wrapper substitutes its `null` default (canonical resolution).
+        ...(payload.countMode ? { countMode: payload.countMode } : {}),
       })
       const response: RuleCacheWorkerResponse = {
         id,
