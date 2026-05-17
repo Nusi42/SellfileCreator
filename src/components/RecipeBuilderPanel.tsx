@@ -1172,9 +1172,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
   const rankSectionDirty = (recipe.rankCode ?? 0) !== 0
   const raritySectionDirty = (recipe.rarityMode ?? 'code') !== 'code' || (recipe.rarityCode ?? 0) !== 0
+  // In multi-edit, faction is "active" when the common value is non-zero OR when it is mixed
+  // (some recipes have faction set) — both cases require armor slots to be blocked.
   const factionSectionDirty = (recipe.factionCode ?? 0) !== 0
-  // Faction is irrelevant for armor pieces; disable it whenever any armor slot is selected.
-  const hasArmorSlot = (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
+    || (multiEditActive && multiFactionField?.status === 'mixed')
+  // In multi-edit, treat any armor slot present across ANY selected recipe as "has armor",
+  // so the faction control is disabled as long as armor slots appear in the selection.
+  const hasArmorSlot = (multiEditActive && multiSummary != null)
+    ? Array.from(multiSummary.slotCounts.entries()).some(([id, count]) => count > 0 && !isAccessorySlot(id))
+    : (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
   // minRollsSectionDirty: also fires when auto mode is turned off (even with value 0),
   // since hasManualAggregateMin inside milestoneThresholdsActive requires value > 0.
   const minRollsSectionDirty = recipe.autoMinRequiredRolls === false || milestoneThresholdsActive

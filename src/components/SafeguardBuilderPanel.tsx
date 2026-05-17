@@ -616,7 +616,10 @@ export default function SafeguardBuilderPanel({
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+  // In multi-edit, faction is "active" when the focused rule has factions OR any selected rule does.
   const factionSectionDirty = factionSelection.length > 0
+    || (multiEditActive && multiSummary != null
+        && Array.from(multiSummary.factionCounts.values()).some((c) => c > 0))
   const effectiveMainStatsForMask = multiEditActive && multiSummary
     ? Array.from(multiSummary.mainStatCounts.keys())
     : mainStatSelection
