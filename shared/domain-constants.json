@@ -103,7 +103,7 @@
       "perSlot": false
     },
     "ruleOptionsDefault": {
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards": false,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false
     },
