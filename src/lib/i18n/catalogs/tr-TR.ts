@@ -441,6 +441,8 @@ const overrides: Catalog = {
   safeguardsDeleteRule: "Koruma kuralını sil",
   safeguardsDeleteRuleTitle: "Koruma kuralı silinsin mi?",
   safeguardsDeleteRuleMessage: "Bu koruma kuralı hemen kaldırılacak. Bu işlem geri alınamaz.",
+  safeguardsDeleteSelectedRulesTitle: "{n} koruma kuralı silinsin mi?",
+  safeguardsDeleteSelectedRulesMessage: "Seçili {n} koruma kuralı kaldırılacak.",
   safeguardsRuleModeLabel: "Mod",
   safeguardsRuleModeOffShort: "Kapalı",
   safeguardsRuleModeOff: "Kapalı",

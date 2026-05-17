@@ -440,6 +440,8 @@ const catalog: Catalog = {
   safeguardsDeleteRule: "Excluir regra de manutenção",
   safeguardsDeleteRuleTitle: "Excluir a regra de manutenção?",
   safeguardsDeleteRuleMessage: "Esta regra será removida imediatamente. Esta ação não pode ser desfeita.",
+  safeguardsDeleteSelectedRulesTitle: "Excluir {n} regras de manutenção?",
+  safeguardsDeleteSelectedRulesMessage: "Isso removerá as {n} regras de manutenção selecionadas.",
   safeguardsRuleModeLabel: "Modo",
   safeguardsRuleModeOffShort: "Desativar",
   safeguardsRuleModeOff: "Desativada",

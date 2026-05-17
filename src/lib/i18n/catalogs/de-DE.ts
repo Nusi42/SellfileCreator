@@ -440,6 +440,8 @@ const overrides: Catalog = {
   safeguardsDeleteRule: "Schutzmaßnahme löschen",
   safeguardsDeleteRuleTitle: "Schutzmaßnahme löschen?",
   safeguardsDeleteRuleMessage: "Diese Schutzmaßnahme wird sofort entfernt. Das kann nicht rückgängig gemacht werden.",
+  safeguardsDeleteSelectedRulesTitle: "{n} Schutzmaßnahmen löschen?",
+  safeguardsDeleteSelectedRulesMessage: "Dadurch werden die ausgewählten {n} Schutzmaßnahmen entfernt.",
   safeguardsRuleModeLabel: "Modus",
   safeguardsRuleModeOffShort: "Aus",
   safeguardsRuleModeOff: "Aus",

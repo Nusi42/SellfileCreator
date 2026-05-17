@@ -440,6 +440,8 @@ const overrides: Catalog = {
   safeguardsDeleteRule: "Eliminar regra de manutenção",
   safeguardsDeleteRuleTitle: "Eliminar a regra de manutenção?",
   safeguardsDeleteRuleMessage: "Esta regra será removida imediatamente. Esta ação não pode ser desfeita.",
+  safeguardsDeleteSelectedRulesTitle: "Eliminar {n} regras de manutenção?",
+  safeguardsDeleteSelectedRulesMessage: "Isto removerá as {n} regras de manutenção selecionadas.",
   safeguardsRuleModeLabel: "Modo",
   safeguardsRuleModeOffShort: "Desligar",
   safeguardsRuleModeOff: "Desligada",
