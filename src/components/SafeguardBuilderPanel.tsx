@@ -571,15 +571,23 @@ export default function SafeguardBuilderPanel({
   const rankSectionDirty = rankSelection.length > 0
   const raritySelection = combination.rarities
   const raritySectionDirty = raritySelection.length > 0
-  const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
+  // In multi-edit mode, expand the slot/mainstat inputs to the union across all selected rules
+  // so the exclusion mask reflects what any selected safeguard allows, not just the focused one.
+  const effectiveSlotsForMask = multiEditActive && multiSummary
+    ? Array.from(multiSummary.slotCounts.keys())
+    : slotSelection
+  const mainStatOptions = getMainStatOptionsForSlots(effectiveSlotsForMask)
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
   const factionSectionDirty = factionSelection.length > 0
+  const effectiveMainStatsForMask = multiEditActive && multiSummary
+    ? Array.from(multiSummary.mainStatCounts.keys())
+    : mainStatSelection
 
   const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
-    slots: slotSelection,
-    mainStats: mainStatSelection,
+    slots: effectiveSlotsForMask,
+    mainStats: effectiveMainStatsForMask,
   })
   // Use effectiveRule for all display-facing derived values — effectiveRule already equals the
   // stored rule in multi-edit mode (empty instructions), so no per-variable guard is needed.
