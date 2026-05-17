@@ -13,10 +13,12 @@ import {
   buildIgnoreSafeguardRecipeIndices,
   evaluateAndCollectSafeguardProtection,
   hasActiveSafeguardRules,
+  scoreSafeguardCandidates,
   storeArtifactRows,
   toWasmArtifactStoreRow,
 } from '../lib/safeguards'
 import type { SafeguardDetectionSnapshot } from '../lib/safeguards'
+import type { StatVariant } from '../lib/types'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { BuilderRecipe, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
@@ -486,6 +488,30 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         id,
         kind: 'builderCount:done',
         payload: { counts },
+      }
+      self.postMessage(response)
+    } catch (error) {
+      postError(id, error)
+    }
+    return
+  }
+
+  // Routed here (instead of a dedicated scoring worker) so the rule-engine WASM module
+  // is inlined into the build only once per worker, not once per consumer. Reuses the
+  // already-warmed WASM instance.
+  if (message.kind === 'scoreCandidates') {
+    const { id, payload } = message
+    try {
+      const candidates = scoreSafeguardCandidates({
+        artifacts: payload.artifacts,
+        substats: payload.substats as unknown as StatVariant[],
+        weights: payload.weights,
+        requiredCount: payload.requiredCount,
+      })
+      const response: RuleCacheWorkerResponse = {
+        id,
+        kind: 'scoreCandidates:done',
+        payload: { candidates },
       }
       self.postMessage(response)
     } catch (error) {

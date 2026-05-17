@@ -3,7 +3,12 @@ import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import type { SafeguardDetectionSnapshot, SafeguardsMergeInput } from '../lib/safeguards'
+import type {
+  SafeguardCandidateOut,
+  SafeguardDetectionArtifact,
+  SafeguardDetectionSnapshot,
+  SafeguardsMergeInput,
+} from '../lib/safeguards'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from './gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
@@ -86,6 +91,31 @@ export type RuleCachePipelineProgressResponse = {
   payload: ProgressSnapshot
 }
 
+// Safeguard candidate scoring is routed through this worker (instead of a dedicated
+// scoring worker) so the rule-engine WASM module is inlined into the bundle only
+// once per worker, not once per consumer. Reuses the warmed WASM instance already
+// loaded for pipeline work.
+export type RuleCacheScoreCandidatesRequest = {
+  id: number
+  kind: 'scoreCandidates'
+  payload: {
+    artifacts: SafeguardDetectionArtifact[]
+    // StatVariant ids active in the editing rule.
+    substats: number[]
+    // Per-variant weight multipliers (variant id → weight).
+    weights: Record<number, number>
+    requiredCount: number
+  }
+}
+
+export type RuleCacheScoreCandidatesResponse = {
+  id: number
+  kind: 'scoreCandidates:done'
+  payload: {
+    candidates: SafeguardCandidateOut[]
+  }
+}
+
 export type RuleCacheErrorResponse = {
   id: number
   kind: 'error'
@@ -96,8 +126,10 @@ export type RuleCacheWorkerResponse =
   | RuleCacheBuilderCountResponse
   | RuleCachePipelineResponse
   | RuleCachePipelineProgressResponse
+  | RuleCacheScoreCandidatesResponse
   | RuleCacheErrorResponse
 
 export type RuleCacheWorkerRequest =
   | RuleCacheBuilderCountRequest
   | RuleCachePipelineRequest
+  | RuleCacheScoreCandidatesRequest

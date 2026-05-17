@@ -10,7 +10,6 @@
  * When no rule is selected the form renders disabled so the panel height remains stable.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ScoringWorker from '../workers/safeguardScoringWorker?worker&inline'
 import {
   Box,
   Button,
@@ -62,6 +61,7 @@ import {
   detectImprovementChancePresetId,
   resolveImprovementChanceThresholds,
   type SafeguardCandidateOut,
+  type SafeguardDetectionArtifact,
   type SafeguardDetectionEntry,
   type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
@@ -273,6 +273,15 @@ export type SafeguardBuilderPanelProps = {
   // Override instructions from the current note's safeguard-overrides block.
   // Used to compare stored vs effective field values and show warning badges on overridden controls.
   safeguardOverridesInstructions?: readonly SafeguardOverridesInstruction[] | null
+  // Off-main-thread candidate scoring for the live-preview weights popover.
+  // Routed through the shared rule-cache worker so the rule-engine WASM is inlined
+  // into the bundle only once per worker instead of once per consumer.
+  scoreCandidates: (params: {
+    artifacts: SafeguardDetectionArtifact[]
+    substats: number[]
+    weights: Record<number, number>
+    requiredCount: number
+  }) => Promise<SafeguardCandidateOut[]>
 }
 
 export default function SafeguardBuilderPanel({
@@ -308,6 +317,7 @@ export default function SafeguardBuilderPanel({
   onApplyMultiEdit,
   visibleItemKeys,
   safeguardOverridesInstructions,
+  scoreCandidates,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
   // ── multi-edit mode derived state ─────────────────────────────────────────
@@ -496,25 +506,10 @@ export default function SafeguardBuilderPanel({
   const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
   // Ref used to cancel in-flight debounce timers when the popover closes or weights change quickly.
   const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Dedicated WASM scoring worker — avoids main-thread WASM init issues.
-  const scoringWorkerRef = useRef<Worker | null>(null)
-  // Monotonic id; the worker response handler discards responses from superseded dispatches.
+  // Monotonic id used to discard stale scoreCandidates responses when newer requests
+  // supersede them. Scoring runs in the shared rule-cache worker (see scoreCandidates
+  // prop) so this panel no longer owns a dedicated worker instance.
   const scoringRequestIdRef = useRef(0)
-  // Spawn the scoring worker once on mount; terminate on unmount.
-  useEffect(() => {
-    const worker = new ScoringWorker()
-    scoringWorkerRef.current = worker
-    worker.onmessage = (event: MessageEvent<{ id: number; candidates?: SafeguardCandidateOut[]; error?: string }>) => {
-      const { id, candidates, error } = event.data
-      // Discard response if a newer request was dispatched while this one was in flight.
-      if (id !== scoringRequestIdRef.current) return
-      setLivePreviewCandidates(!error && candidates ? candidates : null)
-    }
-    return () => {
-      worker.terminate()
-      scoringWorkerRef.current = null
-    }
-  }, [])
   const [improvementChanceAnchorEl, setImprovementChanceAnchorEl] = useState<HTMLElement | null>(null)
   // Frozen position captured at open time — prevents the popover from drifting when the
   // chip label resizes (which moves the anchor button) while the user edits values.
@@ -942,23 +937,28 @@ export default function SafeguardBuilderPanel({
     if (livePreviewTimerRef.current !== null) clearTimeout(livePreviewTimerRef.current)
     livePreviewTimerRef.current = setTimeout(() => {
       livePreviewTimerRef.current = null
-      const worker = scoringWorkerRef.current
-      if (!worker) return
       const weightRecord: Record<number, number> = {}
       for (const v of currentSubstats) {
         weightRecord[v] = normalizeGearInspectorSortWeight(Number(nextWeights[v] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT))
       }
-      // Dispatch to the dedicated scoring worker; response is handled in the worker's onmessage.
+      // Dispatch through the shared rule-cache worker. Discard responses whose id
+      // does not match the latest scoringRequestIdRef so a slow run that completes
+      // after a newer one no longer overwrites the preview.
       const id = ++scoringRequestIdRef.current
-      worker.postMessage({
-        id,
+      void scoreCandidates({
         artifacts: detectionEntry.artifacts,
         substats: Array.from(currentSubstats),
         weights: weightRecord,
         requiredCount: rule?.requiredCount ?? 1,
+      }).then((candidates) => {
+        if (id !== scoringRequestIdRef.current) return
+        setLivePreviewCandidates(candidates)
+      }).catch(() => {
+        if (id !== scoringRequestIdRef.current) return
+        setLivePreviewCandidates(null)
       })
     }, 150)
-  }, [detectionEntry, rule])
+  }, [detectionEntry, rule, scoreCandidates])
 
   // Reset live preview and cancel any pending debounce timer when the weights popover closes.
   const handleWeightsPopoverClose = useCallback(() => {

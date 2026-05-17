@@ -497,7 +497,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [safeguardsGridFilterMode, setSafeguardsGridFilterMode] = useSafeguardsGridFilterMode()
   // Best-effort GitHub release check — silent on failure, session-dismissible banner.
   const updateCheck = useUpdateCheck()
-  const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
+  const { runPipeline, flush: flushRuleCache, countRules, scoreCandidates: scoreSafeguardCandidatesViaWorker } = useRuleCacheWorker()
   // These toggles now drive in-app rule transforms, not export-only behavior.
   const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
@@ -6352,6 +6352,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       detectionEntry={safeguardBuilderDetectionEntry}
       previewRowByItemKey={safeguardPreviewRowByItemKey}
       onSelectCandidate={handleSafeguardCandidateSelect}
+      scoreCandidates={scoreSafeguardCandidatesViaWorker}
       {...(gearInspectorVisibleItemKeySet != null ? { visibleItemKeys: gearInspectorVisibleItemKeySet } : {})}
       multiEdit={safeguardMultiEditHandle}
       multiSelectedRules={multiSelectedSafeguardRules}

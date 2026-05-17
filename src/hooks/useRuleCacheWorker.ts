@@ -11,6 +11,8 @@ import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type {
+  SafeguardCandidateOut,
+  SafeguardDetectionArtifact,
   SafeguardDetectionSnapshot,
   SafeguardsMergeInput,
 } from '../lib/safeguards'
@@ -63,6 +65,18 @@ type CountRulesParams = {
   substatTargets: SubstatTargetTable
 }
 
+// Mirrors the live-preview scoring request that used to spawn its own dedicated worker.
+// Routed through this hook so the rule-engine WASM module is inlined into the build
+// once (in ruleCacheWorker) instead of once per consumer worker.
+export type ScoreCandidatesParams = {
+  artifacts: SafeguardDetectionArtifact[]
+  // StatVariant ids active in the editing rule.
+  substats: number[]
+  // Per-variant weight multipliers (variant id → weight).
+  weights: Record<number, number>
+  requiredCount: number
+}
+
 type PendingRequest<T> = {
   resolve: (value: T) => void
   reject: (reason?: unknown) => void
@@ -71,6 +85,7 @@ type PendingRequest<T> = {
 
 type PendingPipelineRequest = PendingRequest<PipelineResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingCountRequest = PendingRequest<number[]>
+type PendingScoreRequest = PendingRequest<SafeguardCandidateOut[]>
 
 type PipelineProgressHandler = (progress: ProgressSnapshot) => void
 
@@ -93,6 +108,10 @@ type UseRuleCacheWorkerResult = {
     options?: { signal?: AbortSignal; onProgress?: (progress: ProgressSnapshot) => void }
   ) => Promise<PipelineResult>
   countRules: (params: CountRulesParams, options?: { signal?: AbortSignal }) => Promise<number[]>
+  // Live-preview safeguard candidate scoring, routed through the same worker as the
+  // pipeline so its rule-engine WASM instance is shared. Resolves with the ranked
+  // candidate list; reject + abort semantics mirror countRules.
+  scoreCandidates: (params: ScoreCandidatesParams, options?: { signal?: AbortSignal }) => Promise<SafeguardCandidateOut[]>
   flush: () => Promise<void>
 }
 
@@ -197,6 +216,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const pipelineGenerationRef = useRef(0)
   const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
+  // Live-preview candidate-scoring requests share the same id space as pipeline/count.
+  const pendingScoreRef = useRef<Map<number, PendingScoreRequest>>(new Map())
   const abortedIdsRef = useRef<Set<number>>(new Set())
   // Keep one active and one queued payload for latest-only scheduling.
   const activePipelineRunRef = useRef<ActivePipelineRun | null>(null)
@@ -227,6 +248,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv) return
     const pipelineMap = pendingPipelineRef.current
     const countMap = pendingCountRef.current
+    const scoreMap = pendingScoreRef.current
     const abortedSet = abortedIdsRef.current
 
     const handleMessage = (event: MessageEvent<RuleCacheWorkerResponse>) => {
@@ -286,6 +308,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           pending.resolve(data.payload.counts)
           return
         }
+        case 'scoreCandidates:done': {
+          const pending = scoreMap.get(data.id)
+          if (!pending) return
+          scoreMap.delete(data.id)
+          if (abortedSet.delete(data.id)) return
+          pending.resolve(data.payload.candidates)
+          return
+        }
         case 'error': {
           const aborted = abortedSet.delete(data.id)
           const pipelinePending = pipelineMap.get(data.id)
@@ -297,6 +327,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           if (countPending) {
             countMap.delete(data.id)
             if (!aborted) countPending.reject(new Error(data.error))
+          }
+          const scorePending = scoreMap.get(data.id)
+          if (scorePending) {
+            scoreMap.delete(data.id)
+            if (!aborted) scorePending.reject(new Error(data.error))
           }
           // WASM traps propagate as caught RuntimeError and the worker sends them
           // via postError rather than letting them go unhandled, so the standard
@@ -325,6 +360,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending.reject(reason)
       })
       countMap.clear()
+      scoreMap.forEach((pending, id) => {
+        if (options?.markAborted) abortedSet.add(id)
+        pending.reject(reason)
+      })
+      scoreMap.clear()
     }
 
     // AbortController per worker instance lets the lint rule trace listener cleanup.
@@ -581,6 +621,52 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     })
   }, [rejectWhenWorkerUnavailable])
 
+  const scoreCandidates = useCallback<UseRuleCacheWorkerResult['scoreCandidates']>((params, options) => {
+    const signal = options?.signal ?? null
+    if (!supportsWorkerEnv || !workerRef.current) return rejectWhenWorkerUnavailable(signal)
+
+    const worker = workerRef.current
+    const id = ++requestIdRef.current
+    let resolveFn: (value: SafeguardCandidateOut[]) => void = () => {}
+    let rejectFn: (reason?: unknown) => void = () => {}
+    const promise = new Promise<SafeguardCandidateOut[]>((resolve, reject) => {
+      resolveFn = resolve
+      rejectFn = reject
+    })
+    pendingScoreRef.current.set(id, { resolve: resolveFn, reject: rejectFn, promise })
+
+    // Mirrors countRules' abort plumbing: caller-signal aborts mark the id so a late
+    // worker response is discarded by the dispatcher above.
+    const cleanupAbort = signal
+      ? (() => {
+          const abortHandler = () => {
+            if (!pendingScoreRef.current.has(id)) return
+            abortedIdsRef.current.add(id)
+            pendingScoreRef.current.get(id)?.reject(createAbortError())
+            pendingScoreRef.current.delete(id)
+          }
+          signal.addEventListener('abort', abortHandler, { once: true })
+          return () => signal.removeEventListener('abort', abortHandler)
+        })()
+      : null
+
+    const message: RuleCacheWorkerRequest = {
+      id,
+      kind: 'scoreCandidates',
+      payload: {
+        artifacts: params.artifacts,
+        substats: params.substats,
+        weights: params.weights,
+        requiredCount: params.requiredCount,
+      },
+    }
+    worker.postMessage(message)
+
+    return promise.finally(() => {
+      cleanupAbort?.()
+    })
+  }, [rejectWhenWorkerUnavailable])
+
   const flush = useCallback(() => {
     if (!supportsWorkerEnv) return Promise.resolve()
     // Wait for in-flight and queued promises so teardown is deterministic.
@@ -593,6 +679,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     pendingCountRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
     })
+    pendingScoreRef.current.forEach((entry) => {
+      pendingPromises.push(entry.promise)
+    })
     if (pendingPromises.length === 0) return Promise.resolve()
     return Promise.allSettled(pendingPromises).then(() => {})
   }, [])
@@ -600,6 +689,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   return useMemo<UseRuleCacheWorkerResult>(() => ({
     runPipeline,
     countRules,
+    scoreCandidates,
     flush,
-  }), [runPipeline, countRules, flush])
+  }), [runPipeline, countRules, scoreCandidates, flush])
 }
