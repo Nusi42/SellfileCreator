@@ -956,8 +956,6 @@ export const applySafeguardOverrides = (
               op.add.forEach((s) => current.add(s))
               clone.substats = [...current]
             }
-            // Re-normalize substat-dependent fields after any substats change.
-            cloned.set(index, normalizeSafeguardSubstatDependents(clone))
             break
           case 'substatMatch':
             clone.substatMatch = op.value
@@ -981,6 +979,14 @@ export const applySafeguardOverrides = (
     })
   }
   if (cloned.size === 0) return rules
+  // Post-override normalization: substat-dependent fields (improvementChanceThreshold,
+  // substatMatch, substatWeights) must remain consistent regardless of which ops fired
+  // and in what order. Running this once after all instructions are processed is strictly
+  // more correct than inline normalization per-op, since it sees the final combined state.
+  for (const [index, clone] of cloned) {
+    const normalized = normalizeSafeguardSubstatDependents(clone)
+    if (normalized !== clone) cloned.set(index, normalized)
+  }
   // Build the output array, substituting clones where needed.
   return rules.map((rule, index) => cloned.get(index) ?? rule)
 }
