@@ -195,7 +195,7 @@ test('normalizeSafeguardRule applies default toggle values', () => {
     },
   })
   assert.ok(normalized)
-  assert.strictEqual(normalized.ignorePreviousSafeguards, true)
+  assert.strictEqual(normalized.ignorePreviousSafeguards, false)
   assert.strictEqual(normalized.ignoreEquippedInCollection, false)
   assert.strictEqual(normalized.ignoreEquippedInVault, false)
 })
@@ -299,15 +299,19 @@ test('ignorePreviousSafeguards=false evaluates against cumulative prior safeguar
 })
 
 test('equipped ignore toggles exclude matching collection/vault artifacts', () => {
+  // ignorePreviousSafeguards: true keeps each rule's view independent so this test
+  // exercises the equipped-ignore filter in isolation rather than cumulative state.
   const collectionRule = makeRule({
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignoreEquippedInCollection: true,
+    ignorePreviousSafeguards: true,
   })
   const vaultRule = makeRule({
     requiredCount: 1,
     countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
     ignoreEquippedInVault: true,
+    ignorePreviousSafeguards: true,
   })
   // Inline champion lookup records for the two equipped-location overrides; their fields
   // beyond `id` + `location` are irrelevant to this test but must exist on the type.
