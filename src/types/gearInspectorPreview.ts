@@ -7,6 +7,9 @@ export type GearInspectorPreviewMatch = {
   recipeName: string | null
   // Optional foreground color for the matching recipe name chip.
   recipeFgColor: string | null
+  // Optional foreground color for the safeguard rule label (from SafeguardRule.appearance.fgColor).
+  // Populated for safeguard matches; null for recipe and final-sell matches.
+  ruleLabelFgColor: string | null
   ruleIndex: number | null
   ruleLabel: string | null
   ruleSource: string | null

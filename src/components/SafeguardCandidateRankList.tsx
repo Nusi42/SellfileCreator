@@ -388,10 +388,10 @@ function CandidateRow({
         ? t('gearInspectorFinalSell')
         : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null))
     : (isRuleNameSource ? (ruleAppearance?.name ?? null) : null)
-  // Use fgColor from appearance when the source is the rule name; white otherwise.
-  const matchSourceColor = (isRuleNameSource && ruleAppearance?.fgColor)
-    ? ruleAppearance.fgColor
-    : theme.palette.common.white
+  // Color priority: rule appearance when no preview; recipe color then safeguard rule color when preview present.
+  const matchSourceColor = isRuleNameSource
+    ? (ruleAppearance?.fgColor ?? theme.palette.common.white)
+    : (previewRow?.match?.recipeFgColor ?? previewRow?.match?.ruleLabelFgColor ?? theme.palette.common.white)
   const matchSourceDecoration = { displayName: matchSourceRaw ?? '', resolvedColor: matchSourceColor }
   // Slot: icon replaces text when showSlotIcons is on.
   const slotIconType = (showSlotIcons && artifact) ? artifactTypeIconFor(artifact.slot) : null

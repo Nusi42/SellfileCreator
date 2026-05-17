@@ -1253,8 +1253,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ? (recipeFgColorsForBuild[recipeIdx] ?? null)
           : null
         // Safeguards use rule ordinals instead of recipe names.
-        const safeguardLabel = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        const isSafeguardRule = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        const safeguardLabel = isSafeguardRule
           ? resolveSafeguardRuleLabel(rule)
+          : null
+        // Safeguard fgColor from the rule's appearance — index is 1-based ordinal.
+        const ruleLabelFgColor = (isSafeguardRule && rule?.__safeguardRuleOrdinal)
+          ? (effectiveSafeguardRules[rule.__safeguardRuleOrdinal - 1]?.appearance?.fgColor ?? null)
           : null
         const effectiveRecipeName = recipeName && recipeName.length > 0
           ? recipeName
@@ -1265,6 +1270,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recipeIdx,
           recipeName: effectiveRecipeName && effectiveRecipeName.length > 0 ? effectiveRecipeName : null,
           recipeFgColor,
+          ruleLabelFgColor,
           ruleLabel: safeguardLabel ?? null,
           ruleSource: rule?.__source ?? null,
           // Legacy ID field; always null in new sessions since SafeguardRule no longer carries id.

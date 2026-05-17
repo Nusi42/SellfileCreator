@@ -97,9 +97,12 @@ export function GearInspectorRuleReferenceChip({
     : (fallbackRuleLabel.length > 0
       ? fallbackRuleLabel
       : (recipeIdx != null ? `#${recipeIdx + 1}` : ''))
+  // Use recipeFgColor when a recipe name is shown; fall back to the safeguard rule's own
+  // fgColor when no recipe color exists (covers both recipe-less safeguard matches and
+  // safeguard-over-recipe matches where the recipe itself has no explicit color).
   const textColor = (match.recipeFgColor && trimmedDecoratedName.length > 0)
     ? match.recipeFgColor
-    : null
+    : (isSafeguardSource ? (match.ruleLabelFgColor ?? null) : null)
   // Number segment is intentionally lightweight: recipe index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.
   const recipeNumberSegment = (showRecipeIndex && recipeIdx != null)

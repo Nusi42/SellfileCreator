@@ -72,7 +72,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
 
 const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): GearInspectorPreviewRow => {
   const artifact = makeArtifact(overrides, variant)
-  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', recipeFgColor: null, ruleIndex: 0, ruleLabel: null, ruleSource: 'sfc', safeguardRuleId: null, safeguardRuleOrdinal: null } : null
+  const match = keep ? { keep: true, recipeIdx: 0, recipeName: 'Keep', recipeFgColor: null, ruleLabelFgColor: null, ruleIndex: 0, ruleLabel: null, ruleSource: 'sfc', safeguardRuleId: null, safeguardRuleOrdinal: null } : null
   return {
     artifact,
     match,

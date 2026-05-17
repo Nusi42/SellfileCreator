@@ -740,13 +740,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // ruleOrdinal is 1-based; safeguardRules array is 0-based.
       const primaryRule = ruleOrdinal != null ? (safeguardRules?.[ruleOrdinal - 1] ?? null) : null
       const primaryRuleName = (primaryRule?.appearance?.name ?? '').trim() || null
-      type RankRow = { rank: number; name: string; isPrimary: boolean }
+      type RankRow = { rank: number; name: string; isPrimary: boolean; fgColor: string | undefined }
       const rankRows: RankRow[] = []
-      if (primaryRuleName) rankRows.push({ rank, name: primaryRuleName, isPrimary: true })
+      if (primaryRuleName) {
+        rankRows.push({ rank, name: primaryRuleName, isPrimary: true, fgColor: primaryRule?.appearance?.fgColor ?? undefined })
+      }
       for (const other of otherRules) {
         const otherRule = safeguardRules?.[other.ruleOrdinal - 1]
         const otherName = (otherRule?.appearance?.name ?? '').trim() || undefined
-        if (otherName) rankRows.push({ rank: other.rank, name: otherName, isPrimary: false })
+        if (otherName) rankRows.push({ rank: other.rank, name: otherName, isPrimary: false, fgColor: otherRule?.appearance?.fgColor ?? undefined })
       }
       // JSX table: localized title + rank badge column (monospace, fixed width) + name column.
       const tooltipRender = rankRows.length > 0 ? (
@@ -763,7 +765,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               >
                 #{row.rank}
               </Typography>
-              <Typography variant="body2" component="span" sx={{ fontWeight: row.isPrimary ? 600 : 400 }}>
+              <Typography
+                variant="body2"
+                component="span"
+                sx={{ fontWeight: row.isPrimary ? 600 : 400, ...(row.fgColor ? { color: row.fgColor } : {}) }}
+              >
                 {row.name}
               </Typography>
             </Box>
