@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
-import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats } from './recipeNormalization'
+import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope } from './recipeNormalization'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import type { NameAppearance } from './nameAppearance'
@@ -822,6 +822,9 @@ export function applyMultiEditFieldToRecipe(
     case 'rarityMode':
     case 'autoRaritySupplementsThreshold':
       nextRecipe = normalizeAutoRaritySupplements(nextRecipe)
+      break
+    case 'factionCode':
+      nextRecipe = normalizeFactionSlotScope(nextRecipe)
       break
     case 'minLevel':
     case 'maxLevel':
