@@ -38,7 +38,7 @@ import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
 import type { NameAppearance } from './nameAppearance'
-import { parseRecipeNameDirectives } from './recipeNameDirectives'
+import { readAppearanceFromRecord } from './nameAppearance'
 import type {
   ImprovementChanceWasmEntry,
   WasmArtifactStoreInput,
@@ -966,16 +966,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   if (!combination) return null
 
   // IDs are not persisted; the `id` field on legacy payloads is ignored.
-  let rawName = typeof record.name === 'string' ? record.name.trim() : ''
-  let fgColor = typeof record.fgcolor === 'string' && record.fgcolor ? record.fgcolor : undefined
-  // Legacy migration: extract [#RRGGBB] color directive embedded in name string.
-  if (!fgColor) {
-    const legacy = parseRecipeNameDirectives(rawName, '')
-    if (legacy.hasExplicitColor) { fgColor = legacy.resolvedColor; rawName = legacy.displayName }
-  }
-  const appearance: NameAppearance | undefined = (rawName || fgColor)
-    ? { name: rawName, ...(fgColor ? { fgColor } : {}) }
-    : undefined
+  // Appearance is resolved via the shared helper: trusts nested `appearance` when present,
+  // otherwise falls back to flat `name`/`fgcolor` with legacy [#RRGGBB] directive parsing.
+  const appearance = readAppearanceFromRecord(record)
   const requiredCount = Math.max(1, toFiniteFloor(record.requiredCount) ?? 1)
   const countMode = (
     Object.prototype.hasOwnProperty.call(record, 'countMode')
