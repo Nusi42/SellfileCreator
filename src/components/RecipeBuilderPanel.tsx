@@ -1172,7 +1172,11 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
   const rankSectionDirty = (recipe.rankCode ?? 0) !== 0
   const raritySectionDirty = (recipe.rarityMode ?? 'code') !== 'code' || (recipe.rarityCode ?? 0) !== 0
-  const factionSectionDirty = (recipe.factionCode ?? 0) !== 0
+  // In multi-edit, disable armor only when ALL selected recipes share the same non-zero
+  // faction (status='common', value≠0). Mixed (some Any, some N) → keep armor enabled.
+  const factionSectionDirty = multiEditActive && multiFactionField != null
+    ? multiFactionField.status === 'common' && (multiFactionField.value as number ?? 0) !== 0
+    : (recipe.factionCode ?? 0) !== 0
   // Faction is irrelevant for armor pieces; disable it whenever any armor slot is selected.
   const hasArmorSlot = (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
   // minRollsSectionDirty: also fires when auto mode is turned off (even with value 0),

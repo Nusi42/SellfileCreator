@@ -22,6 +22,8 @@ export interface SafeguardMultiEditSummary {
   rarityCounts: Map<number, number>
   // How many selected rules include each main-stat variant.
   mainStatCounts: Map<number, number>
+  // How many selected rules have at least one faction set (not faction=Any).
+  rulesWithFactionCount: number
   // How many selected rules include each faction id.
   factionCounts: Map<number, number>
   // How many selected rules include each substat variant.
@@ -44,6 +46,7 @@ export const useSafeguardMultiEditSummary = (
   const rarityCounts = new Map<number, number>()
   const mainStatCounts = new Map<number, number>()
   const factionCounts = new Map<number, number>()
+  let rulesWithFactionCount = 0
   const substatCounts = new Map<number, number>()
   const setCounts = new Map<number, number>()
   const metaSetIdCounts = new Map<string, number>()
@@ -65,8 +68,10 @@ export const useSafeguardMultiEditSummary = (
     for (const stat of (combo.mainStats ?? [])) {
       mainStatCounts.set(stat, (mainStatCounts.get(stat) ?? 0) + 1)
     }
-    // Count faction filter presence.
-    for (const faction of (combo.factions ?? [])) {
+    // Count faction filter presence; also track rules with any faction set.
+    const ruleFactions = combo.factions ?? []
+    if (ruleFactions.length > 0) rulesWithFactionCount++
+    for (const faction of ruleFactions) {
       factionCounts.set(faction, (factionCounts.get(faction) ?? 0) + 1)
     }
     // Count substat presence (rule-level field, not in combination).
@@ -86,6 +91,7 @@ export const useSafeguardMultiEditSummary = (
   }
   return {
     total,
+    rulesWithFactionCount,
     slotCounts,
     rankCounts,
     rarityCounts,

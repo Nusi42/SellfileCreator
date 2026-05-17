@@ -616,7 +616,11 @@ export default function SafeguardBuilderPanel({
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
-  const factionSectionDirty = factionSelection.length > 0
+  // In multi-edit, disable armor only when EVERY selected rule has faction set.
+  // If any rule uses faction=Any the interaction is mixed — keep armor enabled.
+  const factionSectionDirty = multiEditActive && multiSummary != null
+    ? multiSummary.rulesWithFactionCount === multiSummary.total && multiSummary.total > 0
+    : factionSelection.length > 0
   const effectiveMainStatsForMask = multiEditActive && multiSummary
     ? Array.from(multiSummary.mainStatCounts.keys())
     : mainStatSelection
