@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { normalizeFactionSlotScope } from '../../src/lib/recipeNormalization'
+import { normalizeFactionSlotScope, normalizeSlotsOverrideFaction } from '../../src/lib/recipeNormalization'
 import { ArtifactType } from '../../src/lib/types'
 import type { ArtifactTypeId } from '../../src/lib/types'
 import type { BuilderRecipe } from '../../src/lib/hsfBuilder'
@@ -71,4 +71,32 @@ test('faction set + mixed slots → armor stripped', () => {
 test('faction set + already all-accessory → same reference', () => {
   const r = recipe({ factionCode: 7, artifactTypes: ALL_ACC })
   assert.strictEqual(normalizeFactionSlotScope(r), r)
+})
+
+// --- normalizeSlotsOverrideFaction ---
+
+// no faction → always no-op
+test('normalizeSlotsOverrideFaction: no faction → unchanged', () => {
+  const r = recipe({ factionCode: 0, artifactTypes: [HELMET, RING] })
+  assert.strictEqual(normalizeSlotsOverrideFaction(r), r)
+})
+
+// faction set, only accessories → no change
+test('normalizeSlotsOverrideFaction: faction + accessories only → unchanged', () => {
+  const r = recipe({ factionCode: 2, artifactTypes: [RING, AMULET] })
+  assert.strictEqual(normalizeSlotsOverrideFaction(r), r)
+})
+
+// faction set, armor slot present → clear faction
+test('normalizeSlotsOverrideFaction: faction + armor slot → faction cleared', () => {
+  const r = recipe({ factionCode: 3, artifactTypes: [HELMET] })
+  const out = normalizeSlotsOverrideFaction(r)
+  assert.strictEqual(out.factionCode, 0)
+  assert.deepEqual(out.artifactTypes, [HELMET])
+})
+
+// faction set, mixed slots → clear faction
+test('normalizeSlotsOverrideFaction: faction + mixed slots → faction cleared', () => {
+  const out = normalizeSlotsOverrideFaction(recipe({ factionCode: 1, artifactTypes: [HELMET, RING] }))
+  assert.strictEqual(out.factionCode, 0)
 })

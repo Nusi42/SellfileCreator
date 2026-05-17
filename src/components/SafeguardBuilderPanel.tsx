@@ -115,7 +115,7 @@ import BuilderSectionHeader from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
-import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+import { isAccessorySlot, slotSelectionAllowsAccessories, ACCESSORY_SLOT_IDS } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
@@ -1867,7 +1867,20 @@ export default function SafeguardBuilderPanel({
               value={factionSelection}
               onChange={(nextFactions) => {
                 if (!hasAccessorySlot) return
-                setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
+                if (nextFactions.length > 0) {
+                  // Faction set → restrict slots to accessories (mirrors normalizeFactionSlotScope).
+                  updateRule((prev) => {
+                    const slotsAreAccessoryOnly = prev.combination.slots.length > 0
+                      && prev.combination.slots.every((s) => isAccessorySlot(s))
+                    const nextSlots = slotsAreAccessoryOnly
+                      ? prev.combination.slots
+                      : (ACCESSORY_SLOT_IDS as typeof prev.combination.slots)
+                    const nextCombo = sanitizeCombinationForSlots(nextSlots, { ...prev.combination, factions: nextFactions })
+                    return constrainSafeguardSubstats(prev, nextCombo)
+                  })
+                } else {
+                  setRuleCombination((prev) => ({ ...prev, factions: nextFactions }))
+                }
               }}
               anyLabel={t('any')}
               sx={SELECT_BOX_HEIGHT_SX}
@@ -2464,6 +2477,8 @@ export default function SafeguardBuilderPanel({
                       key={id}
                       value={`${id}`}
                       selected={selected}
+                      // Armor slots are incompatible with faction filters; disable when faction is active.
+                      disabled={factionSectionDirty && !isAccessorySlot(id)}
                       {...(slotMixed ? { 'data-mixed': 'true' } : {})}
                       onClick={() => {
                         if (multiEditActive && multiEdit && multiSummary) {
