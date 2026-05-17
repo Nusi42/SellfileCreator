@@ -25,16 +25,18 @@ const buildAppearance = (rawName: string, fgColor: string | undefined): NameAppe
  * and the legacy flat form. SSOT for recipe + safeguard read paths.
  *
  * Resolution order:
- *  - Nested: `record.appearance = { name, fgColor? }` — trusted as-is (no directive parsing).
+ *  - Nested: `record.appearance = { name, fgColor? }` — directive parsing is skipped;
+ *    name/color are normalized via `buildAppearance` (trim + omit-when-blank).
  *  - Legacy flat: `record.name` (with optional `[#RRGGBB]` directive) + `record.fgcolor`.
  *
  * The legacy `[#RRGGBB]` directive parsing only runs on the flat form; the nested form
- * is treated as authoritative and its `name` is preserved verbatim.
+ * is treated as authoritative — its `name` is taken verbatim aside from whitespace trim.
  */
 export const readAppearanceFromRecord = (record: Record<string, unknown>): NameAppearance | undefined => {
   // Nested form wins when present: trust the saved structure and skip directive parsing.
+  // Guard against arrays and other exotic objects — only a plain object literal is accepted.
   const nested = record['appearance']
-  if (nested && typeof nested === 'object') {
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
     const obj = nested as Record<string, unknown>
     const name = typeof obj['name'] === 'string' ? (obj['name'] as string) : ''
     const fgColor = typeof obj['fgColor'] === 'string' && obj['fgColor'] ? (obj['fgColor'] as string) : undefined
