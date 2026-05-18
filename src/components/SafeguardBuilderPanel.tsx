@@ -1512,7 +1512,10 @@ export default function SafeguardBuilderPanel({
         </Box>
 
         {/* Ignore chips — right of required count, stacked in 2 rows */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '0 0 auto', ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        {/* position+zIndex raise this column above the header row's zIndex:1 stacking context.
+            The content flex row bleeds 14px upward into the header (mt:-½·SMALL_BUTTON_HEIGHT_PX),
+            so without elevation the header's z=1 intercepts clicks on the top strip of Row 1. */}
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '0 0 auto', position: 'relative', zIndex: 2, ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
 
           {/* Row 1: ignore previous safeguards */}
           {(() => {
@@ -1934,10 +1937,7 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
-            {/* Negative mb cancels the chip's contribution to the Collapse height so the
-                faction section does not inflate the grid row. MUI Collapse switches to
-                overflow:visible when fully open, letting the chip render past its boundary. */}
-            <Box sx={{ mt: 0.75, mb: `-${BUILDER_STATUS_CHIP_HEIGHT_PX}px` }}>
+            <Box sx={{ mt: 0.75 }}>
               {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot || redundantDimensions.perFaction, perScopeMixed.perFaction,
                 perFactionOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(
@@ -1954,8 +1954,6 @@ export default function SafeguardBuilderPanel({
       {/* ── Row 2 right: Hidden level-window spacer (col 3, mirrors recipe builder) ─── */}
       {/* Invisible structural placeholder — same MUI Slider as the recipe builder's level-window
           so Row 2's grid height is always determined by the same element on both panels.
-          The per-faction chip's negative mb keeps it out of the faction section's height, so
-          this spacer (not the chip) becomes the tallest item in the row when any section is open.
           When all three RRF sections are collapsed the slider collapses too, letting the row
           shrink to label-row height instead of remaining slider-tall. */}
       <Box aria-hidden="true" sx={{ gridColumn: '3 / 4', visibility: 'hidden' }}>
