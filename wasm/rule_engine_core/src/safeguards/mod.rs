@@ -2851,6 +2851,10 @@ fn safeguard_build_entry_for_substats(
     prepared_rule: &SafeguardWasmPreparedRule,
     candidates: &[SafeguardWasmCandidateIn],
     candidate_sold_state: &[bool],
+    // Parallel state flagging indices already protected by an earlier active safeguard rule.
+    // Consulted only on the ranking path to honor `ignore_previous_safeguards`'s pool-exclusion
+    // semantics; non-ranking paths ignore this and keep kept-count-driven behavior.
+    previously_protected_state: &[bool],
     selected_substats: &[i64],
     substat_match: &str,
     // 1-based ordinal of this rule in the input safeguard list. Used as the lookup
@@ -2904,7 +2908,7 @@ fn safeguard_build_entry_for_substats(
         .collect::<Vec<_>>();
 
     // Pre-filter candidate indices by rule dimensions and substat gating.
-    let matching_indices = candidates
+    let mut matching_indices = candidates
         .iter()
         .enumerate()
         .filter(|(_, candidate)| safeguard_artifact_matches_rule(&candidate.artifact, prepared_rule))
@@ -2913,6 +2917,15 @@ fn safeguard_build_entry_for_substats(
         })
         .map(|(idx, _)| idx)
         .collect::<Vec<_>>();
+
+    // Pool-exclusion semantics for "Ignore previous safeguards" on the ranking path:
+    // drop indices any earlier active rule already protected so this rule reaches deeper
+    // into the score ranking instead of redundantly re-protecting the same items. The
+    // non-ranking path (use_ranking == false) skips this filter so its kept-count math
+    // continues to drive the toggle's effect there.
+    if prepared_rule.ignore_previous_safeguards && use_ranking {
+        matching_indices.retain(|idx| !previously_protected_state[*idx]);
+    }
 
     if use_ranking {
         // Build scored list and drop zero-score artifacts early.
@@ -3579,6 +3592,11 @@ fn compute_safeguard_protection_core(
         .collect::<Vec<_>>();
     // Cumulative state tracks sold candidates already selected by prior safeguards.
     let mut cumulative_candidate_sold_state = baseline_candidate_sold_state.clone();
+    // Parallel set of indices any active earlier rule has already protected. Drives the
+    // ranking-path pool exclusion that gives `ignore_previous_safeguards` a functional
+    // effect — without it the toggle would only relabel kept-vs-sold counters, since the
+    // protected union across rules is invariant under that relabeling.
+    let mut previously_protected_state = vec![false; parsed_candidates.len()];
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
@@ -3696,6 +3714,7 @@ fn compute_safeguard_protection_core(
                         prepared_rule,
                         &parsed_candidates,
                         candidate_sold_state,
+                        &previously_protected_state,
                         &[*variant],
                         SAFEGUARD_SUBSTAT_ANY,
                         rule_ordinal,
@@ -3719,6 +3738,7 @@ fn compute_safeguard_protection_core(
                 prepared_rule,
                 &parsed_candidates,
                 candidate_sold_state,
+                &previously_protected_state,
                 &prepared_rule.selected_substats,
                 effective_match,
                 rule_ordinal,
@@ -3732,6 +3752,10 @@ fn compute_safeguard_protection_core(
                     continue;
                 }
                 cumulative_candidate_sold_state[*candidate_idx] = false;
+                // Mirror the projection into the protected set so later rules with
+                // `ignore_previous_safeguards = true` can exclude these indices on the
+                // ranking path. Bounds-checked alongside cumulative state above.
+                previously_protected_state[*candidate_idx] = true;
             }
         }
         let mut entry = eval_result.entry;
@@ -4464,10 +4488,11 @@ mod no_substat_protect_all_tests {
             sold(103, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
@@ -4486,10 +4511,11 @@ mod no_substat_protect_all_tests {
             .map(|id| sold(id, slot, set, 6, 6, faction))
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert_eq!(result.entry.item_keys.len(), 7, "all 7 sold items must be protected");
         assert_eq!(result.selected_candidate_indices.len(), 7);
@@ -4513,10 +4539,11 @@ mod no_substat_protect_all_tests {
             sold(308, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(3, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert!(result.entry.item_keys.is_empty(), "sold items must not be protected when quota is already met by kept items");
     }
@@ -4537,10 +4564,11 @@ mod no_substat_protect_all_tests {
             sold(306, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
@@ -4561,11 +4589,12 @@ mod no_substat_protect_all_tests {
             sold(404, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         // requiredCount=5, kept=1 → needed=4 > 0 → all 3 sold are protected.
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         // 1 kept + 3 sold = 4 projected (not capped at needed=4 since sold<needed).
         assert_eq!(result.entry.projected_count, 4);
@@ -4586,10 +4615,11 @@ mod no_substat_protect_all_tests {
             sold(415, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(2, slot, set); // kept=3 satisfies requiredCount=2
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert_eq!(result.entry.projected_count, 3, "projected must be kept_count only when quota met");
     }
@@ -4607,11 +4637,12 @@ mod no_substat_protect_all_tests {
             sold(503, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         // requiredCount=5, kept=1 → needed=4 > 0 → all sold protected.
         let rule = make_grouped_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert!(
             result.entry.candidates.iter().all(|c| c.is_within_quota),
@@ -4633,10 +4664,11 @@ mod no_substat_protect_all_tests {
             sold(514, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(1, slot, set); // kept=2 satisfies requiredCount=1
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         let sold_candidates: Vec<_> = result.entry.candidates.iter()
             .filter(|c| c.item_key == 513 || c.item_key == 514)
@@ -4659,10 +4691,11 @@ mod no_substat_protect_all_tests {
             sold(602, slot, set, 6, 6, faction),
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_per_rule_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
@@ -4678,10 +4711,11 @@ mod no_substat_protect_all_tests {
             .map(|id| sold(id, slot, set, 6, 6, faction))
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_per_rule_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert_eq!(result.entry.item_keys.len(), 8, "all 8 sold items must be protected");
     }
@@ -4713,11 +4747,12 @@ mod no_substat_protect_all_tests {
             })
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_grouped_rule(3, slot, set);
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state,
+            &rule, &candidates, &sold_state, &protected_state,
             &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert_eq!(
@@ -4727,5 +4762,121 @@ mod no_substat_protect_all_tests {
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
         assert_eq!(keys, vec![804, 805, 806], "the three highest-scored items must be selected");
+    }
+
+    // ── ignore_previous_safeguards: ranking-path pool exclusion ─────────────
+
+    #[test]
+    fn ranking_ignore_previous_safeguards_excludes_already_protected() {
+        // Six matching candidates with strictly increasing SPD scores 10..=60 (ids 901..=906).
+        // Pretend an earlier active rule already protected the top two (905 and 906). With
+        // ignore_previous_safeguards = true the rule's matching pool drops them, so the new
+        // top-3 by score is 902, 903, 904.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let spd = STAT_VARIANT_SPD;
+        let candidates: Vec<_> = (901..=906)
+            .enumerate()
+            .map(|(i, id)| {
+                let mut c = sold(id, slot, set, 6, 6, faction);
+                c.artifact.substats = vec![SafeguardWasmSubstatIn {
+                    variant: spd,
+                    is_flat: false,
+                    value: (i as f64 + 1.0) * 10.0,
+                    rolls: None,
+                }];
+                c
+            })
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        // Indices 4 and 5 (item_keys 905, 906) were protected by an earlier rule.
+        let mut protected_state: Vec<bool> = vec![false; candidates.len()];
+        protected_state[4] = true;
+        protected_state[5] = true;
+        let mut rule = make_grouped_rule(3, slot, set);
+        rule.ignore_previous_safeguards = true;
+        let selected_substats = vec![spd];
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state,
+            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(
+            keys, vec![902, 903, 904],
+            "ignore_previous_safeguards=true must skip already-protected items and pick the next top-N",
+        );
+    }
+
+    #[test]
+    fn ranking_ignore_previous_safeguards_off_keeps_full_pool() {
+        // Same fixture as above, but with ignore_previous_safeguards = false the protected
+        // state must be inert in the ranking path: the rule still picks ids 904/905/906.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let spd = STAT_VARIANT_SPD;
+        let candidates: Vec<_> = (901..=906)
+            .enumerate()
+            .map(|(i, id)| {
+                let mut c = sold(id, slot, set, 6, 6, faction);
+                c.artifact.substats = vec![SafeguardWasmSubstatIn {
+                    variant: spd,
+                    is_flat: false,
+                    value: (i as f64 + 1.0) * 10.0,
+                    rolls: None,
+                }];
+                c
+            })
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let mut protected_state: Vec<bool> = vec![false; candidates.len()];
+        protected_state[4] = true;
+        protected_state[5] = true;
+        let mut rule = make_grouped_rule(3, slot, set);
+        rule.ignore_previous_safeguards = false;
+        let selected_substats = vec![spd];
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state,
+            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        let mut keys = result.entry.item_keys.clone();
+        keys.sort_unstable();
+        assert_eq!(
+            keys, vec![904, 905, 906],
+            "ignore_previous_safeguards=false must include every matching item in the ranking pool",
+        );
+    }
+
+    #[test]
+    fn non_ranking_ignore_previous_safeguards_does_not_apply_pool_exclusion() {
+        // Without substats the ranking-path filter is intentionally skipped. The non-ranking
+        // path keeps its kept-count-driven semantics, so all sold matches still feed into
+        // selected_sold regardless of the protected_state flags.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates: Vec<_> = (901..=906)
+            .map(|id| sold(id, slot, set, 6, 6, faction))
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let mut protected_state: Vec<bool> = vec![false; candidates.len()];
+        protected_state[4] = true;
+        protected_state[5] = true;
+        let mut rule = make_grouped_rule(3, slot, set);
+        rule.ignore_previous_safeguards = true;
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state,
+            &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        // All six items must still surface (no substat → no quality basis to drop them).
+        assert_eq!(
+            result.entry.item_keys.len(), 6,
+            "non-ranking path must ignore protected_state and protect every sold match",
+        );
     }
 }
