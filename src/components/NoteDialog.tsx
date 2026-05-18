@@ -150,6 +150,8 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'sg-activation-val': '#d19a66',  // same as boolean-val (warm amber)
   'sg-match-val':      '#d19a66',  // same as boolean-val (warm amber)
   'sg-value-ref':      '#e06c75',  // same as default-kw (bright sigil marker)
+  // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
+  'cross-domain-kw':   '#c678dd',
 }
 
 // Recursively converts a refractor (HAST) node to React elements.
@@ -1478,9 +1480,10 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")
-             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
+crossBlock    := "safeguard" "@" selector "{" sgAssignment+ "}"  // targets safeguard rules from a recipe-overrides marker
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
@@ -1491,7 +1494,7 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
-fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
@@ -1643,18 +1646,19 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
 question      := ("q" | "question") string group+ [fallbackBlock]
 group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"checkbox"|"check")
-             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
              | ("slider"|"range") string [headerToken {headerToken}] [constraints]
-               sliderParam {sliderParam} "{" selectorBlock+ [fallbackBlock] "}"
+               sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
+crossBlock    := "recipe" "@" selector "{" rcAssignment+ "}"  // targets recipe fields from a safeguard-overrides marker
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
 sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
-             | "count" "=" (number | "$value")   // $value = current slider position
+             | "count" "=" countExpr   // $count/$value expand to current slider position
              | ("ignprev"|"igncoll"|"ignvault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
              | "substats" "=" prefixToken ("," prefixToken)*
              | "substatmatch" "=" subMatchVal
@@ -1665,7 +1669,12 @@ subMatchVal   := "${_sgMatchVals}"
 impChanceVal  := "off" | "disabled" | number [number [number [number]]]
                  // 1–4 space-separated values set thresholds for upgrade level 0, 4, 8, 12
 flexVal       := "on" | "off" | "true" | "false"
-fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+rcAssignment  := ("export") "=" ("active" | "disabled" | "toggle")
+             | ("rank" | "minrolls" | "lockedminrolls" | "minsubstats") "=" (number | countExpr)
+             | field "=" value   // other recipe fields use their native recipe-overrides syntax
+countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
+                 // in slider groups $count/$value expand to the current slider position
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
               | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*

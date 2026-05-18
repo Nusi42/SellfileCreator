@@ -419,6 +419,10 @@ export type ParsedOverridesOption<S, O> = {
   detail: string | null
   blocks: OverridesSelectorBlock<S, O>[]
   fallbackBlocks: OverridesSelectorBlock<S, O>[]
+  // Cross-domain blocks (e.g. `safeguard @…` inside recipe-overrides, or `recipe @…` inside
+  // safeguard-overrides). Typed as `unknown[]` here; domain parsers cast to their concrete type.
+  crossBlocks: unknown[]
+  crossFallbackBlocks: unknown[]
   isDefault: boolean
   explicitToken: string | null
   implicitToken: string | null
@@ -438,7 +442,7 @@ export type ParsedOverridesQuestion<S, O> = {
   layoutColumns: number
   questionId: string
   options: ParsedOverridesOption<S, O>[]
-  fallback: { blocks: OverridesSelectorBlock<S, O>[] } | null
+  fallback: { blocks: OverridesSelectorBlock<S, O>[]; crossBlocks: unknown[] } | null
 }
 
 // ── Generic question-parsing machinery ────────────────────────────────────────
@@ -509,16 +513,25 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
 /**
  * Parse selector blocks + optional group-level fallback from an already-opened `{` context.
  * Stops on the matching `}`.
+ *
+ * @param parseCrossBlock - Optional handler for cross-domain blocks of the form `keyword @selector { ... }`.
+ *   Called after consuming the domain keyword and `@`; returns a parsed block (stored in `crossBlocks`)
+ *   or null. Any word token immediately followed by `@` triggers this handler instead of the normal skip.
  */
 export function parseGroupBlocks<S, O>(
   cursor: TokenCursor,
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
+  parseCrossBlock?: (cursor: TokenCursor) => unknown | null,
 ): {
   blocks: OverridesSelectorBlock<S, O>[]
   fallbackBlocks: OverridesSelectorBlock<S, O>[]
+  crossBlocks: unknown[]
+  crossFallbackBlocks: unknown[]
 } {
   const blocks: OverridesSelectorBlock<S, O>[] = []
   const fallbackBlocks: OverridesSelectorBlock<S, O>[] = []
+  const crossBlocks: unknown[] = []
+  const crossFallbackBlocks: unknown[] = []
   while (true) {
     const token = cursor.peek()
     if (!token) break
@@ -526,8 +539,17 @@ export function parseGroupBlocks<S, O>(
     if (isFallbackKeyword(token)) {
       cursor.next()
       if (!cursor.consumeSymbol('{')) continue
-      const parsed = parseSelectorBlockList(cursor, parseSelectorBlock)
-      if (parsed.length > 0) fallbackBlocks.push(...parsed)
+      const { parsed: fbParsed, crossParsed: fbCross } = parseSelectorBlockListWithCross(cursor, parseSelectorBlock, parseCrossBlock)
+      if (fbParsed.length > 0) fallbackBlocks.push(...fbParsed)
+      if (fbCross.length > 0) crossFallbackBlocks.push(...fbCross)
+      continue
+    }
+    // Cross-domain block: `keyword @selector { ... }` — word token immediately followed by `@`.
+    if (parseCrossBlock && token.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '@') {
+      cursor.next()  // consume domain keyword
+      cursor.next()  // consume '@'
+      const block = parseCrossBlock(cursor)
+      if (block !== null && block !== undefined) crossBlocks.push(block)
       continue
     }
     if (token.kind === 'symbol' && token.value === '@') {
@@ -538,7 +560,7 @@ export function parseGroupBlocks<S, O>(
     }
     cursor.next()
   }
-  return { blocks, fallbackBlocks }
+  return { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks }
 }
 
 /** Parse a list of `@selector { ... }` blocks until a closing `}`. */
@@ -558,6 +580,32 @@ export function parseSelectorBlockList<S, O>(
   return blocks
 }
 
+/** Internal variant that also collects cross-domain blocks. */
+function parseSelectorBlockListWithCross<S, O>(
+  cursor: TokenCursor,
+  parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
+  parseCrossBlock?: (cursor: TokenCursor) => unknown | null,
+): { parsed: OverridesSelectorBlock<S, O>[]; crossParsed: unknown[] } {
+  const parsed: OverridesSelectorBlock<S, O>[] = []
+  const crossParsed: unknown[] = []
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === '}') { cursor.next(); break }
+    if (parseCrossBlock && token.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '@') {
+      cursor.next()  // consume domain keyword
+      cursor.next()  // consume '@'
+      const block = parseCrossBlock(cursor)
+      if (block !== null && block !== undefined) crossParsed.push(block)
+      continue
+    }
+    if (!cursor.consumeSymbol('@')) { cursor.next(); continue }
+    const block = parseSelectorBlock(cursor)
+    if (block) parsed.push(block)
+  }
+  return { parsed, crossParsed }
+}
+
 /**
  * Parse a single option block (single/multi) or slider group following the group-type keyword.
  * `parseSelectorBlock` is the caller-supplied function for the operation-specific block content.
@@ -567,6 +615,7 @@ export function parseOverridesOptionBlock<S, O>(
   optionIndex: number,
   groupType: NoteQuestionGroupType,
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
+  parseCrossBlock?: (cursor: TokenCursor) => void,
 ): ParsedOverridesOption<S, O> | null {
   const labelToken = cursor.consumeString()
   if (!labelToken) return null
@@ -624,11 +673,11 @@ export function parseOverridesOptionBlock<S, O>(
     }
     // If no params were parsed, apply defaults.
     if (!sliderParams) sliderParams = { min: 0, max: 10, step: 1, default: 1 }
-    const { blocks, fallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock)
+    const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock)
     const baseLabel = normalizeQuestionText(label).toLowerCase()
     const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
     return {
-      id, legacyId: id, label, detail, blocks, fallbackBlocks,
+      id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
       isDefault, explicitToken, implicitToken: null,
       setTokens, unsetTokens, excludedTokens, onlyTokens,
       groupType, sliderParams,
@@ -695,12 +744,12 @@ export function parseOverridesOptionBlock<S, O>(
     }
     cursor.next()
   }
-  const { blocks, fallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock)
+  const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock)
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   const implicitToken = normalizeQuestionToken(String(optionIndex + 1))
   return {
-    id, legacyId: id, label, detail, blocks, fallbackBlocks,
+    id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
     isDefault, explicitToken, implicitToken,
     setTokens, unsetTokens, excludedTokens, onlyTokens,
     groupType,
@@ -735,6 +784,7 @@ export function parseOverridesMarkerBody<S, O>(
   inner: string,
   markerKeywords: readonly string[],
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
+  parseCrossBlock?: (cursor: TokenCursor) => void,
 ): ParsedOverridesQuestion<S, O> | null {
   const tokens = tokenize(inner)
   const cursor = new TokenCursor(tokens)
@@ -747,6 +797,7 @@ export function parseOverridesMarkerBody<S, O>(
   const prompt = promptToken.value
   const parsedOptions: ParsedOverridesOption<S, O>[] = []
   let fallbackBlocks: OverridesSelectorBlock<S, O>[] | null = null
+  let fallbackCrossBlocks: unknown[] = []
   while (true) {
     const token = cursor.peek()
     if (!token) break
@@ -755,14 +806,15 @@ export function parseOverridesMarkerBody<S, O>(
     if (isFallbackKeyword(token)) {
       cursor.next()
       if (!cursor.consumeSymbol('{')) continue
-      const blocks = parseSelectorBlockList(cursor, parseSelectorBlock)
-      fallbackBlocks = blocks.length > 0 ? blocks : null
+      const { parsed, crossParsed } = parseSelectorBlockListWithCross(cursor, parseSelectorBlock, parseCrossBlock)
+      fallbackBlocks = parsed.length > 0 ? parsed : null
+      if (crossParsed.length > 0) fallbackCrossBlocks = crossParsed
       continue
     }
     const groupType = parseGroupType(token.value)
     if (!groupType) { cursor.next(); continue }
     cursor.next()
-    const parsed = parseOverridesOptionBlock(cursor, parsedOptions.length, groupType, parseSelectorBlock)
+    const parsed = parseOverridesOptionBlock(cursor, parsedOptions.length, groupType, parseSelectorBlock, parseCrossBlock)
     if (!parsed) { if (cursor.peek()) cursor.next(); continue }
     parsedOptions.push(parsed)
   }
@@ -781,7 +833,162 @@ export function parseOverridesMarkerBody<S, O>(
     layoutColumns: markerOptions.columns,
     questionId,
     options: parsedOptions,
-    fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
+    fallback: (fallbackBlocks || fallbackCrossBlocks.length > 0)
+      ? { blocks: fallbackBlocks ?? [], crossBlocks: fallbackCrossBlocks }
+      : null,
+  }
+}
+
+// ── $count / $value AST ───────────────────────────────────────────────────────
+
+/**
+ * AST node for arithmetic expressions in `count = <expr>` (and numeric cross-domain)
+ * assignments. Shared between safeguard-overrides and recipe cross-domain blocks.
+ *
+ *   expr       → addExpr
+ *   addExpr    → mulExpr  (('+' | '-') mulExpr)*
+ *   mulExpr    → unaryExpr (('*' | '/') unaryExpr)*
+ *   unaryExpr  → '-' unaryExpr | primary
+ *   primary    → '(' expr ')' | $count('.'TOKEN)? | $value('.'TOKEN)? | NUMBER
+ *
+ * Both `$count` and `$value` alias the enclosing slider value.
+ * `$count.TOKEN` / `$value.TOKEN` references another slider by its id=TOKEN.
+ */
+export type NoteCountAstNode =
+  | { kind: 'literal'; value: number }
+  | { kind: 'ref'; sliderId: string | null }
+  | { kind: 'binop'; op: '+' | '-' | '*' | '/';
+      left: NoteCountAstNode; right: NoteCountAstNode }
+  | { kind: 'unary'; op: '-'; operand: NoteCountAstNode }
+
+// True when the cursor is at a hard stop that terminates an expression:
+//   `}` closes the current selector block; `,` is an operation separator;
+//   a word followed by `=` opens a new field assignment.
+const isCountExprStop = (cursor: TokenCursor): boolean => {
+  const t = cursor.peek()
+  if (!t) return true
+  if (t.kind === 'symbol' && (t.value === '}' || t.value === ',')) return true
+  if (t.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return true
+  return false
+}
+
+// addExpr → mulExpr (('+' | '-') mulExpr)*
+// '+' is a symbol; '-' arrives as a word token when space-separated.
+const parseCountAddExpr = (cursor: TokenCursor): NoteCountAstNode | null => {
+  let left = parseCountMulExpr(cursor)
+  if (!left) return null
+  while (!isCountExprStop(cursor)) {
+    const t = cursor.peek()
+    if (!t) break
+    const isPlus  = t.kind === 'symbol' && t.value === '+'
+    const isMinus = t.kind === 'word'   && t.value === '-'
+    if (!isPlus && !isMinus) break
+    cursor.next()
+    const right = parseCountMulExpr(cursor)
+    if (!right) break
+    left = { kind: 'binop', op: isPlus ? '+' : '-', left, right }
+  }
+  return left
+}
+
+// mulExpr → unaryExpr (('*' | '/') unaryExpr)*
+const parseCountMulExpr = (cursor: TokenCursor): NoteCountAstNode | null => {
+  let left = parseCountUnary(cursor)
+  if (!left) return null
+  while (!isCountExprStop(cursor)) {
+    const t = cursor.peek()
+    if (!t) break
+    const isMul = t.kind === 'symbol' && t.value === '*'
+    const isDiv = t.kind === 'symbol' && t.value === '/'
+    if (!isMul && !isDiv) break
+    cursor.next()
+    const right = parseCountUnary(cursor)
+    if (!right) break
+    left = { kind: 'binop', op: isMul ? '*' : '/', left, right }
+  }
+  return left
+}
+
+// unaryExpr → '-' unaryExpr | primary
+// Unary minus appears as a standalone word token (space-separated), e.g. `- $count`.
+// Combined forms like `-2` are handled as negative literals in parsePrimary.
+const parseCountUnary = (cursor: TokenCursor): NoteCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  const t = cursor.peek()
+  if (!t) return null
+  if (t.kind === 'word' && t.value === '-') {
+    cursor.next()
+    const operand = parseCountUnary(cursor)
+    if (!operand) return null
+    return { kind: 'unary', op: '-', operand }
+  }
+  return parseCountPrimary(cursor)
+}
+
+// primary → '(' expr ')' | $count('.' TOKEN)? | $value('.' TOKEN)? | NUMBER
+const parseCountPrimary = (cursor: TokenCursor): NoteCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  const t = cursor.peek()
+  if (!t) return null
+  if (t.kind === 'symbol' && t.value === '(') {
+    cursor.next()
+    const inner = parseCountAddExpr(cursor)
+    cursor.consumeSymbol(')')
+    return inner
+  }
+  if (t.kind !== 'word') return null
+  const lc = t.value.toLowerCase()
+  if (lc === '$count' || lc === '$value') {
+    cursor.next()
+    return { kind: 'ref', sliderId: null }
+  }
+  if (lc.startsWith('$count.') || lc.startsWith('$value.')) {
+    cursor.next()
+    const sliderId = t.value.slice(t.value.indexOf('.') + 1) || null
+    return { kind: 'ref', sliderId }
+  }
+  const n = Number(t.value)
+  if (Number.isFinite(n)) {
+    cursor.next()
+    return { kind: 'literal', value: n }
+  }
+  return null
+}
+
+/**
+ * Parse a full `count`/numeric expression from the cursor.
+ * Returns the AST node, or null if parsing fails.
+ */
+export const parseCountExpression = (cursor: TokenCursor): NoteCountAstNode | null => {
+  if (isCountExprStop(cursor)) return null
+  return parseCountAddExpr(cursor)
+}
+
+/**
+ * Evaluate a NoteCountAstNode to a number.
+ * @param selfValue  The enclosing slider's current numeric value.
+ * @param tokenMap   Map from slider explicit-token → slider current value.
+ */
+export const evalCountAst = (
+  node: NoteCountAstNode,
+  selfValue: number,
+  tokenMap: ReadonlyMap<string, number>,
+): number => {
+  switch (node.kind) {
+    case 'literal': return node.value
+    case 'ref':     return node.sliderId === null
+      ? selfValue
+      : (tokenMap.get(node.sliderId) ?? 1)
+    case 'unary':   return -evalCountAst(node.operand, selfValue, tokenMap)
+    case 'binop': {
+      const l = evalCountAst(node.left,  selfValue, tokenMap)
+      const r = evalCountAst(node.right, selfValue, tokenMap)
+      if (node.op === '+') return l + r
+      if (node.op === '-') return l - r
+      if (node.op === '*') return l * r
+      // Guard zero denominator by returning the left operand unchanged.
+      return r !== 0 ? l / r : l
+    }
   }
 }
 

@@ -522,19 +522,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   // Keep a stable instruction map for downstream UI and filter logic.
   const recipeOverridesInstructions = recipeOverridesResolution.instructions
+  // Normalize the safeguard overrides note text — mirrors the recipe overrides gate so disabling
+  // noteOverridesDisabled suppresses safeguard overrides from both display and the pipeline.
+  const safeguardOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
+  // Resolve safeguard overrides instructions from the current note + session answers.
+  const safeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(safeguardOverridesNoteText, noteSafeguardOverridesAnswers),
+    [safeguardOverridesNoteText, noteSafeguardOverridesAnswers],
+  )
+  // Merge native recipe instructions with cross-domain ones from safeguard-overrides questions.
+  const effectiveRecipeInstructions = useMemo(
+    () => [
+      ...recipeOverridesResolution.instructions,
+      ...safeguardOverridesResolution.recipeInstructions,
+    ],
+    [recipeOverridesResolution.instructions, safeguardOverridesResolution.recipeInstructions],
+  )
   // Resolve recipe overrides-driven export modes for every recipe.
   const recipeOverridesExportModes = useMemo(
-    () => buildRecipeOverridesExportModeResolution(customRecipes, recipeOverridesInstructions),
-    [customRecipes, recipeOverridesInstructions],
+    () => buildRecipeOverridesExportModeResolution(customRecipes, effectiveRecipeInstructions),
+    [customRecipes, effectiveRecipeInstructions],
   )
   // Apply recipe overrides for preview consumers (rules + note chips) without mutating SFC recipes.
   const recipeOverridesRecipesForRules = useMemo(
-    () => applyRecipeOverrides(customRecipes, recipeOverridesInstructions),
-    [customRecipes, recipeOverridesInstructions],
+    () => applyRecipeOverrides(customRecipes, effectiveRecipeInstructions),
+    [customRecipes, effectiveRecipeInstructions],
   )
   const recipeOverridesSubstatTargetsResolution = useMemo(
-    () => applyRecipeOverridesSubstatTargetsOverrides(substatTargets, customRecipes, recipeOverridesInstructions),
-    [substatTargets, customRecipes, recipeOverridesInstructions],
+    () => applyRecipeOverridesSubstatTargetsOverrides(substatTargets, customRecipes, effectiveRecipeInstructions),
+    [substatTargets, customRecipes, effectiveRecipeInstructions],
   )
   const effectiveSubstatTargets = recipeOverridesSubstatTargetsResolution.substatTargets
   const substatTargetsOverridesActive = recipeOverridesSubstatTargetsResolution.overridesActive
@@ -690,27 +706,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
-  // Normalize the safeguard overrides note text — mirrors the recipe overrides gate so disabling
-  // noteOverridesDisabled suppresses safeguard overrides from both display and the pipeline.
-  const safeguardOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
-  // Resolve safeguard overrides instructions from the current note + session answers.
-  const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(safeguardOverridesNoteText, noteSafeguardOverridesAnswers),
-    [safeguardOverridesNoteText, noteSafeguardOverridesAnswers],
+  // Merge native safeguard instructions with cross-domain ones from recipe-overrides questions.
+  const effectiveSafeguardInstructions = useMemo(
+    () => [
+      ...safeguardOverridesResolution.instructions,
+      ...recipeOverridesResolution.safeguardInstructions,
+    ],
+    [safeguardOverridesResolution.instructions, recipeOverridesResolution.safeguardInstructions],
   )
   // Apply safeguard overrides on top of the metaset-resolved rules for the worker pipeline.
   // The SFC-stored rules are never mutated; this is a session-only view.
   const effectiveSafeguardRules = useMemo(
-    () => applySafeguardOverrides(resolvedSafeguardRules, safeguardOverridesResolution.instructions),
-    [resolvedSafeguardRules, safeguardOverridesResolution.instructions],
+    () => applySafeguardOverrides(resolvedSafeguardRules, effectiveSafeguardInstructions),
+    [resolvedSafeguardRules, effectiveSafeguardInstructions],
   )
   // Apply the same overrides to the raw (pre-metaset-resolution) rules for display purposes.
   // resolvedSafeguardRules expands metaset names into individual sets, which would make chips
   // show every constituent set instead of the metaset name. Overrides only touch scalar fields
   // (requiredCount, activation, countMode, etc.) so applying them to safeguardRules is safe.
   const displaySafeguardRules = useMemo(
-    () => applySafeguardOverrides(safeguardRules, safeguardOverridesResolution.instructions),
-    [safeguardRules, safeguardOverridesResolution.instructions],
+    () => applySafeguardOverrides(safeguardRules, effectiveSafeguardInstructions),
+    [safeguardRules, effectiveSafeguardInstructions],
   )
   // Keep a stable ref so applySafeguardOverridesToRules always reads the latest display rules
   // even when the callback was memoized before the last override answer changed.

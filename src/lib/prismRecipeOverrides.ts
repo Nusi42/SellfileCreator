@@ -287,6 +287,11 @@ function recipeOverrides(Prism: Refractor): void {
         // Plain integer literals.
         'number': /\b\d+\b/,
 
+        // Cross-domain block prefix keywords (`safeguard @…` inside recipe-overrides,
+        // `recipe @…` inside safeguard-overrides). Colored as structural keywords so they
+        // read as block-level delimiters rather than field assignments.
+        'cross-domain-kw': /\b(?:safeguard|recipe)\b(?=\s*@)/,
+
         // The `@` sigil used before tag names in selector expressions.
         'selector-at': /@/,
 
