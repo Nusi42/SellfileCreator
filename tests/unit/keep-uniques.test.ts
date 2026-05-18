@@ -99,7 +99,7 @@ const makeRule = (overrides: Partial<SafeguardRule> & { name?: string } = {}): S
     requiredCount: overrides.requiredCount ?? 1,
     activation: overrides.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: overrides.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE,
-    ignorePreviousSafeguards: overrides.ignorePreviousSafeguards,
+    ignorePreviousSafeguards_v2: overrides.ignorePreviousSafeguards,
     ignoreEquippedInCollection: overrides.ignoreEquippedInCollection,
     ignoreEquippedInVault: overrides.ignoreEquippedInVault,
     // Pass optional substat ranking fields through so tests can exercise ranked mode.
