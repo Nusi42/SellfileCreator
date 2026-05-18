@@ -843,8 +843,11 @@ export default function SafeguardBuilderPanel({
       <Box
         component="span"
         sx={(theme) => ({
+          // Centre the badge on the chip's top edge: top:0 + translateY(-50%) puts the
+          // badge's geometric centre exactly at y=0, so the badge straddles the chip's
+          // top (half above, half inside) — the standard Material badge-on-element look.
           position: 'absolute',
-          top: -6,
+          top: 0,
           left: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 2,
@@ -1537,7 +1540,9 @@ export default function SafeguardBuilderPanel({
             return (
               <>
                 {/* Row 1: ignore previous safeguards */}
-                <Box sx={{ position: 'relative', display: 'flex' }}>
+                {/* alignSelf:flex-start collapses this box to chip width so the badge's left:50%
+                    centres on the chip, not on the full-width column stretch. */}
+                <Box sx={{ position: 'relative', alignSelf: 'flex-start' }}>
                   <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
                     <Chip
                       size="small"
