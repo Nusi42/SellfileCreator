@@ -1,5 +1,12 @@
 # Pre-Release Checklist
 
+## v1.0.11 — 2026-05-21
+
+- SFC serialization: `ignorePreviousSafeguards` was renamed to `ignorePreviousSafeguards_v2` (commit 4c50a9e2). Verify the migration path in `sfcIO.ts` correctly loads existing `.sfc` files — rules without substats should preserve the original value; rules with substats should be reset to `false`.
+- Cross-domain overrides (commit 57ee9bf4) introduce `RecipeOverridesResolution.safeguardInstructions` and `SafeguardOverridesResolution.recipeInstructions` — verify these new fields are excluded from / handled correctly in any SFC persistence or export paths that inspect override resolution objects.
+- The rank/rarity/faction override ops (commit a1da06ff) enforce the accessory-slot constraint when a non-empty faction list is set via override — confirm that this constraint is applied consistently with the static safeguard-builder path.
+
+
 ## v1.0.10 — 2026-05-17
 
 - **Wire format change (63135621)**: `equippedChampionLocation` flat field → nested `equippedChampion: { location }` in SafeguardWasmArtifactRawIn. This fixes silent data loss where location info was being dropped after TS-side reshape. Verify no backward-compatibility issues with stored candidate payloads or cached results.
