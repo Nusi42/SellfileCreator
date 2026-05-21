@@ -16,7 +16,12 @@
  *   pruneNoteSafeguardOverridesAnswers  — remove stale answer keys
  *   normalizeNoteSafeguardOverridesAnswers — decode persisted payload
  */
-import type { StatVariant } from './types'
+import type { StatVariant, RankValue, FactionId } from './types'
+import type { RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation } from './noteRecipeOverrides'
+// Runtime imports for cross-domain parsing — safe for circular use since only called inside function bodies.
+// parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
+// clampRankCode is the SSOT for [1,6] integer rank clamping used at AST resolve time.
+import { parseRecipeSelectorBlockCross, clampRankCode } from './noteRecipeOverrides'
 import { variantFromLabel } from './types'
 import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
 import {
@@ -25,7 +30,10 @@ import {
   cloneSafeguardRule,
   normalizeSafeguardSubstatDependents,
   pruneSafeguardsSubstatWeights,
+  factionIdByName,
+  rarityCodeByName,
 } from './safeguards'
+import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
   SAFEGUARD_WEIGHT_MIN,
   SAFEGUARD_WEIGHT_MAX,
@@ -35,16 +43,22 @@ import {
 import {
   type NoteQuestionGroupType,
   type NoteTagSelector,
+  type NoteCountAstNode,
   type ParsedOverridesOption,
   type ParsedOverridesQuestion,
   TokenCursor,
   stripCommentWrapper,
   parseTagSelector,
+  parseCountExpression,
+  evalCountAst,
   collectSelectorTokensAndOpenBlock,
   parseOverridesMarkerBody,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
 } from './noteOverridesParser'
+
+// Backward-compatible alias for external callers.
+export type SafeguardCountAstNode = NoteCountAstNode
 
 // ── Exported constants (single source of truth for Prism + EBNF) ─────────────
 
@@ -80,30 +94,9 @@ export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'weight',
   // improvchance = off | disabled | <number> [<number> [<number> [<number>]]]
   'improvchance',
+  // combination filters: rank/rarity accept integer lists 1–6; faction accepts names.
+  'rank', 'rarity', 'faction',
 ] as const
-
-// ── $count / $value expression AST ───────────────────────────────────────────
-
-/**
- * AST node for arithmetic expressions in `count = <expr>` assignments.
- *
- * Supported grammar (standard PEMDAS/BODMAS precedence):
- *   expr       → addExpr
- *   addExpr    → mulExpr  (('+' | '-') mulExpr)*
- *   mulExpr    → unaryExpr (('*' | '/') unaryExpr)*
- *   unaryExpr  → '-' unaryExpr | primary
- *   primary    → '(' expr ')' | $count('.'TOKEN)? | $value | NUMBER
- *
- * Both `$count` and `$value` are equal aliases for the enclosing slider value.
- * `$count.TOKEN` / `$value.TOKEN` references another slider by its id=TOKEN.
- * The final numeric result is rounded and clamped to [1, 9999].
- */
-export type SafeguardCountAstNode =
-  | { kind: 'literal'; value: number }
-  | { kind: 'ref'; sliderId: string | null }        // null = self, string = cross-slider
-  | { kind: 'binop'; op: '+' | '-' | '*' | '/';
-      left: SafeguardCountAstNode; right: SafeguardCountAstNode }
-  | { kind: 'unary'; op: '-'; operand: SafeguardCountAstNode }
 
 // ── Operation types ───────────────────────────────────────────────────────────
 
@@ -112,7 +105,7 @@ export type SafeguardOverridesOperation =
   | { kind: 'activation'; value: SafeguardRuleActivation }
   // count: null means "use the enclosing slider's current value ($count / $value).
   // ast: if present, a full arithmetic expression to evaluate at resolve time.
-  | { kind: 'count'; value: number | null; ast?: SafeguardCountAstNode }
+  | { kind: 'count'; value: number | null; ast?: NoteCountAstNode }
   | { kind: 'ignPrev'; value: boolean }
   | { kind: 'ignEquippedCollection'; value: boolean }
   | { kind: 'ignEquippedVault'; value: boolean }
@@ -127,6 +120,13 @@ export type SafeguardOverridesOperation =
   | { kind: 'substatWeight'; stat: StatVariant; value: number }
   // null = disable the feature; non-null = enable with specific per-level thresholds.
   | { kind: 'improvementChance'; value: SafeguardImprovementChanceLevelThresholds | null }
+  // Combination filter overrides — replace or mutate the rule's rank/rarity/faction arrays.
+  | { kind: 'ranks';    mode: 'replace'; values: RankValue[] }
+  | { kind: 'ranks';    mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
+  | { kind: 'rarities'; mode: 'replace'; values: RankValue[] }
+  | { kind: 'rarities'; mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
+  | { kind: 'factions'; mode: 'replace'; values: FactionId[] }
+  | { kind: 'factions'; mode: 'mutate';  add: FactionId[];  remove: FactionId[] }
 
 /** A resolved selector + operations pair, ready for application. */
 export type SafeguardOverridesSelectorBlock = {
@@ -196,6 +196,10 @@ const parseBooleanValue = (value: string): boolean | null => {
   return null
 }
 
+// Deduplicate and sort a numeric array — shared by ranks, rarities, and factions applier.
+const sortDedupNumeric = <T extends number>(arr: T[]): T[] =>
+  Array.from(new Set(arr)).sort((a, b) => a - b) as T[]
+
 // ── Prefix token parsing for stat lists ──────────────────────────────────────
 
 type StatListPrefix = 'add' | 'remove' | 'none'
@@ -233,150 +237,6 @@ const consumeStatListRemainder = (cursor: TokenCursor): string[] => {
     extras.push(prefix + next.value)
   }
   return extras
-}
-
-// ── $count / $value expression parser ────────────────────────────────────────
-
-// True when the cursor is at a hard stop that terminates an expression:
-//   `}` closes the current selector block; `,` is an operation separator;
-//   a word followed by `=` opens a new field assignment.
-const isCountExprStop = (cursor: TokenCursor): boolean => {
-  const t = cursor.peek()
-  if (!t) return true
-  if (t.kind === 'symbol' && (t.value === '}' || t.value === ',')) return true
-  // Word directly followed by `=` means a new assignment is starting.
-  if (t.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return true
-  return false
-}
-
-// addExpr → mulExpr (('+' | '-') mulExpr)*
-// '+' is a symbol; '-' arrives as a word token when space-separated.
-const parseCountAddExpr = (cursor: TokenCursor): SafeguardCountAstNode | null => {
-  let left = parseCountMulExpr(cursor)
-  if (!left) return null
-  while (!isCountExprStop(cursor)) {
-    const t = cursor.peek()
-    if (!t) break
-    const isPlus  = t.kind === 'symbol' && t.value === '+'
-    const isMinus = t.kind === 'word'   && t.value === '-'
-    if (!isPlus && !isMinus) break
-    cursor.next()
-    const right = parseCountMulExpr(cursor)
-    if (!right) break
-    left = { kind: 'binop', op: isPlus ? '+' : '-', left, right }
-  }
-  return left
-}
-
-// mulExpr → unaryExpr (('*' | '/') unaryExpr)*
-// Both '*' and '/' are symbol tokens (with or without surrounding spaces).
-const parseCountMulExpr = (cursor: TokenCursor): SafeguardCountAstNode | null => {
-  let left = parseCountUnary(cursor)
-  if (!left) return null
-  while (!isCountExprStop(cursor)) {
-    const t = cursor.peek()
-    if (!t) break
-    const isMul = t.kind === 'symbol' && t.value === '*'
-    const isDiv = t.kind === 'symbol' && t.value === '/'
-    if (!isMul && !isDiv) break
-    cursor.next()
-    const right = parseCountUnary(cursor)
-    if (!right) break
-    left = { kind: 'binop', op: isMul ? '*' : '/', left, right }
-  }
-  return left
-}
-
-// unaryExpr → '-' unaryExpr | primary
-// Unary minus appears as a standalone word token (space-separated), e.g. `- $count`.
-// Combined forms like `-2` are handled as negative literals in parsePrimary.
-const parseCountUnary = (cursor: TokenCursor): SafeguardCountAstNode | null => {
-  if (isCountExprStop(cursor)) return null
-  const t = cursor.peek()
-  if (!t) return null
-  if (t.kind === 'word' && t.value === '-') {
-    cursor.next()
-    const operand = parseCountUnary(cursor)
-    if (!operand) return null
-    return { kind: 'unary', op: '-', operand }
-  }
-  return parseCountPrimary(cursor)
-}
-
-// primary → '(' expr ')' | $count('.' TOKEN)? | $value('.' TOKEN)? | NUMBER
-const parseCountPrimary = (cursor: TokenCursor): SafeguardCountAstNode | null => {
-  if (isCountExprStop(cursor)) return null
-  const t = cursor.peek()
-  if (!t) return null
-  // Parenthesized sub-expression.
-  if (t.kind === 'symbol' && t.value === '(') {
-    cursor.next()
-    const inner = parseCountAddExpr(cursor)
-    cursor.consumeSymbol(')')   // tolerate missing close paren
-    return inner
-  }
-  // Only word tokens are valid primaries beyond parens.
-  if (t.kind !== 'word') return null
-  const lc = t.value.toLowerCase()
-  // $count / $value self-reference (no dot suffix).
-  if (lc === '$count' || lc === '$value') {
-    cursor.next()
-    return { kind: 'ref', sliderId: null }
-  }
-  // $count.TOKEN / $value.TOKEN cross-slider reference.
-  if (lc.startsWith('$count.') || lc.startsWith('$value.')) {
-    cursor.next()
-    const sliderId = t.value.slice(t.value.indexOf('.') + 1) || null
-    return { kind: 'ref', sliderId }
-  }
-  // Numeric literal (may be negative like '-2' as a single word token without spaces).
-  const n = Number(t.value)
-  if (Number.isFinite(n)) {
-    cursor.next()
-    return { kind: 'literal', value: n }
-  }
-  // Unknown token — stop without consuming (let outer loop handle it).
-  return null
-}
-
-/**
- * Parse a full `count` expression from the cursor (cursor is positioned at the first
- * value token, before it has been consumed). Handles literals, slider refs, arithmetic,
- * and parentheses. Returns the AST node, or null if parsing fails.
- */
-const parseCountExpression = (cursor: TokenCursor): SafeguardCountAstNode | null => {
-  if (isCountExprStop(cursor)) return null
-  return parseCountAddExpr(cursor)
-}
-
-// ── $count / $value expression evaluator ─────────────────────────────────────
-
-/**
- * Evaluate a SafeguardCountAstNode to a number.
- * @param selfValue  The enclosing slider's current numeric value (for bare $count/$value refs).
- * @param tokenMap   Map from slider explicit-token → slider current value (for cross-slider refs).
- */
-const evalCountAst = (
-  node: SafeguardCountAstNode,
-  selfValue: number,
-  tokenMap: ReadonlyMap<string, number>,
-): number => {
-  switch (node.kind) {
-    case 'literal': return node.value
-    case 'ref':     return node.sliderId === null
-      ? selfValue
-      : (tokenMap.get(node.sliderId) ?? 1)
-    case 'unary':   return -evalCountAst(node.operand, selfValue, tokenMap)
-    case 'binop': {
-      const l = evalCountAst(node.left,  selfValue, tokenMap)
-      const r = evalCountAst(node.right, selfValue, tokenMap)
-      if (node.op === '+') return l + r
-      if (node.op === '-') return l - r
-      if (node.op === '*') return l * r
-      // Division: guard zero denominator by returning the left operand unchanged.
-      return r !== 0 ? l / r : l
-    }
-  }
 }
 
 // ── Operations parser ─────────────────────────────────────────────────────────
@@ -478,6 +338,62 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
       continue
     }
 
+    // ── rank = [+|-]N, … | rarity = [+|-](N|name), … | faction = [+|-]name, … ──
+    // All three fields use the same prefix-list mode (replace / mutate) as substats.
+    if (field === 'rank' || field === 'rarity' || field === 'faction') {
+      const rawTokens = [valueRaw, ...consumeStatListRemainder(cursor)]
+      const parsed = rawTokens.map(parseStatPrefixedToken)
+      const listMode = classifyStatListMode(parsed)
+      if (listMode === 'ignore') continue
+      if (field === 'rank' || field === 'rarity') {
+        // Resolve each token: numeric 1–6 for rank; numeric or named (epic, legendary, …) for rarity.
+        const resolve = (name: string): RankValue | null => {
+          if (field === 'rarity') {
+            const named = rarityCodeByName.get(name.trim().toLowerCase())
+            if (named != null) return named
+          }
+          const n = Number.parseInt(name, 10)
+          if (!Number.isFinite(n) || n < 1 || n > 6) return null
+          return n as RankValue
+        }
+        const kind = field === 'rank' ? 'ranks' : 'rarities'
+        if (listMode === 'replace') {
+          const values = parsed.map((t) => resolve(t.value)).filter((v): v is RankValue => v != null)
+          if (values.length > 0) operations.push({ kind, mode: 'replace', values })
+        } else {
+          const add: RankValue[] = [], remove: RankValue[] = []
+          for (const t of parsed) {
+            const v = resolve(t.value)
+            if (v == null) continue
+            if (t.prefix === 'remove') remove.push(v); else add.push(v)
+          }
+          if (add.length > 0 || remove.length > 0) operations.push({ kind, mode: 'mutate', add, remove })
+        }
+      } else {
+        // faction: resolve each token by name (case-insensitive) or numeric ID.
+        const resolve = (name: string): FactionId | null => {
+          const byName = factionIdByName.get(name.trim().toLowerCase())
+          if (byName != null) return byName
+          const n = Number.parseInt(name, 10)
+          if (!Number.isFinite(n) || n < 1) return null
+          return n as FactionId
+        }
+        if (listMode === 'replace') {
+          const values = parsed.map((t) => resolve(t.value)).filter((v): v is FactionId => v != null)
+          if (values.length > 0) operations.push({ kind: 'factions', mode: 'replace', values })
+        } else {
+          const add: FactionId[] = [], remove: FactionId[] = []
+          for (const t of parsed) {
+            const v = resolve(t.value)
+            if (v == null) continue
+            if (t.prefix === 'remove') remove.push(v); else add.push(v)
+          }
+          if (add.length > 0 || remove.length > 0) operations.push({ kind: 'factions', mode: 'mutate', add, remove })
+        }
+      }
+      continue
+    }
+
     // ── substatmatch = 1|2|3|4|persubstat ────────────────────────────────────
     if (field === 'substatmatch') {
       const matchVal = SUBSTAT_MATCH_KEYWORD_MAP[valueLc]
@@ -544,9 +460,11 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
 
 // ── Selector block parser ─────────────────────────────────────────────────────
 
-/** Parse a single `@selector { … }` block using the tag-only selector parser. */
-function parseSelectorBlock(cursor: TokenCursor): SafeguardOverridesSelectorBlock | null {
-  // Collect tokens up to the opening `{` and advance past it.
+/**
+ * Parse a single safeguard `@selector { … }` block.
+ * Exported for use as a cross-domain block parser inside recipe-overrides markers.
+ */
+export function parseSafeguardSelectorBlock(cursor: TokenCursor): SafeguardOverridesSelectorBlock | null {
   const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
   if (!selectorTokens) return null
   const selector = parseTagSelector(selectorTokens)
@@ -554,6 +472,9 @@ function parseSelectorBlock(cursor: TokenCursor): SafeguardOverridesSelectorBloc
   if (!selector || operations.length === 0) return null
   return { selector, operations }
 }
+
+/** Module-internal alias for the selector block parser (passed to shared infrastructure). */
+const parseSelectorBlock = parseSafeguardSelectorBlock
 
 // ── Internal parsed types (parameterized shared types) ───────────────────────
 
@@ -579,6 +500,8 @@ export type SafeguardNoteQuestionOption = {
   detail: string | null
   blocks: SafeguardOverridesSelectorBlock[]
   fallbackBlocks: SafeguardOverridesSelectorBlock[]
+  // Cross-domain blocks that target recipes when this option is active.
+  recipeBlocks: RecipeOverridesSelectorBlock[]
   isDefault: boolean
   token: string
   groupType: NoteQuestionGroupType
@@ -594,7 +517,7 @@ export type SafeguardNoteQuestionGroup = {
   id: string
   type: NoteQuestionGroupType
   options: SafeguardNoteQuestionOption[]
-  fallback: { blocks: SafeguardOverridesSelectorBlock[] } | null
+  fallback: { blocks: SafeguardOverridesSelectorBlock[]; recipeBlocks: RecipeOverridesSelectorBlock[] } | null
 }
 
 /** Fully resolved question definition used by the NoteDialog UI. */
@@ -605,7 +528,7 @@ export type SafeguardNoteQuestionDefinition = {
   layoutColumns: number
   groups: SafeguardNoteQuestionGroup[]
   options: SafeguardNoteQuestionOption[]
-  fallback: { blocks: SafeguardOverridesSelectorBlock[] } | null
+  fallback: { blocks: SafeguardOverridesSelectorBlock[]; recipeBlocks: RecipeOverridesSelectorBlock[] } | null
   defaultAnswer: string[]
   answer: string[]
 }
@@ -657,7 +580,7 @@ const buildQuestionGroups = (
       groupOrder.push(group)
     }
     if (parsed.fallbackBlocks.length > 0) {
-      const fallback = group.fallback ?? { blocks: [] }
+      const fallback = group.fallback ?? { blocks: [], recipeBlocks: [] }
       fallback.blocks.push(...parsed.fallbackBlocks)
       group.fallback = fallback.blocks.length > 0 ? fallback : null
     }
@@ -690,6 +613,7 @@ const buildResolvedQuestion = (
       detail: option.detail,
       blocks: option.blocks,
       fallbackBlocks: option.fallbackBlocks,
+      recipeBlocks: option.crossBlocks as RecipeOverridesSelectorBlock[],
       isDefault: option.isDefault,
       token,
       groupType: option.groupType,
@@ -727,7 +651,10 @@ const buildResolvedQuestion = (
   const migratedAnswer = Array.isArray(storedAnswer) ? storedAnswer : undefined
   // Apply the stored answer or fall back to defaults.
   const answer = resolveAnswer({ groups, options, defaultAnswer }, migratedAnswer)
-  return { id, index, prompt: question.prompt, layoutColumns: question.layoutColumns, groups, options, fallback: question.fallback, defaultAnswer, answer }
+  const fallback = question.fallback
+    ? { blocks: question.fallback.blocks, recipeBlocks: question.fallback.crossBlocks as RecipeOverridesSelectorBlock[] }
+    : null
+  return { id, index, prompt: question.prompt, layoutColumns: question.layoutColumns, groups, options, fallback, defaultAnswer, answer }
 }
 
 // Resolve stored or default answers against the current option set.
@@ -792,6 +719,10 @@ export const parseNoteSafeguardOverrides = (
       inner,
       [NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD],
       parseSelectorBlock,
+      // Cross-domain: `recipe @selector { … }` blocks inside safeguard-overrides markers.
+      // parseRecipeSelectorBlockCross circular import is safe — called inside a function body only.
+      // Uses the cross-domain variant so $count/$value expressions work inside slider questions.
+      (cursor) => parseRecipeSelectorBlockCross(cursor),
     )
     if (!parsed) { markerIndex += 1; continue }
     parsedEntries.push({ index: markerIndex, question: parsed })
@@ -813,9 +744,43 @@ export type SafeguardOverridesInstruction = {
 export type SafeguardOverridesResolution = {
   questions: SafeguardNoteQuestionDefinition[]
   instructions: SafeguardOverridesInstruction[]
+  // Cross-domain: recipe instructions emitted by safeguard-overrides questions.
+  recipeInstructions: RecipeOverridesInstructions
 }
 
 // ── Resolution function ───────────────────────────────────────────────────────
+
+/**
+ * Resolve $count / $value AST expressions in numeric recipe cross-domain ops.
+ * Placeholder until Step 8 adds `ast?` / nullable `value` fields to recipe ops;
+ * for now all recipe ops carry concrete values and pass through unchanged.
+ */
+// Resolve $count / $value ASTs in numeric recipe cross-block ops using the enclosing
+// slider's current value. Ops without a null value (i.e. already concrete) pass through.
+const resolveRecipeOpAst = (
+  op: RecipeOverridesOperation,
+  sliderValue: number,
+  tokenMap: ReadonlyMap<string, number>,
+): RecipeOverridesOperation => {
+  if (op.kind === 'rank' && op.value === null) {
+    const raw = op.ast ? evalCountAst(op.ast, sliderValue, tokenMap) : sliderValue
+    // Clamp to [1,6] and round to the nearest integer rank code.
+    return { kind: 'rank', value: clampRankCode(raw) }
+  }
+  if (op.kind === 'minRequiredRolls' && op.value === null) {
+    const raw = op.ast ? evalCountAst(op.ast, sliderValue, tokenMap) : sliderValue
+    return { kind: 'minRequiredRolls', value: Math.max(0, Math.round(raw)) }
+  }
+  if (op.kind === 'lockedMinRequiredRolls' && op.value === null) {
+    const raw = op.ast ? evalCountAst(op.ast, sliderValue, tokenMap) : sliderValue
+    return { kind: 'lockedMinRequiredRolls', value: Math.max(0, Math.round(raw)) }
+  }
+  if (op.kind === 'minSubstats' && op.value === null) {
+    const raw = op.ast ? evalCountAst(op.ast, sliderValue, tokenMap) : sliderValue
+    return { kind: 'minSubstats', value: Math.max(0, Math.round(raw)) }
+  }
+  return op
+}
 
 /**
  * Resolve active selector blocks from the current note + answers, producing
@@ -839,6 +804,7 @@ export const resolveNoteSafeguardOverridesTags = (
     }
   }
   const instructions: SafeguardOverridesInstruction[] = []
+  const recipeInstructions: RecipeOverridesSelectorBlock[] = []
   for (const question of questions) {
     const selected = new Set(question.answer)
     const groupFallbackApplied = new Set<string>()
@@ -848,6 +814,7 @@ export const resolveNoteSafeguardOverridesTags = (
       if (!hasSelection && group.fallback && !groupFallbackApplied.has(group.id)) {
         groupFallbackApplied.add(group.id)
         group.fallback.blocks.forEach((block) => instructions.push(block))
+        group.fallback.recipeBlocks.forEach((block) => recipeInstructions.push(block))
       }
     })
     // Emit blocks from selected options; slider options are always active (their answer is numeric).
@@ -874,16 +841,23 @@ export const resolveNoteSafeguardOverridesTags = (
           })
           if (resolvedOps.length > 0) instructions.push({ selector: block.selector, operations: resolvedOps })
         }
+        // Resolve $count / $value in numeric recipe cross-blocks using the same slider value.
+        for (const block of option.recipeBlocks) {
+          const resolvedOps = block.operations.map((op) => resolveRecipeOpAst(op, resolvedValue, sliderValueByToken))
+          if (resolvedOps.length > 0) recipeInstructions.push({ selector: block.selector, operations: resolvedOps })
+        }
         continue
       }
       for (const block of option.blocks) instructions.push(block)
+      for (const block of option.recipeBlocks) recipeInstructions.push(block)
     }
     // Apply question-level fallback when no options anywhere are selected.
     if (selected.size === 0 && question.fallback) {
       question.fallback.blocks.forEach((block) => instructions.push(block))
+      question.fallback.recipeBlocks.forEach((block) => recipeInstructions.push(block))
     }
   }
-  return { questions, instructions }
+  return { questions, instructions, recipeInstructions }
 }
 
 // ── Apply overrides ───────────────────────────────────────────────────────────
@@ -974,6 +948,42 @@ export const applySafeguardOverrides = (
           case 'improvementChance':
             clone.improvementChanceThreshold = op.value
             break
+          case 'ranks':
+            if (op.mode === 'replace') {
+              clone.combination.ranks = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.ranks)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.ranks = sortDedupNumeric([...s])
+            }
+            break
+          case 'rarities':
+            if (op.mode === 'replace') {
+              clone.combination.rarities = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.rarities)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.rarities = sortDedupNumeric([...s])
+            }
+            break
+          case 'factions': {
+            // Apply faction list change, then enforce the slot constraint: a non-empty
+            // factions array restricts the rule to accessory slots only.
+            if (op.mode === 'replace') {
+              clone.combination.factions = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.factions)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.factions = sortDedupNumeric([...s])
+            }
+            if (clone.combination.factions.length > 0) {
+              const accessory = clone.combination.slots.filter((s) => isAccessorySlot(s))
+              clone.combination.slots = accessory.length > 0
+                ? accessory
+                : [...ACCESSORY_SLOT_IDS] as typeof clone.combination.slots
+            }
+            break
+          }
         }
       }
     })

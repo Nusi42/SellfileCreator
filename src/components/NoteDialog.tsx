@@ -15,7 +15,8 @@ import { APP_VERSION } from '../version'
 import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
-import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
+import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
+import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -108,7 +109,7 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
     { color: hex },
   ]),
 )
-// Maps each recipe-overrides Prism token class to its display color.
+// Maps each dynamic-overrides Prism token class to its display color.
 // Mirrors styles.css so the same palette is applied both in the editor backdrop
 // and in tooltip <pre> blocks (where the .w-md-editor-text-pre scope doesn't apply).
 const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
@@ -146,10 +147,16 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'punctuation':       '#abb2bf',
   // note-markers sub-tokens
   'marker-kw':         '#c678dd',
+  'slider-param-kw':   '#56b6c2',  // min / max / step — same family as field names
   // safeguard-overrides specific tokens — reuse existing palette hues for consistency.
-  'sg-activation-val': '#d19a66',  // same as boolean-val (warm amber)
-  'sg-match-val':      '#d19a66',  // same as boolean-val (warm amber)
-  'sg-value-ref':      '#e06c75',  // same as default-kw (bright sigil marker)
+  'sg-activation-val':          '#d19a66',  // same as boolean-val (warm amber)
+  'sg-match-val':               '#d19a66',  // same as boolean-val (warm amber)
+  'sg-improvementchance-val':   '#d19a66',  // same as boolean-val (warm amber)
+  'sg-value-ref':               '#e06c75',  // same as default-kw (bright sigil marker)
+  // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
+  'cross-domain-kw':   '#c678dd',
+  // ebnf grammar tokens — used only in EBNF tooltip blocks, not in DSL editor.
+  'regex-literal':     '#c8a96e',  // muted amber, distinct from line-comment gray
 }
 
 // Recursively converts a refractor (HAST) node to React elements.
@@ -1478,9 +1485,10 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")
-             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
+crossBlock    := "safeguard" "@" selector "{" sgAssignment+ "}"  // targets safeguard rules from a recipe-overrides marker
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
@@ -1491,7 +1499,7 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
-fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
@@ -1643,29 +1651,40 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
 question      := ("q" | "question") string group+ [fallbackBlock]
 group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"checkbox"|"check")
-             string [string] [headerToken {headerToken}] [constraints] "{" selectorBlock+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
              | ("slider"|"range") string [headerToken {headerToken}] [constraints]
-               sliderParam {sliderParam} "{" selectorBlock+ [fallbackBlock] "}"
+               sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
+crossBlock    := "recipe" "@" selector "{" recipeAssignment+ "}"
+                 // targets recipe fields; see recipe-overrides EBNF for recipeAssignment syntax
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
 sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
-             | "count" "=" (number | "$value")   // $value = current slider position
+             | "count" "=" countExpr   // $count/$value expand to current slider position
              | ("ignprev"|"igncoll"|"ignvault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
              | "substats" "=" prefixToken ("," prefixToken)*
              | "substatmatch" "=" subMatchVal
              | "weight." statKey "=" number   // statKey case-insensitive (spd = SPD)
              | "improvchance" "=" impChanceVal
+             | "rank" "=" prefixNum ("," prefixNum)*     // replace or mutate rank filter
+             | "rarity" "=" prefixRarity ("," prefixRarity)*   // replace or mutate rarity filter
+             | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
+countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
+                 // in slider groups $count/$value expand to the current slider position
+prefixNum     := ["+" | "-"] rankNum
+prefixRarity  := ["+" | "-"] (rankNum | rarityName)
+rankNum       := /1–6/   (integer star rank)
+rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical"
 activationVal := "${_sgActVals}"
 subMatchVal   := "${_sgMatchVals}"
 impChanceVal  := "off" | "disabled" | number [number [number [number]]]
                  // 1–4 space-separated values set thresholds for upgrade level 0, 4, 8, 12
 flexVal       := "on" | "off" | "true" | "false"
-fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
               | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
@@ -4119,19 +4138,18 @@ function NoteEditorContent({
   const recipeOverridesSampleTooltipContent = useMemo(() => {
     // Build the shared EBNF text for the tooltip.
     const ebnfText = buildRecipeOverridesEbnfText()
-    // Render the tooltip with syntax-highlighted EBNF and annotated example.
-    // Both blocks use the recipe-overrides grammar so DSL keywords and string
-    // literals carry the same colors as they do in the editor backdrop.
+    // Render the tooltip: EBNF uses the minimal ebnf grammar; the example uses
+    // dynamic-overrides so DSL keywords carry the same colors as in the editor backdrop.
     return (
       <Box sx={RECIPE_OVERRIDES_TOOLTIP_WRAP_SX}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_EBNF_HEADER}
         </Typography>
-        {renderPrismHighlighted(ebnfText, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
+        {renderPrismHighlighted(ebnfText, 'ebnf', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
         </Typography>
-        {renderPrismHighlighted(RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
+        {renderPrismHighlighted(RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'dynamic-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
       </Box>
     )
   }, [])
@@ -4163,11 +4181,11 @@ function NoteEditorContent({
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_EBNF_HEADER}
       </Typography>
-      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'ebnf', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
       </Typography>
-      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'dynamic-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
     </Box>
   ), [])
 

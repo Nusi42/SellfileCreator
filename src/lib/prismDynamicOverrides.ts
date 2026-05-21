@@ -1,7 +1,7 @@
 /**
- * Registers a `recipe-overrides` Prism grammar with the shared refractor instance
- * so that `<!-- recipe-overrides ... -->` and `<!-- config-options ... -->` comment
- * blocks in the note editor are syntax-highlighted in the edit pane.
+ * Registers a `dynamic-overrides` Prism grammar with the shared refractor instance
+ * so that `<!-- recipe-overrides ... -->`, `<!-- safeguard-overrides ... -->`, and
+ * `<!-- config-options ... -->` comment blocks in the note editor are syntax-highlighted.
  *
  * Also registers a `note-markers` grammar for the simpler inline markers:
  *   <!-- recipes: 1,0,2 -->
@@ -10,7 +10,7 @@
  *   <!-- safeguards-re: "ring" -->
  *
  * Import this module for its side effect only:
- *   import '../lib/prismRecipeOverrides';
+ *   import '../lib/prismDynamicOverrides';
  *
  * This module is intentionally side-effect-only (no exports).
  */
@@ -57,13 +57,13 @@ const MARKER_OPTION_PATTERN = new RegExp(
 // Inner keyword pattern for the marker-option-kw sub-token.
 const MARKER_OPTION_KW_PATTERN = new RegExp(`\\b${_markerColKey}\\b`)
 
-// ── recipe-overrides grammar ───────────────────────────────────────────────
+// ── dynamic-overrides grammar ───────────────────────────────────────────────
 // Tokens are ordered from most-specific to least-specific so that Prism's
 // greedy/first-match logic picks the right class when tokens overlap.
 
 /** The grammar function typed as a refractor Syntax object. */
 function recipeOverrides(Prism: Refractor): void {
-    Prism.languages['recipe-overrides'] = {
+    Prism.languages['dynamic-overrides'] = {
 
         // Opening/closing comment delimiters.  The `<!--` / `-->` scaffolding
         // is colored as a structural bracket; the directive keyword inside
@@ -287,6 +287,11 @@ function recipeOverrides(Prism: Refractor): void {
         // Plain integer literals.
         'number': /\b\d+\b/,
 
+        // Cross-domain block prefix keywords (`safeguard @…` inside recipe-overrides,
+        // `recipe @…` inside safeguard-overrides). Colored as structural keywords so they
+        // read as block-level delimiters rather than field assignments.
+        'cross-domain-kw': /\b(?:safeguard|recipe)\b(?=\s*@)/,
+
         // The `@` sigil used before tag names in selector expressions.
         'selector-at': /@/,
 
@@ -302,7 +307,7 @@ function recipeOverrides(Prism: Refractor): void {
 }
 
 // Attach required metadata so refractor accepts it as a valid Syntax object.
-recipeOverrides.displayName = 'recipe-overrides';
+recipeOverrides.displayName = 'dynamic-overrides';
 recipeOverrides.aliases = [] as string[];
 
 // Register the grammar once.
@@ -356,13 +361,13 @@ if (mdGrammar) {
     refractor.languages.markdown = Object.assign(
         {
             // Matches the entire <!-- recipe-overrides … -->, <!-- safeguard-overrides … -->,
-            // or <!-- config-options … --> block.  Both DSLs share the recipe-overrides grammar
-            // so token colors remain identical.
-            'recipe-overrides-block': {
+            // or <!-- config-options … --> block. All DSLs share the dynamic-overrides grammar
+            // so token colors remain identical across marker types.
+            'dynamic-overrides-block': {
                 pattern: new RegExp(
                     `<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b[\\s\\S]*?-->`
                 ),
-                inside: refractor.languages['recipe-overrides'],
+                inside: refractor.languages['dynamic-overrides'],
             },
             // Matches inline <!-- recipes: … --> / <!-- recipes-re: "…" --> /
             // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers,

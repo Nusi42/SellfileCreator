@@ -5,11 +5,15 @@
  * that drive recipe export-mode overrides.
  */
 import type { BuilderRecipe, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
+import type { SafeguardOverridesSelectorBlock, SafeguardOverridesInstruction } from './noteSafeguardOverrides'
+// Runtime import for cross-domain parsing — safe for circular use since only called inside function bodies.
+import { parseSafeguardSelectorBlock } from './noteSafeguardOverrides'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { normalizeTagValue } from './tagHelpers'
 import {
   type Token,
+  type NoteCountAstNode,
   type NoteQuestionGroupType,
   type ParsedOverridesOption,
   type ParsedOverridesQuestion,
@@ -26,6 +30,7 @@ import {
   parseOverridesMarkerBody,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
+  parseCountExpression,
 } from './noteOverridesParser'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { countPositiveSubstats } from './recipeNormalization'
@@ -56,7 +61,7 @@ import {
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
 // ── Backward-compatible NOTE_RECIPE_OVERRIDES_* aliases ──────────────────────
-// These names are preserved for the syntax highlighter (prismRecipeOverrides.ts)
+// These names are preserved for the syntax highlighter (prismDynamicOverrides.ts)
 // and any other callers. The canonical definitions now live in noteOverridesParser.ts.
 
 /** @see NOTE_OVERRIDES_MARKER_COLUMNS_KEY */
@@ -123,14 +128,15 @@ export type RecipeOverridesSelector =
 
 export type RecipeOverridesOperation =
   | { kind: 'exportMode'; action: 'active' | 'disabled' | 'toggle' }
-  | { kind: 'rank'; value: RankCode }
+  // Cross-domain slider blocks may produce value: null with an ast for resolve-time eval.
+  | { kind: 'rank'; value: RankCode | null; ast?: NoteCountAstNode }
   | { kind: 'rarity'; mode: 'auto' | 'code'; code?: RarityCode }
   | { kind: 'level'; min: LevelMilestone; max: LevelMilestone }
   | { kind: 'keep'; mode: 'early' | 'late' }
   | { kind: 'autoLate'; threshold: AutoRaritySupplementsThreshold }
-  | { kind: 'minRequiredRolls'; value: number }
-  | { kind: 'lockedMinRequiredRolls'; value: number }
-  | { kind: 'minSubstats'; value: number }
+  | { kind: 'minRequiredRolls'; value: number | null; ast?: NoteCountAstNode }
+  | { kind: 'lockedMinRequiredRolls'; value: number | null; ast?: NoteCountAstNode }
+  | { kind: 'minSubstats'; value: number | null; ast?: NoteCountAstNode }
   | { kind: 'flex'; value: boolean }
   | { kind: 'substatMinAll'; value: number }
   | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
@@ -161,6 +167,8 @@ export type NoteQuestionOption = {
   // Optional second string rendered as the value column in two-column layouts.
   detail: string | null
   blocks: RecipeOverridesSelectorBlock[]
+  // Cross-domain blocks that target safeguard rules when this option is active.
+  safeguardBlocks: SafeguardOverridesSelectorBlock[]
   isDefault: boolean
   token: string
   setOptionIds: string[]
@@ -172,11 +180,13 @@ export type NoteQuestionOption = {
 // Selector blocks that apply when no options are selected.
 export type NoteQuestionFallback = {
   blocks: RecipeOverridesSelectorBlock[]
+  safeguardBlocks: SafeguardOverridesSelectorBlock[]
 }
 
 // Selector blocks that apply when a group has no selections.
 export type NoteQuestionGroupFallback = {
   blocks: RecipeOverridesSelectorBlock[]
+  safeguardBlocks: SafeguardOverridesSelectorBlock[]
 }
 
 // Group metadata for a single question.
@@ -241,6 +251,8 @@ export type RecipeOverridesInstructions = RecipeOverridesSelectorBlock[]
 export type RecipeOverridesResolution = {
   questions: NoteQuestionDefinition[]
   instructions: RecipeOverridesInstructions
+  // Cross-domain: safeguard instructions emitted by recipe-overrides questions.
+  safeguardInstructions: SafeguardOverridesInstruction[]
 }
 
 // Recipe impact summary for Apply Tags flow.
@@ -272,6 +284,10 @@ const normalizeOverrideOp = (raw: string): TagOverrideOp | null => {
 }
 
 type TagOverrideOp = 'eq' | 'gte' | 'lte'
+
+// Clamp an arbitrary number to a valid integer RankCode in [1, 6].
+// Exported so noteSafeguardOverrides can reuse this at AST-resolve time.
+export const clampRankCode = (n: number): RankCode => Math.max(1, Math.min(6, Math.round(n))) as RankCode
 
 // Parse a rank override value into a RankCode.
 const parseRankOverride = (value: string, op: TagOverrideOp): RankCode | null => {
@@ -693,7 +709,9 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
   return parsed
 }
 
-const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverridesOperation[] => {
+// crossDomain=true enables $count/$value expression parsing for numeric fields (rank,
+// minrolls, lockedminrolls, minsubstats) — used when the block came from the other domain.
+const parseOperations = (cursor: TokenCursor, endSymbol: string, crossDomain = false): RecipeOverridesOperation[] => {
   const operations: RecipeOverridesOperation[] = []
   while (true) {
     const token = cursor.peek()
@@ -730,6 +748,39 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): RecipeOverride
       continue
     }
     cursor.next()
+    // Cross-domain numeric fields: parse a full $count / $value expression from
+    // the cursor before the generic value-token path can consume the leading token.
+    if (crossDomain && op === 'eq' && (field === 'rank' || field === 'minrolls' || field === 'lockedminrolls' || field === 'minsubstats')) {
+      const ast = parseCountExpression(cursor)
+      if (ast !== null) {
+        if (ast.kind === 'literal') {
+          // Concrete literal — resolve immediately like the non-cross-domain path.
+          const n = Math.round(ast.value)
+          if (field === 'rank') {
+            operations.push({ kind: 'rank', value: clampRankCode(n) })
+          } else if (field === 'minrolls') {
+            operations.push({ kind: 'minRequiredRolls', value: Math.max(0, n) })
+          } else if (field === 'lockedminrolls') {
+            operations.push({ kind: 'lockedMinRequiredRolls', value: Math.max(0, n) })
+          } else {
+            operations.push({ kind: 'minSubstats', value: Math.max(0, n) })
+          }
+        } else if (ast.kind === 'ref' && ast.sliderId === null) {
+          // Bare $count / $value — null value is filled in at resolve time.
+          if (field === 'rank') operations.push({ kind: 'rank', value: null })
+          else if (field === 'minrolls') operations.push({ kind: 'minRequiredRolls', value: null })
+          else if (field === 'lockedminrolls') operations.push({ kind: 'lockedMinRequiredRolls', value: null })
+          else operations.push({ kind: 'minSubstats', value: null })
+        } else {
+          // Complex expression or cross-slider ref — store the AST for resolve-time evaluation.
+          if (field === 'rank') operations.push({ kind: 'rank', value: null, ast })
+          else if (field === 'minrolls') operations.push({ kind: 'minRequiredRolls', value: null, ast })
+          else if (field === 'lockedminrolls') operations.push({ kind: 'lockedMinRequiredRolls', value: null, ast })
+          else operations.push({ kind: 'minSubstats', value: null, ast })
+        }
+      }
+      continue
+    }
     // `+` is tokenized as a symbol; peek past it when followed by a word so
     // that `+Speed` and `+-Daze` parse correctly as prefixed list values.
     let valueToken = cursor.peek()
@@ -1013,27 +1064,46 @@ type ParsedQuestionDefinition = ParsedOverridesQuestion<RecipeOverridesSelector,
 // Parsed marker + index pairing so global IDs can resolve consistently.
 type ParsedQuestionEntry = { index: number; question: ParsedQuestionDefinition }
 
-// Parse a single @selector { ... } block using the recipe-specific selector parser.
-function parseSelectorBlock(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
-  // Collect selector tokens until the opening brace.
+/**
+ * Parse a single recipe `@selector { … }` block.
+ * Exported for use as a cross-domain block parser inside safeguard-overrides markers.
+ */
+export function parseRecipeSelectorBlock(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
   const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
-  // Return null when no opening brace is found.
   if (!selectorTokens) return null
-  // Parse the recipe-specific selector expression.
   const selector = parseSelectorTokens(selectorTokens)
-  // Parse the operation assignments inside the block.
   const operations = parseOperations(cursor, '}')
-  // Require both a selector and at least one operation.
   if (!selector || operations.length === 0) return null
   return { selector, operations }
 }
 
+/**
+ * Cross-domain variant of parseRecipeSelectorBlock that enables $count/$value expression
+ * parsing for numeric fields (rank, minrolls, lockedminrolls, minsubstats).
+ * Used by noteSafeguardOverrides when parsing `recipe @selector { … }` blocks inside
+ * safeguard-overrides slider questions.
+ */
+export function parseRecipeSelectorBlockCross(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
+  const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
+  if (!selectorTokens) return null
+  const selector = parseSelectorTokens(selectorTokens)
+  const operations = parseOperations(cursor, '}', true)
+  if (!selector || operations.length === 0) return null
+  return { selector, operations }
+}
+
+/** Module-internal alias for the selector block parser (passed to shared infrastructure). */
+const parseSelectorBlock = parseRecipeSelectorBlock
+
 // Parse a question marker body using the shared infrastructure with the recipe selector block parser.
+// parseSafeguardSelectorBlock is from a circular import; safe because it's only called inside this
+// function body, never at module initialization time.
 const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => (
   parseOverridesMarkerBody<RecipeOverridesSelector, RecipeOverridesOperation>(
     inner,
     NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS,
     parseSelectorBlock,
+    (cursor) => parseSafeguardSelectorBlock(cursor),
   )
 )
 
@@ -1192,7 +1262,7 @@ const buildQuestionGroups = (
     // Accumulate group-level fallback blocks in source order.
     if (parsedOption.fallbackBlocks.length > 0) {
       // Initialize fallback storage for this group if needed.
-      const fallback = group.fallback ?? { blocks: [] }
+      const fallback = group.fallback ?? { blocks: [], safeguardBlocks: [] }
       // Append the parsed group fallback blocks in source order.
       fallback.blocks.push(...parsedOption.fallbackBlocks)
       // Only keep the fallback when at least one block exists.
@@ -1245,6 +1315,7 @@ const buildResolvedQuestion = (
       label: option.label,
       detail: option.detail,
       blocks: option.blocks,
+      safeguardBlocks: option.crossBlocks as SafeguardOverridesSelectorBlock[],
       isDefault: option.isDefault,
       token,
       setOptionIds,
@@ -1286,6 +1357,9 @@ const buildResolvedQuestion = (
     ? storedAnswer.map((entry) => legacyMap.get(entry) ?? entry)
     : storedAnswer
   const answer = resolveQuestionAnswer({ groups, options, defaultAnswer }, migratedAnswer)
+  const fallback = question.fallback
+    ? { blocks: question.fallback.blocks, safeguardBlocks: question.fallback.crossBlocks as SafeguardOverridesSelectorBlock[] }
+    : null
   return {
     id,
     index,
@@ -1293,7 +1367,7 @@ const buildResolvedQuestion = (
     layoutColumns: question.layoutColumns,
     groups,
     options,
-    fallback: question.fallback,
+    fallback,
     defaultAnswer,
     answer,
   }
@@ -1735,6 +1809,7 @@ export const resolveRecipeOverridesTags = (
 ): RecipeOverridesResolution => {
   const questions = parseNoteRecipeOverrides(note, answers, preferredId)
   const instructions: RecipeOverridesInstructions = []
+  const safeguardInstructions: SafeguardOverridesInstruction[] = []
   for (const question of questions) {
     const selected = new Set(question.answer)
     // Track whether each group has at least one selected option.
@@ -1756,19 +1831,22 @@ export const resolveRecipeOverridesTags = (
         const group = question.groups.find((entry) => entry.type === groupType)
         // Append the group fallback blocks when present.
         group?.fallback?.blocks.forEach((block) => instructions.push(block))
+        group?.fallback?.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
       }
       // Skip unselected options once group fallback has been applied.
       if (!selected.has(option.id)) return
       // Append selected option blocks in source order.
       option.blocks.forEach((block) => instructions.push(block))
+      option.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
     })
     // Apply question-level fallback when no options are selected anywhere.
     if (selected.size === 0 && question.fallback) {
       // Append the question-level fallback at the end.
       question.fallback.blocks.forEach((block) => instructions.push(block))
+      question.fallback.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
     }
   }
-  return { questions, instructions }
+  return { questions, instructions, safeguardInstructions }
 }
 
 const matchesRankSelector = (recipe: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rank' }): boolean => {
@@ -1993,6 +2071,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         return
       }
       if (op.kind === 'rank') {
+        // value is null when an unresolved cross-domain AST slips through; skip it.
+        if (op.value == null) return
         nextRank = op.value
         appliedRank = true
         return
@@ -2022,16 +2102,19 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         return
       }
       if (op.kind === 'minRequiredRolls') {
+        if (op.value == null) return
         nextMinRequiredRolls = clampAggregateRollValue(op.value)
         appliedMinRequired = true
         return
       }
       if (op.kind === 'lockedMinRequiredRolls') {
+        if (op.value == null) return
         nextLockedMinRequiredRolls = clampAggregateRollValue(op.value)
         appliedLockedMin = true
         return
       }
       if (op.kind === 'minSubstats') {
+        if (op.value == null) return
         nextMinCount = resolveMinCountOverride(recipe, op.value)
         appliedMinCount = true
         return

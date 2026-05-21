@@ -79,6 +79,7 @@ import {
   statVariantI18nKey,
   type StatVariant,
   type FactionId,
+  factionI18nKey,
 } from '../lib/types'
 import {
   BUILDER_LABEL_TEXT_SX,
@@ -608,8 +609,12 @@ export default function SafeguardBuilderPanel({
   const setsSectionDirty = setSelection.length > 0 || (combination.metaSetNames ?? []).length > 0
   const rankSelection = combination.ranks
   const rankSectionDirty = rankSelection.length > 0
+  // Display values read from effectiveRule so the select reflects active overrides,
+  // mirroring the displayActivation pattern.  Dirty flags stay on stored values.
+  const displayRanks = effectiveRule.combination.ranks
   const raritySelection = combination.rarities
   const raritySectionDirty = raritySelection.length > 0
+  const displayRarities = effectiveRule.combination.rarities
   // In multi-edit mode, expand the slot/mainstat inputs to the union across all selected rules
   // so the exclusion mask reflects what any selected safeguard allows, not just the focused one.
   const effectiveSlotsForMask = multiEditActive && multiSummary
@@ -619,6 +624,7 @@ export default function SafeguardBuilderPanel({
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+  const displayFactions  = hasAccessorySlot ? dedupeNumericArray(effectiveRule.combination.factions ?? []) : []
   // In multi-edit, disable armor only when EVERY selected rule has faction set.
   // If any rule uses faction=Any the interaction is mixed — keep armor enabled.
   const factionSectionDirty = multiEditActive && multiSummary != null
@@ -790,6 +796,18 @@ export default function SafeguardBuilderPanel({
     return s0 !== e0 || s4 !== e4 || s8 !== e8 || s12 !== e12
   })()
 
+  // Combination filter override-active flags — compare sorted numeric arrays.
+  const _sortedNums = (arr: readonly number[]) => [...arr].sort((a, b) => a - b)
+  const rankOverrideActive    = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.ranks ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.ranks ?? []))
+  const rarityOverrideActive  = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.rarities ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.rarities ?? []))
+  const factionOverrideActive = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.factions ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.factions ?? []))
+
   // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
   const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
     if (a === SafeguardRuleActivation.Off) return t('safeguardsRuleModeOffShort')
@@ -828,6 +846,17 @@ export default function SafeguardBuilderPanel({
   // wrapping in useCallback with an unstable dep would provide no benefit.
   const improvementChanceLabel = (thr: SafeguardImprovementChanceLevelThresholds | null): string =>
     thr === null ? '\u2014' : formatThresholdChipLabel(thr)
+
+  // Label formatters for rank/rarity/faction combination filter override badge tooltips.
+  // Reuse the same i18n keys as GearRankSelect / GearRaritySelect / GearFactionSelect (SSOT).
+  const RANK_I18N = ['star1', 'star2', 'star3', 'star4', 'star5', 'star6'] as const
+  const RARITY_I18N = ['rarityCommon', 'rarityUncommon', 'rarityRare', 'rarityEpic', 'rarityLegendary', 'rarityMythical'] as const
+  const formatRankList = (ranks: readonly number[]) =>
+    ranks.length === 0 ? t('any') : ranks.map((r) => t(RANK_I18N[r - 1] ?? 'star1')).join(', ')
+  const formatRarityList = (rarities: readonly number[]) =>
+    rarities.length === 0 ? t('any') : rarities.map((r) => t(RARITY_I18N[r - 1] ?? 'rarityCommon')).join(', ')
+  const formatFactionList = (factions: readonly FactionId[]) =>
+    factions.length === 0 ? t('any') : factions.map((f) => t(factionI18nKey(f))).join(', ')
 
   // Builds the tooltip string for a safeguard override badge from stored/effective display strings.
   const buildSafeguardOverrideBadgeTooltip = React.useCallback(
@@ -1831,11 +1860,18 @@ export default function SafeguardBuilderPanel({
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {rankOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatRankList(rule.combination.ranks ?? []),
+                  formatRankList(effectiveRule.combination.ranks ?? []),
+                ),
+              )}
             <GearRankSelect
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label instead of
               // a potentially-misleading partial rank list from only one of the selected rules.
-              value={rankMixed ? [] : rankSelection}
+              value={rankMixed ? [] : displayRanks}
               onChange={(nextRanks) => {
                 setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
               }}
@@ -1851,6 +1887,7 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
           </Collapse>
         </FormControl>
 
@@ -1862,10 +1899,17 @@ export default function SafeguardBuilderPanel({
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {rarityOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatRarityList(rule.combination.rarities ?? []),
+                  formatRarityList(effectiveRule.combination.rarities ?? []),
+                ),
+              )}
             <GearRaritySelect
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label.
-              value={rarityMixed ? [] : raritySelection}
+              value={rarityMixed ? [] : displayRarities}
               onChange={(nextRarities) => {
                 setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
               }}
@@ -1879,6 +1923,7 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
           </Collapse>
         </FormControl>
 
@@ -1890,6 +1935,13 @@ export default function SafeguardBuilderPanel({
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {factionOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatFactionList(rule.combination.factions ?? []),
+                  formatFactionList(effectiveRule.combination.factions ?? []),
+                ),
+              )}
             <GearFactionSelect
               multiple
               disabled={!hasAccessorySlot}
@@ -1898,7 +1950,7 @@ export default function SafeguardBuilderPanel({
               value={
                 multiEditActive && multiFactionsField?.dirty
                   ? (multiFactionsField.value as FactionId[] ?? [])
-                  : (factionMixed ? [] : factionSelection)
+                  : (factionMixed ? [] : displayFactions)
               }
               onChange={(nextFactions) => {
                 if (!hasAccessorySlot) return
@@ -1942,6 +1994,7 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
             <Box sx={{ mt: 0.75 }}>
               {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot || redundantDimensions.perFaction, perScopeMixed.perFaction,
                 perFactionOverrideActive ? renderSafeguardOverrideBadge(
