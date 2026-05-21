@@ -1853,19 +1853,20 @@ export default function SafeguardBuilderPanel({
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
-        <FormControl sx={{ position: 'relative', flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
-          {rankOverrideActive && renderSafeguardOverrideBadge(
-            buildSafeguardOverrideBadgeTooltip(
-              formatRankList(rule.combination.ranks ?? []),
-              formatRankList(effectiveRule.combination.ranks ?? []),
-            ),
-          )}
+        <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {rankOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatRankList(rule.combination.ranks ?? []),
+                  formatRankList(effectiveRule.combination.ranks ?? []),
+                ),
+              )}
             <GearRankSelect
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label instead of
@@ -1886,23 +1887,25 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
           </Collapse>
         </FormControl>
 
         {/* Rarity — shrinks to header width when collapsed */}
-        <FormControl sx={{ position: 'relative', flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
-          {rarityOverrideActive && renderSafeguardOverrideBadge(
-            buildSafeguardOverrideBadgeTooltip(
-              formatRarityList(rule.combination.rarities ?? []),
-              formatRarityList(effectiveRule.combination.rarities ?? []),
-            ),
-          )}
+        <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {rarityOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatRarityList(rule.combination.rarities ?? []),
+                  formatRarityList(effectiveRule.combination.rarities ?? []),
+                ),
+              )}
             <GearRaritySelect
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label.
@@ -1920,23 +1923,25 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
           </Collapse>
         </FormControl>
 
         {/* Faction — shrinks to header width when collapsed */}
-        <FormControl sx={{ position: 'relative', flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
-          {factionOverrideActive && renderSafeguardOverrideBadge(
-            buildSafeguardOverrideBadgeTooltip(
-              formatFactionList(rule.combination.factions ?? []),
-              formatFactionList(effectiveRule.combination.factions ?? []),
-            ),
-          )}
+        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </BuilderSectionHeader>
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
+            <Box sx={{ position: 'relative' }}>
+              {factionOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatFactionList(rule.combination.factions ?? []),
+                  formatFactionList(effectiveRule.combination.factions ?? []),
+                ),
+              )}
             <GearFactionSelect
               multiple
               disabled={!hasAccessorySlot}
@@ -1989,6 +1994,7 @@ export default function SafeguardBuilderPanel({
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : SELECT_BOX_HEIGHT_SX}
             />
+            </Box>
             <Box sx={{ mt: 0.75 }}>
               {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot || redundantDimensions.perFaction, perScopeMixed.perFaction,
                 perFactionOverrideActive ? renderSafeguardOverrideBadge(
