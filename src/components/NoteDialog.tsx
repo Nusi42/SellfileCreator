@@ -15,7 +15,7 @@ import { APP_VERSION } from '../version'
 import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
-import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
+import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
@@ -109,7 +109,7 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
     { color: hex },
   ]),
 )
-// Maps each recipe-overrides Prism token class to its display color.
+// Maps each dynamic-overrides Prism token class to its display color.
 // Mirrors styles.css so the same palette is applied both in the editor backdrop
 // and in tooltip <pre> blocks (where the .w-md-editor-text-pre scope doesn't apply).
 const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
@@ -4138,9 +4138,8 @@ function NoteEditorContent({
   const recipeOverridesSampleTooltipContent = useMemo(() => {
     // Build the shared EBNF text for the tooltip.
     const ebnfText = buildRecipeOverridesEbnfText()
-    // Render the tooltip with syntax-highlighted EBNF and annotated example.
-    // Both blocks use the recipe-overrides grammar so DSL keywords and string
-    // literals carry the same colors as they do in the editor backdrop.
+    // Render the tooltip: EBNF uses the minimal ebnf grammar; the example uses
+    // dynamic-overrides so DSL keywords carry the same colors as in the editor backdrop.
     return (
       <Box sx={RECIPE_OVERRIDES_TOOLTIP_WRAP_SX}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
@@ -4150,7 +4149,7 @@ function NoteEditorContent({
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
         </Typography>
-        {renderPrismHighlighted(RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
+        {renderPrismHighlighted(RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'dynamic-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
       </Box>
     )
   }, [])
@@ -4186,7 +4185,7 @@ function NoteEditorContent({
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
       </Typography>
-      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT, 'dynamic-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
     </Box>
   ), [])
 

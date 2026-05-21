@@ -61,7 +61,7 @@ import {
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
 // ── Backward-compatible NOTE_RECIPE_OVERRIDES_* aliases ──────────────────────
-// These names are preserved for the syntax highlighter (prismRecipeOverrides.ts)
+// These names are preserved for the syntax highlighter (prismDynamicOverrides.ts)
 // and any other callers. The canonical definitions now live in noteOverridesParser.ts.
 
 /** @see NOTE_OVERRIDES_MARKER_COLUMNS_KEY */
