@@ -147,10 +147,12 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'punctuation':       '#abb2bf',
   // note-markers sub-tokens
   'marker-kw':         '#c678dd',
+  'slider-param-kw':   '#56b6c2',  // min / max / step — same family as field names
   // safeguard-overrides specific tokens — reuse existing palette hues for consistency.
-  'sg-activation-val': '#d19a66',  // same as boolean-val (warm amber)
-  'sg-match-val':      '#d19a66',  // same as boolean-val (warm amber)
-  'sg-value-ref':      '#e06c75',  // same as default-kw (bright sigil marker)
+  'sg-activation-val':          '#d19a66',  // same as boolean-val (warm amber)
+  'sg-match-val':               '#d19a66',  // same as boolean-val (warm amber)
+  'sg-improvementchance-val':   '#d19a66',  // same as boolean-val (warm amber)
+  'sg-value-ref':               '#e06c75',  // same as default-kw (bright sigil marker)
   // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
   'cross-domain-kw':   '#c678dd',
   // ebnf grammar tokens — used only in EBNF tooltip blocks, not in DSL editor.
