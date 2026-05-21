@@ -609,8 +609,12 @@ export default function SafeguardBuilderPanel({
   const setsSectionDirty = setSelection.length > 0 || (combination.metaSetNames ?? []).length > 0
   const rankSelection = combination.ranks
   const rankSectionDirty = rankSelection.length > 0
+  // Display values read from effectiveRule so the select reflects active overrides,
+  // mirroring the displayActivation pattern.  Dirty flags stay on stored values.
+  const displayRanks = effectiveRule.combination.ranks
   const raritySelection = combination.rarities
   const raritySectionDirty = raritySelection.length > 0
+  const displayRarities = effectiveRule.combination.rarities
   // In multi-edit mode, expand the slot/mainstat inputs to the union across all selected rules
   // so the exclusion mask reflects what any selected safeguard allows, not just the focused one.
   const effectiveSlotsForMask = multiEditActive && multiSummary
@@ -620,6 +624,7 @@ export default function SafeguardBuilderPanel({
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+  const displayFactions  = hasAccessorySlot ? dedupeNumericArray(effectiveRule.combination.factions ?? []) : []
   // In multi-edit, disable armor only when EVERY selected rule has faction set.
   // If any rule uses faction=Any the interaction is mixed — keep armor enabled.
   const factionSectionDirty = multiEditActive && multiSummary != null
@@ -1865,7 +1870,7 @@ export default function SafeguardBuilderPanel({
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label instead of
               // a potentially-misleading partial rank list from only one of the selected rules.
-              value={rankMixed ? [] : rankSelection}
+              value={rankMixed ? [] : displayRanks}
               onChange={(nextRanks) => {
                 setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
               }}
@@ -1901,7 +1906,7 @@ export default function SafeguardBuilderPanel({
             <GearRaritySelect
               multiple
               // When mixed, collapse to empty so renderValue shows the mixed label.
-              value={rarityMixed ? [] : raritySelection}
+              value={rarityMixed ? [] : displayRarities}
               onChange={(nextRarities) => {
                 setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
               }}
@@ -1940,7 +1945,7 @@ export default function SafeguardBuilderPanel({
               value={
                 multiEditActive && multiFactionsField?.dirty
                   ? (multiFactionsField.value as FactionId[] ?? [])
-                  : (factionMixed ? [] : factionSelection)
+                  : (factionMixed ? [] : displayFactions)
               }
               onChange={(nextFactions) => {
                 if (!hasAccessorySlot) return
