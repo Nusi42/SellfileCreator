@@ -16,6 +16,7 @@ import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismRecipeOverrides' // registers recipe-overrides DSL syntax coloring
+import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -152,6 +153,8 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'sg-value-ref':      '#e06c75',  // same as default-kw (bright sigil marker)
   // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
   'cross-domain-kw':   '#c678dd',
+  // ebnf grammar tokens — used only in EBNF tooltip blocks, not in DSL editor.
+  'regex-literal':     '#c8a96e',  // muted amber, distinct from line-comment gray
 }
 
 // Recursively converts a refractor (HAST) node to React elements.
@@ -4141,7 +4144,7 @@ function NoteEditorContent({
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_EBNF_HEADER}
         </Typography>
-        {renderPrismHighlighted(ebnfText, 'recipe-overrides', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
+        {renderPrismHighlighted(ebnfText, 'ebnf', RECIPE_OVERRIDES_TOOLTIP_CODE_SX)}
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
           {RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
         </Typography>
@@ -4177,7 +4180,7 @@ function NoteEditorContent({
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_EBNF_HEADER}
       </Typography>
-      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'recipe-overrides', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'ebnf', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
       </Typography>

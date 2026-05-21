@@ -79,6 +79,7 @@ import {
   statVariantI18nKey,
   type StatVariant,
   type FactionId,
+  factionI18nKey,
 } from '../lib/types'
 import {
   BUILDER_LABEL_TEXT_SX,
@@ -790,6 +791,18 @@ export default function SafeguardBuilderPanel({
     return s0 !== e0 || s4 !== e4 || s8 !== e8 || s12 !== e12
   })()
 
+  // Combination filter override-active flags — compare sorted numeric arrays.
+  const _sortedNums = (arr: readonly number[]) => [...arr].sort((a, b) => a - b)
+  const rankOverrideActive    = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.ranks ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.ranks ?? []))
+  const rarityOverrideActive  = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.rarities ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.rarities ?? []))
+  const factionOverrideActive = !multiEditActive
+    && JSON.stringify(_sortedNums(effectiveRule.combination.factions ?? []))
+       !== JSON.stringify(_sortedNums(rule.combination.factions ?? []))
+
   // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
   const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
     if (a === SafeguardRuleActivation.Off) return t('safeguardsRuleModeOffShort')
@@ -828,6 +841,17 @@ export default function SafeguardBuilderPanel({
   // wrapping in useCallback with an unstable dep would provide no benefit.
   const improvementChanceLabel = (thr: SafeguardImprovementChanceLevelThresholds | null): string =>
     thr === null ? '\u2014' : formatThresholdChipLabel(thr)
+
+  // Label formatters for rank/rarity/faction combination filter override badge tooltips.
+  // Reuse the same i18n keys as GearRankSelect / GearRaritySelect / GearFactionSelect (SSOT).
+  const RANK_I18N = ['star1', 'star2', 'star3', 'star4', 'star5', 'star6'] as const
+  const RARITY_I18N = ['rarityCommon', 'rarityUncommon', 'rarityRare', 'rarityEpic', 'rarityLegendary', 'rarityMythical'] as const
+  const formatRankList = (ranks: readonly number[]) =>
+    ranks.length === 0 ? t('any') : ranks.map((r) => t(RANK_I18N[r - 1] ?? 'star1')).join(', ')
+  const formatRarityList = (rarities: readonly number[]) =>
+    rarities.length === 0 ? t('any') : rarities.map((r) => t(RARITY_I18N[r - 1] ?? 'rarityCommon')).join(', ')
+  const formatFactionList = (factions: readonly FactionId[]) =>
+    factions.length === 0 ? t('any') : factions.map((f) => t(factionI18nKey(f))).join(', ')
 
   // Builds the tooltip string for a safeguard override badge from stored/effective display strings.
   const buildSafeguardOverrideBadgeTooltip = React.useCallback(
@@ -1824,7 +1848,13 @@ export default function SafeguardBuilderPanel({
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
-        <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
+        <FormControl sx={{ position: 'relative', flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
+          {rankOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              formatRankList(rule.combination.ranks ?? []),
+              formatRankList(effectiveRule.combination.ranks ?? []),
+            ),
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
@@ -1855,7 +1885,13 @@ export default function SafeguardBuilderPanel({
         </FormControl>
 
         {/* Rarity — shrinks to header width when collapsed */}
-        <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
+        <FormControl sx={{ position: 'relative', flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
+          {rarityOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              formatRarityList(rule.combination.rarities ?? []),
+              formatRarityList(effectiveRule.combination.rarities ?? []),
+            ),
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
@@ -1883,7 +1919,13 @@ export default function SafeguardBuilderPanel({
         </FormControl>
 
         {/* Faction — shrinks to header width when collapsed */}
-        <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
+        <FormControl sx={{ position: 'relative', flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
+          {factionOverrideActive && renderSafeguardOverrideBadge(
+            buildSafeguardOverrideBadgeTooltip(
+              formatFactionList(rule.combination.factions ?? []),
+              formatFactionList(effectiveRule.combination.factions ?? []),
+            ),
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
