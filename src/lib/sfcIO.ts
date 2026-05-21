@@ -1124,7 +1124,7 @@ export type ReadableSafeguardRuleEntry = {
   requiredCount: number
   activation: SafeguardRuleActivation
   countMode: SafeguardRule['countMode']
-  ignorePreviousSafeguards?: boolean
+  ignorePreviousSafeguards_v2?: boolean
   ignoreEquippedInCollection?: boolean
   ignoreEquippedInVault?: boolean
   // Per-level improvement-chance thresholds; written as an object in the current format.
@@ -1218,7 +1218,7 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
       perMainStat: mode.perMainStat,
       perSlot: mode.perSlot,
     },
-    ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
+    ignorePreviousSafeguards_v2: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
     tuple: buildReadableSafeguardTuple(rule.combination),
@@ -1267,7 +1267,7 @@ export function buildSfcPayload(args: {
       requiredCount: number
       activation: SafeguardRuleActivation
       countMode: SafeguardRule['countMode']
-      ignorePreviousSafeguards?: boolean
+      ignorePreviousSafeguards_v2?: boolean
       ignoreEquippedInCollection?: boolean
       ignoreEquippedInVault?: boolean
       tuple: ReadableSafeguardTuple

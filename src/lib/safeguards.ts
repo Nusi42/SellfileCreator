@@ -1029,7 +1029,13 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     requiredCount,
     activation: normalizeSafeguardActivation(record.activation),
     countMode,
-    ignorePreviousSafeguards: toBoolish(record.ignorePreviousSafeguards) ?? SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
+    // v2 is the current field. Old field: ranking path (substats set) was a no-op before
+    // fc80d5ef, so downgrade to false; non-ranking path was correct, so preserve the value.
+    ignorePreviousSafeguards: 'ignorePreviousSafeguards_v2' in record
+      ? (toBoolish(record['ignorePreviousSafeguards_v2']) ?? SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS)
+      : parsedSubstats.length > 0
+        ? false
+        : (toBoolish(record.ignorePreviousSafeguards) ?? SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS),
     ignoreEquippedInCollection: toBoolish(record.ignoreEquippedInCollection) ?? SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
     ignoreEquippedInVault: toBoolish(record.ignoreEquippedInVault) ?? SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
     substats: parsedSubstats,
