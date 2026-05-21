@@ -5156,6 +5156,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const set = new Set<number>()
     for (const entry of safeguardDetection.entries) {
       if (entry.ruleOrdinal === null || !selectedOrdinals.has(entry.ruleOrdinal)) continue
+      // Disabled rules (activation=Off) are evaluated by WASM but must not surface as gear-inspector matches,
+      // mirroring how disabled recipes are excluded from row.match.recipeIdx by the matcher.
+      if (entry.ruleActivation === SafeguardRuleActivation.Off) continue
       // Include every positively-ranked candidate for this rule (item key, not artifact id).
       for (const candidate of entry.candidates ?? []) {
         if (candidate.candidateRank > 0) set.add(candidate.itemKey)
@@ -5178,6 +5181,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selectedOrdinals.size === 0) return null
     const set = new Set<number>()
     for (const entry of safeguardDetection.entries) {
+      // Disabled rules (activation=Off) are evaluated by WASM but must not surface as gear-inspector matches,
+      // mirroring how disabled recipes are excluded from row.match.recipeIdx by the matcher.
+      if (entry.ruleActivation === SafeguardRuleActivation.Off) continue
       if (entry.ruleOrdinal !== null && selectedOrdinals.has(entry.ruleOrdinal)) {
         for (const key of entry.itemKeys) set.add(key)
       }
@@ -5202,11 +5208,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? new Set<number>(selectedSafeguardRuleIndices.map((idx) => idx + 1))
       : (selectedSafeguardRuleIdx !== null ? new Set<number>([selectedSafeguardRuleIdx + 1]) : new Set<number>())
     const useAllEntries = selectedOrdinals.size === 0
+    // Disabled rules (activation=Off) are evaluated by WASM but must not surface as gear-inspector matches,
+    // mirroring how disabled recipes are excluded from row.match.recipeIdx by the matcher.
+    const activeEntries = safeguardDetection.entries.filter((e) => e.ruleActivation !== SafeguardRuleActivation.Off)
     const relevantEntries = useAllEntries
-      ? safeguardDetection.entries
-      : safeguardDetection.entries.filter((e) => e.ruleOrdinal !== null && selectedOrdinals.has(e.ruleOrdinal!))
+      ? activeEntries
+      : activeEntries.filter((e) => e.ruleOrdinal !== null && selectedOrdinals.has(e.ruleOrdinal!))
     if (relevantEntries.length === 0 && !useAllEntries) return null
-    const sourceEntries = relevantEntries.length === 0 ? safeguardDetection.entries : relevantEntries
+    const sourceEntries = relevantEntries.length === 0 ? activeEntries : relevantEntries
     // Track best rank entry per artifact; value includes the contributing rule ordinal for tooltip/navigation.
     const result = new Map<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null }>()
     // Track all other applicable rule ordinals per artifact (sorted by rank ascending) for tooltip extras.
