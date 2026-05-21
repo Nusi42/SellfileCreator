@@ -1652,7 +1652,8 @@ group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"chec
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
-crossBlock    := "recipe" "@" selector "{" rcAssignment+ "}"  // targets recipe fields from a safeguard-overrides marker
+crossBlock    := "recipe" "@" selector "{" recipeAssignment+ "}"
+                 // targets recipe fields; see recipe-overrides EBNF for recipeAssignment syntax
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
@@ -1664,16 +1665,20 @@ sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activat
              | "substatmatch" "=" subMatchVal
              | "weight." statKey "=" number   // statKey case-insensitive (spd = SPD)
              | "improvchance" "=" impChanceVal
+             | "rank" "=" prefixNum ("," prefixNum)*     // replace or mutate rank filter
+             | "rarity" "=" prefixRarity ("," prefixRarity)*   // replace or mutate rarity filter
+             | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
+countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
+                 // in slider groups $count/$value expand to the current slider position
+prefixNum     := ["+" | "-"] rankNum
+prefixRarity  := ["+" | "-"] (rankNum | rarityName)
+rankNum       := /1–6/   (integer star rank)
+rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical"
 activationVal := "${_sgActVals}"
 subMatchVal   := "${_sgMatchVals}"
 impChanceVal  := "off" | "disabled" | number [number [number [number]]]
                  // 1–4 space-separated values set thresholds for upgrade level 0, 4, 8, 12
 flexVal       := "on" | "off" | "true" | "false"
-rcAssignment  := ("export") "=" ("active" | "disabled" | "toggle")
-             | ("rank" | "minrolls" | "lockedminrolls" | "minsubstats") "=" (number | countExpr)
-             | field "=" value   // other recipe fields use their native recipe-overrides syntax
-countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
-                 // in slider groups $count/$value expand to the current slider position
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
               | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList

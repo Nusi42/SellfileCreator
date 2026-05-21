@@ -16,7 +16,7 @@
  *   pruneNoteSafeguardOverridesAnswers  — remove stale answer keys
  *   normalizeNoteSafeguardOverridesAnswers — decode persisted payload
  */
-import type { StatVariant } from './types'
+import type { StatVariant, RankValue, FactionId } from './types'
 import type { RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation } from './noteRecipeOverrides'
 // Runtime imports for cross-domain parsing — safe for circular use since only called inside function bodies.
 // parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
@@ -30,7 +30,10 @@ import {
   cloneSafeguardRule,
   normalizeSafeguardSubstatDependents,
   pruneSafeguardsSubstatWeights,
+  factionIdByName,
+  rarityCodeByName,
 } from './safeguards'
+import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
   SAFEGUARD_WEIGHT_MIN,
   SAFEGUARD_WEIGHT_MAX,
@@ -91,6 +94,8 @@ export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'weight',
   // improvchance = off | disabled | <number> [<number> [<number> [<number>]]]
   'improvchance',
+  // combination filters: rank/rarity accept integer lists 1–6; faction accepts names.
+  'rank', 'rarity', 'faction',
 ] as const
 
 // ── Operation types ───────────────────────────────────────────────────────────
@@ -115,6 +120,13 @@ export type SafeguardOverridesOperation =
   | { kind: 'substatWeight'; stat: StatVariant; value: number }
   // null = disable the feature; non-null = enable with specific per-level thresholds.
   | { kind: 'improvementChance'; value: SafeguardImprovementChanceLevelThresholds | null }
+  // Combination filter overrides — replace or mutate the rule's rank/rarity/faction arrays.
+  | { kind: 'ranks';    mode: 'replace'; values: RankValue[] }
+  | { kind: 'ranks';    mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
+  | { kind: 'rarities'; mode: 'replace'; values: RankValue[] }
+  | { kind: 'rarities'; mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
+  | { kind: 'factions'; mode: 'replace'; values: FactionId[] }
+  | { kind: 'factions'; mode: 'mutate';  add: FactionId[];  remove: FactionId[] }
 
 /** A resolved selector + operations pair, ready for application. */
 export type SafeguardOverridesSelectorBlock = {
@@ -183,6 +195,10 @@ const parseBooleanValue = (value: string): boolean | null => {
   if (cleaned === 'false' || cleaned === 'off') return false
   return null
 }
+
+// Deduplicate and sort a numeric array — shared by ranks, rarities, and factions applier.
+const sortDedupNumeric = <T extends number>(arr: T[]): T[] =>
+  Array.from(new Set(arr)).sort((a, b) => a - b) as T[]
 
 // ── Prefix token parsing for stat lists ──────────────────────────────────────
 
@@ -318,6 +334,62 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
           if (t.prefix === 'remove') remove.push(v); else add.push(v)
         }
         if (add.length > 0 || remove.length > 0) operations.push({ kind: 'substats', mode: 'mutate', add, remove })
+      }
+      continue
+    }
+
+    // ── rank = [+|-]N, … | rarity = [+|-](N|name), … | faction = [+|-]name, … ──
+    // All three fields use the same prefix-list mode (replace / mutate) as substats.
+    if (field === 'rank' || field === 'rarity' || field === 'faction') {
+      const rawTokens = [valueRaw, ...consumeStatListRemainder(cursor)]
+      const parsed = rawTokens.map(parseStatPrefixedToken)
+      const listMode = classifyStatListMode(parsed)
+      if (listMode === 'ignore') continue
+      if (field === 'rank' || field === 'rarity') {
+        // Resolve each token: numeric 1–6 for rank; numeric or named (epic, legendary, …) for rarity.
+        const resolve = (name: string): RankValue | null => {
+          if (field === 'rarity') {
+            const named = rarityCodeByName.get(name.trim().toLowerCase())
+            if (named != null) return named
+          }
+          const n = Number.parseInt(name, 10)
+          if (!Number.isFinite(n) || n < 1 || n > 6) return null
+          return n as RankValue
+        }
+        const kind = field === 'rank' ? 'ranks' : 'rarities'
+        if (listMode === 'replace') {
+          const values = parsed.map((t) => resolve(t.value)).filter((v): v is RankValue => v != null)
+          if (values.length > 0) operations.push({ kind, mode: 'replace', values })
+        } else {
+          const add: RankValue[] = [], remove: RankValue[] = []
+          for (const t of parsed) {
+            const v = resolve(t.value)
+            if (v == null) continue
+            if (t.prefix === 'remove') remove.push(v); else add.push(v)
+          }
+          if (add.length > 0 || remove.length > 0) operations.push({ kind, mode: 'mutate', add, remove })
+        }
+      } else {
+        // faction: resolve each token by name (case-insensitive) or numeric ID.
+        const resolve = (name: string): FactionId | null => {
+          const byName = factionIdByName.get(name.trim().toLowerCase())
+          if (byName != null) return byName
+          const n = Number.parseInt(name, 10)
+          if (!Number.isFinite(n) || n < 1) return null
+          return n as FactionId
+        }
+        if (listMode === 'replace') {
+          const values = parsed.map((t) => resolve(t.value)).filter((v): v is FactionId => v != null)
+          if (values.length > 0) operations.push({ kind: 'factions', mode: 'replace', values })
+        } else {
+          const add: FactionId[] = [], remove: FactionId[] = []
+          for (const t of parsed) {
+            const v = resolve(t.value)
+            if (v == null) continue
+            if (t.prefix === 'remove') remove.push(v); else add.push(v)
+          }
+          if (add.length > 0 || remove.length > 0) operations.push({ kind: 'factions', mode: 'mutate', add, remove })
+        }
       }
       continue
     }
@@ -876,6 +948,42 @@ export const applySafeguardOverrides = (
           case 'improvementChance':
             clone.improvementChanceThreshold = op.value
             break
+          case 'ranks':
+            if (op.mode === 'replace') {
+              clone.combination.ranks = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.ranks)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.ranks = sortDedupNumeric([...s])
+            }
+            break
+          case 'rarities':
+            if (op.mode === 'replace') {
+              clone.combination.rarities = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.rarities)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.rarities = sortDedupNumeric([...s])
+            }
+            break
+          case 'factions': {
+            // Apply faction list change, then enforce the slot constraint: a non-empty
+            // factions array restricts the rule to accessory slots only.
+            if (op.mode === 'replace') {
+              clone.combination.factions = sortDedupNumeric(op.values)
+            } else {
+              const s = new Set(clone.combination.factions)
+              op.remove.forEach((v) => s.delete(v)); op.add.forEach((v) => s.add(v))
+              clone.combination.factions = sortDedupNumeric([...s])
+            }
+            if (clone.combination.factions.length > 0) {
+              const accessory = clone.combination.slots.filter((s) => isAccessorySlot(s))
+              clone.combination.slots = accessory.length > 0
+                ? accessory
+                : [...ACCESSORY_SLOT_IDS] as typeof clone.combination.slots
+            }
+            break
+          }
         }
       }
     })

@@ -673,14 +673,14 @@ const artifactSetIdByName = new Map<string, ArtifactSetId>(
   Object.entries(artifactSetNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactSetId]),
 )
 
-const factionIdByName = new Map<string, FactionId>(
+export const factionIdByName = new Map<string, FactionId>(
   Object.entries(factionNames)
     .filter(([, name]) => Boolean(name && name.trim()))
     .map(([id, name]) => [name.trim().toLowerCase(), Number(id) as FactionId]),
 )
 
-// Rarity labels in readable SFC payloads resolve through this reverse map.
-const rarityCodeByName = new Map<string, RankValue>(
+// Rarity labels in readable SFC payloads and the DSL resolve through this reverse map.
+export const rarityCodeByName = new Map<string, RankValue>(
   Object.entries(rarityNames)
     .filter(([, name]) => Boolean(name && name.trim()))
     .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, Number(id))) as RankValue]),
