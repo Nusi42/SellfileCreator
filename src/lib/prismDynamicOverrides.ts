@@ -57,7 +57,7 @@ const MARKER_OPTION_PATTERN = new RegExp(
 // Inner keyword pattern for the marker-option-kw sub-token.
 const MARKER_OPTION_KW_PATTERN = new RegExp(`\\b${_markerColKey}\\b`)
 
-// ── recipe-overrides grammar ───────────────────────────────────────────────
+// ── dynamic-overrides grammar ───────────────────────────────────────────────
 // Tokens are ordered from most-specific to least-specific so that Prism's
 // greedy/first-match logic picks the right class when tokens overlap.
 
