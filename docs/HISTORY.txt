@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.12 — 2026-05-22
+English:
+- **Fixed: deleting an empty, unused Metaset no longer causes it to reappear after closing the Manage Metasets dialog**
+
+Deutsch:
+- **Behoben: Ein geleertes, ungenutztes Metaset erscheint nach dem Schließen des Metasets-Dialogs nicht mehr erneut**
+
 ## v1.0.11 — 2026-05-22
 English:
 - **Fixed: "Ignore previous safeguards" now works correctly for safeguards that rank items by substats** — previously the toggle had no effect on the ranking path: the rule would re-protect the same top picks regardless of what earlier safeguards had already kept. Now, when the toggle is on, items already protected by an earlier active safeguard are removed from the matching pool before top-N selection, so the rule reaches deeper into the score ranking and protects distinct gear. Rules without substats continue to use the existing kept-count logic unchanged.
