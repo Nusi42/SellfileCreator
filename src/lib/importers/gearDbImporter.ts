@@ -38,7 +38,7 @@ async function resolveBrowserWasmUrl(): Promise<string> {
         return mod.default
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        throw new Error(`Failed to load SQL.js WASM bundle (${message})`)
+        throw new Error(`Failed to load SQL.js WASM bundle (${message})`, { cause: err })
       }
     })()
   }

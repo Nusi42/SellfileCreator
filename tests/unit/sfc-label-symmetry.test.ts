@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules */
 /* Symmetric label-parser tests — consumed by both this Jest/node:test suite and the
  * Rust `label_tests` module in rule_engine_core/src/sfc_reader.rs.
  *

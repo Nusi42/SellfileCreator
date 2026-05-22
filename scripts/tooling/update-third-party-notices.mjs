@@ -95,7 +95,7 @@ const entries = dependencyNames.map((name) => {
   try {
     return readPackageMetadata(name);
   } catch (error) {
-    throw new Error(`Failed to read metadata for ${name}: ${error.message}`);
+    throw new Error(`Failed to read metadata for ${name}: ${error.message}`, { cause: error });
   }
 });
 

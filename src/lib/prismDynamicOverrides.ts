@@ -14,7 +14,6 @@
  *
  * This module is intentionally side-effect-only (no exports).
  */
-/* eslint-disable import/no-unused-modules */
 
 import { refractor } from 'refractor';
 import type { Refractor, Syntax } from 'refractor/core';

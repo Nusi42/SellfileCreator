@@ -1,4 +1,4 @@
-// Flat ESLint config (ESLint v9+)
+// Flat ESLint config (ESLint v10+)
 // TS-first, ESLint React, React hooks, import rules, and targeted ignores.
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
@@ -6,7 +6,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import eslintReact from '@eslint-react/eslint-plugin';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import reactYouMightNotNeedAnEffectPlugin from 'eslint-plugin-react-you-might-not-need-an-effect';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import globals from 'globals';
 
 export default [
@@ -88,7 +88,22 @@ export default [
   {
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     rules: {
-      'import/no-unused-modules': ['error', { unusedExports: true, missingExports: true, ignoreExports: ['src/main.tsx'] }],
+      // FileEnumerator was removed in ESLint 10; import-x will implement an alternative.
+      // suppressMissingFileEnumeratorAPIWarning silences the deprecation notice in the meantime.
+      'import/no-unused-modules': ['error', {
+        unusedExports: true,
+        missingExports: true,
+        // Entry points that are consumed outside the module graph (bundler, test runner, workers).
+        ignoreExports: [
+          'src/main.tsx',
+          'src/workers/dungeonSimulatorWorker.ts',
+          'src/workers/ruleCacheWorker.ts',
+          'src/types/static-assets.d.ts',
+          'src/lib/prismDynamicOverrides.ts',
+          'src/lib/prismEbnf.ts',
+        ],
+        suppressMissingFileEnumeratorAPIWarning: true,
+      }],
     },
   },
   {

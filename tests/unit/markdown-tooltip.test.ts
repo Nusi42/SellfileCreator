@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules */ // node:test runner picks this up via scripts/run-tests, so the module isn't imported elsewhere.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'

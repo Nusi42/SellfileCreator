@@ -1262,12 +1262,7 @@ function buildRecipeMarkerResolutions(text: string, recipes: BuilderRecipe[]): R
           const fallback: RecipeMarkerEntry[] = []
           let markerLast = lastRendered
           for (const token of tokens) {
-            let candidate: number | null = null
-            if (token.type === 'absolute') {
-              candidate = token.value
-            } else {
-              candidate = markerLast + 1
-            }
+            const candidate = token.type === 'absolute' ? token.value : markerLast + 1
             if (!candidate || candidate <= 0) continue
             const recipe = recipes[candidate - 1]
             if (!recipe) continue
@@ -1344,12 +1339,7 @@ function buildSafeguardMarkerResolutions(text: string, safeguardRules: Safeguard
           const fallback: SafeguardMarkerEntry[] = []
           let markerLast = lastRendered
           for (const token of tokens) {
-            let candidate: number | null = null
-            if (token.type === 'absolute') {
-              candidate = token.value
-            } else {
-              candidate = markerLast + 1
-            }
+            const candidate = token.type === 'absolute' ? token.value : markerLast + 1
             if (!candidate || candidate <= 0) continue
             const rule = safeguardRules[candidate - 1]
             if (!rule) continue
@@ -1880,12 +1870,7 @@ function RecipeChipBlock({ node }: RecipeChipBlockProps): JSX.Element | null {
       const fallbackEntries: RecipeMarkerEntry[] = []
       let markerLast = priorLast
       for (const token of tokens) {
-        let candidate: number | null = null
-        if (token.type === 'absolute') {
-          candidate = token.value
-        } else {
-          candidate = markerLast + 1
-        }
+        const candidate = token.type === 'absolute' ? token.value : markerLast + 1
         if (!candidate || candidate <= 0) continue
         const recipe = recipes[candidate - 1]
         if (!recipe) continue
@@ -2538,12 +2523,7 @@ function SafeguardBlock({ node }: SafeguardBlockProps): JSX.Element | null {
       const fallbackEntries: SafeguardMarkerEntry[] = []
       let markerLast = priorLast
       for (const token of tokens) {
-        let candidate: number | null = null
-        if (token.type === 'absolute') {
-          candidate = token.value
-        } else {
-          candidate = markerLast + 1
-        }
+        const candidate = token.type === 'absolute' ? token.value : markerLast + 1
         if (!candidate || candidate <= 0) continue
         const rule = safeguardRules[candidate - 1]
         if (!rule) continue

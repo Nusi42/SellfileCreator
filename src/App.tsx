@@ -7828,7 +7828,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // forceLocal bypasses the push path so the menu "Export to file" item always downloads.
     const target = forceLocal ? null : pushExportEndpoint
     if (target) {
-      let pushToast: 'success' | 'failure' | null = null
+      let pushToast: 'success' | 'failure'
       try {
         // Send the upload command using the shared endpoint compatibility shim.
         // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
@@ -7852,12 +7852,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         console.error(`${ts()} [push] WebSocket error: ${err instanceof Error ? err.message : String(err)}`)
         updatePushEndpointReachable(false)
         pushToast = 'failure'
-      } finally {
-        if (pushToast === 'success' && !silent) {
-          showToast(t('toastSellfileSaved'))
-        } else if (pushToast === 'failure') {
-          showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
-        }
+      }
+      if (pushToast === 'success' && !silent) {
+        showToast(t('toastSellfileSaved'))
+      } else if (pushToast === 'failure') {
+        showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
       }
       return
     }
