@@ -329,7 +329,9 @@ export function useItemListManager<TItem, TDraft>({
       return [idx]
     }
 
-    const prev = selectedIndices
+    // Read from the ref so rapid ctrl/shift clicks always see the committed
+    // selection even before React has re-rendered with the new state value.
+    const prev = selectedIndicesRef.current
     const next = computeNext(prev)
     const selectionChanged = !arraysEqual(prev, next)
     if (selectionChanged) applySelection(next)
@@ -357,7 +359,6 @@ export function useItemListManager<TItem, TDraft>({
     onSelectionScrollRequest,
     scrollOnlyOnSingleSelectionChange,
     selectedIdx,
-    selectedIndices,
     setBuilder,
     setSelectedIdx,
     updateSelectionAnchor,

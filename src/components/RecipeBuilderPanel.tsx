@@ -14,6 +14,7 @@ import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrol
 import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
+import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -1842,6 +1843,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   }, [exportModeOverrideActive, exportModeValue, multiEditActive, updateExportMode])
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
+  // Dialog open state for the "Clear tags?" confirmation (shown when overrides are active).
+  const [clearTagsConfirmOpen, setClearTagsConfirmOpen] = useState(false)
   // Popover anchor and draft state for tag editing.
   const [tagsAnchor, setTagsAnchor] = useState<HTMLElement | null>(null)
   const [tagsDraft, setTagsDraft] = useState<string>('')
@@ -2089,9 +2092,26 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       })
       return
     }
-    // Persist the empty tag list for the current recipe.
+    // Single-edit: if override values differ from stored values, let the user decide
+    // whether to bake those values in before clearing the tags.
+    if (effectiveRecipe !== recipe) {
+      setClearTagsConfirmOpen(true)
+      return
+    }
+    // No active overrides — clear directly.
     onChange({ ...recipe, tags: [] })
-  }, [recipe, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
+  }, [effectiveRecipe, recipe, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
+  // Handles "Clear Without Applying" — discards any active override values and clears tags.
+  const handleClearTagsConfirm = useCallback(() => {
+    setClearTagsConfirmOpen(false)
+    onChange({ ...recipe, tags: [] })
+  }, [recipe, onChange])
+  // Handles "Apply and Clear" — bakes the current override-derived values into the recipe,
+  // then removes the tags so overrides no longer target it.
+  const handleClearTagsApplyAndClear = useCallback(() => {
+    setClearTagsConfirmOpen(false)
+    onChange({ ...effectiveRecipe, tags: [] })
+  }, [effectiveRecipe, onChange])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -7361,6 +7381,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         </Menu>
       </Stack>
       <Divider sx={{ mt: 1, opacity: 0.5 }} />
+      <ClearTagsConfirmDialog
+        open={clearTagsConfirmOpen}
+        context="recipe"
+        onClose={() => setClearTagsConfirmOpen(false)}
+        onClear={handleClearTagsConfirm}
+        onApplyAndClear={handleClearTagsApplyAndClear}
+      />
     </Box>
   )
 }
