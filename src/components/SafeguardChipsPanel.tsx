@@ -23,7 +23,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -286,7 +286,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
               if (e.key === 'Escape') { e.preventDefault(); onFinishEdit(ruleIndex, false) }
             }}
             sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
-            inputProps={{ style: { fontSize: '0.75rem', padding: '2px 6px' } }}
+            slotProps={{ htmlInput: { style: { fontSize: '0.75rem', padding: '2px 6px' } } }}
           />
           <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
             {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
@@ -866,6 +866,60 @@ export default function SafeguardChipsPanel({
     ? t('chipMenuPasteAfter')
     : t('chipsMenuPasteAtEnd')
 
+  // Pre-compute the context menu actions so no IIFE appears inside JSX.
+  // Per-chip actions mirror the structure in buildChipContextMenuActions (RecipeContextMenu.tsx).
+  const ruleContextMenuActions = (() => {
+    if (!ruleMenu) return {}
+    const idx = ruleMenu.ruleIdx
+    // idx < 0 means the menu was opened from the empty area; show background actions only.
+    const isChipMenu = idx >= 0
+    const isFirst = idx <= 0
+    const isLast = idx >= rules.length - 1
+    return {
+      ...(isChipMenu ? {
+        duplicate: () => handleDuplicateRule(idx),
+        moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
+        moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
+        moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
+        moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
+        // When ≥2 chips are selected and the right-clicked chip is among them,
+        // copy the whole selection as a flat array; otherwise copy just this chip.
+        copyRecipe: selectedRuleIndices && selectedRuleIndices.length > 1 && selectedRuleIndices.includes(idx)
+          ? () => handleCopySelectedRules(selectedRuleIndices.slice())
+          : () => handleCopyRule(idx),
+        pasteAfter: () => handlePasteAfterRule(idx),
+        // Delete the chip; mirrors RecipeChip's deleteRecipe action.
+        deleteRecipe: () => handleDeleteRule(idx),
+      } : {}),
+      copyAll: { handler: handleCopyAllRules, disabled: rules.length === 0, labelKey: 'chipsMenuCopyAllSafeguards' },
+      pasteAtEnd: handlePasteAtEnd,
+      // Select All — same as Ctrl+A shortcut, available when rules exist.
+      ...(onSelectAll ? {
+        selectAll: { handler: onSelectAll, disabled: visibleRuleCount === 0, labelKey: 'chipsMenuSelectAll' },
+      } : {}),
+      // Clear Selection — mirrors Escape shortcut; available when items are selected.
+      ...(onClearSelection ? {
+        clearSelection: { handler: onClearSelection, disabled: selectedCount === 0, labelKey: 'chipsMenuClearSelection' },
+      } : {}),
+      toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
+      deleteAll: {
+        // Prefer the parent-supplied handler (App.tsx can hook history/dialog).
+        handler: onDeleteAll ?? (() => setPendingDeleteAll(true)),
+        disabled: deleteAllDisabled || rules.length === 0,
+        labelKey: 'safeguardsDeleteAll',
+        // Drive the danger-tint background from menu hover state.
+        onHighlightChange: onHighlightDelete ?? undefined,
+      },
+    }
+  })()
+
+  // Pre-compute minHeight for the chips list so no IIFE appears inside JSX.
+  const chipsListMinHeight = isSideBySide ? 0 : (() => {
+    const max = maxHeightPx ?? 0
+    if (max <= 0) return 0
+    return max
+  })()
+
   return (
     <>
       <RecipeContextMenu
@@ -876,55 +930,7 @@ export default function SafeguardChipsPanel({
         paperDataTourId="keepuniques.rule-menu"
         onPaperContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
         contextMenuGuard={ruleMenuGuard}
-        actions={(() => {
-          if (!ruleMenu) return {}
-          const idx = ruleMenu.ruleIdx
-          // idx < 0 means the menu was opened from the empty area; show background actions only.
-          const isChipMenu = idx >= 0
-          const isFirst = idx <= 0
-          const isLast = idx >= rules.length - 1
-          return {
-            // Per-chip actions mirror the structure defined in buildChipContextMenuActions
-            // (RecipeContextMenu.tsx). Written inline here because calling buildChipContextMenuActions
-            // inside this render-time IIFE causes @eslint-react to trace through the callback
-            // bodies and flag transitive ref accesses as "cannot access refs during render".
-            // RecipeChip uses buildChipContextMenuActions directly since it is not inside an IIFE.
-            ...(isChipMenu ? {
-              duplicate: () => handleDuplicateRule(idx),
-              moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
-              moveUp: { handler: () => moveRule(idx, idx - 1, 'up'), disabled: isFirst },
-              moveDown: { handler: () => moveRule(idx, idx + 1, 'down'), disabled: isLast },
-              moveBottom: { handler: () => moveRule(idx, rules.length - 1, 'bottom'), disabled: isLast },
-              // When ≥2 chips are selected and the right-clicked chip is among them,
-              // copy the whole selection as a flat array; otherwise copy just this chip.
-              copyRecipe: selectedRuleIndices && selectedRuleIndices.length > 1 && selectedRuleIndices.includes(idx)
-                ? () => handleCopySelectedRules(selectedRuleIndices.slice())
-                : () => handleCopyRule(idx),
-              pasteAfter: () => handlePasteAfterRule(idx),
-              // Delete the chip; mirrors RecipeChip's deleteRecipe action.
-              deleteRecipe: () => handleDeleteRule(idx),
-            } : {}),
-            copyAll: { handler: handleCopyAllRules, disabled: rules.length === 0, labelKey: 'chipsMenuCopyAllSafeguards' },
-            pasteAtEnd: handlePasteAtEnd,
-            // Select All — same as Ctrl+A shortcut, available when rules exist.
-            ...(onSelectAll ? {
-              selectAll: { handler: onSelectAll, disabled: visibleRuleCount === 0, labelKey: 'chipsMenuSelectAll' },
-            } : {}),
-            // Clear Selection — mirrors Escape shortcut; available when items are selected.
-            ...(onClearSelection ? {
-              clearSelection: { handler: onClearSelection, disabled: selectedCount === 0, labelKey: 'chipsMenuClearSelection' },
-            } : {}),
-            toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
-            deleteAll: {
-              // Prefer the parent-supplied handler (App.tsx can hook history/dialog).
-              handler: onDeleteAll ?? (() => setPendingDeleteAll(true)),
-              disabled: deleteAllDisabled || rules.length === 0,
-              labelKey: 'safeguardsDeleteAll',
-              // Drive the danger-tint background from menu hover state.
-              onHighlightChange: onHighlightDelete ?? undefined,
-            },
-          }
-        })()}
+        actions={ruleContextMenuActions}
       />
       <PasteDialog
         open={Boolean(pasteDialogTarget)}
@@ -976,11 +982,7 @@ export default function SafeguardChipsPanel({
           // Outside side-by-side the legacy minHeight=maxHeight trick keeps the paper height stable
           // across mode switches with different chip counts.
           maxHeight: isSideBySide ? '100%' : (maxHeightPx ?? undefined),
-          minHeight: isSideBySide ? 0 : (() => {
-            const max = maxHeightPx ?? 0
-            if (max <= 0) return 0
-            return max
-          })(),
+          minHeight: chipsListMinHeight,
           overflowY: 'auto',
           overflowX: 'hidden',
           alignItems: 'stretch',

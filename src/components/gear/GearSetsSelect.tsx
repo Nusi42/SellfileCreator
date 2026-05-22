@@ -548,12 +548,11 @@ export default function GearSetsSelect({
                   if (!list) return
                   const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
                   const selected = new Set(selectedMetasetIds ?? [])
-                  const targetMeta = (() => {
-                    for (const meta of metasetsMenu) {
-                      if (selected.has(meta.name)) return meta.name
-                    }
-                    return null
-                  })()
+                  // Find the first selected metaset name for scroll targeting.
+                  let targetMeta: string | null = null
+                  for (const meta of metasetsMenu) {
+                    if (selected.has(meta.name)) { targetMeta = meta.name; break }
+                  }
                   if (targetMeta) {
                     for (const item of items) {
                       if (item.getAttribute('data-metaset-id') === targetMeta) {
@@ -577,15 +576,17 @@ export default function GearSetsSelect({
           setHoveredMetasetId(null)
         }}
         MenuProps={{
-          PaperProps: {
-            sx: {
-              width: { xs: 'calc(100vw - 32px)', sm: menuWidthPx },
-              maxWidth: menuWidthPx,
-              overflowX: 'hidden',
+          slotProps: {
+            paper: {
+              sx: {
+                width: { xs: 'calc(100vw - 32px)', sm: menuWidthPx },
+                maxWidth: menuWidthPx,
+                overflowX: 'hidden',
+              },
+              ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
             },
-            ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
+            list: { sx: { width: '100%', maxWidth: '100%' } },
           },
-          MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
           ...(menuAnchorPos
             ? { anchorReference: 'anchorPosition' as const, anchorPosition: menuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
             : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),

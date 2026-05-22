@@ -90,8 +90,8 @@ export function GearInspectorNormalizedPresetEditorMenu({
       onClose={onClose}
       anchorReference="anchorPosition"
       {...(anchorPosition ? { anchorPosition: { top: anchorPosition.y, left: anchorPosition.x } } : {})}
-      MenuListProps={{ disablePadding: true }}
       slotProps={{
+        list: { disablePadding: true },
         paper: { ...buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
           contextMenuGuard,
@@ -151,16 +151,18 @@ export function GearInspectorNormalizedPresetEditorMenu({
             MenuProps={{
               // Keep the picker inside the preset editor so nested context menus do not treat it as "outside".
               disablePortal: true,
-              PaperProps: {
-                sx: {
-                  maxHeight: 320,
-                  minWidth: 88,
-                  width: 'auto',
-                  '& .MuiList-root': {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(6, 1fr)',
-                    gap: 0.5,
-                    py: 0.5,
+              slotProps: {
+                paper: {
+                  sx: {
+                    maxHeight: 320,
+                    minWidth: 88,
+                    width: 'auto',
+                    '& .MuiList-root': {
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(6, 1fr)',
+                      gap: 0.5,
+                      py: 0.5,
+                    },
                   },
                 },
               },

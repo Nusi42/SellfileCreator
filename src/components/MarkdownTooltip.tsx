@@ -192,6 +192,46 @@ export function renderMarkdownTooltipContent(markdown: string, options?: { maxWi
   const normalized = markdown.trim()
   if (!normalized) return ''
   const segments = segmentMarkdown(normalized)
+  // Build stable segment keys: type + running occurrence counter.
+  const segCounts: Record<string, number> = {}
+  const segmentNodes = segments.map((segment) => {
+    const segOcc = (segCounts[segment.type] = (segCounts[segment.type] ?? 0) + 1)
+    const segKey = `${segment.type}-${segOcc}`
+    if (segment.type === 'list') {
+      // Zip items with dedup keys so the map callback does not need the index.
+      const itemEntries = buildDedupEntries(segment.items)
+      return (
+        <Box
+          component="ul"
+          key={segKey}
+          sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}
+        >
+          {itemEntries.map(({ value, key: itemKey }) => (
+            <Box component="li" key={`${segKey}-${itemKey}`} sx={{ p: 0, listStylePosition: 'outside' }}>
+              <Typography variant="body2" component="span">
+                {parseInlineMarkdown(value)}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )
+    }
+    // Paragraph: use line content for <br> keys too.
+    const lineEntries = buildDedupEntries(segment.lines)
+    return (
+      <Typography key={segKey} variant="body2" component="p" sx={{ m: 0 }}>
+        {lineEntries.flatMap(({ value, key: lineKey }, _unused, arr) => {
+          const parts = parseInlineMarkdown(value)
+          // Append <br> between lines (not after the last one).
+          const isLast = lineKey === arr[arr.length - 1]?.key
+          if (!isLast) {
+            return [...parts, <br key={`br-${segKey}-${lineKey}`} />]
+          }
+          return parts
+        })}
+      </Typography>
+    )
+  })
   return (
     <Box
       sx={{
@@ -201,48 +241,7 @@ export function renderMarkdownTooltipContent(markdown: string, options?: { maxWi
         ...(options?.maxWidth ? { maxWidth: options.maxWidth } : {}),
       }}
     >
-      {(() => {
-        // Build stable segment keys: type + running occurrence counter.
-        const segCounts: Record<string, number> = {}
-        return segments.map((segment) => {
-          const segOcc = (segCounts[segment.type] = (segCounts[segment.type] ?? 0) + 1)
-          const segKey = `${segment.type}-${segOcc}`
-          if (segment.type === 'list') {
-            // Zip items with dedup keys so the map callback does not need the index.
-            const itemEntries = buildDedupEntries(segment.items)
-            return (
-              <Box
-                component="ul"
-                key={segKey}
-                sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}
-              >
-                {itemEntries.map(({ value, key: itemKey }) => (
-                  <Box component="li" key={`${segKey}-${itemKey}`} sx={{ p: 0, listStylePosition: 'outside' }}>
-                    <Typography variant="body2" component="span">
-                      {parseInlineMarkdown(value)}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )
-          }
-          // Paragraph: use line content for <br> keys too.
-          const lineEntries = buildDedupEntries(segment.lines)
-          return (
-            <Typography key={segKey} variant="body2" component="p" sx={{ m: 0 }}>
-              {lineEntries.flatMap(({ value, key: lineKey }, _unused, arr) => {
-                const parts = parseInlineMarkdown(value)
-                // Append <br> between lines (not after the last one).
-                const isLast = lineKey === arr[arr.length - 1]?.key
-                if (!isLast) {
-                  return [...parts, <br key={`br-${segKey}-${lineKey}`} />]
-                }
-                return parts
-              })}
-            </Typography>
-          )
-        })
-      })()}
+      {segmentNodes}
     </Box>
   )
 }

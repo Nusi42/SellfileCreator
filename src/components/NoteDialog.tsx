@@ -3571,12 +3571,14 @@ export default function NoteDialog({
       <Dialog
         open={open}
         // In express simple mode the dialog is permanently visible — disable all dismiss gestures.
+        // MUI v9: disableEscapeKeyDown removed; onClose=undefined already suppresses escape key + backdrop clicks.
         onClose={isSimpleMode ? undefined : handleDialogClose}
-        disableEscapeKeyDown={isSimpleMode}
         maxWidth="lg"
         fullWidth
-        {...noteDialogProps}
-        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX, ...noteDialogProps.PaperProps }}
+        // In express expert mode our custom shrink animation handles the exit visual;
+        // suppress MUI's own Fade exit so the paper doesn't flash back to full size afterwards.
+        transitionDuration={simpleMode && expertMode ? { exit: 0 } : undefined}
+        slotProps={{ paper: { sx: NOTE_DIALOG_PAPER_SX, ref: noteDialogProps.PaperProps.ref } }}
       >
       <DialogTitle
         sx={{
@@ -3766,8 +3768,7 @@ export default function NoteDialog({
                           anchorEl={viewRecipeOverridesMenuAnchor}
                           open={viewRecipeOverridesMenuOpen}
                           onClose={closeViewRecipeOverridesMenu}
-                          MenuListProps={{ dense: true }}
-                          TransitionProps={{ onExited: handleViewRecipeOverridesMenuExited }}
+                          slotProps={{ list: { dense: true }, transition: { onExited: handleViewRecipeOverridesMenuExited } }}
                         >
                           <MenuItem onClick={() => { queueViewRecipeOverridesMenuAction({ kind: 'reset' }) }}>
                             {t('noteDynamicOverridesResetDefaults')}
@@ -4443,8 +4444,8 @@ function NoteEditorContent({
             } catch {}
           }}
         >
-          {(() => (
-            <NoteRenderContext value={editorContextValue}>
+          {/* NoteRenderContext wraps the editor so toolbar commands can read note context. */}
+          <NoteRenderContext value={editorContextValue}>
               <MDEditor
                 ref={editorRef}
                 value={draft}
@@ -4525,7 +4526,6 @@ function NoteEditorContent({
                 }}
               />
             </NoteRenderContext>
-          ))()}
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
@@ -4574,8 +4574,7 @@ function NoteEditorContent({
                 anchorEl={editRecipeOverridesMenuAnchor}
                 open={editRecipeOverridesMenuOpen}
                 onClose={closeEditRecipeOverridesMenu}
-                MenuListProps={{ dense: true }}
-                TransitionProps={{ onExited: handleEditRecipeOverridesMenuExited }}
+                slotProps={{ list: { dense: true }, transition: { onExited: handleEditRecipeOverridesMenuExited } }}
               >
                 <MenuItem
                   onClick={() => {

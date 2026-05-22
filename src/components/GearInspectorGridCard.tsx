@@ -15,8 +15,8 @@ import SellIcon from '@mui/icons-material/Sell'
 import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
-import MailOutlineIcon from '@mui/icons-material/MailOutline'
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import { useI18n } from '../lib/i18n'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
@@ -1503,7 +1503,6 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       </Box>
       <Stack
         spacing={CARD_TEXT_STACK_GAP_UNITS}
-        minWidth={0}
         sx={{
           gridColumn: '2',
           gridRow: '1',
@@ -2033,7 +2032,6 @@ function GearInspectorGridCardSkeleton({
       </Box>
       <Stack
         spacing={CARD_TEXT_STACK_GAP_UNITS}
-        minWidth={0}
         sx={{
           gridColumn: '2',
           gridRow: '1',

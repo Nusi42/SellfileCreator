@@ -408,11 +408,11 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       }
       // Handlers are removed by terminateWorkerNow (via messageHandlerRef / errorHandlerRef).
       // The lint rule cannot trace through that closure, so suppress the false-positive here.
-      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
+      // eslint-disable-next-line @eslint-react/web-api-no-leaked-event-listener
       w.addEventListener('message', handleMessage)
-      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
+      // eslint-disable-next-line @eslint-react/web-api-no-leaked-event-listener
       w.addEventListener('error', handleError)
-      // eslint-disable-next-line @eslint-react/web-api/no-leaked-event-listener
+      // eslint-disable-next-line @eslint-react/web-api-no-leaked-event-listener
       w.addEventListener('messageerror', handleError)
       workerRef.current = w
       return w

@@ -127,6 +127,176 @@ export default function SetMenuSection({
     </MarkdownTooltip>
   )
 
+  // Centralized grouping keeps the menu categories aligned with the Keep
+  // Uniques defaults and any other callers importing the same helper.
+  // Grouping by piece type keeps icon rows aligned to armor/accessory tiers.
+  const iconGridAccessories = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.Accessories)
+  const iconGridArmorFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorFixed)
+  const iconGridArmorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
+  const renderIconItem = ([id, name]: [string, string]) => {
+    const idNum = Number(id)
+    // Keep localization consistent with other selects (no-set uses its own key).
+    const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
+    const tooltipName = localizedName || name
+    // No-set accessories need their own tooltip (no set effects to display).
+    const isNoSet = idNum === ACCESSORY_NO_SET_ID
+    const isDisabled = disabledSet.has(idNum)
+    // Only show the descriptive tooltip on enabled items; disabled uses a wrapper tooltip.
+    const noSetTooltipMarkdown = isNoSet && !isDisabled
+      ? buildNoSetTooltipMarkdown(t, { label: tooltipName })
+      : null
+    // Hover highlights only apply when the hovered metaset contains this set.
+    const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
+    // Selected metasets outline sets that are not explicitly selected.
+    const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.name) && m.sets.includes(idNum))
+    // Tri-state: all/partial/none for multi-edit.
+    const setState = getTriStateForSet(idNum)
+    const inSelectedSet = setState === 'all'
+    const isPartialSet = setState === 'partial'
+    // Excluded sets show a red ring and should not be treated as explicit selections.
+    const isExcluded = excludedSet.has(idNum)
+    // Name line rendered by WithSetTooltip (showName), so no local piece text needed.
+    const iconNode = (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <SetIcon setId={idNum} label={tooltipName} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
+      </Box>
+    )
+    // For no-set, provide a custom tooltip instead of set effect details.
+    const iconWithTooltip = noSetTooltipMarkdown ? (
+      <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
+        <span>{iconNode}</span>
+      </MarkdownTooltip>
+    ) : (
+      <WithSetTooltip name={name} displayName={tooltipName} showName>
+        {iconNode}
+      </WithSetTooltip>
+    )
+    const itemKey = `set-icon-${idNum}`
+    const menuItem = (
+      <MenuItem
+        key={itemKey}
+        value={valueForSet(idNum)}
+        selected={inSelectedSet}
+        disabled={isDisabled}
+        data-set-id={idNum}
+        onClick={(e) => {
+          if (isDisabled) return
+          if (onToggleSet) {
+            // In multi-select contexts we suppress default so the menu stays open.
+            // In single-select, allow default so the Select can close naturally.
+            if (!singleSelect) {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+            try { onToggleSet(idNum) } catch {}
+          }
+        }}
+        onContextMenu={(event) => {
+          if (isDisabled) return
+          if (!onContextMenuSet) return
+          event.preventDefault()
+          event.stopPropagation()
+          onContextMenuSet(idNum, event)
+        }}
+        onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
+        sx={(theme) => ({
+          display: 'flex',
+          width: ICON_GRID_ITEM_PX,
+          height: ICON_GRID_ITEM_PX,
+          minHeight: ICON_GRID_ITEM_PX,
+          p: 0,
+          boxSizing: 'content-box',
+          alignItems: 'center',
+          justifyContent: 'center',
+          m: 0,
+          position: 'relative',
+          verticalAlign: 'top',
+          '&.Mui-selected': {
+            // Explicit set selection: render an inset rounded rectangle
+            // fill (not full-tile) using background-clip and padding.
+            backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+            backgroundClip: 'content-box',
+            borderRadius: 1,
+            '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+          },
+          // Use default MUI selected background to match metasets.
+          // Inner ring: dashed blue for metaset membership, solid red for exclusions.
+          '&::after': (isExcluded || inSelectedMeta) ? {
+            content: '""',
+            position: 'absolute',
+            // Make the inner ring smaller so it doesn't visually
+            // merge with the outer dashed hover ring.
+            inset: 2,
+            borderRadius: 5,
+            borderWidth: 1,
+            borderStyle: isExcluded ? 'solid' : 'dashed',
+            borderColor: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
+            pointerEvents: 'none',
+          } : undefined,
+          '&::before': inHovered ? {
+            content: '""',
+            position: 'absolute',
+            // Outer dashed ring (slightly larger than the solid ring)
+            inset: 1,
+            borderRadius: 5,
+            borderWidth: 1,
+            borderStyle: 'dotted',
+            borderColor: theme.palette.info.main,
+            pointerEvents: 'none',
+          } : {},
+          ...(isPartialSet ? {
+            borderStyle: 'dashed',
+            borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
+            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
+            color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
+          } : {}),
+        })}
+      >
+        {iconWithTooltip}
+      </MenuItem>
+    )
+    // Disabled entries need an outer wrapper so the tooltip still fires.
+    if (isDisabled) {
+      return wrapDisabledTooltip(
+        itemKey,
+        buildDisabledTooltip(tooltipName, { isNoSet }),
+        menuItem,
+      )
+    }
+    return menuItem
+  }
+  // Icons mode: grid wrapper to keep compact 15-column layout.
+  const iconGridContent = (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(15, ${ICON_GRID_ITEM_PX}px)`,
+        columnGap: `${ICON_GRID_MARGIN_PX * 2}px`,
+        rowGap: `${ICON_GRID_MARGIN_PX * 2}px`,
+        // Distribute leftover space so the grid doesn't leave a large gap at the right edge.
+        justifyContent: 'space-between',
+        width: '100%',
+      }}
+      onMouseDown={(e) => {
+        // Prevent stray clicks in gaps from selecting an invalid value
+        if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
+      }}
+    >
+      {iconGridArmorFixed.map(renderIconItem)}
+      {iconGridArmorVar19.length > 0 && (
+        <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
+      )}
+      {iconGridArmorVar19.map(renderIconItem)}
+      {iconGridAccessories.length > 0 && (
+        <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
+      )}
+      {iconGridAccessories.map(renderIconItem)}
+    </Box>
+  )
+
   return (
     <>
       {!hideHeader && (
@@ -165,177 +335,7 @@ export default function SetMenuSection({
         </ListSubheader>
       )}
       {setsOrder === 'icons' ? (
-          (() => {
-            // Centralized grouping keeps the menu categories aligned with the Keep
-            // Uniques defaults and any other callers importing the same helper.
-            // Grouping by piece type keeps icon rows aligned to armor/accessory tiers.
-            const accessories = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.Accessories)
-            const armorFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorFixed)
-            const armorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
-            const renderIconItem = ([id, name]: [string, string]) => {
-              const idNum = Number(id)
-              // Keep localization consistent with other selects (no-set uses its own key).
-              const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
-              const tooltipName = localizedName || name
-              // No-set accessories need their own tooltip (no set effects to display).
-              const isNoSet = idNum === ACCESSORY_NO_SET_ID
-              const isDisabled = disabledSet.has(idNum)
-              // Only show the descriptive tooltip on enabled items; disabled uses a wrapper tooltip.
-              const noSetTooltipMarkdown = isNoSet && !isDisabled
-                ? buildNoSetTooltipMarkdown(t, { label: tooltipName })
-                : null
-              // Hover highlights only apply when the hovered metaset contains this set.
-              const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
-              // Selected metasets outline sets that are not explicitly selected.
-              const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.name) && m.sets.includes(idNum))
-              // Tri-state: all/partial/none for multi-edit.
-              const setState = getTriStateForSet(idNum)
-              const inSelectedSet = setState === 'all'
-              const isPartialSet = setState === 'partial'
-              // Excluded sets show a red ring and should not be treated as explicit selections.
-              const isExcluded = excludedSet.has(idNum)
-              // Name line rendered by WithSetTooltip (showName), so no local piece text needed.
-              const iconNode = (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <SetIcon setId={idNum} label={tooltipName} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
-                </Box>
-              )
-              // For no-set, provide a custom tooltip instead of set effect details.
-              const iconWithTooltip = noSetTooltipMarkdown ? (
-                <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
-                  <span>{iconNode}</span>
-                </MarkdownTooltip>
-              ) : (
-                <WithSetTooltip name={name} displayName={tooltipName} showName>
-                  {iconNode}
-                </WithSetTooltip>
-              )
-              const itemKey = `set-icon-${idNum}`
-              const menuItem = (
-                <MenuItem
-                  key={itemKey}
-                  value={valueForSet(idNum)}
-                  selected={inSelectedSet}
-                  disabled={isDisabled}
-                  data-set-id={idNum}
-                  onClick={(e) => {
-                    if (isDisabled) return
-                    if (onToggleSet) {
-                      // In multi-select contexts we suppress default so the menu stays open.
-                      // In single-select, allow default so the Select can close naturally.
-                      if (!singleSelect) {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }
-                      try { onToggleSet(idNum) } catch {}
-                    }
-                  }}
-                  onContextMenu={(event) => {
-                    if (isDisabled) return
-                    if (!onContextMenuSet) return
-                    event.preventDefault()
-                    event.stopPropagation()
-                    onContextMenuSet(idNum, event)
-                  }}
-                  onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
-                  sx={(theme) => ({
-                    display: 'flex',
-                    width: ICON_GRID_ITEM_PX,
-                    height: ICON_GRID_ITEM_PX,
-                    minHeight: ICON_GRID_ITEM_PX,
-                    p: 0,
-                    boxSizing: 'content-box',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    m: 0,
-                    position: 'relative',
-                    verticalAlign: 'top',
-                    '&.Mui-selected': {
-                      // Explicit set selection: render an inset rounded rectangle
-                      // fill (not full-tile) using background-clip and padding.
-                      backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
-                      backgroundClip: 'content-box',
-                      borderRadius: 1,
-                      '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
-                    },
-                    // Use default MUI selected background to match metasets.
-                    // Inner ring: dashed blue for metaset membership, solid red for exclusions.
-                    '&::after': (isExcluded || inSelectedMeta) ? {
-                      content: '""',
-                      position: 'absolute',
-                      // Make the inner ring smaller so it doesn't visually
-                      // merge with the outer dashed hover ring.
-                      inset: 2,
-                      borderRadius: 5,
-                      borderWidth: 1,
-                      borderStyle: isExcluded ? 'solid' : 'dashed',
-                      borderColor: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
-                      pointerEvents: 'none',
-                    } : undefined,
-                    '&::before': inHovered ? {
-                      content: '""',
-                      position: 'absolute',
-                      // Outer dashed ring (slightly larger than the solid ring)
-                      inset: 1,
-                      borderRadius: 5,
-                      borderWidth: 1,
-                      borderStyle: 'dotted',
-                      borderColor: theme.palette.info.main,
-                      pointerEvents: 'none',
-                    } : {},
-                    ...(isPartialSet ? {
-                      borderStyle: 'dashed',
-                      borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
-                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
-                      color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
-                    } : {}),
-                  })}
-                >
-                  {iconWithTooltip}
-                </MenuItem>
-              )
-              // Disabled entries need an outer wrapper so the tooltip still fires.
-              if (isDisabled) {
-                return wrapDisabledTooltip(
-                  itemKey,
-                  buildDisabledTooltip(tooltipName, { isNoSet }),
-                  menuItem,
-                )
-              }
-              return menuItem
-            }
-            // Icons mode: grid wrapper to keep compact 15-column layout.
-            return (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(15, ${ICON_GRID_ITEM_PX}px)`,
-                  columnGap: `${ICON_GRID_MARGIN_PX * 2}px`,
-                  rowGap: `${ICON_GRID_MARGIN_PX * 2}px`,
-                  // Distribute leftover space so the grid doesn't leave a large gap at the right edge.
-                  justifyContent: 'space-between',
-                  width: '100%',
-                }}
-                onMouseDown={(e) => {
-                  // Prevent stray clicks in gaps from selecting an invalid value
-                  if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
-                }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
-                }}
-              >
-                {armorFixed.map(renderIconItem)}
-                {armorVar19.length > 0 && (
-                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
-                )}
-                {armorVar19.map(renderIconItem)}
-                {accessories.length > 0 && (
-                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
-                )}
-                {accessories.map(renderIconItem)}
-              </Box>
-            )
-          })()
+          iconGridContent
       ) : (
         sorted.map(([id, name]) => {
           const idNum = Number(id)

@@ -2725,6 +2725,3138 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(recipe.minCount) === 2) && (Number((recipe as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
 
 
+  // Show clear button when any mainstat is selected, placeholder otherwise.
+  const mainStatClearButton = (() => {
+    const baseMainSelected = (((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
+    const hasMainSelection = multiEditActive && multiSummary
+      ? [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
+      : baseMainSelected
+    return hasMainSelection
+      ? (
+        <ClearIconButton
+          size="small"
+          aria-label={t('builderClearMainStats')}
+          tooltip={t('builderClearMainStats')}
+          onClick={() => clearMainSelection()}
+        />
+      )
+      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+  })()
+
+  // Mainstat toggle button rows (row1: SPD/CR/CDMG/ACC/RES, row2: HP/ATK/DEF and % variants).
+  const mainStatValue: string[] = ((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
+  const handleMainStatChange = (_: React.SyntheticEvent, v: string[]) => {
+    if (!Array.isArray(v)) return
+    const nextNumbers = Array.from(new Set(v.map((token) => Number(token)).filter((n) => Number.isFinite(n))))
+    if (nextNumbers.length === 0) {
+      onChange({ ...recipe, mainStatsV: [] })
+      return
+    }
+    onChange({ ...recipe, mainStatsV: nextNumbers as number[] })
+  }
+  const mainStatToggleRows = (
+    <>
+      {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+      <ToggleButtonGroup
+        size="small"
+        value={mainStatValue}
+        onChange={(event, v) => {
+          if (multiEditActive) return
+          handleMainStatChange(event, v as string[])
+        }}
+        sx={mainStatToggleGroupSx}
+      >
+        {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+          const state = resolveMainStatTriState(variant)
+          return (
+            <ToggleButton
+              key={variant}
+              value={`${variant}`}
+              disabled={!mainStatOptions.includes(variant)}
+              selected={multiEditActive ? state === 'all' : mainStatValue.includes(String(variant))}
+              onClick={(event) => {
+                if (!multiEditActive) return
+                event.preventDefault()
+                event.stopPropagation()
+                toggleMainStat(variant)
+              }}
+              sx={{
+                ...buttonBorderSx(variant),
+                ...(multiEditActive && state === 'mixed' ? {
+                  borderStyle: 'dashed',
+                  borderColor: mixedBorderColor,
+                  color: mixedTextColor,
+                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                } : {}),
+              }}
+              data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
+            >
+              {t(statVariantI18nKey(variant))}
+            </ToggleButton>
+          )
+        })}
+      </ToggleButtonGroup>
+      {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+      <ToggleButtonGroup
+        size="small"
+        value={mainStatValue}
+        onChange={(event, v) => {
+          if (multiEditActive) return
+          handleMainStatChange(event, v as string[])
+        }}
+        sx={mainStatToggleGroupSx}
+      >
+        {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
+          const state = resolveMainStatTriState(variant)
+          return (
+            <ToggleButton
+              key={variant}
+              value={`${variant}`}
+              disabled={!mainStatOptions.includes(variant)}
+              selected={multiEditActive ? state === 'all' : mainStatValue.includes(String(variant))}
+              onClick={(event) => {
+                if (!multiEditActive) return
+                event.preventDefault()
+                event.stopPropagation()
+                toggleMainStat(variant)
+              }}
+              sx={{
+                ...buttonBorderSx(variant),
+                ...(multiEditActive && state === 'mixed' ? {
+                  borderStyle: 'dashed',
+                  borderColor: mixedBorderColor,
+                  color: mixedTextColor,
+                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                } : {}),
+              }}
+              data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
+            >
+              {t(statVariantI18nKey(variant))}
+            </ToggleButton>
+          )
+        })}
+      </ToggleButtonGroup>
+    </>
+  )
+
+  // Show clear button for substats when any are selected; placeholder otherwise.
+  const substatsClearButton = (() => {
+    if (multiEditActive && multiSummary) {
+      if (substatsPatch?.clear) {
+        return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+      }
+      const projectedHas = (() => {
+        if (substatsPatch?.replace) return substatsPatch.replace.length > 0
+        const variants = new Set<number>()
+        for (const key of multiSummary.subCounts.keys()) variants.add(Number(key))
+        if (substatsPatch?.add) substatsPatch.add.forEach((v) => variants.add(Number(v)))
+        if (substatsPatch?.remove) substatsPatch.remove.forEach((v) => variants.add(Number(v)))
+        for (const variant of variants) {
+          if (getSubstatPresenceCount(variant) > 0) return true
+        }
+        return false
+      })()
+      return projectedHas
+        ? (
+          <ClearIconButton
+            size="small"
+            aria-label={t('builderClearSubstats')}
+            tooltip={t('builderClearSubstats')}
+            onClick={() => {
+              multiEdit?.updateField('substatsV', {
+                value: (multiSubstatsField?.value as BuilderRecipe['substatsV']) ?? (recipe.substatsV ?? []),
+                status: 'common',
+                patch: { clear: true },
+              })
+              multiEdit?.updateField('fixedSubstatsV', {
+                value: (multiFixedSubstatsField?.value as BuilderRecipe['fixedSubstatsV']) ?? (recipe.fixedSubstatsV ?? []),
+                status: 'common',
+                patch: { clear: true },
+              })
+              multiEdit?.updateField('substatRollBoundsV', {
+                value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (recipe.substatRollBoundsV ?? {}),
+                status: 'common',
+                patch: {},
+              })
+            }}
+          />
+        )
+        : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+    }
+    const substatsSelection = (((recipe as unknown) as { substatsV?: number[] }).substatsV) ?? []
+    const hasSubstats = substatsSelection.length > 0
+    return hasSubstats
+      ? (
+        <ClearIconButton
+          size="small"
+          aria-label={t('builderClearSubstats')}
+          tooltip={t('builderClearSubstats')}
+          onClick={() => onChange(normalizeKeepWithAuto({
+            ...recipe,
+            substatsV: [],
+            fixedSubstatsV: [],
+            minCount: 0,
+            substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
+            substatRollTargetsV: {} as SubstatRollTargets,
+          }))}
+        />
+      )
+      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+  })()
+
+  // Compute name field end adornment (color picker + optional clear button) before JSX.
+  const nameEndAdornment = (() => {
+    const currentFgColor = usingMultiName
+      ? ((multiFgColorField?.value as string) ?? '')
+      : (recipe.appearance?.fgColor ?? '')
+    const showClear = usingMultiName
+      ? Boolean(multiNameField && (multiNameField.value as string) && multiNameField.status !== 'mixed')
+      : renderedName !== ''
+    return (
+      <InputAdornment position="end" sx={{ gap: 0.5 }}>
+        <ColorField
+          value={currentFgColor}
+          onChange={commitFgColor}
+          onClear={() => commitFgColor(undefined)}
+        />
+        {showClear && (
+          <ClearIconButton
+            size="small"
+            edge="end"
+            aria-label={t('builderClearRecipeName')}
+            tooltip={t('builderClearRecipeName')}
+            onClick={() => {
+              if (usingMultiName) {
+                multiEdit?.updateField('appearanceName', { value: '', status: 'common' })
+              } else if (renderedName !== '') {
+                commitName('')
+              }
+            }}
+          />
+        )}
+      </InputAdornment>
+    )
+  })()
+
+  // Substats section content: toggle buttons, roll menu, and substat menu.
+  const substatsContent = (() => {
+
+    // Prefer recipe-overrides overrides for display-only UI so roll badges match previews.
+    // Keep edits bound to the stored recipe so interactions stay deterministic.
+    const displayRecipe = (!multiEditActive && effectiveRecipe !== recipe) ? effectiveRecipe : recipe
+    // Normalize roll bounds so override comparisons use stable, clamped values.
+    const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => ({
+      // Keep the wildcard flag explicit to avoid false positives.
+      any: Boolean(bounds?.any),
+      not: Boolean((bounds as { not?: boolean } | undefined)?.not),
+      // Clamp min to the roll bounds the builder enforces.
+      min: (typeof bounds?.min === 'number' && Number.isFinite(bounds.min))
+        ? Math.max(0, Math.min(5, Math.floor(bounds.min)))
+        : undefined,
+      // Clamp max to the cap the builder exposes.
+      max: (typeof bounds?.max === 'number' && Number.isFinite(bounds.max))
+        ? Math.max(0, Math.min(4, Math.floor(bounds.max)))
+        : undefined,
+    })
+    // Compare normalized bounds to detect recipe-overrides overrides.
+    const boundsEqual = (
+      left: ReturnType<typeof normalizeBounds>,
+      right: ReturnType<typeof normalizeBounds>,
+    ) => left.any === right.any && left.not === right.not && left.min === right.min && left.max === right.max
+    const value: string[] = ((((displayRecipe as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
+    const isSelected = (v: number) => {
+      const subsV = ((displayRecipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+      return subsV.includes(v)
+    }
+    const isFixed = (v: number) => {
+      const fixedV = ((displayRecipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+      return fixedV.includes(v)
+    }
+    const getBounds = (vKey: number) => {
+      return (recipe.substatRollBoundsV)?.[vKey]
+    }
+    const getDisplayBounds = (vKey: number) => {
+      return (displayRecipe.substatRollBoundsV)?.[vKey]
+    }
+    const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => {
+      applySingleSubstatBounds(vKey, () => {
+        if (!bounds) return null
+        return { ...bounds }
+      })
+    }
+    // Badge scale (left → right): max:4 ← max:3 ← … ← max:0 ← ¬ ← ★ → min:0 → min:1 → … → min:5
+    // Left-click (cycleForward) steps rightward; right-click (cycleBackward) steps leftward.
+    // At min:5, left-click wraps back to ★. At max:4, right-click wraps back to ★.
+    const cycleForward = (vKey: number, e?: React.MouseEvent) => {
+      if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+      const b = getBounds(vKey)
+      const isNot = b?.not === true
+      const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
+      const hasMax = !isNot && typeof b?.max === 'number'
+      const hasMin = !isNot && typeof b?.min === 'number'
+      if (isAny) {
+        setBounds(vKey, { min: 0 })                                          // ★ → min:0
+      } else if (hasMin) {
+        const n = Math.max(0, Math.min(5, Number(b?.min)))
+        if (n < 5) setBounds(vKey, { min: n + 1 })                           // min:n → min:(n+1)
+        else setBounds(vKey, { any: true })                                  // min:5 → ★ (right-end wrap)
+      } else if (isNot) {
+        setBounds(vKey, { any: true })                                       // ¬ → ★
+      } else if (hasMax) {
+        const n = Math.max(0, Math.min(4, Number(b?.max)))
+        if (n > 0) setBounds(vKey, { max: n - 1 })                           // max:n → max:(n-1)
+        else setBounds(vKey, { not: true })                                  // max:0 → ¬
+      } else {
+        setBounds(vKey, { any: true })
+      }
+    }
+
+    const cycleBackward = (vKey: number, e?: React.MouseEvent) => {
+      if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+      const b = getBounds(vKey)
+      const isNot = b?.not === true
+      const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
+      const hasMax = !isNot && typeof b?.max === 'number'
+      const hasMin = !isNot && typeof b?.min === 'number'
+      if (isAny) {
+        setBounds(vKey, { not: true })                                       // ★ → ¬
+      } else if (isNot) {
+        setBounds(vKey, { max: 0 })                                          // ¬ → max:0
+      } else if (hasMax) {
+        const n = Math.max(0, Math.min(4, Number(b?.max)))
+        if (n < 4) setBounds(vKey, { max: n + 1 })                           // max:n → max:(n+1)
+        else setBounds(vKey, { any: true })                                  // max:4 → ★ (left-end wrap)
+      } else if (hasMin) {
+        const n = Math.max(0, Math.min(5, Number(b?.min)))
+        if (n <= 0) setBounds(vKey, { any: true })                           // min:0 → ★
+        else setBounds(vKey, { min: n - 1 })                                 // min:n → min:(n-1)
+      } else {
+        setBounds(vKey, { any: true })
+      }
+    }
+
+    const cycleSubstat = (vKey: number, e?: React.MouseEvent) => {
+      if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+      if (multiEditActive && multiEdit) {
+        multiToggleSubstat(vKey)
+        return
+      }
+      const selected = isSelected(vKey)
+      if (!selected) {
+        const prevV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+        const nextV = [...prevV, vKey]
+        const nextLen = nextV.length
+        const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
+        bVAll[vKey] = { any: true }
+        const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextV, bVAll)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
+        onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
+        return
+      }
+      // Selected (locked or not) -> remove entirely
+      const prevSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+      const nextSubsV = prevSubsV.filter((v) => v !== vKey)
+      const prevFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+      const nextFixedV = prevFixedV.filter((v) => v !== vKey)
+      // prune bounds for substat (variant-keyed)
+      const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
+      const { [vKey]: _omit, ...restV } = bVAll
+      const prunedV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = restV
+      const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubsV, prunedV)) : (recipe.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
+      // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
+      onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
+    }
+    // Lock badge toggle: ensures the substat is selected before flipping fixed state.
+    const toggleSubstatLock = (vKey: number) => {
+      const selected = isSelected(vKey)
+      const fixed = isFixed(vKey)
+      const prevSubs = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+      const prevFixed = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+      const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+      if (!selected) {
+        const nextSubs = [...prevSubs, vKey]
+        const nextFixed = Array.from(new Set([...prevFixed, vKey]))
+        const nextLen = nextSubs.length
+        const nextBounds: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = { ...(boundsSource as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>), [vKey]: { any: true } }
+        const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubs, nextBounds)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : Math.min(recipe.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
+        const nextRecipe = normalizeKeepWithAuto({
+          ...recipe,
+          substatsV: nextSubs,
+          fixedSubstatsV: nextFixed,
+          minCount: nextMin,
+          substatRollBoundsV: nextBounds,
+        })
+        onChange(nextRecipe)
+        return
+      }
+      if (!fixed) {
+        const nextFixed = Array.from(new Set([...prevFixed, vKey]))
+        onChange(normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed }))
+        return
+      }
+      const nextFixed = prevFixed.filter((v) => v !== vKey)
+      const nextRecipe = normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed })
+      onChange(nextRecipe)
+    }
+
+    // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
+    const rollIndicatorTooltip = [
+      t('rollIndicatorTip1'),
+      t('rollIndicatorTip2'),
+      t('rollIndicatorTip3'),
+    ].join('\n')
+
+    const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
+      const singleBounds = getBounds(variant)
+      const presenceState = multiEditActive ? getSubstatPresence(variant) : (isSelected(variant) ? 'all' : 'none')
+      const lockState = multiEditActive ? getSubstatLockState(variant) : (isFixed(variant) ? 'all' : 'none')
+      const rollMode = multiEditActive ? getRollMode(variant) : (() => {
+        if (singleBounds?.not === true) return { kind: 'not', presence: isSelected(variant) ? 1 : 0 } as RollMode
+        if (!singleBounds || singleBounds.any) return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
+        const hasMin = typeof singleBounds.min === 'number'
+        const hasMax = typeof singleBounds.max === 'number'
+        if (hasMax) {
+          return {
+            kind: 'max',
+            presence: 1,
+            max: Math.max(0, Math.min(4, Number(singleBounds.max))),
+            ...(hasMin ? { min: Math.max(0, Math.min(5, Number(singleBounds.min))) } : {}),
+          } as RollMode
+        }
+        if (hasMin) {
+          return { kind: 'min', presence: 1, min: Math.max(0, Math.min(5, Number(singleBounds.min))) } as RollMode
+        }
+        return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
+      })()
+      const buttonSelected = multiEditActive ? (presenceState === 'all') : isSelected(variant)
+      const displaySelected = multiEditActive ? (presenceState !== 'none') : isSelected(variant)
+      const indicatorMixed = multiEditActive && (rollMode.kind === 'mixed' || presenceState === 'partial')
+      const displayBounds = multiEditActive ? getBounds(variant) : getDisplayBounds(variant)
+      const indicatorWarning = (() => {
+        // Avoid mixing recipe-overrides overlays with multi-edit preview.
+        if (multiEditActive) return false
+        // Only show overrides when recipe overrides altered the display recipe.
+        if (displayRecipe === recipe) return false
+        // Keep warnings off hidden indicators to reduce noise.
+        if (!displaySelected) return false
+        // Compare the stored vs effective bounds for this variant.
+        const baseBounds = normalizeBounds(getBounds(variant))
+        const overrideBounds = normalizeBounds(getDisplayBounds(variant))
+        return !boundsEqual(baseBounds, overrideBounds)
+      })()
+      const indicatorWarningTooltip = indicatorWarning
+        ? t('builderSubstatMinRecipeOverridesOverrideTooltip')
+        : ''
+      const indicator = (() => {
+        if (indicatorMixed) return undefined
+        if (multiEditActive) {
+          if (rollMode.kind === 'any') {
+            return displaySelected ? { wildcard: true, tooltip: rollIndicatorTooltip } : undefined
+          }
+          if (rollMode.kind === 'min') {
+            return {
+              wildcard: false,
+              min: rollMode.min,
+              ...(typeof rollMode.max === 'number' ? { max: rollMode.max } : {}),
+              tooltip: rollIndicatorTooltip,
+            }
+          }
+          if (rollMode.kind === 'max') {
+            return {
+              wildcard: false,
+              max: rollMode.max,
+              ...(typeof rollMode.min === 'number' ? { min: rollMode.min } : {}),
+              tooltip: rollIndicatorTooltip,
+            }
+          }
+          if (rollMode.kind === 'not') {
+            return displaySelected ? { wildcard: false, not: true, tooltip: rollIndicatorTooltip } : undefined
+          }
+          return undefined
+        }
+        const isNotSub = displayBounds?.not === true
+        const hasMin = !isNotSub && typeof displayBounds?.min === 'number'
+        const minVal = hasMin ? Math.max(0, Math.min(5, Number(displayBounds?.min))) : undefined
+        const hasMax = !isNotSub && typeof displayBounds?.max === 'number' && isFinite(displayBounds.max ?? NaN)
+        const maxVal = hasMax ? Math.max(0, Math.min(4, Number(displayBounds?.max))) : undefined
+        const wildcard = !isNotSub && (Boolean(displayBounds?.any) || (!hasMin && !hasMax))
+        return displaySelected
+          ? {
+              wildcard,
+              ...(isNotSub ? { not: true } : {}),
+              ...(typeof minVal === 'number' ? { min: minVal } : {}),
+              ...(typeof maxVal === 'number' ? { max: maxVal } : {}),
+              tooltip: rollIndicatorTooltip,
+            }
+          : undefined
+      })()
+      const lockIsMixed = multiEditActive && (presenceState === 'partial' || lockState === 'partial')
+      const lockHoverBaseOpacity = (lockState === 'all' || lockIsMixed) ? 1 : 0
+      const lockSx: SxProps<Theme> = lockIsMixed
+        ? {
+            color: mixedTextColor,
+            textShadow: 'none',
+          }
+        : {
+            color: theme.palette.text.primary,
+            textShadow: 'none',
+          }
+      const handleClick = (event: React.MouseEvent) => {
+        if (multiEditActive && multiEdit) {
+          try { event.preventDefault(); event.stopPropagation() } catch {}
+          multiToggleSubstat(variant)
+          return
+        }
+        cycleSubstat(variant, event)
+      }
+      const ensurePresenceBeforeRollAdjust = () => {
+        if (!multiEditActive || !multiEdit) return
+        if (presenceState !== 'all') ensureMultiSubstatPresence(variant)
+      }
+      const handleIndicatorClick = (event: React.MouseEvent) => {
+        try { event.stopPropagation() } catch {}
+        if (multiEditActive && multiEdit) {
+          ensurePresenceBeforeRollAdjust()
+          multiCycleRollForward(variant)
+          return
+        }
+        cycleForward(variant, event)
+      }
+      const handleIndicatorContext = (event: React.MouseEvent) => {
+        event.preventDefault()
+        try { event.stopPropagation() } catch {}
+        if (multiEditActive && multiEdit) {
+          ensurePresenceBeforeRollAdjust()
+          multiCycleRollBackward(variant)
+          return
+        }
+        cycleBackward(variant, event)
+      }
+      const handleLockToggle = (event: React.MouseEvent | React.KeyboardEvent) => {
+        try { event.preventDefault(); event.stopPropagation() } catch {}
+        if (multiEditActive && multiEdit) {
+          multiToggleSubstatLock(variant)
+          return
+        }
+        toggleSubstatLock(variant)
+      }
+      const handleContextMenu = (event: React.MouseEvent) => {
+        try { event.preventDefault(); event.stopPropagation() } catch {}
+        markSubstatHintSeenAndClear()
+        const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
+        const wasSelected = displaySelected
+        if (!wasSelected) {
+          if (multiEditActive && multiEdit) {
+            multiToggleSubstat(variant)
+          } else {
+            cycleSubstat(variant)
+          }
+        }
+      const info = deriveSubstatMenuInfo(variant)
+      const openMenu = () => {
+        setSubstatMenu({
+          variant,
+          anchor: anchorPosition,
+        })
+        setSubstatMenuDraft(null)
+        resetSubstatMenuChipWidths()
+      }
+      if (!info) {
+        if (!wasSelected && typeof window !== 'undefined') {
+          window.setTimeout(() => {
+            openMenu()
+          }, 0)
+        }
+        return
+      }
+      openMenu()
+      }
+      const lockTooltip = (() => {
+        if (multiEditActive) {
+          if (lockIsMixed) return t('builderSubstatLockTooltipMixed')
+          return lockState === 'all'
+            ? t('builderSubstatLockTooltipUnlock')
+            : t('builderSubstatLockTooltipLock')
+        }
+        return isFixed(variant)
+          ? t('builderSubstatLockTooltipUnlock')
+          : t('builderSubstatLockTooltipLock')
+      })()
+      const interactiveHover = interactiveHoverVariant === variant
+      const toggleButtonSx = (theme: Theme): SystemStyleObject<Theme> => {
+        const base = {
+          ...buttonBorderSx(variant),
+          '--sub-lock-hover-opacity': lockHoverBaseOpacity,
+          ...(multiEditActive && presenceState === 'partial'
+            ? {
+                borderStyle: 'dashed',
+                borderColor: mixedBorderColor,
+                color: mixedTextColor,
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+            }
+            : {}),
+          color: theme.palette.text.primary,
+          transition: 'background-color .15s, border-color .15s, color .15s',
+          '&[data-interactive-hover="true"]': {
+            '--sub-lock-hover-opacity': lockHoverBaseOpacity,
+          },
+          '&[data-interactive-hover="true"]:not(.Mui-selected)': {
+            backgroundColor: 'transparent !important',
+          },
+          '&.Mui-selected[data-interactive-hover="true"]': {
+            backgroundColor: theme.palette.action.selected,
+            color: theme.palette.text.primary,
+          },
+          '&.Mui-selected[data-interactive-hover="true"] .roll-label': {
+            color: theme.palette.text.primary,
+          },
+        } as (SystemStyleObject<Theme> & Record<string, unknown>)
+        return base
+      }
+      return (
+        <ToggleButton
+          key={variant}
+          value={`${variant}`}
+          selected={buttonSelected}
+          disabled={!allowedSubstatOptions.includes(variant)}
+          onClick={handleClick}
+          onMouseMove={(e) => {
+            if (!showSubstatHint || substatMenu) return
+            setSubstatHintPos({ x: e.clientX, y: e.clientY })
+          }}
+          onContextMenu={handleContextMenu}
+          onMouseLeave={() => {
+            setInteractiveHoverVariant((current) => (current === variant ? null : current))
+            clearSubstatHint()
+          }}
+          sx={toggleButtonSx}
+          data-tour-id={options?.dataTourId}
+          data-interactive-hover={interactiveHover ? 'true' : undefined}
+        >
+          <SubstatToggleDisplay
+            label={t(statVariantI18nKey(variant))}
+            locked={lockState !== 'none'}
+            selected={displaySelected}
+            {...(indicator ? { indicator } : {})}
+            indicatorWarning={indicatorWarning}
+            {...(indicatorWarningTooltip ? { indicatorWarningTooltip } : {})}
+            indicatorMixed={indicatorMixed}
+            onIndicatorClick={handleIndicatorClick}
+            onIndicatorContextMenu={handleIndicatorContext}
+            lockSx={lockSx}
+            onLockToggle={handleLockToggle}
+            lockTooltip={lockTooltip}
+            lockAriaLabel={t('builderSubstatLockControlLabel', { stat: t(statVariantI18nKey(variant)) })}
+            lockIsMixed={lockIsMixed}
+            onInteractiveHoverChange={(hovering) => {
+              setInteractiveHoverVariant((current) => {
+                if (hovering) return variant
+                return current === variant ? null : current
+              })
+            }}
+          />
+        </ToggleButton>
+      )
+    }
+    const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
+    const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
+    // Derive the "not" state: explicit draft wins, then fall back to the active info rollKind.
+    const effectiveNotDraft: boolean = substatMenuDraft
+      ? (substatMenuDraft.not === true)
+      : (activeMenuInfo?.rollKind === 'not')
+    const statLabelText = activeMenuInfo ? t(statVariantI18nKey(activeMenuInfo.variant)) : ''
+    const statHighlightColor = activeMenuInfo && colorStatTexts
+      ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
+      : undefined
+    // Summarize the currently opened substat across the active recipe(s).
+    // Reuses the Builder math so we can display lock/min/max/target
+    // pills without rebuilding the entire rule set.
+    const computeMenuValueSummary = () => {
+      if (!activeMenuInfo) return null
+      const label = statLabelText
+      if (!label) return null
+      const variantId = activeMenuInfo.variant
+      const recipes = (() => {
+        if (multiEditActive) {
+          if (multiProjectedRecipes && multiProjectedRecipes.length > 0) return multiProjectedRecipes
+          if (multiSourceRecipes && multiSourceRecipes.length > 0) return multiSourceRecipes
+          return []
+        }
+        return [recipe]
+      })()
+      if (!recipes || recipes.length === 0) return null
+      const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
+      const isRollCount = Number(variantId) === StatVariant.RollCount
+      const normalizeLevel = (value: number | undefined | null): LevelMilestone => {
+        if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) return value as LevelMilestone
+        return LEVEL_MILESTONES[0]!
+      }
+      const metrics = recipes.map((recipe) => {
+        const star = starForRankCode(Number(recipe.rankCode ?? 0), starFallback)
+        const baseValueRaw = baseMinForStarV(Number(variantId), star, substatTargets)
+        const baseValue = Math.max(0, baseValueRaw ?? 0)
+        const rarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
+        const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
+      const baselineMode = deriveRollBaselineMode(recipe)
+      const minLevel = normalizeLevel(recipe.minLevel)
+      const maxLevel = normalizeLevel(recipe.maxLevel)
+      const windowMin = Math.min(minLevel, maxLevel)
+      const windowMax = Math.max(minLevel, maxLevel)
+        const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
+        const countUpTo = (limit: number) => {
+          let total = 0
+          for (const lvl of rollLevels) {
+            if (lvl <= limit) total += 1
+          }
+          return total
+        }
+        let maxRolls: number
+        if (baselineMode === 'upToLevel') {
+          maxRolls = countUpTo(windowMax) + preRolls
+        } else {
+          maxRolls = Math.max(0, countUpTo(windowMax) - countUpTo(windowMin))
+          if (windowMin <= 0) {
+            maxRolls += preRolls
+          }
+        }
+        const hardCap = rarityIncludesMythical(rarityCode) ? 5 : 4
+        maxRolls = Math.max(0, Math.min(maxRolls, hardCap))
+        return {
+          baseValue,
+          maxRolls,
+        }
+      })
+      if (metrics.length === 0) return null
+      const computeThreshold = (base: number, rolls: number): number => (
+        isRollCount ? rolls : Math.max(0, base + (rolls * base))
+      )
+      const targetValueForRoll = (base: number, rolls: number): number => {
+        if (rolls <= 0) {
+          if (targetDraftBase != null) return targetDraftBase
+          return computeThreshold(base, 0)
+        }
+        const idx = Math.min(SUBSTAT_TARGET_MAX_ROLLS - 1, Math.max(0, rolls - 1))
+        const override = targetDraftRolls[idx]
+        if (override != null) return override
+        return computeThreshold(base, rolls)
+      }
+      const formatValue = (value: number) => numberFormatter.format(Math.round(value))
+      const formatRange = (minVal: number, maxVal: number) => {
+        const low = Math.min(minVal, maxVal)
+        const high = Math.max(minVal, maxVal)
+        if (low === high) return formatValue(low)
+        return `${formatValue(low)}…${formatValue(high)}`
+      }
+      const mixedLabel = t('builderMultiMixedValue')
+      const minMixedFlag = Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
+      const maxMixedFlag = Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
+      const minGroupValueLocal = typeof effectiveMinDraft === 'number'
+        ? clampRollMin(effectiveMinDraft)
+        : null
+      const maxGroupValueLocal = typeof effectiveMaxDraft === 'number'
+        ? clampRollMax(effectiveMaxDraft)
+        : null
+      let minText: string | null = null
+      if (minMixedFlag) {
+        minText = mixedLabel
+      } else if (typeof minGroupValueLocal === 'number') {
+        const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, minGroupValueLocal))
+        const low = Math.min(...values)
+        const high = Math.max(...values)
+        minText = formatRange(low, high)
+      } else if (activeMenuInfo.wildcard) {
+        const lows = metrics.map((metric) => targetValueForRoll(metric.baseValue, 0))
+        const highs = metrics.map((metric) => targetValueForRoll(metric.baseValue, metric.maxRolls))
+        const low = Math.min(...lows)
+        const high = Math.max(...highs)
+        minText = formatRange(low, high)
+      }
+      let maxText: string | null = null
+      if (maxMixedFlag) {
+        maxText = mixedLabel
+      } else if (typeof maxGroupValueLocal === 'number') {
+        const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, maxGroupValueLocal))
+        const low = Math.min(...values)
+        const high = Math.max(...values)
+        maxText = formatRange(low, high)
+      }
+      const lockMixedFlag = activeMenuInfo?.lockState === 'partial'
+      const lockGroupValueLocal: 'locked' | 'unlocked' | null = activeMenuInfo.lockState === 'all'
+        ? 'locked'
+        : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)
+      return {
+        label,
+        minText,
+        maxText,
+        minMixed: minMixedFlag,
+        maxMixed: maxMixedFlag,
+        minGroupValue: minGroupValueLocal,
+        maxGroupValue: maxGroupValueLocal,
+        lockMixed: lockMixedFlag,
+        lockGroupValue: lockGroupValueLocal,
+      }
+    }
+    const substatMenuValueSummary = computeMenuValueSummary()
+    const minMixed = substatMenuValueSummary?.minMixed ?? Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
+    const maxMixed = substatMenuValueSummary?.maxMixed ?? Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
+    const lockMixed = substatMenuValueSummary?.lockMixed ?? (activeMenuInfo?.lockState === 'partial')
+    const lockGroupValue: 'locked' | 'unlocked' | null = substatMenuValueSummary?.lockGroupValue ?? (!activeMenuInfo
+      ? null
+      : (activeMenuInfo.lockState === 'all'
+        ? 'locked'
+        : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)))
+    const minGroupValue: number | null = substatMenuValueSummary?.minGroupValue ?? (typeof effectiveMinDraft === 'number'
+      ? clampRollMin(effectiveMinDraft)
+      : null)
+    const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
+      ? clampRollMax(effectiveMaxDraft)
+      : null)
+    const targetInputsDisabled = !activeMenuInfo
+    const lockTooltipText = t('builderSubstatMenuLockTooltip')
+    const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
+    const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
+    const rollTargetsTooltipText = targetContext
+      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.round(targetContext.baseValue)) })
+      : t('builderSubstatMenuRollTargetsHintFallback')
+    const stepTargetBase = (delta: number) => {
+      if (!activeMenuInfo) return
+      const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
+      const nextValue = clampTargetValue((seedValue ?? 0) + delta)
+      applyTargetSelection(nextValue, targetDraftRolls)
+    }
+    const stepTargetRoll = (index: number, delta: number) => {
+      if (!activeMenuInfo) return
+      const nextRolls = cloneTargetRolls(targetDraftRolls)
+      const current = nextRolls[index]
+      const seedValue = current ?? resolveTargetFallbackValue(index + 1)
+      nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta)
+      applyTargetSelection(targetDraftBase, nextRolls)
+    }
+    const renderRequirementChip = (mode: 'min' | 'max') => {
+      if (!activeMenuInfo) {
+        return <Box sx={menuValuePillPlaceholderSx} />
+      }
+      const text = substatMenuValueSummary
+        ? (mode === 'min' ? substatMenuValueSummary.minText : substatMenuValueSummary.maxText)
+        : null
+      const mixed = substatMenuValueSummary
+        ? (mode === 'min' ? substatMenuValueSummary.minMixed : substatMenuValueSummary.maxMixed)
+        : false
+      const hasValue = Boolean(text && text.trim().length > 0)
+      // When the "not" toggle is active on the max row, show ¬ and suppress the value.
+      const isNotActive = mode === 'max' && effectiveNotDraft
+      const displayText = (mixed || isNotActive)
+        ? ''
+        : (hasValue ? text! : '')
+      const statId = variantToSub(activeMenuInfo.variant).id
+      const shouldColorize = colorStatTexts && substatSupportsColor(statId)
+      const label = substatMenuValueSummary?.label ?? t(statVariantI18nKey(activeMenuInfo.variant))
+      const { labelColor, chipBg, chipBorder } = resolveSubstatChipPalette(theme, {
+        variant: activeMenuInfo.variant,
+        substatColors,
+        colorize: shouldColorize,
+        fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
+      })
+      const glyph = mixed ? '' : isNotActive ? '¬' : (mode === 'min' ? '≥' : '≤')
+      const glyphColor = (mode === 'max') ? theme.palette.error.main : theme.palette.success.main
+      const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
+      const enforcedWidth = (() => {
+        if (chipWidth === 0) return undefined
+        if (rowWidth < chipWidth) return `${chipWidth}px`
+        return undefined
+      })()
+      const chipRef = (node: HTMLDivElement | null) => {
+        if (!node) return
+        const width = node.offsetWidth
+        if (width <= 0 || enforcedWidth) return
+        setSubstatMenuChipWidths((prev) => {
+          if (mode === 'min') {
+            if (prev.min === width) return prev
+            return { ...prev, min: width }
+          }
+          if (prev.max === width) return prev
+          return { ...prev, max: width }
+        })
+      }
+      const chipStyles: SystemStyleObject<Theme> = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: theme.spacing(0.75),
+        maxWidth: '100%',
+        borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
+        padding: theme.spacing(0.5, 1),
+        backgroundColor: chipBg,
+        border: `1px solid ${chipBorder}`,
+        minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+        ...(enforcedWidth ? { width: enforcedWidth } : {}),
+      }
+      if (mixed) {
+        Object.assign(chipStyles, {
+          border: `1px dashed ${mixedBorderColor}`,
+          color: mixedTextColor,
+          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+        })
+      }
+      const effectiveLabelColor = mixed ? mixedTextColor : labelColor
+      const valueColor = mixed ? mixedTextColor : glyphColor
+      return (
+        <Box
+          sx={chipStyles}
+          ref={chipRef}
+        >
+          <Box
+            component="span"
+            sx={{
+              color: effectiveLabelColor,
+              fontWeight: theme.typography.fontWeightMedium ?? 600,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              gap: theme.spacing(0.25),
+              color: valueColor,
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+           }}
+          >
+            {glyph ? (<Box component="span">{glyph}</Box>) : null}
+            {(mixed || hasValue) ? (
+              <Box component="span">{displayText}</Box>
+            ) : null}
+          </Box>
+        </Box>
+      )
+    }
+    const commitSingleBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
+      applySingleSubstatBounds(variantId, (current) => {
+        if (nextMin == null && nextMax == null) return null
+        const draft = { ...(current ?? {}) }
+        if (nextMin == null) delete draft.min
+        else draft.min = nextMin
+        if (nextMax == null) delete draft.max
+        else draft.max = nextMax
+        delete draft.any
+        return draft
+      })
+    }
+    const commitMultiBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
+      if (!multiEditActive || !multiEdit) return
+      if (nextMin == null && nextMax == null) {
+        commitRollPatch(variantId, { any: true, min: null, max: null })
+      } else {
+        commitRollPatch(variantId, {
+          any: false,
+          ...(nextMin === null ? { min: null } : { min: nextMin }),
+          ...(nextMax === null ? { max: null } : { max: nextMax }),
+        })
+      }
+    }
+    const ensureSubstatPresenceForBounds = (variantId: number) => {
+      if (multiEditActive && multiEdit) {
+        ensureMultiSubstatPresence(variantId)
+        return
+      }
+      if (!isSelected(variantId)) {
+        cycleSubstat(variantId)
+      }
+    }
+    const applyMenuSelection = (
+      nextMin: number | null,
+      nextMax: number | null,
+      options?: { requirePresence?: boolean; ensurePresenceWhenMixed?: boolean },
+    ) => {
+      if (!activeMenuInfo) return
+      const requirePresence = options?.requirePresence ?? false
+      const ensurePresenceWhenMixed = options?.ensurePresenceWhenMixed ?? false
+      const shouldEnsurePresence = (() => {
+        if (!multiEditActive || !multiEdit) {
+          return requirePresence && (nextMin != null || nextMax != null)
+        }
+        if (requirePresence && (nextMin != null || nextMax != null)) return true
+        if (ensurePresenceWhenMixed && activeMenuInfo.presence !== 'all') return true
+        return false
+      })()
+    if (shouldEnsurePresence) ensureSubstatPresenceForBounds(activeMenuInfo.variant)
+      setSubstatMenuDraft((prev) => ({
+        min: nextMin,
+        max: nextMax,
+        targetBase: prev?.targetBase ?? null,
+        targetRolls: cloneTargetRolls(prev?.targetRolls),
+      }))
+      if (multiEditActive && multiEdit) {
+        commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
+      } else {
+        commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
+      }
+    }
+    const applyNotSelection = () => {
+      if (!activeMenuInfo) return
+      ensureSubstatPresenceForBounds(activeMenuInfo.variant)
+      setSubstatMenuDraft((prev) => ({
+        min: null,
+        max: null,
+        not: true,
+        targetBase: prev?.targetBase ?? null,
+        targetRolls: cloneTargetRolls(prev?.targetRolls),
+      }))
+      if (multiEditActive && multiEdit) {
+        commitRollPatch(activeMenuInfo.variant, { not: true, any: false, min: null, max: null })
+      } else {
+        applySingleSubstatBounds(activeMenuInfo.variant, () => ({ not: true }))
+      }
+    }
+    const applyTargetSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
+      if (!activeMenuInfo) return
+      const draftRolls = cloneTargetRolls(nextRolls)
+      setSubstatMenuDraft((prev) => ({
+        min: prev?.min ?? activeMenuInfo.minValue ?? null,
+        max: prev?.max ?? activeMenuInfo.maxValue ?? null,
+        targetBase: nextBase,
+        targetRolls: draftRolls,
+      }))
+      const entry = buildTargetEntryFromDraft(nextBase, draftRolls)
+      if (multiEditActive && multiEdit) {
+        commitTargetPatch(activeMenuInfo.variant, entry)
+        return
+      }
+      applySingleSubstatTargets(activeMenuInfo.variant, () => {
+        if (!entry) return null
+        return {
+          ...(typeof entry.base === 'number' ? { base: entry.base } : {}),
+          ...(Array.isArray(entry.increments) ? { increments: [...entry.increments] } : {}),
+        }
+      })
+    }
+    const handleTargetBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (!activeMenuInfo) return
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+      applyTargetSelection(nextValue, targetDraftRolls)
+    }
+    const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (!activeMenuInfo) return
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+      const nextRolls = cloneTargetRolls(targetDraftRolls)
+      nextRolls[index] = nextValue
+      applyTargetSelection(targetDraftBase, nextRolls)
+    }
+    const handleTargetReset = () => {
+      if (!activeMenuInfo) return
+      applyTargetSelection(null, createEmptyTargetRolls())
+    }
+    const applyLockSelection = (value: 'locked' | 'unlocked') => {
+      if (!activeMenuInfo) return
+      if (multiEditActive && multiEdit) {
+        multiSetSubstatLockState(activeMenuInfo.variant, value)
+        return
+      }
+      const currentlyLocked = isFixed(activeMenuInfo.variant)
+      if (value === 'locked' && !currentlyLocked) {
+        toggleSubstatLock(activeMenuInfo.variant)
+      } else if (value === 'unlocked' && currentlyLocked) {
+        toggleSubstatLock(activeMenuInfo.variant)
+      }
+    }
+    const handleLockGroupChange = (_event: React.SyntheticEvent<Element, Event>, value: 'locked' | 'unlocked' | null) => {
+      if (value === null) return
+      applyLockSelection(value)
+    }
+    const MIN_SEQUENCE = ['any', '0', '1', '2', '3', '4', '5'] as const
+    // 'not' appears first in the max group (before 0), reflecting the badge cycle order.
+    const MAX_SEQUENCE = ['any', 'not', '0', '1', '2', '3', '4'] as const
+    type MinOption = (typeof MIN_SEQUENCE)[number]
+    type MaxOption = (typeof MAX_SEQUENCE)[number]
+    const MIN_CYCLE_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
+    const MIN_LABEL_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
+    const MAX_LABEL_SEQUENCE: MaxOption[] = ['not', '0', '1', '2', '3', '4']
+    const normalizeMinOption = (raw: string | null): MinOption => {
+      if (!raw) return 'any'
+      return (MIN_SEQUENCE.includes(raw as MinOption) ? raw : 'any') as MinOption
+    }
+    const normalizeMaxOption = (raw: string | null): MaxOption => {
+      if (!raw) return 'any'
+      return (MAX_SEQUENCE.includes(raw as MaxOption) ? raw : 'any') as MaxOption
+    }
+    const minToggleValue: MinOption | undefined | null = minMixed
+      ? null
+      : (minGroupValue == null
+        ? (maxGroupValue == null && !effectiveNotDraft ? 'any' : undefined)
+        : (String(minGroupValue) as MinOption))
+    const maxToggleValue: MaxOption | undefined | null = maxMixed
+      ? null
+      : (effectiveNotDraft
+        ? 'not'
+        : (maxGroupValue == null
+          ? (minGroupValue == null ? 'any' : undefined)
+          : (String(maxGroupValue) as MaxOption)))
+    const applyMinSelection = (key: MinOption) => {
+      if (key === 'any') {
+        applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
+        return
+      }
+      applyMenuSelection(clampRollMin(Number(key)), null, { requirePresence: true })
+    }
+    const applyMaxSelection = (key: MaxOption) => {
+      if (key === 'any') {
+        applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
+        return
+      }
+      if (key === 'not') {
+        applyNotSelection()
+        return
+      }
+      applyMenuSelection(null, clampRollMax(Number(key)), { requirePresence: true })
+    }
+    const handleMinGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
+      applyMinSelection(normalizeMinOption(rawValue))
+    }
+    const handleMaxGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
+      applyMaxSelection(normalizeMaxOption(rawValue))
+    }
+    const resolveMinCycleKey = (): MinOption => {
+      if (minMixed) return 'any'
+      const key = minToggleValue
+      if (key && MIN_SEQUENCE.includes(key as MinOption)) {
+        return key as MinOption
+      }
+      return 'any'
+    }
+    const resolveMaxCycleKey = (): MaxOption => {
+      if (maxMixed) return 'any'
+      if (effectiveNotDraft) return 'not'
+      const key = maxToggleValue
+      if (key && MAX_SEQUENCE.includes(key as MaxOption)) {
+        return key as MaxOption
+      }
+      return 'any'
+    }
+    const cycleMinRequirement = () => {
+      if (minMixed) {
+        applyMinSelection('any')
+        return
+      }
+      if (minGroupValue == null && (maxGroupValue != null || effectiveNotDraft)) {
+        applyMinSelection('any')
+        return
+      }
+      const current = resolveMinCycleKey()
+      const startIndex = MIN_CYCLE_SEQUENCE.indexOf(current)
+      const next = MIN_CYCLE_SEQUENCE[(startIndex + 1) % MIN_CYCLE_SEQUENCE.length] ?? 'any'
+      applyMinSelection(next)
+    }
+    const cycleMaxLimit = () => {
+      if (maxMixed) {
+        applyMaxSelection('not')
+        return
+      }
+      if (!effectiveNotDraft && maxGroupValue == null) {
+        if (minGroupValue != null) {
+          applyMaxSelection('not')
+          return
+        }
+      }
+      const current = resolveMaxCycleKey()
+      if (current === 'any') {
+        applyMaxSelection('not')
+        return
+      }
+      const idx = MAX_LABEL_SEQUENCE.indexOf(current)
+      if (idx === -1) {
+        applyMaxSelection('not')
+        return
+      }
+      const nextIdx = idx + 1
+      if (nextIdx >= MAX_LABEL_SEQUENCE.length) {
+        applyMaxSelection('any')
+        return
+      }
+      applyMaxSelection(MAX_LABEL_SEQUENCE[nextIdx] as MaxOption)
+    }
+    const cycleLockState = () => {
+      const next = lockGroupValue === 'locked' ? 'unlocked' : 'locked'
+      applyLockSelection(next)
+    }
+    const menuRowSx: SxProps<Theme> = () => ({
+      display: 'grid',
+      gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px ${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
+      alignItems: 'center',
+      columnGap: `${SUBSTAT_MENU_COLUMN_GAP_PX}px`,
+      rowGap: theme.spacing(0.5),
+      px: 2,
+      py: 0.75,
+    })
+    const menuValueColumnSx: SxProps<Theme> = {
+      display: 'flex',
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      width: `${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
+    }
+    const menuValuePillPlaceholderSx: SxProps<Theme> = {
+      width: '100%',
+      minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+    }
+const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+  color: theme.palette.text.secondary,
+  fontSize: theme.typography.body2.fontSize,
+  flexWrap: 'wrap',
+  wordBreak: 'break-word',
+  whiteSpace: 'normal',
+})
+const renderMenuHeading = (label: string, tooltipText: string | null) => (
+  <MarkdownTooltip
+    render={(
+      <BuilderTooltipContent
+        text={(tooltipText && tooltipText.trim().length > 0) ? tooltipText : label}
+      />
+    )}
+  >
+    <Typography
+      variant="body2"
+      sx={(themeInner) => ({
+        ...menuLabelSx(themeInner),
+        lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
+      })}
+    >
+      {label}
+    </Typography>
+  </MarkdownTooltip>
+)
+    const lockGroupSx: SxProps<Theme> = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: `${LOCK_MENU_GAP_PX}px`,
+        width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+        marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
+        justifyContent: 'flex-start',
+        '& .MuiToggleButton-root': {
+          minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
+          width: LOCK_MENU_BUTTON_WIDTH_PX,
+          height: MENU_CONTROL_HEIGHT_PX,
+          px: 0,
+          borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
+        },
+        '& .MuiToggleButtonGroup-grouped': {
+          margin: '0 !important',
+          borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
+          borderLeft: '1px solid transparent',
+        },
+        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+          marginLeft: '0 !important',
+        },
+        '& .MuiToggleButton-root[data-mixed="true"]': {
+          borderStyle: 'dashed',
+          borderColor: mixedBorderColor,
+          color: mixedTextColor,
+          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+        },
+      }
+    const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
+      const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
+      const selectedText = themeInner.palette.common.white
+      const baseBorder = themeInner.palette.text.secondary
+      const hoverGlow = alpha(
+        themeInner.palette.text.primary,
+        themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
+      )
+      const base: SystemStyleObject<Theme> = {
+        display: 'grid',
+        gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
+        columnGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
+        rowGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
+        width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+        justifyContent: 'flex-start',
+        '& .MuiToggleButtonGroup-grouped': {
+          margin: '0 !important',
+          borderRadius: '50% !important',
+          borderLeft: '1px solid transparent',
+        },
+        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+          marginLeft: '0 !important',
+        },
+        '& .MuiToggleButton-root': {
+          minWidth: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+          width: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+          height: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+          px: 0,
+          borderRadius: '50%',
+          border: `1px solid ${baseBorder}`,
+          color: themeInner.palette.text.secondary,
+          backgroundColor: 'transparent',
+          clipPath: 'circle(50% at 50% 50%)',
+          transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: 'none',
+        },
+        '& .MuiToggleButton-root:hover': {
+          boxShadow: `0 0 0 1px ${hoverGlow}`,
+          backgroundColor: themeInner.palette.action.hover,
+          borderColor: baseBorder,
+        },
+        '& .MuiToggleButton-root .menu-roll-label': {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          fontSize: `${SUBSTAT_MENU_ROLL_FONT_SIZE_PX}px`,
+          lineHeight: 1,
+          fontWeight: themeInner.typography.fontWeightMedium ?? 600,
+        },
+        '& .MuiToggleButton-root.Mui-selected': {
+          color: selectedText,
+          backgroundColor: highlight,
+          borderColor: highlight,
+          boxShadow: `0 0 0 1px ${highlight}`,
+        },
+        '& .MuiToggleButton-root.Mui-selected:hover': {
+          backgroundColor: highlight,
+          borderColor: highlight,
+          boxShadow: `0 0 0 1px ${highlight}`,
+        },
+        '& .MuiToggleButton-root[data-mixed="true"]': {
+          borderStyle: 'dashed',
+          borderColor: mixedBorderColor,
+          color: mixedTextColor,
+          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+        },
+      }
+      return base
+    }
+    const toggleGroupContent = (
+      <>
+        {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+        <ToggleButtonGroup
+          size="small"
+          value={value}
+          onChange={() => {}}
+          sx={substatToggleGroupSx}
+        >
+          {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+            const dataTourId = variant === StatVariant.SPD
+              ? 'builder.substat.spd'
+              : variant === StatVariant.CR
+                ? 'builder.substat.cr'
+                : variant === StatVariant.CDMG
+                  ? 'builder.substat.cdmg'
+                  : undefined
+            return renderSubstatToggle(variant, dataTourId ? { dataTourId } : undefined)
+          })}
+        </ToggleButtonGroup>
+        {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+        <ToggleButtonGroup
+          size="small"
+          value={value}
+          onChange={() => {}}
+          sx={substatToggleGroupSx}
+        >
+          {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
+        </ToggleButtonGroup>
+      </>
+    )
+    return (
+      <>
+        {toggleGroupContent}
+        <ContextMenuHintOverlay text={t('contextMenuHint')} position={substatHintActive ? substatHintPos : null} />
+        <Menu
+          open={menuOpen}
+          onClose={handleSubstatMenuClose}
+          anchorReference="anchorPosition"
+          {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
+          keepMounted
+          slotProps={{
+            paper: { ...buildContextMenuPaperSlotProps({
+              component: ContextMenuPaper,
+              contextMenuGuard: substatMenuGuard,
+              onRequestClose: handleSubstatMenuClose,
+              closeLabel: t('close'),
+              sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
+            }), ref: substatMenuPaperRef },
+            list: { dense: true, disablePadding: true, sx: { py: 0 } },
+          }}
+        >
+          {activeMenuInfo ? [
+              <MenuItem
+                key="lock"
+                disableRipple
+                disableTouchRipple
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  cycleLockState()
+                }}
+                sx={menuRowSx}
+              >
+                {renderMenuHeading(t('builderSubstatMenuLock'), lockTooltipText)}
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={lockGroupValue}
+                onChange={handleLockGroupChange}
+                onClick={(event) => { event.stopPropagation() }}
+                sx={lockGroupSx}
+              >
+                <MarkdownTooltip
+                  render={<BuilderTooltipContent text={t('builderSubstatLockTooltipUnlock')} />}
+                >
+                  <ToggleButton
+                    value="unlocked"
+                    aria-label={t('builderSubstatMenuUnlock')}
+                    data-mixed={lockMixed ? 'true' : undefined}
+                  >
+                    <LockOpenOutlinedIcon fontSize="small" />
+                  </ToggleButton>
+                </MarkdownTooltip>
+                <MarkdownTooltip
+                  render={<BuilderTooltipContent text={t('builderSubstatLockTooltipLock')} />}
+                >
+                  <ToggleButton
+                    value="locked"
+                    aria-label={t('builderSubstatMenuLock')}
+                    data-mixed={lockMixed ? 'true' : undefined}
+                  >
+                    <LockIcon fontSize="small" />
+                  </ToggleButton>
+                </MarkdownTooltip>
+              </ToggleButtonGroup>
+              <Box sx={menuValueColumnSx}>
+                <Box sx={menuValuePillPlaceholderSx} />
+              </Box>
+            </MenuItem>,
+              <MenuItem
+                key="min"
+                disableRipple
+                disableTouchRipple
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  cycleMinRequirement()
+                }}
+                sx={menuRowSx}
+              >
+                {renderMenuHeading(t('builderSubstatMenuMinRolls'), minRollTooltipText)}
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={minToggleValue ?? undefined}
+                  onChange={handleMinGroupChange}
+                  onClick={(event) => { event.stopPropagation() }}
+                  sx={createRollGroupSx('min')}
+                >
+                  <ToggleButton
+                    value="any"
+                    aria-label={t('builderSubstatMenuAny')}
+                    data-mixed={minMixed ? 'true' : undefined}
+                  >
+                    <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
+                  </ToggleButton>
+                  {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                    <ToggleButton
+                      key={valueOption}
+                      value={valueOption}
+                      aria-label={valueOption}
+                      data-mixed={minMixed ? 'true' : undefined}
+                    >
+                      <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              <Box sx={menuValueColumnSx}>
+                {renderRequirementChip('min')}
+              </Box>
+            </MenuItem>,
+              <MenuItem
+                key="max"
+                disableRipple
+                disableTouchRipple
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  cycleMaxLimit()
+                }}
+                sx={menuRowSx}
+              >
+                {renderMenuHeading(t('builderSubstatMenuMaxRolls'), maxRollTooltipText)}
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={maxToggleValue ?? undefined}
+                  onChange={handleMaxGroupChange}
+                  onClick={(event) => { event.stopPropagation() }}
+                  sx={createRollGroupSx('max')}
+                >
+                  <MarkdownTooltip
+                    render={<BuilderTooltipContent text={t('builderSubstatNotTooltip')} />}
+                  >
+                    <ToggleButton
+                      value="not"
+                      aria-label={t('builderSubstatMenuNot')}
+                      data-mixed={maxMixed ? 'true' : undefined}
+                    >
+                      <Box component="span" className="menu-roll-label">{'¬'}</Box>
+                    </ToggleButton>
+                  </MarkdownTooltip>
+                  {['0', '1', '2', '3', '4'].map((valueOption) => (
+                    <ToggleButton
+                      key={valueOption}
+                      value={valueOption}
+                      aria-label={valueOption}
+                      data-mixed={maxMixed ? 'true' : undefined}
+                    >
+                      <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              <Box sx={menuValueColumnSx}>
+                {renderRequirementChip('max')}
+              </Box>
+            </MenuItem>,
+            activeMenuInfo ? (
+              <MenuItem
+                key="targets"
+                disableRipple
+                disableTouchRipple
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                sx={(theme) => ({
+                  ...menuRowSx(theme),
+                  gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) minmax(${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px, 1fr)`,
+                  alignItems: 'flex-end',
+                  rowGap: theme.spacing(1),
+                })}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`, mb: 0.5 }}>
+                  {renderMenuHeading(t('builderSubstatMenuRollTargets'), rollTargetsTooltipText)}
+	                          </Box>
+	                          <Box
+	                            ref={substatMenuRollTargetsRef}
+	                            sx={(theme) => ({
+	                              gridColumn: '2 / 3',
+	                              display: 'grid',
+	                              gridTemplateColumns: `repeat(6, minmax(${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px, auto)) auto`,
+	                              alignItems: 'flex-end',
+                    justifyContent: 'flex-start',
+                    columnGap: theme.spacing(1),
+                    width: '100%',
+                    minWidth: `${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px`,
+                    overflow: 'visible',
+                  })}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('builderSubstatMenuRollTargetsBase')}
+                    </Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={targetDraftBase ?? ''}
+                      onChange={handleTargetBaseChange}
+                      onClick={(event) => { event.stopPropagation() }}
+                      disabled={targetInputsDisabled}
+                      sx={(theme) => ({
+                        width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
+                        '& input': {
+                          textAlign: 'right',
+                          paddingRight: theme.spacing(1),
+                          paddingLeft: theme.spacing(0.25),
+                        },
+                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        '& input[type=number]': {
+                          MozAppearance: 'textfield',
+                        },
+                      })}
+                      slotProps={{
+                        htmlInput: {
+                          inputMode: 'numeric',
+                          pattern: '[0-9]*',
+                          min: 0,
+                          // Focus-cycling hook: keep Tab within the Roll Targets inputs.
+                          [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
+                          'aria-label': t('builderSubstatMenuRollTargetsBase'),
+                          placeholder: formatTargetFallback(0),
+                          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+                            // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
+                            if (event.key !== 'Tab') return
+                            if (event.altKey || event.ctrlKey || event.metaKey) return
+                            const moved = focusCycleWithin({
+                              container: substatMenuRollTargetsRef.current,
+                              selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
+                              current: event.currentTarget,
+                              delta: event.shiftKey ? -1 : 1,
+                              wrap: true,
+                            })
+                            if (!moved) return
+                            event.preventDefault()
+                            // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
+                            event.stopPropagation()
+                          },
+                        },
+                        input: {
+                          endAdornment: (
+                            <NumberSpinnerAdornment
+                              ariaLabel={t('builderSubstatMenuRollTargetsBase')}
+                              disabled={targetInputsDisabled}
+                              onStep={stepTargetBase}
+                            />
+                          ),
+                        },
+                      }}
+                    />
+                  </Box>
+                  {[1, 2, 3, 4, 5].map((rollIndex) => {
+                    const label = t('builderSubstatMenuRollTargetsPlus', { roll: rollIndex })
+                    const rollValue = targetDraftRolls[rollIndex - 1] ?? null
+                    const disabled = targetInputsDisabled
+                    const comparableValue = resolveComparableTargetValue(rollIndex)
+                    const previousComparableValue = resolveComparableTargetValue(rollIndex - 1)
+                    const showWarning = previousComparableValue != null
+                      && comparableValue != null
+                      && comparableValue < previousComparableValue
+                    const warningTooltip = showWarning
+                      ? t('builderSubstatMenuRollTargetsWarning', {
+                        current: numberFormatter.format(Math.round(comparableValue)),
+                        previous: numberFormatter.format(Math.round(previousComparableValue)),
+                      })
+                      : null
+                    return (
+                      <Box key={`target-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {label}
+                          </Typography>
+                          {showWarning && warningTooltip ? (
+                            <MarkdownTooltip markdown={warningTooltip}>
+                              <Box
+                                component="span"
+                                role="img"
+                                aria-label={warningTooltip}
+                                sx={targetWarningBadgeSx}
+                              >
+                                !
+                              </Box>
+                            </MarkdownTooltip>
+                          ) : null}
+                        </Box>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={rollValue ?? ''}
+                          onChange={handleTargetRollChange(rollIndex - 1)}
+                          onClick={(event) => { event.stopPropagation() }}
+                          disabled={disabled}
+                          sx={(themeInner) => ({
+                            width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
+                            '& input': {
+                              textAlign: 'right',
+                              paddingRight: themeInner.spacing(1),
+                              paddingLeft: themeInner.spacing(0.25),
+                            },
+                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                              WebkitAppearance: 'none',
+                              margin: 0,
+                            },
+                            '& input[type=number]': {
+                              MozAppearance: 'textfield',
+                            },
+                          })}
+                          slotProps={{
+                            htmlInput: {
+                              inputMode: 'numeric',
+                              pattern: '[0-9]*',
+                              min: 0,
+                              // Focus-cycling hook: keep Tab within the Roll Targets inputs.
+                              [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
+                              'aria-label': label,
+                              placeholder: formatTargetFallback(rollIndex),
+                              onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+                                // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
+                                if (event.key !== 'Tab') return
+                                if (event.altKey || event.ctrlKey || event.metaKey) return
+                                const moved = focusCycleWithin({
+                                  container: substatMenuRollTargetsRef.current,
+                                  selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
+                                  current: event.currentTarget,
+                                  delta: event.shiftKey ? -1 : 1,
+                                  wrap: true,
+                                })
+                                if (!moved) return
+                                event.preventDefault()
+                                // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
+                                event.stopPropagation()
+                              },
+                            },
+                            input: {
+                              endAdornment: (
+                                <NumberSpinnerAdornment
+                                  ariaLabel={label}
+                                  disabled={disabled}
+                                  onStep={(delta) => stepTargetRoll(rollIndex - 1, delta)}
+                                />
+                              ),
+                              sx: { '& > *': { alignItems: 'center' } },
+                            },
+                          }}
+                        />
+                      </Box>
+                    )
+                  })}
+                  <Box sx={{ display: 'flex', alignItems: 'center', pl: 0.5, height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px` }}>
+                    <ClearIconButton
+                      aria-label={t('clear')}
+                      tooltip={t('clear')}
+                      disabled={targetInputsDisabled}
+                      onClick={handleTargetReset}
+                      sx={{
+                        width: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
+                        height: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
+                        alignSelf: 'center',
+                        transform: 'translateY(-4px)', // optical tweak: match text-field baseline
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </MenuItem>
+            ) : null,
+          ] : null}
+        </Menu>
+      </>
+    )
+  })()
+
+  // Show clear button for slots when any are selected; placeholder otherwise.
+  const slotsClearButton = (() => {
+    if (multiEditActive && multiSummary) {
+      if (slotsPatch?.clear) {
+        return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+      }
+      const projectedHas = (() => {
+        if (slotsPatch?.replace) return slotsPatch.replace.length > 0
+        const slotIds = new Set<number>()
+        for (const key of multiSummary.slotCounts.keys()) slotIds.add(Number(key))
+        if (slotsPatch?.add) slotsPatch.add.forEach((v) => slotIds.add(Number(v)))
+        if (slotsPatch?.remove) slotsPatch.remove.forEach((v) => slotIds.add(Number(v)))
+        for (const slotId of slotIds) {
+          if (getSlotState(slotId) !== 'none') return true
+        }
+        return false
+      })()
+      return projectedHas
+        ? (
+          <ClearIconButton
+            size="small"
+            aria-label={t('builderClearSlots')}
+            tooltip={t('builderClearSlots')}
+            onClick={() => {
+              multiEdit?.updateField('artifactTypes', {
+                value: (multiSlotsField?.value as BuilderRecipe['artifactTypes']) ?? (recipe.artifactTypes ?? []),
+                status: 'common',
+                patch: { clear: true },
+              })
+            }}
+          />
+        )
+        : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+    }
+    const hasSlots = Array.isArray(recipe.artifactTypes) && (recipe.artifactTypes?.length ?? 0) > 0
+    return hasSlots
+      ? (
+        <ClearIconButton
+          size="small"
+          aria-label={t('builderClearSlots')}
+          tooltip={t('builderClearSlots')}
+          onClick={() => update('artifactTypes', [])}
+        />
+      )
+      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+  })()
+
+  // Min required rolls section: auto + manual toggles + warning text.
+  const minRollsContent = (() => {
+    const tooltipLines = [
+      t('builderMinRequiredRollsTipSummary'),
+      `• ${t('builderMinRequiredRollsTip1')}`,
+      `• ${t('builderMinRequiredRollsTip2')}`,
+      t('builderMultiMixedTooltipSuffix'),
+    ]
+    const resolvedLockedMin = (() => {
+      const source = multiEditActive && multiLockedMinRequiredRollsField
+        ? multiLockedMinRequiredRollsField
+        : null
+      if (source) {
+        if (source.status === 'common') {
+          const value = Number(source.value ?? 0)
+          if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
+        }
+        return null
+      }
+      const value = Number(recipe.lockedMinRequiredRolls ?? 0)
+      if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
+      return null
+    })()
+    if (resolvedLockedMin) {
+      tooltipLines.push(t('builderLockedMinRequiredRollsLabel', { count: resolvedLockedMin }))
+    }
+    const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
+    const lockIconEnabled = lockedSubstatsExist
+    const autoState = getMinRequiredRollsTriState('auto')
+    // Warning text shown in the chip-like area below the toggle buttons.
+    // Moved here from the old standalone warning row so it collapses with Min Rolls.
+    const allSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+    const allFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+    // "Not" substats carry a ¬ condition and are orthogonal to min-rolls warnings;
+    // exclude them so positive-substat-only counts feed all warning thresholds.
+    const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { not?: boolean }>
+    const subsV = allSubsV.filter(v => boundsV[v]?.not !== true)
+    const fixedV = allFixedV.filter(v => boundsV[v]?.not !== true)
+    const chosenCount = subsV.length
+    const fixedCount = fixedV.length
+    const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))
+    const warnFixed = fixedCount > 4
+    // Locked substats that fill all Required slots make any additional selections dead weight
+    // (unless Flex is active, which rotates them into separate rules instead).
+    const hasUnlockedSelected = chosenCount > fixedCount
+    const flexActive = recipe.autoSubstatFlex === true && canFlexSubstats
+    const warnReqBelowLocked = (recipe.minCount ?? 0) < fixedCount
+    const warnReqEqLocked = (recipe.minCount === fixedCount) && hasUnlockedSelected && !flexActive
+    // Warn when a manual global Min Required Rolls is set but zero substats are selected — it will never fire.
+    const warnMinRollsWithoutSubstats = (() => {
+      if (chosenCount !== 0) return false
+      if (recipe.autoMinRequiredRolls !== false) return false
+      return (recipe.minRequiredRolls ?? 0) > 0
+    })()
+    // Detect an impossible-by-target case: best-case sum of per-stat caps is below the global min.
+    const warnImpossible = (() => {
+      if (!(recipe.autoMinRequiredRolls === false) || !recipe.minRequiredRolls || recipe.minRequiredRolls <= 0) return false
+      if (!Array.isArray(subsV) || subsV.length === 0) return false
+      const m = Math.max(recipe.minCount, fixedCount)
+      if (m <= 0) return false
+      const supportsFive = (() => {
+        const rc = Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0)
+        const mode = (recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
+        if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
+        if (rc === RarityCode.Any) return true
+        // When Auto and the global target is 5, treat as 5-cap capable.
+        if (mode === 'auto' && (recipe.minRequiredRolls ?? 0) >= 5) return true
+        return false
+      })()
+      const defaultCap = supportsFive ? 5 : 4
+      const capFor = (v: number): number => {
+        const b = (recipe.substatRollBoundsV ?? {})[Number(v)]
+        const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
+        const raw = hasMax ? Number(b!.max) : defaultCap
+        return Math.max(0, Math.min(defaultCap, raw))
+      }
+      const fixedCaps = fixedV.map(capFor)
+      const optional = subsV.filter(v => !fixedV.includes(v))
+      const optCaps = optional.map(capFor).sort((a, b) => b - a)
+      let sumCaps = 0
+      // Include all fixed caps, then highest optional caps to fill to m.
+      for (const c of fixedCaps) sumCaps += c
+      for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
+      return sumCaps < (recipe.minRequiredRolls ?? 0)
+    })()
+    const warnMsg = warnMin
+      ? `Warning: Required (${recipe.minCount}) > chosen (${chosenCount})`
+      : (warnFixed
+          ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
+          : (warnReqBelowLocked
+              ? `Warning: Required (${recipe.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
+              : (warnReqEqLocked
+                  ? `Warning: Required (${recipe.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
+                  : (warnImpossible
+                      ? t('builderMinRequiredRollsImpossibleWarn')
+                      : (warnMinRollsWithoutSubstats
+                          ? t('builderMinRequiredRollsNoSubstatsWarn')
+                          : '')))))
+    return (
+      <>
+        {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <BuilderSectionHeader id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.min-rolls.label">
+            <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
+            </MarkdownTooltip>
+          </BuilderSectionHeader>
+        </Box>
+        <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
+        {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
+            inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
+        <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
+        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+        <Box
+          data-tour-id="builder.min-rolls"
+          sx={{
+            display: 'flex',
+            gap: 0.5,
+            // Buttons shrink instead of wrapping when the panel is narrowed by the splitter.
+            flexWrap: 'nowrap',
+            // overflow:visible so the absolutely-positioned lock icon can paint outside the button bounds.
+            overflow: 'visible',
+            '& .MuiToggleButton-root': {
+              height: TOGGLE_BUTTON_HEIGHT_PX,
+              minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+            },
+          }}
+        >
+          <ToggleButton
+            value="auto"
+            selected={autoState === 'on'}
+            onClick={handleAutoMinRequiredRolls}
+            sx={(theme) => ({
+              minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
+              width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
+              ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+              ...(autoState === 'mixed' ? {
+                borderStyle: 'dashed',
+                borderColor: mixedBorderColor,
+                color: mixedTextColor,
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              } : {}),
+            })}
+          >
+            {t('headerMenuAuto')}
+          </ToggleButton>
+          {MIN_REQUIRED_ROLL_OPTIONS.map((n) => {
+            const manualState = getMinRequiredRollsTriState(n)
+            const lockedState = getLockedMinRequiredRollsTriState(n)
+            const manualActive = manualState === 'on'
+            const lockedActive = lockedState === 'on'
+            const lockedMixed = lockedState === 'mixed'
+            const isSelected = manualActive || lockedActive
+            const isMixed = (manualState === 'mixed') || lockedMixed
+            const lockable = n > 0
+            const lockTooltip = !lockable
+              ? ''
+              : lockedActive
+                ? t('builderMinRequiredRollsLockIconClear')
+                : lockIconEnabled
+                  ? t('builderMinRequiredRollsLockIconSet', { count: n })
+                  : t('builderMinRequiredRollsLockIconDisabled')
+            return (
+              <ToggleButton
+                key={n}
+                value={String(n)}
+                selected={isSelected}
+                onClick={() => handleManualMinRequiredRolls(n)}
+                data-tour-id={`builder.min-rolls.button.${n}`}
+                sx={(theme) => ({
+                  position: 'relative',
+                  minWidth: 24,
+                  padding: 0,
+                  overflow: 'visible',
+                  ...(manualActive || lockedActive
+                    ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
+                    : {}),
+                  ...(isMixed ? {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  } : {}),
+                })}
+              >
+                <Box component="span" sx={{ fontSize: FONT_SIZE_BASE_PX }}>
+                  {n}
+                </Box>
+                {lockable ? (
+                  <MarkdownTooltip
+                    markdown={lockTooltip ?? ''}
+                    disableHoverListener={!lockIconEnabled}
+                  >
+                    <Box
+                      component="span"
+                      role="button"
+                      aria-pressed={lockedMixed ? 'mixed' : lockedActive}
+                      aria-label={lockTooltip || undefined}
+                      aria-disabled={lockIconEnabled ? undefined : true}
+                      tabIndex={lockIconEnabled ? 0 : -1}
+                      className="builder-min-roll-lock-icon"
+                      data-tour-id={`builder.min-rolls.lock-icon.${n}`}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        if (!lockIconEnabled) return
+                        handleLockedMinRequiredRolls(n)
+                      }}
+                      onKeyDown={(event) => {
+                        if (!lockIconEnabled) return
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleLockedMinRequiredRolls(n)
+                        }
+                      }}
+                      sx={(theme) => {
+                        const glow = alpha(
+                          theme.palette.text.primary,
+                          theme.palette.mode === 'dark' ? 0.22 : 0.14,
+                        )
+                        return {
+                          position: 'absolute',
+                          top: -13,
+                          left: -10,
+                          width: LOCK_TOGGLE_HIT_SIZE_PX,
+                          height: LOCK_TOGGLE_HIT_SIZE_PX,
+                          p: 0,
+                          pointerEvents: lockIconEnabled ? 'auto' : 'none',
+                          borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
+                          opacity: lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
+                          visibility: lockIconEnabled ? 'visible' : 'hidden',
+                          transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: 'transparent',
+                          color: lockedActive ? theme.palette.text.primary : (lockedMixed ? mixedTextColor : theme.palette.text.primary),
+                          cursor: lockIconEnabled ? 'pointer' : 'default',
+                          '--sub-lock-hover-opacity': lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
+                          boxShadow: 'none',
+                          textShadow: 'none',
+                          '& svg': {
+                            fontSize: 14,
+                          },
+                          '&:hover, &:focus-visible': {
+                            opacity: lockIconEnabled ? 1 : 0,
+                            visibility: lockIconEnabled ? 'visible' : 'hidden',
+                            backgroundColor: glow,
+                            boxShadow: `0 0 0 1px ${glow}`,
+                          },
+                          '&:focus-visible': {
+                            outline: 'none',
+                          },
+                        }
+                      }}
+                    >
+                      {(lockedActive || lockedMixed)
+                        ? <LockIcon fontSize="small" />
+                        : <LockOpenOutlinedIcon fontSize="small" />}
+                    </Box>
+                  </MarkdownTooltip>
+                ) : null}
+              </ToggleButton>
+            )
+          })}
+        </Box>
+        {minRequiredRollsOverrideActive
+          ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              rollStateLabel(recipe.autoMinRequiredRolls, recipe.minRequiredRolls),
+              rollStateLabel(effectiveRecipe.autoMinRequiredRolls, effectiveRecipe.minRequiredRolls),
+            ))
+          : null}
+        </Box>{/* end relative badge wrapper */}
+        {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
+            lineHeight:0.9 makes 2 caption lines = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+            so WebkitLineClamp:2 can draw the ellipsis within the fixed area.
+            width:0 + minWidth:'100%' is the circular-dependency trick: the warning contributes 0
+            to the inline-flex container's intrinsic-size calculation (so the buttons drive the width),
+            then stretches to 100% of the resolved container — avoiding animation-time layout blowout. */}
+        <Box sx={{ mt: 0.5, width: 0, minWidth: '100%', height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+          {warnMsg && (
+            <EllipsisTooltip title={warnMsg} wrap="block">
+              <Typography
+                data-ellipsis-target
+                variant="caption"
+                color="warning.main"
+                sx={{
+                  // 2 lines × 12px × 0.9 = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
+                  // so both lines fit and WebkitLineClamp can draw the ellipsis within the container
+                  lineHeight: 0.9,
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  overflow: 'hidden',
+                }}
+              >
+                {warnMsg}
+              </Typography>
+            </EllipsisTooltip>
+          )}
+        </Box>
+        </Box>{/* end inline-flex column wrapper */}
+        </Collapse>
+      </>
+    )
+  })()
+
+  // Required substats section: flex chip + required count toggles.
+  const requiredSubstatsContent = (() => {
+    type FlexChipState = 'on' | 'off' | 'disabled' | 'mixed'
+    let flexState: FlexChipState
+    let chipEnabled: boolean
+    if (!multiEditActive || !multiSourceRecipes) {
+      chipEnabled = canFlexSubstats
+      flexState = chipEnabled
+        ? (recipe.autoSubstatFlex ? 'on' : 'off')
+        : 'disabled'
+    } else {
+      const total = multiSourceRecipes.length
+      const enabledCount = multiSourceRecipes.filter((recipe) => canEnableSubstatFlex(recipe)).length
+      const onCount = multiSourceRecipes.filter((recipe) => recipe.autoSubstatFlex === true).length
+      chipEnabled = enabledCount > 0
+      if (!chipEnabled) {
+        flexState = 'disabled'
+      } else if (onCount === total) {
+        flexState = 'on'
+      } else if (onCount === 0 && enabledCount === total) {
+        flexState = 'off'
+      } else {
+        flexState = 'mixed'
+      }
+      if (chipEnabled) {
+        const stagedFlex = multiFields?.autoSubstatFlex
+        if (stagedFlex) {
+          if (stagedFlex.status === 'common') {
+            flexState = stagedFlex.value ? 'on' : 'off'
+          } else if (stagedFlex.status === 'mixed') {
+            flexState = 'mixed'
+          }
+        }
+      }
+    }
+    const flexGlyph = flexState === 'on' ? GLYPH_TOGGLE_ON : GLYPH_TOGGLE_OFF
+    const label = t('builderFlexGlyphChipLabel', { glyph: flexGlyph })
+    const stateLabel = flexState === 'on'
+      ? t('builderFlexChipOn')
+      : t('builderFlexChipOff')
+    const handleFlexToggle = () => {
+      if (!chipEnabled) return
+      if (multiEditActive && multiEdit) {
+        const next = flexState === 'on' ? false : true
+        multiEdit.updateField('autoSubstatFlex', { value: next, status: 'common' })
+        return
+      }
+      toggleSubstatFlex()
+    }
+    const autoState = getRequiredCountTriState('auto')
+    return (
+      <>
+        {/* Required substats caption exposes overflow through the shared label helper. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <BuilderSectionHeader id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.required.label">
+            <MarkdownTooltip
+              ellipsisTitle={t('builderRequiredSubstats')}
+              render={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderRequiredSubstatsHelp'),
+                    t('builderMultiMixedTooltipSuffix'),
+                  ].join('\n')}
+                />
+              )}
+            >
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
+            </MarkdownTooltip>
+          </BuilderSectionHeader>
+        </Box>
+        <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
+        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={requiredCountValue}
+          onChange={(_, v) => {
+            if (!v) return
+            if (multiEditActive && multiEdit) {
+              if (v === 'auto') {
+                multiEdit.updateField('autoMinCount', { value: true, status: 'common' })
+                multiEdit.updateField('minCount', { value: 0 as BuilderRecipe['minCount'], status: 'common' })
+                multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
+              } else {
+                const next = Number(v) as 1 | 2 | 3 | 4
+                multiEdit.updateField('autoMinCount', { value: false, status: 'common' })
+                multiEdit.updateField('minCount', { value: next as BuilderRecipe['minCount'], status: 'common' })
+                multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
+              }
+              return
+            }
+            if (v === 'auto') {
+              const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
+              const nextMin = Math.min(4, subsV.length) as 0 | 1 | 2 | 3 | 4
+              userDisabledFlexRef.current = true
+              onChange(normalizeKeepWithAuto({
+                ...recipe,
+                autoMinCount: true,
+                minCount: nextMin,
+              }))
+              return
+            }
+            const next = Number(v) as 1 | 2 | 3 | 4
+            onChange(normalizeKeepWithAuto({
+              ...recipe,
+              autoMinCount: false,
+              minCount: next,
+            }))
+          }}
+          data-tour-id="builder.required"
+          sx={{
+            // Buttons shrink in-place instead of wrapping to a new row.
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+            '& .MuiToggleButton-root': {
+              height: TOGGLE_BUTTON_HEIGHT_PX,
+              minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+              flex: '0 1 auto',
+              minWidth: 0,
+              overflow: 'hidden',
+            },
+          }}
+        >
+          <ToggleButton
+            value="auto"
+            selected={autoState === 'on'}
+            sx={(theme) => ({
+              minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
+              width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
+              ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+              ...(autoState === 'mixed' ? {
+                borderStyle: 'dashed',
+                borderColor: mixedBorderColor,
+                color: mixedTextColor,
+                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+              } : {}),
+            })}
+          >
+            {t('headerMenuAuto')}
+          </ToggleButton>
+          {REQUIRED_SUBSTAT_MIN_OPTIONS.map((n) => {
+            const state = getRequiredCountTriState(n)
+            return (
+              <ToggleButton
+                key={n}
+                value={String(n)}
+                selected={state === 'on'}
+                sx={(theme) => ({
+                  ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                  ...(state === 'mixed' ? {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  } : {}),
+                })}
+              >
+                {n}
+              </ToggleButton>
+            )
+          })}
+        </ToggleButtonGroup>
+        {minCountOverrideActive
+          ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              minCountStateLabel(recipe.autoMinCount, recipe.minCount),
+              minCountStateLabel(effectiveRecipe.autoMinCount, effectiveRecipe.minCount),
+            ))
+          : null}
+        </Box>{/* end relative badge wrapper */}
+        <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <MarkdownTooltip render={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              <Chip
+                label={label}
+                size="small"
+                variant="filled"
+                clickable={chipEnabled}
+                onClick={chipEnabled ? handleFlexToggle : undefined}
+                disabled={!chipEnabled}
+                aria-pressed={chipEnabled ? flexState === 'on' : undefined}
+                aria-label={stateLabel}
+                sx={{
+                  ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
+                  ...(flexState === 'mixed'
+                    ? {
+                        borderStyle: 'dashed',
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      } as SystemStyleObject<Theme>
+                    : {}),
+                }}
+                data-tour-id="builder.flex-chip"
+              />
+            </Box>
+          </MarkdownTooltip>
+        </Box>
+        </Collapse>
+      </>
+    )
+  })()
+
+  // Milestone Thresholds section: early/late toggle + Auto chip.
+  const milestoneThresholdsContent = (() => {
+    const tierForLabel = (() => {
+      if (multiEditActive) {
+        const fieldValue = multiAutoRaritySupplementsField
+        if (fieldValue?.status === 'common') {
+          const raw = fieldValue.value
+          if (raw === 'uncommon' || raw === 'rare' || raw === 'epic') {
+            return raw
+          }
+        }
+      }
+      const raw = (multiEditActive ? recipe : effectiveRecipe).autoRaritySupplementsThreshold
+        ?? pickAutoRaritySupplementsThreshold(multiEditActive ? recipe : effectiveRecipe)
+      return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
+    })()
+    const tierLabel = tierForLabel === 'uncommon'
+      ? t('rarityUncommon')
+      : tierForLabel === 'epic'
+        ? t('rarityEpic')
+        : t('rarityRare')
+    const autoChipEnabled = autoRarityChipState !== 'disabled'
+    const tooltipLines = [
+      t('builderAutoLateTitle'),
+      `• ${t('builderAutoLateIntro')}`,
+      `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
+      `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
+      `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
+      `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
+      `• ${t('builderAutoLateDisabledNote')}`,
+    ]
+    if (autoRarityChipState === 'mixed') {
+      tooltipLines.push(t('builderMultiMixedTriStateHint'))
+    }
+    const cycleThreshold = (current: 'uncommon' | 'rare' | 'epic' | null, advance: boolean): 'uncommon' | 'rare' | 'epic' => {
+      if (!advance || current == null) return 'rare'
+      if (current === 'uncommon') return 'rare'
+      if (current === 'rare') return 'epic'
+      return 'uncommon'
+    }
+      const handleAutoChip = () => {
+        if (!autoChipEnabled) return
+        if (multiEditActive && multiEdit) {
+          const next = autoRarityChipState === 'on'
+            ? cycleThreshold(tierForLabel, true)
+            : pickAutoRaritySupplementsThreshold(recipe)
+          multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
+          return
+        }
+        // When an override is active, allow clicking the effective value to accept it.
+        if (autoLateOverrideActive) {
+          const stored = recipe.autoRaritySupplementsThreshold
+          const effective = effectiveRecipe.autoRaritySupplementsThreshold
+          if (stored !== effective && effective) {
+            updateAutoLateThreshold(effective)
+            return
+          }
+        }
+        const curr = (recipe.autoRaritySupplementsThreshold ?? pickAutoRaritySupplementsThreshold(recipe)) as 'uncommon' | 'rare' | 'epic'
+        const next = cycleThreshold(curr, true)
+        updateAutoLateThreshold(next)
+      }
+    const autoChipLabel = autoRarityChipState === 'on'
+      ? t('builderAutoGeLabel', { tier: tierLabel })
+      : t('builderAutoPlusLate')
+    // Milestone Thresholds keeps the remaining 146px slice so chip spacing matches EN.
+    return (
+      <FormControl
+        sx={{
+          m: 0,
+          // flex-shrink:1 lets this column compress under splitter pressure.
+          flex: builderCollapsed.milestoneThresholds ? '0 1 auto' : `0 1 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+          width: builderCollapsed.milestoneThresholds ? 'auto' : `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+          minWidth: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Milestone Thresholds label also clamps to the 146px column width. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <BuilderSectionHeader id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.thresholds.label">
+            <MarkdownTooltip
+              ellipsisTitle={t('builderMilestoneThresholds')}
+              render={(
+                <BuilderTooltipContent
+                  text={buildOverrideTooltip(
+                    [
+                      t('builderMilestoneThresholdsHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n'),
+                  )}
+                />
+              )}
+            >
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
+            </MarkdownTooltip>
+          </BuilderSectionHeader>
+        </Box>
+        <Collapse in={!builderCollapsed.milestoneThresholds} timeout="auto" unmountOnExit>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={keepModeValue}
+              onChange={(_, v) => {
+                if (!v) return
+                const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
+                if (multiEditActive && multiEdit) {
+                  multiEdit.updateField('earlyKeepMode', { value: mode, status: 'common' })
+                  return
+                }
+                userKeepModeRef.current = mode
+                updateKeepMode(mode)
+              }}
+              disabled={!thresholdsActiveAny}
+              data-tour-id="builder.thresholds"
+              sx={{
+                position: 'relative',
+                '& .MuiToggleButton-root': {
+                  height: TOGGLE_BUTTON_HEIGHT_PX,
+                  minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                },
+              }}
+            >
+              {(['early', 'late'] as const).map((mode) => {
+                const state = getKeepModeTriState(mode)
+                return (
+                  <ToggleButton
+                    key={mode}
+                    value={mode}
+                    selected={state === 'on'}
+                    sx={(theme) => ({
+                      ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                      ...(state === 'mixed' ? {
+                        borderStyle: 'dashed',
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      } : {}),
+                    })}
+                    onClick={() => {
+                      // When an override is active, allow clicking the effective value to accept it.
+                      if (multiEditActive || !keepOverrideActive) return
+                      if ((recipe.earlyKeepMode ?? 'early') === (effectiveRecipe.earlyKeepMode ?? 'early')) return
+                      if (mode !== (effectiveRecipe.earlyKeepMode ?? 'early')) return
+                      updateKeepMode(mode)
+                    }}
+                  >
+                    {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
+                  </ToggleButton>
+                )
+              })}
+            </ToggleButtonGroup>
+            {keepOverrideActive
+              ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                  keepModeLabel((recipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                  keepModeLabel((effectiveRecipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                ))
+              : null}
+          </Box>
+        </Box>
+        <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+            <MarkdownTooltip
+              render={(
+                <BuilderTooltipContent
+                  text={buildOverrideTooltip(
+                    tooltipLines.join('\n'),
+                  )}
+                />
+              )}
+            >
+              <Chip
+                size="small"
+                variant="filled"
+                label={autoChipLabel}
+                onClick={autoChipEnabled ? handleAutoChip : undefined}
+                disabled={!autoChipEnabled}
+                sx={{
+                  ...(builderToggleChipSx(autoChipEnabled, { dimDisabled: true }) as SystemStyleObject<Theme>),
+                  ...(autoRarityChipState === 'mixed'
+                    ? {
+                        borderStyle: 'dashed',
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      } as SystemStyleObject<Theme>
+                    : {}),
+                }}
+                data-tour-id="builder.thresholds.auto-chip"
+              />
+            </MarkdownTooltip>
+            {autoLateOverrideActive
+              ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                  autoLateLabel(recipe.autoRaritySupplementsThreshold),
+                  autoLateLabel(effectiveRecipe.autoRaritySupplementsThreshold),
+                ))
+              : null}
+          </Box>
+        </Box>
+        </Collapse>
+      </FormControl>
+    )
+  })()
+
+  // Sets section: metasets + sets Select, clear button, and tri-state patch controls.
+  const setsContent = (() => {
+    // Token helpers keep metasets + sets in a single select control.
+    const tokenOf = {
+      meta: (id: string) => `m:${id}`,
+      set: (id: number) => `s:${id}`,
+    }
+    // Filter to visible metasets so hidden ones never show in the menu.
+    const visibleMetasets = metasets.filter(m => m.show !== false)
+    // Keep order stable by preferring visible metasets when present.
+    const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
+    // Normalize set selections while respecting accessory-only constraints.
+    const baseSetSelections = pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet)
+    // Split include/exclude lists so UI can render both states.
+    const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
+    // Resolve metaset order for the base recipe (or multi-edit union).
+    const baseMetaIds = orderMetasets(recipe.artifactMetaSets, orderBasis)
+    const metaDisplayIds = multiEditActive && multiSummary
+      ? orderMetasets(
+          Array.from(new Set<string>([
+            ...baseMetaIds,
+            ...Array.from(multiSummary.metaCounts.keys()),
+            ...((metasetsPatch?.add ?? []).map(String)),
+            ...((metasetsPatch?.replace ?? []).map(String)),
+          ])),
+          orderBasis,
+        )
+      : baseMetaIds
+    const setDisplayIds = (() => {
+      // In single-edit, show only the current include list.
+      if (!multiEditActive || !multiSummary) {
+        return baseSetSplit.included.slice().sort((a, b) => a - b)
+      }
+      // Multi-edit: union all included sets + staged patch entries.
+      const union = new Set<number>()
+      for (const key of multiSummary.setCounts.keys()) union.add(Number(key))
+      for (const id of baseSetSplit.included) union.add(Number(id))
+      // Patch entries may include new includes; merge them into the display list.
+      const patchEntries = normalizeArtifactSetSelections([
+        ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
+        ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
+      ])
+      const patchSplit = splitArtifactSetSelections(patchEntries)
+      for (const id of patchSplit.included) union.add(Number(id))
+      // Drop the accessory-only sentinel when accessories are not in scope.
+      if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
+      return Array.from(union).sort((a, b) => a - b)
+    })()
+    const excludedDisplayIds = (() => {
+      // Single-edit: use just the current exclusions.
+      if (!multiEditActive || !multiSelectedRecipes) {
+        return baseSetSplit.excluded.slice().sort((a, b) => a - b)
+      }
+      // Multi-edit: union all excluded sets + staged patch entries.
+      const union = new Set<number>()
+      for (const recipeEntry of multiSelectedRecipes) {
+        const split = splitArtifactSetSelections(recipeEntry.artifactSets)
+        for (const id of split.excluded) union.add(Number(id))
+      }
+      // Patch entries may add exclusions; merge them into the display list.
+      const patchEntries = normalizeArtifactSetSelections([
+        ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
+        ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
+      ])
+      const patchSplit = splitArtifactSetSelections(patchEntries)
+      for (const id of patchSplit.excluded) union.add(Number(id))
+      // Drop the accessory-only sentinel when accessories are not in scope.
+      if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
+      return Array.from(union).sort((a, b) => a - b)
+    })()
+    // Collapse tri-state selections into the "all" set for display/tokens.
+    const selectedMetaIds = multiEditActive && multiSummary
+      ? metaDisplayIds.filter((id) => getMetasetState(id) === 'all')
+      : baseMetaIds
+    const selectedSetIds = multiEditActive && multiSummary
+      ? setDisplayIds.filter((id) => getSetState(id) === 'all')
+      : baseSetSplit.included.slice().sort((a, b) => a - b)
+    // Keep excluded ids separate so the UI can render them with a red indicator.
+    // When a recipe override is active use the effective exclusions so the
+    // grid visually reflects what the override does (e.g. red border for +-Daze).
+    const excludedSetIds = multiEditActive
+      ? excludedDisplayIds
+      : setsOverrideActive
+        ? splitArtifactSetSelections(effectiveRecipe.artifactSets ?? []).excluded.slice().sort((a, b) => a - b)
+        : baseSetSplit.excluded.slice().sort((a, b) => a - b)
+    // Build the Select token list from explicit metasets + includes.
+    const selectedTokens: string[] = [
+      ...selectedMetaIds.map(tokenOf.meta),
+      ...selectedSetIds.map(tokenOf.set),
+    ]
+    // Track sets introduced by metasets so right-click exclusion is scoped.
+    const metaDerivedSetIds = new Set<number>(resolveMetasets(selectedMetaIds, metasets).map(Number))
+    const handleExcludeSet = (id: number) => {
+      // Multi-edit exclusion UI is intentionally disabled.
+      if (multiEditActive) return
+      // Ignore items not introduced by metasets.
+      if (!metaDerivedSetIds.has(id)) return
+      // Flip the exclude flag for this set id.
+      const isExcluded = excludedSetIds.includes(id)
+      // Exclusions should clear explicit includes for the same set.
+      const nextIncluded = selectedSetIds.filter((entry) => entry !== id)
+      const nextExcluded = isExcluded
+        ? excludedSetIds.filter((entry) => entry !== id)
+        : [...excludedSetIds, id]
+      const nextSelections = normalizeArtifactSetSelections([
+        ...nextIncluded.map((entry) => ({ id: entry })),
+        ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+      ])
+      onChange({ ...recipe, artifactSets: nextSelections })
+    }
+    // Evaluate "Any" state based on metasets, sets, and exclusions.
+    const projectedMetaActive = multiEditActive && multiSummary
+      ? metaDisplayIds.some((id) => getMetasetState(id) !== 'none')
+      : (recipe.artifactMetaSets?.length ?? 0) > 0
+    const projectedSetActive = multiEditActive && multiSummary
+      ? setDisplayIds.some((id) => getSetState(id) !== 'none')
+      : baseSetSelections.length > 0
+    const projectedExcludeActive = excludedSetIds.length > 0
+    const hasAnySelection = projectedMetaActive || projectedSetActive || projectedExcludeActive
+    // Inline padding grows when the clear button is visible.
+    const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+    const handleChange = (e: SelectChangeEvent<string[]>) => {
+      // Multi-edit handles tokens via patch controls instead.
+      if (multiEditActive) return
+      const tokens = e.target.value as string[]
+      // Resolve metaset IDs using the same ordering basis.
+      const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+      const metaIds = orderMetasets(metaIdsRaw, orderBasis)
+      // Capture explicit includes from set tokens.
+      const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+      // Keep exclusions unless the user explicitly selected the set.
+      const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
+      const nextSelections = normalizeArtifactSetSelections([
+        ...setIds.map((id) => ({ id })),
+        ...nextExcluded.map((id) => ({ id, excluded: true })),
+      ])
+      onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
+    }
+    const handleToggleSet = (id: number) => {
+      // Multi-edit toggles are handled via patch helpers.
+      if (multiEditActive && multiEdit) {
+        toggleSet(id)
+        return
+      }
+      // Toggle only the explicit include list for single-recipe edits.
+      const prev = new Set<number>(baseSetSplit.included.map(Number))
+      if (prev.has(id)) prev.delete(id); else prev.add(id)
+      const nextSets = Array.from(prev).sort((a, b) => a - b)
+      // Remove exclusions when a set is explicitly re-added.
+      const nextExcluded = baseSetSplit.excluded.filter((entry) => Number(entry) !== id)
+      const nextSelections = normalizeArtifactSetSelections([
+        ...nextSets.map((entry) => ({ id: entry })),
+        ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+      ])
+      onChange({ ...recipe, artifactSets: nextSelections })
+    }
+    const getSetsSelectionDisplay = (tokens: readonly string[]) => {
+      // Multi-edit needs mixed-value labels for tri-state tokens.
+      if (multiEditActive && multiSummary) {
+        const names: string[] = []
+        // Metaset labels reflect tri-state status.
+        for (const id of metaDisplayIds) {
+          const state = getMetasetState(id)
+          if (state === 'none') continue
+          const meta = metasets.find(x => x.name === id)
+          if (meta) {
+            const { glyph, iconId } = metasetGlyph(meta)
+            const hasGlyph = glyph != null && !!iconId
+            const needsGap = hasGlyph && iconId !== 'empty'
+            const label = hasGlyph
+              ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}`
+              : meta.name
+            names.push(state === 'partial' ? `${label} – ${t('builderMultiMixedValue')}` : label)
+          }
+        }
+        // Set labels reflect tri-state status as well.
+        for (const id of setDisplayIds) {
+          const state = getSetState(id)
+          if (state === 'none') continue
+          const baseName = getLocalizedGearSetName(id, t, lang)
+          names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
+        }
+        // Exclusions always show with a "not" prefix.
+        for (const id of excludedDisplayIds) {
+          const baseName = getLocalizedGearSetName(id, t, lang)
+          names.push(`not ${baseName}`)
+        }
+        const text = names.length > 0 ? names.join(', ') : t('any')
+        return {
+          node: (
+            <Box
+              component="span"
+              data-ellipsis-target
+              sx={{
+                display: 'block',
+                width: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {text}
+            </Box>
+          ),
+          text,
+        }
+      }
+      // Single-edit: render plain labels with exclusions appended.
+      const any = (!tokens || tokens.length === 0) && excludedSetIds.length === 0
+      const names: string[] = []
+      if (!any) {
+        // Metaset tokens reuse glyphs to match the menu.
+        for (const token of tokens) {
+          if (token.startsWith('m:')) {
+            const id = token.slice(2)
+            const m = metasets.find(x => x.name === id)
+            if (m) {
+              const { glyph, iconId } = metasetGlyph(m)
+              if (glyph != null && iconId) {
+                const needsGap = iconId !== 'empty'
+                names.push(`${glyph}${needsGap ? ` ${m.name}` : m.name}`)
+              } else {
+                names.push(m.name)
+              }
+            }
+          } else if (token.startsWith('s:')) {
+            const id = Number(token.slice(2))
+            names.push(getLocalizedGearSetName(id, t, lang))
+          }
+        }
+        // Exclusions show as "not X" entries.
+        for (const id of excludedSetIds) {
+          names.push(`not ${getLocalizedGearSetName(id, t, lang)}`)
+        }
+      }
+      const text = (any || names.length === 0) ? t('any') : names.join(', ')
+      return {
+        node: (
+          <Box
+            component="span"
+            data-ellipsis-target
+            sx={{
+              display: 'block',
+              width: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {text}
+          </Box>
+        ),
+        text,
+      }
+    }
+    const { text: setsSelectionTooltip } = getSetsSelectionDisplay(selectedTokens)
+    // Build set list per order/search (shared helper keeps behavior consistent)
+    const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
+      translate: t,
+      // Keep the no-set sentinel visible only when accessories are in scope.
+      includeNoSet: allowNoSet,
+      noSetLabel: t('noSetAccessories'),
+    })
+    const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
+    const disabledSetIds = sorted
+      .map(([id]) => Number(id))
+      .filter((id) => !allowedSetIdsSet.has(id))
+
+    // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
+    const hasMetasetsSection = visibleMetasets.length > 0
+    const metasetsMenu: Metaset[] = visibleMetasets
+
+    // Select node: sets+metasets dropdown wrapped in EllipsisTooltip.
+    const setsSelectNode = (() => {
+      const baseSelect = (
+        <Select
+          size="small"
+          multiple
+          value={selectedTokens}
+          onChange={handleChange}
+          onOpen={(e) => {
+            setMetaSetsMenuOpen(true)
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              scrollSetsMenuToSelected(setsOrder, { force: true })
+            }))
+            try {
+              const el = (e?.currentTarget as HTMLElement | null)
+              const rect = el?.getBoundingClientRect()
+              const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+              const margin = 8
+              const selectedMetaState = (id: string): 'none' | 'partial' | 'all' => {
+                if (multiEditActive) return getMetasetState(id)
+                return (recipe.artifactMetaSets ?? []).includes(id) ? 'all' : 'none'
+              }
+              // Determine which metaset to scroll into view when the menu opens.
+              let targetMetasetId: string | null = null
+              if (hasMetasetsSection) {
+                const firstFull = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'all')
+                if (firstFull) {
+                  targetMetasetId = firstFull.name
+                } else {
+                  const firstPartial = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'partial')
+                  targetMetasetId = firstPartial?.name ?? null
+                }
+              }
+              // Theoretical max height depends on whether the Metasets section is present.
+              const theoreticalMax = hasMetasetsSection
+                ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
+                : (MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
+              const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+              const desiredLeft = rect ? Math.floor(rect.left) : margin
+              setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+              // After the menu mounts, measure and refine the anchor using real height.
+              const refine = () => {
+                try {
+                  const paper = setsMenuPaperRef.current
+                  const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                  if (rect && measured > 0) {
+                    const maxHeight = Math.min(measured, viewportH - margin * 2) + MENU_MAX_HEIGHT_EXTRA_BUFFER
+                    const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                    setSetsMenuAnchorPos({ top, left: desiredLeft })
+                  }
+                } catch {}
+                if (targetMetasetId) {
+                  try {
+                    const list = metasetsMenuListRef.current
+                    if (!list) return
+                    const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
+                    for (const item of items) {
+                      if (item.getAttribute('data-metaset-id') === targetMetasetId) {
+                        item.scrollIntoView({ block: 'nearest' })
+                        break
+                      }
+                    }
+                  } catch {}
+                }
+                scrollSetsMenuToSelected(setsOrder, { force: true })
+              }
+              // Double rAF to wait for mount + layout
+              requestAnimationFrame(() => requestAnimationFrame(refine))
+            } catch { setSetsMenuAnchorPos(null) }
+          }}
+          onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null); setSetsMenuAnchorPos(null) }}
+          renderValue={(value) => {
+            const tokens = Array.isArray(value) ? value : []
+            return getSetsSelectionDisplay(tokens).node
+          }}
+          displayEmpty
+          sx={{
+            ...selectBoxHeightSx,
+            width: '100%',
+            minWidth: 0,
+            pr: `${inlinePaddingPx}px`,
+            '& .MuiSelect-select': {
+              ...selectContentHeightSx,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+            },
+            '& .MuiSelect-icon': {
+              right: 8,
+            },
+          }}
+          data-tour-id="builder.sets"
+          MenuProps={{
+            slotProps: {
+              paper: {
+                sx: {
+                  width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
+                  maxWidth: SETS_MENU_WIDTH_PX,
+                  overflowX: 'hidden',
+                },
+                ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
+              },
+              list: {
+                sx: { width: '100%', maxWidth: '100%' },
+              },
+            },
+            ...(setsMenuAnchorPos
+              ? {
+                  anchorReference: 'anchorPosition' as const,
+                  anchorPosition: setsMenuAnchorPos,
+                  transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                }
+              : {
+                  transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                }),
+          }}
+        >
+        {/* Metasets section in its own scroll area (hidden if none) */}
+        {hasMetasetsSection && (
+          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+            <Box
+              component="ul"
+              ref={metasetsMenuListRef}
+              sx={{
+                listStyle: 'none',
+                p: 0,
+                m: 0,
+                maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
+                overflowY: 'auto',
+                pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                // Firefox manually pads here so Chrome keeps native scrollbar-gutter behavior.
+                ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                ...visibleScrollbarTrack(),
+              }}
+              data-tour-id="menu.metasets.section"
+            >
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
+              {metasetsMenu.map((m) => {
+                const { glyph, iconId } = metasetGlyph(m)
+                const hasGlyph = glyph != null && !!iconId
+                const needsGap = iconId !== null && iconId !== 'empty'
+                const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
+                const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
+                const setNames = m.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
+                const joined = setNames.join(', ')
+                const usedMeta = metasetUsageCounts[m.name] || 0
+                const metaState = multiEditActive ? getMetasetState(m.name) : (selectedMetaIds.includes(m.name) ? 'all' : 'none')
+                const isSelectedMeta = metaState === 'all'
+                const isPartialMeta = metaState === 'partial'
+                return (
+                  <MenuItem
+                    key={m.name}
+                    value={`m:${m.name}`}
+                    selected={isSelectedMeta}
+                    data-metaset-id={m.name}
+                    onMouseEnter={() => setHoveredSetMetaId(m.name)}
+                    onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.name ? null : prev))}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (multiEditActive && multiEdit) {
+                        toggleMetaset(m.name)
+                        return
+                      }
+                      const token = `m:${m.name}`
+                      const tokensSet = new Set<string>(selectedTokens)
+                      if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
+                      const tokens = Array.from(tokensSet)
+                      const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                      const metaIds = orderMetasets(metaIdsRaw, orderBasis)
+                      const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+                      const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
+                      const nextSelections = normalizeArtifactSetSelections([
+                        ...setIds.map((id) => ({ id })),
+                        ...nextExcluded.map((id) => ({ id, excluded: true })),
+                      ])
+                      onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
+                    }}
+                    sx={(theme) => ({
+                      '&.Mui-selected': {
+                        backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                        '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+                      },
+                      ...(isPartialMeta ? {
+                        borderStyle: 'dashed',
+                        borderColor: mixedBorderColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        color: mixedTextColor,
+                      } : {}),
+                    })}
+                  >
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                        <EllipsisTooltip
+                          title={tooltipName}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
+                            {hasGlyph ? (
+                              <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
+                                {glyph}
+                              </Box>
+                            ) : null}
+                            <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
+                          </Box>
+                        </EllipsisTooltip>
+                        {m.sets.length > 0 && (
+                          <Typography variant="caption" sx={{ color: 'primary.main' }}>
+                            ({m.sets.length} set(s))
+                          </Typography>
+                        )}
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInRecipes', { n: usedMeta })}</Typography>
+                      </Box>
+                      {setNames.length > 0 && (
+                        <Typography
+                          variant="caption"
+                          sx={{ color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}
+                        >
+                          {joined}
+                        </Typography>
+                      )}
+                    </Box>
+                  </MenuItem>
+                )
+              })}
+            </Box>
+          </Box>
+        )}
+        {/* Sets section in its own scroll area (icons or list) */}
+        <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+          {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
+          <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SetsOrderControls
+                  setsSearch={setsSearch}
+                  onSetsSearchChange={setSetsSearch}
+                  setsOrder={setsOrder}
+                  onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
+                    if (!v) return
+                    setSetsOrder(v)
+                    if (metaSetsMenuOpen) {
+                  scrollSetsMenuToSelected(v, { force: true })
+                    }
+                  }}
+                  zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
+                    translate: t,
+                    // Respect accessory-only constraints in empty-state math.
+                    includeNoSet: allowNoSet,
+                    noSetLabel: t('noSetAccessories'),
+                  }).length === 0}
+                />
+              </Box>
+            </Box>
+          </ListSubheader>
+          <Box
+            component="ul"
+            ref={setsMenuListRef}
+            sx={{
+              listStyle: 'none',
+              p: 0,
+              m: 0,
+              ...(setsOrder === 'icons'
+                ? {
+                    // Icon mode: never scroll; grid expands with content
+                    maxHeight: 'none',
+                    height: 'auto',
+                    overflowY: 'visible',
+                  }
+                : {
+                    // List modes: fixed height with scrolling
+                    maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                    height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                    overflowY: 'auto',
+                  }),
+              // Reserve a stable right padding so hover indicators
+              // remain visible and width does not change when scrollbars appear
+              pr: `${MENU_SCROLL_GUTTER_PX}px`,
+              ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+              ...(setsOrder !== 'icons' ? visibleScrollbarTrack() : {}),
+            }}
+          >
+          <SetMenuSection
+            title={t('setsTitle')}
+            sorted={sorted}
+            setsOrder={setsOrder}
+            metasets={metasets}
+            excludeMetasetId={null}
+            setUsageCounts={setUsageCounts}
+            valueForSet={(id) => `s:${id}`}
+            // Header rendered above; keep items-only here
+            hideHeader
+            hoveredMetasetId={hoveredSetMetaId}
+            selectedMetasetIds={selectedMetaIds}
+            selectedSetIds={selectedSetIds}
+            excludedSetIds={excludedSetIds}
+            disabledSetIds={disabledSetIds}
+            onToggleSet={handleToggleSet}
+            onContextMenuSet={(id) => handleExcludeSet(id)}
+            {...(multiEditActive ? { triStateForSet: getSetState } : {})}
+          />
+          </Box>
+        </Box>
+        </Select>
+      )
+      // Build a human-readable label for a sets+metasets recipe (for the badge tooltip).
+      // Excluded entries are prefixed with "–" to mirror the exclusion UX convention.
+      const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string => {
+        const parts: string[] = [
+          ...(metas ?? []),
+          ...(sets ?? []).map((e) => (e.excluded ? '–' : '') + getLocalizedGearSetName(e.id, t, lang)),
+        ]
+        return parts.length > 0 ? parts.join(', ') : t('any')
+      }
+      const selectEl = (
+        <Box ref={setsSelectContainerRef} sx={{ position: 'relative' }}>
+          {baseSelect}
+          {setsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+            setsLabel(recipe.artifactSets, recipe.artifactMetaSets),
+            setsLabel(effectiveRecipe.artifactSets, effectiveRecipe.artifactMetaSets),
+          ))}
+          <InlineSelectClearButton
+            disabled={!hasAnySelection}
+            label={t('clear')}
+            onClear={() => {
+              if (!hasAnySelection) return
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('artifactSets', {
+                  value: (multiSetsField?.value as BuilderRecipe['artifactSets']) ?? (recipe.artifactSets ?? []),
+                  status: 'common',
+                  patch: { clear: true },
+                })
+                multiEdit.updateField('artifactMetaSets', {
+                  value: (multiMetasetsField?.value as BuilderRecipe['artifactMetaSets']) ?? (recipe.artifactMetaSets ?? []),
+                  status: 'common',
+                  patch: { clear: true },
+                })
+                return
+              }
+              onChange({ ...recipe, artifactSets: [], artifactMetaSets: [] })
+            }}
+          />
+          <SelectDropdownActivator
+            getDisplayNode={() => {
+              const root = setsSelectContainerRef.current
+              if (!root) return null
+              return root.querySelector('[role="combobox"]') as HTMLElement | null
+            }}
+            widthPx={hasAnySelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
+          />
+        </Box>
+      )
+      // Keep a stable wrapper to prevent the Select from remounting
+      // when transitioning from empty to non-empty selections, which
+      // could close the menu after the first click.
+      return (
+        <EllipsisTooltip
+          title={setsSelectionTooltip}
+          selector=".MuiSelect-select"
+          wrap="block"
+          // Disable while menu is open to avoid layout measurements.
+          disabled={metaSetsMenuOpen}
+        >
+          {selectEl}
+        </EllipsisTooltip>
+      )
+    })()
+
+    return (
+      <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+        {/* overflow:visible so the absolutely-positioned gear-set override badge can paint above the row. */}
+        <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'visible' }}>
+          {setsSelectNode}
+        </Box>
+      </Box>
+    )
+  })()
+
+  // Disable "Reset to factory defaults" when no user defaults have been saved.
+  const resetFactoryDisabled = (() => { try { return !localStorage.getItem(BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()
+
   return (
     <Box sx={{ position: 'relative' }}>
       {fortyTwoOverlay}
@@ -2753,42 +5885,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             }}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             onBlur={commitNameDraftIfNeeded}
-            InputProps={{
-              endAdornment: (() => {
-                const currentFgColor = usingMultiName
-                  ? ((multiFgColorField?.value as string) ?? '')
-                  : (recipe.appearance?.fgColor ?? '')
-                const showClear = usingMultiName
-                  ? Boolean(multiNameField && (multiNameField.value as string) && multiNameField.status !== 'mixed')
-                  : renderedName !== ''
-                return (
-                  <InputAdornment position="end" sx={{ gap: 0.5 }}>
-                    <ColorField
-                      value={currentFgColor}
-                      onChange={commitFgColor}
-                      onClear={() => commitFgColor(undefined)}
-                    />
-                    {showClear && (
-                      <ClearIconButton
-                        size="small"
-                        edge="end"
-                        aria-label={t('builderClearRecipeName')}
-                        tooltip={t('builderClearRecipeName')}
-                        onClick={() => {
-                          if (usingMultiName) {
-                            multiEdit?.updateField('appearanceName', { value: '', status: 'common' })
-                          } else if (renderedName !== '') {
-                            commitName('')
-                          }
-                        }}
-                      />
-                    )}
-                  </InputAdornment>
-                )
-              })(),
+            slotProps={{
+              input: { endAdornment: nameEndAdornment },
+              htmlInput: { 'data-tour-id': 'builder.name' },
             }}
             fullWidth
-            inputProps={{ 'data-tour-id': 'builder.name' }}
           />
         </Box>
       </Box>
@@ -3149,8 +6250,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 onClose={closeTagsPopover}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                MenuListProps={{ disablePadding: true }}
                 slotProps={{
+                  list: { disablePadding: true },
                   paper: { ...buildContextMenuPaperSlotProps({
                     component: ContextMenuPaper,
                     contextMenuGuard: tagsMenuGuard,
@@ -3214,7 +6315,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 anchorEl={tagsContextAnchor}
                 open={Boolean(tagsContextAnchor)}
                 onClose={closeTagsContextMenu}
-                PaperProps={{ ref: tagsContextPaperRef }}
+                slotProps={{ paper: { ref: tagsContextPaperRef } }}
               >
                 <MenuItem onClick={() => setShowTagsChips(!showTagsChips)}>
                   <Checkbox
@@ -3284,7 +6385,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                     update('rankCode', Number(raw))
                   }
                 }}
-                MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                MenuProps={{ slotProps: { paper: { sx: { maxHeight: 340 } } } }}
                 data-tour-id="builder.rank"
                 sx={{
                   flex: 1,
@@ -3424,7 +6525,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                     }
                   }
                 }}
-                MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                MenuProps={{ slotProps: { paper: { sx: { maxHeight: 340 } } } }}
                 data-tour-id="builder.rarity"
                 sx={{
                   flex: 1,
@@ -3590,7 +6691,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                   onChange(normalizeKeepWithAuto({ ...recipe, factionCode: Number(raw) as FactionId }))
                 }
               }}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+              MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
               data-tour-id="builder.faction"
               sx={{
                 flex: 1,
@@ -3737,121 +6838,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
-            {(() => {
-              const baseMainSelected = (((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
-              const hasMainSelection = multiEditActive && multiSummary
-                ? [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
-                : baseMainSelected
-              return hasMainSelection
-                ? (
-                  <ClearIconButton
-                    size="small"
-                    aria-label={t('builderClearMainStats')}
-                    tooltip={t('builderClearMainStats')}
-                    onClick={() => clearMainSelection()}
-                  />
-                )
-                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-            })()}
+            {mainStatClearButton}
           </Box>
           <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {(() => {
-              const value: string[] = ((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
-              const handleChange = (_: React.SyntheticEvent, v: string[]) => {
-                if (!Array.isArray(v)) return
-                const nextNumbers = Array.from(new Set(v.map((token) => Number(token)).filter((n) => Number.isFinite(n))))
-                if (nextNumbers.length === 0) {
-                  onChange({ ...recipe, mainStatsV: [] })
-                  return
-                }
-                onChange({ ...recipe, mainStatsV: nextNumbers as number[] })
-              }
-              return (
-                <>
-                  {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-                  <ToggleButtonGroup
-                    size="small"
-                    value={value}
-                    onChange={(event, v) => {
-                      if (multiEditActive) return
-                      handleChange(event, v as string[])
-                    }}
-                    sx={mainStatToggleGroupSx}
-                  >
-                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
-                      const state = resolveMainStatTriState(variant)
-                      return (
-                        <ToggleButton
-                          key={variant}
-                          value={`${variant}`}
-                          disabled={!mainStatOptions.includes(variant)}
-                          selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
-                          onClick={(event) => {
-                            if (!multiEditActive) return
-                            event.preventDefault()
-                            event.stopPropagation()
-                            toggleMainStat(variant)
-                          }}
-                          sx={{
-                            ...buttonBorderSx(variant),
-                            ...(multiEditActive && state === 'mixed' ? {
-                              borderStyle: 'dashed',
-                              borderColor: mixedBorderColor,
-                              color: mixedTextColor,
-                              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                            } : {}),
-                          }}
-                          data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
-                        >
-                          {t(statVariantI18nKey(variant))}
-                        </ToggleButton>
-                      )
-                    })}
-                  </ToggleButtonGroup>
-                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup
-                    size="small"
-                    value={value}
-                    onChange={(event, v) => {
-                      if (multiEditActive) return
-                      handleChange(event, v as string[])
-                    }}
-                    sx={mainStatToggleGroupSx}
-                  >
-                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
-                      const state = resolveMainStatTriState(variant)
-                      return (
-                        <ToggleButton
-                          key={variant}
-                          value={`${variant}`}
-                          disabled={!mainStatOptions.includes(variant)}
-                          selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
-                          onClick={(event) => {
-                            if (!multiEditActive) return
-                            event.preventDefault()
-                            event.stopPropagation()
-                            toggleMainStat(variant)
-                          }}
-                          sx={{
-                            ...buttonBorderSx(variant),
-                            ...(multiEditActive && state === 'mixed' ? {
-                              borderStyle: 'dashed',
-                              borderColor: mixedBorderColor,
-                              color: mixedTextColor,
-                              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                            } : {}),
-                          }}
-                          data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
-                        >
-                          {t(statVariantI18nKey(variant))}
-                        </ToggleButton>
-                      )
-                    })}
-                  </ToggleButtonGroup>
-                </>
-              )
-            })()}
+            {mainStatToggleRows}
           </Box>
           </Collapse>
         </FormControl>
@@ -3885,1590 +6876,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.substats && substatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
-            {(() => {
-              if (multiEditActive && multiSummary) {
-                if (substatsPatch?.clear) {
-                  return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-                }
-                const projectedHas = (() => {
-                  if (substatsPatch?.replace) return substatsPatch.replace.length > 0
-                  const variants = new Set<number>()
-                  for (const key of multiSummary.subCounts.keys()) variants.add(Number(key))
-                  if (substatsPatch?.add) substatsPatch.add.forEach((v) => variants.add(Number(v)))
-                  if (substatsPatch?.remove) substatsPatch.remove.forEach((v) => variants.add(Number(v)))
-                  for (const variant of variants) {
-                    if (getSubstatPresenceCount(variant) > 0) return true
-                  }
-                  return false
-                })()
-                return projectedHas
-                  ? (
-                    <ClearIconButton
-                      size="small"
-                      aria-label={t('builderClearSubstats')}
-                      tooltip={t('builderClearSubstats')}
-                      onClick={() => {
-                        multiEdit?.updateField('substatsV', {
-                          value: (multiSubstatsField?.value as BuilderRecipe['substatsV']) ?? (recipe.substatsV ?? []),
-                          status: 'common',
-                          patch: { clear: true },
-                        })
-                        multiEdit?.updateField('fixedSubstatsV', {
-                          value: (multiFixedSubstatsField?.value as BuilderRecipe['fixedSubstatsV']) ?? (recipe.fixedSubstatsV ?? []),
-                          status: 'common',
-                          patch: { clear: true },
-                        })
-                        multiEdit?.updateField('substatRollBoundsV', {
-                          value: (multiRollField?.value as BuilderRecipe['substatRollBoundsV']) ?? (recipe.substatRollBoundsV ?? {}),
-                          status: 'common',
-                          patch: {},
-                        })
-                      }}
-                    />
-                  )
-                  : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-              }
-              const substatsSelection = (((recipe as unknown) as { substatsV?: number[] }).substatsV) ?? []
-              const hasSubstats = substatsSelection.length > 0
-              return hasSubstats
-                ? (
-                  <ClearIconButton
-                    size="small"
-                    aria-label={t('builderClearSubstats')}
-                    tooltip={t('builderClearSubstats')}
-                  onClick={() => onChange(normalizeKeepWithAuto({
-                      ...recipe,
-                      substatsV: [],
-                      fixedSubstatsV: [],
-                      minCount: 0,
-                      substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
-                      substatRollTargetsV: {} as SubstatRollTargets,
-                    }))}
-                  />
-                )
-                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-            })()}
+            {substatsClearButton}
           </Box>
           <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {(() => {
-
-              // Prefer recipe-overrides overrides for display-only UI so roll badges match previews.
-              // Keep edits bound to the stored recipe so interactions stay deterministic.
-              const displayRecipe = (!multiEditActive && effectiveRecipe !== recipe) ? effectiveRecipe : recipe
-              // Normalize roll bounds so override comparisons use stable, clamped values.
-              const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => ({
-                // Keep the wildcard flag explicit to avoid false positives.
-                any: Boolean(bounds?.any),
-                not: Boolean((bounds as { not?: boolean } | undefined)?.not),
-                // Clamp min to the roll bounds the builder enforces.
-                min: (typeof bounds?.min === 'number' && Number.isFinite(bounds.min))
-                  ? Math.max(0, Math.min(5, Math.floor(bounds.min)))
-                  : undefined,
-                // Clamp max to the cap the builder exposes.
-                max: (typeof bounds?.max === 'number' && Number.isFinite(bounds.max))
-                  ? Math.max(0, Math.min(4, Math.floor(bounds.max)))
-                  : undefined,
-              })
-              // Compare normalized bounds to detect recipe-overrides overrides.
-              const boundsEqual = (
-                left: ReturnType<typeof normalizeBounds>,
-                right: ReturnType<typeof normalizeBounds>,
-              ) => left.any === right.any && left.not === right.not && left.min === right.min && left.max === right.max
-              const value: string[] = ((((displayRecipe as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
-              const isSelected = (v: number) => {
-                const subsV = ((displayRecipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                return subsV.includes(v)
-              }
-              const isFixed = (v: number) => {
-                const fixedV = ((displayRecipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                return fixedV.includes(v)
-              }
-              const getBounds = (vKey: number) => {
-                return (recipe.substatRollBoundsV)?.[vKey]
-              }
-              const getDisplayBounds = (vKey: number) => {
-                return (displayRecipe.substatRollBoundsV)?.[vKey]
-              }
-              const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean; not?: boolean }) => {
-                applySingleSubstatBounds(vKey, () => {
-                  if (!bounds) return null
-                  return { ...bounds }
-                })
-              }
-              // Badge scale (left → right): max:4 ← max:3 ← … ← max:0 ← ¬ ← ★ → min:0 → min:1 → … → min:5
-              // Left-click (cycleForward) steps rightward; right-click (cycleBackward) steps leftward.
-              // At min:5, left-click wraps back to ★. At max:4, right-click wraps back to ★.
-              const cycleForward = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                const b = getBounds(vKey)
-                const isNot = b?.not === true
-                const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
-                const hasMax = !isNot && typeof b?.max === 'number'
-                const hasMin = !isNot && typeof b?.min === 'number'
-                if (isAny) {
-                  setBounds(vKey, { min: 0 })                                          // ★ → min:0
-                } else if (hasMin) {
-                  const n = Math.max(0, Math.min(5, Number(b?.min)))
-                  if (n < 5) setBounds(vKey, { min: n + 1 })                           // min:n → min:(n+1)
-                  else setBounds(vKey, { any: true })                                  // min:5 → ★ (right-end wrap)
-                } else if (isNot) {
-                  setBounds(vKey, { any: true })                                       // ¬ → ★
-                } else if (hasMax) {
-                  const n = Math.max(0, Math.min(4, Number(b?.max)))
-                  if (n > 0) setBounds(vKey, { max: n - 1 })                           // max:n → max:(n-1)
-                  else setBounds(vKey, { not: true })                                  // max:0 → ¬
-                } else {
-                  setBounds(vKey, { any: true })
-                }
-              }
-
-              const cycleBackward = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                const b = getBounds(vKey)
-                const isNot = b?.not === true
-                const isAny = !isNot && (Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined)))
-                const hasMax = !isNot && typeof b?.max === 'number'
-                const hasMin = !isNot && typeof b?.min === 'number'
-                if (isAny) {
-                  setBounds(vKey, { not: true })                                       // ★ → ¬
-                } else if (isNot) {
-                  setBounds(vKey, { max: 0 })                                          // ¬ → max:0
-                } else if (hasMax) {
-                  const n = Math.max(0, Math.min(4, Number(b?.max)))
-                  if (n < 4) setBounds(vKey, { max: n + 1 })                           // max:n → max:(n+1)
-                  else setBounds(vKey, { any: true })                                  // max:4 → ★ (left-end wrap)
-                } else if (hasMin) {
-                  const n = Math.max(0, Math.min(5, Number(b?.min)))
-                  if (n <= 0) setBounds(vKey, { any: true })                           // min:0 → ★
-                  else setBounds(vKey, { min: n - 1 })                                 // min:n → min:(n-1)
-                } else {
-                  setBounds(vKey, { any: true })
-                }
-              }
-
-              const cycleSubstat = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (multiEditActive && multiEdit) {
-                  multiToggleSubstat(vKey)
-                  return
-                }
-                const selected = isSelected(vKey)
-                if (!selected) {
-                  const prevV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                  const nextV = [...prevV, vKey]
-                  const nextLen = nextV.length
-                  const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
-                  bVAll[vKey] = { any: true }
-                  const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextV, bVAll)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
-                  onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
-                  return
-                }
-                // Selected (locked or not) -> remove entirely
-                const prevSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const nextSubsV = prevSubsV.filter((v) => v !== vKey)
-                const prevFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                const nextFixedV = prevFixedV.filter((v) => v !== vKey)
-                // prune bounds for substat (variant-keyed)
-                const bVAll = { ...((recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>) }
-                const { [vKey]: _omit, ...restV } = bVAll
-                const prunedV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = restV
-                const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubsV, prunedV)) : (recipe.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
-                // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
-                onChange(normalizeKeepWithAuto({ ...recipe, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
-              }
-              // Lock badge toggle: ensures the substat is selected before flipping fixed state.
-              const toggleSubstatLock = (vKey: number) => {
-                const selected = isSelected(vKey)
-                const fixed = isFixed(vKey)
-                const prevSubs = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const prevFixed = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                const boundsSource = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-                if (!selected) {
-                  const nextSubs = [...prevSubs, vKey]
-                  const nextFixed = Array.from(new Set([...prevFixed, vKey]))
-                  const nextLen = nextSubs.length
-                  const nextBounds: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = { ...(boundsSource as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>), [vKey]: { any: true } }
-                  const nextMin = (recipe.autoMinCount ? Math.min(4, countPositiveSubstats(nextSubs, nextBounds)) : ((recipe.minCount === 0 && nextLen > 0) ? 1 : Math.min(recipe.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
-                  const nextRecipe = normalizeKeepWithAuto({
-                    ...recipe,
-                    substatsV: nextSubs,
-                    fixedSubstatsV: nextFixed,
-                    minCount: nextMin,
-                    substatRollBoundsV: nextBounds,
-                  })
-                  onChange(nextRecipe)
-                  return
-                }
-                if (!fixed) {
-                  const nextFixed = Array.from(new Set([...prevFixed, vKey]))
-                  onChange(normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed }))
-                  return
-                }
-                const nextFixed = prevFixed.filter((v) => v !== vKey)
-                const nextRecipe = normalizeKeepWithAuto({ ...recipe, fixedSubstatsV: nextFixed })
-                onChange(nextRecipe)
-              }
-
-              // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
-              const rollIndicatorTooltip = [
-                t('rollIndicatorTip1'),
-                t('rollIndicatorTip2'),
-                t('rollIndicatorTip3'),
-              ].join('\n')
-
-              const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
-                const singleBounds = getBounds(variant)
-                const presenceState = multiEditActive ? getSubstatPresence(variant) : (isSelected(variant) ? 'all' : 'none')
-                const lockState = multiEditActive ? getSubstatLockState(variant) : (isFixed(variant) ? 'all' : 'none')
-                const rollMode = multiEditActive ? getRollMode(variant) : (() => {
-                  if (singleBounds?.not === true) return { kind: 'not', presence: isSelected(variant) ? 1 : 0 } as RollMode
-                  if (!singleBounds || singleBounds.any) return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
-                  const hasMin = typeof singleBounds.min === 'number'
-                  const hasMax = typeof singleBounds.max === 'number'
-                  if (hasMax) {
-                    return {
-                      kind: 'max',
-                      presence: 1,
-                      max: Math.max(0, Math.min(4, Number(singleBounds.max))),
-                      ...(hasMin ? { min: Math.max(0, Math.min(5, Number(singleBounds.min))) } : {}),
-                    } as RollMode
-                  }
-                  if (hasMin) {
-                    return { kind: 'min', presence: 1, min: Math.max(0, Math.min(5, Number(singleBounds.min))) } as RollMode
-                  }
-                  return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
-                })()
-                const buttonSelected = multiEditActive ? (presenceState === 'all') : isSelected(variant)
-                const displaySelected = multiEditActive ? (presenceState !== 'none') : isSelected(variant)
-                const indicatorMixed = multiEditActive && (rollMode.kind === 'mixed' || presenceState === 'partial')
-                const displayBounds = multiEditActive ? getBounds(variant) : getDisplayBounds(variant)
-                const indicatorWarning = (() => {
-                  // Avoid mixing recipe-overrides overlays with multi-edit preview.
-                  if (multiEditActive) return false
-                  // Only show overrides when recipe overrides altered the display recipe.
-                  if (displayRecipe === recipe) return false
-                  // Keep warnings off hidden indicators to reduce noise.
-                  if (!displaySelected) return false
-                  // Compare the stored vs effective bounds for this variant.
-                  const baseBounds = normalizeBounds(getBounds(variant))
-                  const overrideBounds = normalizeBounds(getDisplayBounds(variant))
-                  return !boundsEqual(baseBounds, overrideBounds)
-                })()
-                const indicatorWarningTooltip = indicatorWarning
-                  ? t('builderSubstatMinRecipeOverridesOverrideTooltip')
-                  : ''
-                const indicator = (() => {
-                  if (indicatorMixed) return undefined
-                  if (multiEditActive) {
-                    if (rollMode.kind === 'any') {
-                      return displaySelected ? { wildcard: true, tooltip: rollIndicatorTooltip } : undefined
-                    }
-                    if (rollMode.kind === 'min') {
-                      return {
-                        wildcard: false,
-                        min: rollMode.min,
-                        ...(typeof rollMode.max === 'number' ? { max: rollMode.max } : {}),
-                        tooltip: rollIndicatorTooltip,
-                      }
-                    }
-                    if (rollMode.kind === 'max') {
-                      return {
-                        wildcard: false,
-                        max: rollMode.max,
-                        ...(typeof rollMode.min === 'number' ? { min: rollMode.min } : {}),
-                        tooltip: rollIndicatorTooltip,
-                      }
-                    }
-                    if (rollMode.kind === 'not') {
-                      return displaySelected ? { wildcard: false, not: true, tooltip: rollIndicatorTooltip } : undefined
-                    }
-                    return undefined
-                  }
-                  const isNotSub = displayBounds?.not === true
-                  const hasMin = !isNotSub && typeof displayBounds?.min === 'number'
-                  const minVal = hasMin ? Math.max(0, Math.min(5, Number(displayBounds?.min))) : undefined
-                  const hasMax = !isNotSub && typeof displayBounds?.max === 'number' && isFinite(displayBounds.max ?? NaN)
-                  const maxVal = hasMax ? Math.max(0, Math.min(4, Number(displayBounds?.max))) : undefined
-                  const wildcard = !isNotSub && (Boolean(displayBounds?.any) || (!hasMin && !hasMax))
-                  return displaySelected
-                    ? {
-                        wildcard,
-                        ...(isNotSub ? { not: true } : {}),
-                        ...(typeof minVal === 'number' ? { min: minVal } : {}),
-                        ...(typeof maxVal === 'number' ? { max: maxVal } : {}),
-                        tooltip: rollIndicatorTooltip,
-                      }
-                    : undefined
-                })()
-                const lockIsMixed = multiEditActive && (presenceState === 'partial' || lockState === 'partial')
-                const lockHoverBaseOpacity = (lockState === 'all' || lockIsMixed) ? 1 : 0
-                const lockSx: SxProps<Theme> = lockIsMixed
-                  ? {
-                      color: mixedTextColor,
-                      textShadow: 'none',
-                    }
-                  : {
-                      color: theme.palette.text.primary,
-                      textShadow: 'none',
-                    }
-                const handleClick = (event: React.MouseEvent) => {
-                  if (multiEditActive && multiEdit) {
-                    try { event.preventDefault(); event.stopPropagation() } catch {}
-                    multiToggleSubstat(variant)
-                    return
-                  }
-                  cycleSubstat(variant, event)
-                }
-                const ensurePresenceBeforeRollAdjust = () => {
-                  if (!multiEditActive || !multiEdit) return
-                  if (presenceState !== 'all') ensureMultiSubstatPresence(variant)
-                }
-                const handleIndicatorClick = (event: React.MouseEvent) => {
-                  try { event.stopPropagation() } catch {}
-                  if (multiEditActive && multiEdit) {
-                    ensurePresenceBeforeRollAdjust()
-                    multiCycleRollForward(variant)
-                    return
-                  }
-                  cycleForward(variant, event)
-                }
-                const handleIndicatorContext = (event: React.MouseEvent) => {
-                  event.preventDefault()
-                  try { event.stopPropagation() } catch {}
-                  if (multiEditActive && multiEdit) {
-                    ensurePresenceBeforeRollAdjust()
-                    multiCycleRollBackward(variant)
-                    return
-                  }
-                  cycleBackward(variant, event)
-                }
-                const handleLockToggle = (event: React.MouseEvent | React.KeyboardEvent) => {
-                  try { event.preventDefault(); event.stopPropagation() } catch {}
-                  if (multiEditActive && multiEdit) {
-                    multiToggleSubstatLock(variant)
-                    return
-                  }
-                  toggleSubstatLock(variant)
-                }
-                const handleContextMenu = (event: React.MouseEvent) => {
-                  try { event.preventDefault(); event.stopPropagation() } catch {}
-                  markSubstatHintSeenAndClear()
-                  const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
-                  const wasSelected = displaySelected
-                  if (!wasSelected) {
-                    if (multiEditActive && multiEdit) {
-                      multiToggleSubstat(variant)
-                    } else {
-                      cycleSubstat(variant)
-                    }
-                  }
-                const info = deriveSubstatMenuInfo(variant)
-                const openMenu = () => {
-                  setSubstatMenu({
-                    variant,
-                    anchor: anchorPosition,
-                  })
-                  setSubstatMenuDraft(null)
-                  resetSubstatMenuChipWidths()
-                }
-                if (!info) {
-                  if (!wasSelected && typeof window !== 'undefined') {
-                    window.setTimeout(() => {
-                      openMenu()
-                    }, 0)
-                  }
-                  return
-                }
-                openMenu()
-                }
-                const lockTooltip = (() => {
-                  if (multiEditActive) {
-                    if (lockIsMixed) return t('builderSubstatLockTooltipMixed')
-                    return lockState === 'all'
-                      ? t('builderSubstatLockTooltipUnlock')
-                      : t('builderSubstatLockTooltipLock')
-                  }
-                  return isFixed(variant)
-                    ? t('builderSubstatLockTooltipUnlock')
-                    : t('builderSubstatLockTooltipLock')
-                })()
-                const interactiveHover = interactiveHoverVariant === variant
-                const toggleButtonSx = (theme: Theme): SystemStyleObject<Theme> => {
-                  const base = {
-                    ...buttonBorderSx(variant),
-                    '--sub-lock-hover-opacity': lockHoverBaseOpacity,
-                    ...(multiEditActive && presenceState === 'partial'
-                      ? {
-                          borderStyle: 'dashed',
-                          borderColor: mixedBorderColor,
-                          color: mixedTextColor,
-                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                      }
-                      : {}),
-                    color: theme.palette.text.primary,
-                    transition: 'background-color .15s, border-color .15s, color .15s',
-                    '&[data-interactive-hover="true"]': {
-                      '--sub-lock-hover-opacity': lockHoverBaseOpacity,
-                    },
-                    '&[data-interactive-hover="true"]:not(.Mui-selected)': {
-                      backgroundColor: 'transparent !important',
-                    },
-                    '&.Mui-selected[data-interactive-hover="true"]': {
-                      backgroundColor: theme.palette.action.selected,
-                      color: theme.palette.text.primary,
-                    },
-                    '&.Mui-selected[data-interactive-hover="true"] .roll-label': {
-                      color: theme.palette.text.primary,
-                    },
-                  } as (SystemStyleObject<Theme> & Record<string, unknown>)
-                  return base
-                }
-                return (
-                  <ToggleButton
-                    key={variant}
-                    value={`${variant}`}
-                    selected={buttonSelected}
-                    disabled={!allowedSubstatOptions.includes(variant)}
-                    onClick={handleClick}
-                    onMouseMove={(e) => {
-                      if (!showSubstatHint || substatMenu) return
-                      setSubstatHintPos({ x: e.clientX, y: e.clientY })
-                    }}
-                    onContextMenu={handleContextMenu}
-                    onMouseLeave={() => {
-                      setInteractiveHoverVariant((current) => (current === variant ? null : current))
-                      clearSubstatHint()
-                    }}
-                    sx={toggleButtonSx}
-                    data-tour-id={options?.dataTourId}
-                    data-interactive-hover={interactiveHover ? 'true' : undefined}
-                  >
-                    <SubstatToggleDisplay
-                      label={t(statVariantI18nKey(variant))}
-                      locked={lockState !== 'none'}
-                      selected={displaySelected}
-                      {...(indicator ? { indicator } : {})}
-                      indicatorWarning={indicatorWarning}
-                      {...(indicatorWarningTooltip ? { indicatorWarningTooltip } : {})}
-                      indicatorMixed={indicatorMixed}
-                      onIndicatorClick={handleIndicatorClick}
-                      onIndicatorContextMenu={handleIndicatorContext}
-                      lockSx={lockSx}
-                      onLockToggle={handleLockToggle}
-                      lockTooltip={lockTooltip}
-                      lockAriaLabel={t('builderSubstatLockControlLabel', { stat: t(statVariantI18nKey(variant)) })}
-                      lockIsMixed={lockIsMixed}
-                      onInteractiveHoverChange={(hovering) => {
-                        setInteractiveHoverVariant((current) => {
-                          if (hovering) return variant
-                          return current === variant ? null : current
-                        })
-                      }}
-                    />
-                  </ToggleButton>
-                )
-              }
-              const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
-              const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
-              // Derive the "not" state: explicit draft wins, then fall back to the active info rollKind.
-              const effectiveNotDraft: boolean = substatMenuDraft
-                ? (substatMenuDraft.not === true)
-                : (activeMenuInfo?.rollKind === 'not')
-              const statLabelText = activeMenuInfo ? t(statVariantI18nKey(activeMenuInfo.variant)) : ''
-              const statHighlightColor = activeMenuInfo && colorStatTexts
-                ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
-                : undefined
-              // Summarize the currently opened substat across the active recipe(s).
-              // Reuses the Builder math so we can display lock/min/max/target
-              // pills without rebuilding the entire rule set.
-              const computeMenuValueSummary = () => {
-                if (!activeMenuInfo) return null
-                const label = statLabelText
-                if (!label) return null
-                const variantId = activeMenuInfo.variant
-                const recipes = (() => {
-                  if (multiEditActive) {
-                    if (multiProjectedRecipes && multiProjectedRecipes.length > 0) return multiProjectedRecipes
-                    if (multiSourceRecipes && multiSourceRecipes.length > 0) return multiSourceRecipes
-                    return []
-                  }
-                  return [recipe]
-                })()
-                if (!recipes || recipes.length === 0) return null
-                const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
-                const isRollCount = Number(variantId) === StatVariant.RollCount
-                const normalizeLevel = (value: number | undefined | null): LevelMilestone => {
-                  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) return value as LevelMilestone
-                  return LEVEL_MILESTONES[0]!
-                }
-                const metrics = recipes.map((recipe) => {
-                  const star = starForRankCode(Number(recipe.rankCode ?? 0), starFallback)
-                  const baseValueRaw = baseMinForStarV(Number(variantId), star, substatTargets)
-                  const baseValue = Math.max(0, baseValueRaw ?? 0)
-                  const rarityCode = (recipe.rarityMode === 'auto') ? resolveAutoRarityCode(recipe) : recipe.rarityCode
-                  const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-                const baselineMode = deriveRollBaselineMode(recipe)
-                const minLevel = normalizeLevel(recipe.minLevel)
-                const maxLevel = normalizeLevel(recipe.maxLevel)
-                const windowMin = Math.min(minLevel, maxLevel)
-                const windowMax = Math.max(minLevel, maxLevel)
-                  const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
-                  const countUpTo = (limit: number) => {
-                    let total = 0
-                    for (const lvl of rollLevels) {
-                      if (lvl <= limit) total += 1
-                    }
-                    return total
-                  }
-                  let maxRolls: number
-                  if (baselineMode === 'upToLevel') {
-                    maxRolls = countUpTo(windowMax) + preRolls
-                  } else {
-                    maxRolls = Math.max(0, countUpTo(windowMax) - countUpTo(windowMin))
-                    if (windowMin <= 0) {
-                      maxRolls += preRolls
-                    }
-                  }
-                  const hardCap = rarityIncludesMythical(rarityCode) ? 5 : 4
-                  maxRolls = Math.max(0, Math.min(maxRolls, hardCap))
-                  return {
-                    baseValue,
-                    maxRolls,
-                  }
-                })
-                if (metrics.length === 0) return null
-                // Roll-count substats (e.g. SPD) display the raw roll index, not a threshold.
-                // For all other substats, resolveRollTargetValue handles base/override/clamp.
-                const targetValueForRoll = (base: number, rolls: number): number => {
-                  if (isRollCount) return rolls
-                  return resolveRollTargetValue(
-                    {
-                      ...(typeof targetDraftBase === 'number' ? { base: targetDraftBase } : {}),
-                      increments: targetDraftRolls,
-                    },
-                    rolls,
-                    base,
-                  )
-                }
-                const formatValue = (value: number) => numberFormatter.format(Math.round(value))
-                const formatRange = (minVal: number, maxVal: number) => {
-                  const low = Math.min(minVal, maxVal)
-                  const high = Math.max(minVal, maxVal)
-                  if (low === high) return formatValue(low)
-                  return `${formatValue(low)}…${formatValue(high)}`
-                }
-                const mixedLabel = t('builderMultiMixedValue')
-                const minMixedFlag = Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
-                const maxMixedFlag = Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
-                const minGroupValueLocal = typeof effectiveMinDraft === 'number'
-                  ? clampRollMin(effectiveMinDraft)
-                  : null
-                const maxGroupValueLocal = typeof effectiveMaxDraft === 'number'
-                  ? clampRollMax(effectiveMaxDraft)
-                  : null
-                let minText: string | null = null
-                if (minMixedFlag) {
-                  minText = mixedLabel
-                } else if (typeof minGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, minGroupValueLocal))
-                  const low = Math.min(...values)
-                  const high = Math.max(...values)
-                  minText = formatRange(low, high)
-                } else if (activeMenuInfo.wildcard) {
-                  const lows = metrics.map((metric) => targetValueForRoll(metric.baseValue, 0))
-                  const highs = metrics.map((metric) => targetValueForRoll(metric.baseValue, metric.maxRolls))
-                  const low = Math.min(...lows)
-                  const high = Math.max(...highs)
-                  minText = formatRange(low, high)
-                }
-                let maxText: string | null = null
-                if (maxMixedFlag) {
-                  maxText = mixedLabel
-                } else if (typeof maxGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, maxGroupValueLocal))
-                  const low = Math.min(...values)
-                  const high = Math.max(...values)
-                  maxText = formatRange(low, high)
-                }
-                const lockMixedFlag = activeMenuInfo?.lockState === 'partial'
-                const lockGroupValueLocal: 'locked' | 'unlocked' | null = activeMenuInfo.lockState === 'all'
-                  ? 'locked'
-                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)
-                return {
-                  label,
-                  minText,
-                  maxText,
-                  minMixed: minMixedFlag,
-                  maxMixed: maxMixedFlag,
-                  minGroupValue: minGroupValueLocal,
-                  maxGroupValue: maxGroupValueLocal,
-                  lockMixed: lockMixedFlag,
-                  lockGroupValue: lockGroupValueLocal,
-                }
-              }
-              const substatMenuValueSummary = computeMenuValueSummary()
-              const minMixed = substatMenuValueSummary?.minMixed ?? Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
-              const maxMixed = substatMenuValueSummary?.maxMixed ?? Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
-              const lockMixed = substatMenuValueSummary?.lockMixed ?? (activeMenuInfo?.lockState === 'partial')
-              const lockGroupValue: 'locked' | 'unlocked' | null = substatMenuValueSummary?.lockGroupValue ?? (!activeMenuInfo
-                ? null
-                : (activeMenuInfo.lockState === 'all'
-                  ? 'locked'
-                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)))
-              const minGroupValue: number | null = substatMenuValueSummary?.minGroupValue ?? (typeof effectiveMinDraft === 'number'
-                ? clampRollMin(effectiveMinDraft)
-                : null)
-              const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
-                ? clampRollMax(effectiveMaxDraft)
-                : null)
-              const targetInputsDisabled = !activeMenuInfo
-              const lockTooltipText = t('builderSubstatMenuLockTooltip')
-              const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
-              const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
-              const rollTargetsTooltipText = targetContext
-                ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.round(targetContext.baseValue)) })
-                : t('builderSubstatMenuRollTargetsHintFallback')
-              const stepTargetBase = (delta: number) => {
-                if (!activeMenuInfo) return
-                const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
-                const nextValue = clampTargetValue((seedValue ?? 0) + delta)
-                applyTargetSelection(nextValue, targetDraftRolls)
-              }
-              const stepTargetRoll = (index: number, delta: number) => {
-                if (!activeMenuInfo) return
-                const nextRolls = cloneTargetRolls(targetDraftRolls)
-                const current = nextRolls[index]
-                const seedValue = current ?? resolveTargetFallbackValue(index + 1)
-                nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta)
-                applyTargetSelection(targetDraftBase, nextRolls)
-              }
-              const renderRequirementChip = (mode: 'min' | 'max') => {
-                if (!activeMenuInfo) {
-                  return <Box sx={menuValuePillPlaceholderSx} />
-                }
-                const text = substatMenuValueSummary
-                  ? (mode === 'min' ? substatMenuValueSummary.minText : substatMenuValueSummary.maxText)
-                  : null
-                const mixed = substatMenuValueSummary
-                  ? (mode === 'min' ? substatMenuValueSummary.minMixed : substatMenuValueSummary.maxMixed)
-                  : false
-                const hasValue = Boolean(text && text.trim().length > 0)
-                // When the "not" toggle is active on the max row, show ¬ and suppress the value.
-                const isNotActive = mode === 'max' && effectiveNotDraft
-                const displayText = (mixed || isNotActive)
-                  ? ''
-                  : (hasValue ? text! : '')
-                const statId = variantToSub(activeMenuInfo.variant).id
-                const shouldColorize = colorStatTexts && substatSupportsColor(statId)
-                const label = substatMenuValueSummary?.label ?? t(statVariantI18nKey(activeMenuInfo.variant))
-                const { labelColor, chipBg, chipBorder } = resolveSubstatChipPalette(theme, {
-                  variant: activeMenuInfo.variant,
-                  substatColors,
-                  colorize: shouldColorize,
-                  fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
-                })
-                const glyph = mixed ? '' : isNotActive ? '¬' : (mode === 'min' ? '≥' : '≤')
-                const glyphColor = (mode === 'max') ? theme.palette.error.main : theme.palette.success.main
-                const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
-                const enforcedWidth = (() => {
-                  if (chipWidth === 0) return undefined
-                  if (rowWidth < chipWidth) return `${chipWidth}px`
-                  return undefined
-                })()
-                const chipRef = (node: HTMLDivElement | null) => {
-                  if (!node) return
-                  const width = node.offsetWidth
-                  if (width <= 0 || enforcedWidth) return
-                  setSubstatMenuChipWidths((prev) => {
-                    if (mode === 'min') {
-                      if (prev.min === width) return prev
-                      return { ...prev, min: width }
-                    }
-                    if (prev.max === width) return prev
-                    return { ...prev, max: width }
-                  })
-                }
-                const chipStyles: SystemStyleObject<Theme> = {
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
-                  gap: theme.spacing(0.75),
-                  maxWidth: '100%',
-                  borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
-                  padding: theme.spacing(0.5, 1),
-                  backgroundColor: chipBg,
-                  border: `1px solid ${chipBorder}`,
-                  minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
-                  ...(enforcedWidth ? { width: enforcedWidth } : {}),
-                }
-                if (mixed) {
-                  Object.assign(chipStyles, {
-                    border: `1px dashed ${mixedBorderColor}`,
-                    color: mixedTextColor,
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                  })
-                }
-                const effectiveLabelColor = mixed ? mixedTextColor : labelColor
-                const valueColor = mixed ? mixedTextColor : glyphColor
-                return (
-                  <Box
-                    sx={chipStyles}
-                    ref={chipRef}
-                  >
-                    <Box
-                      component="span"
-                      sx={{
-                        color: effectiveLabelColor,
-                        fontWeight: theme.typography.fontWeightMedium ?? 600,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {label}
-                    </Box>
-                    <Box
-                      component="span"
-                      sx={{
-                        display: 'inline-flex',
-                        alignItems: 'baseline',
-                        gap: theme.spacing(0.25),
-                        color: valueColor,
-                        fontVariantNumeric: 'tabular-nums',
-                        whiteSpace: 'nowrap',
-                     }}
-                    >
-                      {glyph ? (<Box component="span">{glyph}</Box>) : null}
-                      {(mixed || hasValue) ? (
-                        <Box component="span">{displayText}</Box>
-                      ) : null}
-                    </Box>
-                  </Box>
-                )
-              }
-              const commitSingleBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
-                applySingleSubstatBounds(variantId, (current) => {
-                  if (nextMin == null && nextMax == null) return null
-                  const draft = { ...(current ?? {}) }
-                  if (nextMin == null) delete draft.min
-                  else draft.min = nextMin
-                  if (nextMax == null) delete draft.max
-                  else draft.max = nextMax
-                  delete draft.any
-                  return draft
-                })
-              }
-              const commitMultiBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
-                if (!multiEditActive || !multiEdit) return
-                if (nextMin == null && nextMax == null) {
-                  commitRollPatch(variantId, { any: true, min: null, max: null })
-                } else {
-                  commitRollPatch(variantId, {
-                    any: false,
-                    ...(nextMin === null ? { min: null } : { min: nextMin }),
-                    ...(nextMax === null ? { max: null } : { max: nextMax }),
-                  })
-                }
-              }
-              const ensureSubstatPresenceForBounds = (variantId: number) => {
-                if (multiEditActive && multiEdit) {
-                  ensureMultiSubstatPresence(variantId)
-                  return
-                }
-                if (!isSelected(variantId)) {
-                  cycleSubstat(variantId)
-                }
-              }
-              const applyMenuSelection = (
-                nextMin: number | null,
-                nextMax: number | null,
-                options?: { requirePresence?: boolean; ensurePresenceWhenMixed?: boolean },
-              ) => {
-                if (!activeMenuInfo) return
-                const requirePresence = options?.requirePresence ?? false
-                const ensurePresenceWhenMixed = options?.ensurePresenceWhenMixed ?? false
-                const shouldEnsurePresence = (() => {
-                  if (!multiEditActive || !multiEdit) {
-                    return requirePresence && (nextMin != null || nextMax != null)
-                  }
-                  if (requirePresence && (nextMin != null || nextMax != null)) return true
-                  if (ensurePresenceWhenMixed && activeMenuInfo.presence !== 'all') return true
-                  return false
-                })()
-    if (shouldEnsurePresence) ensureSubstatPresenceForBounds(activeMenuInfo.variant)
-                setSubstatMenuDraft((prev) => ({
-                  min: nextMin,
-                  max: nextMax,
-                  targetBase: prev?.targetBase ?? null,
-                  targetRolls: cloneTargetRolls(prev?.targetRolls),
-                }))
-                if (multiEditActive && multiEdit) {
-                  commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
-                } else {
-                  commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
-                }
-              }
-              const applyNotSelection = () => {
-                if (!activeMenuInfo) return
-                ensureSubstatPresenceForBounds(activeMenuInfo.variant)
-                setSubstatMenuDraft((prev) => ({
-                  min: null,
-                  max: null,
-                  not: true,
-                  targetBase: prev?.targetBase ?? null,
-                  targetRolls: cloneTargetRolls(prev?.targetRolls),
-                }))
-                if (multiEditActive && multiEdit) {
-                  commitRollPatch(activeMenuInfo.variant, { not: true, any: false, min: null, max: null })
-                } else {
-                  applySingleSubstatBounds(activeMenuInfo.variant, () => ({ not: true }))
-                }
-              }
-              const applyTargetSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
-                if (!activeMenuInfo) return
-                const draftRolls = cloneTargetRolls(nextRolls)
-                setSubstatMenuDraft((prev) => ({
-                  min: prev?.min ?? activeMenuInfo.minValue ?? null,
-                  max: prev?.max ?? activeMenuInfo.maxValue ?? null,
-                  targetBase: nextBase,
-                  targetRolls: draftRolls,
-                }))
-                const entry = buildTargetEntryFromDraft(nextBase, draftRolls)
-                if (multiEditActive && multiEdit) {
-                  commitTargetPatch(activeMenuInfo.variant, entry)
-                  return
-                }
-                applySingleSubstatTargets(activeMenuInfo.variant, () => {
-                  if (!entry) return null
-                  return {
-                    ...(typeof entry.base === 'number' ? { base: entry.base } : {}),
-                    ...(Array.isArray(entry.increments) ? { increments: [...entry.increments] } : {}),
-                  }
-                })
-              }
-              const handleTargetBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                if (!activeMenuInfo) return
-                const nextValue = clampTargetValue(parseNumericInput(event.target.value))
-                applyTargetSelection(nextValue, targetDraftRolls)
-              }
-              const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                if (!activeMenuInfo) return
-                const nextValue = clampTargetValue(parseNumericInput(event.target.value))
-                const nextRolls = cloneTargetRolls(targetDraftRolls)
-                nextRolls[index] = nextValue
-                applyTargetSelection(targetDraftBase, nextRolls)
-              }
-              const handleTargetReset = () => {
-                if (!activeMenuInfo) return
-                applyTargetSelection(null, createEmptyTargetRolls())
-              }
-              const applyLockSelection = (value: 'locked' | 'unlocked') => {
-                if (!activeMenuInfo) return
-                if (multiEditActive && multiEdit) {
-                  multiSetSubstatLockState(activeMenuInfo.variant, value)
-                  return
-                }
-                const currentlyLocked = isFixed(activeMenuInfo.variant)
-                if (value === 'locked' && !currentlyLocked) {
-                  toggleSubstatLock(activeMenuInfo.variant)
-                } else if (value === 'unlocked' && currentlyLocked) {
-                  toggleSubstatLock(activeMenuInfo.variant)
-                }
-              }
-              const handleLockGroupChange = (_event: React.SyntheticEvent<Element, Event>, value: 'locked' | 'unlocked' | null) => {
-                if (value === null) return
-                applyLockSelection(value)
-              }
-              const MIN_SEQUENCE = ['any', '0', '1', '2', '3', '4', '5'] as const
-              // 'not' appears first in the max group (before 0), reflecting the badge cycle order.
-              const MAX_SEQUENCE = ['any', 'not', '0', '1', '2', '3', '4'] as const
-              type MinOption = (typeof MIN_SEQUENCE)[number]
-              type MaxOption = (typeof MAX_SEQUENCE)[number]
-              const MIN_CYCLE_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
-              const MIN_LABEL_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
-              const MAX_LABEL_SEQUENCE: MaxOption[] = ['not', '0', '1', '2', '3', '4']
-              const normalizeMinOption = (raw: string | null): MinOption => {
-                if (!raw) return 'any'
-                return (MIN_SEQUENCE.includes(raw as MinOption) ? raw : 'any') as MinOption
-              }
-              const normalizeMaxOption = (raw: string | null): MaxOption => {
-                if (!raw) return 'any'
-                return (MAX_SEQUENCE.includes(raw as MaxOption) ? raw : 'any') as MaxOption
-              }
-              const minToggleValue: MinOption | undefined | null = minMixed
-                ? null
-                : (minGroupValue == null
-                  ? (maxGroupValue == null && !effectiveNotDraft ? 'any' : undefined)
-                  : (String(minGroupValue) as MinOption))
-              const maxToggleValue: MaxOption | undefined | null = maxMixed
-                ? null
-                : (effectiveNotDraft
-                  ? 'not'
-                  : (maxGroupValue == null
-                    ? (minGroupValue == null ? 'any' : undefined)
-                    : (String(maxGroupValue) as MaxOption)))
-              const applyMinSelection = (key: MinOption) => {
-                if (key === 'any') {
-                  applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
-                  return
-                }
-                applyMenuSelection(clampRollMin(Number(key)), null, { requirePresence: true })
-              }
-              const applyMaxSelection = (key: MaxOption) => {
-                if (key === 'any') {
-                  applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
-                  return
-                }
-                if (key === 'not') {
-                  applyNotSelection()
-                  return
-                }
-                applyMenuSelection(null, clampRollMax(Number(key)), { requirePresence: true })
-              }
-              const handleMinGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
-                applyMinSelection(normalizeMinOption(rawValue))
-              }
-              const handleMaxGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
-                applyMaxSelection(normalizeMaxOption(rawValue))
-              }
-              const resolveMinCycleKey = (): MinOption => {
-                if (minMixed) return 'any'
-                const key = minToggleValue
-                if (key && MIN_SEQUENCE.includes(key as MinOption)) {
-                  return key as MinOption
-                }
-                return 'any'
-              }
-              const resolveMaxCycleKey = (): MaxOption => {
-                if (maxMixed) return 'any'
-                if (effectiveNotDraft) return 'not'
-                const key = maxToggleValue
-                if (key && MAX_SEQUENCE.includes(key as MaxOption)) {
-                  return key as MaxOption
-                }
-                return 'any'
-              }
-              const cycleMinRequirement = () => {
-                if (minMixed) {
-                  applyMinSelection('any')
-                  return
-                }
-                if (minGroupValue == null && (maxGroupValue != null || effectiveNotDraft)) {
-                  applyMinSelection('any')
-                  return
-                }
-                const current = resolveMinCycleKey()
-                const startIndex = MIN_CYCLE_SEQUENCE.indexOf(current)
-                const next = MIN_CYCLE_SEQUENCE[(startIndex + 1) % MIN_CYCLE_SEQUENCE.length] ?? 'any'
-                applyMinSelection(next)
-              }
-              const cycleMaxLimit = () => {
-                if (maxMixed) {
-                  applyMaxSelection('not')
-                  return
-                }
-                if (!effectiveNotDraft && maxGroupValue == null) {
-                  if (minGroupValue != null) {
-                    applyMaxSelection('not')
-                    return
-                  }
-                }
-                const current = resolveMaxCycleKey()
-                if (current === 'any') {
-                  applyMaxSelection('not')
-                  return
-                }
-                const idx = MAX_LABEL_SEQUENCE.indexOf(current)
-                if (idx === -1) {
-                  applyMaxSelection('not')
-                  return
-                }
-                const nextIdx = idx + 1
-                if (nextIdx >= MAX_LABEL_SEQUENCE.length) {
-                  applyMaxSelection('any')
-                  return
-                }
-                applyMaxSelection(MAX_LABEL_SEQUENCE[nextIdx] as MaxOption)
-              }
-              const cycleLockState = () => {
-                const next = lockGroupValue === 'locked' ? 'unlocked' : 'locked'
-                applyLockSelection(next)
-              }
-              const menuRowSx: SxProps<Theme> = () => ({
-                display: 'grid',
-                gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px ${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
-                alignItems: 'center',
-                columnGap: `${SUBSTAT_MENU_COLUMN_GAP_PX}px`,
-                rowGap: theme.spacing(0.5),
-                px: 2,
-                py: 0.75,
-              })
-              const menuValueColumnSx: SxProps<Theme> = {
-                display: 'flex',
-                justifyContent: 'flex-start',
-                alignItems: 'center',
-                width: `${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
-              }
-              const menuValuePillPlaceholderSx: SxProps<Theme> = {
-                width: '100%',
-                minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
-              }
-const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  color: theme.palette.text.secondary,
-  fontSize: theme.typography.body2.fontSize,
-  flexWrap: 'wrap',
-  wordBreak: 'break-word',
-  whiteSpace: 'normal',
-})
-const renderMenuHeading = (label: string, tooltipText: string | null) => (
-  <MarkdownTooltip
-    render={(
-      <BuilderTooltipContent
-        text={(tooltipText && tooltipText.trim().length > 0) ? tooltipText : label}
-      />
-    )}
-  >
-    <Typography
-      variant="body2"
-      sx={(themeInner) => ({
-        ...menuLabelSx(themeInner),
-        lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
-      })}
-    >
-      {label}
-    </Typography>
-  </MarkdownTooltip>
-)
-              const lockGroupSx: SxProps<Theme> = {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: `${LOCK_MENU_GAP_PX}px`,
-                  width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
-                  marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
-                  justifyContent: 'flex-start',
-                  '& .MuiToggleButton-root': {
-                    minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
-                    width: LOCK_MENU_BUTTON_WIDTH_PX,
-                    height: MENU_CONTROL_HEIGHT_PX,
-                    px: 0,
-                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
-                  },
-                  '& .MuiToggleButtonGroup-grouped': {
-                    margin: '0 !important',
-                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
-                    borderLeft: '1px solid transparent',
-                  },
-                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                    marginLeft: '0 !important',
-                  },
-                  '& .MuiToggleButton-root[data-mixed="true"]': {
-                    borderStyle: 'dashed',
-                    borderColor: mixedBorderColor,
-                    color: mixedTextColor,
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                  },
-                }
-              const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
-                const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
-                const selectedText = themeInner.palette.common.white
-                const baseBorder = themeInner.palette.text.secondary
-                const hoverGlow = alpha(
-                  themeInner.palette.text.primary,
-                  themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
-                )
-                const base: SystemStyleObject<Theme> = {
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
-                  columnGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
-                  rowGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
-                  width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
-                  justifyContent: 'flex-start',
-                  '& .MuiToggleButtonGroup-grouped': {
-                    margin: '0 !important',
-                    borderRadius: '50% !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                    marginLeft: '0 !important',
-                  },
-                  '& .MuiToggleButton-root': {
-                    minWidth: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
-                    width: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
-                    height: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
-                    px: 0,
-                    borderRadius: '50%',
-                    border: `1px solid ${baseBorder}`,
-                    color: themeInner.palette.text.secondary,
-                    backgroundColor: 'transparent',
-                    clipPath: 'circle(50% at 50% 50%)',
-                    transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: 'none',
-                  },
-                  '& .MuiToggleButton-root:hover': {
-                    boxShadow: `0 0 0 1px ${hoverGlow}`,
-                    backgroundColor: themeInner.palette.action.hover,
-                    borderColor: baseBorder,
-                  },
-                  '& .MuiToggleButton-root .menu-roll-label': {
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    fontSize: `${SUBSTAT_MENU_ROLL_FONT_SIZE_PX}px`,
-                    lineHeight: 1,
-                    fontWeight: themeInner.typography.fontWeightMedium ?? 600,
-                  },
-                  '& .MuiToggleButton-root.Mui-selected': {
-                    color: selectedText,
-                    backgroundColor: highlight,
-                    borderColor: highlight,
-                    boxShadow: `0 0 0 1px ${highlight}`,
-                  },
-                  '& .MuiToggleButton-root.Mui-selected:hover': {
-                    backgroundColor: highlight,
-                    borderColor: highlight,
-                    boxShadow: `0 0 0 1px ${highlight}`,
-                  },
-                  '& .MuiToggleButton-root[data-mixed="true"]': {
-                    borderStyle: 'dashed',
-                    borderColor: mixedBorderColor,
-                    color: mixedTextColor,
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                  },
-                }
-                return base
-              }
-              const toggleGroupContent = (
-                <>
-                  {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-                  <ToggleButtonGroup
-                    size="small"
-                    value={value}
-                    onChange={() => {}}
-                    sx={substatToggleGroupSx}
-                  >
-                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
-                      const dataTourId = variant === StatVariant.SPD
-                        ? 'builder.substat.spd'
-                        : variant === StatVariant.CR
-                          ? 'builder.substat.cr'
-                          : variant === StatVariant.CDMG
-                            ? 'builder.substat.cdmg'
-                            : undefined
-                      return renderSubstatToggle(variant, dataTourId ? { dataTourId } : undefined)
-                    })}
-                  </ToggleButtonGroup>
-                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup
-                    size="small"
-                    value={value}
-                    onChange={() => {}}
-                    sx={substatToggleGroupSx}
-                  >
-                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
-                  </ToggleButtonGroup>
-                </>
-              )
-              return (
-                <>
-                  {toggleGroupContent}
-                  <ContextMenuHintOverlay text={t('contextMenuHint')} position={substatHintActive ? substatHintPos : null} />
-                  <Menu
-                    open={menuOpen}
-                    onClose={handleSubstatMenuClose}
-                    anchorReference="anchorPosition"
-                    {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
-                    keepMounted
-                    slotProps={{
-                      paper: { ...buildContextMenuPaperSlotProps({
-                        component: ContextMenuPaper,
-                        contextMenuGuard: substatMenuGuard,
-                        onRequestClose: handleSubstatMenuClose,
-                        closeLabel: t('close'),
-                        sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
-                      }), ref: substatMenuPaperRef },
-                    }}
-                    MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
-                  >
-                    {activeMenuInfo ? [
-                        <MenuItem
-                          key="lock"
-                          disableRipple
-                          disableTouchRipple
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            cycleLockState()
-                          }}
-                          sx={menuRowSx}
-                        >
-                          {renderMenuHeading(t('builderSubstatMenuLock'), lockTooltipText)}
-                        <ToggleButtonGroup
-                          size="small"
-                          exclusive
-                          value={lockGroupValue}
-                          onChange={handleLockGroupChange}
-                          onClick={(event) => { event.stopPropagation() }}
-                          sx={lockGroupSx}
-                        >
-                          <MarkdownTooltip
-                            render={<BuilderTooltipContent text={t('builderSubstatLockTooltipUnlock')} />}
-                          >
-                            <ToggleButton
-                              value="unlocked"
-                              aria-label={t('builderSubstatMenuUnlock')}
-                              data-mixed={lockMixed ? 'true' : undefined}
-                            >
-                              <LockOpenOutlinedIcon fontSize="small" />
-                            </ToggleButton>
-                          </MarkdownTooltip>
-                          <MarkdownTooltip
-                            render={<BuilderTooltipContent text={t('builderSubstatLockTooltipLock')} />}
-                          >
-                            <ToggleButton
-                              value="locked"
-                              aria-label={t('builderSubstatMenuLock')}
-                              data-mixed={lockMixed ? 'true' : undefined}
-                            >
-                              <LockIcon fontSize="small" />
-                            </ToggleButton>
-                          </MarkdownTooltip>
-                        </ToggleButtonGroup>
-                        <Box sx={menuValueColumnSx}>
-                          <Box sx={menuValuePillPlaceholderSx} />
-                        </Box>
-                      </MenuItem>,
-                        <MenuItem
-                          key="min"
-                          disableRipple
-                          disableTouchRipple
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            cycleMinRequirement()
-                          }}
-                          sx={menuRowSx}
-                        >
-                          {renderMenuHeading(t('builderSubstatMenuMinRolls'), minRollTooltipText)}
-                          <ToggleButtonGroup
-                            size="small"
-                            exclusive
-                            value={minToggleValue ?? undefined}
-                            onChange={handleMinGroupChange}
-                            onClick={(event) => { event.stopPropagation() }}
-                            sx={createRollGroupSx('min')}
-                          >
-                            <ToggleButton
-                              value="any"
-                              aria-label={t('builderSubstatMenuAny')}
-                              data-mixed={minMixed ? 'true' : undefined}
-                            >
-                              <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
-                            </ToggleButton>
-                            {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
-                              <ToggleButton
-                                key={valueOption}
-                                value={valueOption}
-                                aria-label={valueOption}
-                                data-mixed={minMixed ? 'true' : undefined}
-                              >
-                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                              </ToggleButton>
-                            ))}
-                          </ToggleButtonGroup>
-                        <Box sx={menuValueColumnSx}>
-                          {renderRequirementChip('min')}
-                        </Box>
-                      </MenuItem>,
-                        <MenuItem
-                          key="max"
-                          disableRipple
-                          disableTouchRipple
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            cycleMaxLimit()
-                          }}
-                          sx={menuRowSx}
-                        >
-                          {renderMenuHeading(t('builderSubstatMenuMaxRolls'), maxRollTooltipText)}
-                          <ToggleButtonGroup
-                            size="small"
-                            exclusive
-                            value={maxToggleValue ?? undefined}
-                            onChange={handleMaxGroupChange}
-                            onClick={(event) => { event.stopPropagation() }}
-                            sx={createRollGroupSx('max')}
-                          >
-                            <MarkdownTooltip
-                              render={<BuilderTooltipContent text={t('builderSubstatNotTooltip')} />}
-                            >
-                              <ToggleButton
-                                value="not"
-                                aria-label={t('builderSubstatMenuNot')}
-                                data-mixed={maxMixed ? 'true' : undefined}
-                              >
-                                <Box component="span" className="menu-roll-label">{'¬'}</Box>
-                              </ToggleButton>
-                            </MarkdownTooltip>
-                            {['0', '1', '2', '3', '4'].map((valueOption) => (
-                              <ToggleButton
-                                key={valueOption}
-                                value={valueOption}
-                                aria-label={valueOption}
-                                data-mixed={maxMixed ? 'true' : undefined}
-                              >
-                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                              </ToggleButton>
-                            ))}
-                          </ToggleButtonGroup>
-                        <Box sx={menuValueColumnSx}>
-                          {renderRequirementChip('max')}
-                        </Box>
-                      </MenuItem>,
-                      activeMenuInfo ? (
-                        <MenuItem
-                          key="targets"
-                          disableRipple
-                          disableTouchRipple
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                          }}
-                          sx={(theme) => ({
-                            ...menuRowSx(theme),
-                            gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) minmax(${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px, 1fr)`,
-                            alignItems: 'flex-end',
-                            rowGap: theme.spacing(1),
-                          })}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'flex-end', height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`, mb: 0.5, position: 'relative' }}>
-                            {renderMenuHeading(t('builderSubstatMenuRollTargets'), rollTargetsTooltipText)}
-                            {(() => {
-                              // Show a badge when recipe overrides changed roll targets for this variant.
-                              if (multiEditActive || !activeMenuInfo || effectiveRecipe === recipe) return null
-                              const v = activeMenuInfo.variant
-                              const overrideActive = !targetEntriesEqual(
-                                normalizeRollTargetEntry((recipe.substatRollTargetsV ?? {})[v]),
-                                normalizeRollTargetEntry((effectiveRecipe.substatRollTargetsV ?? {})[v]),
-                              )
-                              if (!overrideActive) return null
-                              return (
-                                <MarkdownTooltip
-                                  render={<BuilderTooltipContent text={t('builderSubstatRollTargetRecipeOverridesOverrideTooltip')} />}
-                                >
-                                  <Box
-                                    component="span"
-                                    sx={(theme) => ({
-                                      position: 'absolute',
-                                      top: -6,
-                                      left: '50%',
-                                      transform: 'translate(-50%, -50%)',
-                                      ...buildWarningBadgeBase(theme),
-                                    })}
-                                  >!</Box>
-                                </MarkdownTooltip>
-                              )
-                            })()}
-	                          </Box>
-	                          <Box
-	                            ref={substatMenuRollTargetsRef}
-	                            sx={(theme) => ({
-	                              gridColumn: '2 / 3',
-	                              display: 'grid',
-	                              gridTemplateColumns: `repeat(6, minmax(${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px, auto)) auto`,
-	                              alignItems: 'flex-end',
-                              justifyContent: 'flex-start',
-                              columnGap: theme.spacing(1),
-                              width: '100%',
-                              minWidth: `${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px`,
-                              overflow: 'visible',
-                            })}
-                          >
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {t('builderSubstatMenuRollTargetsBase')}
-                              </Typography>
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={targetDraftBase ?? ''}
-                                onChange={handleTargetBaseChange}
-	                                inputProps={{
-	                                  inputMode: 'numeric',
-	                                  pattern: '[0-9]*',
-	                                  min: 0,
-	                                  // Focus-cycling hook: keep Tab within the Roll Targets inputs.
-	                                  [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
-	                                  'aria-label': t('builderSubstatMenuRollTargetsBase'),
-	                                  placeholder: formatTargetFallback(0),
-	                                  onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
-	                                    // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
-	                                    if (event.key !== 'Tab') return
-	                                    if (event.altKey || event.ctrlKey || event.metaKey) return
-	                                    const moved = focusCycleWithin({
-	                                      container: substatMenuRollTargetsRef.current,
-	                                      selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
-	                                      current: event.currentTarget,
-	                                      delta: event.shiftKey ? -1 : 1,
-	                                      wrap: true,
-	                                    })
-	                                    if (!moved) return
-	                                    event.preventDefault()
-	                                    // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
-	                                    event.stopPropagation()
-	                                  },
-	                                }}
-                                onClick={(event) => { event.stopPropagation() }}
-                                disabled={targetInputsDisabled}
-                                sx={(theme) => ({
-                                  width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
-                                  '& input': {
-                                    textAlign: 'right',
-                                    paddingRight: theme.spacing(1),
-                                    paddingLeft: theme.spacing(0.25),
-                                  },
-                                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                                    WebkitAppearance: 'none',
-                                    margin: 0,
-                                  },
-                                  '& input[type=number]': {
-                                    MozAppearance: 'textfield',
-                                  },
-                                })}
-                                InputProps={{
-                                  endAdornment: (
-                                    <NumberSpinnerAdornment
-                                      ariaLabel={t('builderSubstatMenuRollTargetsBase')}
-                                      disabled={targetInputsDisabled}
-                                      onStep={stepTargetBase}
-                                    />
-                                  ),
-                                }}
-                              />
-                            </Box>
-                            {[1, 2, 3, 4, 5].map((rollIndex) => {
-                              const label = t('builderSubstatMenuRollTargetsPlus', { roll: rollIndex })
-                              const rollValue = targetDraftRolls[rollIndex - 1] ?? null
-                              const disabled = targetInputsDisabled
-                              const comparableValue = resolveComparableTargetValue(rollIndex)
-                              const previousComparableValue = resolveComparableTargetValue(rollIndex - 1)
-                              const showWarning = previousComparableValue != null
-                                && comparableValue != null
-                                && comparableValue < previousComparableValue
-                              const warningTooltip = showWarning
-                                ? t('builderSubstatMenuRollTargetsWarning', {
-                                  current: numberFormatter.format(Math.round(comparableValue)),
-                                  previous: numberFormatter.format(Math.round(previousComparableValue)),
-                                })
-                                : null
-                              return (
-                                <Box key={`target-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {label}
-                                    </Typography>
-                                    {showWarning && warningTooltip ? (
-                                      <MarkdownTooltip markdown={warningTooltip}>
-                                        <Box
-                                          component="span"
-                                          role="img"
-                                          aria-label={warningTooltip}
-                                          sx={targetWarningBadgeSx}
-                                        >
-                                          !
-                                        </Box>
-                                      </MarkdownTooltip>
-                                    ) : null}
-                                  </Box>
-                                  <TextField
-                                    size="small"
-                                    type="number"
-                                    value={rollValue ?? ''}
-                                    onChange={handleTargetRollChange(rollIndex - 1)}
-	                                  inputProps={{
-	                                    inputMode: 'numeric',
-	                                    pattern: '[0-9]*',
-	                                    min: 0,
-	                                    // Focus-cycling hook: keep Tab within the Roll Targets inputs.
-	                                    [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
-	                                    'aria-label': label,
-	                                    placeholder: formatTargetFallback(rollIndex),
-	                                    onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
-	                                      // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
-	                                      if (event.key !== 'Tab') return
-	                                      if (event.altKey || event.ctrlKey || event.metaKey) return
-	                                      const moved = focusCycleWithin({
-	                                        container: substatMenuRollTargetsRef.current,
-	                                        selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
-	                                        current: event.currentTarget,
-	                                        delta: event.shiftKey ? -1 : 1,
-	                                        wrap: true,
-	                                      })
-	                                      if (!moved) return
-	                                      event.preventDefault()
-	                                      // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
-	                                      event.stopPropagation()
-	                                    },
-	                                  }}
-                                    onClick={(event) => { event.stopPropagation() }}
-                                    disabled={disabled}
-                                    sx={(themeInner) => ({
-                                      width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
-                                      '& input': {
-                                        textAlign: 'right',
-                                        paddingRight: themeInner.spacing(1),
-                                        paddingLeft: themeInner.spacing(0.25),
-                                      },
-                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                                        WebkitAppearance: 'none',
-                                        margin: 0,
-                                      },
-                                      '& input[type=number]': {
-                                        MozAppearance: 'textfield',
-                                      },
-                                    })}
-                                    InputProps={{
-                                      endAdornment: (
-                                        <NumberSpinnerAdornment
-                                          ariaLabel={label}
-                                          disabled={disabled}
-                                          onStep={(delta) => stepTargetRoll(rollIndex - 1, delta)}
-                                        />
-                                      ),
-                                      sx: { '& > *': { alignItems: 'center' } },
-                                    }}
-                                  />
-                                </Box>
-                              )
-                            })}
-                            <Box sx={{ display: 'flex', alignItems: 'center', pl: 0.5, height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px` }}>
-                              <ClearIconButton
-                                aria-label={t('clear')}
-                                tooltip={t('clear')}
-                                disabled={targetInputsDisabled}
-                                onClick={handleTargetReset}
-                                sx={{
-                                  width: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
-                                  height: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
-                                  alignSelf: 'center',
-                                  transform: 'translateY(-4px)', // optical tweak: match text-field baseline
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        </MenuItem>
-                      ) : null,
-                    ] : null}
-                  </Menu>
-                </>
-              )
-            })()}
+            {substatsContent}
           </Box>
           </Collapse>
         </FormControl>
@@ -5496,51 +6908,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
-            {(() => {
-              if (multiEditActive && multiSummary) {
-                if (slotsPatch?.clear) {
-                  return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-                }
-                const projectedHas = (() => {
-                  if (slotsPatch?.replace) return slotsPatch.replace.length > 0
-                  const slotIds = new Set<number>()
-                  for (const key of multiSummary.slotCounts.keys()) slotIds.add(Number(key))
-                  if (slotsPatch?.add) slotsPatch.add.forEach((v) => slotIds.add(Number(v)))
-                  if (slotsPatch?.remove) slotsPatch.remove.forEach((v) => slotIds.add(Number(v)))
-                  for (const slotId of slotIds) {
-                    if (getSlotState(slotId) !== 'none') return true
-                  }
-                  return false
-                })()
-                return projectedHas
-                  ? (
-                    <ClearIconButton
-                      size="small"
-                      aria-label={t('builderClearSlots')}
-                      tooltip={t('builderClearSlots')}
-                      onClick={() => {
-                        multiEdit?.updateField('artifactTypes', {
-                          value: (multiSlotsField?.value as BuilderRecipe['artifactTypes']) ?? (recipe.artifactTypes ?? []),
-                          status: 'common',
-                          patch: { clear: true },
-                        })
-                      }}
-                    />
-                  )
-                  : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-              }
-              const hasSlots = Array.isArray(recipe.artifactTypes) && (recipe.artifactTypes?.length ?? 0) > 0
-              return hasSlots
-                ? (
-                  <ClearIconButton
-                    size="small"
-                    aria-label={t('builderClearSlots')}
-                    tooltip={t('builderClearSlots')}
-                    onClick={() => update('artifactTypes', [])}
-                  />
-                )
-                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
-            })()}
+            {slotsClearButton}
           </Box>
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
@@ -5698,313 +7066,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 overflow: 'hidden',
               }}
             >
-              {(() => {
-                const tooltipLines = [
-                  t('builderMinRequiredRollsTipSummary'),
-                  `• ${t('builderMinRequiredRollsTip1')}`,
-                  `• ${t('builderMinRequiredRollsTip2')}`,
-                  t('builderMultiMixedTooltipSuffix'),
-                ]
-                const resolvedLockedMin = (() => {
-                  const source = multiEditActive && multiLockedMinRequiredRollsField
-                    ? multiLockedMinRequiredRollsField
-                    : null
-                  if (source) {
-                    if (source.status === 'common') {
-                      const value = Number(source.value ?? 0)
-                      if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
-                    }
-                    return null
-                  }
-                  const value = Number(recipe.lockedMinRequiredRolls ?? 0)
-                  if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
-                  return null
-                })()
-                if (resolvedLockedMin) {
-                  tooltipLines.push(t('builderLockedMinRequiredRollsLabel', { count: resolvedLockedMin }))
-                }
-                const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
-                const lockIconEnabled = lockedSubstatsExist
-                const autoState = getMinRequiredRollsTriState('auto')
-                // Warning text shown in the chip-like area below the toggle buttons.
-                // Moved here from the old standalone warning row so it collapses with Min Rolls.
-                const allSubsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const allFixedV = ((recipe as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                // "Not" substats carry a ¬ condition and are orthogonal to min-rolls warnings;
-                // exclude them so positive-substat-only counts feed all warning thresholds.
-                const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { not?: boolean }>
-                const subsV = allSubsV.filter(v => boundsV[v]?.not !== true)
-                const fixedV = allFixedV.filter(v => boundsV[v]?.not !== true)
-                const chosenCount = subsV.length
-                const fixedCount = fixedV.length
-                const warnMin = (chosenCount < recipe.minCount) && !(chosenCount === 0 && (recipe.autoMinRequiredRolls !== false))
-                const warnFixed = fixedCount > 4
-                // Locked substats that fill all Required slots make any additional selections dead weight
-                // (unless Flex is active, which rotates them into separate rules instead).
-                const hasUnlockedSelected = chosenCount > fixedCount
-                const flexActive = recipe.autoSubstatFlex === true && canFlexSubstats
-                const warnReqBelowLocked = (recipe.minCount ?? 0) < fixedCount
-                const warnReqEqLocked = (recipe.minCount === fixedCount) && hasUnlockedSelected && !flexActive
-                // Warn when a manual global Min Required Rolls is set but zero substats are selected — it will never fire.
-                const warnMinRollsWithoutSubstats = (() => {
-                  if (chosenCount !== 0) return false
-                  if (recipe.autoMinRequiredRolls !== false) return false
-                  return (recipe.minRequiredRolls ?? 0) > 0
-                })()
-                // Detect an impossible-by-target case: best-case sum of per-stat caps is below the global min.
-                const warnImpossible = (() => {
-                  if (!(recipe.autoMinRequiredRolls === false) || !recipe.minRequiredRolls || recipe.minRequiredRolls <= 0) return false
-                  if (!Array.isArray(subsV) || subsV.length === 0) return false
-                  const m = Math.max(recipe.minCount, fixedCount)
-                  if (m <= 0) return false
-                  const supportsFive = (() => {
-                    const rc = Number((recipe as unknown as { rarityCode?: number }).rarityCode ?? 0)
-                    const mode = (recipe as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
-                    if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
-                    if (rc === RarityCode.Any) return true
-                    // When Auto and the global target is 5, treat as 5-cap capable.
-                    if (mode === 'auto' && (recipe.minRequiredRolls ?? 0) >= 5) return true
-                    return false
-                  })()
-                  const defaultCap = supportsFive ? 5 : 4
-                  const capFor = (v: number): number => {
-                    const b = (recipe.substatRollBoundsV ?? {})[Number(v)]
-                    const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
-                    const raw = hasMax ? Number(b!.max) : defaultCap
-                    return Math.max(0, Math.min(defaultCap, raw))
-                  }
-                  const fixedCaps = fixedV.map(capFor)
-                  const optional = subsV.filter(v => !fixedV.includes(v))
-                  const optCaps = optional.map(capFor).sort((a, b) => b - a)
-                  let sumCaps = 0
-                  // Include all fixed caps, then highest optional caps to fill to m.
-                  for (const c of fixedCaps) sumCaps += c
-                  for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
-                  return sumCaps < (recipe.minRequiredRolls ?? 0)
-                })()
-                const warnMsg = warnMin
-                  ? `Warning: Required (${recipe.minCount}) > chosen (${chosenCount})`
-                  : (warnFixed
-                      ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
-                      : (warnReqBelowLocked
-                          ? `Warning: Required (${recipe.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
-                          : (warnReqEqLocked
-                              ? `Warning: Required (${recipe.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
-                              : (warnImpossible
-                                  ? t('builderMinRequiredRollsImpossibleWarn')
-                                  : (warnMinRollsWithoutSubstats
-                                      ? t('builderMinRequiredRollsNoSubstatsWarn')
-                                      : '')))))
-                return (
-                  <>
-                    {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionHeader id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.min-rolls.label">
-                        <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
-                          <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
-                        </MarkdownTooltip>
-                      </BuilderSectionHeader>
-                    </Box>
-                    <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
-                    {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
-                        inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
-                    <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
-                    {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
-                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                    <Box
-                      data-tour-id="builder.min-rolls"
-                      sx={{
-                        display: 'flex',
-                        gap: 0.5,
-                        // Buttons shrink instead of wrapping when the panel is narrowed by the splitter.
-                        flexWrap: 'nowrap',
-                        // overflow:visible so the absolutely-positioned lock icon can paint outside the button bounds.
-                        overflow: 'visible',
-                        '& .MuiToggleButton-root': {
-                          height: TOGGLE_BUTTON_HEIGHT_PX,
-                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                        },
-                      }}
-                    >
-                      <ToggleButton
-                        value="auto"
-                        selected={autoState === 'on'}
-                        onClick={handleAutoMinRequiredRolls}
-                        sx={(theme) => ({
-                          minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-                          width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-                          ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                          ...(autoState === 'mixed' ? {
-                            borderStyle: 'dashed',
-                            borderColor: mixedBorderColor,
-                            color: mixedTextColor,
-                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                          } : {}),
-                        })}
-                      >
-                        {t('headerMenuAuto')}
-                      </ToggleButton>
-                      {MIN_REQUIRED_ROLL_OPTIONS.map((n) => {
-                        const manualState = getMinRequiredRollsTriState(n)
-                        const lockedState = getLockedMinRequiredRollsTriState(n)
-                        const manualActive = manualState === 'on'
-                        const lockedActive = lockedState === 'on'
-                        const lockedMixed = lockedState === 'mixed'
-                        const isSelected = manualActive || lockedActive
-                        const isMixed = (manualState === 'mixed') || lockedMixed
-                        const lockable = n > 0
-                        const lockTooltip = !lockable
-                          ? ''
-                          : lockedActive
-                            ? t('builderMinRequiredRollsLockIconClear')
-                            : lockIconEnabled
-                              ? t('builderMinRequiredRollsLockIconSet', { count: n })
-                              : t('builderMinRequiredRollsLockIconDisabled')
-                        return (
-                          <ToggleButton
-                            key={n}
-                            value={String(n)}
-                            selected={isSelected}
-                            onClick={() => handleManualMinRequiredRolls(n)}
-                            data-tour-id={`builder.min-rolls.button.${n}`}
-                            sx={(theme) => ({
-                              position: 'relative',
-                              minWidth: 24,
-                              padding: 0,
-                              overflow: 'visible',
-                              ...(manualActive || lockedActive
-                                ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
-                                : {}),
-                              ...(isMixed ? {
-                                borderStyle: 'dashed',
-                                borderColor: mixedBorderColor,
-                                color: mixedTextColor,
-                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                              } : {}),
-                            })}
-                          >
-                            <Box component="span" sx={{ fontSize: FONT_SIZE_BASE_PX }}>
-                              {n}
-                            </Box>
-                            {lockable ? (
-                              <MarkdownTooltip
-                                markdown={lockTooltip ?? ''}
-                                disableHoverListener={!lockIconEnabled}
-                              >
-                                <Box
-                                  component="span"
-                                  role="button"
-                                  aria-pressed={lockedMixed ? 'mixed' : lockedActive}
-                                  aria-label={lockTooltip || undefined}
-                                  aria-disabled={lockIconEnabled ? undefined : true}
-                                  tabIndex={lockIconEnabled ? 0 : -1}
-                                  className="builder-min-roll-lock-icon"
-                                  data-tour-id={`builder.min-rolls.lock-icon.${n}`}
-                                  onClick={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    if (!lockIconEnabled) return
-                                    handleLockedMinRequiredRolls(n)
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (!lockIconEnabled) return
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault()
-                                      event.stopPropagation()
-                                      handleLockedMinRequiredRolls(n)
-                                    }
-                                  }}
-                                  sx={(theme) => {
-                                    const glow = alpha(
-                                      theme.palette.text.primary,
-                                      theme.palette.mode === 'dark' ? 0.22 : 0.14,
-                                    )
-                                    return {
-                                      position: 'absolute',
-                                      top: -13,
-                                      left: -10,
-                                      width: LOCK_TOGGLE_HIT_SIZE_PX,
-                                      height: LOCK_TOGGLE_HIT_SIZE_PX,
-                                      p: 0,
-                                      pointerEvents: lockIconEnabled ? 'auto' : 'none',
-                                      borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
-                                      opacity: lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
-                                      visibility: lockIconEnabled ? 'visible' : 'hidden',
-                                      transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      backgroundColor: 'transparent',
-                                      color: lockedActive ? theme.palette.text.primary : (lockedMixed ? mixedTextColor : theme.palette.text.primary),
-                                      cursor: lockIconEnabled ? 'pointer' : 'default',
-                                      '--sub-lock-hover-opacity': lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
-                                      boxShadow: 'none',
-                                      textShadow: 'none',
-                                      '& svg': {
-                                        fontSize: 14,
-                                      },
-                                      '&:hover, &:focus-visible': {
-                                        opacity: lockIconEnabled ? 1 : 0,
-                                        visibility: lockIconEnabled ? 'visible' : 'hidden',
-                                        backgroundColor: glow,
-                                        boxShadow: `0 0 0 1px ${glow}`,
-                                      },
-                                      '&:focus-visible': {
-                                        outline: 'none',
-                                      },
-                                    }
-                                  }}
-                                >
-                                  {(lockedActive || lockedMixed)
-                                    ? <LockIcon fontSize="small" />
-                                    : <LockOpenOutlinedIcon fontSize="small" />}
-                                </Box>
-                              </MarkdownTooltip>
-                            ) : null}
-                          </ToggleButton>
-                        )
-                      })}
-                    </Box>
-                    {minRequiredRollsOverrideActive
-                      ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                          rollStateLabel(recipe.autoMinRequiredRolls, recipe.minRequiredRolls),
-                          rollStateLabel(effectiveRecipe.autoMinRequiredRolls, effectiveRecipe.minRequiredRolls),
-                        ))
-                      : null}
-                    </Box>{/* end relative badge wrapper */}
-                    {/* Warning chip row — always reserves chip height (same as Flex chip in Required Substats).
-                        lineHeight:0.9 makes 2 caption lines = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
-                        so WebkitLineClamp:2 can draw the ellipsis within the fixed area.
-                        width:0 + minWidth:'100%' is the circular-dependency trick: the warning contributes 0
-                        to the inline-flex container's intrinsic-size calculation (so the buttons drive the width),
-                        then stretches to 100% of the resolved container — avoiding animation-time layout blowout. */}
-                    <Box sx={{ mt: 0.5, width: 0, minWidth: '100%', height: BUILDER_STATUS_CHIP_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-                      {warnMsg && (
-                        <EllipsisTooltip title={warnMsg} wrap="block">
-                          <Typography
-                            data-ellipsis-target
-                            variant="caption"
-                            color="warning.main"
-                            sx={{
-                              // 2 lines × 12px × 0.9 = 21.6px ≤ BUILDER_STATUS_CHIP_HEIGHT_PX (22px)
-                              // so both lines fit and WebkitLineClamp can draw the ellipsis within the container
-                              lineHeight: 0.9,
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {warnMsg}
-                          </Typography>
-                        </EllipsisTooltip>
-                      )}
-                    </Box>
-                    </Box>{/* end inline-flex column wrapper */}
-                    </Collapse>
-                  </>
-                )
-              })()}
+              {minRollsContent}
             </FormControl>
             {/* Required substats */}
             {/* Required substats column mirrors the English 135px width for parity. */}
@@ -6018,412 +7080,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 overflow: 'hidden',
               }}
             >
-              {(() => {
-                type FlexChipState = 'on' | 'off' | 'disabled' | 'mixed'
-                let flexState: FlexChipState
-                let chipEnabled: boolean
-                if (!multiEditActive || !multiSourceRecipes) {
-                  chipEnabled = canFlexSubstats
-                  flexState = chipEnabled
-                    ? (recipe.autoSubstatFlex ? 'on' : 'off')
-                    : 'disabled'
-                } else {
-                  const total = multiSourceRecipes.length
-                  const enabledCount = multiSourceRecipes.filter((recipe) => canEnableSubstatFlex(recipe)).length
-                  const onCount = multiSourceRecipes.filter((recipe) => recipe.autoSubstatFlex === true).length
-                  chipEnabled = enabledCount > 0
-                  if (!chipEnabled) {
-                    flexState = 'disabled'
-                  } else if (onCount === total) {
-                    flexState = 'on'
-                  } else if (onCount === 0 && enabledCount === total) {
-                    flexState = 'off'
-                  } else {
-                    flexState = 'mixed'
-                  }
-                  if (chipEnabled) {
-                    const stagedFlex = multiFields?.autoSubstatFlex
-                    if (stagedFlex) {
-                      if (stagedFlex.status === 'common') {
-                        flexState = stagedFlex.value ? 'on' : 'off'
-                      } else if (stagedFlex.status === 'mixed') {
-                        flexState = 'mixed'
-                      }
-                    }
-                  }
-                }
-                const flexGlyph = flexState === 'on' ? GLYPH_TOGGLE_ON : GLYPH_TOGGLE_OFF
-                const label = t('builderFlexGlyphChipLabel', { glyph: flexGlyph })
-                const stateLabel = flexState === 'on'
-                  ? t('builderFlexChipOn')
-                  : t('builderFlexChipOff')
-                const handleFlexToggle = () => {
-                  if (!chipEnabled) return
-                  if (multiEditActive && multiEdit) {
-                    const next = flexState === 'on' ? false : true
-                    multiEdit.updateField('autoSubstatFlex', { value: next, status: 'common' })
-                    return
-                  }
-                  toggleSubstatFlex()
-                }
-                const autoState = getRequiredCountTriState('auto')
-                return (
-                  <>
-                    {/* Required substats caption exposes overflow through the shared label helper. */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <BuilderSectionHeader id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.required.label">
-                        <MarkdownTooltip
-                          ellipsisTitle={t('builderRequiredSubstats')}
-                          render={(
-                            <BuilderTooltipContent
-                              text={[
-                                t('builderRequiredSubstatsHelp'),
-                                t('builderMultiMixedTooltipSuffix'),
-                              ].join('\n')}
-                            />
-                          )}
-                        >
-                          <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
-                        </MarkdownTooltip>
-                      </BuilderSectionHeader>
-                    </Box>
-                    <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
-                    {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
-                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={requiredCountValue}
-                      onChange={(_, v) => {
-                        if (!v) return
-                        if (multiEditActive && multiEdit) {
-                          if (v === 'auto') {
-                            multiEdit.updateField('autoMinCount', { value: true, status: 'common' })
-                            multiEdit.updateField('minCount', { value: 0 as BuilderRecipe['minCount'], status: 'common' })
-                            multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
-                          } else {
-                            const next = Number(v) as 1 | 2 | 3 | 4
-                            multiEdit.updateField('autoMinCount', { value: false, status: 'common' })
-                            multiEdit.updateField('minCount', { value: next as BuilderRecipe['minCount'], status: 'common' })
-                            multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
-                          }
-                          return
-                        }
-                        if (v === 'auto') {
-                          const subsV = ((recipe as unknown as { substatsV?: number[] }).substatsV) ?? []
-                          const nextMin = Math.min(4, subsV.length) as 0 | 1 | 2 | 3 | 4
-                          userDisabledFlexRef.current = true
-                          onChange(normalizeKeepWithAuto({
-                            ...recipe,
-                            autoMinCount: true,
-                            minCount: nextMin,
-                          }))
-                          return
-                        }
-                        const next = Number(v) as 1 | 2 | 3 | 4
-                        onChange(normalizeKeepWithAuto({
-                          ...recipe,
-                          autoMinCount: false,
-                          minCount: next,
-                        }))
-                      }}
-                      data-tour-id="builder.required"
-                      sx={{
-                        // Buttons shrink in-place instead of wrapping to a new row.
-                        flexWrap: 'nowrap',
-                        overflow: 'hidden',
-                        '& .MuiToggleButton-root': {
-                          height: TOGGLE_BUTTON_HEIGHT_PX,
-                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                          flex: '0 1 auto',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                        },
-                      }}
-                    >
-                      <ToggleButton
-                        value="auto"
-                        selected={autoState === 'on'}
-                        sx={(theme) => ({
-                          minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-                          width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-                          ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                          ...(autoState === 'mixed' ? {
-                            borderStyle: 'dashed',
-                            borderColor: mixedBorderColor,
-                            color: mixedTextColor,
-                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                          } : {}),
-                        })}
-                      >
-                        {t('headerMenuAuto')}
-                      </ToggleButton>
-                      {REQUIRED_SUBSTAT_MIN_OPTIONS.map((n) => {
-                        const state = getRequiredCountTriState(n)
-                        return (
-                          <ToggleButton
-                            key={n}
-                            value={String(n)}
-                            selected={state === 'on'}
-                            sx={(theme) => ({
-                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                              ...(state === 'mixed' ? {
-                                borderStyle: 'dashed',
-                                borderColor: mixedBorderColor,
-                                color: mixedTextColor,
-                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                              } : {}),
-                            })}
-                          >
-                            {n}
-                          </ToggleButton>
-                        )
-                      })}
-                    </ToggleButtonGroup>
-                    {minCountOverrideActive
-                      ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                          minCountStateLabel(recipe.autoMinCount, recipe.minCount),
-                          minCountStateLabel(effectiveRecipe.autoMinCount, effectiveRecipe.minCount),
-                        ))
-                      : null}
-                    </Box>{/* end relative badge wrapper */}
-                    <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <MarkdownTooltip render={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
-                        <Box component="span" sx={{ display: 'inline-flex' }}>
-                          <Chip
-                            label={label}
-                            size="small"
-                            variant="filled"
-                            clickable={chipEnabled}
-                            onClick={chipEnabled ? handleFlexToggle : undefined}
-                            disabled={!chipEnabled}
-                            aria-pressed={chipEnabled ? flexState === 'on' : undefined}
-                            aria-label={stateLabel}
-                            sx={{
-                              ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
-                              ...(flexState === 'mixed'
-                                ? {
-                                    borderStyle: 'dashed',
-                                    borderColor: mixedBorderColor,
-                                    color: mixedTextColor,
-                                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                                  } as SystemStyleObject<Theme>
-                                : {}),
-                            }}
-                            data-tour-id="builder.flex-chip"
-                          />
-                        </Box>
-                      </MarkdownTooltip>
-                    </Box>
-                    </Collapse>
-                  </>
-                )
-              })()}
+              {requiredSubstatsContent}
             </FormControl>
             {/* Milestone Thresholds (right of Min Required Rolls) */}
-            {(() => {
-              const tierForLabel = (() => {
-                if (multiEditActive) {
-                  const fieldValue = multiAutoRaritySupplementsField
-                  if (fieldValue?.status === 'common') {
-                    const raw = fieldValue.value
-                    if (raw === 'uncommon' || raw === 'rare' || raw === 'epic') {
-                      return raw
-                    }
-                  }
-                }
-                const raw = (multiEditActive ? recipe : effectiveRecipe).autoRaritySupplementsThreshold
-                  ?? pickAutoRaritySupplementsThreshold(multiEditActive ? recipe : effectiveRecipe)
-                return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
-              })()
-              const tierLabel = tierForLabel === 'uncommon'
-                ? t('rarityUncommon')
-                : tierForLabel === 'epic'
-                  ? t('rarityEpic')
-                  : t('rarityRare')
-              const autoChipEnabled = autoRarityChipState !== 'disabled'
-              const tooltipLines = [
-                t('builderAutoLateTitle'),
-                `• ${t('builderAutoLateIntro')}`,
-                `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
-                `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
-                `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
-                `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
-                `• ${t('builderAutoLateDisabledNote')}`,
-              ]
-              if (autoRarityChipState === 'mixed') {
-                tooltipLines.push(t('builderMultiMixedTriStateHint'))
-              }
-              const cycleThreshold = (current: 'uncommon' | 'rare' | 'epic' | null, advance: boolean): 'uncommon' | 'rare' | 'epic' => {
-                if (!advance || current == null) return 'rare'
-                if (current === 'uncommon') return 'rare'
-                if (current === 'rare') return 'epic'
-                return 'uncommon'
-              }
-                const handleAutoChip = () => {
-                  if (!autoChipEnabled) return
-                  if (multiEditActive && multiEdit) {
-                    const next = autoRarityChipState === 'on'
-                      ? cycleThreshold(tierForLabel, true)
-                      : pickAutoRaritySupplementsThreshold(recipe)
-                    multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
-                    return
-                  }
-                  // When an override is active, allow clicking the effective value to accept it.
-                  if (autoLateOverrideActive) {
-                    const stored = recipe.autoRaritySupplementsThreshold
-                    const effective = effectiveRecipe.autoRaritySupplementsThreshold
-                    if (stored !== effective && effective) {
-                      updateAutoLateThreshold(effective)
-                      return
-                    }
-                  }
-                  const curr = (recipe.autoRaritySupplementsThreshold ?? pickAutoRaritySupplementsThreshold(recipe)) as 'uncommon' | 'rare' | 'epic'
-                  const next = cycleThreshold(curr, true)
-                  updateAutoLateThreshold(next)
-                }
-              const autoChipLabel = autoRarityChipState === 'on'
-                ? t('builderAutoGeLabel', { tier: tierLabel })
-                : t('builderAutoPlusLate')
-              // Milestone Thresholds keeps the remaining 146px slice so chip spacing matches EN.
-              return (
-                <FormControl
-                  sx={{
-                    m: 0,
-                    // flex-shrink:1 lets this column compress under splitter pressure.
-                    flex: builderCollapsed.milestoneThresholds ? '0 1 auto' : `0 1 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
-                    width: builderCollapsed.milestoneThresholds ? 'auto' : `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Milestone Thresholds label also clamps to the 146px column width. */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <BuilderSectionHeader id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.thresholds.label">
-                      <MarkdownTooltip
-                        ellipsisTitle={t('builderMilestoneThresholds')}
-                        render={(
-                          <BuilderTooltipContent
-                            text={buildOverrideTooltip(
-                              [
-                                t('builderMilestoneThresholdsHelp'),
-                                t('builderMultiMixedTooltipSuffix'),
-                              ].join('\n'),
-                            )}
-                          />
-                        )}
-                      >
-                        <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
-                      </MarkdownTooltip>
-                    </BuilderSectionHeader>
-                  </Box>
-                  <Collapse in={!builderCollapsed.milestoneThresholds} timeout="auto" unmountOnExit>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                      <ToggleButtonGroup
-                        exclusive
-                        size="small"
-                        value={keepModeValue}
-                        onChange={(_, v) => {
-                          if (!v) return
-                          const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
-                          if (multiEditActive && multiEdit) {
-                            multiEdit.updateField('earlyKeepMode', { value: mode, status: 'common' })
-                            return
-                          }
-                          userKeepModeRef.current = mode
-                          updateKeepMode(mode)
-                        }}
-                        disabled={!thresholdsActiveAny}
-                        data-tour-id="builder.thresholds"
-                        sx={{
-                          position: 'relative',
-                          '& .MuiToggleButton-root': {
-                            height: TOGGLE_BUTTON_HEIGHT_PX,
-                            minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                          },
-                        }}
-                      >
-                        {(['early', 'late'] as const).map((mode) => {
-                          const state = getKeepModeTriState(mode)
-                          return (
-                            <ToggleButton
-                              key={mode}
-                              value={mode}
-                              selected={state === 'on'}
-                              sx={(theme) => ({
-                                ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                                ...(state === 'mixed' ? {
-                                  borderStyle: 'dashed',
-                                  borderColor: mixedBorderColor,
-                                  color: mixedTextColor,
-                                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                                } : {}),
-                              })}
-                              onClick={() => {
-                                // When an override is active, allow clicking the effective value to accept it.
-                                if (multiEditActive || !keepOverrideActive) return
-                                if ((recipe.earlyKeepMode ?? 'early') === (effectiveRecipe.earlyKeepMode ?? 'early')) return
-                                if (mode !== (effectiveRecipe.earlyKeepMode ?? 'early')) return
-                                updateKeepMode(mode)
-                              }}
-                            >
-                              {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
-                            </ToggleButton>
-                          )
-                        })}
-                      </ToggleButtonGroup>
-                      {keepOverrideActive
-                        ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                            keepModeLabel((recipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
-                            keepModeLabel((effectiveRecipe.earlyKeepMode ?? 'early') as 'early' | 'late'),
-                          ))
-                        : null}
-                    </Box>
-                  </Box>
-                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
-                      <MarkdownTooltip
-                        render={(
-                          <BuilderTooltipContent
-                            text={buildOverrideTooltip(
-                              tooltipLines.join('\n'),
-                            )}
-                          />
-                        )}
-                      >
-                        <Chip
-                          size="small"
-                          variant="filled"
-                          label={autoChipLabel}
-                          onClick={autoChipEnabled ? handleAutoChip : undefined}
-                          disabled={!autoChipEnabled}
-                          sx={{
-                            ...(builderToggleChipSx(autoChipEnabled, { dimDisabled: true }) as SystemStyleObject<Theme>),
-                            ...(autoRarityChipState === 'mixed'
-                              ? {
-                                  borderStyle: 'dashed',
-                                  borderColor: mixedBorderColor,
-                                  color: mixedTextColor,
-                                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                                } as SystemStyleObject<Theme>
-                              : {}),
-                          }}
-                          data-tour-id="builder.thresholds.auto-chip"
-                        />
-                      </MarkdownTooltip>
-                      {autoLateOverrideActive
-                        ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                            autoLateLabel(recipe.autoRaritySupplementsThreshold),
-                            autoLateLabel(effectiveRecipe.autoRaritySupplementsThreshold),
-                          ))
-                        : null}
-                    </Box>
-                  </Box>
-                  </Collapse>
-                </FormControl>
-              )
-            })()}
+            {milestoneThresholdsContent}
             {/* Substat Values… moved to top row (right of Max Level) */}
           </Box>
         </FormControl>
@@ -6471,649 +7131,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </MarkdownTooltip>
           </Box>
           <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
-          {(() => {
-            // Token helpers keep metasets + sets in a single select control.
-            const tokenOf = {
-              meta: (id: string) => `m:${id}`,
-              set: (id: number) => `s:${id}`,
-            }
-            // Filter to visible metasets so hidden ones never show in the menu.
-            const visibleMetasets = metasets.filter(m => m.show !== false)
-            // Keep order stable by preferring visible metasets when present.
-            const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
-            // Normalize set selections while respecting accessory-only constraints.
-            const baseSetSelections = pruneAccessoryNoSetSelections(recipe.artifactSets ?? [], allowNoSet)
-            // Split include/exclude lists so UI can render both states.
-            const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
-            // Resolve metaset order for the base recipe (or multi-edit union).
-            const baseMetaIds = orderMetasets(recipe.artifactMetaSets, orderBasis)
-            const metaDisplayIds = multiEditActive && multiSummary
-              ? orderMetasets(
-                  Array.from(new Set<string>([
-                    ...baseMetaIds,
-                    ...Array.from(multiSummary.metaCounts.keys()),
-                    ...((metasetsPatch?.add ?? []).map(String)),
-                    ...((metasetsPatch?.replace ?? []).map(String)),
-                  ])),
-                  orderBasis,
-                )
-              : baseMetaIds
-            const setDisplayIds = (() => {
-              // In single-edit, show only the current include list.
-              if (!multiEditActive || !multiSummary) {
-                return baseSetSplit.included.slice().sort((a, b) => a - b)
-              }
-              // Multi-edit: union all included sets + staged patch entries.
-              const union = new Set<number>()
-              for (const key of multiSummary.setCounts.keys()) union.add(Number(key))
-              for (const id of baseSetSplit.included) union.add(Number(id))
-              // Patch entries may include new includes; merge them into the display list.
-              const patchEntries = normalizeArtifactSetSelections([
-                ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
-                ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
-              ])
-              const patchSplit = splitArtifactSetSelections(patchEntries)
-              for (const id of patchSplit.included) union.add(Number(id))
-              // Drop the accessory-only sentinel when accessories are not in scope.
-              if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
-              return Array.from(union).sort((a, b) => a - b)
-            })()
-            const excludedDisplayIds = (() => {
-              // Single-edit: use just the current exclusions.
-              if (!multiEditActive || !multiSelectedRecipes) {
-                return baseSetSplit.excluded.slice().sort((a, b) => a - b)
-              }
-              // Multi-edit: union all excluded sets + staged patch entries.
-              const union = new Set<number>()
-              for (const recipeEntry of multiSelectedRecipes) {
-                const split = splitArtifactSetSelections(recipeEntry.artifactSets)
-                for (const id of split.excluded) union.add(Number(id))
-              }
-              // Patch entries may add exclusions; merge them into the display list.
-              const patchEntries = normalizeArtifactSetSelections([
-                ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
-                ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
-              ])
-              const patchSplit = splitArtifactSetSelections(patchEntries)
-              for (const id of patchSplit.excluded) union.add(Number(id))
-              // Drop the accessory-only sentinel when accessories are not in scope.
-              if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
-              return Array.from(union).sort((a, b) => a - b)
-            })()
-            // Collapse tri-state selections into the "all" set for display/tokens.
-            const selectedMetaIds = multiEditActive && multiSummary
-              ? metaDisplayIds.filter((id) => getMetasetState(id) === 'all')
-              : baseMetaIds
-            const selectedSetIds = multiEditActive && multiSummary
-              ? setDisplayIds.filter((id) => getSetState(id) === 'all')
-              : baseSetSplit.included.slice().sort((a, b) => a - b)
-            // Keep excluded ids separate so the UI can render them with a red indicator.
-            // When a recipe override is active use the effective exclusions so the
-            // grid visually reflects what the override does (e.g. red border for +-Daze).
-            const excludedSetIds = multiEditActive
-              ? excludedDisplayIds
-              : setsOverrideActive
-                ? splitArtifactSetSelections(effectiveRecipe.artifactSets ?? []).excluded.slice().sort((a, b) => a - b)
-                : baseSetSplit.excluded.slice().sort((a, b) => a - b)
-            // Build the Select token list from explicit metasets + includes.
-            const selectedTokens: string[] = [
-              ...selectedMetaIds.map(tokenOf.meta),
-              ...selectedSetIds.map(tokenOf.set),
-            ]
-            // Track sets introduced by metasets so right-click exclusion is scoped.
-            const metaDerivedSetIds = new Set<number>(resolveMetasets(selectedMetaIds, metasets).map(Number))
-            const handleExcludeSet = (id: number) => {
-              // Multi-edit exclusion UI is intentionally disabled.
-              if (multiEditActive) return
-              // Ignore items not introduced by metasets.
-              if (!metaDerivedSetIds.has(id)) return
-              // Flip the exclude flag for this set id.
-              const isExcluded = excludedSetIds.includes(id)
-              // Exclusions should clear explicit includes for the same set.
-              const nextIncluded = selectedSetIds.filter((entry) => entry !== id)
-              const nextExcluded = isExcluded
-                ? excludedSetIds.filter((entry) => entry !== id)
-                : [...excludedSetIds, id]
-              const nextSelections = normalizeArtifactSetSelections([
-                ...nextIncluded.map((entry) => ({ id: entry })),
-                ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
-              ])
-              onChange({ ...recipe, artifactSets: nextSelections })
-            }
-            // Evaluate "Any" state based on metasets, sets, and exclusions.
-            const projectedMetaActive = multiEditActive && multiSummary
-              ? metaDisplayIds.some((id) => getMetasetState(id) !== 'none')
-              : (recipe.artifactMetaSets?.length ?? 0) > 0
-            const projectedSetActive = multiEditActive && multiSummary
-              ? setDisplayIds.some((id) => getSetState(id) !== 'none')
-              : baseSetSelections.length > 0
-            const projectedExcludeActive = excludedSetIds.length > 0
-            const hasAnySelection = projectedMetaActive || projectedSetActive || projectedExcludeActive
-            // Inline padding grows when the clear button is visible.
-            const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
-            const handleChange = (e: SelectChangeEvent<string[]>) => {
-              // Multi-edit handles tokens via patch controls instead.
-              if (multiEditActive) return
-              const tokens = e.target.value as string[]
-              // Resolve metaset IDs using the same ordering basis.
-              const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-              const metaIds = orderMetasets(metaIdsRaw, orderBasis)
-              // Capture explicit includes from set tokens.
-              const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-              // Keep exclusions unless the user explicitly selected the set.
-              const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
-              const nextSelections = normalizeArtifactSetSelections([
-                ...setIds.map((id) => ({ id })),
-                ...nextExcluded.map((id) => ({ id, excluded: true })),
-              ])
-              onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
-            }
-            const handleToggleSet = (id: number) => {
-              // Multi-edit toggles are handled via patch helpers.
-              if (multiEditActive && multiEdit) {
-                toggleSet(id)
-                return
-              }
-              // Toggle only the explicit include list for single-recipe edits.
-              const prev = new Set<number>(baseSetSplit.included.map(Number))
-              if (prev.has(id)) prev.delete(id); else prev.add(id)
-              const nextSets = Array.from(prev).sort((a, b) => a - b)
-              // Remove exclusions when a set is explicitly re-added.
-              const nextExcluded = baseSetSplit.excluded.filter((entry) => Number(entry) !== id)
-              const nextSelections = normalizeArtifactSetSelections([
-                ...nextSets.map((entry) => ({ id: entry })),
-                ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
-              ])
-              onChange({ ...recipe, artifactSets: nextSelections })
-            }
-            const getSetsSelectionDisplay = (tokens: readonly string[]) => {
-              // Multi-edit needs mixed-value labels for tri-state tokens.
-              if (multiEditActive && multiSummary) {
-                const names: string[] = []
-                // Metaset labels reflect tri-state status.
-                for (const id of metaDisplayIds) {
-                  const state = getMetasetState(id)
-                  if (state === 'none') continue
-                  const meta = metasets.find(x => x.name === id)
-                  if (meta) {
-                    const { glyph, iconId } = metasetGlyph(meta)
-                    const hasGlyph = glyph != null && !!iconId
-                    const needsGap = hasGlyph && iconId !== 'empty'
-                    const label = hasGlyph
-                      ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}`
-                      : meta.name
-                    names.push(state === 'partial' ? `${label} – ${t('builderMultiMixedValue')}` : label)
-                  }
-                }
-                // Set labels reflect tri-state status as well.
-                for (const id of setDisplayIds) {
-                  const state = getSetState(id)
-                  if (state === 'none') continue
-                  const baseName = getLocalizedGearSetName(id, t, lang)
-                  names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
-                }
-                // Exclusions always show with a "not" prefix.
-                for (const id of excludedDisplayIds) {
-                  const baseName = getLocalizedGearSetName(id, t, lang)
-                  names.push(`not ${baseName}`)
-                }
-                const text = names.length > 0 ? names.join(', ') : t('any')
-                return {
-                  node: (
-                    <Box
-                      component="span"
-                      data-ellipsis-target
-                      sx={{
-                        display: 'block',
-                        width: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {text}
-                    </Box>
-                  ),
-                  text,
-                }
-              }
-              // Single-edit: render plain labels with exclusions appended.
-              const any = (!tokens || tokens.length === 0) && excludedSetIds.length === 0
-              const names: string[] = []
-              if (!any) {
-                // Metaset tokens reuse glyphs to match the menu.
-                for (const token of tokens) {
-                  if (token.startsWith('m:')) {
-                    const id = token.slice(2)
-                    const m = metasets.find(x => x.name === id)
-                    if (m) {
-                      const { glyph, iconId } = metasetGlyph(m)
-                      if (glyph != null && iconId) {
-                        const needsGap = iconId !== 'empty'
-                        names.push(`${glyph}${needsGap ? ` ${m.name}` : m.name}`)
-                      } else {
-                        names.push(m.name)
-                      }
-                    }
-                  } else if (token.startsWith('s:')) {
-                    const id = Number(token.slice(2))
-                    names.push(getLocalizedGearSetName(id, t, lang))
-                  }
-                }
-                // Exclusions show as "not X" entries.
-                for (const id of excludedSetIds) {
-                  names.push(`not ${getLocalizedGearSetName(id, t, lang)}`)
-                }
-              }
-              const text = (any || names.length === 0) ? t('any') : names.join(', ')
-              return {
-                node: (
-                  <Box
-                    component="span"
-                    data-ellipsis-target
-                    sx={{
-                      display: 'block',
-                      width: '100%',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {text}
-                  </Box>
-                ),
-                text,
-              }
-            }
-            const { text: setsSelectionTooltip } = getSetsSelectionDisplay(selectedTokens)
-            // Build set list per order/search (shared helper keeps behavior consistent)
-            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
-              translate: t,
-              // Keep the no-set sentinel visible only when accessories are in scope.
-              includeNoSet: allowNoSet,
-              noSetLabel: t('noSetAccessories'),
-            })
-            const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
-            const disabledSetIds = sorted
-              .map(([id]) => Number(id))
-              .filter((id) => !allowedSetIdsSet.has(id))
-
-            // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
-            const hasMetasetsSection = visibleMetasets.length > 0
-            const metasetsMenu: Metaset[] = visibleMetasets
-
-            return (
-              <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
-                {/* overflow:visible so the absolutely-positioned gear-set override badge can paint above the row. */}
-                <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'visible' }}>
-                  {(() => {
-                    const baseSelect = (
-                      <Select
-                        size="small"
-                        multiple
-                        value={selectedTokens}
-                        onChange={handleChange}
-                        onOpen={(e) => {
-                          setMetaSetsMenuOpen(true)
-                          requestAnimationFrame(() => requestAnimationFrame(() => {
-                            scrollSetsMenuToSelected(setsOrder, { force: true })
-                          }))
-                          try {
-                            const el = (e?.currentTarget as HTMLElement | null)
-                            const rect = el?.getBoundingClientRect()
-                            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-                            const margin = 8
-                            const selectedMetaState = (id: string): 'none' | 'partial' | 'all' => {
-                              if (multiEditActive) return getMetasetState(id)
-                              return (recipe.artifactMetaSets ?? []).includes(id) ? 'all' : 'none'
-                            }
-                            const targetMetasetId = (() => {
-                              if (!hasMetasetsSection) return null
-                              const firstFull = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'all')
-                              if (firstFull) return firstFull.name
-                              const firstPartial = metasetsMenu.find((meta) => selectedMetaState(meta.name) === 'partial')
-                              return firstPartial?.name ?? null
-                            })()
-                            // Theoretical max height depends on whether the Metasets section is present.
-                            const theoreticalMax = hasMetasetsSection
-                              ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
-                              : (MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
-                            const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
-                            const desiredLeft = rect ? Math.floor(rect.left) : margin
-                            setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                            // After the menu mounts, measure and refine the anchor using real height.
-                            const refine = () => {
-                              try {
-                                const paper = setsMenuPaperRef.current
-                                const measured = paper ? Math.ceil(paper.offsetHeight) : 0
-                                if (rect && measured > 0) {
-                                  const maxHeight = Math.min(measured, viewportH - margin * 2) + MENU_MAX_HEIGHT_EXTRA_BUFFER
-                                  const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
-                                  setSetsMenuAnchorPos({ top, left: desiredLeft })
-                                }
-                              } catch {}
-                              if (targetMetasetId) {
-                                try {
-                                  const list = metasetsMenuListRef.current
-                                  if (!list) return
-                                  const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
-                                  for (const item of items) {
-                                    if (item.getAttribute('data-metaset-id') === targetMetasetId) {
-                                      item.scrollIntoView({ block: 'nearest' })
-                                      break
-                                    }
-                                  }
-                                } catch {}
-                              }
-                              scrollSetsMenuToSelected(setsOrder, { force: true })
-                            }
-                            // Double rAF to wait for mount + layout
-                            requestAnimationFrame(() => requestAnimationFrame(refine))
-                          } catch { setSetsMenuAnchorPos(null) }
-                        }}
-                        onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null); setSetsMenuAnchorPos(null) }}
-                        renderValue={(value) => {
-                          const tokens = Array.isArray(value) ? value : []
-                          return getSetsSelectionDisplay(tokens).node
-                        }}
-                        displayEmpty
-                        sx={{
-                          ...selectBoxHeightSx,
-                          width: '100%',
-                          minWidth: 0,
-                          pr: `${inlinePaddingPx}px`,
-                          '& .MuiSelect-select': {
-                            ...selectContentHeightSx,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '100%',
-                          },
-                          '& .MuiSelect-icon': {
-                            right: 8,
-                          },
-                        }}
-                        data-tour-id="builder.sets"
-                        MenuProps={{
-                          PaperProps: {
-                            sx: {
-                              width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
-                              maxWidth: SETS_MENU_WIDTH_PX,
-                              overflowX: 'hidden',
-                            },
-                            ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
-                          },
-                          MenuListProps: {
-                            sx: { width: '100%', maxWidth: '100%' },
-                          },
-                          ...(setsMenuAnchorPos
-                            ? {
-                                anchorReference: 'anchorPosition' as const,
-                                anchorPosition: setsMenuAnchorPos,
-                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                              }
-                            : {
-                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                              }),
-                        }}
-                      >
-                      {/* Metasets section in its own scroll area (hidden if none) */}
-                      {hasMetasetsSection && (
-                        <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                          <Box
-                            component="ul"
-                            ref={metasetsMenuListRef}
-                            sx={{
-                              listStyle: 'none',
-                              p: 0,
-                              m: 0,
-                              maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
-                              overflowY: 'auto',
-                              pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                              // Firefox manually pads here so Chrome keeps native scrollbar-gutter behavior.
-                              ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-                              ...visibleScrollbarTrack(),
-                            }}
-                            data-tour-id="menu.metasets.section"
-                          >
-                            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
-                            {metasetsMenu.map((m) => {
-                              const { glyph, iconId } = metasetGlyph(m)
-                              const hasGlyph = glyph != null && !!iconId
-                              const needsGap = iconId !== null && iconId !== 'empty'
-                              const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
-                              const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
-                              const setNames = m.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
-                              const joined = setNames.join(', ')
-                              const usedMeta = metasetUsageCounts[m.name] || 0
-                              const metaState = multiEditActive ? getMetasetState(m.name) : (selectedMetaIds.includes(m.name) ? 'all' : 'none')
-                              const isSelectedMeta = metaState === 'all'
-                              const isPartialMeta = metaState === 'partial'
-                              return (
-                                <MenuItem
-                                  key={m.name}
-                                  value={`m:${m.name}`}
-                                  selected={isSelectedMeta}
-                                  data-metaset-id={m.name}
-                                  onMouseEnter={() => setHoveredSetMetaId(m.name)}
-                                  onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.name ? null : prev))}
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    if (multiEditActive && multiEdit) {
-                                      toggleMetaset(m.name)
-                                      return
-                                    }
-                                    const token = `m:${m.name}`
-                                    const tokensSet = new Set<string>(selectedTokens)
-                                    if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
-                                    const tokens = Array.from(tokensSet)
-                                    const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-                                    const metaIds = orderMetasets(metaIdsRaw, orderBasis)
-                                    const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-                                    const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
-                                    const nextSelections = normalizeArtifactSetSelections([
-                                      ...setIds.map((id) => ({ id })),
-                                      ...nextExcluded.map((id) => ({ id, excluded: true })),
-                                    ])
-                                    onChange({ ...recipe, artifactMetaSets: metaIds, artifactSets: nextSelections })
-                                  }}
-                                  sx={(theme) => ({
-                                    '&.Mui-selected': {
-                                      backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
-                                      '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
-                                    },
-                                    ...(isPartialMeta ? {
-                                      borderStyle: 'dashed',
-                                      borderColor: mixedBorderColor,
-                                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                                      color: mixedTextColor,
-                                    } : {}),
-                                  })}
-                                >
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                                      <EllipsisTooltip
-                                        title={tooltipName}
-                                      >
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
-                                          {hasGlyph ? (
-                                            <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
-                                              {glyph}
-                                            </Box>
-                                          ) : null}
-                                          <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
-                                        </Box>
-                                      </EllipsisTooltip>
-                                      {m.sets.length > 0 && (
-                                        <Typography variant="caption" sx={{ color: 'primary.main' }}>
-                                          ({m.sets.length} set(s))
-                                        </Typography>
-                                      )}
-                                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInRecipes', { n: usedMeta })}</Typography>
-                                    </Box>
-                                    {setNames.length > 0 && (
-                                      <Typography
-                                        variant="caption"
-                                        sx={{ color: 'primary.main', opacity: 0.9, display: 'block', width: '100%', whiteSpace: 'normal', overflowWrap: 'break-word' }}
-                                      >
-                                        {joined}
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                </MenuItem>
-                              )
-                            })}
-                          </Box>
-                        </Box>
-                      )}
-                      {/* Sets section in its own scroll area (icons or list) */}
-                      <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                        {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
-                        <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-                            <Box
-                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <SetsOrderControls
-                                setsSearch={setsSearch}
-                                onSetsSearchChange={setSetsSearch}
-                                setsOrder={setsOrder}
-                                onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
-                                  if (!v) return
-                                  setSetsOrder(v)
-                                  if (metaSetsMenuOpen) {
-                                scrollSetsMenuToSelected(v, { force: true })
-                                  }
-                                }}
-                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
-                                  translate: t,
-                                  // Respect accessory-only constraints in empty-state math.
-                                  includeNoSet: allowNoSet,
-                                  noSetLabel: t('noSetAccessories'),
-                                }).length === 0}
-                              />
-                            </Box>
-                          </Box>
-                        </ListSubheader>
-                        <Box
-                          component="ul"
-                          ref={setsMenuListRef}
-                          sx={{
-                            listStyle: 'none',
-                            p: 0,
-                            m: 0,
-                            ...(setsOrder === 'icons'
-                              ? {
-                                  // Icon mode: never scroll; grid expands with content
-                                  maxHeight: 'none',
-                                  height: 'auto',
-                                  overflowY: 'visible',
-                                }
-                              : {
-                                  // List modes: fixed height with scrolling
-                                  maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                  height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                  overflowY: 'auto',
-                                }),
-                            // Reserve a stable right padding so hover indicators
-                            // remain visible and width does not change when scrollbars appear
-                            pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                            ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-                            ...(setsOrder !== 'icons' ? visibleScrollbarTrack() : {}),
-                          }}
-                        >
-                        <SetMenuSection
-                          title={t('setsTitle')}
-                          sorted={sorted}
-                          setsOrder={setsOrder}
-                          metasets={metasets}
-                          excludeMetasetId={null}
-                          setUsageCounts={setUsageCounts}
-                          valueForSet={(id) => `s:${id}`}
-                          // Header rendered above; keep items-only here
-                          hideHeader
-                          hoveredMetasetId={hoveredSetMetaId}
-                          selectedMetasetIds={selectedMetaIds}
-                          selectedSetIds={selectedSetIds}
-                          excludedSetIds={excludedSetIds}
-                          disabledSetIds={disabledSetIds}
-                          onToggleSet={handleToggleSet}
-                          onContextMenuSet={(id) => handleExcludeSet(id)}
-                          {...(multiEditActive ? { triStateForSet: getSetState } : {})}
-                        />
-                        </Box>
-                      </Box>
-                      </Select>
-                    )
-                    // Build a human-readable label for a sets+metasets recipe (for the badge tooltip).
-                    // Excluded entries are prefixed with "–" to mirror the exclusion UX convention.
-                    const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string => {
-                      const parts: string[] = [
-                        ...(metas ?? []),
-                        ...(sets ?? []).map((e) => (e.excluded ? '–' : '') + getLocalizedGearSetName(e.id, t, lang)),
-                      ]
-                      return parts.length > 0 ? parts.join(', ') : t('any')
-                    }
-                    const selectEl = (
-                      <Box ref={setsSelectContainerRef} sx={{ position: 'relative' }}>
-                        {baseSelect}
-                        {setsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                          setsLabel(recipe.artifactSets, recipe.artifactMetaSets),
-                          setsLabel(effectiveRecipe.artifactSets, effectiveRecipe.artifactMetaSets),
-                        ))}
-                        <InlineSelectClearButton
-                          disabled={!hasAnySelection}
-                          label={t('clear')}
-                          onClear={() => {
-                            if (!hasAnySelection) return
-                            if (multiEditActive && multiEdit) {
-                              multiEdit.updateField('artifactSets', {
-                                value: (multiSetsField?.value as BuilderRecipe['artifactSets']) ?? (recipe.artifactSets ?? []),
-                                status: 'common',
-                                patch: { clear: true },
-                              })
-                              multiEdit.updateField('artifactMetaSets', {
-                                value: (multiMetasetsField?.value as BuilderRecipe['artifactMetaSets']) ?? (recipe.artifactMetaSets ?? []),
-                                status: 'common',
-                                patch: { clear: true },
-                              })
-                              return
-                            }
-                            onChange({ ...recipe, artifactSets: [], artifactMetaSets: [] })
-                          }}
-                        />
-                        <SelectDropdownActivator
-                          getDisplayNode={() => {
-                            const root = setsSelectContainerRef.current
-                            if (!root) return null
-                            return root.querySelector('[role="combobox"]') as HTMLElement | null
-                          }}
-                          widthPx={hasAnySelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
-                        />
-                      </Box>
-                    )
-                    // Keep a stable wrapper to prevent the Select from remounting
-                    // when transitioning from empty to non-empty selections, which
-                    // could close the menu after the first click.
-                    return (
-                      <EllipsisTooltip
-                        title={setsSelectionTooltip}
-                        selector=".MuiSelect-select"
-                        wrap="block"
-                        // Disable while menu is open to avoid layout measurements.
-                        disabled={metaSetsMenuOpen}
-                      >
-                        {selectEl}
-                      </EllipsisTooltip>
-                    )
-                  })()}
-                </Box>
-              </Box>
-            )
-          })()}
+          {setsContent}
           </Collapse>
         </FormControl>
         </Box>{/* end Row 4b right (Sets) */}
@@ -7284,7 +7302,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           anchorEl={insertMenuAnchor}
           open={Boolean(insertMenuAnchor)}
           onClose={closeInsertMenu}
-          PaperProps={{ ref: insertMenuPaperRef }}
+          slotProps={{ paper: { ref: insertMenuPaperRef } }}
         >
           <MenuItem
             onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)}
@@ -7302,7 +7320,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           anchorEl={applyMenuAnchor}
           open={Boolean(applyMenuAnchor)}
           onClose={closeApplyMenu}
-          PaperProps={{ ref: applyMenuPaperRef }}
+          slotProps={{ paper: { ref: applyMenuPaperRef } }}
         >
           <MenuItem
             onClick={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)}
@@ -7320,9 +7338,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           anchorEl={resetMenuAnchor}
           open={Boolean(resetMenuAnchor)}
           onClose={closeResetMenu}
-          PaperProps={{ ref: resetMenuPaperRef }}
+          slotProps={{ paper: { ref: resetMenuPaperRef } }}
         >
-          {(() => { void defaultsEpoch; return null })()}
+          {/* Reference defaultsEpoch so the reset menu re-evaluates when user defaults change. */}
+          {(void defaultsEpoch, null)}
           <MenuItem
             onClick={() => {
               closeResetMenu()
@@ -7368,7 +7387,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {t('builderMenuSaveUserDefaults')}
           </MenuItem>
           <MenuItem
-            disabled={(() => { try { return !localStorage.getItem(BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
+            disabled={resetFactoryDisabled}
             onClick={() => {
               closeResetMenu()
               // Reset the builder to factory defaults explicitly

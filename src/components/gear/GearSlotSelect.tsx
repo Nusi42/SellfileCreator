@@ -9,8 +9,10 @@ import { artifactTypeIconList } from '../artifactTypeIcons'
 import EllipsisTooltip from '../EllipsisTooltip'
 
 const SLOT_MENU_PROPS = {
-  PaperProps: { sx: { width: 360 } },
-  MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
+  slotProps: {
+    paper: { sx: { width: 360 } },
+    list: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
+  },
 } as const
 
 const SLOT_SELECT_DISPLAY_SX: SxProps<Theme> = (theme) => ({

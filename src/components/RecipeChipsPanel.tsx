@@ -236,6 +236,37 @@ function RecipeChipsPanel(props: {
     enabled: dragAllowed,
   })
 
+  // Build the context-menu actions object outside JSX to avoid an IIFE in JSX.
+  const chipMenuActions = (() => {
+    if (!chipMenu) return {}
+    const idx = chipMenu.chipIdx
+    // idx < 0 means background right-click — show list-level actions only.
+    const isChipMenu = idx >= 0
+    const isFirst = idx <= 0
+    const isLast = idx >= recipes.length - 1
+    return {
+      ...(isChipMenu ? {
+        duplicate:  () => onDuplicate(idx),
+        moveTop:    { handler: () => onMoveTop(idx),    disabled: isFirst },
+        moveUp:     { handler: () => onMoveUp(idx),     disabled: isFirst },
+        moveDown:   { handler: () => onMoveDown(idx),   disabled: isLast },
+        moveBottom: { handler: () => onMoveBottom(idx), disabled: isLast },
+        copyRecipe: () => onCopyRecipe(idx),
+        ...(onCopyRecipeDev ? { copyRecipeDev: () => onCopyRecipeDev(idx) } : {}),
+        pasteAfter: () => onPasteAfter(idx),
+        ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: () => onInsertAsSafeguard(idx), label: insertAsSafeguardLabel ?? '' } } : {}),
+        ...(onApplyAsSafeguard  ? { applyAsSafeguard:  { handler: () => onApplyAsSafeguard(idx),  label: applyAsSafeguardLabel  ?? '' } } : {}),
+        deleteRecipe: () => onDelete(idx),
+      } : {}),
+      pasteAtEnd:     onPasteAtEnd,
+      selectAll:      { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
+      clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
+      copyAll:        { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
+      toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
+      deleteAll: { handler: onDeleteAll, disabled: deleteAllDisabled, onHighlightChange: onHighlightDelete },
+    }
+  })()
+
   return (
     <>
       <Box
@@ -388,35 +419,7 @@ function RecipeChipsPanel(props: {
         paperDataTourId="chips.menu"
         onPaperContextMenu={handleMenuContextMenu}
         contextMenuGuard={contextMenuGuard}
-        actions={(() => {
-          if (!chipMenu) return {}
-          const idx = chipMenu.chipIdx
-          // idx < 0 means background right-click — show list-level actions only.
-          const isChipMenu = idx >= 0
-          const isFirst = idx <= 0
-          const isLast = idx >= recipes.length - 1
-          return {
-            ...(isChipMenu ? {
-              duplicate:  () => onDuplicate(idx),
-              moveTop:    { handler: () => onMoveTop(idx),    disabled: isFirst },
-              moveUp:     { handler: () => onMoveUp(idx),     disabled: isFirst },
-              moveDown:   { handler: () => onMoveDown(idx),   disabled: isLast },
-              moveBottom: { handler: () => onMoveBottom(idx), disabled: isLast },
-              copyRecipe: () => onCopyRecipe(idx),
-              ...(onCopyRecipeDev ? { copyRecipeDev: () => onCopyRecipeDev(idx) } : {}),
-              pasteAfter: () => onPasteAfter(idx),
-              ...(onInsertAsSafeguard ? { insertAsSafeguard: { handler: () => onInsertAsSafeguard(idx), label: insertAsSafeguardLabel ?? '' } } : {}),
-              ...(onApplyAsSafeguard  ? { applyAsSafeguard:  { handler: () => onApplyAsSafeguard(idx),  label: applyAsSafeguardLabel  ?? '' } } : {}),
-              deleteRecipe: () => onDelete(idx),
-            } : {}),
-            pasteAtEnd:     onPasteAtEnd,
-            selectAll:      { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
-            clearSelection: { handler: onClearSelection, disabled: selectedIndices.length === 0, labelKey: 'chipsMenuClearSelection' },
-            copyAll:        { handler: onCopyAllRecipes, disabled: recipes.length === 0 },
-            toggleShowTagsInChips: { checked: showTagsInChips, handler: () => setShowTagsInChips(!showTagsInChips) },
-            deleteAll: { handler: onDeleteAll, disabled: deleteAllDisabled, onHighlightChange: onHighlightDelete },
-          }
-        })()}
+        actions={chipMenuActions}
       />
     </>
   )

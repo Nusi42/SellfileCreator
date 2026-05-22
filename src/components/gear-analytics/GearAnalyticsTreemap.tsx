@@ -258,7 +258,6 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
-    // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
     setContainerW(el.offsetWidth)
   }, [])
   useEffect(() => {
@@ -312,7 +311,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
     const variant = PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'scatter'
     // Use the center tile as the epicenter for peer-triggered dances.
     const epicenterId = tiles[Math.floor(tiles.length / 2)]?.id ?? tiles[0]!.id
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect
     setActiveDance({ variant, epicenterId })
   }, [peerDanceTrigger, tiles])
 

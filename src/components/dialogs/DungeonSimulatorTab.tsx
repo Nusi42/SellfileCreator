@@ -269,7 +269,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   // with a new object reference even when values are identical, causing the
   // control effect in useDungeonSimulatorWorker to re-run, cancel the in-flight
   // sim, and return early — breaking auto-start.
-  useEffect(() => { if (resetKey) setPrefs(buildDefaultDungeonSimulatorPreferences()) }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (resetKey) setPrefs(buildDefaultDungeonSimulatorPreferences()) }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   // Manual refresh bumps force a full resimulation without input changes.
   const [refreshToken, setRefreshToken] = useState(0)
   // Anchor + target power the detail popover when a cell is clicked.
@@ -781,7 +781,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           ))}
         </Box>
         {/* Intro copy + assumptions (runs) live above the tables. */}
-        <Stack direction="row" spacing={1} alignItems="flex-start">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
           <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" color="text.secondary">
               {t('dungeonDropsIntro')}
@@ -789,7 +789,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
             <Typography variant="caption" color="text.secondary">
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               {/* Mode toggle keeps snapshot vs level-up behavior explicit. */}
               <Typography variant="caption" color="text.secondary">
                 {t('dungeonDropsModeLabel')}
@@ -957,53 +957,48 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           return (
             <Box key={dungeonId} sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               {/* Dungeon headings + controls keep selection changes local to each table. */}
-              <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                 <Box sx={{ width: labelWidthPx > 0 ? `${labelWidthPx}px` : 'auto' }}>
                   <Typography variant="subtitle1">{dungeonLabel}</Typography>
                 </Box>
                 {/* Mode/spotlight toggles live in the same slot to keep Stage aligned. */}
-                {(() => {
-                  if (isEventDungeon) {
-                    return (
-                      <Stack direction="row" spacing={0.75} alignItems="center">
-                        <ToggleButtonGroup
-                          size="small"
-                          exclusive
-                          value={prefs.eventSpotlight}
-                          onChange={(_, nextValue) => updateEventSpotlight(nextValue)}
-                        >
-                          {EVENT_SPOTLIGHT_OPTIONS.map((option) => {
-                            const setId = resolveEventSpotlightSet(option)
-                            const label = formatSetLabel({ setId, translate: t, lang })
-                            return (
-                              <ToggleButton key={`event-spotlight-${option}`} value={option}>
-                                {label}
-                              </ToggleButton>
-                            )
-                          })}
-                        </ToggleButtonGroup>
-                      </Stack>
-                    )
-                  }
-                  return (
-                    <Stack direction="row" spacing={0.75} alignItems="center">
-                      <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={selection.mode}
-                        onChange={(_, nextMode) => {
-                          if (!nextMode) return
-                          updateDungeonSelection(dungeonId, { mode: nextMode as 'normal' | 'hard' })
-                        }}
-                      >
-                        <ToggleButton value="normal">{t('dungeonDropsModeNormal')}</ToggleButton>
-                        <ToggleButton value="hard">{t('dungeonDropsModeHard')}</ToggleButton>
-                      </ToggleButtonGroup>
-                    </Stack>
-                  )
-                })()}
+                {isEventDungeon ? (
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                    <ToggleButtonGroup
+                      size="small"
+                      exclusive
+                      value={prefs.eventSpotlight}
+                      onChange={(_, nextValue) => updateEventSpotlight(nextValue)}
+                    >
+                      {EVENT_SPOTLIGHT_OPTIONS.map((option) => {
+                        const setId = resolveEventSpotlightSet(option)
+                        const label = formatSetLabel({ setId, translate: t, lang })
+                        return (
+                          <ToggleButton key={`event-spotlight-${option}`} value={option}>
+                            {label}
+                          </ToggleButton>
+                        )
+                      })}
+                    </ToggleButtonGroup>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                    <ToggleButtonGroup
+                      size="small"
+                      exclusive
+                      value={selection.mode}
+                      onChange={(_, nextMode) => {
+                        if (!nextMode) return
+                        updateDungeonSelection(dungeonId, { mode: nextMode as 'normal' | 'hard' })
+                      }}
+                    >
+                      <ToggleButton value="normal">{t('dungeonDropsModeNormal')}</ToggleButton>
+                      <ToggleButton value="hard">{t('dungeonDropsModeHard')}</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Stack>
+                )}
                 {/* Stage selector always renders so level picks stay visible. */}
-                <Stack direction="row" spacing={0.75} alignItems="center">
+                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
                   <Select
                     size="small"
                     value={selection.stage}
@@ -1017,7 +1012,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 </Stack>
                 {isBoostable ? (
                   // Boosted-set controls are limited to the core artifact dungeons.
-                  <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                     <Typography variant="caption" color="text.secondary">
                       {t('dungeonDropsBoostLabel')}
                     </Typography>
@@ -1136,7 +1131,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                             minWidth: 0,
                           }}
                         >
-                          <Stack spacing={0.25} alignItems="center" sx={{ minWidth: 0, width: '100%' }}>
+                          <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', alignItems: 'center' }}>
                             <SetIcon setId={setId} label={label} size={18} />
                             {/* EllipsisTooltip exposes the full set name only when truncation occurs. */}
                             {/* data-ellipsis-target keeps the native tooltip aligned with the label node. */}
@@ -1322,7 +1317,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     >
                       <Stack spacing={0.4}>
                         {/* Slot header shows the icon + label to mirror builder layout. */}
-                        <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                           <Icon fontSize="small" />
                           <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1.1 }}>
                             {t(artifactTypeI18nKey(id))}

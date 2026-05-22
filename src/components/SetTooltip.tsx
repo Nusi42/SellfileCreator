@@ -170,7 +170,7 @@ function getSetTooltipContent(
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
-      <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
+      <Divider sx={{ my: 0.5, opacity: 0.45 }} />
       {localizeDescription(description, name, t, { runtime })}
     </Box>
   )
@@ -188,7 +188,7 @@ function getSetTooltipContentNamed(
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
-      <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
+      <Divider sx={{ my: 0.5, opacity: 0.45 }} />
       {localizeDescription(description, name, t, { runtime })}
     </Box>
   )

@@ -244,8 +244,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       onClose={handleClose}
       fullWidth
       maxWidth={false}
-      {...logicHubDialogProps}
-      PaperProps={{ sx: paperSx, ...logicHubDialogProps.PaperProps }}
+      transitionDuration={{ exit: 0 }}
+      slotProps={{ paper: { sx: paperSx, ref: logicHubDialogProps.PaperProps.ref } }}
     >
       <DialogTitle sx={{ p: 0 }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>

@@ -57,20 +57,6 @@ export default function SetsOrderControls({
           // Ensure the outlined input content is perfectly centered and removes stray bottom gap
           '& .MuiOutlinedInput-root': { height: 32, alignItems: 'center' },
         }}
-        InputLabelProps={{
-          // Keep the label visually centered within the 28px control height.
-          // 28px control, ~12px label → (28-12)/2 ≈ 8px; use 8px for crispness.
-          sx: {
-            fontSize: FONT_SIZE_SECONDARY_PX,
-          // 32px control, ~12px label → (32-12)/2 ≈ 10px; use 10px.
-            transform: 'translate(14px, 10px) scale(1)',
-            '&.MuiInputLabel-shrink': {
-              // Keep the floating label slightly lower than default so it
-              // doesn’t crowd the top edge when the header grows.
-              transform: 'translate(14px, -2px) scale(0.8)',
-            },
-          },
-        }}
         // Prevent the parent MUI Select/Menu listbox from intercepting typing
         // and navigation keys while the search field is focused. Without this,
         // keystrokes like letters, Home/End, and arrows are handled by the
@@ -81,16 +67,31 @@ export default function SetsOrderControls({
           if (k === 'Escape' || k === 'Tab') return
           e.stopPropagation()
         }}
-        InputProps={{
-          sx: {
-            // Tighten the field height and input padding to keep the header
-            // compact without changing the ListSubheader size.
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_SECONDARY_PX, lineHeight: '32px' },
+        slotProps={{
+          inputLabel: {
+            // Keep the label visually centered within the 28px control height.
+            // 28px control, ~12px label → (28-12)/2 ≈ 8px; use 8px for crispness.
+            sx: {
+              fontSize: FONT_SIZE_SECONDARY_PX,
+            // 32px control, ~12px label → (32-12)/2 ≈ 10px; use 10px.
+              transform: 'translate(14px, 10px) scale(1)',
+              '&.MuiInputLabel-shrink': {
+                // Keep the floating label slightly lower than default so it
+                // doesn't crowd the top edge when the header grows.
+                transform: 'translate(14px, -2px) scale(0.8)',
+              },
+            },
           },
-          endAdornment: setsSearch ? (
+          input: {
+            sx: {
+              // Tighten the field height and input padding to keep the header
+              // compact without changing the ListSubheader size.
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_SECONDARY_PX, lineHeight: '32px' },
+            },
+            endAdornment: setsSearch ? (
             <InputAdornment
               position="end"
               sx={(theme) => ({
@@ -120,6 +121,7 @@ export default function SetsOrderControls({
               </IconButton>
             </InputAdornment>
           ) : undefined,
+          },
         }}
       />
       <ToggleButtonGroup

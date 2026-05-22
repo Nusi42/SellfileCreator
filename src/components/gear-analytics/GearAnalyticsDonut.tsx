@@ -289,7 +289,7 @@ function PieIconTooltip(_props: object) {
                 </td>
                 {/* Value cell: formatted count. */}
                 <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'middle' }}>
-                  <Typography variant="caption" color="text.primary" fontWeight="medium">
+                  <Typography variant="caption" color="text.primary" sx={{ fontWeight: 'medium' }}>
                     {tooltipData.formattedValue}
                   </Typography>
                 </td>

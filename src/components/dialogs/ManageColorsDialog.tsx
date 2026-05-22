@@ -59,7 +59,7 @@ export default function ManageColorsDialog(props: {
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { width: { xs: '100%', sm: 640 }, maxWidth: 'calc(100vw - 32px)' } }}
+      slotProps={{ paper: { sx: { width: { xs: '100%', sm: 640 }, maxWidth: 'calc(100vw - 32px)' } } }}
     >
       <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>

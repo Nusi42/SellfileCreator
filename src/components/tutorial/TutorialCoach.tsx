@@ -599,6 +599,68 @@ export function TutorialCoach({
 
   if (!open) return null
 
+  // Compute breadcrumb items outside JSX to avoid an IIFE inside JSX.
+  // curIdx: the section whose range contains the current stepIndex.
+  const breadcrumbCurIdx = sections
+    ? sections.findIndex((s, i) => stepIndex >= s.index && (i === sections.length - 1 || stepIndex < sections[i + 1]!.index))
+    : -1
+  const breadcrumbItems = sections
+    ? sections.map((s, i) => {
+        const isCurrent = i === breadcrumbCurIdx
+        const showEmoji = Boolean(sectionFeedback && sectionFeedback.i === i)
+        const emoji = showEmoji ? (sectionFeedback!.mood === 'happy' ? '👍' : '🙁') : null
+        if (isCurrent) {
+          return (
+            <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <Button
+                size="small"
+                variant="text"
+                color="primary"
+                aria-current="step"
+                onClick={() => {
+                  // Jump to the start of this section without emoji feedback
+                  handleSkipTo(s.index)
+                }}
+                disabled={navLocked || !onSkipTo}
+                sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none', fontWeight: 700 }}
+              >
+                {s.label}
+              </Button>
+              {/* No emoji when clicking current section intentionally */}
+            </Box>
+          )
+        }
+        return (
+          <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <Button
+              size="small"
+              variant="text"
+              color="inherit"
+              onClick={() => {
+                if (navLocked || !onSkipTo) return
+                // Animate feedback on the section we are leaving, then jump immediately
+                try {
+                  const mood: 'happy' | 'sad' = (i < breadcrumbCurIdx ? 'happy' : 'sad')
+                  setSectionFeedback({ i: breadcrumbCurIdx, mood })
+                  handleSkipTo(s.index)
+                  window.setTimeout(() => { setSectionFeedback(null) }, 900)
+                } catch {
+                  handleSkipTo(s.index)
+                }
+              }}
+              disabled={navLocked || !onSkipTo}
+              sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none' }}
+            >
+              {s.label}
+            </Button>
+            {showEmoji && (
+              <Box aria-hidden sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: '0.6em', pointerEvents: 'none', animation: `${emojiRise} 700ms ease-out forwards`, fontSize: `${FONT_SIZE_BASE_REM}rem` }}>{emoji}</Box>
+            )}
+          </Box>
+        )
+      })
+    : null
+
   // Render into body to avoid clipping within panels
   return createPortal(
     <Box
@@ -715,63 +777,7 @@ export function TutorialCoach({
             >
               {!!sections && sections.length > 0 && (
                 <Breadcrumbs separator="›" maxItems={sections.length} sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}>
-                  {(() => {
-                    const curIdx = sections.findIndex((s, i) => stepIndex >= s.index && (i === sections.length - 1 || stepIndex < sections[i+1]!.index))
-                    return sections.map((s, i) => {
-                      const isCurrent = i === curIdx
-                      const showEmoji = Boolean(sectionFeedback && sectionFeedback.i === i)
-                      const emoji = showEmoji ? (sectionFeedback!.mood === 'happy' ? '👍' : '🙁') : null
-                      if (isCurrent) {
-                        return (
-                          <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                            <Button
-                              size="small"
-                              variant="text"
-                              color="primary"
-                              aria-current="step"
-                              onClick={() => {
-                                // Jump to the start of this section without emoji feedback
-                                handleSkipTo(s.index)
-                              }}
-                              disabled={navLocked || !onSkipTo}
-                              sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none', fontWeight: 700 }}
-                            >
-                              {s.label}
-                            </Button>
-                            {/* No emoji when clicking current section intentionally */}
-                          </Box>
-                        )
-                      }
-                      return (
-                        <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                          <Button
-                            size="small"
-                            variant="text"
-                            color="inherit"
-                            onClick={() => {
-                              if (navLocked || !onSkipTo) return
-                              // Animate feedback on the section we are leaving, then jump immediately
-                              try {
-                                const mood: 'happy' | 'sad' = (i < curIdx ? 'happy' : 'sad')
-                                setSectionFeedback({ i: curIdx, mood })
-                                handleSkipTo(s.index)
-                                window.setTimeout(() => { setSectionFeedback(null) }, 900)
-                              } catch {
-                                handleSkipTo(s.index)
-                              }
-                            }}
-                            disabled={navLocked || !onSkipTo}
-                            sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none' }}
-                          >
-                            {s.label}
-                          </Button>
-                          {showEmoji && (
-                            <Box aria-hidden sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: '0.6em', pointerEvents: 'none', animation: `${emojiRise} 700ms ease-out forwards`, fontSize: `${FONT_SIZE_BASE_REM}rem` }}>{emoji}</Box>
-                          )}
-                        </Box>
-                      )
-                    })
-                  })()}
+                  {breadcrumbItems}
                 </Breadcrumbs>
               )}
             </Box>

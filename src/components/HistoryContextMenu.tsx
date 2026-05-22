@@ -80,15 +80,15 @@ export function HistoryContextMenu({
             boxShadow: theme.shadows[8],
           }),
         }), ref: paperRef },
-      }}
-      MenuListProps={{
-        dense: true,
-        disablePadding: true,
-        sx: {
-          py: 0,
-          maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
-          display: 'flex',
-          flexDirection: 'column',
+        list: {
+          dense: true,
+          disablePadding: true,
+          sx: {
+            py: 0,
+            maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
+            display: 'flex',
+            flexDirection: 'column',
+          },
         },
       }}
     >

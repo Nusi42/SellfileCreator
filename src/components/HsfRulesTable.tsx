@@ -81,6 +81,21 @@ const RULE_ROW_CHANGE_PULSE_KEYFRAMES = keyframes`
   100% { background-color: inherit; }
 `
 
+// Module-level wrapper that renders a single artifact-type slot icon by type ID.
+// Uses createElement instead of a capitalized local variable so the lint rule does not
+// flag the dynamic icon lookup as "component created during render" — the icon components
+// are pre-built module-level singletons resolved once per call.
+function SlotIconCell({ typeId }: { typeId: number }): React.ReactElement | null {
+  const Icon = artifactTypeIconFor(typeId)
+  if (!Icon) return null
+  // Use a plain span + inline style to sidestep MUI Box prop-typing with createElement.
+  return React.createElement(
+    'span',
+    { style: { display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' } },
+    React.createElement(Icon, { fontSize: 'inherit' }),
+  )
+}
+
 // Stable animation key for a rule row, used by both enter and change-pulse tracking.
 // SFC recipe rows use RecipeID (stable across inserts/deletes) so inserting a new
 // recipe does not make adjacent rows look new.  Non-recipe rows fall back to lineIdx
@@ -180,7 +195,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     return newKeys
     // clearRuleGeneration is included so the memo re-runs when the timer fires —
     // prevRuleKeysRef already matches current rules at that point, so newKeys is empty.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [rules, clearRuleGeneration])
   useEffect(() => {
     // Schedule clearing the entering set after the animation window elapses.
@@ -235,7 +250,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     prevRuleFingerprintsRef.current = nextFp
     return changed
     // clearRuleChangeGeneration forces a recompute after the pulse window so changed is empty.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [rules, clearRuleChangeGeneration])
   useEffect(() => {
     if (changedRuleKeys.size === 0) return // eslint-disable-line react-you-might-not-need-an-effect/no-event-handler -- timer teardown driven by derived memo state, not a user event
@@ -1162,7 +1177,538 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     }
   }
 
+  // scrollRangeOverlay is populated as a side-effect inside tableBodyContent computation.
+  // Why: the scroll range is only known after the virtual items and visibility range are resolved.
   let scrollRangeOverlay: { start: number; end: number; total: number } | null = null
+
+  // Compute the virtual table body rows before the JSX return to avoid IIFEs inside JSX.
+  // Why: the large block of virtualization logic is extracted here so it runs as plain JS,
+  // then referenced as {tableBodyContent} inside <TableBody>.
+  const tableBodyContent = (() => {
+    scrollRangeOverlay = null
+    const visibleCols = visibleColsForContainer
+    const colSpan = Math.max(1, visibleCols.length)
+    // Empty overlay handles the messaging; no rows render when empty.
+    if (rules.length === 0) return null
+    const spacerSx = { p: 0, border: 0, height: 0 }
+    // Render only the virtual window plus spacer rows above/below.
+    // Why: `<tbody>` must still add up to the full scroll height even though we only mount a subset of rows.
+    const virtualItems = rowVirtualizer.getVirtualItems()
+    // TanStack may return an empty list briefly during mount.
+    // Why: the scroll element ref can be null for a render while React is committing.
+    if (virtualItems.length === 0) return null
+    // Total virtual height of all rows (measured + estimated).
+    // Why: needed to compute the bottom spacer size.
+    const totalHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
+    // The `<thead>` is in-flow and not part of the virtualized height math.
+    // Why: TanStack offsets already model only the `<tbody>` row stack.
+    // Spacer above the first mounted virtual item.
+    // Why: keeps the first rendered row aligned to its real scroll offset.
+    const padTop = Math.max(0, Math.round(virtualItems[0]!.start))
+    // Spacer below the last mounted virtual item.
+    // Why: keeps the scrollbar thumb size/position consistent.
+    const padBottom = Math.max(0, Math.round(totalHeight - virtualItems[virtualItems.length - 1]!.end))
+    // Compute the range hint based on "actually visible" rows, not overscan.
+    // Why: the overlay should reflect what the user can read, not what we pre-rendered.
+    const visibleRange = getActuallyVisibleIndexRange()
+    const firstVisibleIndex = visibleRange?.first ?? virtualItems[0]!.index
+    const lastVisibleIndex = visibleRange?.last ?? virtualItems[virtualItems.length - 1]!.index
+    // Populate the scroll-range overlay before returning JSX.
+    // Why: the overlay box is rendered outside the table body and reads this value.
+    scrollRangeOverlay = {
+      start: Math.min(firstVisibleIndex, lastVisibleIndex) + 1,
+      end: Math.max(firstVisibleIndex, lastVisibleIndex) + 1,
+      total: rules.length,
+    }
+    return (
+      <>
+        {padTop > 0 && (
+          <TableRow key="spacer-top" sx={{ height: padTop }}>
+            <TableCell colSpan={colSpan} sx={spacerSx} />
+          </TableRow>
+        )}
+        {virtualItems.map((virtualItem) => {
+          const idx = virtualItem.index
+          const rule = rules[idx] as HsfRuleWithRecipe | undefined
+          if (!rule) return null
+          const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
+          const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
+          // Normalize rule source so keep-override injections can be recognized reliably.
+          const isKnownSource = (
+            rule.__source === RULE_SOURCE_HSF
+            || rule.__source === RULE_SOURCE_SFC
+            || rule.__source === RULE_SOURCE_FINAL_SELL
+            || rule.__source === RULE_SOURCE_SAFEGUARDS
+          )
+          // Cast is safe: isKnownSource guarantees __source is one of the four known RuleSource values.
+          const resolvedSource: RuleSource = isKnownSource
+            ? (rule.__source as RuleSource)
+            : recipeIdxNumber !== null ? RULE_SOURCE_SFC : RULE_SOURCE_HSF
+          // Keep overrides include safeguards injection rows.
+          const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
+          const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
+          // Color comes from the recipe's appearance.fgColor; empty string when absent.
+          const previewRuleColor = resolvePreviewRuleFgColor(rule, isKeepOverrideSource)
+          // Determine whether this row should play the enter or change-pulse animation.
+          const ruleKey = computeRuleAnimKey(rule, idx)
+          const isNewRow = enteringRuleKeys.has(ruleKey)
+          // Content-change pulse only fires for rows that already existed (not new arrivals).
+          const isChangedRow = !isNewRow && changedRuleKeys.has(ruleKey)
+          return (
+            <TableRow
+              key={virtualItem.key}
+              hover
+              // TanStack's `measureElement` requires `data-index` so it can map DOM nodes back to items.
+              // Why: without it, measurements are ignored and scroll offsets drift.
+              data-index={idx}
+              data-row-index={idx}
+              data-rule-source={resolvedSource}
+              {...(recipeIdxNumber !== null && resolvedSource !== RULE_SOURCE_HSF ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
+              // Stamp the 1-based safeguard ordinal so applyDomSafeguardSelection can query it.
+              {...(resolvedSource === RULE_SOURCE_SAFEGUARDS && typeof rule.__safeguardRuleOrdinal === 'number' ? { 'data-safeguard-ordinal': String(rule.__safeguardRuleOrdinal) } : {})}
+              // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
+              // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
+              ref={(el) => {
+                if (!el) return
+                if (!wrapRows) return
+                rowVirtualizer.measureElement(el)
+              }}
+              onMouseEnter={() => {
+                if (!isHoveringArea) return
+                // HSF-embedded indices reference a foreign SFC, so hovering should not highlight active recipes.
+                if (resolvedSource === RULE_SOURCE_HSF) return
+                const next = recipeIdxNumber
+                scheduleLocalHover(next)
+              }}
+              // Do not clear on row leave; container onMouseLeave clears once.
+              onClick={() => {
+                // HSF-embedded indices reference a foreign SFC; clicking must not navigate to active recipes.
+                if (resolvedSource === RULE_SOURCE_HSF) return
+                if (recipeIdxNumber !== null) {
+                  // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
+                  suppressNextScrollRef.current = true
+                  onSelectRecipeIdx(recipeIdxNumber)
+                }
+              }}
+              onContextMenu={(e) => {
+                // Keep-override preview rows are informational only (no builder actions).
+                // Avoid opening a menu at all so we do not surface an empty context menu.
+                if (isKeepOverrideSource) return
+                try {
+                  e.preventDefault()
+                  e.stopPropagation()
+                } catch {}
+                markRulesRowHintSeen()
+                setRowHintPos(null)
+                closeHeaderMenu()
+                setRowMenu({
+                  open: true,
+                  x: e.clientX,
+                  y: e.clientY,
+                  recipeIdx: recipeIdxNumber,
+                  source: resolvedSource,
+                })
+              }}
+              onMouseMove={(e) => {
+                // Keep-override rows do not expose a context menu, so skip the hint affordance.
+                if (isKeepOverrideSource) return
+                if (!showRulesRowHint || rowMenu?.open) return
+                setHeaderHintPos(null)
+                setRowHintPos({ x: e.clientX, y: e.clientY })
+              }}
+              sx={(theme) => ({
+                // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
+                '&[data-selected-recipe="true"]': {
+                  backgroundColor: theme.palette.action.selected,
+                },
+                // Safeguard row highlight mirrors the recipe selection style.
+                '&[data-selected-safeguard="true"]': {
+                  backgroundColor: theme.palette.action.selected,
+                },
+                // Play enter animation for new rows, change-pulse for modified existing rows.
+                ...(isNewRow ? {
+                  animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
+                } : isChangedRow ? {
+                  '--rule-row-change-bg': alpha(theme.palette.warning.main, 0.18),
+                  animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
+                } : {}),
+              })}
+            >
+            {visibleCols.map((c) => {
+              let value: string = ''
+              let factionLabel: string | null = null
+              let recipeSpecialContent: React.ReactNode | null = null
+              if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
+              else if (c.key === 'RecipeIdx') {
+                if (recipeIdxNumber !== null) {
+                  value = String(recipeIdxNumber + 1)
+                } else if (isKeepOverrideSource) {
+                  // Keep-override injections display a hollow star and surface the originating rule name for attribution.
+                  recipeSpecialContent = (
+                    <MarkdownTooltip markdown={previewRuleName}>
+                      <ButtonBase
+                        // Star clicks branch into Gear Inspector or Safeguards editing based on row metadata.
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleSafeguardStarClick(rule)
+                        }}
+                        data-safeguard-star="true"
+                        sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 0 }}
+                        aria-label={previewRuleName}
+                      >
+                        <StarBorderIcon fontSize="inherit" />
+                      </ButtonBase>
+                    </MarkdownTooltip>
+                  )
+                } else {
+                  value = ''
+                }
+              }
+              else if (c.key === 'RuleName') value = previewRuleName
+              else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
+              else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
+              else if (c.key === 'ArtifactTypeNames') {
+                value = getArtifactTypeLabel(rule)
+              }
+              else if (c.key === 'ArtifactSetNames') {
+                value = getArtifactSetLabel(rule)
+              }
+              else if (c.key === 'RankRarity') {
+                value = getRankRarityLabel(rule)
+              }
+              else if (c.key === 'Faction') {
+                const label = getFactionLabel(rule)
+                factionLabel = label
+                value = showFactionIcons ? '' : label
+              }
+              else if (c.key === 'MainStatName') {
+                // When main stat is Any (MainStatID === -1 or undefined), render nothing.
+                // This matches the intended preview behavior post‑i18n.
+                const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
+                value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
+              }
+              else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
+              else if (c.key === 'Idx') value = String(lineIdx + 1)
+              else value = ''
+              const isSub = c.key === 'SubstatsSummary'
+              const isIdx = c.key === 'Idx'
+              // HSF-embedded recipe indices reference a foreign SFC — render them italic with a default cursor.
+              const isHsfRecipeIdx = c.key === 'RecipeIdx' && resolvedSource === RULE_SOURCE_HSF && recipeIdxNumber !== null
+              const keep = Boolean(rule.Keep)
+              // Dim disabled rules instead of applying a strikethrough.
+              const isRuleDisabled = rule.Use === false
+              // Convert the disabled flag into a per-row opacity for reuse.
+              const rowOpacity = isRuleDisabled ? disabledOpacity : 1
+              const showRecipeIdxNameTooltip = (
+                c.key === 'RecipeIdx'
+                && recipeIdxNumber !== null
+                && previewRuleName.length > 0
+              )
+              let content: React.ReactNode = isSub
+                ? (
+                  <RuleSubstatChips
+                    substats={rule.Substats}
+                    substatColors={substatColors}
+                    wrap={wrapRows}
+                    colorize={statButtonBorders}
+                    normalized={getSubstatDetails(rule)}
+                  />
+                )
+                : (value || '')
+              if (c.key === 'RecipeIdx' && recipeSpecialContent) {
+                content = recipeSpecialContent
+              }
+              // Replace textual slots with icons when enabled
+              if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
+                const types = getSortedArtifactTypes(rule)
+                const tooltipTitle = getArtifactTypeLabel(rule)
+                // Compute the slot icon list before embedding in JSX to avoid an IIFE inside JSX.
+                let slotIconsContent: React.ReactNode
+                if (wrapRows) {
+                  slotIconsContent = types.map((typeId) => {
+                    // Delegate to the module-level SlotIconCell component to avoid creating
+                    // a component during render (eslint-react/static-components).
+                    // SlotIconCell returns null when no icon exists; fall back to a text label.
+                    const hasIcon = artifactTypeIconFor(typeId) !== null
+                    return hasIcon
+                      ? <SlotIconCell key={`slot-${typeId}`} typeId={typeId} />
+                      : <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
+                  })
+                } else {
+                  // Single-line mode: render only icons that fit, reserve space for an ellipsis if truncated
+                  const PAD_X = 12
+                  const GAP_PX = 4
+                  const SLOT_ICON_PX = 16
+                  const unit = SLOT_ICON_PX + GAP_PX
+                  const avail = Math.max(0, (c.width || 0) - PAD_X)
+                  const capacity = Math.max(0, Math.floor(avail / unit))
+                  const needsEllipsis = types.length > capacity
+                  const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(types.length, capacity)
+                  const vis = types.slice(0, visibleCount)
+                  const overflow = Math.max(0, types.length - visibleCount)
+                  slotIconsContent = (
+                    <>
+                      {vis.map((typeId) => {
+                        // Same delegation pattern as the wrapRows branch above.
+                        const hasIcon = artifactTypeIconFor(typeId) !== null
+                        return hasIcon
+                          ? <SlotIconCell key={`slot-${typeId}`} typeId={typeId} />
+                          : <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
+                      })}
+                      {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
+                    </>
+                  )
+                }
+                content = (
+                  <MarkdownTooltip markdown={tooltipTitle}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
+                      {slotIconsContent}
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              }
+              if (c.key === 'Faction' && showFactionIcons) {
+                const fc = Number(rule.Faction)
+                if (fc && fc !== 0 && factionLabel) {
+                  content = (
+                    <MarkdownTooltip markdown={factionLabel}>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 0,
+                          width: '100%',
+                          minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
+                          height: `${FACTION_ICON_PREVIEW_PX}px`,
+                          position: 'relative',
+                          transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
+                        }}
+                      >
+                        <FactionIcon
+                          faction={fc as FactionId}
+                          size={FACTION_ICON_PREVIEW_PX}
+                          sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
+                        />
+                      </Box>
+                    </MarkdownTooltip>
+                  )
+                }
+              }
+              // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
+              if (c.key === 'ArtifactSetNames') {
+                const allKnown = Boolean(rule.__allKnownSets)
+                if (allKnown) {
+                  const label = t('setAllKnownShorthand')
+                  content = (
+                    <EllipsisTooltip title={label} wrap="block">
+                      <span
+                        data-ellipsis-target
+                        style={{
+                          display: 'inline-block',
+                          width: '100%',
+                          overflow: 'hidden',
+                          textOverflow: wrapRows ? 'clip' : 'ellipsis',
+                          whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                          transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                        }}
+                      >
+                        {content}
+                      </span>
+                    </EllipsisTooltip>
+                  )
+                } else if (showSetIcons) {
+                  const setIds = getSortedArtifactSets(rule)
+                  const setEntries = setIds.map((id) => ({ id, label: artifactSetName(id) }))
+                  const tooltipTitle = getArtifactSetLabel(rule)
+                  // Compute the set icon list before embedding in JSX to avoid an IIFE inside JSX.
+                  let setIconsContent: React.ReactNode
+                  if (wrapRows) {
+                    setIconsContent = setEntries.map(({ id, label }) => (
+                      <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
+                    ))
+                  } else {
+                    const PAD_X = 12
+                    const GAP_PX = 2
+                    const unit = SET_ICON_PX + GAP_PX
+                    const avail = Math.max(0, (c.width || 0) - PAD_X)
+                    const capacity = Math.max(0, Math.floor(avail / unit))
+                    const needsEllipsis = setEntries.length > capacity
+                    const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(setEntries.length, capacity)
+                    const vis = setEntries.slice(0, visibleCount)
+                    const overflow = Math.max(0, setEntries.length - visibleCount)
+                    setIconsContent = (
+                      <>
+                        {vis.map(({ id, label }) => (
+                          <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
+                        ))}
+                        {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
+                      </>
+                    )
+                  }
+                  content = (
+                    <MarkdownTooltip markdown={tooltipTitle}>
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
+                        {setIconsContent}
+                      </Box>
+                    </MarkdownTooltip>
+                  )
+                }
+              }
+              let cellInner: React.ReactNode = content
+              if (isSub) {
+                const substatTooltip = getSubstatTooltipSummary(rule)
+                const substatSpan = (
+                  <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
+                    {content}
+                  </span>
+                )
+                cellInner = substatTooltip
+                  ? (
+                    <MarkdownTooltip markdown={substatTooltip}>
+                      {substatSpan}
+                    </MarkdownTooltip>
+                  )
+                  : substatSpan
+              } else if (showRecipeIdxNameTooltip) {
+                cellInner = (
+                  <MarkdownTooltip
+                    // Apply the [rrggbb] directive color inside the tooltip when present.
+                    {...(previewRuleColor
+                      ? { render: <Typography variant="body2" component="span" sx={{ color: previewRuleColor }}>{previewRuleName}</Typography> }
+                      : { markdown: previewRuleName }
+                    )}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                      }}
+                    >{content}</span>
+                  </MarkdownTooltip>
+                )
+              } else if (
+                String(value).length
+                && c.key !== 'ArtifactTypeNames'
+                && c.key !== 'ArtifactSetNames'
+                && c.key !== 'RecipeIdx'
+              ) {
+                cellInner = (
+                  <EllipsisTooltip title={value} wrap="block">
+                    <span
+                      data-ellipsis-target
+                      style={{
+                        display: 'inline-block',
+                        width: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                      }}
+                    >{content}</span>
+                  </EllipsisTooltip>
+                )
+              }
+              const alignY = wrapRows ? 'flex-start' : 'center'
+              // Allow faction icon halos to bleed outside the cell without
+              // forcing the row height to grow in single-line mode.
+              const factionIconOverflow = (!wrapRows && c.key === 'Faction' && showFactionIcons)
+              return (
+                <TableCell
+                  key={String(c.key)}
+                  sx={{
+                    fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
+                    fontSize: FONT_SIZE_BASE_PX,
+                    width: c.width,
+                    // Apply per-row opacity so disabled rules dim without striking text.
+                    opacity: rowOpacity,
+                    color: isIdx
+                      ? (keep ? 'success.main' : 'error.main')
+                      // Apply the [rrggbb] directive color to the recipe name column only (not the index).
+                      : (previewRuleColor && c.key === 'RuleName')
+                        ? previewRuleColor
+                        : undefined,
+                    // HSF-embedded recipe indices use italic + default cursor to signal they are non-interactive foreign references.
+                    fontStyle: isHsfRecipeIdx ? 'italic' : undefined,
+                    cursor: isHsfRecipeIdx ? 'default' : undefined,
+                    overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                    textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                    whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                    wordBreak: wrapRows ? 'break-word' : 'normal',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: alignY,
+                      height: wrapRows ? 'auto' : '100%',
+                      width: '100%',
+                      overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                      textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                      whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                    }}
+                  >
+                    {cellInner}
+                  </Box>
+                </TableCell>
+              )
+            })}
+            </TableRow>
+          )
+        })}
+        {padBottom > 0 && (
+          <TableRow key="spacer-bottom" sx={{ height: padBottom }}>
+            <TableCell colSpan={colSpan} sx={spacerSx} />
+          </TableRow>
+        )}
+      </>
+    )
+  })()
+
+  // Compute the scroll-range overlay box after tableBodyContent populates scrollRangeOverlay.
+  // Why: the overlay box is rendered outside the table (in the outer <Box>) and must read the
+  // finalized scrollRangeOverlay value set during table body computation above.
+  const scrollRangeOverlayBox = scrollRangeOverlay ? (() => {
+    const { start, end, total } = scrollRangeOverlay
+    const startLabel = start.toLocaleString()
+    const endLabel = end.toLocaleString()
+    const totalLabel = total.toLocaleString()
+    const label = start === end
+      ? t('previewScrollRangeHintSingle', { start: startLabel, total: totalLabel })
+      : t('previewScrollRangeHintRange', { start: startLabel, end: endLabel, total: totalLabel })
+    return (
+      <Box
+        aria-hidden={!showScrollRangeHint}
+        aria-live="polite"
+        sx={(theme) => ({
+          position: 'absolute',
+          top: theme.spacing(1.5),
+          right: theme.spacing(1.5),
+          zIndex: theme.zIndex.tooltip,
+          pointerEvents: 'none',
+          px: 1.25,
+          py: 0.5,
+          borderRadius: theme.shape.borderRadius,
+          backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
+          boxShadow: theme.shadows[3],
+          color: theme.palette.text.primary,
+          transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
+          opacity: showScrollRangeHint ? 1 : 0,
+          transform: showScrollRangeHint ? 'translateY(0)' : 'translateY(-6px)',
+        })}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
+          {label}
+        </Typography>
+      </Box>
+    )
+  })() : null
 
   return (
     <Box
@@ -1314,496 +1860,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
             </TableRow>
             </TableHead>
           <TableBody>
-	            {(() => {
-	              scrollRangeOverlay = null
-	              const visibleCols = visibleColsForContainer
-	              const colSpan = Math.max(1, visibleCols.length)
-	              // Empty overlay handles the messaging; no rows render when empty.
-	              if (rules.length === 0) return null
-		              const spacerSx = { p: 0, border: 0, height: 0 }
-		              // Render only the virtual window plus spacer rows above/below.
-		              // Why: `<tbody>` must still add up to the full scroll height even though we only mount a subset of rows.
-		              const virtualItems = rowVirtualizer.getVirtualItems()
-		              // TanStack may return an empty list briefly during mount.
-		              // Why: the scroll element ref can be null for a render while React is committing.
-		              if (virtualItems.length === 0) return null
-		              // Total virtual height of all rows (measured + estimated).
-		              // Why: needed to compute the bottom spacer size.
-		              const totalHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
-		              // The `<thead>` is in-flow and not part of the virtualized height math.
-		              // Why: TanStack offsets already model only the `<tbody>` row stack.
-		              // Spacer above the first mounted virtual item.
-		              // Why: keeps the first rendered row aligned to its real scroll offset.
-		              const padTop = Math.max(0, Math.round(virtualItems[0]!.start))
-		              // Spacer below the last mounted virtual item.
-		              // Why: keeps the scrollbar thumb size/position consistent.
-		              const padBottom = Math.max(0, Math.round(totalHeight - virtualItems[virtualItems.length - 1]!.end))
-              // Compute the range hint based on "actually visible" rows, not overscan.
-              // Why: the overlay should reflect what the user can read, not what we pre-rendered.
-              const visibleRange = getActuallyVisibleIndexRange()
-              const firstVisibleIndex = visibleRange?.first ?? virtualItems[0]!.index
-              const lastVisibleIndex = visibleRange?.last ?? virtualItems[virtualItems.length - 1]!.index
-              return (
-                <>
-                  {padTop > 0 && (
-                    <TableRow key="spacer-top" sx={{ height: padTop }}>
-                      <TableCell colSpan={colSpan} sx={spacerSx} />
-                    </TableRow>
-                  )}
-	                  {virtualItems.map((virtualItem) => {
-	                    const idx = virtualItem.index
-	                    const rule = rules[idx] as HsfRuleWithRecipe | undefined
-	                    if (!rule) return null
-                    const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
-                    const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
-                    // Normalize rule source so keep-override injections can be recognized reliably.
-                    const resolvedSource: RuleSource = (() => {
-                      if (
-                        rule.__source === RULE_SOURCE_HSF
-                        || rule.__source === RULE_SOURCE_SFC
-                        || rule.__source === RULE_SOURCE_FINAL_SELL
-                        || rule.__source === RULE_SOURCE_SAFEGUARDS
-                      ) {
-                        return rule.__source
-                      }
-                      if (recipeIdxNumber !== null) return RULE_SOURCE_SFC
-                      return RULE_SOURCE_HSF
-                    })()
-                    // Keep overrides include safeguards injection rows.
-                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_SAFEGUARDS
-                    const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
-                    // Color comes from the recipe's appearance.fgColor; empty string when absent.
-                    const previewRuleColor = resolvePreviewRuleFgColor(rule, isKeepOverrideSource)
-                    // Determine whether this row should play the enter or change-pulse animation.
-                    const ruleKey = computeRuleAnimKey(rule, idx)
-                    const isNewRow = enteringRuleKeys.has(ruleKey)
-                    // Content-change pulse only fires for rows that already existed (not new arrivals).
-                    const isChangedRow = !isNewRow && changedRuleKeys.has(ruleKey)
-                    return (
-		                      <TableRow
-		                        key={virtualItem.key}
-		                        hover
-		                        // TanStack's `measureElement` requires `data-index` so it can map DOM nodes back to items.
-		                        // Why: without it, measurements are ignored and scroll offsets drift.
-		                        data-index={idx}
-			                        data-row-index={idx}
-		                        data-rule-source={resolvedSource}
-		                        {...(recipeIdxNumber !== null && resolvedSource !== RULE_SOURCE_HSF ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}
-		                        // Stamp the 1-based safeguard ordinal so applyDomSafeguardSelection can query it.
-		                        {...(resolvedSource === RULE_SOURCE_SAFEGUARDS && typeof rule.__safeguardRuleOrdinal === 'number' ? { 'data-safeguard-ordinal': String(rule.__safeguardRuleOrdinal) } : {})}
-		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
-		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
-		                        ref={(el) => {
-		                          if (!el) return
-		                          if (!wrapRows) return
-		                          rowVirtualizer.measureElement(el)
-		                        }}
-                        onMouseEnter={() => {
-                          if (!isHoveringArea) return
-                          // HSF-embedded indices reference a foreign SFC, so hovering should not highlight active recipes.
-                          if (resolvedSource === RULE_SOURCE_HSF) return
-                          const next = recipeIdxNumber
-                          scheduleLocalHover(next)
-                        }}
-                        // Do not clear on row leave; container onMouseLeave clears once.
-                        onClick={() => {
-                          // HSF-embedded indices reference a foreign SFC; clicking must not navigate to active recipes.
-                          if (resolvedSource === RULE_SOURCE_HSF) return
-                          if (recipeIdxNumber !== null) {
-                            // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
-                            suppressNextScrollRef.current = true
-                            onSelectRecipeIdx(recipeIdxNumber)
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          // Keep-override preview rows are informational only (no builder actions).
-                          // Avoid opening a menu at all so we do not surface an empty context menu.
-                          if (isKeepOverrideSource) return
-                          try {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          } catch {}
-                          markRulesRowHintSeen()
-                          setRowHintPos(null)
-                          closeHeaderMenu()
-                          setRowMenu({
-                            open: true,
-                            x: e.clientX,
-                            y: e.clientY,
-                            recipeIdx: recipeIdxNumber,
-                            source: resolvedSource,
-                          })
-                        }}
-                        onMouseMove={(e) => {
-                          // Keep-override rows do not expose a context menu, so skip the hint affordance.
-                          if (isKeepOverrideSource) return
-                          if (!showRulesRowHint || rowMenu?.open) return
-                          setHeaderHintPos(null)
-                          setRowHintPos({ x: e.clientX, y: e.clientY })
-                        }}
-		                        sx={(theme) => ({
-		                          // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
-		                          '&[data-selected-recipe="true"]': {
-		                            backgroundColor: theme.palette.action.selected,
-		                          },
-		                          // Safeguard row highlight mirrors the recipe selection style.
-		                          '&[data-selected-safeguard="true"]': {
-		                            backgroundColor: theme.palette.action.selected,
-		                          },
-		                          // Play enter animation for new rows, change-pulse for modified existing rows.
-		                          ...(isNewRow ? {
-		                            animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
-		                          } : isChangedRow ? {
-		                            '--rule-row-change-bg': alpha(theme.palette.warning.main, 0.18),
-		                            animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
-		                          } : {}),
-		                        })}
-                      >
-                      {visibleCols.map((c) => {
-                        let value: string = ''
-                        let factionLabel: string | null = null
-                        let recipeSpecialContent: React.ReactNode | null = null
-                        if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
-                        else if (c.key === 'RecipeIdx') {
-                          if (recipeIdxNumber !== null) {
-                            value = String(recipeIdxNumber + 1)
-                          } else if (isKeepOverrideSource) {
-                            // Keep-override injections display a hollow star and surface the originating rule name for attribution.
-                            recipeSpecialContent = (
-                              <MarkdownTooltip markdown={previewRuleName}>
-                                <ButtonBase
-                                  // Star clicks branch into Gear Inspector or Safeguards editing based on row metadata.
-                                  onClick={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    handleSafeguardStarClick(rule)
-                                  }}
-                                  data-safeguard-star="true"
-                                  sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 0 }}
-                                  aria-label={previewRuleName}
-                                >
-                                  <StarBorderIcon fontSize="inherit" />
-                                </ButtonBase>
-                              </MarkdownTooltip>
-                            )
-                          } else {
-                            value = ''
-                          }
-                        }
-                        else if (c.key === 'RuleName') value = previewRuleName
-                        else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
-                        else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
-                    else if (c.key === 'ArtifactTypeNames') {
-                      value = getArtifactTypeLabel(rule)
-                    }
-                    else if (c.key === 'ArtifactSetNames') {
-                      value = getArtifactSetLabel(rule)
-                    }
-                    else if (c.key === 'RankRarity') {
-                      value = getRankRarityLabel(rule)
-                    }
-                    else if (c.key === 'Faction') {
-                      const label = getFactionLabel(rule)
-                      factionLabel = label
-                      value = showFactionIcons ? '' : label
-                    }
-                    else if (c.key === 'MainStatName') {
-                      // When main stat is Any (MainStatID === -1 or undefined), render nothing.
-                      // This matches the intended preview behavior post‑i18n.
-                      const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
-                      value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
-                    }
-                    else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
-                        else if (c.key === 'Idx') value = String(lineIdx + 1)
-                    else value = ''
-                        const isSub = c.key === 'SubstatsSummary'
-                        const isIdx = c.key === 'Idx'
-                        // HSF-embedded recipe indices reference a foreign SFC — render them italic with a default cursor.
-                        const isHsfRecipeIdx = c.key === 'RecipeIdx' && resolvedSource === RULE_SOURCE_HSF && recipeIdxNumber !== null
-                        const keep = Boolean(rule.Keep)
-                        // Dim disabled rules instead of applying a strikethrough.
-                        const isRuleDisabled = rule.Use === false
-                        // Convert the disabled flag into a per-row opacity for reuse.
-                        const rowOpacity = isRuleDisabled ? disabledOpacity : 1
-                        const showRecipeIdxNameTooltip = (
-                          c.key === 'RecipeIdx'
-                          && recipeIdxNumber !== null
-                          && previewRuleName.length > 0
-                        )
-                        let content: React.ReactNode = isSub
-                          ? (
-                            <RuleSubstatChips
-                              substats={rule.Substats}
-                              substatColors={substatColors}
-                              wrap={wrapRows}
-                              colorize={statButtonBorders}
-                              normalized={getSubstatDetails(rule)}
-                            />
-                          )
-                          : (value || '')
-                        if (c.key === 'RecipeIdx' && recipeSpecialContent) {
-                          content = recipeSpecialContent
-                        }
-                        // Replace textual slots with icons when enabled
-                        if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
-                          const types = getSortedArtifactTypes(rule)
-                          const tooltipTitle = getArtifactTypeLabel(rule)
-                          content = (
-                            <MarkdownTooltip markdown={tooltipTitle}>
-                              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
-                                {(() => {
-                                  if (wrapRows) {
-                                    return types.map((typeId) => {
-                                      const Icon = artifactTypeIconFor(typeId)
-                                      return Icon ? (
-                                        <Box key={`slot-${typeId}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-                                          <Icon fontSize="inherit" />
-                                        </Box>
-                                      ) : (
-                                        <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
-                                      )
-                                    })
-                                  }
-                                  // Single-line mode: render only icons that fit, reserve space for an ellipsis if truncated
-                                  const PAD_X = 12
-                                  const GAP_PX = 4
-                                  const SLOT_ICON_PX = 16
-                                  const unit = SLOT_ICON_PX + GAP_PX
-                                  const avail = Math.max(0, (c.width || 0) - PAD_X)
-                                  const capacity = Math.max(0, Math.floor(avail / unit))
-                                  const needsEllipsis = types.length > capacity
-                                  const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(types.length, capacity)
-                                  const vis = types.slice(0, visibleCount)
-                                  const overflow = Math.max(0, types.length - visibleCount)
-                                  return (
-                                    <>
-                                      {vis.map((typeId) => {
-                                        const Icon = artifactTypeIconFor(typeId)
-                                        return Icon ? (
-                                          <Box key={`slot-${typeId}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-                                            <Icon fontSize="inherit" />
-                                          </Box>
-                                        ) : (
-                                          <Box key={`slot-${typeId}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
-                                        )
-                                      })}
-                                      {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
-                                    </>
-                                  )
-                                })()}
-                              </Box>
-                            </MarkdownTooltip>
-                          )
-                        }
-                        if (c.key === 'Faction' && showFactionIcons) {
-                          const fc = Number(rule.Faction)
-                          if (fc && fc !== 0 && factionLabel) {
-                            content = (
-                              <MarkdownTooltip markdown={factionLabel}>
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    lineHeight: 0,
-                                    width: '100%',
-                                    minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
-                                    height: `${FACTION_ICON_PREVIEW_PX}px`,
-                                    position: 'relative',
-                                    transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
-                                  }}
-                                >
-                                  <FactionIcon
-                                    faction={fc as FactionId}
-                                    size={FACTION_ICON_PREVIEW_PX}
-                                    sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
-                                  />
-                                </Box>
-                              </MarkdownTooltip>
-                            )
-                          }
-                        }
-                        // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
-                        if (c.key === 'ArtifactSetNames') {
-                          const allKnown = Boolean(rule.__allKnownSets)
-                          if (allKnown) {
-                            const label = t('setAllKnownShorthand')
-                            content = (
-                              <EllipsisTooltip title={label} wrap="block">
-                                <span
-                                  data-ellipsis-target
-                                  style={{
-                                    display: 'inline-block',
-                                    width: '100%',
-                                    overflow: 'hidden',
-                                    textOverflow: wrapRows ? 'clip' : 'ellipsis',
-                                    whiteSpace: wrapRows ? 'normal' : 'nowrap',
-                                    transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
-                                  }}
-                                >
-                                  {content}
-                                </span>
-                              </EllipsisTooltip>
-                            )
-                          } else if (showSetIcons) {
-                            const setIds = getSortedArtifactSets(rule)
-                            const setEntries = setIds.map((id) => ({ id, label: artifactSetName(id) }))
-                            const tooltipTitle = getArtifactSetLabel(rule)
-                            content = (
-                              <MarkdownTooltip markdown={tooltipTitle}>
-                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
-                                  {(() => {
-                                    if (wrapRows) return setEntries.map(({ id, label }) => (
-                                      <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
-                                    ))
-                                    const PAD_X = 12
-                                    const GAP_PX = 2
-                                    const unit = SET_ICON_PX + GAP_PX
-                                    const avail = Math.max(0, (c.width || 0) - PAD_X)
-                                    const capacity = Math.max(0, Math.floor(avail / unit))
-                                    const needsEllipsis = setEntries.length > capacity
-                                    const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(setEntries.length, capacity)
-                                    const vis = setEntries.slice(0, visibleCount)
-                                    const overflow = Math.max(0, setEntries.length - visibleCount)
-                                    return (
-                                      <>
-                                        {vis.map(({ id, label }) => (
-                                          <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
-                                        ))}
-                                        {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
-                                      </>
-                                    )
-                                  })()}
-                                </Box>
-                              </MarkdownTooltip>
-                            )
-                          }
-                        }
-                        let cellInner: React.ReactNode = content
-                        if (isSub) {
-                          const substatTooltip = getSubstatTooltipSummary(rule)
-                          const substatSpan = (
-                            <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
-                              {content}
-                            </span>
-                          )
-                          cellInner = substatTooltip
-                            ? (
-                              <MarkdownTooltip markdown={substatTooltip}>
-                                {substatSpan}
-                              </MarkdownTooltip>
-                            )
-                            : substatSpan
-                        } else if (showRecipeIdxNameTooltip) {
-                          cellInner = (
-                            <MarkdownTooltip
-                              // Apply the [rrggbb] directive color inside the tooltip when present.
-                              {...(previewRuleColor
-                                ? { render: <Typography variant="body2" component="span" sx={{ color: previewRuleColor }}>{previewRuleName}</Typography> }
-                                : { markdown: previewRuleName }
-                              )}
-                            >
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  width: '100%',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
-                                }}
-                              >{content}</span>
-                            </MarkdownTooltip>
-                          )
-                        } else if (
-                          String(value).length
-                          && c.key !== 'ArtifactTypeNames'
-                          && c.key !== 'ArtifactSetNames'
-                          && c.key !== 'RecipeIdx'
-                        ) {
-                          cellInner = (
-                            <EllipsisTooltip title={value} wrap="block">
-                              <span
-                                data-ellipsis-target
-                                style={{
-                                  display: 'inline-block',
-                                  width: '100%',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
-                                }}
-                              >{content}</span>
-                            </EllipsisTooltip>
-                          )
-                        }
-                        const alignY = wrapRows ? 'flex-start' : 'center'
-                        // Allow faction icon halos to bleed outside the cell without
-                        // forcing the row height to grow in single-line mode.
-                        const factionIconOverflow = (!wrapRows && c.key === 'Faction' && showFactionIcons)
-                        return (
-                          <TableCell
-                            key={String(c.key)}
-                            sx={{
-                              fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
-                              fontSize: FONT_SIZE_BASE_PX,
-                              width: c.width,
-                              // Apply per-row opacity so disabled rules dim without striking text.
-                              opacity: rowOpacity,
-                              color: isIdx
-                                ? (keep ? 'success.main' : 'error.main')
-                                // Apply the [rrggbb] directive color to the recipe name column only (not the index).
-                                : (previewRuleColor && c.key === 'RuleName')
-                                  ? previewRuleColor
-                                  : undefined,
-                              // HSF-embedded recipe indices use italic + default cursor to signal they are non-interactive foreign references.
-                              fontStyle: isHsfRecipeIdx ? 'italic' : undefined,
-                              cursor: isHsfRecipeIdx ? 'default' : undefined,
-                              overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
-                              textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
-                              whiteSpace: wrapRows ? 'normal' : 'nowrap',
-                              wordBreak: wrapRows ? 'break-word' : 'normal',
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: alignY,
-                                height: wrapRows ? 'auto' : '100%',
-                                width: '100%',
-                                overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
-                                textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
-                                whiteSpace: wrapRows ? 'normal' : 'nowrap',
-                              }}
-                            >
-                              {cellInner}
-                            </Box>
-                          </TableCell>
-                        )
-                      })}
-                      </TableRow>
-                    )
-                  })}
-                  {(() => {
-                    if (rules.length === 0) return null
-                    // Report the visible window in the current `rules[]` view order.
-                    // Why: `__lineIdx` is stable for virtualization keys, but the overlay should match what the user sees.
-                    const startIndex = Math.min(firstVisibleIndex, lastVisibleIndex)
-                    const endIndex = Math.max(firstVisibleIndex, lastVisibleIndex)
-                    const rangeStart = startIndex + 1
-                    const rangeEnd = endIndex + 1
-                    scrollRangeOverlay = { start: rangeStart, end: rangeEnd, total: rules.length }
-                    return null
-                  })()}
-                  {padBottom > 0 && (
-                    <TableRow key="spacer-bottom" sx={{ height: padBottom }}>
-                      <TableCell colSpan={colSpan} sx={spacerSx} />
-                    </TableRow>
-                  )}
-                </>
-              )
-            })()}
+            {tableBodyContent}
           </TableBody>
         </Table>
         {showEmptyOverlay && emptyLabel ? (
@@ -1839,41 +1896,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           </Box>
         ) : null}
       </TableContainer>
-      {scrollRangeOverlay ? (() => {
-        const { start, end, total } = scrollRangeOverlay
-        const startLabel = start.toLocaleString()
-        const endLabel = end.toLocaleString()
-        const totalLabel = total.toLocaleString()
-        const label = start === end
-          ? t('previewScrollRangeHintSingle', { start: startLabel, total: totalLabel })
-          : t('previewScrollRangeHintRange', { start: startLabel, end: endLabel, total: totalLabel })
-        return (
-          <Box
-            aria-hidden={!showScrollRangeHint}
-            aria-live="polite"
-            sx={(theme) => ({
-              position: 'absolute',
-              top: theme.spacing(1.5),
-              right: theme.spacing(1.5),
-              zIndex: theme.zIndex.tooltip,
-              pointerEvents: 'none',
-              px: 1.25,
-              py: 0.5,
-              borderRadius: theme.shape.borderRadius,
-              backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
-              boxShadow: theme.shadows[3],
-              color: theme.palette.text.primary,
-              transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
-              opacity: showScrollRangeHint ? 1 : 0,
-              transform: showScrollRangeHint ? 'translateY(0)' : 'translateY(-6px)',
-            })}
-          >
-            <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
-              {label}
-            </Typography>
-          </Box>
-        )
-      })() : null}
+      {scrollRangeOverlayBox}
       <ContextMenuHintOverlay text={t('contextMenuHintRulesTableHeader')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesRowHint && !rowMenu?.open) ? rowHintPos : null} />
       

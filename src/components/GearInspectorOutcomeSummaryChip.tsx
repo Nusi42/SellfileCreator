@@ -210,7 +210,7 @@ export default function GearInspectorOutcomeSummaryChip({
         {/* Row layout keeps metric icons aligned and evenly spaced. */}
         <Stack
           direction="row"
-          alignItems="center"
+          sx={{ alignItems: 'center' }}
           spacing={0.75}
           divider={<Divider orientation="vertical" flexItem sx={GEAR_INSPECTOR_SUMMARY_DIVIDER_SX} />}
         >

@@ -147,27 +147,45 @@ export function SubstatTargetsTabContent({
           const raw = Number(event.target.value)
           commitValue(clampValue(raw))
         }}
-        inputProps={{
-          inputMode: 'numeric',
-          pattern: '[0-9]*',
-          min: 0,
-          [SUBSTAT_TARGET_INPUT_ATTR]: 'true',
-          [SUBSTAT_TARGET_INPUT_STAR_ATTR]: starKey,
-          [SUBSTAT_TARGET_INPUT_VARIANT_ATTR]: String(variantKey),
-          'aria-label': ariaLabel,
-          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
-            if (event.key !== 'Tab') return
-            if (event.altKey || event.ctrlKey || event.metaKey) return
-            const moved = focusCycleWithin({
-              container: substatTargetGridRef.current,
-              selector: SUBSTAT_TARGET_INPUT_SELECTOR,
-              current: event.currentTarget,
-              delta: event.shiftKey ? -1 : 1,
-              wrap: true,
-              order: orderSubstatTargetInputs,
-            })
-            if (!moved) return
-            event.preventDefault()
+        slotProps={{
+          htmlInput: {
+            inputMode: 'numeric',
+            pattern: '[0-9]*',
+            min: 0,
+            [SUBSTAT_TARGET_INPUT_ATTR]: 'true',
+            [SUBSTAT_TARGET_INPUT_STAR_ATTR]: starKey,
+            [SUBSTAT_TARGET_INPUT_VARIANT_ATTR]: String(variantKey),
+            'aria-label': ariaLabel,
+            onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+              if (event.key !== 'Tab') return
+              if (event.altKey || event.ctrlKey || event.metaKey) return
+              const moved = focusCycleWithin({
+                container: substatTargetGridRef.current,
+                selector: SUBSTAT_TARGET_INPUT_SELECTOR,
+                current: event.currentTarget,
+                delta: event.shiftKey ? -1 : 1,
+                wrap: true,
+                order: orderSubstatTargetInputs,
+              })
+              if (!moved) return
+              event.preventDefault()
+            },
+          },
+          input: {
+            endAdornment: (
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                {valueOverrideActive
+                  ? renderOverrideBadge(recipeOverridesOverrideHint, recipeOverridesOverrideHint)
+                  : null}
+                <NumberSpinnerAdornment
+                  ariaLabel={ariaLabel}
+                  onStep={(delta) => {
+                    commitValue(clampValue(currentValue + delta))
+                  }}
+                />
+              </Box>
+            ),
+            sx: { '& > *': { alignItems: 'center' } },
           },
         }}
         sx={(themeInner) => ({
@@ -184,22 +202,6 @@ export function SubstatTargetsTabContent({
             MozAppearance: 'textfield',
           },
         })}
-        InputProps={{
-          endAdornment: (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-              {valueOverrideActive
-                ? renderOverrideBadge(recipeOverridesOverrideHint, recipeOverridesOverrideHint)
-                : null}
-              <NumberSpinnerAdornment
-                ariaLabel={ariaLabel}
-                onStep={(delta) => {
-                  commitValue(clampValue(currentValue + delta))
-                }}
-              />
-            </Box>
-          ),
-          sx: { '& > *': { alignItems: 'center' } },
-        }}
       />
     )
   }

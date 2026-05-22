@@ -48,7 +48,7 @@ function KpiCard({ label, rate, tooltip, wide }: KpiCardProps) {
   return (
     <Tooltip title={tooltip} arrow placement="top">
       <Paper variant="outlined" sx={{ px: 1.5, py: 1, minWidth: 0, flex: wide ? '2 1 0' : '1 1 0', cursor: 'default', overflow: 'hidden' }}>
-        <Typography variant="caption" color="text.secondary" display="block" noWrap>{label}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</Typography>
         <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 700 }}>
           {fmtPct(rate)}
         </Typography>
@@ -63,7 +63,7 @@ function KpiDoubleCard({ label, tooltip, primaryValue, secondaryValue }: KpiDoub
     <Tooltip title={tooltip} arrow placement="top">
       {/* flex: '2 1 0' makes this card twice as wide as a regular card in the same nowrap row. */}
       <Paper variant="outlined" sx={{ px: 1.5, py: 1, minWidth: 0, flex: '2 1 0', cursor: 'default', overflow: 'hidden' }}>
-        <Typography variant="caption" color="text.secondary" display="block" noWrap>{label}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
           <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 700 }}>{primaryValue}</Typography>
           {/* Dimmed "+" separates the two values without implying they sum to anything. */}

@@ -220,7 +220,7 @@ export default function RslHelperConnectButton({
           label={t('rslHelperPortLabel')}
           helperText={t('rslHelperPortHelper')}
           type="number"
-          inputProps={{ min: 1, max: 65535, step: 1 }}
+          slotProps={{ htmlInput: { min: 1, max: 65535, step: 1 } }}
           value={draft}
           onChange={handlePortChange}
           onKeyDown={(e) => { if (e.key === 'Enter' && parsedDraft !== null) closePopover() }}

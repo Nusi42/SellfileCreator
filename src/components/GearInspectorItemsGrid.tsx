@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { createElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Box,
@@ -1874,10 +1874,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         </Box>
       ) : null
       // Slot groups should always show their icon so headers stay scannable.
-      const SlotIcon = group.kind === 'artifactSlot' && group.slot != null
+      // createElement avoids the "component created during render" lint rule — mirrors SafeguardCandidateRankList pattern.
+      const slotIconType = group.kind === 'artifactSlot' && group.slot != null
         ? artifactTypeIconFor(group.slot)
         : null
-      const slotIconNode = SlotIcon ? (
+      const slotIconNode = slotIconType ? (
         <Box
           sx={{
             lineHeight: 0,
@@ -1889,7 +1890,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             fontSize: headerIconSizePx,
           }}
         >
-          <SlotIcon fontSize="inherit" />
+          {createElement(slotIconType, { fontSize: 'inherit' })}
         </Box>
       ) : null
       // No-set accessories need a visible glyph when no set icon exists.

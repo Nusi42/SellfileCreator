@@ -7,7 +7,7 @@ import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
 import EllipsisTooltip from '../EllipsisTooltip'
 
-const FACTION_MENU_PROPS = { PaperProps: { sx: { maxHeight: 360 } } } as const
+const FACTION_MENU_PROPS = { slotProps: { paper: { sx: { maxHeight: 360 } } } } as const
 const ANY_SENTINEL = '__faction_any'
 
 const FACTION_GROUPS: Array<{ labelKey: string; ids: FactionId[] }> = [

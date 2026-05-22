@@ -77,8 +77,8 @@ import SettingsIcon from '@mui/icons-material/Settings'
 
 import SaveIcon from '@mui/icons-material/Save'
 import StorageIcon from '@mui/icons-material/Storage'
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
 import { HsfRulesTableMemo, type SafeguardStarSelection } from './components/HsfRulesTable'
@@ -849,7 +849,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // from the ratio stay correct as the window is resized. Seeded to 0 — the useLayoutEffect
   // below initialises CSS vars on the first paint before the observer fires.
   const [containerWidthPx, setContainerWidthPx] = useState<number>(0)
-  /* eslint-disable react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- ResizeObserver pattern: DOM measurement is not available until after mount */
+  /* eslint-disable react-you-might-not-need-an-effect/no-initialize-state -- ResizeObserver pattern: DOM measurement is not available until after mount */
   useEffect(() => {
     const el = splitterContainerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -864,7 +864,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setContainerWidthPx(Math.round(el.offsetWidth))
     return () => ro.disconnect()
   }, [])
-  /* eslint-enable react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect */
+  /* eslint-enable react-you-might-not-need-an-effect/no-initialize-state */
   // Usable width shared by both panels (container width minus the splitter handle gap).
   const containerUsablePx = Math.max(0, containerWidthPx - GRID_COLUMN_GAP_PX)
   // Derive absolute px from ratio + measured container width; clamp to enforce min panel size.
@@ -4063,7 +4063,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Silent gear-only restore used when starting in express mode.
   // Applies the saved Gear Inspector items without touching recipes, notes, or any other SFC data.
   // The SFC autosave (restoreDialogPending) is simply dismissed — the preset SFC takes priority.
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
   const handleSilentGearRestore = useCallback(() => {
     if (gearInspectorRestoreDraft) {
       beginGearInspectorMatchReset('restore')
@@ -4107,7 +4107,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (restoreDialogPending) dismissRestore()
     if (gearInspectorRestoreDraft) handleSilentGearRestore()
   }, [isSimpleViewAtStart, restoreDialogPending, dismissRestore, gearInspectorRestoreDraft, handleSilentGearRestore])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
 
   const { applyGearDbDiff } = useGearInspectorItemsActions({
     allocGearInspectorItemId,
@@ -5313,7 +5313,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     pendingEndpointSelectionFilterRef.current = false
     const visibleIds = new Set(gearEntriesForTable.map(row => row.artifact.id))
     const contextMap = gearInspectorContextGroupById
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect
     setSelectedGearItemIds(prev => {
       if (prev.size === 0) return prev
       const pruned = new Set([...prev].filter(id => {
@@ -7344,7 +7344,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const safeguardsDisabledWarningForBuilder = builderMode === 'safeguard' && !safeguardsEnabled && safeguardRules.length > 0
   const recipesDisabledWarningForBuilder = builderMode === 'recipe' && !recipesEnabled
   const substatTargetsElement = (
-    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0, alignItems: 'center' }}>
       {/* Recipes global enable toggle */}
       <MarkdownTooltip markdown={t('recipesToggleTooltip')}>
         <ToggleButton
@@ -7535,6 +7535,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     </Stack>
   )
 
+  // Safeguard chip label: "N rules" or "X of N rules" when some are selected.
+  const safeguardChipLabel = (() => {
+    const n = safeguardRules.length
+    const word = n === 1 ? t('safeguardOne') : t('safeguardMany')
+    const sel = selectedSafeguardRuleIndices.length
+    if (sel >= 2 && sel < n) return t('recipesSelectedCount', { selected: sel, total: n, word })
+    return `${n} ${word}`
+  })()
+
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
@@ -7571,15 +7580,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedCount={builderMode === 'safeguard' ? selectedSafeguardRuleIndices.length : selectedRecipeIndices.length}
       visibleCount={builderMode === 'safeguard' ? safeguardRules.length : visibleRecipeCount}
       {...(builderMode === 'safeguard' ? {
-        // Compute the safeguard-specific chip label with the same "N of M" selection pattern used
-        // for recipes, but substituting safeguard-singular/plural words via recipesSelectedCount key.
-        chipLabel: (() => {
-          const n = safeguardRules.length
-          const word = n === 1 ? t('safeguardOne') : t('safeguardMany')
-          const sel = selectedSafeguardRuleIndices.length
-          if (sel >= 2 && sel < n) return t('recipesSelectedCount', { selected: sel, total: n, word })
-          return `${n}\u00a0${word}`
-        })(),
+        // Computed above as safeguardChipLabel to avoid an IIFE in JSX.
+        chipLabel: safeguardChipLabel,
       } : {})}
       sfcDirty={isDirty}
       sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive}
@@ -7939,6 +7941,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     runSellfileExportNow,
   ])
 
+  // Suppress overlay during tutorial — drops are blocked so the overlay would be misleading.
+  const dragOverlayVisible = fileDragActive && !tutorial.tutorialOpen && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
+
   return (
     <Container maxWidth={false} disableGutters sx={{
       pt: 1.5,
@@ -7950,11 +7955,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
-      {(() => {
-        // Suppress overlay during tutorial — drops are blocked so the overlay would be misleading.
-        const dragOverlayVisible = fileDragActive && !tutorial.tutorialOpen && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
-        return <FileDragOverlay active={dragOverlayVisible} />
-      })()}
+      <FileDragOverlay active={dragOverlayVisible} />
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',

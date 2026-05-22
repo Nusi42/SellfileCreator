@@ -192,7 +192,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       aria-label={t('helpAriaLabel')}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
+      slotProps={{ paper: {
         sx: {
           maxHeight: '84vh',
           overflow: 'hidden',
@@ -213,7 +213,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           },
           '& > *': { position: 'relative', zIndex: 1 },
         },
-      }}
+      } }}
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
     >

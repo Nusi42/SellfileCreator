@@ -934,7 +934,7 @@ export default function PreviewHeaderActions(props: {
 
   return (
     <>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
         <ToggleButtonGroup
           size="small"
           value={previewMode}
@@ -975,7 +975,7 @@ export default function PreviewHeaderActions(props: {
             </ToggleButton>
           </MarkdownTooltip>
         </ToggleButtonGroup>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0, minWidth: 0, alignItems: 'center' }}>
           {limitHit && !building && isRulesMode ? (
             <>
               {/* MarkdownTooltip ensures the limit warning uses the shared hover delay and Markdown formatting. */}
@@ -1024,11 +1024,11 @@ export default function PreviewHeaderActions(props: {
       <Stack
         direction="row"
         spacing={1}
-        alignItems="center"
         sx={{
           mb: 1,
           flexWrap: 'nowrap',
           minWidth: 0,
+          alignItems: 'center',
           '& > *': { minWidth: 0, flexShrink: 0 },
         }}
       >
@@ -1171,7 +1171,7 @@ export default function PreviewHeaderActions(props: {
                 anchorEl={filterMenuAnchor}
                 open={Boolean(filterMenuAnchor)}
                 onClose={closeFilterMenu}
-                PaperProps={{ ref: filterMenuPaperRef }}
+                slotProps={{ paper: { ref: filterMenuPaperRef } }}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
@@ -1327,30 +1327,32 @@ export default function PreviewHeaderActions(props: {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') confirmSavePreset()
                     }}
-                    inputProps={{ maxLength: 80 }}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
-                          {savePresetColor ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                              <ColorField value={savePresetColor} onChange={setSavePresetColor} />
-                              <ClearIconButton tooltip={t('clear')} onClick={() => setSavePresetColor('')} />
-                            </Box>
-                          ) : (
-                            <MarkdownTooltip markdown={t('presetLabelColor')}>
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => setSavePresetColor(COLOR_FIELD_DEFAULT_VALUE)}
-                                sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
-                              >
-                                <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
-                              </Button>
-                            </MarkdownTooltip>
-                          )}
-                        </InputAdornment>
-                      ),
+                    slotProps={{
+                      htmlInput: { maxLength: 80 },
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
+                            {savePresetColor ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                                <ColorField value={savePresetColor} onChange={setSavePresetColor} />
+                                <ClearIconButton tooltip={t('clear')} onClick={() => setSavePresetColor('')} />
+                              </Box>
+                            ) : (
+                              <MarkdownTooltip markdown={t('presetLabelColor')}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  onClick={() => setSavePresetColor(COLOR_FIELD_DEFAULT_VALUE)}
+                                  sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
+                                >
+                                  <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
+                                </Button>
+                              </MarkdownTooltip>
+                            )}
+                          </InputAdornment>
+                        ),
+                      },
                     }}
                   />
                   {/* Allow the user to exclude sort so applying the preset preserves their current sort config. */}
@@ -1397,7 +1399,7 @@ export default function PreviewHeaderActions(props: {
                 anchorEl={sortPresetMenuAnchor}
                 open={Boolean(sortPresetMenuAnchor)}
                 onClose={closeSortPresetMenu}
-                PaperProps={{ ref: sortPresetMenuPaperRef }}
+                slotProps={{ paper: { ref: sortPresetMenuPaperRef } }}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
@@ -1535,30 +1537,32 @@ export default function PreviewHeaderActions(props: {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') confirmSaveSortPreset()
                     }}
-                    inputProps={{ maxLength: 80 }}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
-                          {saveSortPresetColor ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                              <ColorField value={saveSortPresetColor} onChange={setSaveSortPresetColor} />
-                              <ClearIconButton tooltip={t('clear')} onClick={() => setSaveSortPresetColor('')} />
-                            </Box>
-                          ) : (
-                            <MarkdownTooltip markdown={t('presetLabelColor')}>
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => setSaveSortPresetColor(COLOR_FIELD_DEFAULT_VALUE)}
-                                sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
-                              >
-                                <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
-                              </Button>
-                            </MarkdownTooltip>
-                          )}
-                        </InputAdornment>
-                      ),
+                    slotProps={{
+                      htmlInput: { maxLength: 80 },
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
+                            {saveSortPresetColor ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                                <ColorField value={saveSortPresetColor} onChange={setSaveSortPresetColor} />
+                                <ClearIconButton tooltip={t('clear')} onClick={() => setSaveSortPresetColor('')} />
+                              </Box>
+                            ) : (
+                              <MarkdownTooltip markdown={t('presetLabelColor')}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  onClick={() => setSaveSortPresetColor(COLOR_FIELD_DEFAULT_VALUE)}
+                                  sx={{ minWidth: 0, p: 0.25, color: 'text.disabled' }}
+                                >
+                                  <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: 'action.disabled', border: '1px solid', borderColor: 'divider' }} />
+                                </Button>
+                              </MarkdownTooltip>
+                            )}
+                          </InputAdornment>
+                        ),
+                      },
                     }}
                   />
                   {/* Allow the user to exclude filter state so applying the preset preserves their current filters. */}
@@ -1602,19 +1606,19 @@ export default function PreviewHeaderActions(props: {
               open={sortMenuOpen}
               anchorEl={sortMenuAnchor}
               onClose={closeSortMenu}
-              // MenuList adds default padding (8px) which makes the title block sit lower than other popovers (e.g., Rolls).
-              MenuListProps={{
-                disablePadding: true,
-                // Keep long sort menus inside the popover background instead of spilling past the paper edge.
-                sx: {
-                  maxHeight: 'calc(100vh - 128px)',
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                },
-              }}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               slotProps={{
+                // MenuList adds default padding (8px) which makes the title block sit lower than other popovers (e.g., Rolls).
+                list: {
+                  disablePadding: true,
+                  // Keep long sort menus inside the popover background instead of spilling past the paper edge.
+                  sx: {
+                    maxHeight: 'calc(100vh - 128px)',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                  },
+                },
                 paper: { ...buildContextMenuPaperSlotProps({
                   component: ContextMenuPaper,
                   contextMenuGuard: sortMenuGuard,
@@ -1900,7 +1904,7 @@ export default function PreviewHeaderActions(props: {
 	                  </Typography>
 	                </MarkdownTooltip>
 	                <Box component="span">
-	                  <Stack direction="column" spacing={0.75} alignItems="flex-end">
+	                  <Stack direction="column" spacing={0.75} sx={{ alignItems: 'flex-end' }}>
 	                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
 	                        <MarkdownTooltip markdown={sortNormalizedTooltip} placement="top-start">
 	                          <Box component="span">
@@ -1932,7 +1936,7 @@ export default function PreviewHeaderActions(props: {
 	                          </Box>
 	                        </MarkdownTooltip>
 	                      </Box>
-	                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+	                      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", justifyContent: "flex-end" }}>
 	                        <MarkdownTooltip markdown={sortNormalizedUseActiveTooltip} placement="top-start">
 	                          <Box component="span">
 	                            <Button
@@ -2029,9 +2033,12 @@ export default function PreviewHeaderActions(props: {
 	                                  }}
 	                                  onClick={(event) => {
 	                                    event.stopPropagation()
-	                                    const nextPresetIds = (() => {
-	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
-	                                      if (!sortNormalizedEnabled) return [presetId]
+	                                    // Compute next preset ids without an IIFE.
+	                                    // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
+	                                    let nextPresetIds: GearInspectorNormalizedPresetId[]
+	                                    if (!sortNormalizedEnabled) {
+	                                      nextPresetIds = [presetId]
+	                                    } else {
 	                                      const current = gearInspectorSubstatSort.normalizedSourcePresetIds ?? []
 	                                      const set = new Set<number>(current.map((id) => Number(id)))
 	                                      if (set.has(presetId)) {
@@ -2039,8 +2046,8 @@ export default function PreviewHeaderActions(props: {
 	                                      } else {
 	                                        set.add(presetId)
 	                                      }
-	                                      return [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
-	                                    })()
+	                                      nextPresetIds = [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
+	                                    }
 	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
 	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
 	                                    const presetWeights: Partial<Record<StatVariant, number>> = {}
@@ -2076,7 +2083,7 @@ export default function PreviewHeaderActions(props: {
 	                          )
 	                        })}
 	                      </Stack>
-	                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+	                      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", justifyContent: "flex-end" }}>
 	                        {Array.from({ length: GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
 	                          const idx = offset + 4
 	                          const presetId = idx as GearInspectorNormalizedPresetId
@@ -2117,9 +2124,12 @@ export default function PreviewHeaderActions(props: {
 	                                  }}
 	                                  onClick={(event) => {
 	                                    event.stopPropagation()
-	                                    const nextPresetIds = (() => {
-	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
-	                                      if (!sortNormalizedEnabled) return [presetId]
+	                                    // Compute next preset ids without an IIFE.
+	                                    // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
+	                                    let nextPresetIds: GearInspectorNormalizedPresetId[]
+	                                    if (!sortNormalizedEnabled) {
+	                                      nextPresetIds = [presetId]
+	                                    } else {
 	                                      const current = gearInspectorSubstatSort.normalizedSourcePresetIds ?? []
 	                                      const set = new Set<number>(current.map((id) => Number(id)))
 	                                      if (set.has(presetId)) {
@@ -2127,8 +2137,8 @@ export default function PreviewHeaderActions(props: {
 	                                      } else {
 	                                        set.add(presetId)
 	                                      }
-	                                      return [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
-	                                    })()
+	                                      nextPresetIds = [...set].sort((a, b) => a - b).map((id) => id as GearInspectorNormalizedPresetId)
+	                                    }
 	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
 	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
 	                                    const presetWeights: Partial<Record<StatVariant, number>> = {}
@@ -2195,7 +2205,7 @@ export default function PreviewHeaderActions(props: {
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingArtifactsLabel}</Typography>
                 {/* Icon-only buttons keep the row compact; tooltips + aria labels carry the text. */}
                 {/* Accessory grouping mirrors the artifact row but uses faction-centric icons. */}
-                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   {artifactGroupingToggles.map((option) => {
                     // Active artifact toggles are stored in the shared sort preference store.
                     const active = option.active
@@ -2269,7 +2279,7 @@ export default function PreviewHeaderActions(props: {
                 disabled={groupingControlsDisabled}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingAccessoriesLabel}</Typography>
-                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   {accessoryGroupingToggles.map((option) => {
                     // Active accessory toggles are stored in the shared sort preference store.
                     const active = option.active
@@ -2362,7 +2372,7 @@ export default function PreviewHeaderActions(props: {
           </>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }} />
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0, alignItems: 'center' }}>
           {historyMenuEnabled ? (
             <>
               <Box
@@ -2418,7 +2428,7 @@ export default function PreviewHeaderActions(props: {
                 anchorEl={gearDbHistorySettingsAnchor}
                 open={Boolean(gearDbHistorySettingsAnchor)}
                 onClose={closeGearDbHistorySettingsMenu}
-                PaperProps={{ ref: gearDbHistorySettingsMenuRef }}
+                slotProps={{ paper: { ref: gearDbHistorySettingsMenuRef } }}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
@@ -2620,7 +2630,7 @@ export default function PreviewHeaderActions(props: {
               anchorEl={exportMenuAnchor}
               open={Boolean(exportMenuAnchor)}
               onClose={closeExportMenu}
-              PaperProps={{ ref: exportMenuPaperRef }}
+              slotProps={{ paper: { ref: exportMenuPaperRef } }}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >

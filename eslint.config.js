@@ -113,6 +113,8 @@ export default [
       'import/no-unused-modules': 'off',
       'react-hooks/rules-of-hooks': 'off',
       'react-hooks/exhaustive-deps': 'off',
+      // Playwright's `use()` fixture function is not a React hook; suppress false positives.
+      '@eslint-react/rules-of-hooks': 'off',
     },
   },
   // TypeScript-specific tweaks

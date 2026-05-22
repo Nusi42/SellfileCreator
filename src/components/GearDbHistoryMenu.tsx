@@ -212,15 +212,15 @@ export function GearDbHistoryMenu({
               boxShadow: theme.shadows[8],
             }),
           }), ref: paperRef },
-        }}
-        MenuListProps={{
-          dense: true,
-          disablePadding: true,
-          sx: {
-            py: 0,
-            maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
-            display: 'flex',
-            flexDirection: 'column',
+          list: {
+            dense: true,
+            disablePadding: true,
+            sx: {
+              py: 0,
+              maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
+              display: 'flex',
+              flexDirection: 'column',
+            },
           },
         }}
       >
@@ -400,13 +400,13 @@ export function GearDbHistoryMenu({
               boxShadow: theme.shadows[10],
             }),
           }), ref: previewPaperRef },
-        }}
-        MenuListProps={{
-          disablePadding: true,
-          sx: {
-            // Disable MenuList scrolling so the inner preview panel is the only vertical scroller.
-            overflow: 'visible',
-            maxHeight: 'none',
+          list: {
+            disablePadding: true,
+            sx: {
+              // Disable MenuList scrolling so the inner preview panel is the only vertical scroller.
+              overflow: 'visible',
+              maxHeight: 'none',
+            },
           },
         }}
       >

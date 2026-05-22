@@ -275,36 +275,34 @@ export function GearSubstatSelect({
             : anyText}
         </MenuItem>
       ) : null}
-      {normalizedOptions.map((variant) => (
-        (() => {
-          const label = t(statVariantI18nKey(variant))
-          const selected = isMulti && multiValues.some((value) => Number(value) === Number(variant))
-          const color = showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
-          const customControl = renderNormalizedMenuControl?.({ variant, label, selected }) ?? null
-          const normalizedControl = customControl ?? renderSelectionBadge(selected)
-          return (
-            <MenuItem
-              key={variant}
-              value={String(variant)}
-              selected={selected}
-              sx={useNormalizedMenu ? (theme) => ({
-                gap: 1,
-                alignItems: 'center',
-                ...(selected
-                  ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) }
-                  : {}),
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
-                },
-              }) : { color }}
-            >
-              {useNormalizedMenu
-                ? renderNormalizedRow(label, normalizedControl, color)
-                : label}
-            </MenuItem>
-          )
-        })()
-      ))}
+      {normalizedOptions.map((variant) => {
+        const label = t(statVariantI18nKey(variant))
+        const selected = isMulti && multiValues.some((value) => Number(value) === Number(variant))
+        const color = showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
+        const customControl = renderNormalizedMenuControl?.({ variant, label, selected }) ?? null
+        const normalizedControl = customControl ?? renderSelectionBadge(selected)
+        return (
+          <MenuItem
+            key={variant}
+            value={String(variant)}
+            selected={selected}
+            sx={useNormalizedMenu ? (theme) => ({
+              gap: 1,
+              alignItems: 'center',
+              ...(selected
+                ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) }
+                : {}),
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+              },
+            }) : { color }}
+          >
+            {useNormalizedMenu
+              ? renderNormalizedRow(label, normalizedControl, color)
+              : label}
+          </MenuItem>
+        )
+      })}
     </Select>
   )
 }

@@ -10,8 +10,8 @@ import { createPortal } from 'react-dom'
 import type { JSX, ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined'
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlined'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -385,7 +385,7 @@ export function GearInspectorTabContent({
     cookieTimeoutRef.current.clear()
     toggleHistoryRef.current.clear()
     // Coupled to clearTimeout above — the derived-state pattern cannot cancel timers, so useEffect is correct here.
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/hooks-extra/no-direct-set-state-in-use-effect, react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/set-state-in-effect, react-hooks/set-state-in-effect
     setCookieMonsterExpiryByRow({})
   }, [isActive])
 
@@ -837,104 +837,10 @@ export function GearInspectorTabContent({
         }}
       />
     )
-    return (
-      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX}px minmax(0,1fr) ${GEAR_INSPECTOR_ICON_COLUMN_WIDTH_PX}px`, columnGap: 1 }}>
-        <Stack
-          direction="column"
-          spacing={0.5}
-          alignItems="stretch"
-          ref={(el: HTMLElement | null) => {
-            // Register this row's controls column so the cookie portal can read its viewport position.
-            if (el) cookieControlsMapRef.current.set(it.itemId, el)
-            else cookieControlsMapRef.current.delete(it.itemId)
-          }}
-          sx={{
-            mr: 0.5,
-            gridColumn: '1',
-            gridRow: '1',
-            position: 'relative',
-            width: GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX,
-            // Invisible during the animation; the portal face overlay renders the icons above the circle.
-            ...(cookieMonsterActive ? { opacity: 0 } : {}),
-          }}
-        >
-          <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
-            {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
-            <MarkdownTooltip markdown={t('gearDialogDuplicateRowAction')}>
-              <IconButton size="small" onClick={() => duplicateItemAt(idx)} aria-label={t('gearDialogDuplicateRowAction')} sx={{
-                p: 0.25,
-                ...(cookieMonsterActive ? {
-                  '& svg': {
-                    animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
-                    transformOrigin: '50% 50%',
-                  },
-                } : {}),
-              }}>
-                <AddCircleOutlineIcon fontSize="small" />
-              </IconButton>
-            </MarkdownTooltip>
-            <MarkdownTooltip markdown={t('delete')}>
-              <Box component="span" sx={{ display: 'inline-flex' }}>
-                <IconButton
-                  size="small"
-                  color="warning"
-                  onClick={() => deleteItemAt(idx)}
-                  aria-label={t('gearDialogRemoveRowAriaLabel')}
-                  sx={{
-                    p: 0.25,
-                    ...(cookieMonsterActive ? {
-                      '& svg': {
-                        animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
-                        animationDelay: '0.18s',
-                        transformOrigin: '50% 50%',
-                      },
-                    } : {}),
-                  }}
-                >
-                  <RemoveCircleOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </MarkdownTooltip>
-          </Stack>
-          <MarkdownTooltip markdown={toggleTooltip}>
-            <Button
-              aria-label={toggleTooltip}
-              size="small"
-              variant={isCompact ? 'contained' : 'outlined'}
-              color={isCompact ? 'success' : 'warning'}
-              sx={{
-                height: 24,
-                minWidth: 0,
-                px: 0.5,
-                justifyContent: 'center',
-                position: 'relative',
-                zIndex: 1,
-                width: '100%',
-                ...(cookieMonsterActive ? {
-                  '& svg': {
-                    animation: `${gearInspectorCookieFlip} 1.2s ease-in-out infinite`,
-                    transformOrigin: '50% 50%',
-                  },
-                } : {}),
-              }}
-              onClick={(event) => handleToggleCompact(it.itemId, event)}
-              onMouseEnter={handleCompactHintPointerMove}
-              onMouseMove={handleCompactHintPointerMove}
-              onMouseLeave={handleCompactHintPointerLeave}
-              onContextMenu={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                handleCompactHintSeen()
-                handleToggleCompact(it.itemId, event, { applyGlobally: true })
-              }}
-            >
-              {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
-            </Button>
-          </MarkdownTooltip>
-        </Stack>
-        {cookieMonsterActive && typeof document !== 'undefined' && (() => {
-          // Portal escapes the dialog's overflow:hidden and scroll-container clipping so the halo
-          // and speech bubble can paint freely over the dialog at the correct viewport position.
+    // Cookie-monster easter egg: portal the halo + speech bubble above the dialog's overflow clipping.
+    // Extracted from JSX to avoid an IIFE in JSX expression position (React Compiler limitation).
+    const cookiePortal = cookieMonsterActive && typeof document !== 'undefined'
+      ? (() => {
           const el = cookieControlsMapRef.current.get(it.itemId)
           if (!el) return null
           const rect = el.getBoundingClientRect()
@@ -1033,7 +939,118 @@ export function GearInspectorTabContent({
             </>,
             document.body
           )
-        })()}
+        })()
+      : null
+
+    // Precompute set-selector state to avoid an IIFE in JSX (React Compiler limitation).
+    const validSetIds = new Set<number>(allowedSetIdsForSlot)
+    const sortedSetEntries = filterAndSortSetEntries(setsSearch, setsOrder, {
+      translate: t,
+      // Keep the no-set sentinel visible for accessory slots.
+      includeNoSet: true,
+      noSetLabel: t('noSetAccessories'),
+    }).filter(([id]) => validSetIds.has(Number(id)))
+    const setSelectValue = Number.isFinite(setIdNumber) ? String(setIdNumber) : ''
+    const setOptionMissing = setSelectValue !== '' && !sortedSetEntries.some(([id]) => id === setSelectValue)
+    const currentSetLabel = formatGearInspectorSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
+
+    return (
+      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX}px minmax(0,1fr) ${GEAR_INSPECTOR_ICON_COLUMN_WIDTH_PX}px`, columnGap: 1 }}>
+        <Stack
+          direction="column"
+          spacing={0.5}
+          ref={(el: HTMLElement | null) => {
+            // Register this row's controls column so the cookie portal can read its viewport position.
+            if (el) cookieControlsMapRef.current.set(it.itemId, el)
+            else cookieControlsMapRef.current.delete(it.itemId)
+          }}
+          sx={{
+            alignItems: 'stretch',
+            mr: 0.5,
+            gridColumn: '1',
+            gridRow: '1',
+            position: 'relative',
+            width: GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX,
+            // Invisible during the animation; the portal face overlay renders the icons above the circle.
+            ...(cookieMonsterActive ? { opacity: 0 } : {}),
+          }}
+        >
+          <Stack direction="row" spacing={0.25} sx={{ width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+            {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
+            <MarkdownTooltip markdown={t('gearDialogDuplicateRowAction')}>
+              <IconButton size="small" onClick={() => duplicateItemAt(idx)} aria-label={t('gearDialogDuplicateRowAction')} sx={{
+                p: 0.25,
+                ...(cookieMonsterActive ? {
+                  '& svg': {
+                    animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
+                    transformOrigin: '50% 50%',
+                  },
+                } : {}),
+              }}>
+                <AddCircleOutlineIcon fontSize="small" />
+              </IconButton>
+            </MarkdownTooltip>
+            <MarkdownTooltip markdown={t('delete')}>
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={() => deleteItemAt(idx)}
+                  aria-label={t('gearDialogRemoveRowAriaLabel')}
+                  sx={{
+                    p: 0.25,
+                    ...(cookieMonsterActive ? {
+                      '& svg': {
+                        animation: `${gearInspectorCookieIconWobble} 1.15s ease-in-out infinite`,
+                        animationDelay: '0.18s',
+                        transformOrigin: '50% 50%',
+                      },
+                    } : {}),
+                  }}
+                >
+                  <RemoveCircleOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </MarkdownTooltip>
+          </Stack>
+          <MarkdownTooltip markdown={toggleTooltip}>
+            <Button
+              aria-label={toggleTooltip}
+              size="small"
+              variant={isCompact ? 'contained' : 'outlined'}
+              color={isCompact ? 'success' : 'warning'}
+              sx={{
+                height: 24,
+                minWidth: 0,
+                px: 0.5,
+                justifyContent: 'center',
+                position: 'relative',
+                zIndex: 1,
+                width: '100%',
+                ...(cookieMonsterActive ? {
+                  '& svg': {
+                    animation: `${gearInspectorCookieFlip} 1.2s ease-in-out infinite`,
+                    transformOrigin: '50% 50%',
+                  },
+                } : {}),
+              }}
+              onClick={(event) => handleToggleCompact(it.itemId, event)}
+              onMouseEnter={handleCompactHintPointerMove}
+              onMouseMove={handleCompactHintPointerMove}
+              onMouseLeave={handleCompactHintPointerLeave}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                handleCompactHintSeen()
+                handleToggleCompact(it.itemId, event, { applyGlobally: true })
+              }}
+            >
+              {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
+            </Button>
+          </MarkdownTooltip>
+        </Stack>
+        {/* Cookie-monster halo + speech bubble portal, computed above the return statement. */}
+        {cookiePortal}
         {isCompact ? (
           <Box
             // Compact summary: show the item snapshot when editor controls are collapsed.
@@ -1140,14 +1157,16 @@ export function GearInspectorTabContent({
                 const fixedSet = allowedForSlot.has(Number(v.set))
                   ? v.set
                   : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
-                const fixedFaction: FactionId = (() => {
-                  if (!isAccessorySlot(resolvedSlot)) return 0 as FactionId
+                // Determine faction without an IIFE (React Compiler does not optimize IIFEs).
+                let fixedFaction: FactionId
+                if (!isAccessorySlot(resolvedSlot)) {
+                  fixedFaction = 0 as FactionId
+                } else {
                   const existingFaction = Number(v.faction ?? 0) as FactionId
-                  if (existingFaction && ACCESSORY_FACTION_POOL.includes(existingFaction)) {
-                    return existingFaction
-                  }
-                  return pickRandomAccessoryFaction()
-                })()
+                  fixedFaction = (existingFaction && ACCESSORY_FACTION_POOL.includes(existingFaction))
+                    ? existingFaction
+                    : pickRandomAccessoryFaction()
+                }
                 const updated = { ...v, slot: resolvedSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
                 return adjustSubValuesFor(updated)
               })
@@ -1254,212 +1273,201 @@ export function GearInspectorTabContent({
         )}
         {!isCompact && (
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: GEAR_INSPECTOR_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
-            {(() => {
-              const validIds = new Set<number>(allowedSetIdsForSlot)
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
-                translate: t,
-                // Keep the no-set sentinel visible for accessory slots.
-                includeNoSet: true,
-                noSetLabel: t('noSetAccessories'),
-              }).filter(([id]) => validIds.has(Number(id)))
-              const setValue = Number.isFinite(setIdNumber) ? String(setIdNumber) : ''
-              const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = formatGearInspectorSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
-              return (
-                <Select
-                  size="small"
-                  displayEmpty
-                  open={setsMenuOpenIdx === idx}
-                  value={setValue}
-                  onChange={e => {
-                    updateItemAt(idx, (v) => {
-                      const raw = e.target.value
-                      const numeric = Number(raw)
-                      if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
-                      // Preserve the no-set sentinel for accessories when selected.
-                      if (numeric === ACCESSORY_NO_SET_ID) {
-                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
-                      }
-                      const allowedForSlot = allowedGearInspectorSetIds(v.slot)
-                      if (allowedForSlot.includes(numeric)) {
-                        return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
-                      }
-                      if (isAccessorySlot(v.slot)) {
-                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
-                      }
-                      return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, numeric as ArtifactSetId) })
-                    })
-                    requestAnimationFrame(() => setSetsMenuOpenIdx(null))
-                  }}
-                  onClose={() => {
-                    setSetsMenuOpenIdx((current) => (current === idx ? null : current))
-                    requestAnimationFrame(() => setSetsMenuAnchorPos(null))
-                  }}
-                  onOpen={(event) => {
-                    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-                    setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
-                    setSetsMenuOpenIdx(idx)
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                      scrollGearInspectorSetsMenuToSelected(idx, setsOrder, { force: true })
-                    }))
-                  }}
-                  renderValue={(value) => {
-                    const setNum = Number(value)
-                    if (!Number.isFinite(setNum) || setNum === 0) {
-                      return (
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                          <span>{t('gearInspectorValueUnknown')}</span>
-                        </Box>
-                      )
-                    }
-                    // Accessory "no set" should display the dedicated label + spider glyph.
-                    if (setNum === ACCESSORY_NO_SET_ID) {
-                      return (
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                          <SetIcon setId={setNum as ArtifactSetId} label={t('noSetAccessories')} size={20} />
-                          <span>{t('noSetAccessories')}</span>
-                        </Box>
-                      )
-                    }
-                    const Label = getLocalizedGearSetName(setNum as ArtifactSetId, t, lang) || artifactSetName(setNum)
-                    const setNameForIcon = artifactSetName(setNum)
-                    const Icon = <SetIcon setId={setNum} label={setNameForIcon} size={20} />
-                    return (
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                        {Icon}
-                        <span>{Label}</span>
-                      </Box>
-                    )
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' },
-                      ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
+            {/* Set selector; state computed above the return statement to avoid an IIFE in JSX. */}
+            <Select
+              size="small"
+              displayEmpty
+              open={setsMenuOpenIdx === idx}
+              value={setSelectValue}
+              onChange={e => {
+                updateItemAt(idx, (v) => {
+                  const raw = e.target.value
+                  const numeric = Number(raw)
+                  if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
+                  // Preserve the no-set sentinel for accessories when selected.
+                  if (numeric === ACCESSORY_NO_SET_ID) {
+                    return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                  }
+                  const allowedForSlot = allowedGearInspectorSetIds(v.slot)
+                  if (allowedForSlot.includes(numeric)) {
+                    return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
+                  }
+                  if (isAccessorySlot(v.slot)) {
+                    return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                  }
+                  return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, numeric as ArtifactSetId) })
+                })
+                requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+              }}
+              onClose={() => {
+                setSetsMenuOpenIdx((current) => (current === idx ? null : current))
+                requestAnimationFrame(() => setSetsMenuAnchorPos(null))
+              }}
+              onOpen={(event) => {
+                const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+                setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
+                setSetsMenuOpenIdx(idx)
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                  scrollGearInspectorSetsMenuToSelected(idx, setsOrder, { force: true })
+                }))
+              }}
+              renderValue={(value) => {
+                const setNum = Number(value)
+                if (!Number.isFinite(setNum) || setNum === 0) {
+                  return (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>{t('gearInspectorValueUnknown')}</span>
+                    </Box>
+                  )
+                }
+                // Accessory "no set" should display the dedicated label + spider glyph.
+                if (setNum === ACCESSORY_NO_SET_ID) {
+                  return (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <SetIcon setId={setNum as ArtifactSetId} label={t('noSetAccessories')} size={20} />
+                      <span>{t('noSetAccessories')}</span>
+                    </Box>
+                  )
+                }
+                const Label = getLocalizedGearSetName(setNum as ArtifactSetId, t, lang) || artifactSetName(setNum)
+                const setNameForIcon = artifactSetName(setNum)
+                const Icon = <SetIcon setId={setNum} label={setNameForIcon} size={20} />
+                return (
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    {Icon}
+                    <span>{Label}</span>
+                  </Box>
+                )
+              }}
+              MenuProps={{
+                slotProps: {
+                  paper: {
+                    sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' },
+                    ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
+                  },
+                  list: {
+                    sx: {
+                      width: '100%',
+                      maxWidth: '100%',
+                      ...(setsOrder === 'icons'
+                        ? {}
+                        : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
                     },
-                    MenuListProps: {
-                      sx: {
-                        width: '100%',
-                        maxWidth: '100%',
-                        ...(setsOrder === 'icons'
-                          ? {}
-                          : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
-                      },
+                  },
+                  transition: {
+                    onExited: () => {
+                      setSetsMenuAnchorPos(null)
+                      setsMenuPaperRef.current = null
                     },
-                    TransitionProps: {
-                      onExited: () => {
-                        setSetsMenuAnchorPos(null)
-                        setsMenuPaperRef.current = null
-                      },
-                    },
-                    ...(setsMenuAnchorPos
-                      ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
-                      : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
-                  }}
-                  sx={{
-                    width: GEAR_INSPECTOR_SET_SELECT_WIDTH_PX,
-                    height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    '& .MuiSelect-select': {
-                      ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
-                      columnGap: GEAR_INSPECTOR_SELECT_GAP_COMPACT_PX,
-                      whiteSpace: 'nowrap',
-                    },
-                  }}
+                  },
+                },
+                ...(setsMenuAnchorPos
+                  ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
+                  : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
+              }}
+              sx={{
+                width: GEAR_INSPECTOR_SET_SELECT_WIDTH_PX,
+                height: GEAR_INSPECTOR_SELECT_HEIGHT_PX,
+                display: 'inline-flex',
+                alignItems: 'center',
+                '& .MuiSelect-select': {
+                  ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
+                  columnGap: GEAR_INSPECTOR_SELECT_GAP_COMPACT_PX,
+                  whiteSpace: 'nowrap',
+                },
+              }}
+            >
+              {setSelectValue !== '' ? (
+                // Hidden option ensures MUI always sees the active value even if search filters it out.
+                <MenuItem value={setSelectValue} sx={{ display: 'none' }}>
+                  {currentSetLabel}
+                </MenuItem>
+              ) : null}
+              {setOptionMissing ? (
+                <MenuItem value={setSelectValue} sx={{ fontStyle: 'italic' }}>
+                  {currentSetLabel}
+                </MenuItem>
+              ) : null}
+              <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                <ListSubheader
+                  sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
                 >
-                  {setValue !== '' ? (
-                    // Hidden option ensures MUI always sees the active value even if search filters it out.
-                    <MenuItem value={setValue} sx={{ display: 'none' }}>
-                      {currentSetLabel}
-                    </MenuItem>
-                  ) : null}
-                  {setOptionMissing ? (
-                    <MenuItem value={setValue} sx={{ fontStyle: 'italic' }}>
-                      {currentSetLabel}
-                    </MenuItem>
-                  ) : null}
-                  <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                    <ListSubheader
-                      sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
-                    >
-                      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <SetsOrderControls
-                            setsSearch={setsSearch}
-                            onSetsSearchChange={setSetsSearch}
-                            setsOrder={setsOrder}
-                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
-                              if (!v) return
-                              setSetsOrder(v)
-                              if (setsMenuOpenIdx !== null) {
-                                requestAnimationFrame(() => scrollGearInspectorSetsMenuToSelected(setsMenuOpenIdx, v, { force: true }))
-                              }
-                            }}
-                            zeroResults={sorted.length === 0}
-                          />
-                        </Box>
-                      </Box>
-                    </ListSubheader>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
                     <Box
-                      component="ul"
-                      ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[idx] = el }}
-                      sx={{
-                        listStyle: 'none',
-                        p: 0,
-                        m: 0,
-                        ...(setsOrder === 'icons'
-                          ? {
-                              maxHeight: 'none',
-                              height: 'auto',
-                              overflowY: 'visible',
-                            }
-                          : {
-                              maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                              height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                              overflowY: 'auto',
-                            }),
-                        pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                        ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-                      }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <SetMenuSection
-                        title={t('setsTitle')}
-                        sorted={sorted}
+                      <SetsOrderControls
+                        setsSearch={setsSearch}
+                        onSetsSearchChange={setSetsSearch}
                         setsOrder={setsOrder}
-                        metasets={metasets}
-                        excludeMetasetId={null}
-                        setUsageCounts={{}}
-                        valueForSet={(id) => String(id)}
-                        hideHeader
-                        selectedSetIds={Number.isFinite(setIdNumber) && setIdNumber !== 0 ? [setIdNumber] : []}
-                        showUsageCounts={false}
-                        singleSelect
-                        onToggleSet={(id: number) => {
-                          updateItemAt(idx, (v) => {
-                            const allowedForSlot = allowedGearInspectorSetIds(v.slot)
-                            if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
-                            }
-                            if (allowedForSlot.includes(Number(id))) {
-                              return adjustSubValuesFor({ ...v, set: id as ArtifactSetId })
-                            }
-                            if (isAccessorySlot(v.slot)) {
-                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
-                            }
-                            return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, id as ArtifactSetId) })
-                          })
-                          requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                        onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
+                          if (!v) return
+                          setSetsOrder(v)
+                          if (setsMenuOpenIdx !== null) {
+                            requestAnimationFrame(() => scrollGearInspectorSetsMenuToSelected(setsMenuOpenIdx, v, { force: true }))
+                          }
                         }}
+                        zeroResults={sortedSetEntries.length === 0}
                       />
                     </Box>
                   </Box>
-                </Select>
-              )
-            })()}
+                </ListSubheader>
+                <Box
+                  component="ul"
+                  ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[idx] = el }}
+                  sx={{
+                    listStyle: 'none',
+                    p: 0,
+                    m: 0,
+                    ...(setsOrder === 'icons'
+                      ? {
+                          maxHeight: 'none',
+                          height: 'auto',
+                          overflowY: 'visible',
+                        }
+                      : {
+                          maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                          height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                          overflowY: 'auto',
+                        }),
+                    pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                    ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                  }}
+                >
+                  <SetMenuSection
+                    title={t('setsTitle')}
+                    sorted={sortedSetEntries}
+                    setsOrder={setsOrder}
+                    metasets={metasets}
+                    excludeMetasetId={null}
+                    setUsageCounts={{}}
+                    valueForSet={(id) => String(id)}
+                    hideHeader
+                    selectedSetIds={Number.isFinite(setIdNumber) && setIdNumber !== 0 ? [setIdNumber] : []}
+                    showUsageCounts={false}
+                    singleSelect
+                    onToggleSet={(id: number) => {
+                      updateItemAt(idx, (v) => {
+                        const allowedForSlot = allowedGearInspectorSetIds(v.slot)
+                        if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
+                          return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                        }
+                        if (allowedForSlot.includes(Number(id))) {
+                          return adjustSubValuesFor({ ...v, set: id as ArtifactSetId })
+                        }
+                        if (isAccessorySlot(v.slot)) {
+                          return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                        }
+                        return adjustSubValuesFor({ ...v, set: normalizeGearInspectorSetForSlot(v.slot, id as ArtifactSetId) })
+                      })
+                      requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Select>
             <Select size="small" value={it.level} onChange={e => updateItemAt(idx, (v) => {
               const updated = { ...v, level: Number(e.target.value) as LevelMilestone }
               return adjustSubValuesFor(updated)
@@ -1522,17 +1530,28 @@ export function GearInspectorTabContent({
               // Per-row key keeps hover state stable across repeated stats/rows.
               const hoverKey = `${Number(it.itemId)}:${Number(v)}`
               const stepButtonHovered = substatStepHoverKey === hoverKey
+              // Spinner adornment is extracted so JSX inside slotProps.input.endAdornment
+              // does not confuse the TSX parser's brace-depth tracking.
+              const substatSpinnerAdornment = (
+                <NumberSpinnerAdornment
+                  ariaLabel={t(statVariantI18nKey(v))}
+                  onStep={(delta) => {
+                    const next = numericValue + delta
+                    commitSubstatValue(clampGearInspectorValue(next))
+                  }}
+                />
+              )
               return (
                 <Stack
                   key={v}
                   direction="row"
                   spacing={0.5}
-                  alignItems="center"
                   sx={{
                     width: `${GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX}px`,
                     borderRadius: 1,
                     px: 0.75,
                     py: 0.25,
+                    alignItems: 'center',
                   }}
                 >
                   <Select
@@ -1569,7 +1588,7 @@ export function GearInspectorTabContent({
                       <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
-                  <Stack direction="row" spacing={0.25} alignItems="center" sx={{ flex: 1 }}>
+                  <Stack direction="row" spacing={0.25} sx={{ flex: 1, alignItems: 'center' }}>
                     <IconButton
                       size="small"
                       aria-label="decrease"
@@ -1590,12 +1609,6 @@ export function GearInspectorTabContent({
                       onChange={(event) => {
                         const raw = Number(event.target.value)
                         commitSubstatValue(clampGearInspectorValue(raw))
-                      }}
-                      inputProps={{
-                        inputMode: 'numeric',
-                        pattern: '[0-9]*',
-                        min: 0,
-                        'aria-label': t(statVariantI18nKey(v)),
                       }}
                       sx={(theme) => ({
                         width: 88,
@@ -1618,17 +1631,11 @@ export function GearInspectorTabContent({
                           MozAppearance: 'textfield',
                         },
                       })}
-                      InputProps={{
-                        endAdornment: (
-                          <NumberSpinnerAdornment
-                            ariaLabel={t(statVariantI18nKey(v))}
-                            onStep={(delta) => {
-                              const next = numericValue + delta
-                              commitSubstatValue(clampGearInspectorValue(next))
-                            }}
-                          />
-                        ),
-                        sx: { '& > *': { alignItems: 'center' } },
+                      slotProps={{
+                        // Native input attributes: numeric keyboard, pattern hint, and accessible label.
+                        htmlInput: { inputMode: 'numeric' as const, pattern: '[0-9]*', min: 0, 'aria-label': t(statVariantI18nKey(v)) },
+                        // Input wrapper: center adornments and host the spinner controls (extracted above to keep slotProps parse-friendly).
+                        input: { endAdornment: substatSpinnerAdornment, sx: { alignItems: 'center' } },
                       }}
                     />
                     <IconButton

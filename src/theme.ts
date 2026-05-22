@@ -59,10 +59,13 @@ export function makeTheme(mode: ColorBlindMode) {
       MuiAlert: {
         styleOverrides: {
           // Darken filled success alerts globally so toast surfaces are less neon/bright.
-          filledSuccess: ({ theme }) => ({
-            backgroundColor: darken(theme.palette.success.main, 0.42),
-            color: theme.palette.success.contrastText,
-            border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
+          // MUI v9: filledSuccess was removed; scope colorSuccess to the filled variant via a nested selector.
+          colorSuccess: ({ theme }) => ({
+            '&.MuiAlert-filled': {
+              backgroundColor: darken(theme.palette.success.main, 0.42),
+              color: theme.palette.success.contrastText,
+              border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
+            },
           }),
         },
       },
@@ -104,9 +107,12 @@ export function makeTheme(mode: ColorBlindMode) {
       MuiDialog: {
         defaultProps: {
           closeAfterTransition: false,
-          TransitionProps: {
-            timeout: { appear: 0, enter: 0, exit: 150 },
-            unmountOnExit: true,
+          // MUI v9: TransitionProps removed; use slotProps.transition instead.
+          slotProps: {
+            transition: {
+              timeout: { appear: 0, enter: 0, exit: 150 },
+              unmountOnExit: true,
+            },
           },
         },
       },

@@ -394,7 +394,7 @@ export function useTutorialCoachState({
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
   const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
-  const [, setTutorialAddedDefaultMetas] = useState<boolean>(false)
+  const [_tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
 
   // Timers/raf ids used by tutorial "helper actions" (open menus, scroll previews, etc.).
   // Why: tutorial steps can be aborted mid-flight and must always clean up scheduled work.
@@ -604,7 +604,7 @@ export function useTutorialCoachState({
         viewStateSnapshotRef.current = null
       }
       restoreSafeguardImprovementChance(snap.safeguardImprovementChance)
-      // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- Tutorial restore must synchronously commit all state setters so the DOM reflects the restored snapshot before the next coach step measures element positions.
+      // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- Tutorial restore must synchronously commit all state setters so the DOM reflects the restored snapshot before the next coach step measures element positions.
       flushSync(() => {
         setHsf(snap.hsf)
         setCustomRecipes(snap.recipes)

@@ -556,10 +556,165 @@ export default function MetasetsDialog({
     }
   }, [activeSetMenuMetaId, prevActiveSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected])
 
+  // Extract delete-dialog body content so no IIFE lives directly inside JSX.
+  const deleteDialogBody = (() => {
+    const id = confirmDeleteMetaId
+    const m = draftMetasets.find(x => x.name === id)
+    const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
+    const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
+    const totalUsed = recipeUsed + safeguardUsed
+    const otherMetas = draftMetasets.filter(x => x.name !== id)
+    const hasOtherMetas = otherMetas.length > 0
+    const hasSets = Boolean(m && m.sets.length > 0)
+
+    if (!id) return null
+
+    if (totalUsed === 0) {
+      // Simple confirmation (no replace options)
+      return (
+        <>
+      <Typography variant="body2">{t('msgNoRefs')}</Typography>
+        </>
+      )
+    }
+
+    // Used > 0: present standard radio-driven choices
+    return (
+      <>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          {t('refsCountWithSafeguards', { recipeCount: recipeUsed, safeguardCount: safeguardUsed })}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
+        <Divider sx={{ my: 1, opacity: 0.5 }} />
+        <RadioGroup
+          value={deleteMode}
+          onChange={(_, v) => setDeleteMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}
+        >
+          <FormControlLabel value="delete" control={<Radio />} label={t('metasetsDeleteRemoveRefsLabel')} />
+          <FormControlLabel value="replaceSets" control={<Radio />} label={hasSets ? t('metasetsDeleteReplaceWithSetsLabel') : t('metasetsDeleteReplaceWithSetsNotAvailable')} disabled={!hasSets} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
+            <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsDeleteReplaceWithMetasetLabel')} disabled={!hasOtherMetas} />
+            <Select
+              size="small"
+              value={deleteReplaceMetaId}
+              onChange={(e) => setDeleteReplaceMetaId(e.target.value as string)}
+              displayEmpty
+              disabled={!hasOtherMetas || deleteMode !== 'replaceMeta'}
+              renderValue={(v) => {
+                if (!hasOtherMetas) return t('metasetsNoMetasetsToReplaceWith')
+                return v ? (draftMetasets.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
+              }}
+            >
+              {otherMetas.map((mm) => (
+                <MenuItem key={mm.name} value={mm.name}>{mm.name}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+        </RadioGroup>
+      </>
+    )
+  })()
+
+  // Extract delete-dialog actions content so no IIFE lives directly inside JSX.
+  const deleteDialogActionsContent = (() => {
+    const id = confirmDeleteMetaId
+    const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
+    const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
+    const totalUsed = recipeUsed + safeguardUsed
+    const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
+    return (
+      <>
+        <Button onClick={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}>{t('cancel')}</Button>
+        {totalUsed === 0 ? (
+          <Button
+            color="error"
+            onClick={() => {
+              const id2 = confirmDeleteMetaId!
+              setConfirmDeleteMetaId(null)
+              setDeleteReplaceMetaId('')
+              setDeleteMode('delete')
+              flushDraftThen(() => onDeleteMetaset(id2))
+            }}
+          >
+            {t('delete')}
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="contained"
+              color={deleteMode === 'delete' ? 'error' : 'warning'}
+              disabled={deleteMode === 'replaceMeta' && !okReplaceMeta}
+              sx={{ width: confirmBtnWidth, whiteSpace: 'nowrap' }}
+              onClick={() => {
+                const id2 = confirmDeleteMetaId!
+                const mode = deleteMode
+                const repId = deleteReplaceMetaId
+                setConfirmDeleteMetaId(null)
+                setDeleteReplaceMetaId('')
+                setDeleteMode('delete')
+                if (mode === 'replaceSets') {
+                  flushDraftThen(() => onDeleteMetaset(id2, { replaceWithSets: true }))
+                } else if (mode === 'replaceMeta') {
+                  flushDraftThen(() => onDeleteMetaset(id2, { replaceWithMetaId: repId }))
+                } else {
+                  flushDraftThen(() => onDeleteMetaset(id2))
+                }
+              }}
+            >
+              {deleteMode === 'delete'
+                ? t('metasetsDeleteRemoveRefsLabel')
+                : deleteMode === 'replaceSets'
+                  ? t('metasetsDeleteReplaceWithSetsLabel')
+                  : t('metasetsDeleteReplaceWithMetasetLabel')}
+            </Button>
+          </>
+        )}
+      </>
+    )
+  })()
+
+  // Extract reset-dialog body content so no IIFE lives directly inside JSX.
+  const resetDialogBody = (() => {
+    // Combine recipe + Safeguard references; reset flow must keep both in sync.
+    const totalRefs = draftMetasets.reduce((acc, meta) => (
+      acc + (metasetUsageCounts[meta.name] || 0) + (safeguardMetasetUsageCounts[meta.name] || 0)
+    ), 0)
+    if (totalRefs === 0) {
+      return (
+          <Typography variant="body2">{t('msgResetNoRefs')}</Typography>
+      )
+    }
+    const defaults = defaultMetasets()
+    return (
+      <>
+            <Typography variant="body2">{t('msgResetSomeRefs')}</Typography>
+        <Divider sx={{ my: 1, opacity: 0.5 }} />
+        <RadioGroup value={resetMode} onChange={(_, v) => setResetMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}>
+          <FormControlLabel value="delete" control={<Radio />} label={t('metasetsResetRemoveRefsLabel')} />
+          <FormControlLabel value="replaceSets" control={<Radio />} label={t('metasetsResetReplaceWithSetsLabel')} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
+            <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsResetReplaceWithMetasetLabel')} />
+            <Select
+              size="small"
+              value={resetReplaceMetaId}
+              onChange={(e) => setResetReplaceMetaId(e.target.value as string)}
+              disabled={resetMode !== 'replaceMeta'}
+              displayEmpty
+              renderValue={(v) => v ? (defaults.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')}
+            >
+              {defaults.map(m => (
+                <MenuItem key={m.name} value={m.name}>{m.name}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+        </RadioGroup>
+      </>
+    )
+  })()
 
   return (
     <>
-      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth {...metasetsDialogProps}>
+      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth transitionDuration={{ exit: 0 }} slotProps={{ paper: { ref: metasetsDialogProps.PaperProps.ref } }}>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
@@ -582,11 +737,271 @@ export default function MetasetsDialog({
             }}
           >
             <Stack spacing={1}>
-              {/* eslint-disable-next-line react-hooks/refs -- per-key dictionary callback refs (ref={(el) => { dictRef.current[key] = el }}) are a valid JSX pattern; all other ref accesses here are inside event handlers, not during render */}
               {draftMetasets.map((m, idx) => {
                 const iconId = (m.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
                 const hasSelectedSets = (m.sets?.length ?? 0) > 0
                 const inlinePaddingPx = hasSelectedSets ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+                // Compute setsMenuActive and build the Select element outside JSX so the
+                // inner IIFEs (targetSetId, setsMenuContent) are in plain JS context.
+                const setsMenuActive = metaSetsMenuOpen && activeSetMenuMetaId === m.name
+                // When active, render the full menu tree; otherwise omit to avoid churn.
+                // sorted is derived upfront so it is available to the JSX below.
+                const setsMenuSorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
+                const setsMenuContent = setsMenuActive ? (
+                  <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                    {/* Keep header outside the scrollable items to avoid position jumps */}
+                    <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <SetsOrderControls
+                          setsSearch={setsSearch}
+                          onSetsSearchChange={onSetsSearchChange}
+                          setsOrder={setsOrder}
+                          onSetsOrderChange={onSetsOrderChange}
+                          zeroResults={setsMenuSorted.length === 0}
+                        />
+                      </Box>
+                    </ListSubheader>
+                    <Box
+                      component="ul"
+                      ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[m.name] = el }}
+                      sx={{
+                        listStyle: 'none',
+                        p: 0,
+                        m: 0,
+                        ...(setsOrder === 'icons'
+                          ? {
+                              // Icon mode: never scroll; grid expands with content
+                              maxHeight: 'none',
+                              height: 'auto',
+                              overflowY: 'visible',
+                            }
+                          : {
+                          // List modes: fixed height and always show a vertical scrollbar
+                          // to keep width identical to icon mode.
+                              maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                              height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                              overflowY: 'scroll',
+                            }),
+                        pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                        ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
+                      }}
+                    >
+                      <SetMenuSection
+                        title={t('setsTitle')}
+                        sorted={setsMenuSorted}
+                        setsOrder={setsOrder}
+                        metasets={draftMetasets}
+                        excludeMetasetId={m.name}
+                        setUsageCounts={setUsageCounts}
+                        valueForSet={(id) => String(id)}
+                        hideHeader
+                        selectedSetIds={m.sets}
+                        onToggleSet={(id) => {
+                          skipSetsMenuAutoScrollRef.current = true
+                          commitMetasetUpdate(
+                            idx,
+                            (prevMeta) => {
+                              const nextIds = new Set<number>(prevMeta.sets)
+                              if (nextIds.has(id)) {
+                                nextIds.delete(id)
+                              } else {
+                                nextIds.add(id)
+                              }
+                              const arr = Array.from(nextIds).sort((a, b) => a - b)
+                              return { ...prevMeta, sets: arr }
+                            },
+                            (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
+                          )
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ) : null
+                // Build the full sets Select; setsMenuContent is null when the row is not active.
+                const setsSelectElement = (
+                  <Select
+                    size="small"
+                    multiple
+                    fullWidth
+                    value={m.sets.map(String)}
+                    onChange={(e) => {
+                      const incoming = (e.target.value as string[]).map(Number)
+                      const ids = Array.from(new Set(incoming)).sort((a, b) => a - b)
+                      skipSetsMenuAutoScrollRef.current = true
+                      commitMetasetUpdate(
+                        idx,
+                        (prevMeta) => ({ ...prevMeta, sets: ids }),
+                        (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
+                      )
+                    }}
+                    renderValue={(selected) => (
+                      (selected as string[])
+                        .map((s) => getLocalizedGearSetName(Number(s) as ArtifactSetId, t, lang))
+                        .join(', ')
+                    )}
+                    onOpen={(e) => {
+                      setActiveSetMenuMetaId(m.name)
+                      setMetaSetsMenuOpen(true)
+                      try {
+                        const el = (e?.currentTarget as HTMLElement | null)
+                        const rect = el?.getBoundingClientRect()
+                        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+                        const margin = 8
+                        // dialog picker has only Sets header
+                        const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
+                        const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+                        const desiredLeft = rect ? Math.floor(rect.left) : margin
+                        setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                        const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
+                        const selectedSetIds = new Set(m.sets)
+                        // Walk sorted entries to find the first selected set for auto-scroll.
+                        let targetSetId: number | null = null
+                        if (setsOrder !== 'icons' && selectedSetIds.size > 0) {
+                          for (const [id] of sorted) {
+                            const idNum = Number(id)
+                            if (selectedSetIds.has(idNum)) { targetSetId = idNum; break }
+                          }
+                          if (targetSetId === null) {
+                            const first = selectedSetIds.values().next()
+                            targetSetId = first.done ? null : first.value
+                          }
+                        }
+                        // After mount, measure real height and refine anchor
+                        const refine = () => {
+                          try {
+                            const paper = setsRowMenuPaperRef.current
+                            const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                            if (rect && measured > 0) {
+                              const maxHeight = Math.min(measured, viewportH - margin * 2)
+                              const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                              setSetsMenuAnchorPos({ top, left: desiredLeft })
+                            }
+                          } catch {}
+                          if (typeof targetSetId === 'number') {
+                            try {
+                              const list = setsMenuListRefsRef.current[m.name]
+                              if (!list) return
+                              const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
+                              if (item) item.scrollIntoView({ block: 'nearest' })
+                            } catch {}
+                          }
+                          scrollMetasetSetsMenuToSelected(m.name, setsOrder)
+                        }
+                        requestAnimationFrame(() => requestAnimationFrame(refine))
+                      } catch { setSetsMenuAnchorPos(null) }
+                    }}
+                    onClose={() => {
+                      setMetaSetsMenuOpen(false)
+                      setActiveSetMenuMetaId(null)
+                      setSetsMenuAnchorPos(null)
+                    }}
+                    MenuProps={{
+                      slotProps: { paper: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: setsRowMenuPaperRef }, list: { sx: { width: '100%', maxWidth: '100%' } } },
+                      ...(setsMenuAnchorPos
+                        ? {
+                            anchorReference: 'anchorPosition' as const,
+                            anchorPosition: setsMenuAnchorPos,
+                            transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                          }
+                        : {
+                            transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                          }),
+                    }}
+                    sx={{
+                      minWidth: 0,
+                      cursor: 'pointer',
+                      pr: `${inlinePaddingPx}px`,
+                      '& .MuiSelect-select': {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                        cursor: 'pointer',
+                      },
+                      '& .MuiSelect-icon': {
+                        right: 8,
+                      },
+                    }}
+                  >
+                    {setsMenuContent}
+                  </Select>
+                )
+                // Usage counts cell: shows delete button and recipe/safeguard use chips.
+                const recipeUsed = metasetUsageCounts[m.name] || 0
+                const safeguardUsed = safeguardMetasetUsageCounts[m.name] || 0
+                const totalUsed = recipeUsed + safeguardUsed
+                const usageCountsCell = (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Button color="error" onClick={() => {
+                      const hasSets = m.sets.length > 0
+                      if (totalUsed === 0 && !hasSets) {
+                        // Safe auto-delete: not used and empty. Must still flush any pending
+                        // draft publish first; otherwise the debounced sync will fire after
+                        // the delete and overwrite App state with a draft that still contains
+                        // this metaset, resurrecting the deletion.
+                        flushDraftThen(() => onDeleteMetaset(m.name))
+                        return
+                      }
+                      // Otherwise open confirmation; default to delete action
+                      setDeleteMode(totalUsed > 0 && hasSets ? 'replaceSets' : 'delete')
+                      setDeleteReplaceMetaId('')
+                      setConfirmDeleteMetaId(m.name)
+                    }}>{t('delete')}</Button>
+                    {totalUsed > 0 ? (
+                      <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
+                        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                          <Chip
+                            size="small"
+                            label={t('metasetsUses', { n: recipeUsed })}
+                            color={'warning'}
+                            sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
+                            onClick={() => {
+                              // Map Safeguard references are informational only; the chip keeps
+                              // selecting recipes to mirror the previous affordance.
+                              try { onSelectRecipesByMetaset(m.name) } catch {}
+                              // Close the dialog so the selection is visible in the chips list
+                              try { onClose() } catch {}
+                            }}
+                          />
+                          {safeguardUsed > 0 ? (
+                            <Box
+                              component="span"
+                              sx={(theme) => ({
+                                position: 'absolute',
+                                top: -6,
+                                right: -6,
+                                borderRadius: 1,
+                                px: 0.5,
+                                py: 0.25,
+                                fontSize: 11,
+                                lineHeight: 1,
+                                fontWeight: 700,
+                                bgcolor: theme.palette.warning.main,
+                                color: theme.palette.getContrastText(theme.palette.warning.main),
+                                boxShadow: theme.shadows[2],
+                                pointerEvents: 'none',
+                              })}
+                            >
+                              {/* Inline badge shows the Safeguard rule count (+X). */}
+                              {`+${safeguardUsed}`}
+                            </Box>
+                          ) : null}
+                        </Box>
+                      </MarkdownTooltip>
+                    ) : (
+                      <Chip
+                        size="small"
+                        label={t('metasetsUses', { n: recipeUsed })}
+                        color={'default'}
+                        sx={{ width: 84, justifyContent: 'center' }}
+                      />
+                    )}
+                  </Box>
+                )
                 return (
                 <Box
                   key={m.name}
@@ -701,192 +1116,7 @@ export default function MetasetsDialog({
                       {/* Only build the heavyweight menu tree for the actively opened row.
                           This avoids remounting hundreds of set menu items for every metaset
                           on each click, which was a major source of main-thread churn. */}
-                      {(() => {
-                        const setsMenuActive = metaSetsMenuOpen && activeSetMenuMetaId === m.name
-                        return (
-                          <Select
-                        size="small"
-                        multiple
-                        fullWidth
-                        value={m.sets.map(String)}
-                        onChange={(e) => {
-                          const incoming = (e.target.value as string[]).map(Number)
-                          const ids = Array.from(new Set(incoming)).sort((a, b) => a - b)
-                          skipSetsMenuAutoScrollRef.current = true
-                          commitMetasetUpdate(
-                            idx,
-                            (prevMeta) => ({ ...prevMeta, sets: ids }),
-                            (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
-                          )
-                        }}
-                        renderValue={(selected) => (
-                          (selected as string[])
-                            .map((s) => getLocalizedGearSetName(Number(s) as ArtifactSetId, t, lang))
-                            .join(', ')
-                        )}
-                        onOpen={(e) => {
-                          setActiveSetMenuMetaId(m.name)
-                          setMetaSetsMenuOpen(true)
-                          try {
-                            const el = (e?.currentTarget as HTMLElement | null)
-                            const rect = el?.getBoundingClientRect()
-                            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-                            const margin = 8
-                            // dialog picker has only Sets header
-                            const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
-                            const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
-                            const desiredLeft = rect ? Math.floor(rect.left) : margin
-                            setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                            const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
-                            const selectedSetIds = new Set(m.sets)
-                            const targetSetId = (() => {
-                              if (setsOrder === 'icons') return null
-                              if (selectedSetIds.size === 0) return null
-                              for (const [id] of sorted) {
-                                const idNum = Number(id)
-                                if (selectedSetIds.has(idNum)) return idNum
-                              }
-                              const first = selectedSetIds.values().next()
-                              return first.done ? null : first.value
-                            })()
-                            // After mount, measure real height and refine anchor
-                            const refine = () => {
-                              try {
-                                const paper = setsRowMenuPaperRef.current
-                                const measured = paper ? Math.ceil(paper.offsetHeight) : 0
-                                if (rect && measured > 0) {
-                                  const maxHeight = Math.min(measured, viewportH - margin * 2)
-                                  const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
-                                  setSetsMenuAnchorPos({ top, left: desiredLeft })
-                                }
-                              } catch {}
-                              if (typeof targetSetId === 'number') {
-                                try {
-                                  const list = setsMenuListRefsRef.current[m.name]
-                                  if (!list) return
-                                  const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
-                                  if (item) item.scrollIntoView({ block: 'nearest' })
-                                } catch {}
-                              }
-                              scrollMetasetSetsMenuToSelected(m.name, setsOrder)
-                            }
-                            requestAnimationFrame(() => requestAnimationFrame(refine))
-                          } catch { setSetsMenuAnchorPos(null) }
-                        }}
-                        onClose={() => {
-                          setMetaSetsMenuOpen(false)
-                          setActiveSetMenuMetaId(null)
-                          setSetsMenuAnchorPos(null)
-                        }}
-                        MenuProps={{
-                          PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: setsRowMenuPaperRef },
-                          MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
-                          ...(setsMenuAnchorPos
-                            ? {
-                                anchorReference: 'anchorPosition' as const,
-                                anchorPosition: setsMenuAnchorPos,
-                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                              }
-                            : {
-                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                              }),
-                        }}
-                        sx={{
-                          minWidth: 0,
-                          cursor: 'pointer',
-                          pr: `${inlinePaddingPx}px`,
-                          '& .MuiSelect-select': {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            display: 'block',
-                            cursor: 'pointer',
-                          },
-                          '& .MuiSelect-icon': {
-                            right: 8,
-                          },
-                        }}
-                          >
-                            {setsMenuActive ? (() => {
-                              const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
-                              return (
-                                <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                                  {/* Keep header outside the scrollable items to avoid position jumps */}
-                                  <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
-                                    <Box
-                                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <SetsOrderControls
-                                        setsSearch={setsSearch}
-                                        onSetsSearchChange={onSetsSearchChange}
-                                        setsOrder={setsOrder}
-                                        onSetsOrderChange={onSetsOrderChange}
-                                        zeroResults={sorted.length === 0}
-                                      />
-                                    </Box>
-                                  </ListSubheader>
-                                  <Box
-                                    component="ul"
-                                    ref={(el: HTMLUListElement | null) => { setsMenuListRefsRef.current[m.name] = el }}
-                                    sx={{
-                                      listStyle: 'none',
-                                      p: 0,
-                                      m: 0,
-                                      ...(setsOrder === 'icons'
-                                        ? {
-                                            // Icon mode: never scroll; grid expands with content
-                                            maxHeight: 'none',
-                                            height: 'auto',
-                                            overflowY: 'visible',
-                                          }
-                                        : {
-                                        // List modes: fixed height and always show a vertical scrollbar
-                                        // to keep width identical to icon mode.
-                                            maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                            height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                            overflowY: 'scroll',
-                                          }),
-                                      pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                                      ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
-                                    }}
-                                  >
-                                    <SetMenuSection
-                                      title={t('setsTitle')}
-                                      sorted={sorted}
-                                      setsOrder={setsOrder}
-                                      metasets={draftMetasets}
-                                      excludeMetasetId={m.name}
-                                      setUsageCounts={setUsageCounts}
-                                      valueForSet={(id) => String(id)}
-                                      hideHeader
-                                      selectedSetIds={m.sets}
-                                      onToggleSet={(id) => {
-                                        skipSetsMenuAutoScrollRef.current = true
-                                        commitMetasetUpdate(
-                                          idx,
-                                          (prevMeta) => {
-                                            const nextIds = new Set<number>(prevMeta.sets)
-                                            if (nextIds.has(id)) {
-                                              nextIds.delete(id)
-                                            } else {
-                                              nextIds.add(id)
-                                            }
-                                            const arr = Array.from(nextIds).sort((a, b) => a - b)
-                                            return { ...prevMeta, sets: arr }
-                                          },
-                                          (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
-                                        )
-                                      }}
-                                    />
-                                  </Box>
-                                </Box>
-                              )
-                            })() : null}
-                          </Select>
-                        )
-                      })()}
+                      {setsSelectElement}
                       <InlineSelectClearButton
                         disabled={!hasSelectedSets}
                         label={t('clear')}
@@ -923,16 +1153,18 @@ export default function MetasetsDialog({
                       )
                     }}
                       MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            maxHeight: 320,
-                            minWidth: 88,
-                            width: 'auto',
-                            '& .MuiList-root': {
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(6, 1fr)',
-                              gap: 0.5,
-                              py: 0.5,
+                        slotProps: {
+                          paper: {
+                            sx: {
+                              maxHeight: 320,
+                              minWidth: 88,
+                              width: 'auto',
+                              '& .MuiList-root': {
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(6, 1fr)',
+                                gap: 0.5,
+                                py: 0.5,
+                              },
                             },
                           },
                         },
@@ -951,13 +1183,12 @@ export default function MetasetsDialog({
                       }}
                     >
                     {METASET_ICON_OPTIONS.map((option) => {
-                      const aria = (() => {
-                        if (option.id === 'none') return 'none'
-                        if (option.id === 'empty') return 'empty'
-                        if (option.id.startsWith('glyph.num')) return `number ${option.id.slice(-1)}`
-                        const [, raw] = option.id.split('.')
-                        return raw?.replace(/[-_]/g, ' ') || option.id
-                      })()
+                      // Derive a human-readable aria label from the icon id.
+                      let aria: string
+                      if (option.id === 'none') { aria = 'none' }
+                      else if (option.id === 'empty') { aria = 'empty' }
+                      else if (option.id.startsWith('glyph.num')) { aria = `number ${option.id.slice(-1)}` }
+                      else { const [, raw] = option.id.split('.'); aria = raw?.replace(/[-_]/g, ' ') || option.id }
                       return (
                         <MenuItem
                           key={option.id}
@@ -970,79 +1201,7 @@ export default function MetasetsDialog({
                       )
                   })}
                   </Select>
-                {(() => {
-                  const recipeUsed = metasetUsageCounts[m.name] || 0
-                  const safeguardUsed = safeguardMetasetUsageCounts[m.name] || 0
-                  const totalUsed = recipeUsed + safeguardUsed
-                  return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Button color="error" onClick={() => {
-                        const hasSets = m.sets.length > 0
-                        if (totalUsed === 0 && !hasSets) {
-                          // Safe auto-delete: not used and empty. Must still flush any pending
-                          // draft publish first; otherwise the debounced sync will fire after
-                          // the delete and overwrite App state with a draft that still contains
-                          // this metaset, resurrecting the deletion.
-                          flushDraftThen(() => onDeleteMetaset(m.name))
-                          return
-                        }
-                        // Otherwise open confirmation; default to delete action
-                        setDeleteMode(totalUsed > 0 && hasSets ? 'replaceSets' : 'delete')
-                        setDeleteReplaceMetaId('')
-                        setConfirmDeleteMetaId(m.name)
-                      }}>{t('delete')}</Button>
-                      {totalUsed > 0 ? (
-                        <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
-                          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                            <Chip
-                              size="small"
-                              label={t('metasetsUses', { n: recipeUsed })}
-                              color={'warning'}
-                              sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
-                              onClick={() => {
-                                // Map Safeguard references are informational only; the chip keeps
-                                // selecting recipes to mirror the previous affordance.
-                                try { onSelectRecipesByMetaset(m.name) } catch {}
-                                // Close the dialog so the selection is visible in the chips list
-                                try { onClose() } catch {}
-                              }}
-                            />
-                            {safeguardUsed > 0 ? (
-                              <Box
-                                component="span"
-                                sx={(theme) => ({
-                                  position: 'absolute',
-                                  top: -6,
-                                  right: -6,
-                                  borderRadius: 1,
-                                  px: 0.5,
-                                  py: 0.25,
-                                  fontSize: 11,
-                                  lineHeight: 1,
-                                  fontWeight: 700,
-                                  bgcolor: theme.palette.warning.main,
-                                  color: theme.palette.getContrastText(theme.palette.warning.main),
-                                  boxShadow: theme.shadows[2],
-                                  pointerEvents: 'none',
-                                })}
-                              >
-                                {/* Inline badge shows the Safeguard rule count (+X). */}
-                                {`+${safeguardUsed}`}
-                              </Box>
-                            ) : null}
-                          </Box>
-                        </MarkdownTooltip>
-                      ) : (
-                        <Chip
-                          size="small"
-                          label={t('metasetsUses', { n: recipeUsed })}
-                          color={'default'}
-                          sx={{ width: 84, justifyContent: 'center' }}
-                        />
-                      )}
-                    </Box>
-                    )
-                  })()}
+                {usageCountsCell}
                   </Box>
                 )
               })}
@@ -1132,121 +1291,10 @@ export default function MetasetsDialog({
               <Button variant="contained">Delete</Button>
             </Box>
           )}
-          {(() => {
-            const id = confirmDeleteMetaId
-            const m = draftMetasets.find(x => x.name === id)
-            const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
-            const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = recipeUsed + safeguardUsed
-            const otherMetas = draftMetasets.filter(x => x.name !== id)
-            const hasOtherMetas = otherMetas.length > 0
-            const hasSets = Boolean(m && m.sets.length > 0)
-
-            if (!id) return null
-
-            if (totalUsed === 0) {
-              // Simple confirmation (no replace options)
-              return (
-                <>
-              <Typography variant="body2">{t('msgNoRefs')}</Typography>
-                </>
-              )
-            }
-
-            // Used > 0: present standard radio-driven choices
-            return (
-              <>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  {t('refsCountWithSafeguards', { recipeCount: recipeUsed, safeguardCount: safeguardUsed })}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
-                <Divider sx={{ my: 1, opacity: 0.5 }} />
-                <RadioGroup
-                  value={deleteMode}
-                  onChange={(_, v) => setDeleteMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}
-                >
-                  <FormControlLabel value="delete" control={<Radio />} label={t('metasetsDeleteRemoveRefsLabel')} />
-                  <FormControlLabel value="replaceSets" control={<Radio />} label={hasSets ? t('metasetsDeleteReplaceWithSetsLabel') : t('metasetsDeleteReplaceWithSetsNotAvailable')} disabled={!hasSets} />
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
-                    <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsDeleteReplaceWithMetasetLabel')} disabled={!hasOtherMetas} />
-                    <Select
-                      size="small"
-                      value={deleteReplaceMetaId}
-                      onChange={(e) => setDeleteReplaceMetaId(e.target.value as string)}
-                      displayEmpty
-                      disabled={!hasOtherMetas || deleteMode !== 'replaceMeta'}
-                      renderValue={(v) => {
-                        if (!hasOtherMetas) return t('metasetsNoMetasetsToReplaceWith')
-                        return v ? (draftMetasets.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
-                      }}
-                    >
-                      {otherMetas.map((mm) => (
-                        <MenuItem key={mm.name} value={mm.name}>{mm.name}</MenuItem>
-                      ))}
-                    </Select>
-                  </Box>
-                </RadioGroup>
-              </>
-            )
-          })()}
+          {deleteDialogBody}
         </DialogContent>
         <DialogActions>
-          {(() => {
-            const id = confirmDeleteMetaId
-            const recipeUsed = id ? (metasetUsageCounts[id] || 0) : 0
-            const safeguardUsed = id ? (safeguardMetasetUsageCounts[id] || 0) : 0
-            const totalUsed = recipeUsed + safeguardUsed
-            const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
-            return (
-              <>
-                <Button onClick={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}>{t('cancel')}</Button>
-                {totalUsed === 0 ? (
-                  <Button
-                    color="error"
-                    onClick={() => {
-                      const id2 = confirmDeleteMetaId!
-                      setConfirmDeleteMetaId(null)
-                      setDeleteReplaceMetaId('')
-                      setDeleteMode('delete')
-                      flushDraftThen(() => onDeleteMetaset(id2))
-                    }}
-                  >
-                    {t('delete')}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      variant="contained"
-                      color={deleteMode === 'delete' ? 'error' : 'warning'}
-                      disabled={deleteMode === 'replaceMeta' && !okReplaceMeta}
-                      sx={{ width: confirmBtnWidth, whiteSpace: 'nowrap' }}
-                      onClick={() => {
-                        const id2 = confirmDeleteMetaId!
-                        const mode = deleteMode
-                        const repId = deleteReplaceMetaId
-                        setConfirmDeleteMetaId(null)
-                        setDeleteReplaceMetaId('')
-                        setDeleteMode('delete')
-                        if (mode === 'replaceSets') {
-                          flushDraftThen(() => onDeleteMetaset(id2, { replaceWithSets: true }))
-                        } else if (mode === 'replaceMeta') {
-                          flushDraftThen(() => onDeleteMetaset(id2, { replaceWithMetaId: repId }))
-                        } else {
-                          flushDraftThen(() => onDeleteMetaset(id2))
-                        }
-                      }}
-                    >
-                      {deleteMode === 'delete'
-                        ? t('metasetsDeleteRemoveRefsLabel')
-                        : deleteMode === 'replaceSets'
-                          ? t('metasetsDeleteReplaceWithSetsLabel')
-                          : t('metasetsDeleteReplaceWithMetasetLabel')}
-                    </Button>
-                  </>
-                )}
-              </>
-            )
-          })()}
+          {deleteDialogActionsContent}
         </DialogActions>
       </Dialog>
 
@@ -1262,43 +1310,7 @@ export default function MetasetsDialog({
               <Button variant="contained">{t('metasetsResetUseMetaset')}</Button>
             </Box>
           )}
-          {(() => {
-            // Combine recipe + Safeguard references; reset flow must keep both in sync.
-            const totalRefs = draftMetasets.reduce((acc, meta) => (
-              acc + (metasetUsageCounts[meta.name] || 0) + (safeguardMetasetUsageCounts[meta.name] || 0)
-            ), 0)
-            if (totalRefs === 0) {
-              return (
-                  <Typography variant="body2">{t('msgResetNoRefs')}</Typography>
-              )
-            }
-            const defaults = defaultMetasets()
-            return (
-              <>
-                    <Typography variant="body2">{t('msgResetSomeRefs')}</Typography>
-                <Divider sx={{ my: 1, opacity: 0.5 }} />
-                <RadioGroup value={resetMode} onChange={(_, v) => setResetMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}>
-                  <FormControlLabel value="delete" control={<Radio />} label={t('metasetsResetRemoveRefsLabel')} />
-                  <FormControlLabel value="replaceSets" control={<Radio />} label={t('metasetsResetReplaceWithSetsLabel')} />
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
-                    <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsResetReplaceWithMetasetLabel')} />
-                    <Select
-                      size="small"
-                      value={resetReplaceMetaId}
-                      onChange={(e) => setResetReplaceMetaId(e.target.value as string)}
-                      disabled={resetMode !== 'replaceMeta'}
-                      displayEmpty
-                      renderValue={(v) => v ? (defaults.find(x => x.name === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')}
-                    >
-                      {defaults.map(m => (
-                        <MenuItem key={m.name} value={m.name}>{m.name}</MenuItem>
-                      ))}
-                    </Select>
-                  </Box>
-                </RadioGroup>
-              </>
-            )
-          })()}
+          {resetDialogBody}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmResetMetasets(false)}>{t('cancel')}</Button>

@@ -76,22 +76,16 @@ export function GearDbDiffToast({
       {headerLineNodes.length > 0 ? (
         <Stack spacing={0.35}>
           {/* Positional keys: string lines can repeat (same localized text),
-              and JSX nodes have no stable identity, so a counter is correct. */}
-          {(() => {
-            let nodeSeq = 0
-            return headerLineNodes.map((line) => {
-              const k = `hdr-${++nodeSeq}`
-              return (
-                <Typography
-                  key={k}
-                  variant="body2"
-                  sx={{ fontSize: `${TOAST_HEADER_FONT_SIZE_REM}rem`, lineHeight: 1.35 }}
-                >
-                  {line}
-                </Typography>
-              )
-            })
-          })()}
+              and JSX nodes have no stable identity, so a positional index is correct. */}
+          {headerLineNodes.map((line, nodeSeq) => (
+            <Typography
+              key={`hdr-${nodeSeq}`}
+              variant="body2"
+              sx={{ fontSize: `${TOAST_HEADER_FONT_SIZE_REM}rem`, lineHeight: 1.35 }}
+            >
+              {line}
+            </Typography>
+          ))}
         </Stack>
       ) : null}
       {payload.entries.length > 0 ? (

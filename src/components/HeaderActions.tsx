@@ -277,7 +277,7 @@ export default function HeaderActions(props: {
           anchorEl={sfcCtxMenu}
           open={Boolean(sfcCtxMenu)}
           onClose={closeSfcMenu}
-          PaperProps={{ ref: sfcMenuRef }}
+          slotProps={{ paper: { ref: sfcMenuRef } }}
         >
           <MenuItem
             onClick={() => {

@@ -14,7 +14,7 @@ export function AppTitle({ compact = false }: { compact?: boolean }) {
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap, whiteSpace: 'nowrap' }}>
       {/* aria-label gives screen readers a clean "Sellfile Creator" string; the inner spans are purely visual */}
-      <Typography variant="h4" fontWeight={400} aria-label="Sellfile Creator" sx={{ fontSize: `${mainRem}rem` }}>
+      <Typography variant="h4" aria-label="Sellfile Creator" sx={{ fontSize: `${mainRem}rem`, fontWeight: 400 }}>
         {/* S, f, C are bold while surrounding chars stay at regular weight, surfacing the "SFC" abbreviation */}
         <Box component="span" sx={{ fontWeight: 800 }}>S</Box>ell
         <Box component="span" sx={{ fontWeight: 800 }}>f</Box>ile{' '}

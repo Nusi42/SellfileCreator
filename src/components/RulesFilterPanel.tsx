@@ -398,7 +398,7 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
     event.stopPropagation()
     // flushSync ensures React processes the store update synchronously before the browser's
     // native contextmenu handling can defer or interrupt the scheduled re-render.
-    // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- contextmenu events can stall React's render cycle; synchronous flush ensures the collapse state is visible immediately.
+    // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- contextmenu events can stall React's render cycle; synchronous flush ensures the collapse state is visible immediately.
     flushSync(() => onToggle(true))
   }
   return (
@@ -458,7 +458,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   }
   const handleLabelContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
-    // eslint-disable-next-line @eslint-react/dom/no-flush-sync -- matches the icon button's contextmenu flush to keep collapse state visible immediately.
+    // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- matches the icon button's contextmenu flush to keep collapse state visible immediately.
     flushSync(() => toggleSections(true))
   }
   return (
@@ -712,7 +712,7 @@ function RulesFilterPanel({
   const slotPreDoubleClickRef = React.useRef<number[]>(state.slots.selected.map(Number))
   const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
-  const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
+  const setsMetasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
@@ -1180,20 +1180,26 @@ function RulesFilterPanel({
   }
 
   // Slots — compact toggle buttons with icons/text
-  const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
-    switch (Number(tt)) {
-      case 5: return t('slotWeapon')
-      case 1: return t('slotHelmet')
-      case 6: return t('slotShield')
-      case 3: return t('slotGauntlets')
-      case 2: return t('slotChestplate')
-      case 4: return t('slotBoots')
-      case 7: return t('slotRing')
-      case 8: return t('slotAmulet')
-      case 9: return t('slotBanner')
-      default: return String(tt)
-    }
-  })() }))
+  // Icon is looked up from a static module-level map (not created during render) and stored
+  // alongside id/name so the map callback never assigns an uppercase const from a function call.
+  const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({
+    id: Number(tt),
+    Icon: artifactTypeIconFor(Number(tt)),
+    name: ((): string => {
+      switch (Number(tt)) {
+        case 5: return t('slotWeapon')
+        case 1: return t('slotHelmet')
+        case 6: return t('slotShield')
+        case 3: return t('slotGauntlets')
+        case 2: return t('slotChestplate')
+        case 4: return t('slotBoots')
+        case 7: return t('slotRing')
+        case 8: return t('slotAmulet')
+        case 9: return t('slotBanner')
+        default: return String(tt)
+      }
+    })(),
+  }))
   const selectedSlots = new Set(state.slots.selected.map(Number))
 
   // Rank/Rarity — sliders replaced with concise button rows for milestone ranges to keep UI compact
@@ -1643,6 +1649,117 @@ function RulesFilterPanel({
   )
   const improvChanceSectionDirty = isGearInspectorMode && (improvChanceMin > 0 || improvChanceMax < 100 || !improvChanceIncludeUnassessed)
 
+  // Pre-compute Sets section locals so no IIFE appears inside JSX.
+  // Sorted entries drive icon/list ordering for the Sets select menu.
+  const setsSortedEntries = filterAndSortSetEntries(setsSearch, setsOrder, {
+    translate: t,
+    includeNoSet: allowNoSet,
+    noSetLabel: t('noSetAccessories'),
+  })
+  // Use only visible metasets so the menu stays tidy.
+  const setsMetasetsMenu = visibleMetasets
+  // Treat exclusions as a real selection so Clear/labels stay active.
+  const setsHasAnySelection = selectedSetTokens.length > 0 || splitSetSelections.excluded.length > 0
+  // Track metaset-driven sets so right-click only affects derived entries.
+  const setsMetaDerivedSetIds = new Set(resolveMetasets(state.sets.metaSelected ?? [], metasets).map(Number))
+  const handleExcludeSet = (id: number) => {
+    if (!setsMetaDerivedSetIds.has(id)) return
+    const isExcluded = splitSetSelections.excluded.includes(id)
+    const nextIncluded = splitSetSelections.included.filter((entry) => Number(entry) !== id)
+    const nextExcluded = isExcluded
+      ? splitSetSelections.excluded.filter((entry) => entry !== id)
+      : [...splitSetSelections.excluded, id]
+    const nextSelections = normalizeArtifactSetSelections([
+      ...nextIncluded.map((entry) => ({ id: entry })),
+      ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+    ])
+    onChange({ ...state, sets: { ...state.sets, selected: nextSelections } })
+  }
+  // Inline padding grows when any selections or exclusions are present.
+  const setsInlinePaddingPx = setsHasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  const handleClearSetSelection = () => {
+    setHoveredSetMetaId(null)
+    onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
+  }
+
+  // Pre-compute substat section locals so no IIFE appears inside JSX.
+  const subMustHave = state.sub.selected
+  const subMustNot = state.sub.notSelected
+  // ToggleButtonGroup expects a single "selected values" list; represent include/exclude as one active union.
+  const subUnionRaw: StatVariant[] = []
+  const subSeen = new Set<number>()
+  for (const variant of [...subMustHave, ...subMustNot]) {
+    const key = Number(variant)
+    if (subSeen.has(key)) continue
+    subSeen.add(key)
+    subUnionRaw.push(key as StatVariant)
+  }
+  const subActiveUnion = sortVariantsInUiOrder(subUnionRaw)
+
+  // Derived sets for tri-state substat button rendering — must/must-not membership lookups.
+  const subMustHaveSet = new Set(subMustHave.map(Number))
+  const subMustNotSet = new Set(subMustNot.map(Number))
+
+  // Apply a tri-state toggle to the substat include/exclude lists.
+  const setSubTriStateVariant = (variant: StatVariant, mode: 'include' | 'exclude' | 'off') => {
+    const nextMustHaveBase = toggleVariantOff(subMustHave, variant)
+    const nextMustNotBase = toggleVariantOff(subMustNot, variant)
+    if (mode === 'off') {
+      onChange({ ...state, sub: { ...state.sub, selected: nextMustHaveBase, notSelected: nextMustNotBase } })
+      return
+    }
+    if (mode === 'include') {
+      onChange({
+        ...state,
+        sub: {
+          ...state.sub,
+          selected: toggleVariantOn(nextMustHaveBase, variant),
+          notSelected: nextMustNotBase,
+        },
+      })
+      return
+    }
+    onChange({
+      ...state,
+      sub: {
+        ...state.sub,
+        selected: nextMustHaveBase,
+        notSelected: toggleVariantOn(nextMustNotBase, variant),
+      },
+    })
+  }
+
+  // Render a single substat tri-state toggle button with tooltip and strike styling.
+  const renderSubstatButton = (variant: StatVariant) => {
+    const label = t(statVariantI18nKey(variant))
+    const isMustNot = subMustNotSet.has(Number(variant))
+    const isActive = subMustHaveSet.has(Number(variant)) || isMustNot
+    return (
+      <MarkdownTooltip
+        key={variant}
+        markdown={`${label}\n\n${isActive ? t('rulesFilterVariantRightClickHintRemove') : t('rulesFilterVariantRightClickHintExclude')}`}
+        ellipsisTitle={label}
+        ellipsisSelector="[data-ellipsis-target]"
+      >
+        <ToggleButton
+          value={String(variant)}
+          aria-label={labelOfVariant(variant)}
+          onClick={() => { setSubTriStateVariant(variant, isActive ? 'off' : 'include') }}
+          onContextMenu={(e) => { e.preventDefault(); setSubTriStateVariant(variant, isActive ? 'off' : 'exclude') }}
+        >
+          {/* SUBSTAT_NOT_LABEL_SX adds the diagonal strike for must-not entries. */}
+          <Typography
+            component="span"
+            noWrap
+            sx={(isMustNot ? [...toggleLabelSx, SUBSTAT_NOT_LABEL_SX] : toggleLabelSx) as SxProps<Theme>}
+            data-ellipsis-target
+          >
+            {label}
+          </Typography>
+        </ToggleButton>
+      </MarkdownTooltip>
+    )
+  }
 
   return (
     <Box sx={{ display: 'contents' }}>
@@ -1681,8 +1798,7 @@ function RulesFilterPanel({
           <Stack
             direction="row"
             spacing={1}
-            alignItems="center"
-            sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}
+            sx={{ flexWrap: 'wrap', justifyContent: 'flex-start', alignItems: 'center' }}
           >
               {Boolean(onGearInspectorRecipeFilterModeChange) && (
                 <MarkdownTooltip markdown={gearInspectorRecipeFilterTooltip}>
@@ -1749,23 +1865,25 @@ function RulesFilterPanel({
             inputRef={recipeNameInputRef}
             placeholder={t('filterRecipeNamePlaceholder')}
             error={recipeNameRegexError}
-            inputProps={{
-              'aria-label': t('filterRecipeName'),
-              'aria-invalid': recipeNameRegexError ? 'true' : undefined,
-              title: recipeNameRegexError ? t('filterRecipeNameInvalid') : undefined,
-            }}
-            InputProps={{
-              endAdornment: recipeNameQuery ? (
-                <InputAdornment position="end">
-                  <ClearIconButton
-                    size="small"
-                    edge="end"
-                    aria-label={t('builderClearRecipeName')}
-                    tooltip={t('builderClearRecipeName')}
-                    onClick={() => handleRecipeNameChange('')}
-                  />
-                </InputAdornment>
-              ) : null,
+            slotProps={{
+              htmlInput: {
+                'aria-label': t('filterRecipeName'),
+                'aria-invalid': recipeNameRegexError ? 'true' : undefined,
+                title: recipeNameRegexError ? t('filterRecipeNameInvalid') : undefined,
+              },
+              input: {
+                endAdornment: recipeNameQuery ? (
+                  <InputAdornment position="end">
+                    <ClearIconButton
+                      size="small"
+                      edge="end"
+                      aria-label={t('builderClearRecipeName')}
+                      tooltip={t('builderClearRecipeName')}
+                      onClick={() => handleRecipeNameChange('')}
+                    />
+                  </InputAdornment>
+                ) : null,
+              },
             }}
             sx={{ flex: 1 }}
           />
@@ -2073,46 +2191,8 @@ function RulesFilterPanel({
               onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
-            {(() => {
-              // Sorted entries drive icon/list ordering for this menu.
-                const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
-                  translate: t,
-                  // Keep the no-set sentinel available only when accessories are in scope.
-                  includeNoSet: allowNoSet,
-                  noSetLabel: t('noSetAccessories'),
-                })
-              // Use only visible metasets so the menu stays tidy.
-              const metasetsMenu = visibleMetasets
-              // Treat exclusions as a real selection so Clear/labels stay active.
-              const hasAnySelection = selectedSetTokens.length > 0 || splitSetSelections.excluded.length > 0
-              // Track metaset-driven sets so right-click only affects derived entries.
-              const metaDerivedSetIds = new Set(resolveMetasets(state.sets.metaSelected ?? [], metasets).map(Number))
-              const handleExcludeSet = (id: number) => {
-                // Ignore non-metaset-derived items.
-                if (!metaDerivedSetIds.has(id)) return
-                // Flip exclusion state for this set id.
-                const isExcluded = splitSetSelections.excluded.includes(id)
-                // Ensure explicit includes never coexist with excludes.
-                const nextIncluded = splitSetSelections.included.filter((entry) => Number(entry) !== id)
-                const nextExcluded = isExcluded
-                  ? splitSetSelections.excluded.filter((entry) => entry !== id)
-                  : [...splitSetSelections.excluded, id]
-                // Merge includes/excludes back into a single selection payload.
-                const nextSelections = normalizeArtifactSetSelections([
-                  ...nextIncluded.map((entry) => ({ id: entry })),
-                  ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
-                ])
-                onChange({ ...state, sets: { ...state.sets, selected: nextSelections } })
-              }
-              // Inline padding grows when any selections or exclusions are present.
-              const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
-              const handleClearSetSelection = () => {
-                // Clear hover so membership highlights drop immediately.
-                setHoveredSetMetaId(null)
-                // Reset both set and metaset filters to Any.
-                onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
-              }
-              return (
+            {/* Sets section locals (setsSortedEntries, setsMetasetsMenu, etc.) are pre-computed before the return. */}
+            {(
                 <Box
                   ref={setsSelectContainerRef}
                   sx={{ position: 'relative' }}
@@ -2133,18 +2213,16 @@ function RulesFilterPanel({
                         const rect = el?.getBoundingClientRect()
                         const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
                         const margin = 8
-                        const theoreticalMax = (metasetsMenu.length > 0)
+                        const theoreticalMax = (setsMetasetsMenu.length > 0)
                           ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX)
                           : (MENU_MAX_HEIGHT_SETS_LIST_PX)
                         const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                         const desiredLeft = rect ? Math.floor(rect.left) : margin
                         setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
                         const selectedMetasetIds = new Set(state.sets.metaSelected ?? [])
-                        const targetMetasetId = (() => {
-                          if (metasetsMenu.length === 0) return null
-                          const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.name))
-                          return firstSelected?.name ?? null
-                        })()
+                        const targetMetasetId = setsMetasetsMenu.length === 0
+                          ? null
+                          : (setsMetasetsMenu.find((meta) => selectedMetasetIds.has(meta.name))?.name ?? null)
                         const refine = () => {
                           try {
                             const paper = setsMenuPaperRef.current
@@ -2157,7 +2235,7 @@ function RulesFilterPanel({
                           } catch {}
                           if (targetMetasetId) {
                             try {
-                              const list = metasetsMenuListRef.current
+                              const list = setsMetasetsMenuListRef.current
                               if (!list) return
                               const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
                               for (const item of items) {
@@ -2175,15 +2253,17 @@ function RulesFilterPanel({
                     }}
                     onClose={() => { setSetsMenuOpen(false); setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
                     MenuProps={{
-                      PaperProps: {
-                        sx: {
-                          width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
-                          maxWidth: SETS_MENU_WIDTH_PX,
-                          overflowX: 'hidden',
+                      slotProps: {
+                        paper: {
+                          sx: {
+                            width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
+                            maxWidth: SETS_MENU_WIDTH_PX,
+                            overflowX: 'hidden',
+                          },
+                          ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
                         },
-                        ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
+                        list: { sx: { width: '100%', maxWidth: '100%' } },
                       },
-                      MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
                       ...(setsMenuAnchorPos
                         ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
                         : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
@@ -2192,7 +2272,7 @@ function RulesFilterPanel({
                       width: '100%',
                       minWidth: 0,
                       cursor: 'pointer',
-                      pr: `${inlinePaddingPx}px`,
+                      pr: `${setsInlinePaddingPx}px`,
                       '& .MuiSelect-select': {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -2206,11 +2286,11 @@ function RulesFilterPanel({
                       },
                     }}
                   >
-                  {(metasetsMenu.length > 0) && (
+                  {(setsMetasetsMenu.length > 0) && (
                     <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                       <Box
                         component="ul"
-                        ref={metasetsMenuListRef}
+                        ref={setsMetasetsMenuListRef}
                         sx={{
                           listStyle: 'none', p: 0, m: 0,
                           maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
@@ -2222,7 +2302,7 @@ function RulesFilterPanel({
                         data-tour-id="menu.metasets.section"
                       >
                       <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
-                      {metasetsMenu.map((m) => {
+                      {setsMetasetsMenu.map((m) => {
                         const { glyph, iconId } = metasetGlyph(m)
                         const hasGlyph = glyph != null && !!iconId
                         const needsGap = iconId !== null && iconId !== 'empty'
@@ -2340,7 +2420,7 @@ function RulesFilterPanel({
                     >
                       <SetMenuSection
                         title="Sets"
-                        sorted={sorted}
+                        sorted={setsSortedEntries}
                         setsOrder={setsOrder}
                         metasets={metasets}
                         setUsageCounts={{}}
@@ -2371,7 +2451,7 @@ function RulesFilterPanel({
                   </Box>
                   </Select>
                 <InlineSelectClearButton
-                  disabled={!hasAnySelection}
+                  disabled={!setsHasAnySelection}
                   label={t('clear')}
                   onClear={handleClearSetSelection}
                 />
@@ -2381,12 +2461,11 @@ function RulesFilterPanel({
                     if (!root) return null
                     return root.querySelector('[role="combobox"]') as HTMLElement | null
                   }}
-                  widthPx={hasAnySelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
+                  widthPx={setsHasAnySelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
                 />
               </Box>
-            )
-          })()}
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
+            )}
+            <Stack direction="row" spacing={1} sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap', alignItems: 'center' }}>
               {anyChip(t('filterSets'), state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSets') }))}
               <MarkdownTooltip
                 markdown={renderGlyphTooltip(t('filterMatchTooltipSets'), [
@@ -2568,17 +2647,19 @@ function RulesFilterPanel({
                           autoFocus: false,
                           disableAutoFocusItem: true,
                           variant: 'menu',
-                          MenuListProps: {
-                            autoFocus: false,
-                            autoFocusItem: false,
-                          },
-                          PaperProps: {
-                            sx: {
-                              width: { xs: 'calc(100vw - 32px)', sm: CHAMPION_MENU_WIDTH_PX },
-                              maxWidth: CHAMPION_MENU_WIDTH_PX,
-                              maxHeight: 360,
-                              '& .MuiList-root': {
-                                py: 0,
+                          slotProps: {
+                            list: {
+                              autoFocus: false,
+                              autoFocusItem: false,
+                            },
+                            paper: {
+                              sx: {
+                                width: { xs: 'calc(100vw - 32px)', sm: CHAMPION_MENU_WIDTH_PX },
+                                maxWidth: CHAMPION_MENU_WIDTH_PX,
+                                maxHeight: 360,
+                                '& .MuiList-root': {
+                                  py: 0,
+                                },
                               },
                             },
                           },
@@ -2613,29 +2694,31 @@ function RulesFilterPanel({
                           fullWidth
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
-                          InputProps={{
-                            sx: {
-                              height: 32,
-                              display: 'flex',
-                              alignItems: 'center',
-                              '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_BASE_PX, lineHeight: '32px' },
-                            },
-                            endAdornment: (
-                              <InputAdornment
-                                position="end"
-                                sx={championClearAdornmentSx}
-                              >
-                                <IconButton
-                                  size="small"
-                                  aria-label={t('clear')}
-                                  onClick={() => setChampionSearch('')}
-                                  edge="end"
-                                  sx={championClearButtonSx}
+                          slotProps={{
+                            input: {
+                              sx: {
+                                height: 32,
+                                display: 'flex',
+                                alignItems: 'center',
+                                '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_BASE_PX, lineHeight: '32px' },
+                              },
+                              endAdornment: (
+                                <InputAdornment
+                                  position="end"
+                                  sx={championClearAdornmentSx}
                                 >
-                                  <ClearIcon fontSize="small" />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
+                                  <IconButton
+                                    size="small"
+                                    aria-label={t('clear')}
+                                    onClick={() => setChampionSearch('')}
+                                    edge="end"
+                                    sx={championClearButtonSx}
+                                  >
+                                    <ClearIcon fontSize="small" />
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                            },
                           }}
                         />
                       </ListSubheader>
@@ -2646,10 +2729,8 @@ function RulesFilterPanel({
 	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
 	                        // Mirror the Gear Inspector grid rarity border so the dropdown signals overall quality at a glance.
 	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
-                        const championFallbackInitial = (() => {
-                          const trimmed = championLabel.trim()
-                          return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : '?'
-                        })()
+                        const championTrimmed = championLabel.trim()
+                        const championFallbackInitial = championTrimmed.length > 0 ? championTrimmed.charAt(0).toUpperCase() : '?'
                         return (
                           <MenuItem key={option.id} value={String(option.id)}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
@@ -2925,117 +3006,23 @@ function RulesFilterPanel({
               />
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {(() => {
-                  // Substat filter buttons are tri-state per stat:
-                  // - Off: no constraint.
-                  // - Left click: must have this substat.
-                  // - Right click: must not have this substat.
-                  const mustHave = state.sub.selected
-                  const mustNot = state.sub.notSelected
-
-                  // ToggleButtonGroup expects a single "selected values" list, so represent
-                  // include/exclude as one active union for presentation.
-                  const unionRaw: StatVariant[] = []
-                  const seen = new Set<number>()
-                  for (const variant of [...mustHave, ...mustNot]) {
-                    const key = Number(variant)
-                    if (seen.has(key)) continue
-                    seen.add(key)
-                    unionRaw.push(key as StatVariant)
-                  }
-                  const activeUnion = sortVariantsInUiOrder(unionRaw)
-
-                  const mustHaveSet = new Set(mustHave.map(Number))
-                  const mustNotSet = new Set(mustNot.map(Number))
-
-                  const setTriStateVariant = (variant: StatVariant, mode: 'include' | 'exclude' | 'off') => {
-                    // Always clear both lists first to avoid overlap (back-compat safety).
-                    const nextMustHaveBase = toggleVariantOff(mustHave, variant)
-                    const nextMustNotBase = toggleVariantOff(mustNot, variant)
-                    if (mode === 'off') {
-                      onChange({ ...state, sub: { ...state.sub, selected: nextMustHaveBase, notSelected: nextMustNotBase } })
-                      return
-                    }
-                    if (mode === 'include') {
-                      onChange({
-                        ...state,
-                        sub: {
-                          ...state.sub,
-                          selected: toggleVariantOn(nextMustHaveBase, variant),
-                          notSelected: nextMustNotBase,
-                        },
-                      })
-                      return
-                    }
-                    onChange({
-                      ...state,
-                      sub: {
-                        ...state.sub,
-                        selected: nextMustHaveBase,
-                        notSelected: toggleVariantOn(nextMustNotBase, variant),
-                      },
-                    })
-                  }
-
-                  const renderSubstatButton = (variant: StatVariant) => {
-                    const label = t(statVariantI18nKey(variant))
-                    const isMustNot = mustNotSet.has(Number(variant))
-                    const isActive = mustHaveSet.has(Number(variant)) || isMustNot
-                    // MarkdownTooltip on the outer wrapper adds the right-click hint; ellipsisTitle
-                    // restores the EllipsisTooltip behavior (native OS title when text is truncated).
-                    return (
-                      <MarkdownTooltip
-                        key={variant}
-                        markdown={`${label}\n\n${isActive ? t('rulesFilterVariantRightClickHintRemove') : t('rulesFilterVariantRightClickHintExclude')}`}
-                        ellipsisTitle={label}
-                        ellipsisSelector="[data-ellipsis-target]"
-                      >
-                        <ToggleButton
-                          value={String(variant)}
-                          aria-label={labelOfVariant(variant)}
-                          onClick={() => {
-                            // Left click: Off -> include, Active -> Off.
-                            setTriStateVariant(variant, isActive ? 'off' : 'include')
-                          }}
-                          onContextMenu={(e) => {
-                            // Right click: Off -> exclude, Active -> Off.
-                            e.preventDefault()
-                            setTriStateVariant(variant, isActive ? 'off' : 'exclude')
-                          }}
-                        >
-                          {/* SUBSTAT_NOT_LABEL_SX adds the diagonal strike for must-not entries. */}
-                          <Typography
-                            component="span"
-                            noWrap
-                            sx={(isMustNot ? [...toggleLabelSx, SUBSTAT_NOT_LABEL_SX] : toggleLabelSx) as SxProps<Theme>}
-                            data-ellipsis-target
-                          >
-                            {label}
-                          </Typography>
-                        </ToggleButton>
-                      </MarkdownTooltip>
-                    )
-                  }
-
-                  return (
-                    <>
-                      <ToggleButtonGroup
-                        size="small"
-                        value={filterRowSelection(activeUnion, STAT_VARIANTS_PRIORITY_ROW1)}
-                        sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
-                      >
-                        {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => renderSubstatButton(variant))}
-                      </ToggleButtonGroup>
-                      <ToggleButtonGroup
-                        size="small"
-                        value={filterRowSelection(activeUnion, STAT_VARIANTS_PRIORITY_ROW2)}
-                        sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
-                      >
-                        {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
-                      </ToggleButtonGroup>
-                    </>
-                  )
-                })()}
+                {/* subMustHave, subMustNot, subActiveUnion, renderSubstatButton pre-computed before return. */}
+                <>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(subActiveUnion, STAT_VARIANTS_PRIORITY_ROW1)}
+                    sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
+                  >
+                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => renderSubstatButton(variant))}
+                  </ToggleButtonGroup>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(subActiveUnion, STAT_VARIANTS_PRIORITY_ROW2)}
+                    sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
+                  >
+                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
+                  </ToggleButtonGroup>
+                </>
               </Box>
               {/* Chips row below substats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
@@ -3309,7 +3296,7 @@ function RulesFilterPanel({
                           </EllipsisTooltip>
                         )
                       }}
-                      MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
                       sx={{
                         width: '100%',
                         cursor: 'pointer',
@@ -3420,18 +3407,19 @@ function RulesFilterPanel({
                   '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
                 }, GRID_TOGGLE_BUTTON_GROUP_SX]}
               >
-                {slotButtons.map((s) => {
-                  const Icon = artifactTypeIconFor(s.id)
-                  if (!Icon) {
+                {slotButtons.map(({ id: slotId, Icon: SlotIcon, name: slotName }) => {
+                  // Icon is pre-resolved in slotButtons; destructuring at the map boundary
+                  // avoids any component-creation-during-render lint violations.
+                  if (!SlotIcon) {
                     // Icons are baked in for all known slots; returning null avoids rendering
                     // an incorrectly styled text fallback if a new id slips through.
                     return null
                   }
                   return (
-                    <MarkdownTooltip key={s.id} markdown={s.name} placement="bottom">
+                    <MarkdownTooltip key={slotId} markdown={slotName} placement="bottom">
                       <ToggleButton
-                        value={String(s.id)}
-                        aria-label={s.name}
+                        value={String(slotId)}
+                        aria-label={slotName}
                         onDoubleClick={(e) => {
                           // Double-click toggles the whole group (artefacts or accessories).
                           // Use the pre-click snapshot so the allSelected check is based on the
@@ -3439,7 +3427,7 @@ function RulesFilterPanel({
                           e.stopPropagation()
                           const groupIds = slotButtons
                             .map((b) => b.id)
-                            .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(s.id))
+                            .filter((sid) => isAccessorySlot(sid) === isAccessorySlot(slotId))
                           const preClickSet = new Set(slotPreDoubleClickRef.current)
                           const allSelected = groupIds.every((sid) => preClickSet.has(sid))
                           const next = new Set(slotPreDoubleClickRef.current)
@@ -3448,7 +3436,7 @@ function RulesFilterPanel({
                           onChange({ ...state, slots: { ...state.slots, selected: Array.from(next) } })
                         }}
                       >
-                        <Icon fontSize="inherit" />
+                        <SlotIcon fontSize="inherit" />
                       </ToggleButton>
                     </MarkdownTooltip>
                   )
@@ -3818,7 +3806,7 @@ function RulesFilterPanel({
                   type="number"
                   size="small"
                   label={t('gearInspectorLastUsedRangeMinLabel')}
-                  inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
+                  slotProps={{ htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS } }}
                   value={lastUseCustom.minDays}
                   onChange={handleLastUseInputChange('minDays')}
                   sx={{ flex: '1 1 120px' }}
@@ -3827,7 +3815,7 @@ function RulesFilterPanel({
                   type="number"
                   size="small"
                   label={t('gearInspectorLastUsedRangeMaxLabel')}
-                  inputProps={{ min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS }}
+                  slotProps={{ htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS } }}
                   value={lastUseCustom.maxDays}
                   onChange={handleLastUseInputChange('maxDays')}
                   sx={{ flex: '1 1 120px' }}

@@ -225,6 +225,20 @@ export default function SafeguardCandidateRankList({
   const kept = candidates.filter((c) => c.isWithinQuota)
   const sold = candidates.filter((c) => !c.isWithinQuota)
 
+  // Suppress per-X labels that are no-ops given the selected combination filters.
+  const effectiveCutoffMode = (combination && countMode)
+    ? safeguardEffectiveCountModeForDisplay(combination, countMode)
+    : countMode
+  // Collect active per-group dimensions in display order (slot → set → faction → main).
+  const cutoffScopeParts: string[] = []
+  if (effectiveCutoffMode?.perSlot) cutoffScopeParts.push(t('safeguardsCountModeScopeSlot'))
+  if (effectiveCutoffMode?.perSet) cutoffScopeParts.push(t('safeguardsCountModeScopeSet'))
+  if (effectiveCutoffMode?.perFaction) cutoffScopeParts.push(t('safeguardsCountModeScopeFaction'))
+  if (effectiveCutoffMode?.perMainStat) cutoffScopeParts.push(t('safeguardsCountModeScopeMain'))
+  const cutoffLabel = cutoffScopeParts.length > 0
+    ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: cutoffScopeParts.join(' · ') })
+    : t('safeguardsCandidateCutoff', { n: quota })
+
   return (
     <Box sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* All kept candidates */}
@@ -258,21 +272,7 @@ export default function SafeguardCandidateRankList({
       <Box ref={cutoffRef} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
         <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
-          {(() => {
-            // Suppress per-X labels that are no-ops given the selected combination filters.
-            const effectiveMode = (combination && countMode)
-              ? safeguardEffectiveCountModeForDisplay(combination, countMode)
-              : countMode
-            // Collect active per-group dimensions in display order (slot → set → faction → main).
-            const scopeParts: string[] = []
-            if (effectiveMode?.perSlot) scopeParts.push(t('safeguardsCountModeScopeSlot'))
-            if (effectiveMode?.perSet) scopeParts.push(t('safeguardsCountModeScopeSet'))
-            if (effectiveMode?.perFaction) scopeParts.push(t('safeguardsCountModeScopeFaction'))
-            if (effectiveMode?.perMainStat) scopeParts.push(t('safeguardsCountModeScopeMain'))
-            return scopeParts.length > 0
-              ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: scopeParts.join(' · ') })
-              : t('safeguardsCandidateCutoff', { n: quota })
-          })()}
+          {cutoffLabel}
         </Typography>
         <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
       </Box>
@@ -459,11 +459,11 @@ function CandidateRow({
         //   not filtered + other      → 0.75 (secondary, but still unfiltered)
         //   filtered    + this rule   → 0.55 (filtered but notable)
         //   filtered    + other       → 0.4  (most dimmed)
-        opacity: (() => {
-          // Use ordinal for identity — safeguardRuleId is legacy and always null in new sessions.
-          const isThisRule = previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal
-          return isFiltered ? (isThisRule ? 0.55 : 0.4) : (isThisRule ? 1.0 : 0.75)
-        })(),
+        // Use ordinal for identity — safeguardRuleId is legacy and always null in new sessions.
+        // Four-level opacity: primary (1.0) / secondary (0.75) / filtered+match (0.55) / filtered+other (0.4).
+        opacity: (previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
+          ? (isFiltered ? 0.55 : 1.0)
+          : (isFiltered ? 0.4 : 0.75),
         cursor: onSelectCandidate ? 'pointer' : 'default',
         '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.04) },
       }}
