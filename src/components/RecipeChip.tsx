@@ -95,7 +95,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, fgColor: 
   const intensityStep = Math.max(0, hashCount - 1)
   const borderWidth = Math.max(SEPARATOR_HASHED_MIN_BORDER_WIDTH_PX, SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX - intensityStep * SEPARATOR_HASHED_BORDER_WIDTH_STEP_PX)
   const lineAlpha = Math.max(SEPARATOR_HASHED_LINE_ALPHA_MIN, SEPARATOR_HASHED_LINE_ALPHA_BASE - intensityStep * SEPARATOR_HASHED_LINE_ALPHA_STEP)
-  let lineColor = resolvedColor
+  let lineColor: string
   try {
     lineColor = alpha(resolvedColor, lineAlpha)
   } catch {

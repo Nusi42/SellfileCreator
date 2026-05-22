@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules */
 /// <reference lib="webworker" />
 
 import {

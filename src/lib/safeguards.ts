@@ -1311,7 +1311,7 @@ export function collectSafeguardCandidates(params: {
     return { candidates, uniqueItemKeys }
   } catch (error) {
     // Keep the error actionable so callers know warmup/compat requirements.
-    throw new Error(`WASM safeguard candidate collection is unavailable: ${String(error)}`)
+    throw new Error(`WASM safeguard candidate collection is unavailable: ${String(error)}`, { cause: error })
   }
 }
 

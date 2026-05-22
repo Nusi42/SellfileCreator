@@ -4422,7 +4422,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                     }
                     return total
                   }
-                  let maxRolls = 0
+                  let maxRolls: number
                   if (baselineMode === 'upToLevel') {
                     maxRolls = countUpTo(windowMax) + preRolls
                   } else {

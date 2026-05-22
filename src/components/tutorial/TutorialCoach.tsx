@@ -407,7 +407,7 @@ export function TutorialCoach({
 
     const panel = panelRef.current
     const prevPlacement = panelPlacement
-    let nextPlacement: 'bottom' | 'top' = prevPlacement
+    let nextPlacement: 'bottom' | 'top'
     let prevPanelRect: DOMRect | null = null
     try {
       if (panel) {

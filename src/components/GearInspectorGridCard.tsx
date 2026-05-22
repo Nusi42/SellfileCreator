@@ -917,11 +917,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           }
         }
         if (!match || matchIdx === -1) {
-          if (remaining) parts.push({ key: `asc-str-${++strSeq}`, node: remaining })
+          if (remaining) { strSeq += 1; parts.push({ key: `asc-str-${strSeq}`, node: remaining }) }
           break
         }
         if (matchIdx > 0) {
-          parts.push({ key: `asc-str-${++strSeq}`, node: remaining.slice(0, matchIdx) })
+          strSeq += 1
+          parts.push({ key: `asc-str-${strSeq}`, node: remaining.slice(0, matchIdx) })
         }
         // Token name is unique within the template, making a stable key.
         parts.push({ key: `asc-${match.token}`, node: match.node })

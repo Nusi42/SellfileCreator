@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeLooseRollTargetEntry } from '../../src/lib/hsfBuilder.js'

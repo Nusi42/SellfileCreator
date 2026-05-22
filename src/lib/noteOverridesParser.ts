@@ -643,12 +643,12 @@ export function parseOverridesOptionBlock<S, O>(
       if (!token) return null
       if (token.kind === 'symbol' && token.value === '{') { cursor.next(); break }
       if (token.kind === 'symbol' && token.value === '*') {
-        isDefault = true; headerPhase = 'default'; cursor.next(); continue
+        isDefault = true; cursor.next(); continue
       }
       if (token.kind === 'word' && token.value.toLowerCase() === 'default'
           && cursor.peek(1)?.kind !== 'symbol') {
         // 'default' as a marker (no '=' follows) — not a slider param.
-        isDefault = true; headerPhase = 'default'; cursor.next(); continue
+        isDefault = true; cursor.next(); continue
       }
       if (token.kind === 'word' && token.value.toLowerCase() === 'id') {
         cursor.next()

@@ -430,7 +430,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     // Store the factory so the sim effect can create a fresh worker after idle termination.
     // Workers are created lazily on the first simulation request, not at mount.
     createWorkerRef.current = () => {
-      let w: Worker | null = null
+      let w: Worker
       try {
         w = new DungeonSimulatorWorker()
       } catch {
