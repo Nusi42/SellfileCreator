@@ -2,9 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import DungeonSimulatorWorker from '../workers/dungeonSimulatorWorker?worker&inline'
 import {
   DUNGEON_SIM_BATCH_SIZE,
-  DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON,
-  EVENT_SPOTLIGHT_DEFAULT,
-  createDungeonSimSpotlightSession,
   type DungeonBoostableId,
   type DungeonId,
   type DungeonSimSpotlightResults,
@@ -12,7 +9,6 @@ import {
   type DungeonBoostSelection,
 } from '../lib/dungeonSimulator'
 import { ArtifactSet } from '../lib/artifactSets'
-import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
 import type { ArtifactSetId } from '../lib/types'
@@ -20,7 +16,7 @@ import type {
   DungeonSimulatorWorkerRequest,
   DungeonSimulatorWorkerResponse,
 } from '../workers/dungeonSimulatorWorkerTypes'
-import { PROGRESS_THROTTLE_MS, createProgressThrottler } from '../types/progress'
+import { PROGRESS_THROTTLE_MS } from '../types/progress'
 import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot'
 
 // ─── Note-sim constants ───────────────────────────────────────────────────────
@@ -235,10 +231,6 @@ export function useDungeonNoteSimulator(
     runs: number
     enabled: boolean
   } | null>(null)
-  // Fallback (main-thread) cancel hook.
-  const fallbackCancelRef = useRef<(() => void) | null>(null)
-  // Cached WASM warmup for fallback path.
-  const fallbackWasmRef = useRef<Promise<void> | null>(null)
 
   // ─── Keep param refs fresh ───────────────────────────────────────────────────
   // useLayoutEffect fires synchronously after DOM paint but before useEffect,
@@ -409,11 +401,6 @@ export function useDungeonNoteSimulator(
       if (workerRef.current) {
         workerRef.current.postMessage({ id, kind: 'cancel' } satisfies DungeonSimulatorWorkerRequest)
       }
-      // Cancel in-flight fallback loop.
-      if (fallbackCancelRef.current) {
-        fallbackCancelRef.current()
-        fallbackCancelRef.current = null
-      }
       // Always clear running state when disabled, even if nothing was running.
       setRunningRef.current(false)
       return
@@ -432,133 +419,35 @@ export function useDungeonNoteSimulator(
     setErrorRef.current(null)
     setRunningRef.current(true)
 
-    // Cancel any still-running fallback loop from a previous run.
-    if (fallbackCancelRef.current) {
-      fallbackCancelRef.current()
-      fallbackCancelRef.current = null
-    }
-
     const worker = workerRef.current
-    const canUseWorker = supportsWorkerEnv && Boolean(worker)
-    const effectiveRuns = canUseWorker ? runs : DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON
 
-    if (canUseWorker) {
-      // Worker path: send first config; subsequent configs are queued in the message handler.
-      const firstCfg = NOTE_SIM_CONFIGS[0]
-      if (!firstCfg) return
-      const firstHasBoosts = Object.keys(firstCfg.boosts).length > 0
-      const payload: DungeonSimulatorWorkerRequest = {
-        id,
-        kind: 'simulate',
-        payload: {
-          rules,
-          substatTargets,
-          runs: effectiveRuns,
-          batchSize: Math.max(1, Math.floor(batchSize)),
-          throttleMs,
-          mode: 'levelUp',
-          selections: firstCfg.selections,
-          ...(firstHasBoosts ? { boosts: firstCfg.boosts } : {}),
-          // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
-          simulateDungeons: firstCfg.simulateDungeons,
-        },
-      }
-      worker!.postMessage(payload)
+    if (!supportsWorkerEnv || !worker) {
+      // Worker unavailable: show not-running rather than hanging.
+      setRunningRef.current(false)
       return
     }
 
-    // ─── Fallback path (main thread) ─────────────────────────────────────────
-    // Runs all 6 configs sequentially on the main thread using setTimeout yields.
-    let cancelled = false
-    let tickTimer: ReturnType<typeof setTimeout> | null = null
-
-    const ensureWasm = async (): Promise<void> => {
-      if (!fallbackWasmRef.current) {
-        fallbackWasmRef.current = warmupWasmRuleEngine()
-      }
-      return fallbackWasmRef.current
-    }
-
-    const runConfigFallback = (cfgIdx: number): void => {
-      // Guard: abort if a newer run superseded this one.
-      if (cancelled || activeRequestRef.current !== id) return
-      if (cfgIdx >= NOTE_SIM_CONFIGS.length) {
-        setRunningRef.current(false)
-        return
-      }
-
-      const cfg = NOTE_SIM_CONFIGS[cfgIdx]!
-      const cfgHasBoosts = Object.keys(cfg.boosts).length > 0
-      const session = createDungeonSimSpotlightSession({
-        rules: rulesRef.current,
-        substatTargets: substatTargetsRef.current,
-        runs: effectiveRuns,
+    // Worker path: send first config; subsequent configs are queued in the message handler.
+    const firstCfg = NOTE_SIM_CONFIGS[0]
+    if (!firstCfg) return
+    const firstHasBoosts = Object.keys(firstCfg.boosts).length > 0
+    const payload: DungeonSimulatorWorkerRequest = {
+      id,
+      kind: 'simulate',
+      payload: {
+        rules,
+        substatTargets,
+        runs,
+        batchSize: Math.max(1, Math.floor(batchSize)),
+        throttleMs,
         mode: 'levelUp',
-        selections: cfg.selections,
-        ...(cfgHasBoosts ? { boosts: cfg.boosts } : {}),
+        selections: firstCfg.selections,
+        ...(firstHasBoosts ? { boosts: firstCfg.boosts } : {}),
         // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
-        simulateDungeons: cfg.simulateDungeons,
-      })
-
-      // Update config index so the component knows which one is active.
-      configIndexRef.current = cfgIdx
-      setConfigIndexRef.current(cfgIdx)
-
-      const forwardProgress = createProgressThrottler((_snap) => {
-        if (cancelled || activeRequestRef.current !== id) return
-        const next = new Map(resultsByConfigRef.current)
-        next.set(cfg.id, session.getResultsBySpotlight())
-        resultsByConfigRef.current = next
-        setResultsByConfigRef.current(new Map(next))
-      }, { throttleMs: throttleMsRef.current })
-
-      const tick = () => {
-        tickTimer = null
-        if (cancelled || activeRequestRef.current !== id) return
-        if (session.isComplete()) {
-          // Finalize this config and start the next.
-          const next = new Map(resultsByConfigRef.current)
-          next.set(cfg.id, session.getResultsBySpotlight())
-          resultsByConfigRef.current = next
-          setResultsByConfigRef.current(new Map(next))
-          runConfigFallback(cfgIdx + 1)
-          return
-        }
-        session.runBatch(Math.max(1, Math.floor(batchSizeRef.current)))
-        const prog = session.getProgressBySpotlight()[EVENT_SPOTLIGHT_DEFAULT]
-        if (prog) forwardProgress({ completed: prog.completed, total: prog.total })
-        if (session.isComplete()) {
-          const next = new Map(resultsByConfigRef.current)
-          next.set(cfg.id, session.getResultsBySpotlight())
-          resultsByConfigRef.current = next
-          setResultsByConfigRef.current(new Map(next))
-          runConfigFallback(cfgIdx + 1)
-          return
-        }
-        tickTimer = setTimeout(tick, 0)
-      }
-
-      tick()
+        simulateDungeons: firstCfg.simulateDungeons,
+      },
     }
-
-    void ensureWasm()
-      .then(() => {
-        if (cancelled || activeRequestRef.current !== id) return
-        runConfigFallback(0)
-      })
-      .catch((err: unknown) => {
-        if (cancelled || activeRequestRef.current !== id) return
-        setErrorRef.current(err instanceof Error ? err.message : String(err))
-        setRunningRef.current(false)
-      })
-
-    fallbackCancelRef.current = () => {
-      cancelled = true
-      if (tickTimer !== null) {
-        clearTimeout(tickTimer)
-        tickTimer = null
-      }
-    }
+    worker.postMessage(payload)
   }, [rules, substatTargets, enabled, runs, batchSize, throttleMs])
 
   return {

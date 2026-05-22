@@ -135,7 +135,16 @@ export type RuleCacheWorkerResponse =
   | RuleCacheScoreCandidatesResponse
   | RuleCacheErrorResponse
 
+// One-time initialization message sent from the main thread immediately after spawning
+// the worker. The worker awaits this before processing any pipeline message so the WASM
+// bytes only live in the main bundle — not duplicated in the worker IIFE.
+export type RuleCacheWorkerInitWasmRequest = {
+  kind: 'init-wasm'
+  wasmModule: WebAssembly.Module
+}
+
 export type RuleCacheWorkerRequest =
+  | RuleCacheWorkerInitWasmRequest
   | RuleCacheBuilderCountRequest
   | RuleCachePipelineRequest
   | RuleCacheScoreCandidatesRequest

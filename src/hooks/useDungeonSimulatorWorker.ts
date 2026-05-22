@@ -5,11 +5,9 @@ import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
 import {
   DUNGEON_IDS,
   DUNGEON_SIM_BATCH_SIZE,
-  DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON,
   DUNGEON_SIM_RUNS_PER_DUNGEON,
   EVENT_SPOTLIGHT_OPTIONS,
   EVENT_SPOTLIGHT_DEFAULT,
-  createDungeonSimSpotlightSession,
   isBoostableDungeon,
   type DungeonBoostSelection,
   type DungeonBoostableId,
@@ -30,8 +28,7 @@ import type {
   DungeonSimulatorWorkerRequest,
   DungeonSimulatorWorkerResponse,
 } from '../workers/dungeonSimulatorWorkerTypes'
-import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
-import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
+import { PROGRESS_THROTTLE_MS } from '../types/progress'
 import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot'
 
 type UseDungeonSimulatorWorkerParams = {
@@ -127,27 +124,6 @@ const resolveDirtyDungeons = (params: {
   return Array.from(dirty)
 }
 
-const hasIncompleteOutsideDirty = (
-  progressBySpotlight: DungeonSimSpotlightProgress | null,
-  dirtyDungeons: DungeonId[],
-  runsPerDungeon: number,
-): boolean => {
-  // Missing progress implies we should refresh all dungeons.
-  if (!progressBySpotlight) return true
-  const dirtySet = new Set(dirtyDungeons)
-  for (const spotlight of EVENT_SPOTLIGHT_OPTIONS) {
-    const progress = progressBySpotlight[spotlight]
-    if (!progress) continue
-    const expectedRuns = progress.runsPerDungeon ?? runsPerDungeon
-    for (const dungeonId of DUNGEON_IDS) {
-      if (dirtySet.has(dungeonId)) continue
-      const completed = progress.completedByDungeon?.[dungeonId] ?? 0
-      if (completed < expectedRuns) return true
-    }
-  }
-  return false
-}
-
 const resetProgressForDungeons = (
   previous: DungeonSimSpotlightProgress | null,
   dirtyDungeons: DungeonId[],
@@ -232,18 +208,12 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const setErrorRef = useRef(setError)
   // Worker ref ensures we reuse a single instance across renders.
   const workerRef = useRef<Worker | null>(null)
-  // Preserve the most recent local session for fallback detail queries.
-  const fallbackSessionRef = useRef<ReturnType<typeof createDungeonSimSpotlightSession> | null>(null)
   // Track the most recent request so stale responses can be ignored.
   const activeRequestRef = useRef(0)
   // Track detail requests separately from simulation runs.
   const detailRequestRef = useRef(0)
   const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
   const genericResolversRef = useRef(new Map<number, (value: DungeonSimGenericStats | null) => void>())
-  // Cache local warmup so fallback runs do not reinitialize WASM each time.
-  const localWasmWarmupPromiseRef = useRef<Promise<void> | null>(null)
-  // Local fallback loop needs a cancel hook when dependencies change.
-  const fallbackCancelRef = useRef<(() => void) | null>(null)
   // Idle-termination timer: fires DSIM_WORKER_IDLE_MS after each completed sim or detail response.
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Stable handler refs so the same functions can be attached to recreated workers.
@@ -520,10 +490,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     if (supportsWorkerEnv && !workerRef.current && createWorkerRef.current) {
       createWorkerRef.current()
     }
-    // Use a reduced run count if workers cannot be used.
     const worker = workerRef.current
-    const canUseWorker = supportsWorkerEnv && Boolean(worker)
-    const effectiveRuns = canUseWorker ? runs : DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON
     // Reset run state whenever any dependency changes.
     setErrorRef.current(null)
     setRunningRef.current(true)
@@ -532,121 +499,16 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       setResultsBySpotlightRef.current(null)
     }
     if (!lastSnapshotRef.current.progress) {
-      setProgressBySpotlightRef.current(buildEmptyProgressBySpotlight(effectiveRuns))
+      setProgressBySpotlightRef.current(buildEmptyProgressBySpotlight(runs))
     }
     if (!shouldRunAll && dirtyDungeons.length > 0) {
       // Reset only the changed dungeons so other tables keep their progress.
-      setProgressBySpotlightRef.current((prev) => resetProgressForDungeons(prev, dirtyDungeons, effectiveRuns))
-    }
-    // Clear cached fallback sessions when inputs change.
-    if (shouldRunAll) fallbackSessionRef.current = null
-    // Cancel any in-flight local fallback loop.
-    if (fallbackCancelRef.current) {
-      fallbackCancelRef.current()
-      fallbackCancelRef.current = null
-    }
-    const runFallback = (
-      fallbackRuns: number = DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON,
-      dirtyIds: DungeonId[] = [],
-    ) => {
-      // Local fallback path mirrors the worker API for consistency.
-      let cancelled = false
-      // Warmup helper ensures sync matcher calls can run in fallback mode.
-      const ensureLocalWasmReady = async (): Promise<void> => {
-        if (!localWasmWarmupPromiseRef.current) {
-          localWasmWarmupPromiseRef.current = warmupWasmRuleEngine()
-        }
-        await localWasmWarmupPromiseRef.current
-      }
-      // Reset progress so the UI reflects the fallback run count.
-      setProgressBySpotlightRef.current((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
-      // Track the recursive tick timer so cleanup can cancel the pending yield.
-      let tickTimer: ReturnType<typeof setTimeout> | null = null
-      void ensureLocalWasmReady()
-        .then(() => {
-          // Bail out if a newer request replaced this fallback run.
-          if (cancelled || activeRequestRef.current !== id) return
-          // Reuse the previous session when only a subset of dungeons changed.
-          const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
-          // Keep running all dungeons if any non-dirty entry was still incomplete.
-          const shouldRunDirtyOnly = canReuse
-            && !hasIncompleteOutsideDirty(fallbackSessionRef.current?.getProgressBySpotlight() ?? null, dirtyIds, fallbackRuns)
-          const session = canReuse && fallbackSessionRef.current
-            ? fallbackSessionRef.current
-            : createDungeonSimSpotlightSession({
-              rules,
-              substatTargets,
-              runs: fallbackRuns,
-              ...(mode ? { mode } : {}),
-              ...(boosts ? { boosts } : {}),
-              ...(selections ? { selections } : {}),
-            })
-          if (canReuse) {
-            session.resetDungeons({
-              dungeonIds: dirtyIds,
-              ...(mode ? { mode } : {}),
-              ...(boosts ? { boosts } : {}),
-              ...(selections ? { selections } : {}),
-            })
-          }
-          // Run only the changed dungeons when every other table already completed.
-          const runTargets = shouldRunDirtyOnly ? dirtyIds : undefined
-          // Cache the session so detail queries can reuse the same run data.
-          fallbackSessionRef.current = session
-          // Throttle local updates so React isn't overwhelmed.
-          const forwardProgress = createProgressThrottler((_snapshot) => {
-            if (cancelled || activeRequestRef.current !== id) return
-            setResultsBySpotlightRef.current(session.getResultsBySpotlight())
-            setProgressBySpotlightRef.current(session.getProgressBySpotlight())
-          }, { throttleMs })
-          // Tick batches with time-slicing so the UI can still paint.
-          const tick = () => {
-            tickTimer = null
-            if (cancelled || activeRequestRef.current !== id) return
-            if (session.isComplete()) {
-              setResultsBySpotlightRef.current(session.getResultsBySpotlight())
-              setProgressBySpotlightRef.current(session.getProgressBySpotlight())
-              setRunningRef.current(false)
-              return
-            }
-            // Execute one batch, then emit progress.
-            session.runBatch(safeBatchSize, runTargets)
-            const progressBySpotlight = session.getProgressBySpotlight()
-            const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
-            const sampleProgress = progressBySpotlight[sampleSpotlight]
-            if (sampleProgress) {
-              // Forward the sample progress to drive the throttler clock.
-              forwardProgress({ completed: sampleProgress.completed, total: sampleProgress.total })
-            }
-            if (session.isComplete()) {
-              setResultsBySpotlightRef.current(session.getResultsBySpotlight())
-              setProgressBySpotlightRef.current(session.getProgressBySpotlight())
-              setRunningRef.current(false)
-              return
-            }
-            // Yield before the next batch to keep the main thread responsive.
-            tickTimer = setTimeout(tick, 0)
-          }
-          tick()
-        })
-        .catch((error) => {
-          // Bubble warmup failures to the simulator error state.
-          if (cancelled || activeRequestRef.current !== id) return
-          setErrorRef.current(error instanceof Error ? error.message : String(error))
-          setRunningRef.current(false)
-        })
-      return () => {
-        cancelled = true
-        // Cancel the pending yield timeout so tick does not fire after cleanup.
-        if (tickTimer !== null) clearTimeout(tickTimer)
-      }
+      setProgressBySpotlightRef.current((prev) => resetProgressForDungeons(prev, dirtyDungeons, runs))
     }
     if (!supportsWorkerEnv || !worker) {
-      // Worker unavailable: fall back to the local streaming loop.
-      fallbackCancelRef.current = runFallback(effectiveRuns, dirtyDungeons)
-      return () => {
-        if (fallbackCancelRef.current) fallbackCancelRef.current()
-      }
+      // Worker unavailable: show not-running rather than hanging.
+      setRunningRef.current(false)
+      return undefined
     }
     const activeWorker = worker
     // Dispatch a new worker request for the current inputs.
@@ -657,7 +519,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       payload: {
         rules,
         substatTargets,
-        runs: effectiveRuns,
+        runs,
         batchSize: safeBatchSize,
         throttleMs,
         ...(mode ? { mode } : {}),
@@ -666,16 +528,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         ...(selections ? { selections } : {}),
       },
     }
-    try {
-      // Try the worker path first; errors fall back to local.
-      activeWorker.postMessage(request)
-    } catch (_error) {
-      // If the worker cannot accept the message, run locally.
-      fallbackCancelRef.current = runFallback(effectiveRuns, dirtyDungeons)
-      return () => {
-        if (fallbackCancelRef.current) fallbackCancelRef.current()
-      }
-    }
+    activeWorker.postMessage(request)
     return () => {
       // Cancel the active worker run when dependencies change.
       // Guard against the worker having been idle-terminated between renders.
@@ -715,10 +568,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         worker.postMessage(request)
       })
     }
-    // Fall back to the local session when workers are unavailable.
-    const session = fallbackSessionRef.current
-    if (!session) return Promise.resolve(null)
-    return Promise.resolve(session.queryDetailStats(query))
+    // No worker available — return null so callers show a fallback state.
+    return Promise.resolve(null)
   }
 
   const requestGenericStats = (query: DungeonSimGenericQuery): Promise<DungeonSimGenericStats | null> => {
@@ -741,10 +592,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         worker.postMessage(request)
       })
     }
-    // Fall back to the local session when workers are unavailable.
-    const session = fallbackSessionRef.current
-    if (!session) return Promise.resolve(null)
-    return Promise.resolve(session.queryGenericStats(query))
+    // No worker available — return null so callers show a fallback state.
+    return Promise.resolve(null)
   }
 
   return { results, progress, running, error, requestDetailStats, requestGenericStats }
