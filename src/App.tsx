@@ -262,7 +262,7 @@ import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
 import { recipesForRuleBuild } from './lib/ruleCacheHelpers'
 import { evaluateFirst, type TestItem } from './lib/ruleEval'
-import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
+import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   buildArtifactRevisionMap,
   createDatasetFromSnapshot,
@@ -388,22 +388,6 @@ const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: b
 
 const NO_AUTO_APPLY: () => boolean = () => false
 
-const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
-
-const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?: string | null): File | null => {
-  if (!bytes || bytes.length === 0 || typeof File !== 'function') {
-    return null
-  }
-  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
-  try {
-    // Avoid copying into an intermediate buffer; File can ingest typed arrays directly.
-    // Cast to ArrayBuffer-backed view to satisfy DOM typing without a clone.
-    const view = bytes as Uint8Array<ArrayBuffer>
-    return new File([view], fileName, { type: contentType || 'application/octet-stream' })
-  } catch {
-    return null
-  }
-}
 
 function splitMergedRules(rules: readonly HsfRuleWithRecipe[]): { baseRules: HsfRuleWithRecipe[]; finalSellRules: HsfRuleWithRecipe[] } {
   const baseRules: HsfRuleWithRecipe[] = []
@@ -4133,7 +4117,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorItemsRef,
   })
 
-  const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
+  const handleGearDbImport = useCallback(async (file: File | ArrayBuffer, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
     if (gearImportBusy) return
     // Manual imports should not prime endpoint delta baselines.
@@ -4163,7 +4147,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     beginGearImport()
     try {
-      const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
+      const { artifacts, inboxArtifacts } = await (
+        file instanceof ArrayBuffer
+          ? importGearDatabaseFromArrayBuffer(file)
+          : importGearDatabaseFromFile(file)
+      )
       const combined = [...artifacts, ...inboxArtifacts]
       if (combined.length === 0) {
         if (source === 'command') {
@@ -4266,13 +4254,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Clear the binary snapshot cache so a corrupt/partial payload does not
         // become the baseline for the next push — force a full diff next cycle.
         gearDbBinarySnapshotCacheRef.current = null
-        const fileErrorMessage = formatFileFormatErrorMessage(file.name)
+        const fileName = file instanceof File ? file.name : undefined
+        const fileErrorMessage = formatFileFormatErrorMessage(fileName)
         setGearDbCommandError(fileErrorMessage)
         setGearDbCommandSuccess(null)
         // Error toast matches the badge copy so screen readers hear the same text.
         showGearDbCommandToast(fileErrorMessage, 'error')
       } else {
-        showFileFormatError(file.name)
+        showFileFormatError(file instanceof File ? file.name : undefined)
       }
     } finally {
       endGearImport()
@@ -6050,22 +6039,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // pipeline (~256 MB pre-grow), totalling ~500+ MB in concurrent allocations.
       // After the IIFE resolves, V8 can GC `bytes` and `file` before waiting.
       const importSucceeded = await (async () => {
-        const { name, bytes, contentType } = cmd
-        // File's ctor copies data into internal Blob storage; the original buffer
-        // is now redundant. Null cmd.bytes early so the queued-command object no
-        // longer pins the Uint8Array (the IIFE's local `bytes` const still holds it
-        // temporarily until this scope exits, then it is GC-eligible).
+        const { bytes } = cmd
+        // Null cmd.bytes early so the queued-command object no longer pins the
+        // Uint8Array.  The IIFE's local `bytes` still holds the reference until
+        // this scope exits, after which both the view and its backing buffer are
+        // GC-eligible — before the settle wait below begins.
         ;(cmd as { bytes: Uint8Array | null }).bytes = null
-        const file = createGearDbFileFromBytes(name, bytes, contentType)
-        if (!file) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to decode gear DB binary payload from external command.')
-          }
-          return false
-        }
-        await handleGearDbImport(file, { source: 'command' })
+        if (!bytes || bytes.length === 0) return false
+        // Pass the raw ArrayBuffer directly, bypassing the File ctor and
+        // file.arrayBuffer() copies (saves 2 × 89 MB per import cycle).
+        await handleGearDbImport(bytes.buffer as ArrayBuffer, { source: 'command' })
         return true
-        // `bytes` and `file` drop here — before the settle wait below begins.
+        // `bytes` (and thus bytes.buffer) drop here — before the settle wait.
       })()
       if (!importSucceeded) return
       await waitForEndpointPushSettle()

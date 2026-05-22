@@ -19,5 +19,6 @@ export const SAMPLE_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample.db')
 export const SAMPLE_SMALL_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample-small.db')
 // Example SFC export from the bundled Example recipes.
 export const EXAMPLE_NUSI_SFC_PATH = path.resolve(EXAMPLES_DIR, 'example.sfc')
-// Large user DB paired with example.sfc for large-artifact-set coverage.
+// Full RSLHelper DB — used by file-input tests (setInputFiles).
+// binary-endpoint-memory.spec.ts trims AccRecords in memory before sending over WebSocket.
 export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db')
