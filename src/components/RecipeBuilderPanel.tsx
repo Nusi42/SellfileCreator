@@ -110,6 +110,7 @@ import {
   getDirtyBuilderFieldKeys,
 } from '../lib/recipeMultiEditDraft'
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
+import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from '../state/builderPreferences'
@@ -3138,24 +3139,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
               ) : null}
               {showTagsChips ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                  {tagDisplay.slice(0, 3).map((tag) => (
-                    <Chip
-                      key={tag}
-                      size="small"
-                      label={tag}
-                      sx={{
-                        maxWidth: 120,
-                        ...(multiEditActive && mixedTagSet.has(tag) ? mixedTagChipSx : null),
-                      }}
-                    />
-                  ))}
-                  {tagDisplay.length > 3 ? (
-                    <Chip
-                      size="small"
-                      label={`+${tagDisplay.length - 3}`}
-                      sx={{ opacity: 0.7 }}
-                    />
-                  ) : null}
+                  <BuilderTagChipStrip tags={tagDisplay} mixedTagSet={mixedTagSet} mixedTagChipSx={mixedTagChipSx} multiEditActive={multiEditActive} />
                 </Box>
               ) : null}
               {/* Reuse the ContextMenuPaper style so the tags popup matches substat context menus. */}
@@ -3181,23 +3165,14 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 <Box sx={{ p: 1.5 }}>
                   <Stack spacing={1}>
                     {/* Tag chips are removable; empty state stays compact. */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {tagDisplay.length > 0 ? (
-                        tagDisplay.map((tag) => (
-                          <Chip
-                            key={tag}
-                            size="small"
-                            label={tag}
-                            onDelete={() => removeTag(tag)}
-                            {...(multiEditActive && mixedTagSet.has(tag) ? { sx: mixedTagChipSx } : {})}
-                          />
-                        ))
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          {t('builderTagsEmpty')}
-                        </Typography>
-                      )}
-                    </Box>
+                    <BuilderTagChipList
+                      tags={tagDisplay}
+                      mixedTagSet={mixedTagSet}
+                      mixedTagChipSx={mixedTagChipSx}
+                      multiEditActive={multiEditActive}
+                      onRemove={removeTag}
+                      emptyLabel={t('builderTagsEmpty')}
+                    />
                     {/* Input accepts comma/enter to append multiple tags quickly. */}
                     <TextField
                       size="small"
