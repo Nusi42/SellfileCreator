@@ -196,6 +196,13 @@ export function useExternalCommands({
           }
         }
 
+        // Receive binary frames as ArrayBuffer so the raw bytes are available
+        // synchronously in onmessage without an extra Blob.arrayBuffer() round-trip.
+        // This eliminates the async conversion step and lets the app pass the
+        // buffer directly to importGearDatabaseFromArrayBuffer, skipping two
+        // intermediate 89-MB copies (File ctor + file.arrayBuffer()) per import.
+        socket.binaryType = 'arraybuffer'
+
         socket.onmessage = (event) => {
           // Normalize the payload into a JSON object before parsing.
           const raw = event.data
@@ -213,28 +220,34 @@ export function useExternalCommands({
             return
           }
 
-          // Blob payloads can appear if the server sends binary frames.
-          if (raw instanceof Blob) {
+          // Binary frames arrive as ArrayBuffer (binaryType = 'arraybuffer').
+          // The buffer is available synchronously — no Blob.arrayBuffer() needed.
+          if (raw instanceof ArrayBuffer) {
             const meta = pendingBinaryMetaRef.current
             if (meta) {
-              raw.arrayBuffer().then((buffer) => {
-                pendingBinaryMetaRef.current = null
-                if (closedRef.current) return
-                const bytes = new Uint8Array(buffer)
+              pendingBinaryMetaRef.current = null
+              if (!closedRef.current) {
+                // Wrap as a Uint8Array view over the frame's backing buffer.
+                // No copy is made here; the buffer stays alive until cmd.bytes
+                // is nulled in applyEndpointPushCommand after the import.
+                const bytes = new Uint8Array(raw)
                 handlerRef.current({
                   kind: 'gearDbFileBinary',
                   name: meta.name,
                   bytes,
                   contentType: meta.contentType ?? null,
                 })
-              }).catch(() => {
-                // If arrayBuffer() throws, pendingBinaryMetaRef stays non-null and
-                // blocks all subsequent binary transfers until the socket reconnects.
-                // Clear it so the next binary frame can pair with its own metadata.
-                pendingBinaryMetaRef.current = null
-              })
+              }
               return
             }
+            // Binary frame without a preceding metadata notification — no
+            // established protocol for raw binary here, so discard.
+            return
+          }
+
+          // Blob payloads can appear if binaryType is overridden externally.
+          // Fall back to text parsing so JSON-over-binary paths still work.
+          if (raw instanceof Blob) {
             raw.text().then((text) => {
               parseJson(text)
             }).catch(() => {})

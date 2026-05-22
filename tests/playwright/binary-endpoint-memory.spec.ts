@@ -1,5 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import fs from 'node:fs'
+import path from 'node:path'
+import initSqlJs from 'sql.js'
 import type { WebSocketRoute } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
@@ -51,8 +53,18 @@ test.describe('binary-endpoint-memory', () => {
     // Budget: 8 rounds × 4 bursts × ~30 s per settle + startup.
     test.setTimeout(600_000)
 
-    // Read once in Node.js; avoid re-reading inside the loop.
-    const dbBuffer = fs.readFileSync(LARGE_ACCOUNT_DB_PATH)
+    // Read and trim in memory: DELETE AccRecords (85 MB of blobs never read by
+    // importGearDatabaseFromArrayBuffer) so the base64-encoded WebSocket frame
+    // stays well under Chrome's ~120 MB CDP message threshold.
+    const SQL = await initSqlJs({
+      wasmBinary: fs.readFileSync(path.resolve(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm')),
+    })
+    const rawBuffer = fs.readFileSync(LARGE_ACCOUNT_DB_PATH)
+    const db = new SQL.Database(rawBuffer)
+    db.run('DELETE FROM AccRecords')
+    db.run('VACUUM')
+    const dbBuffer = Buffer.from(db.export())
+    db.close()
     const dbSizeMB = Math.ceil(dbBuffer.length / 1024 / 1024)
 
     // Accumulate diagnostics so they appear together in the test report.

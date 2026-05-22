@@ -131,6 +131,33 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
       filterPresetsKey: FILTER_PRESETS_KEY,
     },
   )
+
+  // Patch Playwright's WebSocket mock to decode binary frames with
+  // Uint8Array.fromBase64 (Chrome 118+, native, sub-millisecond) instead of
+  // the injected char-by-char atob loop.  For large binary frames the original
+  // loop runs millions of charCodeAt iterations, blocking the renderer's main
+  // thread long enough to trigger Chrome's slow-script killer.  The native
+  // path avoids the intermediate atob string entirely.
+  // This patch runs after Playwright's own webSocketMock init script (registered
+  // by routeWebSocket before prepareApp is called), so __pwWebSocketDispatch is
+  // already defined here.  With isBase64:false, dataToMessage returns the
+  // ArrayBuffer directly without further copies.
+  await page.addInitScript(`
+    ;(() => {
+      var orig = typeof globalThis.__pwWebSocketDispatch === 'function'
+        ? globalThis.__pwWebSocketDispatch : null;
+      if (!orig || typeof Uint8Array.fromBase64 !== 'function') return;
+      globalThis.__pwWebSocketDispatch = function(req) {
+        try {
+          if (req && req.data && req.data.isBase64 && typeof req.data.data === 'string') {
+            var bytes = Uint8Array.fromBase64(req.data.data);
+            req = Object.assign({}, req, { data: { data: bytes.buffer, isBase64: false } });
+          }
+        } catch (_) {}
+        return orig(req);
+      };
+    })();
+  `)
 }
 
 export const APP_VERSION = readAppVersion()
