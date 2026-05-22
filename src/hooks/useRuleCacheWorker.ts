@@ -21,6 +21,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import { ensureWasmRuleEngineReady, getCompiledWasmRuleEngineModule } from '../lib/wasm/wasmRuleEngine'
 import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
 
 type PipelineParams = {
@@ -383,6 +384,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       const worker = new RuleCacheWorker()
       attachWorkerListeners(worker)
       workerRef.current = worker
+      // Send the compiled WASM module immediately so the worker can call initSync
+      // instead of fetching+compiling its own copy of the WASM bytes. This keeps the
+      // ~1.6 MB binary in the main bundle only; the worker IIFE contains no WASM data.
+      // ensureWasmRuleEngineReady() resolves immediately after app-startup warmup.
+      void ensureWasmRuleEngineReady().then(() => {
+        const mod = getCompiledWasmRuleEngineModule()
+        if (mod) worker.postMessage({ kind: 'init-wasm', wasmModule: mod } satisfies RuleCacheWorkerRequest)
+      })
     }
     const replaceWorkerAfterRuntimeError = () => {
       // Runtime faults are recoverable by replacing the worker instance.

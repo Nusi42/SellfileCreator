@@ -34,8 +34,8 @@ import {
   finalizeGeneratedRulesWithLoadedWasm,
   getWasmLinearMemoryBytes,
   getWasmRuleEngineVersion,
+  initWasmRuleEngineFromModule,
   resetWasmInstance,
-  warmupWasmRuleEngine,
 } from '../lib/wasm/wasmRuleEngine'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import {
@@ -60,7 +60,10 @@ type PipelineState = {
 let latestPipelineGeneration = 0
 // Log the loaded WASM version once per worker for transcript parity.
 let wasmVersionLogged = false
-let wasmWarmupPromise: Promise<void> | null = null
+// Resolved by the 'init-wasm' message handler when the main thread transfers the
+// compiled WebAssembly.Module. All pipeline messages await this before calling any WASM.
+let wasmReadyResolve: (() => void) | null = null
+const wasmReadyPromise: Promise<void> = new Promise<void>((resolve) => { wasmReadyResolve = resolve })
 // Persistent rule cache: fingerprint → built rules. Reused across pipeline runs
 // so unchanged recipes skip the WASM buildRulesForRecipe call entirely.
 const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
@@ -287,18 +290,9 @@ const postPipelineProgress = (id: number, payload: { completed: number; total: n
   self.postMessage(response)
 }
 
-// Warmup is mandatory because configure/evaluate run through loaded wasm state.
-// On failure the cached promise is cleared so the next pipeline request can retry
-// rather than getting stuck on a permanently-rejected promise for the worker's lifetime.
-const ensureWasmWorkerReady = async (): Promise<void> => {
-  if (!wasmWarmupPromise) wasmWarmupPromise = warmupWasmRuleEngine()
-  try {
-    await wasmWarmupPromise
-  } catch (error) {
-    wasmWarmupPromise = null
-    throw error
-  }
-}
+// Awaits the 'init-wasm' message that the main thread sends immediately after spawning
+// this worker. All pipeline messages must wait for this before calling any WASM function.
+const ensureWasmWorkerReady = (): Promise<void> => wasmReadyPromise
 
 // Worker-only finalizer delegates branch-rule post-processing to wasm.
 const finalizeGeneratedRulesForWorker = (params: Parameters<typeof finalizeGeneratedRulesWithLoadedWasm>[0]) => {
@@ -473,6 +467,16 @@ const buildPipelineMatches = async (
 self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const message = event.data
   if (!message) return
+
+  // init-wasm arrives once, immediately after the worker is spawned.
+  // Must be handled before ensureWasmWorkerReady (which awaits wasmReadyPromise).
+  if (message.kind === 'init-wasm') {
+    // initWasmRuleEngineFromModule also pre-grows the WASM linear memory.
+    initWasmRuleEngineFromModule(message.wasmModule)
+    wasmReadyResolve?.()
+    return
+  }
+
   try {
     await ensureWasmWorkerReady()
   } catch (error) {
@@ -816,7 +820,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // receiving the postError below; these resets are the fallback for the
       // stale-run path where postError is skipped.
       resetWasmInstance()
-      wasmWarmupPromise = null
     }
     if (runIsStale()) return
     postError(id, error)

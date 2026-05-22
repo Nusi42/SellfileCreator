@@ -7,6 +7,7 @@ import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
 import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
 import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin'
+import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -85,6 +86,9 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   plugins: [
     assetsPlugin(),
     wasmInlinePlugin(),
+    // Suppresses the URL-based WASM auto-load in rule_engine.js so the binary is
+    // not double-embedded (main bundle + worker IIFE). See suppressWasmUrlPlugin.ts.
+    suppressWasmUrlPlugin(),
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler'],
@@ -185,6 +189,10 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     // workers under opaque origins. Force single chunk to satisfy IIFE multi-chunk restriction.
     // Web build: ESM workers work fine on a real web server; allow normal splitting.
     format: isWebBuild ? 'es' : 'iife',
+    // stubInlineBytes: true stubs ruleEngineWasmBytes so the worker IIFE does not embed
+    // the 1.6 MB WASM binary — the worker receives a compiled WebAssembly.Module via
+    // postMessage from the main thread and calls initSync() instead.
+    plugins: () => [suppressWasmUrlPlugin({ stubInlineBytes: true })],
     rollupOptions: isWebBuild
       ? {}
       : { output: { inlineDynamicImports: true, manualChunks: undefined } },

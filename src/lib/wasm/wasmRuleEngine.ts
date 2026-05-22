@@ -1,4 +1,10 @@
+// ruleEngineWasmBytes re-exports __RULE_ENGINE_WASM_INLINE__ (injected by wasmInlinePlugin)
+// as a named export so wasmRuleEngine.ts never directly references the define constant.
+// In worker builds suppressWasmUrlPlugin stubs this module so the WASM bytes stay out of
+// the worker IIFE; in Node.js tests it falls back to '' and the URL-based init path is used.
+import { ruleEngineWasmDataUri } from './ruleEngineWasmBytes'
 import initRuleEngineWasm, {
+  initSync as initSyncRuleEngine,
   auto_rarity_addition_levels_for_code_value as autoRarityAdditionLevelsForCodeWasmValueBinding,
   auto_rarity_includes_mythical_for_code_value as autoRarityIncludesMythicalForCodeWasmValueBinding,
   auto_rarity_roll_levels_for_code_value as autoRarityRollLevelsForCodeWasmValueBinding,
@@ -183,6 +189,9 @@ type WasmRuleEngineEvaluatePayload = {
 // Workers call configure/evaluate repeatedly, so one init per worker is enough.
 let wasmInitPromise: Promise<void> | null = null
 let wasmInitialized = false
+// Compiled WebAssembly.Module cached after first init so the rule-cache worker
+// can receive it via postMessage (structured clone) instead of bundling WASM bytes twice.
+let compiledWasmModule: WebAssembly.Module | null = null
 
 
 // Sync helpers are used on hot paths that cannot await. Callers must warm up first.
@@ -296,22 +305,71 @@ const toEvaluateOptionsPayload = (
 }
 
 // Ensure the WASM binary is instantiated exactly once for this JS context.
-// The generated binding no-ops after first init, so repeated calls stay cheap.
-// On failure the cached promise is cleared so the next caller can retry rather
-// than every future call rejecting from the same permanently-stuck promise.
+//
+// Browser / Vite build path: __RULE_ENGINE_WASM_INLINE__ is a base64 data URI injected
+// by wasmInlinePlugin. The WASM bytes are decoded, compiled into a WebAssembly.Module,
+// then passed to the wasm-bindgen async init. Compiling separately lets the rule-cache
+// worker receive the module via postMessage without embedding the WASM bytes itself.
+//
+// Node.js test path: __RULE_ENGINE_WASM_INLINE__ is undefined. Fall back to the no-arg
+// initRuleEngineWasm() call, which uses the original new URL(…) path inside rule_engine.js
+// (the suppressWasmUrlPlugin only transforms rule_engine.js in Vite builds, not tsc output).
+// wasm-warmup.ts patches fetch to serve file:// URLs from disk in that environment.
+//
+// On failure all caches are cleared so the next caller can retry.
 const ensureWasmInitialized = async (): Promise<void> => {
   if (!wasmInitPromise) {
-    wasmInitPromise = initRuleEngineWasm().then(() => {
+    wasmInitPromise = (async () => {
+      if (ruleEngineWasmDataUri) {
+        const inlineUri = ruleEngineWasmDataUri
+        // Browser path: decode the data URI, compile, then instantiate via the wasm-bindgen init.
+        const commaIdx = inlineUri.indexOf(',')
+        const base64 = inlineUri.slice(commaIdx + 1)
+        const binaryStr = atob(base64)
+        const bytes = new Uint8Array(binaryStr.length)
+        for (let i = 0; i < binaryStr.length; i += 1) {
+          bytes[i] = binaryStr.charCodeAt(i) ?? 0
+        }
+        // Compile first so the module can be transferred to the rule-cache worker.
+        const module = await WebAssembly.compile(bytes.buffer)
+        compiledWasmModule = module
+        // Pass the compiled module directly so init skips the URL fallback path.
+        await initRuleEngineWasm({ module_or_path: module })
+      } else {
+        // Node.js test path: use the URL-based init (wasm-warmup.ts patches fetch).
+        await initRuleEngineWasm()
+      }
       wasmInitialized = true
-    })
+    })()
   }
   try {
     await wasmInitPromise
   } catch (error) {
     // Clear so the next pipeline request can attempt re-initialization.
     wasmInitPromise = null
+    compiledWasmModule = null
     throw error
   }
+}
+
+// Returns the compiled WebAssembly.Module after warmup, or null before init.
+// Used by useRuleCacheWorker to transfer the module to the rule-cache worker via
+// postMessage so the worker's IIFE bundle does not embed the WASM bytes a second time.
+export const getCompiledWasmRuleEngineModule = (): WebAssembly.Module | null => compiledWasmModule
+
+// Initialize the rule engine using a WebAssembly.Module transferred from the main thread.
+// Called inside the rule-cache worker when it receives the 'init-wasm' message.
+// Uses initSync (synchronous instantiation) — no async needed when the module is already
+// compiled and transferred. Pre-grows the WASM heap so memory.grow does not stall the
+// first pipeline run (same as warmupWasmRuleEngine does on the main thread).
+export const initWasmRuleEngineFromModule = (module: WebAssembly.Module): void => {
+  if (wasmInitialized) return
+  initSyncRuleEngine({ module })
+  wasmInitialized = true
+  // Satisfy any caller that might await ensureWasmRuleEngineReady() in this JS context.
+  wasmInitPromise = Promise.resolve()
+  // Pre-commit WASM pages for the pipeline allocator (same as warmupWasmRuleEngine).
+  preGrowMemoryWasmBinding(PRE_GROW_TARGET_BYTES)
 }
 
 // Pre-grow the WASM linear memory to a target size in 16 MiB chunks so
