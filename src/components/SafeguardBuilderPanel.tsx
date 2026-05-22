@@ -175,6 +175,7 @@ import {
   resolveEffectiveSafeguardRule,
   type SafeguardOverridesInstruction,
 } from '../lib/noteSafeguardOverrides'
+import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -1065,6 +1066,8 @@ export default function SafeguardBuilderPanel({
 
   // ── tags state, derived values, and handlers ──────────────────────────────
 
+  // Dialog open state for the "Clear tags?" confirmation (shown when overrides are active).
+  const [clearTagsConfirmOpen, setClearTagsConfirmOpen] = useState(false)
   const [tagsAnchor, setTagsAnchor] = useState<HTMLElement | null>(null)
   const [tagsDraft, setTagsDraft] = useState<string>('')
   // Keep a ref to the tags menu so outside clicks can dismiss stuck backdrops.
@@ -1229,8 +1232,26 @@ export default function SafeguardBuilderPanel({
       })
       return
     }
+    // Single-edit: if override values differ from stored values, let the user decide
+    // whether to bake those values in before clearing the tags.
+    if (effectiveRule !== rule) {
+      setClearTagsConfirmOpen(true)
+      return
+    }
+    // No active overrides — clear directly.
     updateRule((prev) => ({ ...prev, tags: [] }))
-  }, [multiEdit, multiEditActive, multiTagsField?.value, rule.tags, tagsClearable, updateRule])
+  }, [effectiveRule, rule, multiEdit, multiEditActive, multiTagsField?.value, tagsClearable, updateRule])
+  // Handles "Clear Without Applying" — discards any active override values and clears tags.
+  const handleClearTagsConfirm = useCallback(() => {
+    setClearTagsConfirmOpen(false)
+    updateRule((prev) => ({ ...prev, tags: [] }))
+  }, [updateRule])
+  // Handles "Apply and Clear" — bakes the current override-derived values into the rule,
+  // then removes the tags so overrides no longer target it.
+  const handleClearTagsApplyAndClear = useCallback(() => {
+    setClearTagsConfirmOpen(false)
+    updateRule(() => ({ ...effectiveRule, tags: [] }))
+  }, [effectiveRule, updateRule])
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -3375,7 +3396,13 @@ export default function SafeguardBuilderPanel({
       </Popover>
       </Box>{/* end inner grid */}
       </Box>{/* end scroll wrapper */}
-
+      <ClearTagsConfirmDialog
+        open={clearTagsConfirmOpen}
+        context="safeguard"
+        onClose={() => setClearTagsConfirmOpen(false)}
+        onClear={handleClearTagsConfirm}
+        onApplyAndClear={handleClearTagsApplyAndClear}
+      />
     </Box>
   )
 }
