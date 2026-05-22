@@ -48,12 +48,15 @@ export default function WorkloadProgressIndicator({ progressRatio, ariaLabel, si
       />
     )
   }
+  // Wrap in a role="status" box so the locator `[role="status"][aria-label="Building…"]` stays
+  // valid through the full determinate phase, not just the initial pending-pulse phase.
   return (
-    <InlineProgressSpinner
-      variant="determinate"
-      value={clampedRatio * 100}
-      ariaLabel={ariaLabel}
-      {...(sizePx !== undefined ? { sizePx } : {})}
-    />
+    <Box role={ariaLabel ? 'status' : undefined} aria-label={ariaLabel} sx={{ display: 'contents' }}>
+      <InlineProgressSpinner
+        variant="determinate"
+        value={clampedRatio * 100}
+        {...(sizePx !== undefined ? { sizePx } : {})}
+      />
+    </Box>
   )
 }
