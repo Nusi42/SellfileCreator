@@ -215,7 +215,15 @@ export default function MetasetsDialog({
     }
   }, [])
   // Push the latest draft to App immediately (used on close/critical actions).
+  // Skip the dispatch when no local edit is pending: draftMetasetsRef.current
+  // can lag App.metasets after side-effects that mutate App state without
+  // routing through scheduleDraftPublish (e.g. onDeleteMetaset's functional
+  // update). Publishing a stale ref in that window would silently resurrect
+  // just-deleted metasets when the dialog closes.
   const publishDraftNow = useCallback((next?: Metaset[]) => {
+    if (next === undefined && !hasPendingPublishRef.current) {
+      return
+    }
     const payload = next ?? draftMetasetsRef.current
     clearPendingPublish()
     hasPendingPublishRef.current = false
@@ -971,8 +979,11 @@ export default function MetasetsDialog({
                       <Button color="error" onClick={() => {
                         const hasSets = m.sets.length > 0
                         if (totalUsed === 0 && !hasSets) {
-                          // Safe auto-delete: not used and empty
-                          onDeleteMetaset(m.name)
+                          // Safe auto-delete: not used and empty. Must still flush any pending
+                          // draft publish first; otherwise the debounced sync will fire after
+                          // the delete and overwrite App state with a draft that still contains
+                          // this metaset, resurrecting the deletion.
+                          flushDraftThen(() => onDeleteMetaset(m.name))
                           return
                         }
                         // Otherwise open confirmation; default to delete action
