@@ -2855,6 +2855,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           <Chip
             size="small"
             label={t('gearInspectorSelectionCount', { count: selectedGearItemIds?.size ?? 0 })}
+            data-testid="gear-inspector-selection-count"
           />
           <Tooltip title={t('gearInspectorSelectionSelectAll')}>
             <IconButton
