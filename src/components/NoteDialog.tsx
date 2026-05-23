@@ -3546,33 +3546,25 @@ export default function NoteDialog({
     [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
+  // Shared minimize animation: shrinks the paper toward the Note button in the builder.
+  const { paperRef, animateClose } = useDialogMinimizeAnimation('[data-tour-id="note.toggle"]')
+
+  // Always animate toward the Note button when closing — used everywhere onClose fires.
+  const animatedOnClose = useCallback(() => {
+    animateClose(onClose)
+  }, [animateClose, onClose])
+
   // Non-edit modes should always commit by closing immediately.
   // Synced via effect so we never write to a ref during render.
   React.useEffect(() => {
     if (mode !== 'edit') {
-      editCommitRef.current = onClose
+      editCommitRef.current = animatedOnClose
     }
-  }, [mode, onClose])
-
-  // Shared minimize animation: shrinks the paper toward the Note button in the builder.
-  const { paperRef, animateClose } = useDialogMinimizeAnimation('[data-tour-id="note.toggle"]')
-
-  // In expert mode of a simple session, animate toward the Note button; otherwise close directly.
-  const handleAnimatedClose = useCallback(() => {
-    if (simpleMode && expertMode) {
-      animateClose(onClose)
-    } else {
-      onClose()
-    }
-  }, [simpleMode, expertMode, animateClose, onClose])
+  }, [mode, animatedOnClose])
 
   const handleDialogClose = React.useCallback(() => {
-    if (simpleMode && expertMode) {
-      handleAnimatedClose()
-    } else {
-      try { editCommitRef.current() } catch { onClose() }
-    }
-  }, [onClose, simpleMode, expertMode, handleAnimatedClose])
+    try { editCommitRef.current() } catch { animatedOnClose() }
+  }, [animatedOnClose])
 
   return (
     <NoteRenderContext value={contextValue}>
@@ -3583,9 +3575,9 @@ export default function NoteDialog({
         disableEscapeKeyDown={isSimpleMode}
         maxWidth="lg"
         fullWidth
-        // In express expert mode our custom shrink animation handles the exit visual;
-        // suppress MUI's own Fade exit so the paper doesn't flash back to full size afterwards.
-        transitionDuration={simpleMode && expertMode ? { exit: 0 } : undefined}
+        // Custom shrink animation handles the exit visual — suppress MUI's Fade exit
+        // so the paper doesn't flash back to full size afterwards.
+        transitionDuration={{ exit: 0 }}
         PaperProps={{ sx: NOTE_DIALOG_PAPER_SX, ref: paperRef }}
       >
       <DialogTitle
@@ -3797,7 +3789,7 @@ export default function NoteDialog({
                       </>
                     ) : null}
                   </Box>
-                  <Button onClick={simpleMode && expertMode ? handleAnimatedClose : onClose}>
+                  <Button onClick={animatedOnClose}>
                     {t('close')}
                   </Button>
                 </Box>
@@ -3812,7 +3804,7 @@ export default function NoteDialog({
             lang={lang}
             rehypePluginsSafe={rehypePluginsSafe}
             onChange={onChange}
-            onClose={simpleMode && expertMode ? handleAnimatedClose : onClose}
+            onClose={animatedOnClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
             onRequestView={onRequestView}
             onResetRecipeOverridesAnswers={handleResetRecipeOverridesAnswers}
