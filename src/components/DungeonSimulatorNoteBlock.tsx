@@ -131,40 +131,25 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     return null
   }
 
-  // Resolve the localized column header for a column + dungeon combination.
-  const colLabel = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): string => {
+  // Resolve the stage-only column header (mode + stage number, no boost prefix).
+  // Boost group label is shown once as a colSpan header in the title row instead.
+  const stageLabel = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): string => {
     const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
     if (!cfg) return col.configId
     const sel = cfg.selections[dungeonId]
     const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
-    const stageLabel = `${modeLabel} ${sel?.stage ?? '?'}`
-    const focusId = getFocusId(cfg, dungeonId)
-    if (focusId !== null) {
-      const setName = getLocalizedGearSetName(focusId, t)
-      return `${t('dungeonDropsBoost3x')} ${setName} · ${stageLabel}`
-    }
-    return stageLabel
+    return `${modeLabel} ${sel?.stage ?? '?'}`
   }
 
-  // Two-line JSX header: boost line on top, stage line below (or single line for no-boost/Ice Golem/Spider).
-  const colLabelNode = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): React.ReactNode => {
-    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
-    if (!cfg) return col.configId
-    const sel = cfg.selections[dungeonId]
-    const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
-    const stageLabel = `${modeLabel} ${sel?.stage ?? '?'}`
+  // Resolve the "3× SetName" group label for the boost colspan header in the title row.
+  // Returns null for dungeons with no boost (Ice Golem, Spider) and for the no-boost configs.
+  const boostGroupLabel = (dungeonId: 'dragon' | 'fireKnight'): string | null => {
+    // All boost configs use the same focus set per dungeon; look it up from any boost config.
+    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === 'n20-3x')
+    if (!cfg) return null
     const focusId = getFocusId(cfg, dungeonId)
-    if (focusId !== null) {
-      // Boost columns: "3× SetName" on first line, stage on second line.
-      const setName = getLocalizedGearSetName(focusId, t)
-      return (
-        <Box component="span" sx={{ display: 'block', lineHeight: 1.3 }}>
-          <Box component="span" sx={{ display: 'block' }}>{`${t('dungeonDropsBoost3x')} ${setName}`}</Box>
-          <Box component="span" sx={{ display: 'block' }}>{stageLabel}</Box>
-        </Box>
-      )
-    }
-    return stageLabel
+    if (focusId === null) return null
+    return `${t('dungeonDropsBoost3x')} ${getLocalizedGearSetName(focusId, t)}`
   }
 
   // ─── Cell value resolution ────────────────────────────────────────────────
@@ -295,28 +280,32 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   // ─── Per-dungeon table (Dragon / Fire Knight) ─────────────────────────────
 
-  const renderDungeonTable = (dungeonId: 'dragon' | 'fireKnight') => (
+  const renderDungeonTable = (dungeonId: 'dragon' | 'fireKnight') => {
+    // NOTE_SIM_COLUMNS = [n20-off, n25-off, h10-off, n20-3x, n25-3x, h10-3x]
+    // Title row: dungeon name spans label col + 3 no-boost data cols (colSpan=4);
+    //            boost group label spans the 3 boost data cols (colSpan=3).
+    const boostLabel = boostGroupLabel(dungeonId)
+    return (
     <Table
       size="small"
       sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
     >
       <TableHead>
-        {/* Section header spanning all columns */}
+        {/* Title row: dungeon name left, boost group label right */}
         <TableRow>
-          <TableCell
-            colSpan={NOTE_SIM_COLUMNS.length + 1}
-            sx={{ ...headCellSx, pt: 0.5, pb: 0.25, pl: 0 }}
-          >
+          <TableCell colSpan={4} sx={{ ...headCellSx, pt: 0.5, pb: 0.25, pl: 0 }}>
             {dungeonLabel(dungeonId)}
           </TableCell>
+          <TableCell colSpan={3} align="center" sx={{ ...headCellSx, pt: 0.5, pb: 0.25, opacity: 0.75 }}>
+            {boostLabel}
+          </TableCell>
         </TableRow>
-        {/* Column labels row — computed from i18n so labels match the active locale */}
+        {/* Column stage labels — mode + stage only; boost group is shown above */}
         <TableRow>
-          {/* Empty cell for the row-label column */}
           <TableCell sx={{ ...headCellSx, pl: 0 }} />
           {NOTE_SIM_COLUMNS.map((col) => (
             <TableCell key={col.configId} align="right" sx={headCellSx}>
-              {colLabelNode(col, dungeonId)}
+              {stageLabel(col, dungeonId)}
             </TableCell>
           ))}
         </TableRow>
@@ -361,6 +350,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
       </TableBody>
     </Table>
   )
+  }
 
   // ─── No-boost-only table helper (Ice Golem + Spider share identical structure) ─
 
@@ -389,7 +379,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
           <TableCell sx={{ ...headCellSx, pl: 0 }} />
           {columns.map((col) => (
             <TableCell key={col.configId} align="right" sx={headCellSx}>
-              {colLabel(col, dungeonId)}
+              {stageLabel(col, dungeonId)}
             </TableCell>
           ))}
         </TableRow>
