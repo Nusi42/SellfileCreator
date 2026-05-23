@@ -172,7 +172,12 @@ export function TutorialCoach({
       if (!sels || sels.length === 0) return []
       const out: HTMLElement[] = []
       for (const s of sels) {
-        const raw = document.querySelector(s) as HTMLElement | null
+        // querySelectorAll so duplicate tour-ids (same button in two panels, one
+        // hidden via display:none) don't silently return the hidden one first.
+        const candidates = Array.from(document.querySelectorAll(s)) as HTMLElement[]
+        const raw = candidates.find((el) => {
+          try { const r = el.getBoundingClientRect(); return r.width > 0 || r.height > 0 } catch { return false }
+        }) ?? candidates[0] ?? null
         if (!raw) continue
         if (s.includes('metasets.dialog')) {
           const dlg = raw.closest('[role="dialog"]') as HTMLElement | null
