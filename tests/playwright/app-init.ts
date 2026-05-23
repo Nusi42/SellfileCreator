@@ -44,9 +44,25 @@ export const APP_GOTO_OPTIONS = {
   timeout: PLAYWRIGHT_TIMEOUTS.appGoto,
 } as const
 
+// GitHub Releases endpoint the app hits on mount (see src/hooks/useUpdateCheck.ts).
+// Why intercept: the live call has no value during tests and runs into GitHub's anonymous
+// rate limit (60/h/IP) the moment we enable parallel workers — every failed request prints
+// a `[pw:error] Failed to load resource: 403` line that drowns the real test output. We
+// fulfill with a tag matching the local version so the update banner stays hidden.
+const UPDATE_CHECK_URL = 'https://api.github.com/repos/Nusi42/RslHelperSellfileCreator.Releases/releases/latest'
+
 export async function prepareApp(page: Page, options: PrepareAppOptions = {}): Promise<void> {
   const version = readAppVersion()
   const { stubClipboard = false } = options
+  // Stub the update check before any navigation so the fetch never escapes the test sandbox.
+  // Returning the local version keeps `isRemoteNewer` false and the update banner suppressed.
+  await page.route(UPDATE_CHECK_URL, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ tag_name: `v${version}` }),
+    })
+  })
   await page.addInitScript(
     ({
       readmeKey,

@@ -9,6 +9,18 @@ const PLAYWRIGHT_RESULTS_ROOT = 'test-results';
 // surface at 1080p (e.g. truncated chips, overflow handling, alternative column counts).
 const FHD_VIEWPORT = { width: 1920, height: 1080 };
 
+// Performance/memory-sensitive specs that measure wall-clock latency or heap growth.
+// They are routed into a dedicated `<browser>-perf` project that runs with workers=1
+// so CPU contention from other tests cannot inflate timings or perturb GC behavior.
+// Keep this list in sync with new perf-bench specs.
+const PERF_SPECS = [
+  '**/builder-recipe-switch-perf.spec.ts',
+  '**/hsf-preview-perf.spec.ts',
+  '**/sfc-load-perf.spec.ts',
+  '**/binary-endpoint-memory.spec.ts',
+  '**/endpoint-replay.spec.ts',
+];
+
 // Per-clone preview port — auto-derived from the repo path so parallel clones
 // (e.g. WSL + Windows simultaneously) bind distinct ports without per-clone setup.
 // Why: WSL2 forwards localhost to/from Windows, so a single shared port lets one clone
@@ -56,14 +68,20 @@ export default defineConfig({
     // Keep expectations snappy by default.
     timeout: PLAYWRIGHT_TIMEOUTS.expectDefault,
   },
-  /* Keep Playwright runs stable under the full browser matrix. */
-  fullyParallel: false,
+  /* Run independent tests in parallel — see the perf-project split below for the few
+     specs that must stay isolated. Each Playwright test runs in its own browser context,
+     so localStorage / sessionStorage / IndexedDB are isolated per test; the only real
+     shared resource is the Vite preview server (static files, safe under concurrent load). */
+  fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Serialize workers to avoid Vite crashes during multi-browser runs. */
-  workers: 1,
+  /* Worker count: 50% of CPU cores locally for a healthy speedup that still leaves
+     headroom for Vite + the OS; cap CI runners at 2 to avoid OOM on shared hardware.
+     The `<browser>-perf` project is launched separately with --workers=1 so timing
+     and heap-growth assertions stay free of CPU contention. */
+  workers: process.env.CI ? 2 : '50%',
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   // Keep console output detailed while still writing the HTML report to disk.
   reporter: [
@@ -91,10 +109,12 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
+      // General-purpose Chromium pass at default viewport; runs in parallel with siblings.
+      // Excludes PERF_SPECS so timing/memory measurements are not skewed by CPU contention.
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      // Keep Chromium artifacts (traces, videos) separate so sequential runs do not overwrite.
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/chromium`,
+      testIgnore: PERF_SPECS,
     },
 
     {
@@ -103,13 +123,26 @@ export default defineConfig({
       name: 'chromium-fhd',
       use: { ...devices['Desktop Chrome'], viewport: FHD_VIEWPORT },
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/chromium-fhd`,
+      testIgnore: PERF_SPECS,
+    },
+
+    {
+      // Perf/memory project: launched in a separate `playwright test` invocation with
+      // --workers=1 so timing assertions and heap-growth checks are not perturbed by
+      // sibling tests. Only the default viewport — FHD adds no value for these specs.
+      name: 'chromium-perf',
+      use: { ...devices['Desktop Chrome'] },
+      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/chromium-perf`,
+      testMatch: PERF_SPECS,
+      // Force within-file serialization on top of the workers=1 CLI override.
+      fullyParallel: false,
     },
 
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-      // Keep Firefox artifacts (traces, videos) separate so sequential runs do not overwrite.
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/firefox`,
+      testIgnore: PERF_SPECS,
     },
 
     {
@@ -117,6 +150,16 @@ export default defineConfig({
       name: 'firefox-fhd',
       use: { ...devices['Desktop Firefox'], viewport: FHD_VIEWPORT },
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/firefox-fhd`,
+      testIgnore: PERF_SPECS,
+    },
+
+    {
+      // Firefox perf/memory project: same contract as chromium-perf above.
+      name: 'firefox-perf',
+      use: { ...devices['Desktop Firefox'] },
+      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/firefox-perf`,
+      testMatch: PERF_SPECS,
+      fullyParallel: false,
     },
 
     /* Test against mobile viewports. */
