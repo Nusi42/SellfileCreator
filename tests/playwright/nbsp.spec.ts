@@ -29,8 +29,9 @@ test('safeguard chip label contains a literal NBSP (U+00A0) between count and wo
   await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
   await dismissBlockingDialogs(page)
-  // Wait for the SFC to fully parse — recipe count appearing in the panel confirms it.
-  await expect(page.getByText(/\d+ Recipes/)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  // Wait for the SFC to parse — the first safeguard rule populates the builder's name field.
+  // The factory default has no name, so any non-empty value confirms the SFC is loaded.
+  await expect(page.getByRole('textbox', { name: 'Safeguard Name' })).toHaveValue(/\S/, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   // The chip we care about is the global "N Safeguards" or "N Safeguard" pill near the toggle.
   // Search the whole page for an element with text matching /\d+ \S+/ — that's the regression
   // signature: the count, a literal NBSP, then the noun.
@@ -40,7 +41,7 @@ test('safeguard chip label contains a literal NBSP (U+00A0) between count and wo
     let node: Node | null
     while ((node = walker.nextNode())) {
       const text = node.nodeValue ?? ''
-      if (/^\s*\d+ \S/.test(text)) return true
+      if (/^\s*\d+ \S/.test(text)) return true
       // Also accept a count-word concatenation anywhere in the text (some renders inline more).
       if (text.includes(NBSP) && /\d/.test(text)) return true
     }
