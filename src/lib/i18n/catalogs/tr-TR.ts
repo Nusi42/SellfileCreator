@@ -1202,6 +1202,8 @@ const overrides: Catalog = {
   gearInspectorSelectionCount: "{count} seçildi",
   gearInspectorSelectionSelectAll: "Tümünü seç",
   gearInspectorSelectionClearAll: "Seçimi kaldır",
+  gearInspectorSelectionSingleSelectMode: "Tek seçime geç",
+  gearInspectorSelectionMultiSelectMode: "Çoklu seçime geç",
   recipeFilterOn: "Açık",
   gearInspectorFilterRecipesOff: "Kapalı",
   gearInspectorFilterRecipesFirst: "İlk",

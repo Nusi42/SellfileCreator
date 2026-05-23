@@ -76,6 +76,8 @@ export const SAFEGUARDS_GRID_FILTER_KEY = 'sellfileCreator.safeguards.gridFilter
 export const SAFEGUARDS_GRID_COLUMNS_KEY = 'sellfileCreator.safeguards.gridColumns.v1'
 // Persisted Dungeon Drops simulator selections (mode, stage, spotlight set).
 export const DUNGEON_SIM_PREFERENCES_KEY = 'sellfileCreator.dungeonDrops.v1'
+// Persisted Gear Inspector selection mode (single vs multi).
+export const GEAR_INSPECTOR_SINGLE_SELECT_KEY = 'sellfileCreator.gearInspector.singleSelectMode.v1'
 
 // Persisted color-blind mode for success/warning/error palette
 // Values: 'normal' | 'colorblind' (extendable in the future without breaking storage)

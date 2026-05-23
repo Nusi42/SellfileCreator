@@ -1202,6 +1202,8 @@ const overrides: Catalog = {
   gearInspectorSelectionCount: "{count} выбрано",
   gearInspectorSelectionSelectAll: "Выбрать все",
   gearInspectorSelectionClearAll: "Снять выделение",
+  gearInspectorSelectionSingleSelectMode: "Переключить на одиночный выбор",
+  gearInspectorSelectionMultiSelectMode: "Переключить на множественный выбор",
   recipeFilterOn: "Вкл.",
   gearInspectorFilterRecipesOff: "Выкл.",
   gearInspectorFilterRecipesFirst: "Первая",

@@ -14,8 +14,10 @@ import {
 } from '@mui/material'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ChecklistIcon from '@mui/icons-material/Checklist'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import SortIcon from '@mui/icons-material/Sort'
 // alpha is used in the scroll-hint overlay background; the card's tints are handled in GearInspectorGridCard.
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
@@ -53,6 +55,7 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { buildGearInspectorNormalizedPresetTooltipMarkdown, formatGearInspectorNormalizedPresetButtonLabel } from '../lib/gearInspectorNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
+  GEAR_INSPECTOR_SINGLE_SELECT_KEY,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
@@ -1182,6 +1185,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   ])
   // Anchor for shift-range selection: the last item clicked without shift held.
   const [anchorArtifactId, setAnchorArtifactId] = useState<number | null>(null)
+  // Single-select mode: plain click selects only one card; persisted to localStorage.
+  // Only active while gearSelectionEnabled is true; derived as false when the feature is off.
+  const [singleSelectMode, setSingleSelectMode] = useState(() => {
+    try { return localStorage.getItem(GEAR_INSPECTOR_SINGLE_SELECT_KEY) === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(GEAR_INSPECTOR_SINGLE_SELECT_KEY, singleSelectMode ? '1' : '0') } catch {}
+  }, [singleSelectMode])
+  const effectiveSingleSelectMode = gearSelectionEnabled ? singleSelectMode : false
   // Flat ordered list of artifact IDs in display order; used for shift-range selection.
   const flatOrderedArtifactIds = useMemo(() => {
     const ids: number[] = []
@@ -1196,10 +1208,19 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   }, [flattenedItems])
   // Click handler for individual gear cards — standard multi-select behavior:
   // plain/Ctrl = toggle item; Shift = add range; Shift+Ctrl = remove range.
+  // In single-select mode all modifiers are ignored; each click selects exactly one card (or none).
   const handleCardSelect = useCallback((artifactId: number, event: React.MouseEvent) => {
     if (!gearSelectionEnabled || !onGearItemsSelect) return
     const isCtrl = event.ctrlKey || event.metaKey
     const isShift = event.shiftKey && anchorArtifactId !== null
+    if (effectiveSingleSelectMode && !isCtrl && !isShift) {
+      // Plain click in single-select mode: select only this card (or deselect if already selected).
+      // Ctrl/Shift clicks fall through to the standard multi-select logic below.
+      const next = selectedGearItemIds?.has(artifactId) ? new Set<number>() : new Set([artifactId])
+      setAnchorArtifactId(artifactId)
+      onGearItemsSelect(next)
+      return
+    }
     let nextSelection: Set<number>
     if (isShift && isCtrl) {
       // Shift+Ctrl: remove the anchor→current range from selection; anchor unchanged.
@@ -1248,6 +1269,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     anchorArtifactId,
     flatOrderedArtifactIds,
     selectedGearItemIds,
+    effectiveSingleSelectMode,
   ])
   const getFlattenedItemKey = useCallback(
     (index: number) => flattenedItems[index]?.key ?? `gear-inspector-grid-item-${index}`,
@@ -2855,6 +2877,24 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 <PlaylistRemoveIcon fontSize="small" />
               </IconButton>
             </span>
+          </Tooltip>
+          {/* Toggle between single-select (plain click = one card) and multi-select modes. */}
+          <Tooltip title={effectiveSingleSelectMode
+            ? t('gearInspectorSelectionMultiSelectMode')
+            : t('gearInspectorSelectionSingleSelectMode')}
+          >
+            <IconButton
+              size="small"
+              onClick={() => setSingleSelectMode(m => !m)}
+              color={effectiveSingleSelectMode ? 'primary' : 'default'}
+              aria-label={effectiveSingleSelectMode
+                ? t('gearInspectorSelectionMultiSelectMode')
+                : t('gearInspectorSelectionSingleSelectMode')}
+            >
+              {effectiveSingleSelectMode
+                ? <ChecklistIcon fontSize="small" />
+                : <RadioButtonCheckedIcon fontSize="small" />}
+            </IconButton>
           </Tooltip>
         </Box>
       )}

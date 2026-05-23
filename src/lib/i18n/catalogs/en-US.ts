@@ -1235,6 +1235,8 @@ const enUS: Catalog = {
   gearInspectorSelectionCount: "{count} selected",
   gearInspectorSelectionSelectAll: "Select all",
   gearInspectorSelectionClearAll: "Unselect all",
+  gearInspectorSelectionSingleSelectMode: "Switch to single select",
+  gearInspectorSelectionMultiSelectMode: "Switch to multi-select",
   recipeFilterOn: "On",
   gearInspectorFilterRecipesOff: "Off",
   gearInspectorFilterRecipesFirst: "First",
