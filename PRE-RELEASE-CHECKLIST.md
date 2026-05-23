@@ -1,5 +1,44 @@
 # Pre-Release Checklist
 
+## v1.0.13 — 2026-05-23
+
+- Binary import path changes in App.tsx and useExternalCommands.ts (473e03779): production code now accepts ArrayBuffer directly and skips File constructor copies. Verify that binary gear database imports work correctly from both file input and external command paths, and confirm no edge cases around contentType or error handling were broken.
+- Tag clearing confirm dialog now shows when overrides are active (78ce02f): verify the logic correctly detects active overrides vs. stored values for both recipe and safeguard contexts, and test that both "Clear Without Applying" and "Apply and Clear" flows correctly persist or discard override-derived values.
+- ESLint 10 upgrade uses `eslint-plugin-import-x` with `suppressMissingFileEnumeratorAPIWarning` to silence deprecation notice about removed FileEnumerator API. Monitor `eslint-plugin-import-x` releases for alternative implementation and remove the suppression flag when safe. (28a8c5b8)
+- WASM fallback paths removed from useDungeonNoteSimulator and useDungeonSimulatorWorker (0cbfe100): dungeon simulator and note simulator now return cleanly when workers are unavailable instead of warming up WASM on the main thread. Verify the simulator gracefully handles worker-unavailable environments and no regressions occur in environments without Web Worker support.
+- Roll target override fixture files regenerated with new clamping behavior; threshold values changed (e.g., 15 → 40 in roll-target-single-spd.hsf) (43ff9208). Verify that the new roll target clamping behavior correctly applies max(factory, lastSpecified) to omitted increment positions and that fixture values are correct.
+- Gear Inspector selection mode uses localStorage key `GEAR_INSPECTOR_SINGLE_SELECT_KEY` with `.v1` suffix. If the implementation changes in a future version and the key needs to be updated, plan a migration path for existing users with persisted state. (e99e373a)
+- Tutorial fixes updated all 11 locale catalogs (de-DE, en-US, es-ES, fr-FR, it-IT, pt-BR, pt-PT, ru-RU, tr-TR, uk-UA). Verify that the backtick formatting renders correctly in all languages and that the tutorial renderer properly handles the syntax across the board. (2a4b5faa)
+- E2E test infrastructure now includes FHD viewport (1920x1080) tests and parallel workers. Run the full e2e suite (test:e2e:chromium, test:e2e:firefox) on CI before release to confirm all tests pass consistently with the new parallelization and viewport coverage. (8851f809, 96eaeaa7)
+- Per-clone preview port derivation (hash of repo path to 5180-5279 range) is now active. Verify that parallel Windows/WSL development clones get distinct ports and that `reuseExistingServer: false` prevents stale preview state. (8851f809)
+- Major dependency upgrades: MUI 7→9 (skipped v8), TypeScript 5→6, Vite 7→8, @eslint-react 2→5 (18c05caf). This single commit addresses 101+ new ESLint errors, 108 MUI migration errors across 32 files, and 8 static-component violations. Test build output on multiple platforms and run full e2e suite (test:e2e:chromium, test:e2e:firefox) to confirm no regressions from the mechanical refactors (prop migrations, icon renames, etc.).
+- MUI icon renames completed as part of upgrade (ErrorOutline→ErrorOutlineOutlined, HelpOutline→HelpOutlineOutlined, AddCircleOutline→AddCircleOutlineOutlined, RemoveCircleOutline→RemoveCircleOutlineOutlined, MailOutline→MailOutlineOutlined, PersonOutline→PersonOutlineOutlined, DeleteOutline→DeleteOutlineOutlined) (18c05caf). Verify all icon references resolve and render correctly in all UI flows.
+- MUI slotProps API migration complete (PaperProps→slotProps.paper, MenuListProps→slotProps.list, TransitionProps→slotProps.transition, InputProps/inputProps→slotProps.input/slotProps.htmlInput) (18c05caf). Verify Menu, Dialog, and TextField styling and behavior are correct after the migration.
+- Improvchance DSL format migration uses version ≤ 1.0.13 boundary (ad7f6f1d). Verify that sfcVersionAtMost() correctly handles pre-release version strings (e.g., "1.0.13-dev", "1.0.13+build") and that SFC files saved during v1.0.13 development are migrated on re-import. Also confirm round-trip consistency: load old file → auto-migrate → save → re-load produces identical improvchance values.
+- NBSP in safeguard header chip was intentionally removed; nbsp.spec.ts test and nbsp-catalog-static.test.ts unit test also removed (8a9577e1, 9b4bb554). The safeguard chip now uses plain space matching the recipe chip format. No follow-up action needed, but documenting the deliberate removal.
+- Dungeon simulator now renders four tables side-by-side (eea074f4, 633d1033, 8c1d931f). Verify layout renders correctly on narrow viewports and that the flex container properly constrains column widths without wrapping or overflow on mobile.
+
+
+## v1.0.13 — 2026-05-23
+
+- Binary WebSocket frame handling optimization in useExternalCommands.ts and app-init.ts — verify large gear database imports work smoothly across all browsers (473e037)
+- New tag-clearing confirmation dialog with i18n in all 9 languages — tested across recipe and safeguard contexts (78ce02f)
+- Roll target override fixtures regenerated with new clamping behavior (43ff9208) — verify test fixtures are correct and backward compatibility is maintained for old HSF files without this feature
+- `resolveRollTargetValue` extracted to targets.ts has Rust mirror (resolve_target_threshold) in wasm/rule_engine_core/src/lib.rs — ensure both stay in sync (43ff9208)
+- Material-UI major version jump 7→9 (skipped v8) with 108 API migrations across 32 files — visually verify all dialogs, menus, text fields, alerts, and stacks render correctly; icon renames (ErrorOutline→ErrorOutlineOutlined, etc.) must be checked in all contexts (18c05caf)
+- IIFE extraction from JSX per eslint-react v5 requirements across 20+ components — verify no callback timing or context capture regressions in recipe builder, safeguard builder, rules filter, metadata editor (18c05caf)
+- TypeScript 5→6 and Vite 7→8 major upgrades with no code changes — monitor for subtle type-checking or bundling edge cases if e2e flakes appear (18c05caf)
+
+
+## v1.0.13 — 2026-05-23
+
+- Verify that trimming AccRecords from the test database in binary-endpoint-memory.spec.ts does not mask issues with actual gear database handling in production. The 85 MB reduction brings the test payload under Chrome 148's ~120 MB CDP message limit, but real databases may have these records. (473e0377)
+- The binary import code path was refactored to accept ArrayBuffer directly instead of File objects, eliminating intermediate 89 MB copies per import cycle. This is a production code change in App.tsx/useExternalCommands.ts — confirm that all import flows (manual file picker, external commands, programmatic) still work correctly with the new buffer handling. (473e0377)
+- WASM worker initialization protocol changed: rule-cache worker now receives the compiled WebAssembly.Module via postMessage instead of fetching independently. Main-thread fallback paths removed from useDungeonSimulatorWorker and useDungeonNoteSimulator. Verify that all rule-caching flows work correctly and that worker initialization doesn't fail silently. (0cbfe100)
+- Roll-target fixtures regenerated with new clamping behavior (roll-target-collapsed-quad-factory.hsf, roll-target-collapsed-quad.hsf, roll-target-single-spd.hsf). Verify that fixture expected values match the max(factory, lastSpecified) clamping semantics. (43ff9208)
+- Roll-target clamping logic implemented in both TypeScript (resolveRollTargetValue in targets.ts) and Rust (lib.rs). Cross-verify that both implementations match for omitted roll positions. (43ff9208)
+
+
 ## v1.0.11 — 2026-05-21
 
 - SFC serialization: `ignorePreviousSafeguards` was renamed to `ignorePreviousSafeguards_v2` (commit 4c50a9e2). Verify the migration path in `sfcIO.ts` correctly loads existing `.sfc` files — rules without substats should preserve the original value; rules with substats should be reset to `false`.
