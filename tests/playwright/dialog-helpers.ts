@@ -42,6 +42,19 @@ export async function closeDialogIfVisible(
   return true
 }
 
+// Click a trigger and wait for a dialog with the given accessible name to appear.
+// Returns the dialog Locator for follow-up assertions.
+export async function openDialogByTrigger(
+  page: Page,
+  triggerSelector: string,
+  dialogName: string | RegExp,
+): Promise<Locator> {
+  await page.locator(triggerSelector).first().click()
+  const dialog = page.getByRole('dialog', { name: dialogName })
+  await expect(dialog).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  return dialog
+}
+
 export async function dismissBlockingDialogs(page: Page): Promise<void> {
   // Close note dialogs that can appear after config imports.
   for (const title of NOTE_DIALOG_TITLES) {
