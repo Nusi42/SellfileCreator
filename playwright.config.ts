@@ -16,16 +16,20 @@ const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 // video at this same size so the captured frames match what the test actually saw.
 const FHD_VIEWPORT = { width: 1920, height: 1080 };
 
-// Performance/memory-sensitive specs that measure wall-clock latency or heap growth.
-// They are routed into a dedicated `<browser>-perf` project that runs with workers=1
-// so CPU contention from other tests cannot inflate timings or perturb GC behavior.
-// Keep this list in sync with new perf-bench specs.
+// Specs that must stay serialized (workers=1) — either because they measure wall-clock
+// latency / heap growth (timing perturbed by CPU contention) or because they load a
+// multi-tens-of-MB gear DB and crash Chromium when sibling tests compete for memory.
+// Routed into a dedicated `<browser>-perf` project. Keep this list in sync as new
+// heavy specs land.
 const PERF_SPECS = [
   '**/builder-recipe-switch-perf.spec.ts',
   '**/hsf-preview-perf.spec.ts',
   '**/sfc-load-perf.spec.ts',
   '**/binary-endpoint-memory.spec.ts',
   '**/endpoint-replay.spec.ts',
+  // Heavy 68 MB DB loaders — crash chromium under parallel workers, not timing-sensitive.
+  '**/midgame-progression.spec.ts',
+  '**/large-db-duplication.spec.ts',
 ];
 
 // Per-clone preview port — auto-derived from the repo path so parallel clones
