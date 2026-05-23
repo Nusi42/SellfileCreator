@@ -11,7 +11,8 @@ test.beforeAll(async ({ browser }) => {
 })
 
 test.beforeEach(async ({ page }) => {
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // testHeavy: Windows needs more than testLong for prepareApp + SFC load combined.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   await prepareApp(page)
   await page.goto('/', APP_GOTO_OPTIONS)
   await expect(page.getByRole('button', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
@@ -19,6 +20,8 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('safeguard chip label contains a literal NBSP (U+00A0) between count and word', async ({ page }) => {
+  // testHeavy: setInputFiles + SFC parse + mode switch can exceed testLong on Windows.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Load the example SFC which ships with safeguard rules so the chip label populates.
   const sfcInput = page.locator('[data-tour-id="sfc.load"] input[type="file"]').first()
   await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
