@@ -327,15 +327,22 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
               return (
                 <TableCell key={col.configId} align="right" sx={cellSx}>
                   {pending || (running && pct === null) ? (
-                    // Skeleton while the config hasn't produced results yet.
-                    <Skeleton variant="text" width={36} sx={{ ml: 'auto', fontSize: '0.75rem' }} />
+                    // Mirror the actual cell structure so reserved space matches rendered content.
+                    // Boost cells: icon(11) + gap(4) + text(~32) ≈ 47px; no-boost: Σ + text ≈ 36px.
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
+                      {focusId !== null
+                        ? <Skeleton variant="rectangular" width={11} height={11} sx={{ borderRadius: 0.5, flexShrink: 0 }} />
+                        : <Skeleton variant="text" width={8} sx={{ fontSize: '0.6rem' }} />
+                      }
+                      <Skeleton variant="text" width={32} sx={{ fontSize: '0.75rem' }} />
+                    </Box>
                   ) : (
                     <MarkdownTooltip render={tooltipContent} enterDelay={400} placement="top">
                       <Box component="span" sx={{ cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                         {/* Glyph indicating what the percentage represents:
                             Σ = aggregate across all sets (no-boost); set icon = boosted-set keep chance. */}
                         {focusId !== null
-                          ? <SetIcon setId={focusId} size={11} sx={{ opacity: 0.6, flexShrink: 0 }} />
+                          ? <SetIcon setId={focusId} size={11} sx={{ opacity: 0.6, flexShrink: 0, mr: 0 }} />
                           : <Box component="span" sx={{ fontSize: '0.6rem', opacity: 0.45, lineHeight: 1 }}>Σ</Box>
                         }
                         {formatPct(pct)}
