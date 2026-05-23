@@ -2740,6 +2740,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [selectedGearItemIds, setSelectedGearItemIds] = useState<ReadonlySet<number>>(() => new Set())
   // Set when an endpoint push changes the dataset; cleared by the deferred filter-reconciliation effect.
   const pendingEndpointSelectionFilterRef = useRef(false)
+  // Incremented each time an endpoint push begins rebuilding rows so the grid can capture a scroll anchor.
+  const [endpointScrollRestoreToken, setEndpointScrollRestoreToken] = useState(0)
   const gearInspectorArtifactFocusTokenRef = useRef(0)
   // Ref for the preview paper element (used for Paper sizing/layout).
   const previewPaperRef = useRef<HTMLDivElement | null>(null)
@@ -4389,6 +4391,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (removedCount > 0 || addedCount > 0) {
         // Signal a deferred filter-based reconciliation once gearEntriesForTable settles.
         pendingEndpointSelectionFilterRef.current = true
+        // Capture scroll anchor before WASM rebuild kicks off so the grid can restore position afterward.
+        setEndpointScrollRestoreToken(prev => prev + 1)
         // Endpoint snapshots should refresh matches without dimming card details.
         beginGearInspectorMatchReset('gearDbEndpoint')
       }
@@ -8379,6 +8383,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 safeguardRankByArtifactId={safeguardRankByArtifactId}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 enterKey={gearInspectorEnterKey}
+                scrollRestoreToken={endpointScrollRestoreToken}
                 gearSelectionEnabled={!!pushExportEndpoint}
                 selectedGearItemIds={selectedGearItemIds}
                 onGearItemsSelect={handleGearItemsSelect}

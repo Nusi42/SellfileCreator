@@ -201,6 +201,9 @@ type GearInspectorItemsGridProps = {
   // When this key changes, card entering animations are suppressed (the filter changed,
   // not the underlying data) while group chips can still pulse for newly-visible groups.
   enterKey?: string
+  // Incremented by the parent each time an endpoint push begins rebuilding rows.
+  // The grid captures a scroll anchor on token change and restores it once flattenedItems settles.
+  scrollRestoreToken?: number | null
   // Gear-inspector item selection: only active when a WebSocket push endpoint is connected.
   selectedGearItemIds?: ReadonlySet<number>
   // Called after each click-driven selection change; receives the full new selection set.
@@ -277,6 +280,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     safeguardRules,
     safeguardRankByArtifactId = null,
     enterKey = undefined,
+    scrollRestoreToken = null,
     selectedGearItemIds,
     onGearItemsSelect,
     gearSelectionEnabled = false,
@@ -1322,6 +1326,32 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     pendingScrollAnchorRef.current = null
   }, [flattenedItems, rowVirtualizer, virtualizationRangeStartIndex, virtualizationRangeEndIndex])
+  // Restore scroll position after an endpoint-driven row rebuild.  Heights are estimated by summing
+  // flattenedItems[i].height, which mirrors how TanStack Virtual computes virtual offsets.
+  // Runs whenever flattenedItems changes so it fires right after the new layout is ready.
+  useLayoutEffect(() => {
+    const scrollRestore = pendingScrollRestoreRef.current
+    if (!scrollRestore) return
+    const container = containerRef.current
+    if (!container) {
+      pendingScrollRestoreRef.current = null
+      return
+    }
+    let targetIndex = -1
+    for (let i = 0; i < flattenedItems.length; i++) {
+      const item = flattenedItems[i]
+      if (item?.kind === 'cardRow' && item.rowEntries.some((e) => e.artifact.id === scrollRestore.artifactId)) {
+        targetIndex = i
+        break
+      }
+    }
+    if (targetIndex >= 0) {
+      let estimatedOffset = 0
+      for (let i = 0; i < targetIndex; i++) estimatedOffset += flattenedItems[i]!.height
+      container.scrollTop = Math.max(0, estimatedOffset - scrollRestore.relativeTopPx)
+    }
+    pendingScrollRestoreRef.current = null
+  }, [flattenedItems])
   // After a compact, nudge the group header smoothly into view if it drifted off-screen.
   useLayoutEffect(() => {
     const compactKey = pendingCompactScrollGroupKeyRef.current
@@ -1546,6 +1576,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       focusPulseClearTimeoutRef.current = null
     }
   }, [])
+  // Scroll-restore refs: capture scroll anchor before endpoint-driven rebuild, restore after flattenedItems settles.
+  const lastAppliedScrollRestoreTokenRef = useRef<number | null>(null)
+  const pendingScrollRestoreRef = useRef<{ artifactId: number; relativeTopPx: number } | null>(null)
   const lastAppliedFocusTokenRef = useRef<number | null>(null)
   useLayoutEffect(() => {
     if (!focusArtifactRequest) return
@@ -1613,6 +1646,50 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     rowVirtualizer,
     triggerFocusPulse,
   ])
+  // Capture scroll anchor the moment the parent signals an incoming endpoint push rebuild.
+  // Runs before rows change (the token is bumped before the WASM worker is queued) so virtualItems
+  // still reflect the current layout.  flattenedItems/virtualItems/selectedGearItemIds are intentionally
+  // omitted from deps — this is a one-shot capture keyed solely on the token value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (scrollRestoreToken == null || scrollRestoreToken === lastAppliedScrollRestoreTokenRef.current) return
+    lastAppliedScrollRestoreTokenRef.current = scrollRestoreToken
+    const container = containerRef.current
+    if (!container) return
+    // Prefer the first selected item that is currently rendered in the virtual range;
+    // fall back to the card whose vertical centre is closest to the viewport centre.
+    const viewportMid = container.scrollTop + container.clientHeight / 2
+    let bestArtifactId: number | null = null
+    let bestStart: number | null = null
+    let bestDistToCenter = Infinity
+    for (const vi of virtualItems) {
+      const item = flattenedItems[vi.index]
+      if (item?.kind !== 'cardRow') continue
+      for (const entry of item.rowEntries) {
+        const id = Number(entry.artifact?.id)
+        if (!Number.isFinite(id)) continue
+        if (selectedGearItemIds?.has(id)) {
+          // Selected item found — use it immediately as the anchor.
+          bestArtifactId = id
+          bestStart = vi.start
+          break
+        }
+        const distToCenter = Math.abs(vi.start + item.height / 2 - viewportMid)
+        if (distToCenter < bestDistToCenter) {
+          bestDistToCenter = distToCenter
+          bestArtifactId = id
+          bestStart = vi.start
+        }
+      }
+      // Stop scanning once we have a selected anchor.
+      if (bestArtifactId != null && selectedGearItemIds?.has(bestArtifactId)) break
+    }
+    if (bestArtifactId == null || bestStart == null) return
+    pendingScrollRestoreRef.current = {
+      artifactId: bestArtifactId,
+      relativeTopPx: bestStart - container.scrollTop,
+    }
+  }, [scrollRestoreToken])
   const fallbackScrollHintRowId = useMemo(() => {
     for (let idx = 0; idx < rows.length; idx += 1) {
       const candidateId = Number(rows[idx]?.artifact?.id)
