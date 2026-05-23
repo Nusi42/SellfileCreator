@@ -181,7 +181,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
               return 'assets/[name]-[hash][extname]';
             },
           }
-        : { manualChunks: undefined, inlineDynamicImports: true },
+        : { codeSplitting: false },
     }
   },
   worker: {
@@ -195,7 +195,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     plugins: () => [suppressWasmUrlPlugin({ stubInlineBytes: true })],
     rollupOptions: isWebBuild
       ? {}
-      : { output: { inlineDynamicImports: true, manualChunks: undefined } },
+      : { output: { codeSplitting: false } },
   },
   resolve: {
     alias: {
