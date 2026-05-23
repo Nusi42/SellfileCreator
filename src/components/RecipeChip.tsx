@@ -892,11 +892,17 @@ export function summaryParts(
     }
   }
 
-  // Required Substats count (show only when > 0)
-  if ((recipe.minCount ?? 0) > 0) {
-    const base = opts.t ? opts.t('chipReq') : 'Req'
-    const label = recipe.autoSubstatFlex ? `${base}★` : base
-    addText(`${label}:${NBSP}${recipe.minCount}`)
+  // Required Substats count — omit when flex is off and minCount equals substat count
+  // (all substats required by default; the count is redundant in that case)
+  {
+    const minCount = recipe.minCount ?? 0
+    const substatCount = ((recipe as unknown as { substatsV?: number[] }).substatsV?.length ?? 0)
+    const isRedundant = !recipe.autoSubstatFlex && minCount === substatCount
+    if (minCount > 0 && !isRedundant) {
+      const base = opts.t ? opts.t('chipReq') : 'Req'
+      const label = recipe.autoSubstatFlex ? `${base}★` : base
+      addText(`${label}:${NBSP}${minCount}`)
+    }
   }
 
   // Min Required Rolls (aggregate across selected; show only when > 0)
