@@ -250,7 +250,7 @@ export default function MetasetsDialog({
     })
   }, [publishDraftNow])
   // Shrinks the dialog toward its trigger button when closing.
-  const { paperRef: metasetsPaperRef, animateClose: metasetsAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.manage-metasets"]')
+  const { dialogProps: metasetsDialogProps, animateClose: metasetsAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.manage-metasets"]')
   // Dialog close should never drop unsynced local edits.
   const handleDialogClose = useCallback(() => {
     publishDraftNow()
@@ -559,7 +559,7 @@ export default function MetasetsDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth transitionDuration={{ exit: 0 }} PaperProps={{ ref: metasetsPaperRef }}>
+      <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth {...metasetsDialogProps}>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}

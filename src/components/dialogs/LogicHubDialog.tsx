@@ -109,7 +109,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   } = props
   const { t } = useI18n()
   // Shrinks the dialog toward its trigger button when closing.
-  const { paperRef: logicHubPaperRef, animateClose: logicHubAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.tools-button"]')
+  const { dialogProps: logicHubDialogProps, animateClose: logicHubAnimateClose } = useDialogMinimizeAnimation('[data-tour-id="builder.tools-button"]')
   const handleClose = useCallback(() => { logicHubAnimateClose(onClose) }, [logicHubAnimateClose, onClose])
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearInspector, setConfirmResetGearInspector] = useState(false)
@@ -244,8 +244,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       onClose={handleClose}
       fullWidth
       maxWidth={false}
-      transitionDuration={{ exit: 0 }}
-      PaperProps={{ sx: paperSx, ref: logicHubPaperRef }}
+      {...logicHubDialogProps}
+      PaperProps={{ sx: paperSx, ...logicHubDialogProps.PaperProps }}
     >
       <DialogTitle sx={{ p: 0 }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>

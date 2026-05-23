@@ -3547,7 +3547,7 @@ export default function NoteDialog({
   }), [])
 
   // Shared minimize animation: shrinks the paper toward the Note button in the builder.
-  const { paperRef, animateClose } = useDialogMinimizeAnimation('[data-tour-id="note.toggle"]')
+  const { dialogProps: noteDialogProps, animateClose } = useDialogMinimizeAnimation('[data-tour-id="note.toggle"]')
 
   // Always animate toward the Note button when closing — used everywhere onClose fires.
   const animatedOnClose = useCallback(() => {
@@ -3575,10 +3575,8 @@ export default function NoteDialog({
         disableEscapeKeyDown={isSimpleMode}
         maxWidth="lg"
         fullWidth
-        // Custom shrink animation handles the exit visual — suppress MUI's Fade exit
-        // so the paper doesn't flash back to full size afterwards.
-        transitionDuration={{ exit: 0 }}
-        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX, ref: paperRef }}
+        {...noteDialogProps}
+        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX, ...noteDialogProps.PaperProps }}
       >
       <DialogTitle
         sx={{

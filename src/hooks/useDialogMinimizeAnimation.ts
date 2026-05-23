@@ -1,21 +1,27 @@
 import { useCallback, useRef } from 'react'
 
 /**
- * Returns a ref to attach to a MUI Dialog's PaperProps and an `animateClose` callback
- * that plays a shrink-to-button animation before calling the supplied onClose function.
+ * Returns everything needed to wire a MUI Dialog to the shrink-to-button close animation.
  *
  * Usage:
- *   const { paperRef, animateClose } = useDialogMinimizeAnimation('[data-tour-id="my.button"]')
- *   // Pass to MUI Dialog:
- *   PaperProps={{ ref: paperRef }}
- *   // Replace direct onClose calls with:
- *   animateClose(onClose)
+ *   const { animateClose, dialogProps } = useDialogMinimizeAnimation('[data-tour-id="my.button"]')
+ *   // Spread dialogProps onto the Dialog element:
+ *   <Dialog {...dialogProps} onClose={() => animateClose(onClose)}>
  *
- * The caller is responsible for suppressing MUI's built-in exit transition when this
- * animation runs (set transitionDuration={{ exit: 0 }} on the Dialog).
+ * `dialogProps` pre-sets:
+ *   - `transitionDuration={{ exit: 0 }}` — suppresses MUI's Fade exit so the paper
+ *     doesn't flash back to full size after the custom shrink animation.
+ *   - `PaperProps={{ ref }}` — attaches the ref used to read the paper's bounding rect.
+ *
+ * `animateClose(onClose)` plays the animation then calls onClose. Falls back to a direct
+ * call when the target button cannot be found or has no size.
  */
 export function useDialogMinimizeAnimation(buttonSelector: string): {
-  paperRef: React.RefObject<HTMLElement | null>
+  /** Spread onto the MUI Dialog element. Includes transitionDuration and PaperProps. */
+  dialogProps: {
+    transitionDuration: { exit: number }
+    PaperProps: { ref: React.RefObject<HTMLElement | null> }
+  }
   animateClose: (onClose: () => void) => void
 } {
   const paperRef = useRef<HTMLElement>(null)
@@ -44,5 +50,10 @@ export function useDialogMinimizeAnimation(buttonSelector: string): {
     }
   }, [buttonSelector])
 
-  return { paperRef, animateClose }
+  const dialogProps = {
+    transitionDuration: { exit: 0 },
+    PaperProps: { ref: paperRef },
+  } as const
+
+  return { animateClose, dialogProps }
 }
