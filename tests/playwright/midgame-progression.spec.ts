@@ -157,6 +157,11 @@ const collectOutcomesForMode = async (
     // Firefox animates the dialog close; the animation itself can take several seconds.
     await noteDialog.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
+    // The checkbox click above triggers a SFC rebuild; wait for that workload to idle
+    // before loading the DB so the next waitForWorkloadIdle sees only the DB WASM pass.
+    // MUI 9 renders more slowly, so the rebuild can still be running when the dialog closes.
+    await waitForWorkloadIdle(page)
+
     // Load the sample database now that the target mode is already set.
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
     await dbInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
@@ -220,7 +225,7 @@ for (const { name: dbName, path: dbPath } of SAMPLE_DBS) {
     test.beforeAll(async ({ browser }) => {
       // Allow time for three sequential WASM passes, each in its own fresh context.
       // Contexts run one at a time so no CPU contention inflates step durations.
-      // testXXL (180 s) covers: 3 × (boot ~2 s + SFC/dialog ~8 s + workload-idle ≤18 s + card-wait ≤30 s).
+      // testXXL (180 s) covers: 3 × (boot ~2 s + SFC/dialog ~8 s + SFC-rebuild-idle ≤18 s + DB-idle ≤18 s + card-wait ≤10 s).
       test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXXL)
 
       // Collect outcomes for each mode in sequence — one fresh context per mode.
