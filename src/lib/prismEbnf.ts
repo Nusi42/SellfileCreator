@@ -37,8 +37,13 @@ function ebnf(Prism: Refractor): void {
     // `:=` assignment and `|` alternation.
     'operator': /:=|\|/,
 
-    // Structural grouping punctuation: {}, (), [], and EBNF repeat markers * + ?.
-    'punctuation': /[{}()[\]*+?]/,
+    // Inline parenthetical annotations — informal remarks, not structural EBNF grouping.
+    // This grammar never uses () for grouping; all structure uses {} or [].
+    'paren-comment': /\([^)]*\)/,
+
+    // Structural grouping punctuation: {}, [], and EBNF repeat markers * + ?.
+    // ( and ) are consumed by paren-comment above.
+    'punctuation': /[{}[\]*+?]/,
   }
 }
 

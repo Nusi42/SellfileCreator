@@ -4,12 +4,12 @@
  * Parses in-note recipe overrides markers and resolves selector-based overrides
  * that drive recipe export-mode overrides.
  */
-import type { BuilderRecipe, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
+import type { BuilderRecipe, SellfileExportMode, Star, SubstatRollTargetEntry, SubstatTargetTable } from './hsfBuilder'
 import type { SafeguardOverridesSelectorBlock, SafeguardOverridesInstruction } from './noteSafeguardOverrides'
 // Runtime import for cross-domain parsing — safe for circular use since only called inside function bodies.
 import { parseSafeguardSelectorBlock } from './noteSafeguardOverrides'
 import { clampAggregateRollValue } from './aggregateRollState'
-import { RARITY_AUTO_LABEL } from './constants'
+import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 import { normalizeTagValue } from './tagHelpers'
 import {
   type Token,
@@ -32,6 +32,7 @@ import {
   buildQuestionImplicitTokenMap,
   parseCountExpression,
 } from './noteOverridesParser'
+import { normalizeRollTargetEntry } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { countPositiveSubstats } from './recipeNormalization'
 import { cloneSubstatTargets } from './substatTargets'
@@ -102,7 +103,7 @@ export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = NOTE_OVERRIDES_LOGIC_KEYWORD
 /** Field names valid on the left-hand side of assignment blocks. */
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
   'export', 'rank', 'rarity', 'lvl', 'keep', 'autolate',
-  'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima',
+  'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima', 'rolltarget',
   // List-valued fields for slot, substat, main-stat, and artifact-set/metaset filtering (comma-separated).
   'slots', 'substats', 'mainstats', 'gearsets', 'metasets',
 ] as const
@@ -142,6 +143,10 @@ export type RecipeOverridesOperation =
   | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
   | { kind: 'minimaAnyRank'; value: Star }
   | { kind: 'minimaTarget'; star: Star; variant: StatVariant; value: number }
+  // Per-substat roll target override: absolute threshold at Base (rollIndex 0)
+  // and each subsequent roll (+1…+SUBSTAT_TARGET_MAX_ROLLS). Omitted trailing
+  // positions clamp at max(factory, lastSpecified) at build time.
+  | { kind: 'rollTarget'; variant: StatVariant; base: number; increments: Array<number | null> }
   // List operations — replace or mutate the corresponding recipe list.
   // replace: overwrite the field entirely; mutate: add/remove individual entries.
   | { kind: 'artifactTypes'; mode: 'replace'; values: ArtifactTypeId[] }
@@ -926,6 +931,32 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string, crossDomain = f
       const numeric = parseIntegerValue(valueRaw)
       if (numeric == null) continue
       operations.push({ kind: 'substatMinAll', value: numeric })
+      continue
+    }
+    if (field.startsWith('rolltarget.')) {
+      if (op !== 'eq') continue
+      const rtStatKey = field.slice('rolltarget.'.length).trim()
+      if (!rtStatKey) continue
+      const variant = variantFromLabel(rtStatKey)
+      if (variant == null) continue
+      // First value is the Base (0-roll) threshold.
+      const base = parseIntegerValue(valueRaw)
+      if (base == null) continue
+      // Subsequent comma-separated values are +1…+SUBSTAT_TARGET_MAX_ROLLS thresholds.
+      // Empty slots (consecutive commas, e.g. "300, , 900") become null and fall back
+      // to max(factory, lastSpecified) at build time.
+      const increments: Array<number | null> = []
+      for (let i = 0; i < SUBSTAT_TARGET_MAX_ROLLS; i += 1) {
+        if (!cursor.consumeSymbol(',')) break
+        const next = cursor.peek()
+        if (next?.kind === 'word') {
+          cursor.next()
+          increments.push(parseIntegerValue(next.value))
+        } else {
+          increments.push(null)  // empty slot between commas
+        }
+      }
+      operations.push({ kind: 'rollTarget', variant, base, increments })
       continue
     }
     if (field === 'slots') {
@@ -2050,6 +2081,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedMinCount = false
   let appliedFlex = false
   let appliedSubstatMin = false
+  const rollTargetsByVariant = new Map<StatVariant, SubstatRollTargetEntry>()
+  let appliedRollTargets = false
   // List-op fields: undefined = not overridden; set to the parsed operation when matched.
   let nextArtifactTypesOp:    Extract<RecipeOverridesOperation, { kind: 'artifactTypes' }>    | undefined
   let nextSubstatsOp:         Extract<RecipeOverridesOperation, { kind: 'substats' }>         | undefined
@@ -2134,6 +2167,11 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         appliedSubstatMin = true
         return
       }
+      if (op.kind === 'rollTarget') {
+        rollTargetsByVariant.set(op.variant, { base: op.base, increments: op.increments })
+        appliedRollTargets = true
+        return
+      }
       // List operations: last writer wins within the instruction set.
       if (op.kind === 'artifactTypes')    { nextArtifactTypesOp    = op; return }
       if (op.kind === 'substats')         { nextSubstatsOp         = op; return }
@@ -2173,6 +2211,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     && !minCountChanged
     && !flexChanged
     && !appliedSubstatMin
+    && !appliedRollTargets
     && !artifactTypesChanged
     && !substatsChanged
     && !mainStatsChanged
@@ -2210,6 +2249,15 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   if (appliedFlex) next.autoSubstatFlex = nextFlex
   if (appliedSubstatMin) {
     next = applySubstatMinOverrides(next, substatMinAll, substatMinByVariant)
+  }
+  if (appliedRollTargets) {
+    const nextTargets = { ...(next.substatRollTargetsV ?? {}) }
+    for (const [variant, entry] of rollTargetsByVariant) {
+      const norm = normalizeRollTargetEntry(entry)
+      if (norm) nextTargets[variant as number] = norm
+      else delete nextTargets[variant as number]
+    }
+    next.substatRollTargetsV = nextTargets
   }
   if (appliedRarity || appliedKeep || appliedAutoLate || appliedSubstatMin) {
     const fallback = pickAutoRaritySupplementsThreshold(next)

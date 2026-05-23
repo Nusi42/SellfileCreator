@@ -52,6 +52,32 @@ export const normalizeRollTargetEntry = (
   return hasOverride ? normalized : null
 }
 
+// Resolves the effective roll target threshold for a given roll count.
+// rollIndex 0 = Base; 1 = +1, etc. factoryBase is the per-roll increment value
+// for this stat/star (e.g. from baseMinForStarV — the game doubles it per roll:
+// threshold = factoryBase + rollIndex * factoryBase).
+// When entry is null, returns the pure factory value.
+// For omitted increment positions, clamps at max(factory, lastSpecified) so
+// the threshold never silently drops below the last explicitly set value.
+// Rust mirror: wasm/rule_engine_core/src/lib.rs (resolve_target_threshold).
+export const resolveRollTargetValue = (
+  entry: SubstatRollTargetEntry | null | undefined,
+  rollIndex: number,
+  factoryBase: number,
+): number => {
+  const factory = Math.round(Math.max(0, factoryBase + rollIndex * factoryBase))
+  if (!entry) return factory
+  if (rollIndex <= 0) {
+    return typeof entry.base === 'number' ? entry.base : factory
+  }
+  const inc = entry.increments?.[rollIndex - 1]
+  if (typeof inc === 'number') return inc
+  // Omitted position: floor at max(factory, last explicitly specified value).
+  const lastSpecified = [...(entry.increments ?? [])].reverse().find((v): v is number => typeof v === 'number')
+    ?? (typeof entry.base === 'number' ? entry.base : null)
+  return lastSpecified != null ? Math.max(factory, lastSpecified) : factory
+}
+
 // Loose parser accepts SFC legacy shapes (numbers, strings, plain objects) and
 // converts them into the normalized structure used internally.
 export const normalizeLooseRollTargetEntry = (entry: unknown): SubstatRollTargetEntry | null => {

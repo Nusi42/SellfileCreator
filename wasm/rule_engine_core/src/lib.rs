@@ -1493,6 +1493,14 @@ fn emit_hsf_target_value(
         if let Some(Some(override_value)) = increments.get(inc_idx) {
             return *override_value as i64;
         }
+        // Omitted position: mirrors resolveRollTargetValue in src/lib/hsfBuilder/targets.ts.
+        // Clamp at max(factory, last_specified_value) so the threshold never silently drops
+        // below what was explicitly set.
+        if let Some(last_override) = increments.iter().rev().find_map(|v| *v) {
+            let base = base_vals.get(idx).copied().unwrap_or(0) as i64;
+            let factory = base + (rolls_applied as i64 * base);
+            return factory.max(last_override as i64);
+        }
     }
     let base = base_vals.get(idx).copied().unwrap_or(0) as i64;
     base + (rolls_applied as i64 * base)

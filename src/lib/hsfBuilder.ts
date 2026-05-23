@@ -26,6 +26,7 @@ export {
   clampTargetOverrideValue,
   normalizeLooseRollTargetEntry,
   normalizeRollTargetEntry,
+  resolveRollTargetValue,
 } from './hsfBuilder/targets'
 import {
   compareVariants,
