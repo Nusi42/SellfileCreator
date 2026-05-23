@@ -1471,7 +1471,7 @@ const RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-recipeOverrides-sample'
 // Static EBNF text; the statKey row is appended at runtime.
 // Lines are formatted to fit the wider RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX (~126 chars).
 const RECIPE_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "recipe-overrides" [markerOptions] question "-->"
+`marker        := "<!--" "recipe-overrides" [markerOptions] [question group+ [fallbackBlock]] "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
@@ -1638,7 +1638,7 @@ const _sgMatchVals = NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS.join('" | "')
 // Non-terminal names are kept to ≤13 chars. DSL field keywords are ≤13 chars.
 // statKey row is injected at runtime (same list as recipe-overrides).
 const SAFEGUARD_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] question "-->"
+`marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] [question group+ [fallbackBlock]] "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
 question      := ("q" | "question") string group+ [fallbackBlock]
@@ -2042,6 +2042,16 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     return hasLabelColumn ? Math.min(paddedMax, 24) : 0
   }, [questionOptions])
   if (!question) return null
+  // Body-less spacer marker: invisible flex placeholder with the same width as a columns=N card.
+  if (question.isSpacer) {
+    const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+    const cols = Math.max(1, question.layoutColumns)
+    const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
+    const spacerSx = cols > 1
+      ? { flex: `1 1 ${cols * flexBasis + gapPx}px`, minWidth: cols * minWidth + gapPx, maxWidth: cols * maxWidth + gapPx }
+      : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+    return <Box sx={{ ...spacerSx, visibility: 'hidden' }} />
+  }
   // columns ≥ 1 enables horizontal (grid) option layout.
   const isHorizontal = question.layoutColumns > 0
   // Resolve the selected answers into a set for fast checks.
@@ -2312,6 +2322,16 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   }), [])
   const questionOptions = useMemo(() => (question?.options ?? []), [question])
   if (!question) return null
+  // Body-less spacer marker: invisible flex placeholder with the same width as a columns=N card.
+  if (question.isSpacer) {
+    const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+    const cols = Math.max(1, question.layoutColumns)
+    const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
+    const spacerSx = cols > 1
+      ? { flex: `1 1 ${cols * flexBasis + gapPx}px`, minWidth: cols * minWidth + gapPx, maxWidth: cols * maxWidth + gapPx }
+      : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+    return <Box sx={{ ...spacerSx, visibility: 'hidden' }} />
+  }
   const isHorizontal = question.layoutColumns > 0
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)

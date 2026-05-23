@@ -839,6 +839,24 @@ export function parseOverridesMarkerBody<S, O>(
   }
 }
 
+/**
+ * Parse a bare (body-less) overrides marker and return its `columns` option,
+ * or null if the text isn't a recognized marker or already has a question keyword.
+ * Used to detect spacer markers like `<!-- recipe-overrides [columns=3] -->`.
+ */
+export function parseOverridesMarkerSpacerColumns(
+  inner: string,
+  markerKeywords: readonly string[],
+): number | null {
+  const tokens = tokenize(inner)
+  const cursor = new TokenCursor(tokens)
+  if (!cursor.consumeWord(...markerKeywords)) return null
+  const markerOptions = parseQuestionMarkerOptions(cursor)
+  // A question keyword means this is a real question, not a spacer.
+  if (cursor.consumeWord('q', 'question')) return null
+  return markerOptions.columns
+}
+
 // ── $count / $value AST ───────────────────────────────────────────────────────
 
 /**

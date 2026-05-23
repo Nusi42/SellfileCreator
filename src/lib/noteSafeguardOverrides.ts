@@ -53,6 +53,7 @@ import {
   evalCountAst,
   collectSelectorTokensAndOpenBlock,
   parseOverridesMarkerBody,
+  parseOverridesMarkerSpacerColumns,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
 } from './noteOverridesParser'
@@ -544,6 +545,8 @@ export type SafeguardNoteQuestionDefinition = {
   fallback: { blocks: SafeguardOverridesSelectorBlock[]; recipeBlocks: RecipeOverridesSelectorBlock[] } | null
   defaultAnswer: string[]
   answer: string[]
+  // True for body-less spacer markers; card is invisible, width only.
+  isSpacer?: true
 }
 
 // ── Constraint helpers ────────────────────────────────────────────────────────
@@ -722,6 +725,8 @@ export const parseNoteSafeguardOverrides = (
 ): SafeguardNoteQuestionDefinition[] => {
   if (!note) return []
   const parsedEntries: ParsedSgEntry[] = []
+  // Body-less spacer markers are resolved directly (no question pipeline needed).
+  const spacerQuestions: SafeguardNoteQuestionDefinition[] = []
   SAFEGUARD_QUESTION_MARKER_REGEX.lastIndex = 0
   let markerIndex = 0
   for (const match of note.matchAll(SAFEGUARD_QUESTION_MARKER_REGEX)) {
@@ -737,12 +742,33 @@ export const parseNoteSafeguardOverrides = (
       // Uses the cross-domain variant so $count/$value expressions work inside slider questions.
       (cursor) => parseRecipeSelectorBlockCross(cursor),
     )
-    if (!parsed) { markerIndex += 1; continue }
+    if (!parsed) {
+      // No question body — check for a spacer marker (bare marker with optional [columns=N]).
+      const spacerColumns = parseOverridesMarkerSpacerColumns(inner, [NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD])
+      if (spacerColumns !== null) {
+        spacerQuestions.push({
+          id: `spacer-safeguard-${markerIndex}`,
+          index: markerIndex,
+          prompt: '',
+          layoutColumns: spacerColumns,
+          groups: [],
+          options: [],
+          fallback: null,
+          defaultAnswer: [],
+          answer: [],
+          isSpacer: true,
+        })
+      }
+      markerIndex += 1
+      continue
+    }
     parsedEntries.push({ index: markerIndex, question: parsed })
     markerIndex += 1
   }
   const globalExplicitTokenMap = buildGlobalExplicitTokenMap(parsedEntries)
-  return parsedEntries.map((entry) => buildResolvedQuestion(entry, answers, globalExplicitTokenMap))
+  const resolved = parsedEntries.map((entry) => buildResolvedQuestion(entry, answers, globalExplicitTokenMap))
+  // Merge spacers into the resolved list in note order.
+  return [...resolved, ...spacerQuestions].sort((a, b) => a.index - b.index)
 }
 
 // ── Resolution types ──────────────────────────────────────────────────────────

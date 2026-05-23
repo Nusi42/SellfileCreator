@@ -28,6 +28,7 @@ import {
   stripCommentWrapper,
   collectSelectorTokensAndOpenBlock,
   parseOverridesMarkerBody,
+  parseOverridesMarkerSpacerColumns,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
   parseCountExpression,
@@ -214,6 +215,8 @@ export type NoteQuestionDefinition = {
   fallback: NoteQuestionFallback | null
   defaultAnswer: string[]
   answer: string[]
+  // True for body-less spacer markers; card is invisible, width only.
+  isSpacer?: true
 }
 
 // Autosave key for storing recipe overrides answers (session-only).
@@ -1714,6 +1717,8 @@ export const parseNoteRecipeOverrides = (
   if (!note) return []
   // Collect parsed questions in note order for global resolution.
   const parsedEntries: ParsedQuestionEntry[] = []
+  // Body-less spacer markers are resolved directly (no question pipeline needed).
+  const spacerQuestions: NoteQuestionDefinition[] = []
   // Reset regex state to avoid cross-call leakage.
   QUESTION_MARKER_REGEX.lastIndex = 0
   // Track the marker index for stable mapping.
@@ -1728,6 +1733,22 @@ export const parseNoteRecipeOverrides = (
     const inner = stripCommentWrapper(raw)
     const parsed = parseQuestionMarker(inner)
     if (!parsed) {
+      // No question body — check for a spacer marker (bare marker with optional [columns=N]).
+      const spacerColumns = parseOverridesMarkerSpacerColumns(inner, NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS)
+      if (spacerColumns !== null) {
+        spacerQuestions.push({
+          id: `spacer-recipe-${markerIndex}`,
+          index: markerIndex,
+          prompt: '',
+          layoutColumns: spacerColumns,
+          groups: [],
+          options: [],
+          fallback: null,
+          defaultAnswer: [],
+          answer: [],
+          isSpacer: true,
+        })
+      }
       markerIndex += 1
       continue
     }
@@ -1743,8 +1764,11 @@ export const parseNoteRecipeOverrides = (
   const resolved = parsedEntries.map((entry) => (
     buildResolvedQuestion(entry, answers, globalExplicitTokenMap, onlyExclusionsById)
   ))
-  // Apply global exclusions so cross-question constraints take effect.
-  return applyGlobalOptionExclusions(resolved, preferredId)
+  // Merge spacers into the resolved list in note order and apply global exclusions.
+  return applyGlobalOptionExclusions(
+    [...resolved, ...spacerQuestions].sort((a, b) => a.index - b.index),
+    preferredId,
+  )
 }
 
 // Build a stable signature for the recipe overrides section of a note.
