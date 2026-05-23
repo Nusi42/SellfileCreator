@@ -96,7 +96,7 @@
     "Substats": [
       {
         "ID": 4,
-        "Value": 15,
+        "Value": 40,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -138,7 +138,7 @@
     "Substats": [
       {
         "ID": 4,
-        "Value": 15,
+        "Value": 40,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
@@ -180,7 +180,7 @@
     "Substats": [
       {
         "ID": 4,
-        "Value": 15,
+        "Value": 40,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="

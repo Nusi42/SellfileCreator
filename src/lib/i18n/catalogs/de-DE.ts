@@ -1337,6 +1337,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Rechtsklick: schaltet durch Ausschluss und Roll-Obergrenzen (★ → ¬ → max 0 → … → max 4 → ★).",
   rollIndicatorTip3: "Grün = Mindest-Rolls; Rot = Roll-Obergrenze oder Substat darf nicht vorhanden sein (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Rezeptvorgaben-Override: Substat-Mindest-Rolls gelten für diesen Stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Rezeptvorgaben-Override: Roll-Zielwerte gelten für diesen Stat.",
 
   // Filter helpers
   filterShow: "Anzeigen",

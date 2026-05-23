@@ -156,6 +156,7 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
   'cross-domain-kw':   '#c678dd',
   // ebnf grammar tokens — used only in EBNF tooltip blocks, not in DSL editor.
+  'paren-comment':     '#5c6370',  // same muted gray as line-comment — informal annotations
   'regex-literal':     '#c8a96e',  // muted amber, distinct from line-comment gray
 }
 
@@ -1489,6 +1490,7 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
+             | "rolltarget." statKey "=" number ("," [number])*
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
@@ -1634,8 +1636,8 @@ const _sgMatchVals = NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS.join('" | "')
 
 // Static EBNF text for the safeguard-overrides DSL.
 // Non-terminal names are kept to ≤13 chars. DSL field keywords are ≤13 chars.
-// The statKey row is shared with recipe-overrides and shown as "(case-insensitive; see recipe-overrides)" to avoid duplication.
-const SAFEGUARD_OVERRIDES_EBNF_TEXT =
+// statKey row is injected at runtime (same list as recipe-overrides).
+const SAFEGUARD_OVERRIDES_EBNF_BASE =
 `marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] question "-->"
 markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
@@ -1648,7 +1650,12 @@ sliderParam   := ("min" | "max" | "step" | "default") "=" number
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
 crossBlock    := "recipe" "@" selector "{" recipeAssignment+ "}"
-                 // targets recipe fields; see recipe-overrides EBNF for recipeAssignment syntax
+recipeAssignment := ("rank" | "rarity") ("=" | ">=" | "<=") value
+             | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
+             | "gearsets" "=" gearToken ("," gearToken)* | recipeField "=" value
+             | "rolltarget." statKey "=" number ("," [number])*
+recipeField   := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
+             | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | term
@@ -1676,10 +1683,17 @@ impChanceVal  := "off" | "disabled" | number [number [number [number]]]
 flexVal       := "on" | "off" | "true" | "false"
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
-              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+             | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
-statKey       := (case-insensitive; see recipe-overrides EBNF)
+gearToken     := ["+" | "+-" | "-"] token
+value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
+exportVal     := "active" | "disabled" | "toggle"
+keepVal       := "early" | "late"
+rankVal       := "any" | rankNum
+lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
+lvlMilestone  := "0" | "4" | "8" | "12" | "16"
+starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"
 string        := '"' {char | escape} '"'
 token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/`
 
@@ -1769,6 +1783,12 @@ function buildRecipeOverridesEbnfText(): string {
   const statKeyLine = buildRecipeOverridesStatKeyLine(statKeys)
   // Concatenate the static EBNF base with the runtime statKey row.
   return `${RECIPE_OVERRIDES_EBNF_BASE}\n${statKeyLine}`
+}
+
+function buildSafeguardOverridesEbnfText(): string {
+  // Reuse the same statKey line as recipe-overrides so both EBNFs stay in sync.
+  const statKeyLine = buildRecipeOverridesStatKeyLine(buildRecipeOverridesStatKeys())
+  return `${SAFEGUARD_OVERRIDES_EBNF_BASE}\n${statKeyLine}`
 }
 
 function buildRecipeOverridesSampleBlock(): string {
@@ -4161,7 +4181,7 @@ function NoteEditorContent({
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_EBNF_HEADER}
       </Typography>
-      {renderPrismHighlighted(SAFEGUARD_OVERRIDES_EBNF_TEXT, 'ebnf', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
+      {renderPrismHighlighted(buildSafeguardOverridesEbnfText(), 'ebnf', SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX)}
       <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
         {SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER}
       </Typography>

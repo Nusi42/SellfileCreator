@@ -1374,6 +1374,7 @@ const enUS: Catalog = {
   rollIndicatorTip2: "Right‑click: steps through exclusion and roll caps (★ → ¬ → max 0 → … → max 4 → ★).",
   rollIndicatorTip3: "Green = min rolls required; red = roll cap or substat must be absent (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Recipe overrides: substat minimum rolls are applied for this stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Recipe overrides: roll target thresholds are applied for this stat.",
 
   // Filter helpers
   filterShow: "Show",

@@ -1342,6 +1342,7 @@ const catalog: Catalog = {
   rollIndicatorTip2: "Clique direito: percorre exclusão e limites de rolagens (★ → ¬ → máx 0 → … → máx 4 → ★).",
   rollIndicatorTip3: "Verde = rolagens mínimas; vermelho = limite de rolagens ou substat deve estar ausente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Substituição de opções de receita: os mínimos de rolagens de substats se aplicam a este stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Substituição de opções de receita: os limites de rolagens alvo se aplicam a este stat.",
 
   // Filter helpers
   filterShow: "Mostrar",

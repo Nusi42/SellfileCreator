@@ -1343,6 +1343,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Clic destro: scorre esclusione e limiti di roll (★ → ¬ → max 0 → … → max 4 → ★).",
   rollIndicatorTip3: "Verde = roll minimi; rosso = limite di roll o sotto-stat deve essere assente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Sovrascrittura opzioni di ricetta: si applicano i roll minimi dei substat per questa stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Sovrascrittura opzioni di ricetta: si applicano le soglie di roll obiettivo per questa stat.",
 
   // Filter helpers
   filterShow: "Mostra",

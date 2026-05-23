@@ -1342,6 +1342,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Clic derecho: recorre exclusión y límites de tiradas (★ → ¬ → máx 0 → … → máx 4 → ★).",
   rollIndicatorTip3: "Verde = tiradas mínimas; rojo = límite de tiradas o substat debe estar ausente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Anulación de opciones de receta: se aplican los mínimos de tiradas de substats para este stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Anulación de opciones de receta: se aplican los umbrales de tiradas objetivo para este stat.",
 
   // Filter helpers
   filterShow: "Mostrar",
