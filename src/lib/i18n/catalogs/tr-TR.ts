@@ -1340,7 +1340,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Sağ tık: dışlama ve rulo üst sınırlarını döngüler (★ → ¬ → maks 0 → … → maks 4 → ★).",
   rollIndicatorTip3: "Yeşil = minimum rulolar; kırmızı = rulo üst sınırı veya alt stat mevcut olmamalıdır (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Reçete seçenekleri geçersiz kılma: bu stat için alt stat minimum rulo sayıları uygulanır.",
-  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Recipe overrides: roll target thresholds are applied for this stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Reçete seçenekleri geçersiz kılma: bu stat için rulo hedef eşikleri uygulanır.",
 
   // Filter helpers
   filterShow: "Göster",

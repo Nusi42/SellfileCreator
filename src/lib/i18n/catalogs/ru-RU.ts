@@ -1340,7 +1340,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Правый клик: перебирает исключение и ограничения ролей (★ → ¬ → макс 0 → … → макс 4 → ★).",
   rollIndicatorTip3: "Зелёный = минимальные роли; красный = ограничение ролей или подстат должен отсутствовать (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Переопределение параметров рецепта: для этого стата применяются минимальные роллы подстатов.",
-  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Recipe overrides: roll target thresholds are applied for this stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Переопределение параметров рецепта: для этого стата применяются целевые пороги роллов.",
 
   // Filter helpers
   filterShow: "Показать",

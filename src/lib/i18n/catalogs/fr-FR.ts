@@ -1343,7 +1343,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: "Clic droit : parcourt l’exclusion et les limites de lancers (★ → ¬ → max 0 → … → max 4 → ★).",
   rollIndicatorTip3: "Vert = lancers minimum requis ; rouge = limite de lancers ou sous-stat doit être absente (¬).",
   builderSubstatMinRecipeOverridesOverrideTooltip: "Remplacement des options de recette : les rolls minimum des sous-stats s’appliquent à cette stat.",
-  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Recipe overrides: roll target thresholds are applied for this stat.",
+  builderSubstatRollTargetRecipeOverridesOverrideTooltip: "Remplacement des options de recette : les seuils de rolls cibles s'appliquent à cette stat.",
 
   // Filter helpers
   filterShow: "Afficher",
