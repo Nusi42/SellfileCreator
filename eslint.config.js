@@ -41,7 +41,8 @@ export default [
       'tests/playwright/**/*.{ts,tsx,js,jsx}',
       'tests/**/*.{ts,tsx,js,jsx}',
       'scripts/**/*.{ts,js,mjs,cjs}',
-      'vite.config.ts'
+      'vite.config.ts',
+      'playwright.config.ts',
     ],
     languageOptions: {
       parser: tsParser,
