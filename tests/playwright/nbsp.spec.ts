@@ -24,8 +24,13 @@ test('safeguard chip label contains a literal NBSP (U+00A0) between count and wo
   await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
   await dismissBlockingDialogs(page)
+  // Wait for the SFC to fully parse — recipe count appearing in the panel confirms it.
+  await expect(page.getByText(/\d+ Recipes/)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   // Switch to safeguard builder mode so the safeguard chip toggles surface.
-  await page.getByRole('button', { name: 'Safeguard Builder' }).click()
+  const safeguardBtn = page.getByRole('button', { name: 'Safeguard Builder' })
+  await safeguardBtn.click()
+  // Confirm the mode actually switched before walking the DOM — avoids a silent race on FF.
+  await expect(safeguardBtn).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // The chip we care about is the global "N Safeguards" or "N Safeguard" pill near the toggle.
   // Search the whole page for an element with text matching /\d+ \S+/ — that's the regression
   // signature: the count, a literal NBSP, then the noun.
