@@ -25,10 +25,10 @@ import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot
 // cost of slightly noisier percentages, which 1-decimal display absorbs well.
 export const NOTE_SIM_RUNS = 2000 as const
 
-// Dragon + Fire Knight sub-set for boost configs (Ice Golem excluded there).
+// Dragon + Fire Knight sub-set for boost configs (Ice Golem / Spider excluded there).
 const NOTE_SIM_DUNGEONS_FK_DRAGON: readonly DungeonId[] = ['dragon', 'fireKnight'] as const
-// Full set including Ice Golem for the no-boost configs.
-const NOTE_SIM_DUNGEONS_ALL: readonly DungeonId[] = ['dragon', 'fireKnight', 'iceGolem'] as const
+// Full set including Ice Golem + Spider for the no-boost configs.
+const NOTE_SIM_DUNGEONS_ALL: readonly DungeonId[] = ['dragon', 'fireKnight', 'iceGolem', 'spider'] as const
 
 // ─── Config type ─────────────────────────────────────────────────────────────
 
@@ -65,12 +65,13 @@ export type DungeonNoteSimResults = Map<string, DungeonSimSpotlightResults>
 // ArtifactSet.Speed = 4, ArtifactSet.Savage = 19 (see artifactSets.ts).
 export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
   {
-    // Dragon Normal 20 + FK Normal 20 + Ice Golem Normal 20, no boost
+    // Dragon Normal 20 + FK Normal 20 + Ice Golem Normal 20 + Spider Normal 20, no boost
     id: 'n20-off',
     selections: {
       dragon: { mode: 'normal', stage: 20 } as DungeonStageSelection,
       fireKnight: { mode: 'normal', stage: 20 } as DungeonStageSelection,
       iceGolem: { mode: 'normal', stage: 20 } as DungeonStageSelection,
+      spider: { mode: 'normal', stage: 20 } as DungeonStageSelection,
     },
     boosts: {},
     simulateDungeons: NOTE_SIM_DUNGEONS_ALL,
@@ -79,12 +80,13 @@ export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
     iceGolemFocusSetId: null,
   },
   {
-    // Dragon Normal 25 + FK Normal 25 + Ice Golem Normal 25, no boost
+    // Dragon Normal 25 + FK Normal 25 + Ice Golem Normal 25 + Spider Normal 25, no boost
     id: 'n25-off',
     selections: {
       dragon: { mode: 'normal', stage: 25 } as DungeonStageSelection,
       fireKnight: { mode: 'normal', stage: 25 } as DungeonStageSelection,
       iceGolem: { mode: 'normal', stage: 25 } as DungeonStageSelection,
+      spider: { mode: 'normal', stage: 25 } as DungeonStageSelection,
     },
     boosts: {},
     simulateDungeons: NOTE_SIM_DUNGEONS_ALL,
@@ -93,12 +95,13 @@ export const NOTE_SIM_CONFIGS: readonly DungeonNoteConfig[] = [
     iceGolemFocusSetId: null,
   },
   {
-    // Dragon Hard 10 + FK Hard 10 + Ice Golem Hard 10, no boost
+    // Dragon Hard 10 + FK Hard 10 + Ice Golem Hard 10 + Spider Hard 10, no boost
     id: 'h10-off',
     selections: {
       dragon: { mode: 'hard', stage: 10 } as DungeonStageSelection,
       fireKnight: { mode: 'hard', stage: 10 } as DungeonStageSelection,
       iceGolem: { mode: 'hard', stage: 10 } as DungeonStageSelection,
+      spider: { mode: 'hard', stage: 10 } as DungeonStageSelection,
     },
     boosts: {},
     simulateDungeons: NOTE_SIM_DUNGEONS_ALL,

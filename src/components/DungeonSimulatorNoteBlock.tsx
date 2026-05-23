@@ -81,6 +81,13 @@ const NOTE_SIM_ICE_GOLEM_COLUMNS: readonly { configId: string }[] = [
   { configId: 'h10-off' },
 ] as const
 
+// Spider only shows the 3 no-boost columns (accessories only, never boosted).
+const NOTE_SIM_SPIDER_COLUMNS: readonly { configId: string }[] = [
+  { configId: 'n20-off' },
+  { configId: 'n25-off' },
+  { configId: 'h10-off' },
+] as const
+
 // All 5 milestone levels as rows; level-up mode captures each checkpoint without extra CPU cost.
 const NOTE_SIM_LEVELS: readonly LevelMilestone[] = [0, 4, 8, 12, 16] as const
 
@@ -110,27 +117,27 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   // ─── i18n helpers ─────────────────────────────────────────────────────────
 
-  const dungeonLabel = (dungeonId: 'dragon' | 'fireKnight' | 'iceGolem') => {
+  const dungeonLabel = (dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider') => {
     if (dungeonId === 'dragon') return t('dungeonDragon')
     if (dungeonId === 'fireKnight') return t('dungeonFireKnight')
+    if (dungeonId === 'spider') return t('dungeonSpider')
     return t('dungeonIceGolem')
   }
 
-  // Return the focused set id for a dungeon in a given config; Ice Golem always null.
-  const getFocusId = (cfg: (typeof NOTE_SIM_CONFIGS)[number], dungeonId: 'dragon' | 'fireKnight' | 'iceGolem'): ArtifactSetId | null => {
+  // Return the focused set id for a dungeon in a given config; Ice Golem + Spider always null.
+  const getFocusId = (cfg: (typeof NOTE_SIM_CONFIGS)[number], dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): ArtifactSetId | null => {
     if (dungeonId === 'dragon') return cfg.dragonFocusSetId
     if (dungeonId === 'fireKnight') return cfg.fireKnightFocusSetId
     return null
   }
 
   // Resolve the localized column header for a column + dungeon combination.
-  const colLabel = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem'): string => {
+  const colLabel = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): string => {
     const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
     if (!cfg) return col.configId
     const sel = cfg.selections[dungeonId]
     const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
     const stageLabel = `${modeLabel} ${sel?.stage ?? '?'}`
-    // Boost columns prefix with "3× SetName" (Ice Golem focus is always null).
     const focusId = getFocusId(cfg, dungeonId)
     if (focusId !== null) {
       const setName = getLocalizedGearSetName(focusId, t)
@@ -139,11 +146,32 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     return stageLabel
   }
 
+  // Two-line JSX header: boost line on top, stage line below (or single line for no-boost/Ice Golem/Spider).
+  const colLabelNode = (col: { configId: string }, dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider'): React.ReactNode => {
+    const cfg = NOTE_SIM_CONFIGS.find((c) => c.id === col.configId)
+    if (!cfg) return col.configId
+    const sel = cfg.selections[dungeonId]
+    const modeLabel = sel?.mode === 'hard' ? t('dungeonDropsModeHard') : t('dungeonDropsModeNormal')
+    const stageLabel = `${modeLabel} ${sel?.stage ?? '?'}`
+    const focusId = getFocusId(cfg, dungeonId)
+    if (focusId !== null) {
+      // Boost columns: "3× SetName" on first line, stage on second line.
+      const setName = getLocalizedGearSetName(focusId, t)
+      return (
+        <Box component="span" sx={{ display: 'block', lineHeight: 1.3 }}>
+          <Box component="span" sx={{ display: 'block' }}>{`${t('dungeonDropsBoost3x')} ${setName}`}</Box>
+          <Box component="span" sx={{ display: 'block' }}>{stageLabel}</Box>
+        </Box>
+      )
+    }
+    return stageLabel
+  }
+
   // ─── Cell value resolution ────────────────────────────────────────────────
 
-  // Resolve the keep-chance percentage for a cell (works for all three dungeons).
+  // Resolve the keep-chance percentage for a cell (works for all four dungeons).
   const resolvePercent = (
-    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem',
+    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider',
     configId: string,
     level: LevelMilestone,
   ): number | null => {
@@ -178,7 +206,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   //   • Keep chance at gear level +L: X.Y%  (from noteSimKeepChanceAtLevel)
   //   • Per-set breakdown as a two-column grid (name | pct), sorted by keep chance desc
   const buildTooltipContent = (
-    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem',
+    dungeonId: 'dragon' | 'fireKnight' | 'iceGolem' | 'spider',
     configId: string,
     level: LevelMilestone,
   ): React.ReactNode => {
@@ -262,12 +290,12 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   // Dense table cells: match the compact style used in other note blocks.
   const cellSx = { py: 0.25, px: 0.75, fontSize: '0.75rem', borderBottom: 0 }
-  // Header cell: slightly bolder label.
-  const headCellSx = { ...cellSx, fontWeight: 600, whiteSpace: 'nowrap' as const }
+  // Header cell: slightly bolder label; allow wrapping so side-by-side tables fit.
+  const headCellSx = { ...cellSx, fontWeight: 600 }
 
   // ─── Per-dungeon table (Dragon / Fire Knight) ─────────────────────────────
 
-  const renderDungeonTable = (dungeonId: 'dragon' | 'fireKnight', isFirst: boolean) => (
+  const renderDungeonTable = (dungeonId: 'dragon' | 'fireKnight') => (
     <Table
       size="small"
       sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
@@ -277,7 +305,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
         <TableRow>
           <TableCell
             colSpan={NOTE_SIM_COLUMNS.length + 1}
-            sx={{ ...headCellSx, pt: isFirst ? 0.5 : 1.5, pb: 0.25, pl: 0 }}
+            sx={{ ...headCellSx, pt: 0.5, pb: 0.25, pl: 0 }}
           >
             {dungeonLabel(dungeonId)}
           </TableCell>
@@ -288,7 +316,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
           <TableCell sx={{ ...headCellSx, pl: 0 }} />
           {NOTE_SIM_COLUMNS.map((col) => (
             <TableCell key={col.configId} align="right" sx={headCellSx}>
-              {colLabel(col, dungeonId)}
+              {colLabelNode(col, dungeonId)}
             </TableCell>
           ))}
         </TableRow>
@@ -334,10 +362,14 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     </Table>
   )
 
-  // ─── Ice Golem table (no boost, 3 columns only) ───────────────────────────
+  // ─── No-boost-only table helper (Ice Golem + Spider share identical structure) ─
 
-  // Ice Golem always shows aggregate keep chance with no boost or focus set.
-  const renderIceGolemTable = () => (
+  // Renders a 3-column aggregate-only table for dungeons with no boost variants.
+  const renderNoBoostTable = (
+    dungeonId: 'iceGolem' | 'spider',
+    columns: readonly { configId: string }[],
+    ptTop: number,
+  ) => (
     <Table
       size="small"
       sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
@@ -346,18 +378,18 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
         {/* Section header spanning all columns */}
         <TableRow>
           <TableCell
-            colSpan={NOTE_SIM_ICE_GOLEM_COLUMNS.length + 1}
-            sx={{ ...headCellSx, pt: 1.5, pb: 0.25, pl: 0 }}
+            colSpan={columns.length + 1}
+            sx={{ ...headCellSx, pt: ptTop, pb: 0.25, pl: 0 }}
           >
-            {dungeonLabel('iceGolem')}
+            {dungeonLabel(dungeonId)}
           </TableCell>
         </TableRow>
         {/* Column labels: mode + stage only (no boost prefix) */}
         <TableRow>
           <TableCell sx={{ ...headCellSx, pl: 0 }} />
-          {NOTE_SIM_ICE_GOLEM_COLUMNS.map((col) => (
+          {columns.map((col) => (
             <TableCell key={col.configId} align="right" sx={headCellSx}>
-              {colLabel(col, 'iceGolem')}
+              {colLabel(col, dungeonId)}
             </TableCell>
           ))}
         </TableRow>
@@ -368,10 +400,10 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
             <TableCell sx={{ ...cellSx, pl: 0, color: 'text.secondary', whiteSpace: 'nowrap' }}>
               {`+${level}`}
             </TableCell>
-            {NOTE_SIM_ICE_GOLEM_COLUMNS.map((col) => {
+            {columns.map((col) => {
               const pending = isConfigPending(col.configId)
-              const pct = pending ? null : resolvePercent('iceGolem', col.configId, level)
-              const tooltipContent = buildTooltipContent('iceGolem', col.configId, level)
+              const pct = pending ? null : resolvePercent(dungeonId, col.configId, level)
+              const tooltipContent = buildTooltipContent(dungeonId, col.configId, level)
               return (
                 <TableCell key={col.configId} align="right" sx={cellSx}>
                   {pending || (running && pct === null) ? (
@@ -379,7 +411,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
                   ) : (
                     <MarkdownTooltip render={tooltipContent} enterDelay={400} placement="top">
                       <Box component="span" sx={{ cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                        {/* Always Σ for Ice Golem — no boost, pure aggregate. */}
+                        {/* Always Σ — no boost, pure aggregate for these dungeons. */}
                         <Box component="span" sx={{ fontSize: '0.6rem', opacity: 0.45, lineHeight: 1 }}>Σ</Box>
                         {formatPct(pct)}
                       </Box>
@@ -396,9 +428,20 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
 
   return (
     <Box sx={{ my: 0.5 }}>
-      {renderDungeonTable('fireKnight', true)}
-      {renderDungeonTable('dragon', false)}
-      {renderIceGolemTable()}
+      {/* Fire Knight + Dragon side by side */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{renderDungeonTable('fireKnight')}</Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{renderDungeonTable('dragon')}</Box>
+      </Box>
+      {/* Ice Golem + Spider side by side */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {renderNoBoostTable('iceGolem', NOTE_SIM_ICE_GOLEM_COLUMNS, 1.5)}
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {renderNoBoostTable('spider', NOTE_SIM_SPIDER_COLUMNS, 1.5)}
+        </Box>
+      </Box>
     </Box>
   )
 }
