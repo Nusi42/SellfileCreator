@@ -418,11 +418,12 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
       continue
     }
 
-    // ── improvchance = off | disabled | <N> [<N4> [<N8> [<N12>]]] ──────────────
+    // ── improvchance = off | disabled | <N> ["," <N4> ["," <N8> ["," <N12>]]] ──
     // Supported values:
     //   off / false / disabled  → disable the feature (null)
-    //   1–4 space-separated numbers → thresholds for upgrade stages 0, 4, 8, 12.
+    //   1–4 comma-separated numbers → thresholds for upgrade stages 0, 4, 8, 12.
     //                                 Omitted stages inherit the previous stage's value (null).
+    //   Legacy: space-separated numbers are also accepted for backward compatibility.
     if (field === 'improvchance') {
       if (valueLc === 'off' || valueLc === 'false' || valueLc === 'disabled') {
         operations.push({ kind: 'improvementChance', value: null })
@@ -430,9 +431,21 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
         const pct0 = Number.parseFloat(valueLc)
         if (Number.isFinite(pct0)) {
           const clampPct = (v: number) => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10
-          // Consume additional space-separated number tokens for level-4, 8, 12.
+          // Consume a comma-separated number token for level-4/8/12.
+          // Comma is canonical; a bare word token is accepted as legacy (space-separated) fallback.
           // Stop at any token that looks like a new field assignment (word followed by `=`).
           const tryConsumePercent = (): number | null => {
+            // Canonical: leading comma.
+            if (cursor.peek()?.kind === 'symbol' && cursor.peek()?.value === ',') {
+              cursor.next()
+              const t = cursor.peek()
+              if (!t || t.kind !== 'word') return null
+              const n = Number.parseFloat(t.value)
+              if (!Number.isFinite(n)) return null
+              cursor.next()
+              return n
+            }
+            // Legacy fallback: bare space-separated word (no comma).
             const t = cursor.peek()
             if (!t || t.kind !== 'word') return null
             if (cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return null

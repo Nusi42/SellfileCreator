@@ -71,6 +71,29 @@ const canonicalizeLegacyNoteMarkers = (note: string): string => (
     .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
 )
 
+/** True when the SFC version string is at or below the given major.minor.patch ceiling.
+ *  Pre-release / build-metadata suffixes (e.g. -dev, +build) are stripped before comparison.
+ *  A missing or unparseable version is treated as old (returns true). */
+function sfcVersionAtMost(version: string | undefined, major: number, minor: number, patch: number): boolean {
+  if (!version) return true
+  const core = version.replace(/[-+].*$/, '')
+  const parts = core.split('.').map(Number)
+  const vmaj = parts[0] ?? 0
+  const vmin = parts[1] ?? 0
+  const vpatch = parts[2] ?? 0
+  if (vmaj !== major) return vmaj < major
+  if (vmin !== minor) return vmin < minor
+  return vpatch <= patch
+}
+
+/** Convert legacy space-separated improvchance values to canonical comma-separated form.
+ *  "improvchance = 25 35 50 65" → "improvchance = 25, 35, 50, 65" (1–4 values). */
+const migrateImprovchanceSpacesToCommas = (note: string): string =>
+  note.replace(
+    /\bimprovchance(\s*=\s*)(\d+(?:\.\d+)?)((?:\s+\d+(?:\.\d+)?){1,3})/g,
+    (_, eq, first, rest: string) => `improvchance${eq}${first}${rest.replace(/\s+/g, ', ')}`,
+  )
+
 type LockedMinValue = Exclude<BuilderRecipe['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderRecipe['minRequiredRolls'], undefined>
 
@@ -1052,11 +1075,16 @@ export function parseSfcObject(
   const selectedIndex = recipes.length > 0 ? 0 : null
   // Canonicalize legacy note markers during SFC import so runtime state uses new wording only.
   // Accept both the legacy plain-string form and the current array-of-lines form.
+  const rawVersion = typeof parsedRec['Version'] === 'string' ? parsedRec['Version'] : undefined
   const rawNote = parsedRec['Note']
   const noteStr = Array.isArray(rawNote)
     ? rawNote.map(String).join('\n')
     : typeof rawNote === 'string' ? rawNote : undefined
-  const note = noteStr ? canonicalizeLegacyNoteMarkers(noteStr) : undefined
+  // Files written before v1.0.13 used space-separated improvchance values; convert to commas.
+  const migratedNoteStr = noteStr && sfcVersionAtMost(rawVersion, 1, 0, 13)
+    ? migrateImprovchanceSpacesToCommas(noteStr)
+    : noteStr
+  const note = migratedNoteStr ? canonicalizeLegacyNoteMarkers(migratedNoteStr) : undefined
   return {
     recipes,
     metasets,

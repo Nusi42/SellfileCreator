@@ -1678,8 +1678,8 @@ rankNum       := /1–6/   (integer star rank)
 rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical"
 activationVal := "${_sgActVals}"
 subMatchVal   := "${_sgMatchVals}"
-impChanceVal  := "off" | "disabled" | number [number [number [number]]]
-                 // 1–4 space-separated values set thresholds for upgrade level 0, 4, 8, 12
+impChanceVal  := "off" | "disabled" | number ("," [number])*
+                 // 1–4 comma-separated values; omitted slots inherit from the previous stage
 flexVal       := "on" | "off" | "true" | "false"
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
