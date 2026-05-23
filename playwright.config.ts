@@ -4,9 +4,16 @@ import { PLAYWRIGHT_TIMEOUTS } from './tests/playwright/timeouts';
 // Shared root for Playwright artifact output so per-browser runs stay isolated.
 const PLAYWRIGHT_RESULTS_ROOT = 'test-results';
 
+// Default Desktop Chrome / Firefox viewport — used both as the implicit viewport for the
+// general projects and as the video recording size for those projects. Playwright's default
+// video size is 800x450 regardless of viewport, which downscales captures and makes them
+// blurry; pinning size to the viewport keeps videos pixel-accurate.
+const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
+
 // Second viewport pass: full-HD layout to catch regressions specific to wider screens.
-// Why: the default Desktop Chrome viewport is 1280x720, which hides layout bugs that only
-// surface at 1080p (e.g. truncated chips, overflow handling, alternative column counts).
+// Why: the default viewport is 1280x720, which hides layout bugs that only surface at 1080p
+// (e.g. truncated chips, overflow handling, alternative column counts). FHD projects record
+// video at this same size so the captured frames match what the test actually saw.
 const FHD_VIEWPORT = { width: 1920, height: 1080 };
 
 // Performance/memory-sensitive specs that measure wall-clock latency or heap growth.
@@ -102,8 +109,10 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
-    /* Record video for every test and keep all artifacts, including successful runs. */
-    video: 'on',
+    /* Record video for every test at native viewport resolution. Default Playwright behavior
+       downscales captures to 800x450; pinning size to the viewport keeps frames pixel-accurate.
+       FHD projects override this with FHD_VIEWPORT in their per-project `use` block. */
+    video: { mode: 'on', size: DEFAULT_VIEWPORT },
   },
 
   /* Configure projects for major browsers */
@@ -121,7 +130,12 @@ export default defineConfig({
       // Full-HD Chromium pass: same browser as `chromium`, but at 1920x1080.
       // Why: wider layouts can expose chip overflow / column-count bugs missed at 1280x720.
       name: 'chromium-fhd',
-      use: { ...devices['Desktop Chrome'], viewport: FHD_VIEWPORT },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: FHD_VIEWPORT,
+        // Match video size to the FHD viewport so captures stay pixel-accurate.
+        video: { mode: 'on', size: FHD_VIEWPORT },
+      },
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/chromium-fhd`,
       testIgnore: PERF_SPECS,
     },
@@ -148,7 +162,12 @@ export default defineConfig({
     {
       // Full-HD Firefox pass: mirrors the chromium-fhd rationale for the Gecko engine.
       name: 'firefox-fhd',
-      use: { ...devices['Desktop Firefox'], viewport: FHD_VIEWPORT },
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: FHD_VIEWPORT,
+        // Match video size to the FHD viewport so captures stay pixel-accurate.
+        video: { mode: 'on', size: FHD_VIEWPORT },
+      },
       outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/firefox-fhd`,
       testIgnore: PERF_SPECS,
     },
