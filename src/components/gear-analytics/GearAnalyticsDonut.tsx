@@ -111,13 +111,15 @@ const SlotIconContext = createContext<SlotIconCtxValue | null>(null)
  * Module-level arc label component — renders a slot or set icon at the arc centroid.
  * Supports SVG path icons (slot icons) and bitmap image URLs (gear set icons).
  *
- * MUI X Charts passes raw arc geometry to this slot:
- *   startAngle, endAngle, arcLabelRadius, innerRadius, outerRadius, formattedArcLabel, color.
+ * In x-charts v9 the slot receives: startAngle, endAngle, arcLabelRadius, cornerRadius,
+ * paddingAngle, hidden, seriesId, color, isFaded, isHighlighted, formattedArcLabel, skipAnimation.
+ * innerRadius and outerRadius are NOT passed anymore (removed in v9 arcLabel slot).
  * The domain id is encoded in formattedArcLabel (via arcLabel: item => String(item.id))
  * so we can look up the icon without relying on dataIndex (not passed) or cx/cy (not passed —
  * the parent <g> already handles the pie center translation).
  *
  * Rendering details:
+ *   - Hidden arcs (angle below arcLabelMinAngle threshold) are skipped — formattedArcLabel is null.
  *   - Arcs too narrow (chord < MIN_ICON_CHORD_PX) are skipped to prevent overflow.
  *   - Bitmap icons (gear sets): circular semi-transparent background chip for legibility on any arc.
  *   - SVG path icons (slots): no background; fill uses getContrastText(arc color) for legibility.
@@ -125,9 +127,7 @@ const SlotIconContext = createContext<SlotIconCtxValue | null>(null)
 function ArcIconLabel(props: {
   startAngle: number
   endAngle: number
-  arcLabelRadius?: number
-  innerRadius: number
-  outerRadius: number
+  arcLabelRadius: number
   color: string
   formattedArcLabel: string | null
   [key: string]: unknown
@@ -139,10 +139,10 @@ function ArcIconLabel(props: {
   const asset = props.formattedArcLabel ? ctx?.iconMap.get(props.formattedArcLabel) ?? null : null
   if (!asset) return null
 
-  // Centroid: midpoint angle projected to arcLabelRadius (or midpoint of inner/outer).
+  // Centroid: midpoint angle projected to arcLabelRadius.
   // Coordinates are relative to the pie center — the parent <g> handles cx/cy offset.
   const midAngle = (props.startAngle + props.endAngle) / 2
-  const r        = props.arcLabelRadius ?? (props.innerRadius + props.outerRadius) / 2
+  const r        = props.arcLabelRadius
   const x        = r * Math.sin(midAngle)
   const y        = -r * Math.cos(midAngle)
   // Icon size comes from context (set per-donut via the iconSize prop).
@@ -182,13 +182,12 @@ function ArcIconLabel(props: {
  * Arc label component for text-only donuts (e.g. level donut).
  * Renders the formattedArcLabel as SVG text using the arc's contrast color,
  * ensuring legibility against any arc fill without needing a background layer.
+ * In x-charts v9, this slot receives arcLabelRadius directly (innerRadius/outerRadius removed).
  */
 function ArcTextLabel(props: {
   startAngle: number
   endAngle: number
-  arcLabelRadius?: number
-  innerRadius: number
-  outerRadius: number
+  arcLabelRadius: number
   color: string
   formattedArcLabel: string | null
   [key: string]: unknown
@@ -196,9 +195,9 @@ function ArcTextLabel(props: {
   const theme = useTheme()
   if (!props.formattedArcLabel) return null
 
-  // Centroid position — same formula as ArcIconLabel.
+  // Centroid position — arcLabelRadius is the pre-computed centroid radius from x-charts v9.
   const midAngle = (props.startAngle + props.endAngle) / 2
-  const r        = props.arcLabelRadius ?? (props.innerRadius + props.outerRadius) / 2
+  const r        = props.arcLabelRadius
   const x        = r * Math.sin(midAngle)
   const y        = -r * Math.cos(midAngle)
 
@@ -549,7 +548,8 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
       <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Title row — chevron toggles collapse of the pie chart below. */}
         <GearAnalyticsChartHeader title={title} collapsed={collapsed} onToggleCollapse={onToggleCollapse} boxSx={{ gap: 0.25 }} />
-        <Collapse in={!collapsed} timeout="auto">
+        {/* width: 100% breaks the circular flex-width reference so x-charts v9 can measure the container. */}
+        <Collapse in={!collapsed} timeout="auto" sx={{ width: '100%' }}>
         <PieChart
           series={[{
             data: seriesData,
@@ -571,10 +571,11 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
           sx={{
             cursor: 'pointer',
             // Highlight hovered slices with a subtle ring.
-            '& .MuiPieArc-root:hover': {
+            // x-charts v9 uses MuiPieChart-arc (from pieClasses utility) instead of MuiPieArc-root.
+            '& .MuiPieChart-arc:hover': {
               filter: `drop-shadow(0 0 4px ${alpha(theme.palette.primary.main, 0.6)})`,
             },
-            '& .MuiPieArc-root': { cursor: 'pointer' },
+            '& .MuiPieChart-arc': { cursor: 'pointer' },
           }}
         />
         </Collapse>

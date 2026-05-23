@@ -7541,7 +7541,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const word = n === 1 ? t('safeguardOne') : t('safeguardMany')
     const sel = selectedSafeguardRuleIndices.length
     if (sel >= 2 && sel < n) return t('recipesSelectedCount', { selected: sel, total: n, word })
-    return `${n} ${word}`
+    return `${n}\u00a0${word}`
   })()
 
   // SFC load/save/copy controls surfaced at the top of the builder column.
