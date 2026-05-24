@@ -1993,7 +1993,14 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     }
     const fgColor = recipe.appearance?.fgColor
     const nextAppearance = (next || fgColor) ? { name: next, ...(fgColor ? { fgColor } : {}) } : undefined
-    onChange({ ...recipe, ...(nextAppearance ? { appearance: nextAppearance } : {}) })
+    // Explicitly drop the appearance key when nextAppearance is undefined — spreading {} over
+    // the existing recipe would silently preserve the old name.
+    if (nextAppearance) {
+      onChange({ ...recipe, appearance: nextAppearance })
+    } else {
+      const { appearance: _dropped, ...base } = recipe
+      onChange(base)
+    }
     setNameDraft('')
     setNameDraftKey(null)
     return next
@@ -2575,9 +2582,15 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
+    // Drop appearance before spreading so the reset never inherits the old name — factory
+    // defaults have no appearance key, so a plain spread would silently preserve it.
+    const { appearance: _dropped, ...recipeBase } = recipe
     // Normalize after merge so transient fields like autoRaritySupplementsThreshold are
     // stripped when they don't apply (e.g. early-mode recipes don't use the supplements floor).
-    onChange(normalizeKeepWithAuto({ ...recipe, ...eff }))
+    onChange(normalizeKeepWithAuto({ ...recipeBase, ...eff }))
+    // Clear any uncommitted name draft so the field reflects the reset state immediately.
+    setNameDraft('')
+    setNameDraftKey(null)
     setHoverReset(false)
   }, [recipe, getEffectiveDefaults, normalizeKeepWithAuto, onChange])
 
@@ -2587,8 +2600,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     onAddToCustom()
     if (autoResetAfterInsert) {
       const eff = getEffectiveDefaults()
+      // Drop appearance before spreading — same reasoning as handleResetBuilder.
+      const { appearance: _dropped, ...recipeBase } = recipe
       // Same normalization as handleResetBuilder to avoid stale threshold in next builder state.
-      onChange(normalizeKeepWithAuto({ ...recipe, ...eff }))
+      onChange(normalizeKeepWithAuto({ ...recipeBase, ...eff }))
     }
   }
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
@@ -2938,6 +2953,9 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             edge="end"
             aria-label={t('builderClearRecipeName')}
             tooltip={t('builderClearRecipeName')}
+            // Prevent mousedown from blurring the input before click fires (MUI9 changed
+            // InputAdornment focus-retention behavior relative to MUI5/6).
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               if (usingMultiName) {
                 multiEdit?.updateField('appearanceName', { value: '', status: 'common' })
