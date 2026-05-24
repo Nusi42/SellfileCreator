@@ -96,6 +96,9 @@ export function makeTheme(mode: ColorBlindMode) {
             maxWidth: 640,
             whiteSpace: 'pre-line',
             wordBreak: 'break-word',
+            // Scale tooltip content to match #root zoom so it doesn't appear oversized in
+            // forced-SBS mode. The arrow inherits this zoom as a descendant — no extra rule needed.
+            zoom: 'var(--app-zoom, 1)',
           },
         },
       },
@@ -115,6 +118,11 @@ export function makeTheme(mode: ColorBlindMode) {
             },
           },
         },
+        styleOverrides: {
+          // Scale dialog paper to match #root zoom in forced-SBS mode. The modal backdrop and
+          // container stay unzoomed so MUI's centering logic is unaffected.
+          paper: { zoom: 'var(--app-zoom, 1)' },
+        },
       },
       MuiMenu: {
         defaultProps: {
@@ -124,6 +132,18 @@ export function makeTheme(mode: ColorBlindMode) {
       MuiPopover: {
         defaultProps: {
           slotProps: { root: { closeAfterTransition: false } },
+        },
+        styleOverrides: {
+          // Scale popover (and MuiMenu, which extends it) paper to match #root zoom in
+          // forced-SBS mode. Popper.js positions the container, not the paper, so placement
+          // coordinates are unaffected.
+          paper: { zoom: 'var(--app-zoom, 1)' },
+        },
+      },
+      MuiAutocomplete: {
+        styleOverrides: {
+          // The Autocomplete dropdown uses its own paper class, distinct from MuiPopover.
+          paper: { zoom: 'var(--app-zoom, 1)' },
         },
       },
       MuiSlider: {
