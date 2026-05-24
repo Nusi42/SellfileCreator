@@ -1492,13 +1492,19 @@ export default function SafeguardBuilderPanel({
           edge="end"
           aria-label={t('builderClearRecipeName')}
           tooltip={t('builderClearRecipeName')}
+          // Prevent mousedown from blurring the input before click fires (MUI9 behavior change).
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             if (multiEditActive && multiEdit) {
               multiEdit.updateField('appearanceName', { value: '', status: 'common' })
             } else {
               updateRule((prev) => {
                 const fgColor = prev.appearance?.fgColor
-                return { ...prev, ...(fgColor ? { appearance: { name: '', fgColor } } : {}) }
+                // Keep fgColor when set; otherwise drop the whole appearance key — spreading {}
+                // would leave the old name intact.
+                if (fgColor) return { ...prev, appearance: { name: '', fgColor } }
+                const { appearance: _dropped, ...base } = prev
+                return base
               })
             }
           }}
