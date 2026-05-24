@@ -101,9 +101,12 @@ export default function RestoreAutosaveDialog({
   }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent])
 
   // Merge persisted and default selection during render when the dialog is open.
-  // This replaces a useEffect to avoid an extra re-render cycle.
+  // This replaces a useEffect to avoid an extra re-render cycle — the React-blessed
+  // "Storing information from previous renders" pattern guarded by the equality check
+  // above (https://react.dev/reference/react/useState#storing-information-from-previous-renders).
   const mergedSelection = open ? mergeStoredSelection(defaultSelection, persistedSelection) : selection
   if (open && !selectionsEqual(selection, mergedSelection)) {
+    // eslint-disable-next-line @eslint-react/set-state-in-effect -- see comment above
     setSelection(mergedSelection)
   }
 

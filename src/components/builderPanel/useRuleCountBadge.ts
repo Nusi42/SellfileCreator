@@ -273,12 +273,14 @@ export function useRuleCountBadge({
   const ruleCount = precomputedRuleCount ?? asyncRuleCount
 
   // Preserve the last resolved value so the chip width + text stay stable while counting.
-  // Updated during render to avoid an extra effect cycle.
-  const [lastResolvedRuleCount, setLastResolvedRuleCount] = useState<number | null>(ruleCount)
-  if (ruleCount !== null && ruleCount !== lastResolvedRuleCount) {
-    setLastResolvedRuleCount(ruleCount)
+  // A ref is correct here: when ruleCount transitions null → N, the upstream state change
+  // already triggers a re-render, so we don't need setState to schedule one. Using state
+  // would also trip @eslint-react/set-state-in-effect on the render-time update.
+  const lastResolvedRuleCountRef = useRef<number | null>(ruleCount)
+  if (ruleCount !== null && ruleCount !== lastResolvedRuleCountRef.current) {
+    lastResolvedRuleCountRef.current = ruleCount
   }
-  const displayRuleCount = ruleCount ?? lastResolvedRuleCount ?? null
+  const displayRuleCount = ruleCount ?? lastResolvedRuleCountRef.current ?? null
 
   // Total-rule-limit recipes use the larger shared threshold.
   const hasTotalLimitSelection = useMemo(() => {

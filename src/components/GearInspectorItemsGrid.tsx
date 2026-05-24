@@ -1650,7 +1650,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   // Runs before rows change (the token is bumped before the WASM worker is queued) so virtualItems
   // still reflect the current layout.  flattenedItems/virtualItems/selectedGearItemIds are intentionally
   // omitted from deps — this is a one-shot capture keyed solely on the token value.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (scrollRestoreToken == null || scrollRestoreToken === lastAppliedScrollRestoreTokenRef.current) return
     lastAppliedScrollRestoreTokenRef.current = scrollRestoreToken
@@ -1689,6 +1688,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       artifactId: bestArtifactId,
       relativeTopPx: bestStart - container.scrollTop,
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [scrollRestoreToken])
   const fallbackScrollHintRowId = useMemo(() => {
     for (let idx = 0; idx < rows.length; idx += 1) {

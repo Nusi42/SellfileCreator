@@ -2711,7 +2711,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const drainBuilding = gearEntriesBuilding
     const drainCommittedBuildId = gearEntriesCommittedBuildId
     const drainPreviewRows = gearInspectorPreviewRows
-    // eslint-disable-next-line react-hooks/refs -- drainGearDbDiffToast closes over a ref but runs asynchronously via queueMicrotask, not during render
+    // Scheduling during render is intentional: moving this to useEffect would let other
+    // effects update gearDbDiffToastPendingRef before the drain fires, masking diffs.
+    // The guarded render-time pattern above ensures we schedule at most once per change.
+    // react-hooks/refs fires because drainGearDbDiffToast reads a ref via closure;
+    // @eslint-react/purity fires because queueMicrotask itself is a render-time side effect.
+    // eslint-disable-next-line react-hooks/refs, @eslint-react/purity -- see comment above
     queueMicrotask(() => drainGearDbDiffToast(drainBuilding, drainCommittedBuildId, drainPreviewRows))
   }
   const [gearImportBusy, setGearImportBusy] = useState(false)

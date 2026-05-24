@@ -79,6 +79,7 @@ export function GearDbDiffToast({
               and JSX nodes have no stable identity, so a positional index is correct. */}
           {headerLineNodes.map((line, nodeSeq) => (
             <Typography
+              // eslint-disable-next-line @eslint-react/no-array-index-key -- see comment above; list is render-derived, never reordered
               key={`hdr-${nodeSeq}`}
               variant="body2"
               sx={{ fontSize: `${TOAST_HEADER_FONT_SIZE_REM}rem`, lineHeight: 1.35 }}

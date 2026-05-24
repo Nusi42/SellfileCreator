@@ -1105,10 +1105,17 @@ export default function SafeguardBuilderPanel({
     menuRef: tagsContextPaperRef,
   })
   // Render-time state adjustment: clear hint position when hint is dismissed.
+  // The React-blessed "Storing information from previous renders" pattern
+  // (https://react.dev/reference/react/useState#storing-information-from-previous-renders):
+  // setters are guarded by an inequality check, so React skips the second render when
+  // nothing changed. The lint rule does not distinguish guarded render-time use from
+  // unguarded setState-in-effect.
   const [prevShowTagsHint, setPrevShowTagsHint] = useState(showTagsHint)
   if (showTagsHint !== prevShowTagsHint) {
+    /* eslint-disable @eslint-react/set-state-in-effect -- see block comment above */
     setPrevShowTagsHint(showTagsHint)
     if (!showTagsHint) setTagsHintPos(null)
+    /* eslint-enable @eslint-react/set-state-in-effect */
   }
   // Track pointer entry to show the tags context menu hint.
   const handleTagsHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
