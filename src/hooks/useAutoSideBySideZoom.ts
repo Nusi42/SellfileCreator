@@ -24,10 +24,15 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
     if (!root) return
     if (targetZoom === null || targetZoom === 1) {
       root.style.removeProperty('zoom')
+      // Remove the custom property so portal content (dialogs, tooltips, menus) reverts to 100% scale.
+      document.documentElement.style.removeProperty('--app-zoom')
       return
     }
     const normalized = Math.max(0.01, Math.min(targetZoom, 1))
     root.style.zoom = normalized.toString()
+    // Expose the zoom value for portal content outside #root (dialogs, tooltips, menus) which
+    // cannot inherit the #root zoom directly. See MUI theme styleOverrides in theme.ts.
+    document.documentElement.style.setProperty('--app-zoom', normalized.toString())
   }, [])
 
   // Ref-based setter so the resize/media-query callbacks avoid the set-state-in-effect lint rule.

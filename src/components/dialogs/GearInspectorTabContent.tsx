@@ -814,7 +814,8 @@ export function GearInspectorTabContent({
       }
     })
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.itemId)
-    const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (isCompact ? t('expanded') : t('compact'))
+    // Suppress the regular tooltip when the cookie-monster speech bubble is already visible.
+    const toggleTooltip = cookieMonsterActive ? '' : (isCompact ? t('expanded') : t('compact'))
     const ruleChipNode = (
       <GearInspectorRuleReferenceChip
         match={match}

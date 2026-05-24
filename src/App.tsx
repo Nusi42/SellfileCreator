@@ -883,6 +883,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     el.style.setProperty('--splitter-left-width', `${splitterLeftPx}px`)
     el.style.setProperty('--splitter-right-width', `${splitterRightPx}px`)
   }, [splitterLeftPx, splitterRightPx])
+  // Width passed to the note panel so it aligns with the builder column and leaves the
+  // gear inspector visible. splitterLeftPx is in the zoomed layout coordinate space; the
+  // floating panel is inside #root (zoom:0.81), so it scales to the right visual size automatically.
+  // Undefined in single-column mode: the note uses the standard centered Dialog instead.
+  const noteDrawerWidthPx = (isSideBySide || forceSideBySideLayout) ? splitterLeftPx : undefined
+  // Top / left offsets for the floating note panel measured from getBoundingClientRect() so they
+  // are viewport-relative and work correctly as position:fixed coordinates even under CSS zoom.
+  const [sbsRowTopPx, setSbsRowTopPx] = useState(0)
+  const [sbsRowLeftPx, setSbsRowLeftPx] = useState(0)
+  useLayoutEffect(() => {
+    if (!(isSideBySide || forceSideBySideLayout)) return
+    const el = splitterContainerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setSbsRowTopPx(rect.top)
+    setSbsRowLeftPx(rect.left)
+  }, [isSideBySide, forceSideBySideLayout])
+  const noteDrawerTopPx = (isSideBySide || forceSideBySideLayout) ? sbsRowTopPx : undefined
+  const noteDrawerLeftPx = (isSideBySide || forceSideBySideLayout) ? sbsRowLeftPx : undefined
   // Empty-state messaging reads better when stacked (top-aligned) but looks balanced side-by-side (centered).
   const emptyStateVerticalAlign = isSideBySide ? 'center' : 'top'
   useTooltipScrollGuard()
@@ -8474,7 +8493,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {/* Only mount the Note dialog when visible so recipe chip previews stay out of the tree. */}
       {noteOpen ? (
         <NoteDialog
-          open={noteOpen}
           mode={noteMode}
           note={sfcNote ?? ''}
           onChange={(value, options) => {
@@ -8518,6 +8536,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushEndpointReachable={pushEndpointReachable}
           onToggleRslHelperConnect={handleToggleRslHelperConnect}
           onLoadSimplePreset={handleLoadSimplePreset}
+          {...(noteDrawerWidthPx != null ? { drawerWidthPx: noteDrawerWidthPx } : {})}
+          {...(noteDrawerTopPx != null ? { drawerTopPx: noteDrawerTopPx } : {})}
+          {...(noteDrawerLeftPx != null ? { drawerLeftPx: noteDrawerLeftPx } : {})}
         />
       ) : null}
       <Snackbar
