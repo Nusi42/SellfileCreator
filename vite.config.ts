@@ -30,6 +30,7 @@ const WATCH_INCLUDED_ROOT_FILE_PATTERNS: readonly RegExp[] = [
 const WATCH_INCLUDED_TOP_LEVEL_DIRS = new Set<string>([
   'src',
   'ico',
+  'examples',
 ])
 
 // Vite plugin code under scripts/vite affects bundling/hot reload behavior directly.
