@@ -1,7 +1,8 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
@@ -196,19 +197,23 @@ function renderPrismHighlighted(text: string, grammar: string, sx: Record<string
 }
 
 const NOTE_EDITOR_BG_COLOR = '#0d1117'
-// Keep the note dialog size constant so view/edit stays aligned.
-const NOTE_DIALOG_HEIGHT = '84vh'
 // Keep substat ordering aligned with the rule card layout.
 const NOTE_SUBSTAT_ORDER = new Map<number, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
 )
-// Apply a fixed height and flex column so the content can stretch fully.
-// Simple mode reuses the same height — the preset Collapse toggle just compresses the content area.
+// Standard centered Dialog height — used in single-column or simple mode.
+const NOTE_DIALOG_HEIGHT = '84vh'
 const NOTE_DIALOG_PAPER_SX = {
   height: NOTE_DIALOG_HEIGHT,
   minHeight: NOTE_DIALOG_HEIGHT,
   maxHeight: NOTE_DIALOG_HEIGHT,
-  // Make the paper a column layout so content/actions can flex.
+  display: 'flex',
+  flexDirection: 'column',
+}
+// Full viewport height for the floating panel — only active in SBS + expert/normal mode.
+// drawerWidthPx / drawerTopPx are injected per-render by App so the panel aligns with the
+// builder column and starts below the app header row.
+const NOTE_DRAWER_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
@@ -3026,7 +3031,6 @@ const runRecipeOverridesMenuAction = (
 }
 
 export default function NoteDialog({
-  open,
   mode,
   note,
   onChange,
@@ -3063,8 +3067,9 @@ export default function NoteDialog({
   pushEndpointReachable,
   onToggleRslHelperConnect,
   onLoadSimplePreset,
+  drawerWidthPx,
+  drawerTopPx,
 }: {
-  open: boolean
   mode: 'view' | 'edit'
   note: string
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
@@ -3113,6 +3118,12 @@ export default function NoteDialog({
   onToggleRslHelperConnect?: () => void
   // Called when the express preset toggle changes; loads the full Basic or Endgame SFC.
   onLoadSimplePreset?: (variant: 'basic' | 'endgame') => void
+  // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
+  // the builder column, leaving the gear inspector visible on the right.
+  drawerWidthPx?: number
+  // Top offset in CSS viewport pixels — panel starts below the app header row.
+  // Derived from splitterContainerRef.getBoundingClientRect().top in App.tsx.
+  drawerTopPx?: number
 }) {
   const { t, lang, setLang } = useI18n()
   const languageOptions = useLanguageOptions()
@@ -3166,6 +3177,9 @@ export default function NoteDialog({
 
   // Derived once so multiple render paths can read it without recomputing.
   const isSimpleMode = Boolean(simpleMode && !expertMode)
+  // Floating panel (fixed-position, draggable) is only active in SBS layout with expert or
+  // normal mode. Simple mode (express flow) always uses the standard centered Dialog.
+  const useFloatingPanel = drawerWidthPx != null && !isSimpleMode
 
   // Resolve recipe markers for embedded recipe chips.
   const markerResolutions = useMemo(() => buildRecipeMarkerResolutions(renderNote ?? '', recipes), [renderNote, recipes])
@@ -3586,31 +3600,109 @@ export default function NoteDialog({
     try { editCommitRef.current() } catch { animatedOnClose() }
   }, [animatedOnClose])
 
-  return (
-    <NoteRenderContext value={contextValue}>
-      <Dialog
-        open={open}
-        // In express simple mode the dialog is permanently visible — disable all dismiss gestures.
-        // MUI v9: disableEscapeKeyDown removed; onClose=undefined already suppresses escape key + backdrop clicks.
-        onClose={isSimpleMode ? undefined : handleDialogClose}
-        maxWidth="lg"
-        fullWidth
-        // In express expert mode our custom shrink animation handles the exit visual;
-        // suppress MUI's own Fade exit so the paper doesn't flash back to full size afterwards.
-        transitionDuration={simpleMode && expertMode ? { exit: 0 } : undefined}
-        slotProps={{ paper: { sx: NOTE_DIALOG_PAPER_SX, ref: noteDialogProps.PaperProps.ref } }}
-      >
+  // Locally-owned ref for the panel element, used for drag position and entry animation.
+  // Synced to the animation hook's ref after mount so animateClose can still read bounds.
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  React.useLayoutEffect(() => {
+    // In Dialog mode the animation hook's ref is wired directly via PaperProps — skip the sync.
+    if (!useFloatingPanel) return
+    const animRef = noteDialogProps.PaperProps.ref as React.MutableRefObject<HTMLElement | null>
+    animRef.current = panelRef.current
+    return () => { animRef.current = null }
+  }, [useFloatingPanel, noteDialogProps.PaperProps.ref])
+
+  // Drag: origin captured on title pointerdown; panel position updated directly via style
+  // properties to avoid React re-renders on every mousemove (same pattern as SideBySideSplitter).
+  const dragOriginRef = useRef<{ mouseX: number; mouseY: number; panelX: number; panelY: number } | null>(null)
+
+  const handleTitlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Let interactive children handle their own events so buttons/selects still work normally.
+    if ((e.target as HTMLElement).closest('button, input, select, a, [role="button"], [role="combobox"]')) return
+    const panel = panelRef.current
+    if (!panel) return
+    const rect = panel.getBoundingClientRect()
+    dragOriginRef.current = { mouseX: e.clientX, mouseY: e.clientY, panelX: rect.left, panelY: rect.top }
+    // Capture all subsequent pointer events on the panel so moves fire even outside it.
+    panel.setPointerCapture(e.pointerId)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  const handlePanelPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragOriginRef.current) return
+    const panel = panelRef.current
+    if (!panel) return
+    const dx = e.clientX - dragOriginRef.current.mouseX
+    const dy = e.clientY - dragOriginRef.current.mouseY
+    // Keep at least 80 px of width and 40 px of height inside the viewport so the drag
+    // handle always stays reachable. Clamp top to the header bottom so the title bar
+    // never slides behind the app header.
+    const newLeft = Math.max(-(panel.offsetWidth - 80), Math.min(window.innerWidth - 80, dragOriginRef.current.panelX + dx))
+    const newTop = Math.max(drawerTopPx ?? 0, Math.min(window.innerHeight - 40, dragOriginRef.current.panelY + dy))
+    panel.style.setProperty('left', `${newLeft}px`)
+    panel.style.setProperty('top', `${newTop}px`)
+  }, [drawerTopPx])
+
+  const handlePanelPointerUp = useCallback(() => {
+    if (!dragOriginRef.current) return
+    dragOriginRef.current = null
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }, [])
+
+  // Close on Escape — only needed in floating mode; Dialog mode gets this from the Modal.
+  React.useEffect(() => {
+    if (!useFloatingPanel) return
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') handleDialogClose() }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [useFloatingPanel, handleDialogClose])
+
+  // Slide the panel in from the left on mount, matching the old Drawer enter transition rhythm.
+  // Double RAF ensures the initial transform is painted before the transition starts.
+  const clearTransitionTidRef = useRef<number | null>(null)
+  React.useLayoutEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    panel.style.setProperty('transform', 'translateX(-100%)')
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.style.setProperty('transition', 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)')
+        panel.style.setProperty('transform', '')
+        // Clear transition after animation completes so drag position updates remain instant.
+        clearTransitionTidRef.current = window.setTimeout(() => {
+          panel.style.setProperty('transition', '')
+          clearTransitionTidRef.current = null
+        }, 300)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      if (clearTransitionTidRef.current !== null) window.clearTimeout(clearTransitionTidRef.current)
+    }
+  }, [])
+
+  // Shared panel body — rendered inside either the floating Paper (SBS + expert/normal mode)
+  // or the standard centered Dialog (single-column or simple mode).
+  const panelBody = (
+    <>
       <DialogTitle
+        {...(useFloatingPanel ? { onPointerDown: handleTitlePointerDown } : {})}
         sx={{
+          ...(useFloatingPanel ? { cursor: 'grab' } : {}),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 1,
           flexWrap: 'wrap',
+          // Restore correct cursors on interactive children so the grab cursor doesn't mislead.
+          '& button, & input, & a, & [role="combobox"], & [role="button"]': { cursor: 'pointer' },
         }}
       >
         {/* Left title area: app branding (simple mode) or "Note" title (expert/normal) — cross-faded via grid overlap. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {/* Drag handle affordance — only shown in floating mode. */}
+          {useFloatingPanel && <DragIndicatorIcon sx={{ color: 'text.disabled', flexShrink: 0, pointerEvents: 'none' }} fontSize="small" />}
           {/* Both items occupy the same grid cell so neither shifts layout during the cross-fade. */}
           <Box sx={{ display: 'grid', '& > *': { gridColumn: 1, gridRow: 1 }, alignItems: 'center' }}>
             <Fade in={isSimpleMode} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
@@ -3841,7 +3933,46 @@ export default function NoteDialog({
             simpleActionsNode={simpleActionsNode}
           />
         )}
-      </Dialog>
+    </>
+  )
+
+  return (
+    <NoteRenderContext value={contextValue}>
+      {useFloatingPanel ? (
+        // Floating fixed-position panel: no Modal backdrop, pointer events pass through to
+        // elements outside the panel so the gear inspector stays fully interactive.
+        <Paper
+          ref={panelRef}
+          elevation={24}
+          onPointerMove={handlePanelPointerMove}
+          onPointerUp={handlePanelPointerUp}
+          sx={{
+            position: 'fixed',
+            top: drawerTopPx ?? 0,
+            left: 0,
+            zIndex: (theme) => theme.zIndex.modal,
+            width: `${drawerWidthPx}px`,
+            // Fill viewport below the app header row.
+            height: drawerTopPx != null ? `calc(100vh - ${drawerTopPx}px)` : '100vh',
+            ...NOTE_DRAWER_PAPER_SX,
+            overscrollBehavior: 'contain',
+          }}
+        >
+          {panelBody}
+        </Paper>
+      ) : (
+        // Standard centered Dialog: used in single-column layout or simple (express) mode.
+        <Dialog
+          open
+          onClose={handleDialogClose}
+          maxWidth="lg"
+          fullWidth
+          transitionDuration={noteDialogProps.transitionDuration}
+          slotProps={{ paper: { ref: noteDialogProps.PaperProps.ref, sx: NOTE_DIALOG_PAPER_SX } }}
+        >
+          {panelBody}
+        </Dialog>
+      )}
       <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog}>
         <DialogTitle>{t('noteDynamicOverridesDisableConfirmTitle')}</DialogTitle>
         <DialogContent>
