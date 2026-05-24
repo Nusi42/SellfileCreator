@@ -134,16 +134,27 @@ export function makeTheme(mode: ColorBlindMode) {
           slotProps: { root: { closeAfterTransition: false } },
         },
         styleOverrides: {
-          // Scale popover (and MuiMenu, which extends it) paper to match #root zoom in
-          // forced-SBS mode. Popper.js positions the container, not the paper, so placement
-          // coordinates are unaffected.
-          paper: { zoom: 'var(--app-zoom, 1)' },
+          // Use CSS `scale` (not `zoom`) for forced-SBS mode scaling. `zoom` shrinks
+          // offsetWidth/offsetHeight, causing MUI's overflow-clamp logic to under-correct
+          // and shift the menu right by ~42 px. `scale` is visual-only — offsetWidth stays
+          // at natural size so positioning math is unaffected. `transformOrigin: top left`
+          // overrides the inline transformOrigin MUI writes for animation so the paper
+          // anchors at its CSS top-left corner rather than drifting.
+          paper: {
+            scale: 'var(--app-zoom, 1)',
+            transformOrigin: 'top left !important',
+          },
         },
       },
       MuiAutocomplete: {
         styleOverrides: {
-          // The Autocomplete dropdown uses its own paper class, distinct from MuiPopover.
-          paper: { zoom: 'var(--app-zoom, 1)' },
+          // Same `scale` approach as MuiPopover — Autocomplete paper is positioned by
+          // Popper.js on the container, not the paper, but offsetWidth still matters for
+          // viewport-overflow detection inside the listbox paper.
+          paper: {
+            scale: 'var(--app-zoom, 1)',
+            transformOrigin: 'top left !important',
+          },
         },
       },
       MuiSlider: {
