@@ -34,8 +34,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
 - `npm run test:all` — run unit/integration plus Chromium Playwright
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
-- `npm run release:win` — Windows: build and create a versioned zip archive in repo root
-- `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
+- `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in repo root
+- `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
 - `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog). For releases whose changed-line total exceeds `RELEASE_NOTES_SINGLE_PASS_LINES` (default 5000) the script switches from a single Claude run to a map-reduce flow: cheap workers (Haiku by default) review chunks of `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500) and emit bullet files plus maintainer-facing items into `PRE-RELEASE-CHECKLIST.md`, then a reducer (Sonnet by default) consolidates the bullets into `docs/HISTORY.txt`. Override the models with `RELEASE_NOTES_WORKER_MODEL` / `RELEASE_NOTES_REDUCER_MODEL` (set empty to inherit the CLI default), and the heading date with `RELEASE_NOTES_DATE=yyyy-mm-dd`.
 
 ### Scripts Layout

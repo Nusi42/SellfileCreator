@@ -90,6 +90,17 @@ try {
   }
   $archivePath = Join-Path $RepoRoot $archiveName
 
+  # Sync node_modules to the committed lockfile so the release is built from
+  # exactly what's in version control. Skipped for -DevBuild to preserve fast
+  # iteration; dev builds use whatever the developer has installed locally.
+  if (-not $DevBuild) {
+    Write-Host 'Syncing dependencies to lockfile (npm ci)...'
+    npm ci --silent
+    if ($LASTEXITCODE -ne 0) {
+      throw "npm ci failed with exit code $LASTEXITCODE"
+    }
+  }
+
   # Refresh third-party notices so the release archive carries accurate attributions.
   Write-Host 'Refreshing third-party notices...'
   npm run --silent generate:third-party-notices
