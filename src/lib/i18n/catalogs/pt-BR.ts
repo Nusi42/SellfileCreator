@@ -285,7 +285,7 @@ const catalog: Catalog = {
   gearAnalyticsKpiMaxedTip: "Porcentagem de itens totalmente melhorados para +16.",
   gearAnalyticsKpiEquippedTip: "Porcentagem de itens equipados em algum campeão (incluindo os do Vault).",
   gearAnalyticsKpiVaultLockedTip: "Porcentagem de itens bloqueados em campeões no Vault. Valores altos indicam que equipamentos úteis podem estar ociosos.",
-  gearAnalyticsKpiChaosTip: "Porcentagem de itens que receberam pelo menos um Chaos Orb.",
+  gearAnalyticsKpiChaosTip: "Porcentagem de itens que receberam um Chaos Orb.",
   gearAnalyticsKpiGlyphedTip: "Porcentagem de itens com pelo menos um substat glyphed.",
   gearAnalyticsKpiAscendedTip: "Porcentagem de itens com pelo menos um nível de ascensão aplicado.",
   gearAnalyticsKpiItemCounts: "Artefatos + Acessórios",

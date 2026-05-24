@@ -3083,7 +3083,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         levels.size === 0 && sources.size === 0 && outcomes.size === 0) {
       return EMPTY_GEAR_ANALYTICS_DIM
     }
-    return { slots, ranks, rarities, sets, outcomes, sources, levels }
+    return { slots, ranks, rarities, sets, outcomes, sources, levels, mainStats: new Set() }
   }, [rulesFilterByMode])
 
   const handleDeleteFilterPreset = useCallback((presetId: string) => {

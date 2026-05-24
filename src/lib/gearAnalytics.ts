@@ -73,6 +73,8 @@ export type GearAnalyticsDim = {
   sources: ReadonlySet<GearInspectorSourceFilter>
   /** Selected gear level milestones (0, 4, 8, 12, 16). Empty = no level filter. */
   levels: ReadonlySet<number>
+  /** Selected main stat variant IDs. Empty = no main stat filter. */
+  mainStats: ReadonlySet<number>
 }
 
 /** Canonical empty dim: all charts unfiltered. */
@@ -84,6 +86,7 @@ export const EMPTY_GEAR_ANALYTICS_DIM: GearAnalyticsDim = {
   outcomes: new Set(),
   sources: new Set(),
   levels: new Set(),
+  mainStats: new Set(),
 }
 
 /** SVG icon asset for a source category — used on arc centroids in the Source donut. */
@@ -112,7 +115,7 @@ export function isGearAnalyticsDimActive(dim: GearAnalyticsDim): boolean {
   // Check each dimension set for non-empty state.
   return (
     dim.slots.size > 0 || dim.ranks.size > 0 || dim.rarities.size > 0 || dim.sets.size > 0 ||
-    dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0
+    dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0 || dim.mainStats.size > 0
   )
 }
 
@@ -145,16 +148,17 @@ export function applyGearAnalyticsFilter(
   exclude?: keyof GearAnalyticsDim,
 ): GearInspectorPreviewRow[] {
   // Short-circuit when nothing is active (after accounting for exclusion).
-  const activeSlots    = exclude === 'slots'    ? EMPTY_SET : dim.slots
-  const activeRanks    = exclude === 'ranks'    ? EMPTY_SET : dim.ranks
-  const activeRarities = exclude === 'rarities' ? EMPTY_SET : dim.rarities
-  const activeSets     = exclude === 'sets'     ? EMPTY_SET : dim.sets
-  const activeOutcomes = exclude === 'outcomes' ? EMPTY_SET : dim.outcomes
-  const activeSources  = exclude === 'sources'  ? EMPTY_SET : dim.sources
-  const activeLevels   = exclude === 'levels'   ? EMPTY_SET : dim.levels
+  const activeSlots     = exclude === 'slots'     ? EMPTY_SET : dim.slots
+  const activeRanks     = exclude === 'ranks'     ? EMPTY_SET : dim.ranks
+  const activeRarities  = exclude === 'rarities'  ? EMPTY_SET : dim.rarities
+  const activeSets      = exclude === 'sets'      ? EMPTY_SET : dim.sets
+  const activeOutcomes  = exclude === 'outcomes'  ? EMPTY_SET : dim.outcomes
+  const activeSources   = exclude === 'sources'   ? EMPTY_SET : dim.sources
+  const activeLevels    = exclude === 'levels'    ? EMPTY_SET : dim.levels
+  const activeMainStats = exclude === 'mainStats' ? EMPTY_SET : dim.mainStats
 
   // Fast path: if all dimensions are empty, return all rows as an array.
-  if (!activeSlots.size && !activeRanks.size && !activeRarities.size && !activeSets.size && !activeOutcomes.size && !activeSources.size && !activeLevels.size) {
+  if (!activeSlots.size && !activeRanks.size && !activeRarities.size && !activeSets.size && !activeOutcomes.size && !activeSources.size && !activeLevels.size && !activeMainStats.size) {
     return rows as GearInspectorPreviewRow[]
   }
 
@@ -162,13 +166,15 @@ export function applyGearAnalyticsFilter(
   for (const row of rows) {
     const a = row.artifact
     // Each dimension ANDs with the others; within a dimension, values are OR'd.
-    if (activeSlots.size    && !activeSlots.has(Number(a.slot)))                               continue
-    if (activeRanks.size    && !activeRanks.has(Number(a.rank)))                               continue
-    if (activeRarities.size && !activeRarities.has(Number(a.rarity)))                          continue
-    if (activeSets.size     && !activeSets.has(Number(a.set)))                                 continue
-    if (activeOutcomes.size && !activeOutcomes.has(rowOutcome(row)))                           continue
-    if (activeSources.size  && !activeSources.has(determineGearInspectorSourceCategory(a)))   continue
-    if (activeLevels.size   && !activeLevels.has(Number(a.level)))                            continue
+    if (activeSlots.size     && !activeSlots.has(Number(a.slot)))                                                           continue
+    if (activeRanks.size     && !activeRanks.has(Number(a.rank)))                                                           continue
+    if (activeRarities.size  && !activeRarities.has(Number(a.rarity)))                                                      continue
+    if (activeSets.size      && !activeSets.has(Number(a.set)))                                                              continue
+    if (activeOutcomes.size  && !activeOutcomes.has(rowOutcome(row)))                                                        continue
+    if (activeSources.size   && !activeSources.has(determineGearInspectorSourceCategory(a)))                                continue
+    if (activeLevels.size    && !activeLevels.has(Number(a.level)))                                                          continue
+    // Items with no main stat (accessories with null mainStat) never match a main-stat selection.
+    if (activeMainStats.size && (a.mainStat == null || !activeMainStats.has(Number(a.mainStat.variant))))                   continue
     result.push(row)
   }
   return result
@@ -488,7 +494,8 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
     // Ascended = gear has an ascension stat (at least 1 ascension level applied).
     if (a.ascension !== null) ascended++
     // Equipped = has an equippedChampion reference (any champion, including benched).
-    if (a.equippedChampion?.id !== null) equipped++
+    // Loose != null catches both null and undefined (optional chaining returns undefined when champion is null).
+    if (a.equippedChampion?.id != null) equipped++
     // Artifacts vs accessories: split by slot type using the single-source-of-truth utility.
     if (isAccessorySlot(a.slot)) accessories++
     else artifacts++
