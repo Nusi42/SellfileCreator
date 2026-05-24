@@ -3123,6 +3123,8 @@ export default function NoteDialog({
   drawerWidthPx?: number
   // Top offset in CSS viewport pixels — panel starts below the app header row.
   // Derived from splitterContainerRef.getBoundingClientRect().top in App.tsx.
+  // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom,
+  // so this value is used directly (no zoom correction).
   drawerTopPx?: number
 }) {
   const { t, lang, setLang } = useI18n()
@@ -3634,6 +3636,8 @@ export default function NoteDialog({
     if (!panel) return
     const dx = e.clientX - dragOriginRef.current.mouseX
     const dy = e.clientY - dragOriginRef.current.mouseY
+    // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom,
+    // so all values here are plain viewport px — no zoom correction needed.
     // Keep at least 80 px of width and 40 px of height inside the viewport so the drag
     // handle always stays reachable. Clamp top to the header bottom so the title bar
     // never slides behind the app header.
@@ -3948,12 +3952,14 @@ export default function NoteDialog({
           onPointerUp={handlePanelPointerUp}
           sx={{
             position: 'fixed',
+            // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom.
             top: drawerTopPx ?? 0,
+            // bottom:0 fills to the viewport edge without a calc(100vh - X) that would be
+            // further scaled by inherited CSS zoom, causing the panel to appear too short.
+            bottom: 0,
             left: 0,
             zIndex: (theme) => theme.zIndex.modal,
             width: `${drawerWidthPx}px`,
-            // Fill viewport below the app header row.
-            height: drawerTopPx != null ? `calc(100vh - ${drawerTopPx}px)` : '100vh',
             ...NOTE_DRAWER_PAPER_SX,
             overscrollBehavior: 'contain',
           }}

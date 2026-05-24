@@ -53,7 +53,6 @@ import {
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
-  AUTO_SIDE_BY_SIDE_FORCED_ZOOM,
   PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
   SMALL_BUTTON_HEIGHT_PX,
@@ -885,12 +884,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     el.style.setProperty('--splitter-right-width', `${splitterRightPx}px`)
   }, [splitterLeftPx, splitterRightPx])
   // Width passed to the note panel so it aligns with the builder column and leaves the
-  // gear inspector visible. In forced-zoom SBS the splitter values are in zoomed CSS pixels
-  // (inside #root) but the panel is outside #root, so we correct for the zoom factor.
+  // gear inspector visible. The floating panel inherits CSS zoom from body, so splitterLeftPx
+  // (layout px) is used directly — the zoom brings it to the right visual size.
   // Undefined in single-column mode: the note uses the standard centered Dialog instead.
-  const noteDrawerWidthPx = isSideBySide
-    ? (forceSideBySideLayout ? Math.round(splitterLeftPx * AUTO_SIDE_BY_SIDE_FORCED_ZOOM) : splitterLeftPx)
-    : undefined
+  const noteDrawerWidthPx = (isSideBySide || forceSideBySideLayout) ? splitterLeftPx : undefined
   // Top offset for the floating note panel — the panel starts at the bottom of the app
   // header row so it never obscures the AppTitle area.
   const [sbsRowTopPx, setSbsRowTopPx] = useState(0)
