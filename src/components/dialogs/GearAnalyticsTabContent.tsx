@@ -670,6 +670,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       if (id === 'sell') return theme.palette.error.main
       if (id === 'keep') return theme.palette.success.main
       if (id === 'safe') return theme.palette.warning.main
+      if (id === 'none') return theme.palette.success.light
       return undefined
     },
     [theme],

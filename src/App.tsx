@@ -3045,6 +3045,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         selected: dim.levels.size > 0 ? [...dim.levels] as RulesFilterState['level']['selected'] : [],
         anyMode: 'include',
       },
+      main: {
+        selected: dim.mainStats.size > 0 ? [...dim.mainStats] as RulesFilterState['main']['selected'] : [],
+        anyMode: 'include',
+      },
       gearInspectorSources: dim.sources.size > 0 ? { selected: [...dim.sources] } : { selected: [] },
       // 'keep' and 'safe' both map to the keep flag; 'none' maps to unmatched (no rule triggered).
       gearInspectorResult: dim.outcomes.size > 0
@@ -3072,6 +3076,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       (f.sets?.selected ?? []).filter((e) => !e.excluded).map((e) => Number(e.id)),
     )
     const levels = new Set((f.level?.selected ?? []).map(Number))
+    const mainStats = new Set((f.main?.selected ?? []).map(Number))
     const sources = new Set<GearAnalyticsSource>((f.gearInspectorSources?.selected ?? []) as GearAnalyticsSource[])
     const outcomes = new Set<GearAnalyticsOutcome>()
     // keep=true covers both 'keep' (rule triggered, keep) and 'safe' (safeguarded);
@@ -3080,10 +3085,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (f.gearInspectorResult?.sell) outcomes.add('sell')
     if (f.gearInspectorResult?.unmatched) outcomes.add('none')
     if (slots.size === 0 && ranks.size === 0 && rarities.size === 0 && sets.size === 0 &&
-        levels.size === 0 && sources.size === 0 && outcomes.size === 0) {
+        levels.size === 0 && mainStats.size === 0 && sources.size === 0 && outcomes.size === 0) {
       return EMPTY_GEAR_ANALYTICS_DIM
     }
-    return { slots, ranks, rarities, sets, outcomes, sources, levels, mainStats: new Set() }
+    return { slots, ranks, rarities, sets, outcomes, sources, levels, mainStats }
   }, [rulesFilterByMode])
 
   const handleDeleteFilterPreset = useCallback((presetId: string) => {
