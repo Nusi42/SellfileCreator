@@ -285,7 +285,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiMaxedTip: "Anteil der Gegenstände, die vollständig auf +16 aufgewertet wurden.",
   gearAnalyticsKpiEquippedTip: "Anteil der Gegenstände, die einem Champion angelegt sind (einschließlich Vault-benannter Champions).",
   gearAnalyticsKpiVaultLockedTip: "Anteil der Gegenstände, die an Vault-benannte Champions gebunden sind. Hohe Werte deuten darauf hin, dass nützliche Ausrüstung ungenutzt bleibt.",
-  gearAnalyticsKpiChaosTip: "Anteil der Gegenstände, die mindestens einmal mit einem Chaos Orb bearbeitet wurden.",
+  gearAnalyticsKpiChaosTip: "Anteil der Gegenstände, die mit einem Chaos Orb bearbeitet wurden.",
   gearAnalyticsKpiGlyphedTip: "Anteil der Gegenstände mit mindestens einem geglyph­ten Substat.",
   gearAnalyticsKpiAscendedTip: "Anteil der Gegenstände mit mindestens einer angewandten Aufstiegsstufe.",
   gearAnalyticsKpiItemCounts: "Artefakte + Zubehör",

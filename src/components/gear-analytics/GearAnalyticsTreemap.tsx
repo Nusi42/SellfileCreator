@@ -221,8 +221,8 @@ function squarify(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-/** Band order left-to-right — matches tooltip and chip metric order: sell | unmatched | keep | safeguarded. */
-const BAND_ORDER = ['sell', 'none', 'keep', 'safe'] as const
+/** Band order left-to-right — unmatched first (mutually exclusive with outcomes), then sell | keep | safeguarded. */
+const BAND_ORDER = ['none', 'sell', 'keep', 'safe'] as const
 type Band = typeof BAND_ORDER[number]
 
 /** Same order used for the inline counts chip — all four outcomes. */
@@ -277,8 +277,16 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
     sell: theme.palette.error.main,
     safe: theme.palette.warning.main,
     keep: theme.palette.success.main,
-    none: alpha(theme.palette.text.primary, 0.15),
+    // Unmatched items are kept by default — use a lighter green to signal that while
+    // remaining visually distinct from an explicit keep rule (success.main).
+    none: theme.palette.success.light,
   }
+
+  // Only show legend entries for bands that actually appear in the visible data.
+  const visibleBands = useMemo(
+    () => BAND_ORDER.filter(band => data.some(e => e[band] > 0)),
+    [data],
+  )
 
   // Compute tile rectangles. Depends on containerW so it reflows on resize.
   const tiles = useMemo(
@@ -494,6 +502,9 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                 onChangeMetasetIds: onMetaSetNamesChange,
               })}
               {...(allowedSetIds !== undefined && { allowedSetIds })}
+              // When no slot filter is active (allowedSetIds undefined), all items including
+              // no-set accessories are in scope — force the sentinel to appear in the list.
+              showNoSet={allowedSetIds === undefined}
               anyLabel={t('anySet')}
               minWidthPx={240}
               layoutVersion={1}
@@ -662,9 +673,14 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
         })}
       </Box>
 
-      {/* Outcome color legend — tile tint = dominant outcome; chip numbers use the same colors. */}
+      {/* Outcome color legend — total first, then sell/none/keep/safe matching the chip order. */}
       <Box sx={{ display: 'flex', gap: 1.5, mt: 0.75, flexWrap: 'wrap' }}>
-        {BAND_ORDER.map(band => (
+        {/* Total swatch — matches the leading count in each tile's chip (text.secondary color). */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: theme.palette.text.secondary, border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
+          <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{t('gearAnalyticsTotal')}</Typography>
+        </Box>
+        {visibleBands.map(band => (
           <Box key={band} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
             <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>

@@ -285,7 +285,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiMaxedTip: "+16'ya tamamen seviye yükseltilmiş eşyaların yüzdesi.",
   gearAnalyticsKpiEquippedTip: "Herhangi bir kahramana takılı eşyaların yüzdesi (Vault'takiler dahil).",
   gearAnalyticsKpiVaultLockedTip: "Vault'taki kahramanlara kilitlenmiş eşyaların yüzdesi. Yüksek değerler, işe yarar ekipmanın boşta beklediğine işaret eder.",
-  gearAnalyticsKpiChaosTip: "En az bir kez Chaos Orb kullanılmış eşyaların yüzdesi.",
+  gearAnalyticsKpiChaosTip: "Chaos Orb kullanılmış eşyaların yüzdesi.",
   gearAnalyticsKpiGlyphedTip: "En az bir glyphed alt stat'ı olan eşyaların yüzdesi.",
   gearAnalyticsKpiAscendedTip: "En az bir yükseliş seviyesi uygulanmış eşyaların yüzdesi.",
   gearAnalyticsKpiItemCounts: "Eserler + Aksesuarlar",

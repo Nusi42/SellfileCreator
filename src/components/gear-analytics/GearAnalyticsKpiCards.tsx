@@ -18,6 +18,8 @@ type KpiCardProps = {
   tooltip: string
   /** Show a 0-1 ratio as a percentage. */
   rate: number | null
+  /** Decimal places shown after the percentage point. Defaults to 1. */
+  decimals?: number
   /** When true, card takes twice the flex width of a regular card. */
   wide?: boolean
 }
@@ -31,10 +33,10 @@ type KpiDoubleCardProps = {
   secondaryValue: string
 }
 
-/** Format a 0-1 rate as a percentage string. */
-function fmtPct(rate: number | null): string {
+/** Format a 0-1 rate as a percentage string with the given decimal places (default 1). */
+function fmtPct(rate: number | null, decimals = 1): string {
   if (rate === null) return '—'
-  return `${Math.round(rate * 100)}%`
+  return `${(rate * 100).toFixed(decimals)}%`
 }
 
 /** Format a raw count as a locale-aware integer string. */
@@ -43,14 +45,14 @@ function fmtCount(count: number | null): string {
   return count.toLocaleString()
 }
 
-function KpiCard({ label, rate, tooltip, wide }: KpiCardProps) {
+function KpiCard({ label, rate, tooltip, decimals = 1, wide }: KpiCardProps) {
   // Stable height when cross-filter empties the dataset (rate becomes null → '—').
   return (
     <Tooltip title={tooltip} arrow placement="top">
       <Paper variant="outlined" sx={{ px: 1.5, py: 1, minWidth: 0, flex: wide ? '2 1 0' : '1 1 0', cursor: 'default', overflow: 'hidden' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</Typography>
         <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 700 }}>
-          {fmtPct(rate)}
+          {fmtPct(rate, decimals)}
         </Typography>
       </Paper>
     </Tooltip>

@@ -283,9 +283,6 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // aggregations run in the deferred (lower-priority) render, so a filter click feels instant:
   // the selection chip and selected-slice highlighting update eagerly while chart data catches up.
   const deferredDim = useDeferredValue(dim)
-  // Main stat selection: clicking a main stat bar filters the substat frequency chart.
-  // Kept as local state separate from dim — not a cross-filter dimension.
-  const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(() => new Set())
   // Substat co-occurrence pivot: one or more substat variants selected by clicking radar marks.
   // The radar then shows only items containing ALL selected substats (AND intersection).
   const [selectedSubstat, setSelectedSubstat] = useState<ReadonlySet<number>>(() => new Set())
@@ -485,9 +482,9 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const toggleLevel = useCallback((id: number | string) => {
     setDim((prev) => ({ ...prev, levels: toggled(prev.levels, Number(id)) }))
   }, [])
-  // Toggle a main stat selection for the substat frequency drill-down.
+  // Toggle a main stat cross-filter selection. Number-normalised to match dim.mainStats type.
   const toggleMainStat = useCallback((id: number | string) => {
-    setSelectedMainStats((prev) => toggled(prev, id))
+    setDim((prev) => ({ ...prev, mainStats: toggled(prev.mainStats, Number(id)) }))
   }, [])
   const toggleSubstat = useCallback((variant: number) => {
     setSelectedSubstat((prev) => {
@@ -500,7 +497,6 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const clearSubstat = useCallback(() => setSelectedSubstat(new Set()), [])
   const clearDim = useCallback(() => {
     setDim(EMPTY_GEAR_ANALYTICS_DIM)
-    setSelectedMainStats(new Set())
     setSelectedSubstat(new Set())
     setDimIndividualSets(new Set())
     setDimMetaSetNames([])
@@ -510,7 +506,6 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const handleCopyFromGearInspector = useCallback(() => {
     if (!gearInspectorDim) return
     setDim(gearInspectorDim)
-    setSelectedMainStats(new Set())
     setSelectedSubstat(new Set())
     setDimIndividualSets(gearInspectorDim.sets as ReadonlySet<number>)
     setDimMetaSetNames([])
@@ -523,7 +518,6 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
     setPrevResetKey(resetKey)
     if (resetKey !== undefined) {
       setDim(EMPTY_GEAR_ANALYTICS_DIM)
-      setSelectedMainStats(new Set())
       setSelectedSubstat(new Set())
       setDimIndividualSets(new Set())
       setDimMetaSetNames([])
@@ -540,9 +534,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sets'),     [rows, deferredDim])
   const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'outcomes'), [rows, deferredDim])
   const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sources'),  [rows, deferredDim])
-  const rowsForLevel   = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'levels'),   [rows, deferredDim])
-  // KPIs and bar charts use all active filters applied.
-  const rowsFiltered   = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim),             [rows, deferredDim])
+  const rowsForLevel    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'levels'),    [rows, deferredDim])
+  const rowsForMainStat = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'mainStats'), [rows, deferredDim])
+  // KPIs use all active filters applied (including mainStats).
+  const rowsFiltered    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim),              [rows, deferredDim])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
   // Slot donut data. Labels go through t() so they respect the active language.
@@ -590,14 +585,13 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   )
 
 
-  // Main stat bar data — sorted descending by count so the tallest bar is always first.
-  // Labels go through t() so they respect the active language.
+  // Main stat bar data — excludes its own dim so the full range is always visible.
   const mainStatData: BarEntry[] = useMemo(() => {
-    const counts = countMainStatFrequency(rowsFiltered)
+    const counts = countMainStatFrequency(rowsForMainStat)
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([variant, count]) => ({ id: variant, label: t(statVariantI18nKey(variant)), count }))
-  }, [rowsFiltered, t])
+  }, [rowsForMainStat, t])
 
   // Outcome donut data (fixed order; 'none' shown only when items are unmatched).
   const outcomeData: DonutSlice[] = useMemo(() => {
@@ -623,16 +617,8 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       .map(([lvl, count]) => ({ id: lvl, label: levelLabel(lvl), count }))
   }, [rowsForLevel])
 
-  // Substat frequency bar data — filtered by selectedMainStats when any are active,
-  // otherwise uses the fully cross-filtered set.
-  const rowsForSubstats = useMemo(() => {
-    if (selectedMainStats.size === 0) return rowsFiltered
-    // Keep only rows whose main stat variant is in the selection.
-    return rowsFiltered.filter((row) => {
-      const variant = Number(row.artifact.mainStat?.variant)
-      return selectedMainStats.has(variant)
-    })
-  }, [rowsFiltered, selectedMainStats])
+  // Substat frequency bar data uses the fully cross-filtered set; main stat is now a dim dimension.
+  const rowsForSubstats = rowsFiltered
   // Co-occurrence pivot: when substats are selected via the radar, further filter to items that
   // contain ALL selected substats (AND intersection) so the radar shows what else co-occurs with them.
   const rowsForSubstatRadar = useMemo(() => {
@@ -684,6 +670,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       if (id === 'sell') return theme.palette.error.main
       if (id === 'keep') return theme.palette.success.main
       if (id === 'safe') return theme.palette.warning.main
+      if (id === 'none') return theme.palette.success.light
       return undefined
     },
     [theme],
@@ -903,7 +890,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       </Box>
 
       {/* Cross-filter chips — always visible below the donuts; disabled when nothing is selected. */}
-      <GearAnalyticsCrossFilterChips dim={dim} onUpdate={updateDim} selectedMainStats={selectedMainStats} onDeleteMainStat={toggleMainStat} onClear={clearDim} />
+      <GearAnalyticsCrossFilterChips dim={dim} onUpdate={updateDim} onClear={clearDim} />
 
       {/* Row 3: Main stat bar (click-to-filter) + Substat frequency radar. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
@@ -911,7 +898,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           title={t('gearAnalyticsChartMainStat')}
           description={t('gearAnalyticsChartMainStatDesc')}
           data={mainStatData}
-          selected={selectedMainStats}
+          selected={dim.mainStats}
           onToggle={toggleMainStat}
           {...(statButtonBorders && { colorById: statColorById })}
           onEasterEgg={handleBarEgg}

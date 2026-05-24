@@ -285,7 +285,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiMaxedTip: "Відсоток предметів, повністю прокачаних до +16.",
   gearAnalyticsKpiEquippedTip: "Відсоток предметів, вдягнених на будь-якого чемпіона (включно з тими, що у Vault).",
   gearAnalyticsKpiVaultLockedTip: "Відсоток предметів, прив'язаних до чемпіонів у Vault. Високі значення вказують, що корисне спорядження простоює.",
-  gearAnalyticsKpiChaosTip: "Відсоток предметів, на яких було використано хоча б один Chaos Orb.",
+  gearAnalyticsKpiChaosTip: "Відсоток предметів, на яких було використано Chaos Orb.",
   gearAnalyticsKpiGlyphedTip: "Відсоток предметів із хоча б одним гліфованим сабстатом.",
   gearAnalyticsKpiAscendedTip: "Відсоток предметів із хоча б одним рівнем піднесення.",
   gearAnalyticsKpiItemCounts: "Артефакти + Аксесуари",

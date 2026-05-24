@@ -23,10 +23,6 @@ type Props = {
   dim: GearAnalyticsDim
   /** Partial dim setter: replaces only the provided keys. */
   onUpdate: (patch: Partial<GearAnalyticsDim>) => void
-  /** Active main-stat selections (substat drill-down filter). */
-  selectedMainStats: ReadonlySet<number | string>
-  /** Remove one main-stat selection by id. */
-  onDeleteMainStat: (id: number | string) => void
   /** Clear all active filters at once. */
   onClear: () => void
 }
@@ -55,7 +51,7 @@ const SOURCE_I18N_KEY: Record<GearAnalyticsSource, string> = {
   manual: 'gearAnalyticsSourceManual',
 }
 
-export function GearAnalyticsCrossFilterChips({ dim, onUpdate, selectedMainStats, onDeleteMainStat, onClear }: Props) {
+export function GearAnalyticsCrossFilterChips({ dim, onUpdate, onClear }: Props) {
   const { t, lang } = useI18n()
   // Collect all active selection chips across every dimension.
   const chips: Array<{ key: string; label: string; onDelete: () => void }> = []
@@ -112,11 +108,11 @@ export function GearAnalyticsCrossFilterChips({ dim, onUpdate, selectedMainStats
       onDelete: () => onUpdate({ levels: without(dim.levels, lvl) }),
     })
   }
-  for (const id of selectedMainStats) {
+  for (const id of dim.mainStats) {
     chips.push({
       key: `mainstat-${id}`,
-      label: t(statVariantI18nKey(Number(id))),
-      onDelete: () => onDeleteMainStat(id),
+      label: t(statVariantI18nKey(id)),
+      onDelete: () => onUpdate({ mainStats: without(dim.mainStats, id) }),
     })
   }
 

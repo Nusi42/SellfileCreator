@@ -290,7 +290,7 @@ const enUS: Catalog = {
   gearAnalyticsKpiMaxedTip: "Percentage of items fully leveled to +16.",
   gearAnalyticsKpiEquippedTip: "Percentage of items equipped to any champion (including vault-benched).",
   gearAnalyticsKpiVaultLockedTip: "Percentage of items locked to vault-benched champions. High values mean useful gear may be sitting idle.",
-  gearAnalyticsKpiChaosTip: "Percentage of items that have been Chaos Orbed at least once.",
+  gearAnalyticsKpiChaosTip: "Percentage of items that have been Chaos Orbed.",
   gearAnalyticsKpiGlyphedTip: "Percentage of items with at least one glyphed substat.",
   gearAnalyticsKpiAscendedTip: "Percentage of items with at least one ascension level applied.",
   gearAnalyticsKpiArtifacts: "Artifacts",

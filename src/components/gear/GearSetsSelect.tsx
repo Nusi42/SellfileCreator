@@ -52,6 +52,8 @@ type GearSetsSelectProps = {
   disabledSetIds?: number[]
   singleSelect?: boolean
   minWidthPx?: number
+  /** When true, always show the "No Set" sentinel regardless of allowedSetIds. */
+  showNoSet?: boolean
 }
 
 export default function GearSetsSelect({
@@ -71,6 +73,7 @@ export default function GearSetsSelect({
   disabledSetIds,
   singleSelect = false,
   minWidthPx,
+  showNoSet,
 }: GearSetsSelectProps) {
   const { t, lang } = useI18n()
   // Keep the placeholder explicit when callers want "Any Set" instead of "Any".
@@ -93,7 +96,8 @@ export default function GearSetsSelect({
   // Derive no-set visibility from the allowed pool: show the sentinel whenever
   // the pool includes it (i.e. accessories are in scope). Default to false when
   // no allowedSetIds are provided to avoid showing it unconditionally.
-  const includeNoSet = allowedSetFilter ? allowedSetFilter.has(ACCESSORY_NO_SET_ID) : false
+  // showNoSet=true overrides this default (e.g. analytics treemap with no slot filter).
+  const includeNoSet = showNoSet ?? (allowedSetFilter ? allowedSetFilter.has(ACCESSORY_NO_SET_ID) : false)
   const visibleMetasets = useMemo(
     () => (allowMetasets ? metasets.filter((meta) => meta.show !== false) : []),
     [allowMetasets, metasets],
