@@ -3069,6 +3069,7 @@ export default function NoteDialog({
   onLoadSimplePreset,
   drawerWidthPx,
   drawerTopPx,
+  drawerLeftPx,
 }: {
   mode: 'view' | 'edit'
   note: string
@@ -3121,11 +3122,14 @@ export default function NoteDialog({
   // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
   // the builder column, leaving the gear inspector visible on the right.
   drawerWidthPx?: number
-  // Top offset in CSS viewport pixels — panel starts below the app header row.
-  // Derived from splitterContainerRef.getBoundingClientRect().top in App.tsx.
+  // Top / left offsets in CSS viewport pixels — both derived from
+  // splitterContainerRef.getBoundingClientRect() in App.tsx.
   // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom,
-  // so this value is used directly (no zoom correction).
+  // so these values are used directly (no zoom correction).
   drawerTopPx?: number
+  // Left offset accounts for the splitter container's centering transform (left:50% translateX(-50%))
+  // so the floating panel aligns precisely with the builder column's left edge.
+  drawerLeftPx?: number
 }) {
   const { t, lang, setLang } = useI18n()
   const languageOptions = useLanguageOptions()
@@ -3957,7 +3961,10 @@ export default function NoteDialog({
             // bottom:0 fills to the viewport edge without a calc(100vh - X) that would be
             // further scaled by inherited CSS zoom, causing the panel to appear too short.
             bottom: 0,
-            left: 0,
+            // drawerLeftPx comes from getBoundingClientRect().left of the splitter container,
+            // which accounts for the centering transform (left:50% translateX(-50%)) so the
+            // panel aligns with the builder column's left edge rather than the viewport edge.
+            left: drawerLeftPx ?? 0,
             zIndex: (theme) => theme.zIndex.modal,
             width: `${drawerWidthPx}px`,
             ...NOTE_DRAWER_PAPER_SX,
