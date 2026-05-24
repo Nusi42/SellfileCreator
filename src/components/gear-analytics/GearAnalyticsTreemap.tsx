@@ -548,11 +548,13 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
               <Box
                 onClick={() => {
                   // Easter egg: 10 rapid clicks on the same tile fires a dance.
+                  // Return immediately so the 10th click doesn't also toggle the filter.
                   if (recordClick(tile.id) && !activeDance) {
                     const idx = Math.floor(Math.random() * TREEMAP_DANCES.length)
                     setActiveDance({ variant: TREEMAP_DANCES[idx] ?? 'earthquake', epicenterId: tile.id })
                     // Notify parent so sibling components can react.
                     onEasterEgg?.()
+                    return
                   }
                   onToggle(tile.id)
                 }}

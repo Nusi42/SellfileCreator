@@ -6,7 +6,7 @@
  * filter, and every other chart shows data filtered by the remaining active dimensions.
  * This is the BI-style Crossfilter pattern.
  */
-import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, startTransition, useDeferredValue } from 'react'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
@@ -279,6 +279,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
 
   // Cross-filter state: all dimensions start empty (= no filter).
   const [dim, setDim] = useState<GearAnalyticsDim>(EMPTY_GEAR_ANALYTICS_DIM)
+  // deferredDim trails dim by one React render — the eight cross-filter passes and all downstream
+  // aggregations run in the deferred (lower-priority) render, so a filter click feels instant:
+  // the selection chip and selected-slice highlighting update eagerly while chart data catches up.
+  const deferredDim = useDeferredValue(dim)
   // Main stat selection: clicking a main stat bar filters the substat frequency chart.
   // Kept as local state separate from dim — not a cross-filter dimension.
   const [selectedMainStats, setSelectedMainStats] = useState<ReadonlySet<number | string>>(() => new Set())
@@ -313,57 +317,66 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // A donut fires.
   // Jackpot (0.5 %): all siblings react at once — the whole dashboard goes haywire.
   // Normal path: each sibling rolls independently.
+  // startTransition defers the cascade setState calls so React doesn't pre-empt the WAAPI dance animation.
   const handleDonutEgg = useCallback(() => {
-    if (Math.random() < 0.005) {
-      forceSet(setDonutPeer,   'cascade')
-      forceSet(setTreemapPeer, 'cascade')
-      forceSet(setRadarPeer,   'cascade')
-      forceSet(setBarPeer,     'cascade')
-      return
-    }
-    maybeSet(setDonutPeer,   'cascade', 0.22)
-    maybeSet(setTreemapPeer, 'cascade', 0.15)
-    maybeSet(setRadarPeer,   'cascade', 0.15)
-    maybeSet(setBarPeer,     'cascade', 0.12)
+    startTransition(() => {
+      if (Math.random() < 0.005) {
+        forceSet(setDonutPeer,   'cascade')
+        forceSet(setTreemapPeer, 'cascade')
+        forceSet(setRadarPeer,   'cascade')
+        forceSet(setBarPeer,     'cascade')
+        return
+      }
+      maybeSet(setDonutPeer,   'cascade', 0.22)
+      maybeSet(setTreemapPeer, 'cascade', 0.15)
+      maybeSet(setRadarPeer,   'cascade', 0.15)
+      maybeSet(setBarPeer,     'cascade', 0.12)
+    })
   }, [maybeSet, forceSet])
 
   // The treemap fires.
   const handleTreemapEgg = useCallback(() => {
-    if (Math.random() < 0.005) {
-      forceSet(setDonutPeer,   'rage')
-      forceSet(setRadarPeer,   'cascade')
-      forceSet(setBarPeer,     'cascade')
-      return
-    }
-    maybeSet(setDonutPeer, 'rage',    0.20)
-    maybeSet(setRadarPeer, 'cascade', 0.15)
-    maybeSet(setBarPeer,   'cascade', 0.12)
+    startTransition(() => {
+      if (Math.random() < 0.005) {
+        forceSet(setDonutPeer,   'rage')
+        forceSet(setRadarPeer,   'cascade')
+        forceSet(setBarPeer,     'cascade')
+        return
+      }
+      maybeSet(setDonutPeer, 'rage',    0.20)
+      maybeSet(setRadarPeer, 'cascade', 0.15)
+      maybeSet(setBarPeer,   'cascade', 0.12)
+    })
   }, [maybeSet, forceSet])
 
   // The radar fires.
   const handleRadarEgg = useCallback(() => {
-    if (Math.random() < 0.005) {
-      forceSet(setTreemapPeer, 'cascade')
-      forceSet(setDonutPeer,   'cascade')
-      forceSet(setBarPeer,     'cascade')
-      return
-    }
-    maybeSet(setTreemapPeer, 'cascade', 0.15)
-    maybeSet(setDonutPeer,   'cascade', 0.15)
-    maybeSet(setBarPeer,     'cascade', 0.12)
+    startTransition(() => {
+      if (Math.random() < 0.005) {
+        forceSet(setTreemapPeer, 'cascade')
+        forceSet(setDonutPeer,   'cascade')
+        forceSet(setBarPeer,     'cascade')
+        return
+      }
+      maybeSet(setTreemapPeer, 'cascade', 0.15)
+      maybeSet(setDonutPeer,   'cascade', 0.15)
+      maybeSet(setBarPeer,     'cascade', 0.12)
+    })
   }, [maybeSet, forceSet])
 
   // The stat bars fire.
   const handleBarEgg = useCallback(() => {
-    if (Math.random() < 0.005) {
-      forceSet(setDonutPeer,   'cascade')
-      forceSet(setTreemapPeer, 'cascade')
-      forceSet(setRadarPeer,   'cascade')
-      return
-    }
-    maybeSet(setDonutPeer,   'cascade', 0.15)
-    maybeSet(setTreemapPeer, 'cascade', 0.12)
-    maybeSet(setRadarPeer,   'cascade', 0.12)
+    startTransition(() => {
+      if (Math.random() < 0.005) {
+        forceSet(setDonutPeer,   'cascade')
+        forceSet(setTreemapPeer, 'cascade')
+        forceSet(setRadarPeer,   'cascade')
+        return
+      }
+      maybeSet(setDonutPeer,   'cascade', 0.15)
+      maybeSet(setTreemapPeer, 'cascade', 0.12)
+      maybeSet(setRadarPeer,   'cascade', 0.12)
+    })
   }, [maybeSet, forceSet])
 
   // Partial-update helper: merge a patch into the current dim.
@@ -521,15 +534,15 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // Each chart receives the full row set filtered by all dimensions EXCEPT its own.
   // This preserves the full range of that dimension for interactive exploration.
   // The icon tile grid exposes real set IDs directly, so no synthetic -1 expansion is needed.
-  const rowsForSlot    = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'slots'),    [rows, dim])
-  const rowsForRank    = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'ranks'),    [rows, dim])
-  const rowsForRarity  = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'rarities'), [rows, dim])
-  const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'sets'),     [rows, dim])
-  const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'outcomes'), [rows, dim])
-  const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'sources'),  [rows, dim])
-  const rowsForLevel   = useMemo(() => applyGearAnalyticsFilter(rows, dim, 'levels'),   [rows, dim])
+  const rowsForSlot    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'slots'),    [rows, deferredDim])
+  const rowsForRank    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'ranks'),    [rows, deferredDim])
+  const rowsForRarity  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'rarities'), [rows, deferredDim])
+  const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sets'),     [rows, deferredDim])
+  const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'outcomes'), [rows, deferredDim])
+  const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sources'),  [rows, deferredDim])
+  const rowsForLevel   = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'levels'),   [rows, deferredDim])
   // KPIs and bar charts use all active filters applied.
-  const rowsFiltered   = useMemo(() => applyGearAnalyticsFilter(rows, dim),             [rows, dim])
+  const rowsFiltered   = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim),             [rows, deferredDim])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
   // Slot donut data. Labels go through t() so they respect the active language.

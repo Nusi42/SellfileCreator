@@ -299,10 +299,12 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
               }}
               onClick={readOnly ? undefined : () => {
                 // Easter egg: 10 rapid clicks on the same bar triggers a dance.
+                // Return immediately so the 10th click doesn't also toggle the filter.
                 if (recordClick(entry.id) && containerRef.current) {
                   triggerBarDance(containerRef.current, rowRefsRef.current)
                   // Notify parent so sibling components can react.
                   onEasterEgg?.()
+                  return
                 }
                 onToggle(entry.id)
               }}

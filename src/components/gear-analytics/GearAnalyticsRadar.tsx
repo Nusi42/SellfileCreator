@@ -410,7 +410,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
       <Collapse in={!collapsed} timeout="auto">
 
       {/*
-       * RadarChart from MUI X v8.
+       * RadarChart from MUI X v9.
        * series.data uses displayCounts (JS-interpolated) so the polygon morphs smoothly on every
        * data change, regardless of whether MUI X reuses or recreates the underlying SVG elements.
        * fillArea: true fills the polygon for better readability at a glance.
@@ -457,11 +457,13 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           if (v === undefined) return
           // Easter egg: 10 rapid clicks on the same mark triggers a dance.  Only start a new
           // dance if none is running (recordClick resets the counter after firing).
+          // Return immediately so the 10th click doesn't also toggle the substat filter.
           if (recordClick(v) && danceVariant === null) {
             const idx = Math.floor(Math.random() * RADAR_DANCES.length)
             setDanceVariant(RADAR_DANCES[idx] ?? 'wave')
             // Notify parent so sibling components can react.
             onEasterEgg?.()
+            return
           }
           onToggleSubstat(v)
         } : undefined}
