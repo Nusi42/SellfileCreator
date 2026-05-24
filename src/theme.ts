@@ -121,7 +121,9 @@ export function makeTheme(mode: ColorBlindMode) {
         styleOverrides: {
           // Scale dialog paper to match #root zoom in forced-SBS mode. The modal backdrop and
           // container stay unzoomed so MUI's centering logic is unaffected.
-          paper: { zoom: 'var(--app-zoom, 1)' },
+          // MUI v9 moved tabIndex=-1 to the paper (was on the container in v5/v6); suppress
+          // the browser focus ring so the paper doesn't show a white outline on open.
+          paper: { zoom: 'var(--app-zoom, 1)', outline: 0 },
         },
       },
       MuiMenu: {
