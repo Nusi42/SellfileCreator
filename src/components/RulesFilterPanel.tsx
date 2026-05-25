@@ -38,7 +38,7 @@ import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAcce
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import React from 'react'
 import { flushSync } from 'react-dom'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { keyframes } from '@emotion/react'
@@ -246,17 +246,17 @@ const SUBSTAT_NOT_LABEL_SX: SxProps<Theme> = {
   },
 }
 
-const TOGGLE_BUTTON_BORDER_RADIUS = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
 const toggleBorderColor = (theme: Theme) => theme.palette.divider
 // Grid-based toggle groups rely on real spacing, so restore each chip's outline.
 // Narrowed to a single theme callback so the value is safe inside `sx` arrays.
 type SxCallback = (theme: Theme) => SystemStyleObject<Theme>
 const GRID_TOGGLE_BUTTON_GROUP_SX: SxCallback = (theme) => {
   const borderColor = toggleBorderColor(theme)
+  const borderRadius = `${theme.shape.borderRadius}px`
   return {
     '& .MuiToggleButtonGroup-grouped': {
       margin: '0 !important',
-      borderRadius: TOGGLE_BUTTON_BORDER_RADIUS,
+      borderRadius,
       borderColor,
     },
     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
@@ -268,13 +268,14 @@ const GRID_TOGGLE_BUTTON_GROUP_SX: SxCallback = (theme) => {
 // Segmented toggles sit flush; keep the fused seam while matching the neutral border color.
 const SEGMENTED_TOGGLE_BUTTON_GROUP_SX: SxCallback = (theme) => {
   const borderColor = toggleBorderColor(theme)
+  const borderRadius = `${theme.shape.borderRadius}px`
   return {
     display: 'inline-flex',
     columnGap: 0.5,
     rowGap: 0,
     '& .MuiToggleButtonGroup-grouped': {
       margin: '0 !important',
-      borderRadius: TOGGLE_BUTTON_BORDER_RADIUS,
+      borderRadius,
       borderColor,
     },
     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
@@ -507,13 +508,10 @@ const ROLL_COUNT_LABELS: Record<GearInspectorRollCountValue, string> = {
 const ROLL_COUNT_TOGGLE_SIZE_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCALE)
 
 const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
-  const highlight = theme.palette.success.main
-  const selectedText = theme.palette.common.white
-  const baseBorder = alpha(theme.palette.text.primary, 0.45)
-  const hoverGlow = alpha(
-    theme.palette.text.primary,
-    theme.palette.mode === 'dark' ? 0.22 : 0.14,
-  )
+  const highlight = (theme.vars?.palette.success.main ?? theme.palette.success.main)
+  const selectedText = (theme.vars?.palette.common.white ?? theme.palette.common.white)
+  const baseBorder = 'rgba(var(--mui-palette-text-primaryChannel) / 0.45)'
+  const hoverGlow = 'rgba(var(--mui-palette-text-primaryChannel) / 0.22)'
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${GEAR_INSPECTOR_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
@@ -530,7 +528,7 @@ const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
       px: 0,
       borderRadius: '50%',
       border: `1px solid ${baseBorder}`,
-      color: theme.palette.text.secondary,
+      color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
       backgroundColor: 'transparent',
       clipPath: 'circle(50% at 50% 50%)',
       transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
@@ -543,7 +541,7 @@ const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
     },
     '& .MuiToggleButton-root:hover': {
       boxShadow: `0 0 0 1px ${hoverGlow}`,
-      backgroundColor: theme.palette.action.hover,
+      backgroundColor: (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
       borderColor: baseBorder,
     },
     '& .MuiToggleButton-root.Mui-selected': {
@@ -716,9 +714,10 @@ function RulesFilterPanel({
   // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
-  const tintedChipSx = React.useCallback((paletteColor: typeof theme.palette.success) => {
-    const tone = theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark
+  const tintedChipSx = React.useCallback((paletteKey: 'success' | 'warning' | 'info' | 'error' | 'secondary') => {
     const borderRadius = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
+    const palVar = theme.vars?.palette[paletteKey]
+    const palRaw = theme.palette[paletteKey]
     return {
       height: BUILDER_STATUS_CHIP_HEIGHT_PX,
       minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
@@ -726,29 +725,33 @@ function RulesFilterPanel({
       px: 0,
       borderRadius,
       overflow: 'hidden',
-      backgroundColor: alpha(paletteColor.main, 0.18),
-      color: tone,
-      '& .MuiChip-icon': {
-        color: tone,
-      },
+      backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.18)`,
+      // Light mode base: darker tone for contrast on light backgrounds.
+      color: palVar?.dark ?? palRaw.dark,
+      '& .MuiChip-icon': { color: palVar?.dark ?? palRaw.dark },
+      // Dark mode: lighter tint for contrast on dark backgrounds.
+      ...theme.applyStyles('dark', {
+        color: palVar?.light ?? palRaw.light,
+        '& .MuiChip-icon': { color: palVar?.light ?? palRaw.light },
+      }),
       '& .MuiChip-label': {
         px: theme.spacing(0.75),
         fontWeight: theme.typography.fontWeightMedium ?? 500,
         borderRadius,
       },
       '&.MuiChip-clickable:hover': {
-        backgroundColor: alpha(paletteColor.main, 0.24),
+        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.24)`,
       },
       '&.MuiChip-clickable:active': {
-        backgroundColor: alpha(paletteColor.main, 0.3),
+        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.3)`,
       },
     }
   }, [theme])
 
   const filterChipSx = React.useCallback((mode: AnyMode) => {
-    const paletteColor = mode === 'include' ? theme.palette.success : mode === 'off' ? theme.palette.warning : theme.palette.info
-    return tintedChipSx(paletteColor)
-  }, [theme, tintedChipSx])
+    const paletteKey = mode === 'include' ? 'success' : mode === 'off' ? 'warning' : 'info'
+    return tintedChipSx(paletteKey)
+  }, [tintedChipSx])
 
 // Why: A single helper for the compact filter chips that control how to treat
   // rules with "Any" in a field (or wildcard for substats). Keeps wording
@@ -1364,7 +1367,7 @@ function RulesFilterPanel({
     })
   }, [championOptions, normalizedChampionSearch])
   const championZeroResults = normalizedChampionSearch.length > 0 && filteredChampionOptions.length === 0
-  const championClearAdornmentSx = React.useCallback((theme: Theme) => ({
+  const championClearAdornmentSx = React.useCallback(() => ({
     minWidth: CLEAR_ICON_BUTTON_SIZE_PX + 4,
     display: 'flex',
     alignItems: 'center',
@@ -1374,19 +1377,19 @@ function RulesFilterPanel({
     ...(championZeroResults
       ? {
         '& .MuiIconButton-root': {
-          backgroundColor: alpha(theme.palette.error.main, 0.18),
+          backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
           animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
         },
       }
       : {}),
   }), [championSearch, championZeroResults])
-  const championClearButtonSx = React.useCallback((theme: Theme) => ({
+  const championClearButtonSx = React.useCallback(() => ({
     opacity: championSearch ? 1 : 0,
     pointerEvents: championSearch ? 'auto' : 'none',
     transition: 'opacity 120ms ease',
     ...(championZeroResults
       ? {
-        backgroundColor: alpha(theme.palette.error.main, 0.18),
+        backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
         animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
       }
       : {}),
@@ -2161,7 +2164,7 @@ function RulesFilterPanel({
                         const ic = state.gearInspectorImprovementChance ?? DEFAULT_RULES_FILTER_STATE.gearInspectorImprovementChance!
                         onChange({ ...state, gearInspectorImprovementChance: { ...ic, includeUnassessed: !improvChanceIncludeUnassessed } })
                       }}
-                      sx={tintedChipSx(improvChanceIncludeUnassessed ? theme.palette.success : theme.palette.warning)}
+                      sx={tintedChipSx(improvChanceIncludeUnassessed ? 'success' : 'warning')}
                     />
                   </MarkdownTooltip>
                 </Box>
@@ -2481,7 +2484,7 @@ function RulesFilterPanel({
                     const next = (state.sets.match ?? 'any') === 'any' ? 'all' : 'any'
                     onChange({ ...state, sets: { ...state.sets, match: next } })
                   }}
-                  sx={tintedChipSx((state.sets.match ?? 'any') === 'any' ? theme.palette.success : theme.palette.info)}
+                  sx={tintedChipSx((state.sets.match ?? 'any') === 'any' ? 'success' : 'info')}
                 />
               </MarkdownTooltip>
             </Stack>
@@ -2745,8 +2748,8 @@ function RulesFilterPanel({
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  bgcolor: championIconSrc ? 'transparent' : alpha(theme.palette.text.primary, 0.08),
-                                  color: theme.palette.text.secondary,
+                                  bgcolor: championIconSrc ? 'transparent' : 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)',
+                                  color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                                   fontWeight: 700,
                                   fontSize: theme.typography.pxToRem(13),
                                   textTransform: 'uppercase',
@@ -2972,7 +2975,7 @@ function RulesFilterPanel({
                               : 'any'
                         onChange({ ...state, gearInspectorChaos: { mode: next } })
                       }}
-                      sx={tintedChipSx(gearInspectorChaosMode === 'any' ? theme.palette.success : gearInspectorChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
+                      sx={tintedChipSx(gearInspectorChaosMode === 'any' ? 'success' : gearInspectorChaosMode === 'notRerolled' ? 'info' : 'warning')}
                     />
                   </MarkdownTooltip>
                 </Box>
@@ -3040,7 +3043,7 @@ function RulesFilterPanel({
                       const next = state.sub.mode === 'any' ? 'all' : 'any'
                       onChange({ ...state, sub: { ...state.sub, mode: next } })
                     }}
-                    sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
+                    sx={tintedChipSx(state.sub.mode === 'any' ? 'success' : 'info')}
                   />
                 </MarkdownTooltip>
                 {isGearInspectorMode && (
@@ -3085,12 +3088,12 @@ function RulesFilterPanel({
                       }}
                       sx={tintedChipSx(
                         gearInspectorGlyphMode === 'any'
-                          ? theme.palette.success
+                          ? 'success'
                           : gearInspectorGlyphMode === 'on'
-                            ? theme.palette.info
+                            ? 'info'
                             : gearInspectorGlyphMode === 'selected'
-                              ? theme.palette.secondary
-                              : theme.palette.warning,
+                              ? 'secondary'
+                              : 'warning',
                       )}
                     />
                   </MarkdownTooltip>
@@ -3103,7 +3106,7 @@ function RulesFilterPanel({
                       aria-label={rollChipAria}
                       onClick={(event) => setGearInspectorRollsAnchorEl(event.currentTarget)}
                       variant="filled"
-                      sx={tintedChipSx(gearInspectorRollsActive ? theme.palette.info : theme.palette.success)}
+                      sx={tintedChipSx(gearInspectorRollsActive ? 'info' : 'success')}
                     />
                   </MarkdownTooltip>
                 )}

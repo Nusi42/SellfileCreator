@@ -22,7 +22,7 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, RECIPE_CHIP_BORDER_RADIUS_PX, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -170,7 +170,7 @@ function RecipeChip({
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
-  const primaryColor = theme.palette.primary.main
+  const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
   // Derive display name and color directly from the first-class appearance field.
@@ -246,28 +246,25 @@ function RecipeChip({
       aria-grabbed={dragEnabled ? (selected ? 'true' : 'false') : undefined}
       onPointerDown={dragEnabled ? onPointerDown : undefined}
       sx={(theme) => {
-        const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
-        const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+        const hoverBg = theme.custom.hoverBg
+        const selectedHoverBg = theme.custom.selectedHoverBg
         const isStatic = backgroundMode === 'static'
         const staticBg = isStatic
-          ? (theme.palette.mode === 'dark'
-            ? alpha(theme.palette.common.white, 0.08)
-            : alpha(theme.palette.common.black, 0.05))
+          ? 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)'
           : null
         const baseBackground = isStatic
           ? staticBg
-          : (selected ? theme.palette.action.selected : 'transparent')
+          : (selected ? (theme.vars?.palette.action.selected ?? theme.palette.action.selected) : 'transparent')
         const baseBorderColor = selected
-          ? theme.palette.primary.main
-          : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider)
+          ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
+          : (showDuplicateFrame ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : theme.palette.divider)
         // Full-width column layout: avoid percentage-based flex so chips don't stretch vertically.
         const flexSizing = isSeparator
           ? '0 0 auto'
           : (isStatic ? '0 1 auto' : '0 0 auto')
         // Interactive chips should fill the row; static chips keep their natural width.
         const rowWidth = isSeparator || !isStatic ? '100%' : 'auto'
-        // Keep the border radius stable across themes.
-        const borderRadius = `${RECIPE_CHIP_BORDER_RADIUS_PX}px`
+        const borderRadius = `${theme.shape.borderRadius}px`
         const pointerCursor = isStatic ? 'default' : (dragEnabled ? 'grab' : 'pointer')
         return {
           position: 'relative',
@@ -294,7 +291,7 @@ function RecipeChip({
             backgroundColor: isStatic
               ? staticBg
               : (selected ? selectedHoverBg : hoverBg),
-            borderColor: theme.palette.primary.main,
+            borderColor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
           },
           ...(ghostedWhileDragging ? {
             opacity: 0.25,

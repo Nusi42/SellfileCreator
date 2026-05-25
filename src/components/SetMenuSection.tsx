@@ -18,7 +18,7 @@ import { alpha } from '@mui/material/styles'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
-import { ACCESSORY_NO_SET_ID, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
@@ -230,7 +230,7 @@ export default function SetMenuSection({
             borderRadius: 5,
             borderWidth: 1,
             borderStyle: isExcluded ? 'solid' : 'dashed',
-            borderColor: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
+            borderColor: isExcluded ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
             pointerEvents: 'none',
           } : undefined,
           '&::before': inHovered ? {
@@ -241,14 +241,14 @@ export default function SetMenuSection({
             borderRadius: 5,
             borderWidth: 1,
             borderStyle: 'dotted',
-            borderColor: theme.palette.info.main,
+            borderColor: (theme.vars?.palette.info.main ?? theme.palette.info.main),
             pointerEvents: 'none',
           } : {},
           ...(isPartialSet ? {
             borderStyle: 'dashed',
-            borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
-            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
-            color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
+            borderColor: theme.custom.multiEditMixedBorder,
+            backgroundImage: `linear-gradient(135deg, ${theme.custom.multiEditMixedBg} 50%, transparent 50%)`,
+            color: theme.custom.multiEditMixedText,
           } : {}),
         })}
       >
@@ -434,7 +434,7 @@ export default function SetMenuSection({
                   top: 0,
                   bottom: 0,
                   width: '3px',
-                  background: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
+                  background: isExcluded ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
                 } : undefined,
                 '&::after': inHovered ? {
                   content: '""',
@@ -443,13 +443,13 @@ export default function SetMenuSection({
                   top: 0,
                   bottom: 0,
                   width: '3px',
-                  background: 'repeating-linear-gradient( to bottom, '+theme.palette.info.main+' 0 6px, transparent 6px 10px)',
+                  background: 'repeating-linear-gradient( to bottom, '+(theme.vars?.palette.info.main ?? theme.palette.info.main)+' 0 6px, transparent 6px 10px)',
                 } : undefined,
                 ...(isPartialSet ? {
                   borderStyle: 'dashed',
-                  borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
-                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
-                  color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
+                  borderColor: theme.custom.multiEditMixedBorder,
+                  backgroundImage: `linear-gradient(135deg, ${theme.custom.multiEditMixedBg} 50%, transparent 50%)`,
+                  color: theme.custom.multiEditMixedText,
                 } : {}),
               })}
             >

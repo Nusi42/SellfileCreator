@@ -30,16 +30,12 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { alpha } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
-  DANGER_TINT_BG,
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
-  HOVER_BG_ALPHA,
   NBSP,
-  RECIPE_CHIP_BORDER_RADIUS_PX,
   RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
   RECIPE_CHIP_VERTICAL_PADDING_PX,
-  SELECTED_HOVER_BG_ALPHA,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 import {
@@ -231,8 +227,8 @@ const SafeguardChip = React.memo(function SafeguardChip({
       onContextMenu={(event) => onContextMenu(event, ruleIndex)}
       onPointerDown={dndEnabled ? (e) => onChipPointerDown?.(e, ruleIndex) : undefined}
       sx={(themeCtx) => {
-        const hoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
-        const selectedHoverBg = alpha(themeCtx.palette.primary.main, themeCtx.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+        const hoverBg = themeCtx.custom.hoverBg
+        const selectedHoverBg = themeCtx.custom.selectedHoverBg
         return {
           position: 'relative',
           display: 'inline-flex',
@@ -244,7 +240,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
           border: '1px solid',
           borderColor: isSelected ? themeCtx.palette.primary.main : themeCtx.palette.divider,
           backgroundColor: isSelected ? themeCtx.palette.action.selected : 'transparent',
-          borderRadius: `${RECIPE_CHIP_BORDER_RADIUS_PX}px`,
+          borderRadius: `${themeCtx.shape.borderRadius}px`,
           pl: 1,
           pr: 0.4,
           py: `${RECIPE_CHIP_VERTICAL_PADDING_PX}px`,
@@ -991,7 +987,7 @@ export default function SafeguardChipsPanel({
           // Danger tint when Delete All is hovered — mirrors RecipeChipsPanel.
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           backgroundColor: highlightDelete
-            ? (themeInner.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+            ? themeInner.custom.dangerTintBg
             : 'transparent',
           borderRadius: 1,
           // Suppress browser default outline; we render our own keyboard focus ring.

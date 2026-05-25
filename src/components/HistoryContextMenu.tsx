@@ -133,7 +133,7 @@ export function HistoryContextMenu({
                   px: 2,
                   py: 1.1,
                   opacity: entry.isCurrent ? 1 : 0.9,
-                  backgroundColor: entry.isCurrent ? theme.palette.action.hover : undefined,
+                  backgroundColor: entry.isCurrent ? (theme.vars?.palette.action.hover ?? theme.palette.action.hover) : undefined,
                 })}
                 aria-current={entry.isCurrent ? 'true' : undefined}
               >
@@ -147,10 +147,10 @@ export function HistoryContextMenu({
                   })}
                   >
                     {entry.isCurrent && (
-                      <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: theme.palette.primary.main })} />
+                      <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: (theme.vars?.palette.primary.main ?? theme.palette.primary.main) })} />
                     )}
                     {entry.isSaved && (
-                      <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: theme.palette.success.main })} />
+                      <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: (theme.vars?.palette.success.main ?? theme.palette.success.main) })} />
                     )}
                   </Box>
                   <Typography

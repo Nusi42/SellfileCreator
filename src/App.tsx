@@ -385,7 +385,7 @@ import {
 
 // Components are organized under src/components
 
-import type { ColorBlindMode, ThemeMode } from './lib/constants'
+import type { ColorBlindMode } from './lib/constants'
 
 const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
 
@@ -446,7 +446,7 @@ type PipelineCacheEntry = {
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
-export default function App({ colorBlindMode, setColorBlindMode, themeMode, setThemeMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void; themeMode: ThemeMode; setThemeMode: (m: ThemeMode) => void }) {
+export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   // Session-constant: true when ?express was present in the URL at load time.
   const [simpleMode] = useState(getSimpleMode)
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -7470,16 +7470,16 @@ export default function App({ colorBlindMode, setColorBlindMode, themeMode, setT
               borderTopRightRadius: 0,
               borderBottomRightRadius: 0,
               borderRight: 'none',
-              borderColor: theme.palette.warning.main,
-              color: theme.palette.warning.main,
+              borderColor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+              color: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
               '&.Mui-selected': {
-                color: theme.palette.warning.contrastText,
-                backgroundColor: theme.palette.warning.main,
-                '&:hover': { backgroundColor: theme.palette.warning.dark },
+                color: (theme.vars?.palette.warning.contrastText ?? theme.palette.warning.contrastText),
+                backgroundColor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                '&:hover': { backgroundColor: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
               },
               '&:hover': {
-                borderColor: theme.palette.warning.dark,
-                backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                borderColor: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
+                backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',
               },
             })}
           >
@@ -7502,13 +7502,14 @@ export default function App({ colorBlindMode, setColorBlindMode, themeMode, setT
               height: SMALL_BUTTON_HEIGHT_PX,
               width: SMALL_BUTTON_HEIGHT_PX,
               minHeight: SMALL_BUTTON_HEIGHT_PX,
-              borderRadius: `0 4px 4px 0`,
-              border: `1px solid ${theme.palette.warning.main}`,
-              color: theme.palette.warning.main,
+              // Left corners stay at 0 (joined to ToggleButton); right corners use theme.
+              borderRadius: `0 ${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0`,
+              border: `1px solid ${(theme.vars?.palette.warning.main ?? theme.palette.warning.main)}`,
+              color: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
               '&:hover': {
-                borderColor: theme.palette.warning.dark,
-                backgroundColor: alpha(theme.palette.warning.main, 0.1),
-                color: theme.palette.warning.dark,
+                borderColor: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
+                backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',
+                color: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
               },
             })}
           >
@@ -8042,7 +8043,8 @@ export default function App({ colorBlindMode, setColorBlindMode, themeMode, setT
           WebkitAppearance: 'auto',
           margin: 0,
           opacity: 0.7,
-          filter: theme.palette.mode === 'dark' ? 'invert(0.8)' : 'none',
+          filter: 'none',
+          ...theme.applyStyles('dark', { filter: 'invert(0.8)' }),
         },
       })} />
       {/* Header: hidden in express simple mode — the dialog is the whole UI. */}
@@ -8506,8 +8508,6 @@ export default function App({ colorBlindMode, setColorBlindMode, themeMode, setT
           connectEnabled={rslHelperConnectEnabled}
           pushEndpointReachable={pushEndpointReachable}
           onToggleConnect={handleToggleRslHelperConnect}
-          themeMode={themeMode}
-          setThemeMode={setThemeMode}
           colorBlindMode={colorBlindMode}
           setColorBlindMode={setColorBlindMode}
           onOpenManageColors={openColors}

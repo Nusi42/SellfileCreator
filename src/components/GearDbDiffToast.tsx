@@ -1,5 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { buildPreviewArtifactFromGearInspectorItem } from '../lib/gearInspectorPreviewArtifacts'
@@ -222,7 +222,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
     >
       {left}
       {/* Use the shared arrow glyph so diff previews stay consistent. */}
-      <Typography variant="body2" sx={{ color: theme.palette.info.main, fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ color: (theme.vars?.palette.info.main ?? theme.palette.info.main), fontWeight: 600 }}>
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
@@ -327,12 +327,11 @@ function ScaledGearInspectorGridCard({
 }: ScaledGearInspectorGridCardProps) {
   // Build a full Gear Inspector preview row from the snapshot payload.
   const row = buildGearInspectorPreviewRow(snapshot, match)
-  const theme = useTheme()
   // Single-sided add/remove grids tint borders so direction is obvious at a glance.
   const accentBorderColor = tone === 'added'
-    ? alpha(theme.palette.success.main, 0.55)
+    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.55)'
     : tone === 'removed'
-      ? alpha(theme.palette.error.main, 0.55)
+      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.55)'
       : null
   // Fixed size wrapper keeps the scaled card aligned with its sibling.
   return (
@@ -394,16 +393,16 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
   const theme = useTheme()
   // Tint the border when the diff implies add/remove intent.
   const borderColor = tone === 'added'
-    ? alpha(theme.palette.success.main, 0.4)
+    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.4)'
     : tone === 'removed'
-      ? alpha(theme.palette.error.main, 0.4)
+      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.4)'
       : theme.palette.divider
   // Use a subtle background wash to match the border cue.
   const background = tone === 'added'
-    ? alpha(theme.palette.success.main, 0.08)
+    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.08)'
     : tone === 'removed'
-      ? alpha(theme.palette.error.main, 0.08)
-      : theme.palette.background.paper
+      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.08)'
+      : (theme.vars?.palette.background.paper ?? theme.palette.background.paper)
   return (
     <Box
       sx={{
@@ -417,7 +416,7 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: theme.palette.text.secondary,
+        color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
         fontSize: '0.75rem',
       }}
     >

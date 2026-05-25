@@ -332,9 +332,9 @@ export function useRuleCountBadge({
     }
     return {
       ...base,
-      bgcolor: theme.palette.error.main,
-      color: theme.palette.error.contrastText,
-      '.MuiChip-label': { color: theme.palette.error.contrastText },
+      bgcolor: (theme.vars?.palette.error.main ?? theme.palette.error.main),
+      color: (theme.vars?.palette.error.contrastText ?? theme.palette.error.contrastText),
+      '.MuiChip-label': { color: (theme.vars?.palette.error.contrastText ?? theme.palette.error.contrastText) },
     }
   }, [ruleCountChipMinWidth, showRuleCountWarning, theme])
 

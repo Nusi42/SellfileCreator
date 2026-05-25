@@ -1,24 +1,12 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography, IconButton, Tooltip, Menu, Divider, ToggleButtonGroup, ToggleButton, useTheme, Slider } from '@mui/material'
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
-import DarkModeIcon from '@mui/icons-material/DarkMode'
-import LightModeIcon from '@mui/icons-material/LightMode'
-import PaletteIcon from '@mui/icons-material/Palette'
-import type { ThemeMode, ColorBlindMode } from '../lib/constants'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
-import { useThemeCustomization, themeCustomStore } from '../state/themeCustomization'
-import { useDisplayPreferences, useDisplayPreferenceActions } from '../state/preferencesState'
-import { CycleButton } from './CycleButton'
-import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
-import { makeManageColorsIcon } from '../lib/icons'
-import MarkdownTooltip from './MarkdownTooltip'
-import ColorField from './ColorField'
-import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
-import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
+import { useColorScheme } from '@mui/material/styles'
+import type { ColorBlindMode } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
 import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
+import ThemeEditorMenu from './ThemeEditorMenu'
 
 // README content is bundled at build time per language. We render it read-only.
 // English README is required; localized variants are optional.
@@ -32,45 +20,6 @@ import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { DEFAULT_LANGUAGE } from '../lib/i18n/types'
 
-/**
- * Composites a semi-transparent rgba(255,255,255,alpha) overlay onto a #RRGGBB background
- * to get a solid hex approximation — used for the toggle-button swatch in dark mode.
- */
-function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
-  if (bgHex.length < 7) return '#3a3f48'
-  const r = Math.round(parseInt(bgHex.slice(1, 3), 16) + (255 - parseInt(bgHex.slice(1, 3), 16)) * alpha)
-  const g = Math.round(parseInt(bgHex.slice(3, 5), 16) + (255 - parseInt(bgHex.slice(3, 5), 16)) * alpha)
-  const b = Math.round(parseInt(bgHex.slice(5, 7), 16) + (255 - parseInt(bgHex.slice(5, 7), 16)) * alpha)
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-}
-
-// Extracts the hue (0–360) from a #rrggbb hex color. Returns null for achromatic colors.
-function hexToHue(hex: string): number | null {
-  if (hex.length < 7) return null
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
-  if (d === 0) return null
-  let h: number
-  if (max === r) h = ((g - b) / d + 6) % 6
-  else if (max === g) h = (b - r) / d + 2
-  else h = (r - g) / d + 4
-  return h * 60
-}
-
-// Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
-function hslToHex(h: number, s: number, l: number): string {
-  h = ((h % 360) + 360) % 360
-  s /= 100; l /= 100
-  const a = s * Math.min(l, 1 - l)
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12
-    return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0')
-  }
-  return `#${f(0)}${f(8)}${f(4)}`
-}
-
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
   if (typeof document === 'undefined') return undefined
@@ -82,7 +31,7 @@ const getFaviconLinkHref = (): string | undefined => {
   return undefined
 }
 
-export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, themeMode, setThemeMode, colorBlindMode, setColorBlindMode, onOpenManageColors }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; themeMode?: ThemeMode; setThemeMode?: (m: ThemeMode) => void; colorBlindMode?: ColorBlindMode; setColorBlindMode?: (m: ColorBlindMode) => void; onOpenManageColors?: () => void }) {
+export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, colorBlindMode, setColorBlindMode, onOpenManageColors }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; colorBlindMode?: ColorBlindMode; setColorBlindMode?: (m: ColorBlindMode) => void; onOpenManageColors?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
   const languageOptions = useLanguageOptions()
@@ -112,116 +61,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])
   const languageLabel = t('helpLanguage')
-  const muiTheme = useTheme()
-  // Stable icon src for the manage-colors button; canvas generation only happens once.
-  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
-  const [themeCustom, setThemeCustom] = useThemeCustomization()
-  const [themeMenuAnchorEl, setThemeMenuAnchorEl] = React.useState<HTMLElement | null>(null)
-  const themeMenuOpen = Boolean(themeMenuAnchorEl)
-  const closeThemeMenu = React.useCallback(() => setThemeMenuAnchorEl(null), [])
-  // Ref attached to every open ColorField popover paper so the outside-click guard
-  // treats drags inside the color picker as "inside" and doesn't close the menu.
-  const colorPickerPopoverRef = React.useRef<HTMLDivElement>(null)
-  const { menuRef: themeMenuRef, contextMenuGuard: themeMenuGuard } = useContextMenuPaperGuard({ open: themeMenuOpen, onClose: closeThemeMenu, insideRefs: [colorPickerPopoverRef] })
-
-  // Draft state: color pickers write here on every drag step (onChange) so the picker
-  // stays visually responsive. The store (and thus the MUI theme rebuild) is only updated
-  // via onChangeCommitted — once when the popover closes — same pattern as ManageColorsDialog.
-  const [draft, setDraft] = React.useState(themeCustom)
-  // Rising-edge sync: pull committed customization into draft whenever the menu opens.
-  // Uses the render-time comparison pattern (same as prevHelpOpen above) to avoid refs.
-  const [prevMenuOpen, setPrevMenuOpen] = React.useState(themeMenuOpen)
-  if (themeMenuOpen !== prevMenuOpen) {
-    setPrevMenuOpen(themeMenuOpen)
-    if (themeMenuOpen) setDraft(themeCustom)
-  }
-
-  const [psychedelic, setPsychedelic] = React.useState(false)
-  // Animation state: accumulated hue, animation clock, four random phases (φ₀..φ₃),
-  // and the last wall-clock tick. Null when not running. Carried across effect restarts
-  // (e.g., themeMode changes) so hue, time, and phases remain continuous.
-  const psychedelicStateRef = React.useRef<{
-    lastMs: number  // wall clock at the previous interval tick
-    h: number       // accumulated hue in degrees
-    t: number       // animation time in seconds (drives S/L/speed oscillations)
-    p0: number; p1: number  // speed-drift phases
-    p2: number; p3: number  // S/L wobble phases
-  } | null>(null)
-  // Hue extracted from the current primary color at the moment psychedelic is turned on,
-  // so the animation starts from wherever the theme already is rather than jumping randomly.
-  const psychedelicInitHueRef = React.useRef<number | null>(null)
-
-  const resetColors = React.useCallback(() => {
-    setPsychedelic(false)
-    const blank = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null } as const
-    setDraft(blank)
-    setThemeCustom(blank)
-  }, [setThemeCustom])
-
-  // Psychedelic cycle (V2): hue rotates with variable speed, saturation and lightness breathe.
-  // Speed drifts via two incommensurable sines (never repeats); S and L each have their own
-  // independent sine wobble. All 9 color fields use the same accumulated hue so offsets stay
-  // harmonious. 40 ms interval → smooth, imperceptible per-tick steps.
-  React.useEffect(() => {
-    if (!psychedelic) return
-    const isDark = (themeMode ?? 'dark') === 'dark'
-    const bgS = 15
-    const bgL = isDark ? 8 : 93
-
-    // On a mode-switch restart, carry over hue/time/phases so the animation is continuous.
-    // On first start, seed hue from the current accent color and randomize the four phases.
-    if (!psychedelicStateRef.current) {
-      psychedelicStateRef.current = {
-        lastMs: Date.now(),
-        h:  psychedelicInitHueRef.current ?? Math.random() * 360,
-        t:  0,
-        p0: Math.random() * Math.PI * 2,
-        p1: Math.random() * Math.PI * 2,
-        p2: Math.random() * Math.PI * 2,
-        p3: Math.random() * Math.PI * 2,
-      }
-    } else {
-      psychedelicStateRef.current.lastMs = Date.now()
-    }
-
-    const id = setInterval(() => {
-      const s = psychedelicStateRef.current
-      if (!s) return
-
-      // Cap dt at 100 ms to avoid a large jump when the tab regains focus.
-      const now  = Date.now()
-      const dt   = Math.min((now - s.lastMs) / 1000, 0.1)
-      s.lastMs   = now
-
-      // V2 — speed drift: base 8°/s ± two incommensurable sines → 2–14°/s
-      const speed = 8 + 4 * Math.sin(s.t * 0.31 + s.p0) + 2 * Math.sin(s.t * 0.73 + s.p1)
-      // V2 — S/L wobble: saturation 68–92%, lightness ±6° around the mode default
-      const aS   = 80 + 12 * Math.sin(s.t * 0.19 + s.p2)
-      const aL   = (isDark ? 57 : 44) + 6 * Math.sin(s.t * 0.11 + s.p3)
-
-      s.h  += speed * dt
-      s.t  += dt
-
-      // updateTransient: in-memory only — no localStorage writes during animation.
-      themeCustomStore.updateTransient(prev => ({
-        ...prev,
-        primaryColor:   hslToHex(s.h,        aS, aL),
-        toggleColor:    hslToHex(s.h + 40,   aS, aL),
-        selectionColor: hslToHex(s.h + 80,   aS, aL),
-        successColor:   hslToHex(s.h + 130,  aS, aL),
-        warningColor:   hslToHex(s.h + 175,  aS, aL),
-        errorColor:     hslToHex(s.h + 215,  aS, aL),
-        bgColor:        hslToHex(s.h + 260,  bgS, bgL),
-        paperColor:     hslToHex(s.h + 280,  bgS + 5, isDark ? bgL + 5 : bgL - 5),
-        dividerColor:   hslToHex(s.h + 320,  28,  isDark ? 22 : 70),
-      }))
-    }, 40)
-    return () => clearInterval(id)
-  }, [psychedelic, themeMode])
-
-  const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
-  const { statButtonBorders } = useDisplayPreferences()
-  const { setStatButtonBorders } = useDisplayPreferenceActions()
+  const { colorScheme } = useColorScheme()
   // Strip the H1 title (and any injected version badge) from the README before rendering.
   // Why: The title is now rendered as a custom styled React element above the markdown content,
   // so the markdown H1 would be a duplicate. We detect the app title on line 0 and drop it
@@ -369,11 +209,12 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             backgroundRepeat: 'no-repeat, no-repeat',
             backgroundPosition: 'center top, center',
             backgroundSize: '100% 100%, 80% auto',
-            // soft-light works on dark backgrounds; multiply makes dark pixels
-            // visible on light surfaces so the robot icon shows in light mode.
-            opacity: theme.palette.mode === 'dark' ? 0.16 : 0.10,
+            // Light: multiply at 0.06 so robot remains subtle but visible on pale bg.
+            // Dark: soft-light at 0.16 blends with dark surfaces.
+            opacity: 0.06,
+            mixBlendMode: 'multiply' as const,
             pointerEvents: 'none',
-            mixBlendMode: theme.palette.mode === 'dark' ? 'soft-light' : 'multiply',
+            ...theme.applyStyles('dark', { opacity: 0.16, mixBlendMode: 'soft-light' as const }),
             zIndex: 0,
           },
           '& > *': { position: 'relative', zIndex: 1 },
@@ -390,210 +231,11 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          {setThemeMode != null && (
-            <>
-              <Tooltip title={t('themeSettings')}>
-                <IconButton
-                  size="small"
-                  aria-label={t('themeSettings')}
-                  onClick={(e) => setThemeMenuAnchorEl(e.currentTarget)}
-                >
-                  <PaletteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Menu
-                open={themeMenuOpen}
-                anchorEl={themeMenuAnchorEl}
-                onClose={closeThemeMenu}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{
-                  paper: { ...buildContextMenuPaperSlotProps({
-                    component: ContextMenuPaper,
-                    contextMenuGuard: themeMenuGuard,
-                    onRequestClose: closeThemeMenu,
-                    closeLabel: t('close'),
-                  }), ref: themeMenuRef as React.Ref<HTMLDivElement> },
-                }}
-              >
-                {/* Dark/light mode row */}
-                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeMode')}</Typography>
-                  <ToggleButtonGroup
-                    exclusive
-                    size="small"
-                    value={themeMode ?? 'dark'}
-                    onChange={(_, v) => { if (v != null && v !== (themeMode ?? 'dark')) { setThemeMode(v as ThemeMode); resetColors() } }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ToggleButton value="dark" aria-label={t('themeDarkAria')}>
-                      <DarkModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeDark')}
-                    </ToggleButton>
-                    <ToggleButton value="light" aria-label={t('themeLightAria')}>
-                      <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeLight')}
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </MenuItem>
-                <Divider />
-                {/* Color pickers — operate on local draft; debounce commits to store. */}
-                {([
-                  { label: t('themeColorAccent'),     field: 'primaryColor'  as const, fallback: muiTheme.palette.primary.main            },
-                  // Toggle fallback: dark mode blends action.selected (white@opacity) over paper; light uses primary.
-                  { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: themeMode === 'dark'
-                      ? blendWhiteAlphaOnHex(muiTheme.palette.action.selectedOpacity, muiTheme.palette.background.paper)
-                      : muiTheme.palette.primary.main },
-                  // Selection fallback: dark mode blends white@8% over paper (= MUI shipped default); light uses primary.
-                  { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: themeMode === 'dark'
-                      ? blendWhiteAlphaOnHex(0.08, muiTheme.palette.background.paper)
-                      : muiTheme.palette.primary.main },
-                  { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: muiTheme.palette.background.default      },
-                  { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: muiTheme.palette.background.paper        },
-                  { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: muiTheme.palette.divider                 },
-                  { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: muiTheme.palette.success.main            },
-                  { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: muiTheme.palette.warning.main            },
-                  { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: muiTheme.palette.error.main              },
-                ]).map(({ label, field, fallback }) => (
-                  <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
-                    <ColorField
-                      value={draft[field] ?? fallback}
-                      onChange={(v) => setDraft(prev => ({ ...prev, [field]: v }))}
-                      onChangeCommitted={(v) => setThemeCustom(prev => ({ ...prev, [field]: v }))}
-                      onClear={() => { setDraft(prev => ({ ...prev, [field]: null })); setThemeCustom(prev => ({ ...prev, [field]: null })) }}
-                      popoverRef={colorPickerPopoverRef}
-                    />
-                  </MenuItem>
-                ))}
-                {/* Border radius — controls global corner rounding for buttons, chips, cards, etc. */}
-                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeCorners')}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
-                    <Slider
-                      size="small"
-                      value={draft.borderRadius ?? 8}
-                      min={0} max={24} step={1}
-                      onChange={(_, v) => setDraft(prev => ({ ...prev, borderRadius: v as number }))}
-                      onChangeCommitted={(_, v) => setThemeCustom(prev => ({ ...prev, borderRadius: v as number }))}
-                      sx={{ flex: 1 }}
-                    />
-                    <Typography variant="caption" sx={{ minWidth: 30, textAlign: 'right', color: 'text.secondary' }}>
-                      {draft.borderRadius ?? 8}px
-                    </Typography>
-                  </Box>
-                </MenuItem>
-                {/* Selection highlight — controls opacity of the primary-tinted selection bg on chips, list items, etc.
-                    null = mode default (light: 12%, dark: MUI gray). Slider shows effective percent. */}
-                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeSelectionOpacity')}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
-                    <Slider
-                      size="small"
-                      value={Math.round((draft.selectionOpacity ?? (themeMode === 'dark' ? 0.08 : 0.12)) * 100)}
-                      min={0} max={30} step={1}
-                      onChange={(_, v) => setDraft(prev => ({ ...prev, selectionOpacity: (v as number) / 100 }))}
-                      onChangeCommitted={(_, v) => setThemeCustom(prev => ({ ...prev, selectionOpacity: (v as number) / 100 }))}
-                      sx={{ flex: 1 }}
-                    />
-                    <Typography variant="caption" sx={{ minWidth: 30, textAlign: 'right', color: 'text.secondary' }}>
-                      {Math.round((draft.selectionOpacity ?? (themeMode === 'dark' ? 0.08 : 0.12)) * 100)}%
-                    </Typography>
-                  </Box>
-                </MenuItem>
-                {/* Psychedelic cycle — rotates all theme colors through HSL hue space.
-                    CSS hue-rotate on the button wrapper spins its color through the full
-                    spectrum continuously, giving the button itself a "psychedelic" look. */}
-                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }} onClick={() => setPsychedelic(p => !p)}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themePsychedelic')}</Typography>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Box sx={{
-                      '@keyframes psychedelicHue': { from: { filter: 'hue-rotate(0deg)' }, to: { filter: 'hue-rotate(360deg)' } },
-                      animation: 'psychedelicHue 3s linear infinite',
-                      display: 'flex', alignItems: 'stretch',
-                    }}>
-                      <Button
-                        size="small"
-                        variant={psychedelic ? 'contained' : 'outlined'}
-                        color="secondary"
-                        sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!psychedelic) {
-                            // Seed the start hue from the current accent color so the animation
-                            // begins at the theme's existing hue rather than jumping to a random one.
-                            psychedelicInitHueRef.current = hexToHue(muiTheme.palette.primary.main) ?? Math.random() * 360
-                            psychedelicStateRef.current = null  // ensure fresh phases on each enable
-                          }
-                          setPsychedelic(p => !p)
-                        }}
-                      >
-                        {psychedelic ? t('commonOn') : t('commonOff')}
-                      </Button>
-                    </Box>
-                  </Box>
-                </MenuItem>
-                <Divider />
-                {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-                  <CycleButton
-                    options={makeColorBlindCycleOptions(t)}
-                    value={colorBlindMode ?? 'normal'}
-                    variant={colorBlindCycleVariant(colorBlindMode)}
-                    onChange={(v) => setColorBlindMode?.(v as ColorBlindMode)}
-                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-                  />
-                </MenuItem>
-                <Divider />
-                {/* Substat chip colorization — same On/Off + manage-colors pattern as gear inspector */}
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      size="small"
-                      variant={statButtonBorders ? 'contained' : 'outlined'}
-                      color="success"
-                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
-                      onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
-                    >
-                      {statButtonBorders ? t('commonOn') : t('commonOff')}
-                    </Button>
-                    <MarkdownTooltip markdown={t('manageColors')}>
-                      <span>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                          disabled={!statButtonBorders}
-                          sx={{ minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, px: 0.25 }}
-                          onClick={(e) => { e.stopPropagation(); if (statButtonBorders) onOpenManageColors?.() }}
-                          aria-label={t('manageColorsAria')}
-                        >
-                          <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
-                        </Button>
-                      </span>
-                    </MarkdownTooltip>
-                  </Box>
-                </MenuItem>
-                {/* Reset colors — only shown when the user has active customizations */}
-                {hasCustomization && (
-                  <>
-                    <Divider />
-                    <MenuItem disableRipple sx={{ py: 0.5 }}>
-                      <Button size="small" variant="outlined" color="error" onClick={resetColors} sx={{ width: '100%' }}>
-                        {t('resetToDefaults')}
-                      </Button>
-                    </MenuItem>
-                  </>
-                )}
-              </Menu>
-            </>
-          )}
+          <ThemeEditorMenu
+            {...(colorBlindMode !== undefined ? { colorBlindMode } : {})}
+            {...(setColorBlindMode !== undefined ? { setColorBlindMode } : {})}
+            {...(onOpenManageColors !== undefined ? { onOpenManageColors } : {})}
+          />
           <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
             <Select
@@ -611,7 +253,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         </Box>
       </DialogTitle>
       <DialogContent dividers>
-        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={themeMode ?? 'dark'} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
+        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={colorScheme ?? 'dark'} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
             rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}

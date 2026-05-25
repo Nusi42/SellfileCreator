@@ -1,7 +1,7 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
+import { keyframes, useTheme, type Theme } from '@mui/material/styles'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -1969,11 +1969,11 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
     borderRadius: 1,
     border: '1px solid',
     // Active styling uses the primary palette; inactive stays neutral.
-    borderColor: active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
+    borderColor: active ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.6)' : 'divider',
     bgcolor: active
-      ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12)
+      ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.2)'
       : 'transparent',
-    color: active ? theme.palette.primary.main : 'text.secondary',
+    color: active ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : 'text.secondary',
   } satisfies Record<string, unknown>
 }
 
@@ -3134,7 +3134,7 @@ export default function NoteDialog({
   const { t, lang, setLang } = useI18n()
   const theme = useTheme()
   // Editor background adapts to the active theme mode; Prism tooltip blocks stay dark (token colors need it).
-  const editorBg = theme.palette.background.default
+  const editorBg = (theme.vars?.palette.background.default ?? theme.palette.background.default)
   const languageOptions = useLanguageOptions()
   const langSelectValue = useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
@@ -3307,9 +3307,9 @@ export default function NoteDialog({
                 border: 1,
                 borderColor: autoPushExpressEnabled ? 'success.main' : 'divider',
                 bgcolor: autoPushExpressEnabled ? 'success.main' : 'transparent',
-                color: autoPushExpressEnabled ? theme.palette.success.contrastText : 'text.secondary',
+                color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'text.secondary',
                 '&:hover': {
-                  bgcolor: autoPushExpressEnabled ? 'success.dark' : alpha(theme.palette.success.main, 0.08),
+                  bgcolor: autoPushExpressEnabled ? 'success.dark' : 'rgba(var(--mui-palette-success-mainChannel) / 0.08)',
                   borderColor: 'success.main',
                 },
                 ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}),
@@ -4063,7 +4063,7 @@ function NoteEditorContent({
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const theme = useTheme()
-  const editorBg = theme.palette.background.default
+  const editorBg = (theme.vars?.palette.background.default ?? theme.palette.background.default)
   // Anchor for the EBNF reference popover; null when closed.
   const [ebnfAnchorEl, setEbnfAnchorEl] = useState<HTMLElement | null>(null)
   // Stable close handler so useContextMenuPaperGuard dependency stays fixed.
@@ -4557,7 +4557,7 @@ function NoteEditorContent({
             '& .wmde-markdown': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               lineHeight: 1.7,
-              color: (theme) => `${theme.palette.text.primary} !important`,
+              color: (theme) => `${(theme.vars?.palette.text.primary ?? theme.palette.text.primary)} !important`,
             },
             '& .wmde-markdown img': { backgroundColor: 'transparent' },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },

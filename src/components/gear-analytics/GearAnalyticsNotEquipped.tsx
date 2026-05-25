@@ -302,7 +302,7 @@ function SlotGrid({ profile, rowByChampSlot, substatColors, useStatButtonColors,
                 opacity: filled ? 0.85 : 0.35,
                 cursor: clickable ? 'pointer' : 'default',
                 // Outline (not border) so layout stays stable across selection toggles.
-                outline: selected ? `1.5px solid ${theme.palette.warning.main}` : 'none',
+                outline: selected ? `1.5px solid ${(theme.vars?.palette.warning.main ?? theme.palette.warning.main)}` : 'none',
                 outlineOffset: selected ? '1px' : 0,
               }}
             />

@@ -316,18 +316,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                     py: 0,
                     borderWidth: 1,
                     borderColor: (theme) => theme.palette.divider,
-                    color: (theme) => theme.palette.text.secondary,
+                    color: (theme) => (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     backgroundColor: 'transparent',
                     '&:hover': {
                       borderColor: (theme) => theme.palette.divider,
-                      color: (theme) => theme.palette.text.primary,
-                      backgroundColor: (theme) => theme.palette.action.hover,
+                      color: (theme) => (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                      backgroundColor: (theme) => (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
                     },
                     '&.Mui-selected': {
-                      bgcolor: (theme) => theme.palette.warning.main,
-                      color: (theme) => theme.palette.common.black,
-                      borderColor: (theme) => theme.palette.warning.main,
-                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                      bgcolor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                      color: (theme) => (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                      borderColor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                      '&:hover': { bgcolor: (theme) => (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
                     },
                   }}
                 >
@@ -343,18 +343,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                     py: 0,
                     borderWidth: 1,
                     borderColor: (theme) => theme.palette.divider,
-                    color: (theme) => theme.palette.text.secondary,
+                    color: (theme) => (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     backgroundColor: 'transparent',
                     '&:hover': {
                       borderColor: (theme) => theme.palette.divider,
-                      color: (theme) => theme.palette.text.primary,
-                      backgroundColor: (theme) => theme.palette.action.hover,
+                      color: (theme) => (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                      backgroundColor: (theme) => (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
                     },
                     '&.Mui-selected': {
-                      bgcolor: (theme) => theme.palette.warning.main,
-                      color: (theme) => theme.palette.common.black,
-                      borderColor: (theme) => theme.palette.warning.main,
-                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                      bgcolor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                      color: (theme) => (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                      borderColor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                      '&:hover': { bgcolor: (theme) => (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
                     },
                   }}
                 >
@@ -395,18 +395,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                       mr: 1,
                       borderWidth: 1,
                       borderColor: (theme) => theme.palette.divider,
-                      color: (theme) => theme.palette.text.secondary,
+                      color: (theme) => (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                       backgroundColor: 'transparent',
                       '&:hover': {
                         borderColor: (theme) => theme.palette.divider,
-                        color: (theme) => theme.palette.text.primary,
-                        backgroundColor: (theme) => theme.palette.action.hover,
+                        color: (theme) => (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                        backgroundColor: (theme) => (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
                       },
                       '&.Mui-selected': {
-                        bgcolor: (theme) => theme.palette.warning.main,
-                        color: (theme) => theme.palette.common.black,
-                        borderColor: (theme) => theme.palette.warning.main,
-                        '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                        bgcolor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                        color: (theme) => (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                        borderColor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                        '&:hover': { bgcolor: (theme) => (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
                       },
                     }}
                   >{t('artifacts')}</ToggleButton>
@@ -423,18 +423,18 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                       mr: 1,
                       borderWidth: 1,
                       borderColor: (theme) => theme.palette.divider,
-                      color: (theme) => theme.palette.text.secondary,
+                      color: (theme) => (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                       backgroundColor: 'transparent',
                       '&:hover': {
                         borderColor: (theme) => theme.palette.divider,
-                        color: (theme) => theme.palette.text.primary,
-                        backgroundColor: (theme) => theme.palette.action.hover,
+                        color: (theme) => (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                        backgroundColor: (theme) => (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
                       },
                       '&.Mui-selected': {
-                        bgcolor: (theme) => theme.palette.warning.main,
-                        color: (theme) => theme.palette.common.black,
-                        borderColor: (theme) => theme.palette.warning.main,
-                        '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                        bgcolor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                        color: (theme) => (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                        borderColor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                        '&:hover': { bgcolor: (theme) => (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
                       },
                     }}
                   >{t('accessories')}</ToggleButton>
@@ -460,19 +460,19 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                           mb: 1,
                           borderWidth: 1,
                           borderColor: (theme) => theme.palette.divider,
-                          color: (theme) => theme.palette.text.secondary,
+                          color: (theme) => (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                           backgroundColor: 'transparent',
                           '&:hover': {
                             borderColor: (theme) => theme.palette.divider,
-                            color: (theme) => theme.palette.text.primary,
-                            backgroundColor: (theme) => theme.palette.action.hover,
+                            color: (theme) => (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                            backgroundColor: (theme) => (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
                           },
                           '&.Mui-selected': {
-                            bgcolor: (theme) => theme.palette.warning.main,
-                            color: (theme) => theme.palette.common.black,
-                            borderColor: (theme) => (key === 16 ? theme.palette.error.main : theme.palette.warning.main),
-                            boxShadow: (theme) => `inset 0 0 0 1px ${key === 16 ? theme.palette.error.main : theme.palette.warning.main}`,
-                            '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                            bgcolor: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+                            color: (theme) => (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                            borderColor: (theme) => (key === 16 ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.warning.main ?? theme.palette.warning.main)),
+                            boxShadow: (theme) => `inset 0 0 0 1px ${key === 16 ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.warning.main ?? theme.palette.warning.main)}`,
+                            '&:hover': { bgcolor: (theme) => (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark) },
                           },
                         }}
                       >{label}</ToggleButton>
@@ -506,7 +506,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 {t('hintFinalSellStatusLead')}{' '}
                 <Box
                   component="span"
-                  sx={{ color: (theme) => theme.palette.warning.main, fontWeight: 600 }}
+                  sx={{ color: (theme) => (theme.vars?.palette.warning.main ?? theme.palette.warning.main), fontWeight: 600 }}
                 >
                   {t(statusWordKey)}
                 </Box>

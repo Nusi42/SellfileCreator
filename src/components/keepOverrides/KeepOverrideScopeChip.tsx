@@ -1,15 +1,13 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box, Chip } from '@mui/material'
-import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
+import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import type { KeepOverrideScopeKey } from '../../lib/keepOverrideScope'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 import EllipsisTooltip from '../EllipsisTooltip'
-import { MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../../lib/constants'
 
 // Keep override scope chips should visually match builder-status pills.
-// We still need a distinct hover tint to signal clickability.
-const KEEP_OVERRIDE_SCOPE_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
+// Hover tint and mixed-state colors are sourced from theme.custom tokens.
 // Keep chip labels truncated so the native ellipsis tooltip can expose full text on overflow.
 const KEEP_OVERRIDE_SCOPE_CHIP_ELLIPSIS_SX = {
   display: 'inline-flex',
@@ -56,14 +54,11 @@ export function KeepOverrideScopeChip({
     // Inactive chips keep the same shape but toned down.
     const inactiveChipSx = builderChipSx(false, { dimDisabled: true }) as SystemStyleObject<Theme>
     // Use a gentle hover tint so inactive chips still feel clickable.
-    const hoverBg = alpha(
-      theme.palette.text.primary,
-      theme.palette.mode === 'dark' ? KEEP_OVERRIDE_SCOPE_HOVER_ALPHA.dark : KEEP_OVERRIDE_SCOPE_HOVER_ALPHA.light,
-    )
+    const hoverBg = theme.custom.keepOverrideHoverBg
     // Mixed overlay colors — mirrors SafeguardBuilderPanel / RecipeBuilderPanel mixed chip pattern.
-    const mixedBorder = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light)
-    const mixedPattern = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)
-    const mixedText = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light)
+    const mixedBorder = theme.custom.multiEditMixedBorder
+    const mixedPattern = theme.custom.multiEditMixedBg
+    const mixedText = theme.custom.multiEditMixedText
     // Return a resolver that swaps between active, inactive, and mixed overlays.
     return (isActive: boolean, isMixed: boolean): SxProps<Theme> => {
       if (isMixed) {

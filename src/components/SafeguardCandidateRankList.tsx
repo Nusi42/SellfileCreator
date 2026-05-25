@@ -372,8 +372,8 @@ function CandidateRow({
   const isSold = !isSafeguarded && !isRecipeKept && !isUnmatched
   const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? CheckCircleIcon : isSold ? SellIcon : null
   const badgeColor = isSafeguarded
-    ? theme.palette.warning.main
-    : isRecipeKept ? theme.palette.success.main : theme.palette.error.main
+    ? (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
+    : isRecipeKept ? (theme.vars?.palette.success.main ?? theme.palette.success.main) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
   const badgeTitle = isSafeguarded
     ? t('safeguardsCandidateSafeguarded')
     : isRecipeKept ? t('safeguardsCandidateKept') : isSold ? t('safeguardsCandidateSold') : undefined
@@ -465,7 +465,7 @@ function CandidateRow({
           ? (isFiltered ? 0.55 : 1.0)
           : (isFiltered ? 0.4 : 0.75),
         cursor: onSelectCandidate ? 'pointer' : 'default',
-        '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.04) },
+        '&:hover': { bgcolor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04)' },
       }}
     >
       {/* Rank number */}
@@ -570,7 +570,7 @@ function CandidateRow({
               <Box
                 component="span"
                 sx={cell.isMythic ? {
-                  boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${theme.palette.error.main}`,
+                  boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${(theme.vars?.palette.error.main ?? theme.palette.error.main)}`,
                   backgroundColor: alpha(theme.palette.error.main, MYTHIC_SUBSTAT_BG_ALPHA),
                   borderRadius: `${MYTHIC_SUBSTAT_RADIUS_PX}px`,
                 } : undefined}

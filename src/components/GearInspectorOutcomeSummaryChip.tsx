@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Divider, Stack, Typography } from '@mui/material'
-import { alpha, keyframes, type Theme } from '@mui/material/styles'
+import { keyframes, type Theme } from '@mui/material/styles'
 import { useChangePulse } from '../hooks/useChangePulse'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import SellIcon from '@mui/icons-material/Sell'
@@ -39,16 +39,17 @@ const GEAR_INSPECTOR_SUMMARY_CHIP_SX = (theme: Theme) => ({
   // Padding keeps the pill readable without stealing space.
   px: 1.25,
   py: 0.5,
-  borderRadius: GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX,
-  // Use info tinting so the chip reads as guidance, not a warning.
-  backgroundColor: alpha(theme.palette.info.main, 0.12),
-  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+  // String bypasses MUI's sx borderRadius multiplier so this always renders as a pill regardless of theme.shape.borderRadius.
+  borderRadius: `${GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX}px`,
+  // CSS channel tokens adapt per scheme without JS mode checks.
+  backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)',
+  border: '1px solid rgba(var(--mui-palette-info-mainChannel) / 0.3)',
   // Subtle elevation lifts the chip above the header surface.
   boxShadow: theme.shadows[1],
 })
 // Divider styling keeps metric separators faint but legible.
 const GEAR_INSPECTOR_SUMMARY_DIVIDER_SX = (theme: Theme) => ({
-  borderColor: alpha(theme.palette.divider, 0.6),
+  borderColor: theme.vars?.palette.divider ?? theme.palette.divider,
 })
 // Shared metric layout for summary chip sections.
 const GEAR_INSPECTOR_SUMMARY_METRIC_BASE_SX = {
@@ -68,14 +69,11 @@ type GearInspectorOutcomeSummaryMetricProps = {
 }
 
 function resolveGearInspectorSummaryToneColor(theme: Theme, tone: GearInspectorOutcomeSummaryTone): string {
-  // Total uses a neutral tint so it reads as context, not status.
-  if (tone === 'total') return theme.palette.text.secondary
-  // Sell outcomes should mirror the error palette used elsewhere.
-  if (tone === 'sell') return theme.palette.error.main
-  // Keep outcomes mirror the success palette for immediate scanability.
-  if (tone === 'keep') return theme.palette.success.main
-  // Safeguard reads best with the warning/gold palette.
-  return theme.palette.warning.main
+  // theme.vars.palette.* returns CSS variable references that adapt per scheme.
+  if (tone === 'total') return theme.vars?.palette.text.secondary ?? theme.palette.text.secondary
+  if (tone === 'sell') return theme.vars?.palette.error.main ?? theme.palette.error.main
+  if (tone === 'keep') return theme.vars?.palette.success.main ?? theme.palette.success.main
+  return theme.vars?.palette.warning.main ?? theme.palette.warning.main
 }
 
 function GearInspectorOutcomeSummaryMetric({ icon, value, tone, dimmed }: GearInspectorOutcomeSummaryMetricProps) {
@@ -198,7 +196,7 @@ export default function GearInspectorOutcomeSummaryChip({
         sx={(theme) => ({
           ...GEAR_INSPECTOR_SUMMARY_CHIP_SX(theme),
           // CSS variable supplies the brightened background used by the pulse keyframe.
-          '--gi-chip-pulse-bg': alpha(theme.palette.info.main, 0.28),
+          '--gi-chip-pulse-bg': 'rgba(var(--mui-palette-info-mainChannel) / 0.28)',
           // Apply pulse animation when counts changed and the chip is not already showing the dimmed state.
           animation: shouldPulse
             ? `${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_KEYFRAMES} ${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS}ms ease-out 1`

@@ -1,5 +1,4 @@
 import { Box } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import { createPortal } from 'react-dom'
 
 type Props = {
@@ -29,8 +28,8 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
         whiteSpace: 'nowrap',
         transform: 'translate3d(0, 0, 0)',
         pointerEvents: 'none',
-        backgroundColor: alpha(theme.palette.background.paper, 0.92),
-        color: theme.palette.text.primary,
+        backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.92)',
+        color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         borderRadius: 999,
         padding: '2px 10px',
         fontSize: theme.typography.caption.fontSize,

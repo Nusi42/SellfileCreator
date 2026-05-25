@@ -156,7 +156,7 @@ function ArcIconLabel(props: {
 
   // Bitmap image icon (e.g. gear set icons): circular background keeps the icon legible on any arc.
   if ('url' in asset) {
-    const bgFill  = alpha(theme.palette.background.paper, 0.82)
+    const bgFill  = 'rgba(var(--mui-palette-background-paperChannel) / 0.82)'
     const bgRadius = (size + 2) / 2
     return (
       <g transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
@@ -419,8 +419,6 @@ function triggerDonutDance(el: HTMLElement): void {
 }
 
 export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
-  const theme = useTheme()
-
   // Pre-build icon map: String(domainId) → SlotIconAsset.
   // Null when no icon function is provided or when none of the slices have icons.
   // Used by both ArcIconLabel (arc centroid icons) and PieIconTooltip (hover tooltip icons).
@@ -573,7 +571,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
             // Highlight hovered slices with a subtle ring.
             // x-charts v9 uses MuiPieChart-arc (from pieClasses utility) instead of MuiPieArc-root.
             '& .MuiPieChart-arc:hover': {
-              filter: `drop-shadow(0 0 4px ${alpha(theme.palette.primary.main, 0.6)})`,
+              filter: `drop-shadow(0 0 4px ${'rgba(var(--mui-palette-primary-mainChannel) / 0.6)'})`,
             },
             '& .MuiPieChart-arc': { cursor: 'pointer' },
           }}

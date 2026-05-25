@@ -8,7 +8,6 @@
  */
 import { Box, ToggleButton, ToggleButtonGroup, TextField as MuiTextField, InputAdornment, IconButton } from '@mui/material'
 import { keyframes } from '@emotion/react'
-import { alpha } from '@mui/material/styles'
 import ClearIcon from '@mui/icons-material/Clear'
 import GridViewIcon from '@mui/icons-material/GridView'
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
@@ -94,28 +93,28 @@ export default function SetsOrderControls({
             endAdornment: setsSearch ? (
             <InputAdornment
               position="end"
-              sx={(theme) => ({
+              sx={{
                 ...(zeroResults ? {
                   // Also animate at the adornment level to ensure visibility.
                   '& .MuiIconButton-root': {
-                    backgroundColor: alpha(theme.palette.error.main, 0.18),
+                    backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   },
                 } : {}),
-              })}
+              }}
               >
                 <IconButton
                   size="small"
                   aria-label={t('setsClearSearch')}
                   onClick={() => onSetsSearchChange('')}
                   edge="end"
-                sx={(theme) => ({
+                sx={{
                   ...(zeroResults ? {
                     // IconButton is already circular; animate its background color.
-                    backgroundColor: alpha(theme.palette.error.main, 0.18),
+                    backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   } : {}),
-                })}
+                }}
               >
                 <ClearIcon fontSize="small" />
               </IconButton>

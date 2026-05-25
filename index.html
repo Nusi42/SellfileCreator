@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sellfile Creator for RSL Helper</title>
     <!-- Favicon is injected from ico/favicon.svg by assetsPlugin so the single-file build stays up to date -->
+    <!--
+      Dark background during the WASM warmup gap (before React mounts).
+      color-scheme:dark also applies dark scrollbars/form controls immediately.
+      #0f1216 matches buildSchemePalette dark background.default in theme.ts.
+    -->
+    <style>body { background-color: #0f1216; color-scheme: dark; }</style>
+    <!--
+      InitColorSchemeScript: sets data-mui-color-scheme on <html> synchronously
+      before React mounts. Mirrors MUI's getInitColorSchemeScript() output for
+      modeStorageKey='sellfileCreator.themeMode.v1', defaultMode='dark'.
+      Belt-and-suspenders alongside noSsr on ThemeProvider — covers the WASM warmup window.
+    -->
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('sellfileCreator.themeMode.v1') || 'dark';
+          var dark = localStorage.getItem('mui-color-scheme-dark') || 'dark';
+          var light = localStorage.getItem('mui-color-scheme-light') || 'light';
+          var cs = '';
+          if (mode === 'system') {
+            cs = window.matchMedia('(prefers-color-scheme: dark)').matches ? dark : light;
+          } else if (mode === 'light') {
+            cs = light;
+          } else {
+            cs = dark;
+          }
+          if (cs) document.documentElement.setAttribute('data-mui-color-scheme', cs);
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

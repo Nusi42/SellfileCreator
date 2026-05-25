@@ -217,7 +217,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           await toPng(el, {
             cacheBust: true,
             pixelRatio: Math.min(window.devicePixelRatio, 2),
-            backgroundColor: theme.palette.background.paper,
+            backgroundColor: (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
             width: fullWidth,
             height: fullHeight,
             // Hide Clear-filter buttons (no semantic value in a snapshot) but keep active chips.
@@ -669,10 +669,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // Outcome donut: map outcome strings to MUI theme semantic colors.
   const outcomeColorById = useCallback(
     (id: number | string): string | undefined => {
-      if (id === 'sell') return theme.palette.error.main
-      if (id === 'keep') return theme.palette.success.main
-      if (id === 'safe') return theme.palette.warning.main
-      if (id === 'none') return theme.palette.success.light
+      if (id === 'sell') return (theme.vars?.palette.error.main ?? theme.palette.error.main)
+      if (id === 'keep') return (theme.vars?.palette.success.main ?? theme.palette.success.main)
+      if (id === 'safe') return (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
+      if (id === 'none') return (theme.vars?.palette.success.light ?? theme.palette.success.light)
       return undefined
     },
     [theme],

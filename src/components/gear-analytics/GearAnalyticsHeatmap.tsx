@@ -84,7 +84,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                     overflow: 'hidden',
                     color: isSelected ? 'primary.main' : 'text.secondary',
                     borderBottom: isSelected
-                      ? `2px solid ${theme.palette.primary.main}`
+                      ? `2px solid ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}`
                       : '2px solid transparent',
                     '&:hover': { color: 'text.primary' },
                   }}
@@ -125,7 +125,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                     fontSize: 10,
                     // Use the user-configured stat color; fall back to theme secondary.
                     // Respect the global "color stat texts" preference.
-                    color: statButtonBorders ? (substatColors[variant]?.fg ?? theme.palette.text.secondary) : theme.palette.text.secondary,
+                    color: statButtonBorders ? (substatColors[variant]?.fg ?? theme.palette.text.secondary) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -143,9 +143,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                 // Zero-count cells use the neutral divider tone; non-zero cells use the heat scale.
                 const bgColor = intensity > 0
                   ? heatColor(intensity)
-                  : theme.palette.mode === 'dark'
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(0,0,0,0.06)'
+                  : 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)'
 
                 return (
                   <Tooltip

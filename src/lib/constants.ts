@@ -193,41 +193,6 @@ export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 // highlights like Delete/Reset hover. Kept separate so general fades can
 // remain slightly delayed while danger cues feel snappy.
 export const UI_BG_HOVER_DANGER_TRANSITION = 'background-color 180ms ease-out 0ms'
-// Shared tinted background used for destructive hover states (e.g., Reset buttons).
-// Keep values centralized so all danger cues stay visually consistent across panels.
-export const DANGER_TINT_BG = {
-  light: 'rgba(244,67,54,0.04)',
-  dark: 'rgba(244,67,54,0.08)',
-} as const
-
-// Shared hover highlight opacities (light vs dark mode). Used across recipe chips
-// and the HSF preview so the states remain visually aligned without duplicating
-// magic numbers in component styles.
-export const HOVER_BG_ALPHA = {
-  light: 0.1,
-  dark: 0.2,
-} as const
-export const SELECTED_HOVER_BG_ALPHA = {
-  light: 0.2,
-  dark: 0.4,
-} as const
-// Shared diagonal hatch alpha for "mixed" tri-state UI cues during multi-edit.
-// Why: Keep partial selections readable without overpowering confirmed selections.
-export const MULTI_EDIT_MIXED_BG_ALPHA = {
-  light: 0.12,
-  dark: 0.08,
-} as const
-
-export const MULTI_EDIT_MIXED_BORDER_ALPHA = {
-  light: 0.28,
-  dark: 0.45,
-} as const
-
-export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
-  light: 0.6,
-  dark: 0.75,
-} as const
-
 // Hide-tooltips debounce while scrolling
 // Why: MUI Tooltip/Popper can trigger transient viewport scrollbars while
 // scrollable containers move. We add a short-lived body class to hide all

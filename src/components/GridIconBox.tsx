@@ -409,7 +409,7 @@ export default function GridIconBox({
     borderRadius: 6,
     border: '1px solid',
     borderColor: color ?? alpha(theme.palette.text.primary, isStacked ? 0.5 : 0.55),
-    backgroundColor: alpha(theme.palette.background.paper, 0.9),
+    backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)',
     color: color ?? theme.palette.text.primary,
     fontWeight: 800,
     fontVariantNumeric: 'tabular-nums' as const,
@@ -489,7 +489,7 @@ export default function GridIconBox({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 0.5,
-        bgcolor: theme.palette.background.default,
+        bgcolor: (theme.vars?.palette.background.default ?? theme.palette.background.default),
         position: 'relative',
         flexShrink: 0,
       }}

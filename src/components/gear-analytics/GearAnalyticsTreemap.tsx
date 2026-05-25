@@ -270,16 +270,16 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   }, [])
 
   const hasSelection = selected.size > 0
-  const paper = theme.palette.background.paper
+  const paper = (theme.vars?.palette.background.paper ?? theme.palette.background.paper)
 
   // Outcome color for each band — matches the outcome donut's palette.
   const bandColor: Record<Band, string> = {
-    sell: theme.palette.error.main,
-    safe: theme.palette.warning.main,
-    keep: theme.palette.success.main,
+    sell: (theme.vars?.palette.error.main ?? theme.palette.error.main),
+    safe: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+    keep: (theme.vars?.palette.success.main ?? theme.palette.success.main),
     // Unmatched items are kept by default — use a lighter green to signal that while
     // remaining visually distinct from an explicit keep rule (success.main).
-    none: theme.palette.success.light,
+    none: (theme.vars?.palette.success.light ?? theme.palette.success.light),
   }
 
   // Only show legend entries for bands that actually appear in the visible data.
@@ -586,12 +586,12 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   transformOrigin: 'center center',
                   // Selection ring via outline; hover reveals primary-light border.
                   outline: isSelected
-                    ? `2px solid ${theme.palette.primary.main}`
+                    ? `2px solid ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}`
                     : `1px solid ${alpha(paper, 0.25)}`,
                   outlineOffset: isSelected ? -2 : -1,
                   '&:hover': {
                     opacity: 1,
-                    outline: `2px solid ${theme.palette.primary.light}`,
+                    outline: `2px solid ${(theme.vars?.palette.primary.light ?? theme.palette.primary.light)}`,
                     outlineOffset: -2,
                   },
                   // Outcome color bands as a left-to-right flex row (sell | unmatched | keep | safeguarded).
@@ -677,7 +677,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
       <Box sx={{ display: 'flex', gap: 1.5, mt: 0.75, flexWrap: 'wrap' }}>
         {/* Total swatch — matches the leading count in each tile's chip (text.secondary color). */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: theme.palette.text.secondary, border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
+          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
           <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{t('gearAnalyticsTotal')}</Typography>
         </Box>
         {visibleBands.map(band => (

@@ -17,7 +17,6 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import { RadarChart } from '@mui/x-charts/RadarChart'
 import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -427,7 +426,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           ...(referenceActive && refDisplayCounts ? [{
             data: refDisplayCounts,
             label: '',
-            color: alpha(theme.palette.primary.main, 0.18),
+            color: 'rgba(var(--mui-palette-primary-mainChannel) / 0.18)',
             fillArea: false,
             valueFormatter: (v: number) => String(Math.round((v ?? 0) ** 2)),
           }] : []),
@@ -435,7 +434,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           {
             data: displayCounts,
             label: title,
-            color: theme.palette.primary.main,
+            color: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
             fillArea: true,
             // displayCounts are sqrt-transformed; square back to recover the raw frequency count.
             valueFormatter: (v) => String(Math.round((v ?? 0) ** 2)),

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
-import { alpha, darken, useTheme } from '@mui/material/styles'
+import { alpha, darken, useColorScheme, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
@@ -19,34 +19,46 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
   variant: number
   substatColors: Record<number, { fg: string; bg: string }>
   colorize: boolean
-  fallbackLabelColor: string
+  // Optional; when omitted the function uses theme.custom.substatFallbackBg for the
+  // neutral chip surface so callers do not need to supply a palette-mode-aware color.
+  fallbackLabelColor?: string
+  // Callers inside component render should pass the actual runtime color scheme from
+  // useColorScheme(); theme.palette.mode is static when cssVariables is enabled.
+  isLight?: boolean
 }): { labelColor: string; chipBg: string; chipBorder: string } {
-  const { variant, substatColors, colorize, fallbackLabelColor } = params
-  const isLight = theme.palette.mode === 'light'
+  const { variant, substatColors, colorize } = params
+  // CSS variable token used for the fallback label when no caller-supplied color is given.
+  const fallbackLabelColor = params.fallbackLabelColor ?? theme.vars?.palette.text.primary ?? theme.palette.text.primary
+  const isLight = params.isLight ?? false
 
   // Light mode: the dark BG colors (#1E2E14, #2F1A14 etc.) at 25% alpha on white look muddy.
   // Instead derive chip appearance from the vibrant FG color at low opacity for clean tinted chips.
+  // Only enter this branch when a real hex fg color is available; CSS var strings cannot be
+  // passed to darken().
   if (isLight && colorize) {
-    const fgColor = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? fallbackLabelColor
-    return {
-      chipBg: alpha(fgColor, 0.15),
-      chipBorder: alpha(fgColor, 0.25),
-      labelColor: darken(fgColor, 0.45),
+    const fgColor = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+    if (fgColor) {
+      return {
+        chipBg: alpha(fgColor, 0.15),
+        chipBorder: alpha(fgColor, 0.25),
+        labelColor: darken(fgColor, 0.45),
+      }
     }
   }
 
   const statBgRaw = colorize ? (substatColors[variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variant]) : undefined
   const parsedBg = parseHexWithAlpha(statBgRaw)
-  const fallbackBase = fallbackLabelColor
-  const fallbackAlpha = isLight ? 0.12 : 0.2
-  const chipBase = parsedBg?.base ?? fallbackBase
-  const chipAlpha = parsedBg?.alpha ?? fallbackAlpha
-  const chipBg = alpha(chipBase, chipAlpha)
-  const chipBorder = alpha(chipBase, chipAlpha)
   const labelColor = colorize
     ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? fallbackLabelColor)
     : fallbackLabelColor
-  return { labelColor, chipBg, chipBorder }
+  if (parsedBg) {
+    // User-configured hex bg: alpha is already encoded in the parsed value.
+    const chipBg = alpha(parsedBg.base, parsedBg.alpha)
+    return { labelColor, chipBg, chipBorder: chipBg }
+  }
+  // No user color: use CSS channel token so the chip surface adapts per scheme without a JS mode check.
+  const chipFallback = theme.custom.substatFallbackBg
+  return { labelColor, chipBg: chipFallback, chipBorder: chipFallback }
 }
 
 function parseHexWithAlpha(value: string | undefined): { base: string; alpha: number } | null {
@@ -80,6 +92,9 @@ export default function RuleSubstatChips({
 }) {
   const { t } = useI18n()
   const theme = useTheme()
+  // useColorScheme gives the actual runtime scheme; theme.palette.mode is static with cssVariables.
+  const { colorScheme } = useColorScheme()
+  const isLight = colorScheme === 'light'
   const fallbackNormalized = useMemo(() => normalizeRuleSubstats(substats), [substats])
   const normalized = normalizedProp ?? fallbackNormalized
   if (!normalized || normalized.length === 0) return null
@@ -112,7 +127,8 @@ export default function RuleSubstatChips({
       variant: detail.variant,
       substatColors,
       colorize: shouldColorize,
-      fallbackLabelColor: theme.palette.text.primary,
+      fallbackLabelColor: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+      isLight,
     })
     const showCondition = showThreshold || Boolean(detail.condition)
     const conditionSymbol = showThreshold ? '' : (detail.condition ?? '')
@@ -132,7 +148,8 @@ export default function RuleSubstatChips({
           display: 'inline-flex',
           alignItems: 'center',
           whiteSpace: 'nowrap',
-          borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
+          // MUI sx multiplier: borderRadius: 1 = 1 × theme.shape.borderRadius px.
+          borderRadius: 1,
           px: 0.75,
           py: 0.25,
           backgroundColor: chipBg,

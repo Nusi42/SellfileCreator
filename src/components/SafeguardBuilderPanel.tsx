@@ -67,9 +67,6 @@ import {
 } from '../lib/safeguards'
 import type { ColorBlindMode } from '../lib/constants'
 import {
-  MULTI_EDIT_MIXED_BG_ALPHA,
-  MULTI_EDIT_MIXED_BORDER_ALPHA,
-  MULTI_EDIT_MIXED_TEXT_ALPHA,
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
 } from '../lib/constants'
 import {
@@ -87,7 +84,6 @@ import {
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
-  DANGER_TINT_BG,
   ELLIPSIS_TEXT_SX,
   FONT_SIZE_BASE_PX,
   GLYPH_IGNORE_COLLECTION,
@@ -147,7 +143,7 @@ import { ColorField } from './ColorField'
 import SafeguardCandidateRankList from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
 import {
@@ -385,19 +381,10 @@ export default function SafeguardBuilderPanel({
     && Array.from(multiSummary.factionCounts.values()).some(c => c > 0 && c < multiSummary.total)
   const theme = useTheme()
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  // Mixed-state colors — mirror RecipeBuilderPanel: use text.primary + shared alpha constants.
-  const mixedBorderColor = useMemo(
-    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
-    [theme],
-  )
-  const mixedPatternColor = useMemo(
-    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light),
-    [theme],
-  )
-  const mixedTextColor = useMemo(
-    () => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
-    [theme],
-  )
+  // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
+  const mixedBorderColor = theme.custom.multiEditMixedBorder
+  const mixedPatternColor = theme.custom.multiEditMixedBg
+  const mixedTextColor = theme.custom.multiEditMixedText
   const mixedToggleOverrides = useMemo(
     () => MIXED_TOGGLE_GROUP_OVERRIDES(mixedBorderColor, mixedTextColor, mixedPatternColor),
     [mixedBorderColor, mixedTextColor, mixedPatternColor],
@@ -1520,7 +1507,7 @@ export default function SafeguardBuilderPanel({
       {/* ── Name field above scroll zone — floating label extends ~9 px above the input
           border when shrunk; keeping it outside overflowX:auto prevents the scroll
           container's implicit overflow-y from clipping it. ── */}
-      <Box sx={(theme) => ({ borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      <Box sx={(theme) => ({ borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <TextField
           label={t('safeguardBuilderRuleName')}
           // In multi-edit mode show staged name value (or placeholder when mixed).
@@ -1646,7 +1633,7 @@ export default function SafeguardBuilderPanel({
             Using 'clip' (not 'hidden') avoids the CSS forced-auto promotion of overflow-y. */}
         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflowX: 'clip', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
         {/* Mode toggle — label moved to header row above */}
-        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
 
           {/* Relative-positioned wrapper enables the mixed-state ::before overlay pattern. */}
           <Box sx={{ position: 'relative' }}>
@@ -1728,7 +1715,7 @@ export default function SafeguardBuilderPanel({
         </FormControl>
 
         {/* Required count */}
-        <Box sx={(theme) => ({ position: 'relative', flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        <Box sx={(theme) => ({ position: 'relative', flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
           {/* Override badge: shown when a safeguard-overrides block changes the required count. */}
           {requiredCountOverrideActive && renderSafeguardOverrideBadge(
             buildSafeguardOverrideBadgeTooltip(
@@ -1794,7 +1781,7 @@ export default function SafeguardBuilderPanel({
         {/* position+zIndex raise this column above the header row's zIndex:1 stacking context.
             The content flex row bleeds 14px upward into the header (mt:-½·SMALL_BUTTON_HEIGHT_PX),
             so without elevation the header's z=1 intercepts clicks on the top strip of Row 1. */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '0 0 auto', position: 'relative', zIndex: 2, ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '0 0 auto', position: 'relative', zIndex: 2, ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
 
           {/* Row 1: ignore previous safeguards */}
           {/* Derived values (ignPrevMixed, ignPrevValue, …) are computed before the return statement. */}
@@ -2047,7 +2034,7 @@ export default function SafeguardBuilderPanel({
         alignItems: 'flex-start',
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
-        backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+        backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
@@ -2245,7 +2232,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
@@ -2352,7 +2339,7 @@ export default function SafeguardBuilderPanel({
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
       {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
           The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
           <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
@@ -2556,19 +2543,26 @@ export default function SafeguardBuilderPanel({
               sx={(theme) => {
                 const canInteract = hasSubstatSelection || multiEditActive
                 const chipEnabled = hasSubstatSelection
-                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const bg = chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.18)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.08)'
+                // Light-mode base: darker success tone; dark-mode override via applyStyles.
                 const color = chipEnabled
-                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
-                  : theme.palette.text.disabled
+                  ? (theme.vars?.palette.success.dark ?? theme.palette.success.dark)
+                  : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled)
+                const colorDim = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.45)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.45)'
+                const colorDisabled = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.35)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.35)'
                 return {
                   height: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   width: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                   backgroundColor: bg,
-                  color: canInteract ? color : alpha(color, 0.45),
-                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
-                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                  color: canInteract ? color : colorDim,
+                  '&:hover': canInteract ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
+                  ...(chipEnabled ? theme.applyStyles('dark', {
+                    color: canInteract ? (theme.vars?.palette.success.light ?? theme.palette.success.light) : 'rgba(var(--mui-palette-success-lightChannel) / 0.45)',
+                    '&.Mui-disabled': { color: 'rgba(var(--mui-palette-success-lightChannel) / 0.35)' },
+                  }) : {}),
                   ...(substatMatchMixed ? {
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                     color: mixedTextColor,
@@ -2663,20 +2657,27 @@ export default function SafeguardBuilderPanel({
                 const isEffectivelyEnabled = displayImprovementChanceEnabled || improvementChanceMixed
                 const canInteract = (hasSubstatSelection || multiEditActive) && isEffectivelyEnabled
                 const chipEnabled = isEffectivelyEnabled
-                const bg = chipEnabled ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.disabled, 0.08)
+                const bg = chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.18)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.08)'
+                // Light-mode base: darker success tone; dark-mode override via applyStyles.
                 const color = chipEnabled
-                  ? (theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark)
-                  : theme.palette.text.disabled
+                  ? (theme.vars?.palette.success.dark ?? theme.palette.success.dark)
+                  : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled)
+                const colorDim = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.45)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.45)'
+                const colorDisabled = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.35)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.35)'
                 return {
                   height: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   width: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
                   backgroundColor: bg,
-                  color: canInteract ? color : alpha(color, 0.45),
-                  borderLeft: `1px solid ${chipEnabled ? alpha(theme.palette.success.main, 0.28) : alpha(theme.palette.divider, 0.5)}`,
-                  '&:hover': canInteract ? { backgroundColor: alpha(theme.palette.success.main, 0.28) } : {},
-                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: alpha(color, 0.35) },
+                  color: canInteract ? color : colorDim,
+                  borderLeft: `1px solid ${chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' : 'rgba(var(--mui-palette-divider) / 0.5)'}`,
+                  '&:hover': canInteract ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' } : {},
+                  '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
+                  ...(chipEnabled ? theme.applyStyles('dark', {
+                    color: canInteract ? (theme.vars?.palette.success.light ?? theme.palette.success.light) : 'rgba(var(--mui-palette-success-lightChannel) / 0.45)',
+                    '&.Mui-disabled': { color: 'rgba(var(--mui-palette-success-lightChannel) / 0.35)' },
+                  }) : {}),
                   // Mixed overlay when improvement-chance differs across selected rules.
                   ...(improvementChanceMixed ? {
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
@@ -2696,7 +2697,7 @@ export default function SafeguardBuilderPanel({
       <Box sx={{ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
-      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
@@ -2856,7 +2857,7 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 4 right: Sets selector + perSet chip ──────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
-      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent' })}>
+      <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0, flex: 1 }}>

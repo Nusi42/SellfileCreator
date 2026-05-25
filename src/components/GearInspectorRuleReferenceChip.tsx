@@ -1,6 +1,6 @@
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
-import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
+import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
@@ -40,15 +40,6 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
   return [...asArray, base] as SxProps<Theme>
 }
 
-const buildSourceChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
-  // Source chips (Final Sell / Safeguards) keep the stronger legacy tint for quick scanning.
-  const surfaceAlpha = theme.palette.mode === 'dark' ? 0.35 : 0.12
-  const hoverAlpha = theme.palette.mode === 'dark' ? 0.45 : 0.18
-  return {
-    surface: alpha(tone, surfaceAlpha),
-    hover: alpha(tone, hoverAlpha),
-  }
-}
 
 export function GearInspectorRuleReferenceChip({
   match,
@@ -69,7 +60,7 @@ export function GearInspectorRuleReferenceChip({
   const jumpTooltip = isSafeguardSource ? t('gearInspectorJumpToSafeguard') : t('gearInspectorJumpToRecipe')
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
-    const finalSellTint = buildSourceChipSurfaceTint(theme, theme.palette.error.main)
+    // Final Sell source uses the sell (error) channel tokens — stronger tint for quick scanning.
     return (
       <GearInspectorRuleReferenceChipBody
         label={t('gearInspectorFinalSellChip')}
@@ -81,8 +72,8 @@ export function GearInspectorRuleReferenceChip({
         jumpTooltip={jumpTooltip}
         sx={simpleMatchChipSx(sx)}
         borderColor={getGearInspectorMatchBorderColor(theme, false)}
-        backgroundColor={finalSellTint.surface}
-        hoverBackgroundColor={finalSellTint.hover}
+        backgroundColor={theme.custom.sourceChipSellSurface}
+        hoverBackgroundColor={theme.custom.sourceChipSellHover}
         dataMatchSource="final-sell"
         {...(icon ? { icon } : {})}
       />
@@ -122,12 +113,10 @@ export function GearInspectorRuleReferenceChip({
     : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!resolvedLabel) return null
-  // Keep source chips (Safeguards) on their legacy stronger tint.
-  const keepOverrideTint = isSafeguardSource
-    ? buildSourceChipSurfaceTint(theme, theme.palette.success.main)
-    : null
-  // Shared keep/sell surface keeps normal first-match chips consistent with other-match chips.
-  const chipSurfaceTint = keepOverrideTint ?? getGearInspectorMatchSurfaceColors(theme, Boolean(match.keep))
+  // Safeguard source chips use the stronger source-chip keep tint; regular match chips use match surface tint.
+  const chipSurfaceTint = isSafeguardSource
+    ? { surface: theme.custom.sourceChipKeepSurface, hover: theme.custom.sourceChipKeepHover }
+    : getGearInspectorMatchSurfaceColors(theme, Boolean(match.keep))
   // Data attribute lets tests and analytics distinguish safeguard matches.
   const dataMatchSource = isSafeguardSource ? 'safeguard' : undefined
   return (
@@ -186,6 +175,7 @@ function GearInspectorRuleReferenceChipBody({
   hoverBackgroundColor,
   dataMatchSource,
 }: GearInspectorRuleReferenceChipBodyProps) {
+  const theme = useTheme()
   const resolvedBackgroundColor = backgroundColor ?? 'background.paper'
   const resolvedHoverColor = clickable
     ? hoverBackgroundColor ?? 'action.hover'
@@ -194,7 +184,7 @@ function GearInspectorRuleReferenceChipBody({
     cursor: clickable ? 'pointer' : 'default',
     bgcolor: resolvedBackgroundColor,
     color: textColor ?? 'text.primary',
-    borderRadius: '8px',
+    borderRadius: `${theme.shape.borderRadius}px`,
     minWidth: MATCHING_RECIPE_CHIP_MIN_WIDTH_PX,
     maxWidth: '100%',
     flexShrink: 1,

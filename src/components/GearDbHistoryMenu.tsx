@@ -76,7 +76,7 @@ function ClippedPreviewBody({
               right: 0,
               bottom: 0,
               height: theme.spacing(4),
-              background: `linear-gradient(to bottom, ${theme.palette.background.paper}00 0%, ${theme.palette.background.paper} 100%)`,
+              background: `linear-gradient(to bottom, ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}00 0%, ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)} 100%)`,
               pointerEvents: 'none',
             },
           }
@@ -315,7 +315,7 @@ export function GearDbHistoryMenu({
                   py: 1.1,
                   opacity: 0.95,
                   cursor: 'pointer',
-                  backgroundColor: index === 0 ? theme.palette.action.hover : undefined,
+                  backgroundColor: index === 0 ? (theme.vars?.palette.action.hover ?? theme.palette.action.hover) : undefined,
                 })}
               >
                 <Stack spacing={0.35} sx={{ minWidth: 0 }}>

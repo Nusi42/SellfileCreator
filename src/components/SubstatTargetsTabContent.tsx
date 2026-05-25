@@ -255,21 +255,21 @@ export function SubstatTargetsTabContent({
     const plainSx: SystemStyleObject<Theme> = {
       ...baseSx,
       backgroundColor: 'transparent',
-      color: theme.palette.text.secondary,
+      color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
       border: 'none',
       '& .MuiChip-label': {
         px: theme.spacing(0.5),
         fontWeight: theme.typography.fontWeightMedium ?? 500,
-        color: theme.palette.text.secondary,
+        color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
       },
       '&.MuiChip-clickable:hover': {
-        backgroundColor: alpha(theme.palette.text.primary, theme.palette.action.hoverOpacity ?? 0.08),
+        backgroundColor: alpha(theme.palette.text.primary, (theme.vars?.palette.action.hoverOpacity ?? theme.palette.action.hoverOpacity) ?? 0.08),
       },
       '&.MuiChip-clickable:active': {
-        backgroundColor: alpha(theme.palette.text.primary, (theme.palette.action.hoverOpacity ?? 0.08) * 1.5),
+        backgroundColor: alpha(theme.palette.text.primary, ((theme.vars?.palette.action.hoverOpacity ?? theme.palette.action.hoverOpacity) ?? 0.08) * 1.5),
       },
       '&.Mui-focusVisible': {
-        outline: `2px solid ${alpha(theme.palette.text.primary, 0.4)}`,
+        outline: `2px solid ${'rgba(var(--mui-palette-text-primaryChannel) / 0.4)'}`,
         outlineOffset: 2,
       },
     }

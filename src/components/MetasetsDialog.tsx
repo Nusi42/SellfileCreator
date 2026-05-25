@@ -980,7 +980,7 @@ export default function MetasetsDialog({
                                 fontSize: 11,
                                 lineHeight: 1,
                                 fontWeight: 700,
-                                bgcolor: theme.palette.warning.main,
+                                bgcolor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
                                 color: theme.palette.getContrastText(theme.palette.warning.main),
                                 boxShadow: theme.shadows[2],
                                 pointerEvents: 'none',

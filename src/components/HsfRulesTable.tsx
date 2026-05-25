@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, ButtonBase, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
-import { alpha, keyframes, useTheme } from '@mui/material/styles'
+import { keyframes, useTheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
@@ -20,8 +20,6 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  RULES_TABLE_HOVER_PROPAGATION_MS,
 	  RULES_TABLE_SCROLL_HINT_HIDE_MS,
 	  FONT_SIZE_BASE_PX,
-	  HOVER_BG_ALPHA,
-  SELECTED_HOVER_BG_ALPHA,
   RULE_COUNT_LIMIT,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
   type SelectionScrollRequest,
@@ -1320,17 +1318,17 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
               sx={(theme) => ({
                 // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
                 '&[data-selected-recipe="true"]': {
-                  backgroundColor: theme.palette.action.selected,
+                  backgroundColor: (theme.vars?.palette.action.selected ?? theme.palette.action.selected),
                 },
                 // Safeguard row highlight mirrors the recipe selection style.
                 '&[data-selected-safeguard="true"]': {
-                  backgroundColor: theme.palette.action.selected,
+                  backgroundColor: (theme.vars?.palette.action.selected ?? theme.palette.action.selected),
                 },
                 // Play enter animation for new rows, change-pulse for modified existing rows.
                 ...(isNewRow ? {
                   animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
                 } : isChangedRow ? {
-                  '--rule-row-change-bg': alpha(theme.palette.warning.main, 0.18),
+                  '--rule-row-change-bg': 'rgba(var(--mui-palette-warning-mainChannel) / 0.18)',
                   animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
                 } : {}),
               })}
@@ -1696,9 +1694,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           px: 1.25,
           py: 0.5,
           borderRadius: theme.shape.borderRadius,
-          backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
+          backgroundColor: theme.custom.paperOverlayBg,
           boxShadow: theme.shadows[3],
-          color: theme.palette.text.primary,
+          color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
           transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
           opacity: showScrollRangeHint ? 1 : 0,
           transform: showScrollRangeHint ? 'translateY(0)' : 'translateY(-6px)',
@@ -1726,8 +1724,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       <TableContainer
         ref={tableContainerRef}
         sx={(theme) => {
-          const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
-          const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+          const hoverBg = theme.custom.hoverBg
+          const selectedHoverBg = theme.custom.selectedHoverBg
           return {
             width: '100%',
             position: 'relative',

@@ -47,10 +47,10 @@ export function GearDbDiffSummaryLine({
   // Success toasts need extra contrast so icon glyphs read on green.
   const useHighContrast = useCountPill
   // Precompute the palette for glyphs and separators so callers stay lightweight.
-  const addedColor = useHighContrast ? theme.palette.common.white : theme.palette.success.main
-  const removedColor = useHighContrast ? theme.palette.common.white : theme.palette.error.main
-  const updatedColor = useHighContrast ? theme.palette.common.white : theme.palette.info.main
-  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, 0.7) : theme.palette.text.secondary
+  const addedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
+  const removedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
+  const updatedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.info.main ?? theme.palette.info.main)
+  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, 0.7) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
   // Normalize the label to avoid accidental whitespace in tight layouts.
   const trimmedLabel = label.trim()
   // Use a darker overlay so the pill reads against a green success toast.
@@ -65,7 +65,7 @@ export function GearDbDiffSummaryLine({
         bgcolor: alpha(theme.palette.common.black, 0.4),
         border: `1px solid ${alpha(theme.palette.common.white, 0.4)}`,
         borderRadius: '999px',
-        color: theme.palette.common.white,
+        color: (theme.vars?.palette.common.white ?? theme.palette.common.white),
         px: 0.6,
         py: 0.15,
       }

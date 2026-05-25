@@ -7,7 +7,7 @@ import { CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
 
 const baseClearButtonSx: SxProps<Theme> = (theme) => ({
-  color: theme.palette.text.secondary,
+  color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
   bgcolor: 'transparent !important',
   borderRadius: theme.shape.borderRadius,
   transition: theme.transitions.create(['color', 'background-color'], { duration: theme.transitions.duration.shortest }),
@@ -19,15 +19,15 @@ const baseClearButtonSx: SxProps<Theme> = (theme) => ({
   alignItems: 'center',
   justifyContent: 'center',
   '&:hover': {
-    color: theme.palette.common.black,
-    bgcolor: `${theme.palette.warning.main} !important`,
+    color: (theme.vars?.palette.common.black ?? theme.palette.common.black),
+    bgcolor: `${(theme.vars?.palette.warning.main ?? theme.palette.warning.main)} !important`,
   },
   '&.Mui-focusVisible': {
-    color: theme.palette.common.black,
-    bgcolor: `${theme.palette.warning.main} !important`,
+    color: (theme.vars?.palette.common.black ?? theme.palette.common.black),
+    bgcolor: `${(theme.vars?.palette.warning.main ?? theme.palette.warning.main)} !important`,
   },
   '&.Mui-disabled': {
-    color: theme.palette.action.disabled,
+    color: (theme.vars?.palette.action.disabled ?? theme.palette.action.disabled),
     bgcolor: 'transparent !important',
   },
 })

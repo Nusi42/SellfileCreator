@@ -132,12 +132,6 @@ const CARD_COLUMN_HEIGHT_BUFFER_PX = 0
 const MAX_MATCHING_CHIPS = 6
 // Keep the accordion border radius consistent across the card and the main grid.
 const ACCORDION_MARGIN_UNITS = 0.75
-// Keep/sell background tints stay subtle so stat colors remain readable.
-const CARD_OUTCOME_TINT_ALPHA_LIGHT = 0.1
-const CARD_OUTCOME_TINT_ALPHA_DARK = 0.2
-// Main/substat panel gets a neutral wash so colored text stays legible over keep/sell tints.
-const CARD_STATS_DIM_ALPHA_LIGHT = 0.67
-const CARD_STATS_DIM_ALPHA_DARK = 0.3
 // Match the card language: soft rounded rectangle, slightly tighter than the outer frame.
 const CARD_STATS_DIM_RADIUS_PX = 6
 // Expand the dim panel by 2px on every side to create breathing room around the stat text block.
@@ -147,6 +141,9 @@ const CARD_ACTION_BUTTON_SIZE_PX = 28
 const CARD_ACTION_ICON_SIZE_PX = 18
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 export const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
+// Static CSS channel expressions for mythic substat decorations — alpha is scheme-independent.
+const MYTHIC_SUBSTAT_BG_CSS = `rgba(var(--mui-palette-error-mainChannel) / ${MYTHIC_SUBSTAT_BG_ALPHA})`
+const MYTHIC_TEXT_SHADOW_CSS = `rgba(var(--mui-palette-background-paperChannel) / ${MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA})`
 // Pulse duration exported so the main grid can clear the pulse timeout after the same window.
 export const GRID_CARD_FOCUS_PULSE_DURATION_MS = 1500
 // Match-change pulse fires once when a card's keep/sell outcome changes.
@@ -788,7 +785,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
     : undefined
-  const glyphDeltaColor = theme.palette.success.main
+  const glyphDeltaColor = (theme.vars?.palette.success.main ?? theme.palette.success.main)
   // Compact (<=4 columns) cards need explicit per-field alignment for substats.
   const compactSubstatColumnLayout = gridColumnCount <= 4
   // Ultra-dense (8-column) cards omit stat values to preserve readability at minimal width.
@@ -886,7 +883,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const ascValueNode = ascValue ? (
     <Box
       component="span"
-      sx={{ color: theme.palette.secondary.main, fontWeight: 600, fontSize: ascInlineFontSize }}
+      sx={{ color: (theme.vars?.palette.secondary.main ?? theme.palette.secondary.main), fontWeight: 600, fontSize: ascInlineFontSize }}
     >
       {ascValue}
     </Box>
@@ -984,9 +981,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
   const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampion?.rarity)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
-  const championBorderColor = rarityAccentColor ?? theme.palette.divider
+  const championBorderColor = rarityAccentColor ?? (theme.vars?.palette.divider ?? theme.palette.divider)
   // Glyph-only source icons use the accent when available so missing champ icons are easier to spot.
-  const championGlyphColor = rarityAccentColor ?? theme.palette.text.secondary
+  const championGlyphColor = rarityAccentColor ?? (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
   // Mirror the champion dropdown fallback: render the first initial when an avatar image is missing.
   const missingChampionFallbackInitial = (() => {
     const name = artifact.equippedChampion?.name?.trim() ?? ''
@@ -1060,7 +1057,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
   const cardOutcome = match
     ? {
-        tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
+        tone: match.keep === false ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main),
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
         label: match.keep === false ? t('gearInspectorMatchSell') : t('gearInspectorMatchKeep'),
         canJump: allowPrimaryMatchJump,
@@ -1071,19 +1068,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Surface stable match metadata for automation without forcing DOM text scraping.
   const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
   const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
-  // Outcome tint is optional and only applies when the row has a resolved keep/sell decision.
-  const outcomeTintBg = (() => {
-    if (!highlightKeepSell || !match) return null
-    const baseTone = match.keep === false ? theme.palette.error.main : theme.palette.success.main
-    const tintAlpha = theme.palette.mode === 'dark' ? CARD_OUTCOME_TINT_ALPHA_DARK : CARD_OUTCOME_TINT_ALPHA_LIGHT
-    return alpha(baseTone, tintAlpha)
-  })()
-  // Dim only the stats block so keep/sell tint remains visible while stat text regains contrast.
-  const statsBlockDimBg = (() => {
-    if (!highlightKeepSell || !match) return null
-    const dimAlpha = theme.palette.mode === 'dark' ? CARD_STATS_DIM_ALPHA_DARK : CARD_STATS_DIM_ALPHA_LIGHT
-    return alpha(theme.palette.background.paper, dimAlpha)
-  })()
+  // Outcome tint uses CSS channel tokens so colors adapt per scheme without isDark checks.
+  const outcomeTintBg = (highlightKeepSell && match)
+    ? (match.keep === false ? theme.custom.cardSellTintBg : theme.custom.cardKeepTintBg)
+    : null
+  // Stats-dim overlay keeps stat text readable over the outcome tint.
+  const statsBlockDimBg = (highlightKeepSell && match) ? theme.custom.cardStatsDimBg : null
   const mainSummaryLabel = (
     <Box
       component="span"
@@ -1119,7 +1109,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           sx={{
             mt: CARD_ASC_BLOCK_MARGIN_TOP_UNITS,
             pl: 1,
-            color: theme.palette.text.secondary,
+            color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
             fontWeight: 600,
             fontSize: ascInlineFontSize,
             minWidth: 0,
@@ -1148,7 +1138,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           height: CARD_ACTION_BUTTON_SIZE_PX,
           borderRadius: '50%',
           border: `1px solid ${theme.palette.divider}`,
-          color: theme.palette.text.secondary,
+          color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
           // Overlay buttons do not participate in the text layout flow.
           flexShrink: 0,
         }}
@@ -1224,13 +1214,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       {/* Keep actions create a keep template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('gearInspectorMatchKeep'), theme.palette.success.main)}
+          {renderRuleTemplateActionLabel(t('gearInspectorMatchKeep'), (theme.vars?.palette.success.main ?? theme.palette.success.main))}
         </Box>
       </MenuItem>
       {/* Sell actions create a sell template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('gearInspectorMatchSell'), theme.palette.error.main)}
+          {renderRuleTemplateActionLabel(t('gearInspectorMatchSell'), (theme.vars?.palette.error.main ?? theme.palette.error.main))}
         </Box>
       </MenuItem>
     </Menu>
@@ -1256,19 +1246,20 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         columnGap: theme.spacing(isUltraDense ? 0.75 : CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
+        // theme.vars.palette.* gives CSS variable references that adapt per scheme.
         // Selection uses primary border; safeguard highlight uses info; default uses divider.
-        border: `1px solid ${selected ? theme.palette.primary.main : cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
+        border: `1px solid ${selected ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
         // Selection adds a subtle primary tint to the background.
         bgcolor: selected
-          ? alpha(theme.palette.primary.main, 0.08)
-          : (outcomeTintBg ?? theme.palette.background.paper),
+          ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.08)'
+          : (outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper)),
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
-        '--gear-inspector-focus-border-base': cardHighlighted ? theme.palette.info.light : theme.palette.divider,
-        '--gear-inspector-focus-border-peak': theme.palette.info.main,
-        '--gear-inspector-focus-bg-base': outcomeTintBg ?? theme.palette.background.paper,
-        '--gear-inspector-focus-bg-peak': alpha(theme.palette.info.main, 0.07),
-        '--gear-inspector-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
-        '--gear-inspector-focus-shadow-peak': `0 0 0 2px ${alpha(theme.palette.info.main, 0.26)}, 0 8px 18px ${alpha(theme.palette.info.main, 0.2)}`,
+        '--gear-inspector-focus-border-base': cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider),
+        '--gear-inspector-focus-border-peak': (theme.vars?.palette.info.main ?? theme.palette.info.main),
+        '--gear-inspector-focus-bg-base': outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
+        '--gear-inspector-focus-bg-peak': 'rgba(var(--mui-palette-info-mainChannel) / 0.07)',
+        '--gear-inspector-focus-shadow-base': cardHighlighted ? '0 0 0 1px rgba(var(--mui-palette-info-mainChannel) / 0.3)' : 'none',
+        '--gear-inspector-focus-shadow-peak': '0 0 0 2px rgba(var(--mui-palette-info-mainChannel) / 0.26), 0 8px 18px rgba(var(--mui-palette-info-mainChannel) / 0.2)',
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -1281,10 +1272,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         alignContent: 'start',
         // Selection: inner ring + outer glow in primary color; highlight: info glow; default: none.
         boxShadow: selected
-          ? `inset 0 0 0 1px ${theme.palette.primary.main}, 0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
-          : cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+          ? `inset 0 0 0 1px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}, 0 0 0 2px rgba(var(--mui-palette-primary-mainChannel) / 0.25)`
+          : cardHighlighted ? '0 0 0 1px rgba(var(--mui-palette-info-mainChannel) / 0.3)' : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
-        color: theme.palette.text.primary,
+        color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
         opacity: contextOpacity ?? (cardDimmed ? 0.35 : 1),
         // Show pointer when the whole card is clickable for selection.
@@ -1379,7 +1370,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   alignItems: 'center',
                   justifyContent: 'center',
                   // Missing champion images reuse the rarity border to keep the UI consistent.
-                  bgcolor: shouldShowChampionIcon ? 'transparent' : alpha(championBorderColor, 0.14),
+                  // rarityAccentColor is a real hex — alpha() is safe. Without a rarity, fall back to a neutral channel tint.
+                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, 0.14) : 'rgba(var(--mui-palette-text-secondaryChannel) / 0.1)'),
                 }}
               >
                 {shouldShowChampionIcon ? (
@@ -1408,7 +1400,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                       width: '100%',
                       height: '100%',
                       // Keep contrast high but avoid looking like a "real" avatar image.
-                      color: theme.palette.text.secondary,
+                      color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                       fontWeight: 700,
                       fontSize: theme.typography.pxToRem(13),
                       textTransform: 'uppercase',
@@ -1437,7 +1429,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: (theme) => alpha(theme.palette.background.paper, 0.65),
+                    bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.65)',
                     borderRadius: '3px',
                     color: 'text.secondary',
                     fontSize: '0.85rem',
@@ -1551,17 +1543,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         >
           {substatEntries.length > 0 ? (
             substatEntries.map((entry) => {
-                // Use a bar + tint for mythic bonuses to avoid the underline cue.
-                const mythicAccentColor = theme.palette.error.main
-                // Alpha tint keeps the highlight readable without overpowering.
-                const mythicAccentBg = alpha(mythicAccentColor, MYTHIC_SUBSTAT_BG_ALPHA)
                 // Only apply the accent when the stat actually has a mythic bonus.
                 const mythicIndicatorSx = entry.isMythicBonus
                   ? {
                       // Outer glow keeps spacing identical while still calling attention.
-                      boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${mythicAccentColor}`,
-                      // Soft fill keeps the text legible on tinted cards.
-                      backgroundColor: mythicAccentBg,
+                      boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${(theme.vars?.palette.error.main ?? theme.palette.error.main)}`,
+                      // Soft fill keeps the text legible on tinted cards (module-level CSS channel constant).
+                      backgroundColor: MYTHIC_SUBSTAT_BG_CSS,
                       // Rounded corners keep the indicator subtle.
                       borderRadius: `${MYTHIC_SUBSTAT_RADIUS_PX}px`,
                       // Raise the glow above adjacent grid cells so it isn't visually clipped.
@@ -1571,7 +1559,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   : undefined
                 // Neutral halo offsets red-tinted text without replacing user-configured colors.
                 const mythicTextShadow = entry.isMythicBonus
-                  ? `0 0 ${MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX}px ${alpha(theme.palette.background.paper, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA)}`
+                  ? `0 0 ${MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX}px ${MYTHIC_TEXT_SHADOW_CSS}`
                   : undefined
                 // Shadow on the outer row Box works in both modes (it sits above Typography,
                 // so no overflow:hidden ancestor can clip it). In compact mode the row Box
@@ -1998,8 +1986,8 @@ function GearInspectorGridCardSkeleton({
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
-        border: `1px solid ${highlighted ? theme.palette.info.light : theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        border: `1px solid ${highlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
+        bgcolor: (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
         minHeight: cardHeightStyle,
         height: cardHeightStyle,
         maxHeight: cardHeightStyle,

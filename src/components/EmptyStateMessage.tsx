@@ -43,7 +43,7 @@ export function EmptyStateMessage({
     // "Top" still centers horizontally; only the vertical anchoring changes.
     justifyContent: verticalAlign === 'top' ? 'flex-start' : 'center',
     textAlign: 'center' as const,
-    color: theme.palette.text.secondary,
+    color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
     px: 2,
     // Top-aligned empty states read better with slightly tighter vertical padding.
     py: verticalAlign === 'top' ? 2 : 3,

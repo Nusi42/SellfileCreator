@@ -1,6 +1,5 @@
 import { Box, MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
-import { alpha } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
@@ -210,12 +209,12 @@ export function GearSubstatSelect({
         userSelect: 'none',
         ...(selected
           ? {
-              border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-              backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-              color: theme.palette.success.main,
+              border: `1px solid ${theme.custom.successBorder}`,
+              backgroundColor: theme.custom.successBg,
+              color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
             }
           : {
-              border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+              border: `1px solid ${theme.custom.neutralBorder}`,
               backgroundColor: 'transparent',
             }),
       })}
@@ -290,10 +289,10 @@ export function GearSubstatSelect({
               gap: 1,
               alignItems: 'center',
               ...(selected
-                ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) }
+                ? { backgroundColor: theme.custom.successActiveBg }
                 : {}),
               '&:hover': {
-                backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                backgroundColor: theme.custom.successHoverBg,
               },
             }) : { color }}
           >

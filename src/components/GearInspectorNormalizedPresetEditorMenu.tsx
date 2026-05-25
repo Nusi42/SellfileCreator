@@ -7,7 +7,6 @@
  */
 import React from 'react'
 import { Box, Button, Divider, Menu, MenuItem, Select, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import { useI18n } from '../lib/i18n'
@@ -217,11 +216,11 @@ export function GearInspectorNormalizedPresetEditorMenu({
             onClick={() => onToggleVariant(presetId, variant)}
             sx={(theme) => ({
               // Selection highlight mirrors the Sort popout so the control feels familiar.
-              ...(selected ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.14 : 0.08) } : {}),
+              ...(selected ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.08)', ...theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.14)' }) } : {}),
               '&:hover': {
                 backgroundColor: selected
-                  ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12)
-                  : alpha(theme.palette.action.hover, theme.palette.mode === 'dark' ? 0.6 : 1),
+                  ? 'rgba(var(--mui-palette-success-mainChannel) / 0.12)'
+                  : (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
               },
               display: 'flex',
               alignItems: 'center',
@@ -285,9 +284,10 @@ export function GearInspectorNormalizedPresetEditorMenu({
                     px: 0.75,
                     borderRadius: '999px',
                     boxSizing: 'border-box',
-                    border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+                    border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.14)`,
+                    ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.22)` }),
                     backgroundColor: 'transparent',
-                    color: theme.palette.text.secondary,
+                    color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     fontSize: theme.typography.pxToRem(13),
                     fontWeight: 800,
                     letterSpacing: 0.1,

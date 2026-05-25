@@ -188,7 +188,8 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
       pointerEvents: 'none', zIndex: 8,
       '&::before': {
         content: '""', position: 'absolute', inset: 0,
-        background: `radial-gradient(circle at center, ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)'} 0%, rgba(0,0,0,0) 60%)`,
+        background: `radial-gradient(circle at center, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0) 60%)`,
+        ...theme.applyStyles('dark', { background: `radial-gradient(circle at center, rgba(255,255,255,0.14) 0%, rgba(0,0,0,0) 60%)` }),
       },
     })}>
       {/* Rays */}
@@ -231,7 +232,8 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
         WebkitMask: 'radial-gradient(circle at center, transparent 0 56%, #000 58%, #000 100%)',
         mask: 'radial-gradient(circle at center, transparent 0 56%, #000 58%, #000 100%)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 14px 60px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.35)'}, 0 0 120px rgba(255,193,7,0.35)`,
+        boxShadow: `0 14px 60px rgba(0,0,0,0.35), 0 0 120px rgba(255,193,7,0.35)`,
+        ...theme.applyStyles('dark', { boxShadow: `0 14px 60px rgba(0,0,0,0.65), 0 0 120px rgba(255,193,7,0.35)` }),
         animation: [
           `${kfPop} 520ms ease-out`,
           (variant === 0 ? `${kfRingPulse} 1400ms ease-in-out ${520}ms infinite` : null),

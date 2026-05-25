@@ -13,10 +13,11 @@ export const buildWarningBadgeBase = (theme: Theme) => ({
   justifyContent: 'center',
   // Match the warning emphasis used elsewhere in the UI.
   boxShadow: theme.shadows[2],
-  backgroundColor: theme.palette.warning.main,
+  backgroundColor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+  // getContrastText requires a concrete hex/rgb value; CSS var strings are not supported.
   color: theme.palette.getContrastText(theme.palette.warning.main),
   // Outline the badge against the dialog background.
-  border: `2px solid ${theme.palette.background.paper}`,
+  border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
   // Keep the glyph weight consistent with other badges.
   fontWeight: theme.typography.fontWeightBold ?? 600,
   fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',

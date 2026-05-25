@@ -1,10 +1,8 @@
 import React, { memo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import {
   UI_BG_HOVER_DANGER_TRANSITION,
-  DANGER_TINT_BG,
   SCROLLING_TOOLTIP_HIDE_MS,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -294,11 +292,11 @@ function RecipeChipsPanel(props: {
             position: 'relative',
             transition: UI_BG_HOVER_DANGER_TRANSITION,
             backgroundColor: highlightDelete
-              ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+              ? theme.custom.dangerTintBg
               : 'transparent',
             borderRadius: 1,
             outline: 'none',
-            boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
+            boxShadow: showFocusRing ? `0 0 0 2px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}` : 'none',
             // Firefox needs explicit padding to mimic Chrome's stable scrollbar gutter without touching other browsers.
             ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: gutterPadding }),
           }
@@ -348,10 +346,10 @@ function RecipeChipsPanel(props: {
               left: dropGuide.left,
               width: dropGuide.width,
               height: dropGuide.height,
-              backgroundColor: theme.palette.primary.main,
+              backgroundColor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
               borderRadius: dropGuide.height <= 4 ? 2 : 1,
               pointerEvents: 'none',
-              boxShadow: `0 0 8px ${alpha(theme.palette.primary.main, 0.6)}`,
+              boxShadow: `0 0 8px ${'rgba(var(--mui-palette-primary-mainChannel) / 0.6)'}`,
               zIndex: 5,
             })}
           />

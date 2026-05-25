@@ -859,11 +859,11 @@ export function GearInspectorTabContent({
                   width: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
                   height: GEAR_INSPECTOR_COOKIE_HALO_DIAMETER_PX,
                   borderRadius: '50%',
-                  bgcolor: theme.palette.primary.main,
+                  bgcolor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
                   opacity: 0.92,
                   transform: 'translate(-50%, -50%)',
                   pointerEvents: 'none',
-                  boxShadow: `0 0 18px ${theme.palette.primary.light}b0`,
+                  boxShadow: `0 0 18px ${(theme.vars?.palette.primary.light ?? theme.palette.primary.light)}b0`,
                   animation: `${gearInspectorCookiePulse} 1.5s ease-in-out infinite`,
                   zIndex: theme.zIndex.modal + 50,
                 })}
@@ -911,8 +911,8 @@ export function GearInspectorTabContent({
                   position: 'fixed',
                   left: cx + radius + 6,
                   top: cy - radius - 4,
-                  bgcolor: theme.palette.primary.main,
-                  color: theme.palette.common.white,
+                  bgcolor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
+                  color: (theme.vars?.palette.common.white ?? theme.palette.common.white),
                   borderRadius: '12px',
                   px: 1.5,
                   py: 0.5,
@@ -931,7 +931,7 @@ export function GearInspectorTabContent({
                     top: '50%',
                     transform: 'translateY(-50%)',
                     border: '6px solid transparent',
-                    borderRightColor: theme.palette.primary.main,
+                    borderRightColor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
                   },
                 })}
               >
@@ -1621,7 +1621,7 @@ export function GearInspectorTabContent({
                         ...(stepButtonHovered ? {
                           // Match MUI’s default outlined hover affordance so it feels native.
                           '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: theme.palette.text.primary,
+                            borderColor: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
                           },
                         } : {}),
                         '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {

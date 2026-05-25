@@ -2,7 +2,7 @@ import type { JSX } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
@@ -315,7 +315,7 @@ function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.E
   const arrowHighlights: HighlightSpec[] = [
     {
       token: GLYPH_ARROW_RIGHT,
-      sx: { color: theme.palette.info.main, fontWeight: 'inherit' },
+      sx: { color: (theme.vars?.palette.info.main ?? theme.palette.info.main), fontWeight: 'inherit' },
     },
   ]
   return (
@@ -631,7 +631,7 @@ function renderSetDiffCell(params: {
     const content = iconSrc
       ? <SetIcon setId={setId as ArtifactSetId} size={24} label={label} sx={{ mr: 0 }} />
       : (
-        <Typography variant="caption" sx={{ lineHeight: 1.1, color: theme.palette.text.secondary }}>
+        <Typography variant="caption" sx={{ lineHeight: 1.1, color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary) }}>
           {label}
         </Typography>
       )
@@ -673,7 +673,7 @@ function renderSetDiffCell(params: {
           {srLabel}
         </Box>
       ) : null}
-      <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
+      <Typography variant="body2" sx={{ color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary) }}>
         {label}
       </Typography>
     </Box>
@@ -818,7 +818,7 @@ function renderMetasetColumn(params: {
   const rows = union.map((id) => {
     const entry = present.get(id)
     if (!entry) {
-      return renderMetasetPlaceholder({ key: `metaset-placeholder-${id}`, theme })
+      return renderMetasetPlaceholder({ key: `metaset-placeholder-${id}` })
     }
     const highlight: StatDiffHighlight = companion.has(id) ? null : highlightWhenMissing
     return renderMetasetCell({ entry, highlight, theme, t, lang })
@@ -867,22 +867,22 @@ function renderMetasetCell(params: {
           {entry.icon}
         </Box>
       ) : null}
-      <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
+      <Typography variant="body2" sx={{ color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary) }}>
         {entry.name}
       </Typography>
     </Box>
   )
 }
 
-function renderMetasetPlaceholder(params: { key: string; theme: Theme }): React.ReactNode {
-  const { key, theme } = params
+function renderMetasetPlaceholder(params: { key: string }): React.ReactNode {
+  const { key } = params
   return (
     <Box
       key={key}
       sx={{
         minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
         borderRadius: 1,
-        border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
+        border: `1px dashed ${'rgba(var(--mui-palette-text-primaryChannel) / 0.2)'}`,
       }}
     />
   )
@@ -1140,7 +1140,7 @@ function renderDiffGrid(params: {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {left}
         </Box>
-        <Typography variant="body2" sx={{ color: theme.palette.info.main }}>→</Typography>
+        <Typography variant="body2" sx={{ color: (theme.vars?.palette.info.main ?? theme.palette.info.main) }}>→</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {right}
         </Box>
@@ -1158,7 +1158,7 @@ function renderDiffGrid(params: {
       }}
     >
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{left}</Box>
-      <Typography variant="body2" sx={{ color: theme.palette.info.main }}>→</Typography>
+      <Typography variant="body2" sx={{ color: (theme.vars?.palette.info.main ?? theme.palette.info.main) }}>→</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{right}</Box>
     </Box>
   )
@@ -1251,7 +1251,7 @@ function renderExcludedSetLabels(params: {
   return (
     <Typography
       variant="caption"
-      sx={{ color: theme.palette.text.secondary, textDecoration: 'line-through' }}
+      sx={{ color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), textDecoration: 'line-through' }}
     >
       {labels.join(', ')}
     </Typography>
@@ -1285,7 +1285,7 @@ function renderSlotIconGrid(ids: readonly number[], theme: Theme, t: ReturnType<
               justifyContent: 'center',
               fontSize: 16,
               opacity: isSelected ? 1 : 0.25,
-              color: isSelected ? theme.palette.text.primary : theme.palette.text.disabled,
+              color: isSelected ? (theme.vars?.palette.text.primary ?? theme.palette.text.primary) : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled),
             }}
           >
             <Icon fontSize="inherit" />
@@ -1378,7 +1378,7 @@ function renderAlignedStatDiffGrid(params: {
   const previousCells = showPreviousFallback
     ? []
     : unionVariants.map((variant) => {
-      if (!previousSet.has(variant)) return renderPlaceholderCell(variant, theme)
+      if (!previousSet.has(variant)) return renderPlaceholderCell(variant)
       const highlight: StatDiffHighlight = nextSet.has(variant) ? null : 'removed'
       const boundsEntry = previousBounds[variant]
       return renderStatChipCell({
@@ -1397,7 +1397,7 @@ function renderAlignedStatDiffGrid(params: {
   const nextCells = showNextFallback
     ? []
     : unionVariants.map((variant) => {
-      if (!nextSet.has(variant)) return renderPlaceholderCell(variant, theme)
+      if (!nextSet.has(variant)) return renderPlaceholderCell(variant)
       const highlight: StatDiffHighlight = previousSet.has(variant) ? null : 'added'
       const boundsEntry = nextBounds[variant]
       return renderStatChipCell({
@@ -1448,14 +1448,14 @@ function renderAlignedStatDiffGrid(params: {
   })
 }
 
-function renderPlaceholderCell(key: number | string, theme: Theme): React.ReactNode {
+function renderPlaceholderCell(key: number | string): React.ReactNode {
   return (
     <Box
       key={`placeholder-${key}`}
       sx={{
         minHeight: 22,
         borderRadius: 1,
-        border: `1px dashed ${alpha(theme.palette.text.primary, 0.15)}`,
+        border: `1px dashed ${'rgba(var(--mui-palette-text-primaryChannel) / 0.15)'}`,
       }}
     />
   )
@@ -1486,8 +1486,8 @@ function renderStatChipCell(params: {
     showRollIndicator = true,
   } = params
   const colorEntry = colors[variant] ?? null
-  const fg = shouldColorize && colorEntry ? colorEntry.fg : theme.palette.text.primary
-  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : alpha(theme.palette.text.primary, 0.08)
+  const fg = shouldColorize && colorEntry ? colorEntry.fg : (theme.vars?.palette.text.primary ?? theme.palette.text.primary)
+  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)'
   const label = t(statVariantI18nKey(variant as StatVariantLike))
   const min = bounds?.min
   const max = bounds?.max
@@ -1574,7 +1574,7 @@ function buildVariantUnion(previous: number[], next: number[]): number[] {
 function makeRollIndicator(params: { min?: number; max?: number; wildcard?: boolean; theme: Theme }): React.ReactNode {
   const { min, max, wildcard, theme } = params
   if (wildcard) {
-    const color = theme.palette.success.main
+    const color = (theme.vars?.palette.success.main ?? theme.palette.success.main)
     return (
       <Box
         component="span"
@@ -1599,7 +1599,7 @@ function makeRollIndicator(params: { min?: number; max?: number; wildcard?: bool
   if (max === undefined && min === undefined) return null
   const showCap = max !== undefined
   const value = showCap ? max! : min!
-  const color = showCap ? theme.palette.error.main : theme.palette.success.main
+  const color = showCap ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
   return (
     <Box
       component="span"

@@ -40,7 +40,11 @@ const stopSignSx = (theme: Theme, visible: boolean) => ({
   alignItems: 'center',
   justifyContent: 'center',
   pointerEvents: visible ? 'auto' : 'none',
-  backgroundColor: alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.35 : 0.22),
+  // Light-mode base; dark mode uses a slightly more opaque scrim.
+  backgroundColor: alpha(theme.palette.common.black, 0.22),
+  ...theme.applyStyles('dark', {
+    backgroundColor: alpha(theme.palette.common.black, 0.35),
+  }),
   ...overlayFadeSx(visible),
 } as const)
 
@@ -48,8 +52,8 @@ const stopSignOctagonSx = (theme: Theme, phase: 'enter' | 'latched' | 'exit' | '
   width: 140,
   height: 140,
   clipPath: octagonClipPath,
-  backgroundColor: theme.palette.error.main,
-  border: `10px solid ${theme.palette.common.white}`,
+  backgroundColor: (theme.vars?.palette.error.main ?? theme.palette.error.main),
+  border: `10px solid ${(theme.vars?.palette.common.white ?? theme.palette.common.white)}`,
   boxShadow: theme.shadows[8],
   display: 'flex',
   alignItems: 'center',
@@ -68,8 +72,13 @@ const bannerSx = (theme: Theme, visible: boolean) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.24 : 0.18),
-  border: `1px solid ${alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.6 : 0.5)}`,
+  // Light-mode base; dark mode uses slightly stronger warning tints.
+  backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.18)',
+  border: `1px solid ${'rgba(var(--mui-palette-warning-mainChannel) / 0.5)'}`,
+  ...theme.applyStyles('dark', {
+    backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.24)',
+    borderColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.6)',
+  }),
   boxShadow: theme.shadows[3],
   transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(0, -10px, 0) scale(0.98)',
   opacity: visible ? 1 : 0,
@@ -91,8 +100,13 @@ const microConfirmBubbleSx = (theme: Theme, visible: boolean, anchor: { x: numbe
   px: 1,
   py: 0.75,
   borderRadius: 12,
-  backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.92 : 0.98),
-  border: `1px solid ${alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.6 : 0.5)}`,
+  // Light-mode base; dark mode allows more transparency for the bubble background.
+  backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.98)',
+  border: `1px solid ${'rgba(var(--mui-palette-error-mainChannel) / 0.5)'}`,
+  ...theme.applyStyles('dark', {
+    backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.92)',
+    borderColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.6)',
+  }),
   boxShadow: theme.shadows[6],
 } as const)
 

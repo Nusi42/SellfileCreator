@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, InputAdornment, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { alpha, type Theme } from '@mui/material/styles'
+import { type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
   COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
@@ -653,7 +653,7 @@ export default function PreviewHeaderActions(props: {
     boxShadow: theme.shadows[2],
     backgroundColor: theme.palette[paletteKey].main,
     color: theme.palette.getContrastText(theme.palette[paletteKey].main),
-    border: `2px solid ${theme.palette.background.paper}`,
+    border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
     fontWeight: theme.typography.fontWeightBold ?? 600,
     fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
     lineHeight: 1,
@@ -1677,10 +1677,10 @@ export default function PreviewHeaderActions(props: {
 	                    sx={(theme) => ({
 	                      gap: 1,
 	                      alignItems: 'center',
-	                      ...(rowDisabled ? { opacity: theme.palette.action.disabledOpacity } : {}),
-                      ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
+	                      ...(rowDisabled ? { opacity: (theme.vars?.palette.action.disabledOpacity ?? theme.palette.action.disabledOpacity) } : {}),
+                      ...(active ? { backgroundColor: theme.custom.successActiveBg } : {}),
                       '&:hover': {
-                        backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                        backgroundColor: theme.custom.successHoverBg,
                       },
                     })}
                   >
@@ -1737,9 +1737,9 @@ export default function PreviewHeaderActions(props: {
                             fontWeight: 700,
                             letterSpacing: 0.1,
                             fontVariantNumeric: 'tabular-nums',
-                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-                            color: theme.palette.success.main,
+                            border: `1px solid ${theme.custom.successBorder}`,
+                            backgroundColor: theme.custom.successBg,
+                            color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
                             cursor: priorityDisabled ? 'default' : 'pointer',
                             opacity: priorityDisabled ? 0.35 : 1,
                           })}
@@ -1771,9 +1771,9 @@ export default function PreviewHeaderActions(props: {
 	                            fontSize: theme.typography.pxToRem(14),
 	                            fontWeight: 800,
 	                            letterSpacing: 0.1,
-	                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-	                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-	                            color: theme.palette.success.main,
+	                            border: `1px solid ${theme.custom.successBorder}`,
+	                            backgroundColor: theme.custom.successBg,
+	                            color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
 	                            userSelect: 'none',
 	                          })}
 	                        >
@@ -1794,7 +1794,7 @@ export default function PreviewHeaderActions(props: {
                             px: 0.75,
                             borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                             boxSizing: 'border-box',
-                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+                            border: `1px solid ${theme.custom.neutralBorder}`,
                             backgroundColor: 'transparent',
                             cursor: priorityDisabled ? 'default' : 'pointer',
                             opacity: priorityDisabled ? 0.35 : 1,
@@ -1836,9 +1836,11 @@ export default function PreviewHeaderActions(props: {
                                 fontSize: theme.typography.pxToRem(14),
                                 fontWeight: 700,
                                 letterSpacing: 0.1,
-                                border: `1px solid ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.65 : 0.5)}`,
-                                backgroundColor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.12 : 0.08),
-                                color: theme.palette.info.main,
+                                border: `1px solid rgba(var(--mui-palette-info-mainChannel) / 0.5)`,
+                                ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-info-mainChannel) / 0.65)` }),
+                                backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.08)',
+                                ...theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)' }),
+                                color: (theme.vars?.palette.info.main ?? theme.palette.info.main),
                               })}
                             >
                               {perKeyFlipped ? '⇵' : '⇅'}
@@ -1859,7 +1861,8 @@ export default function PreviewHeaderActions(props: {
 	                            px: 0.75,
 	                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
 	                            boxSizing: 'border-box',
-	                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
+	                            border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.12)`,
+                            ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.18)` }),
 	                            backgroundColor: 'transparent',
 	                            cursor: priorityDisabled ? 'default' : 'pointer',
 	                            opacity: priorityDisabled ? 0.35 : 1,

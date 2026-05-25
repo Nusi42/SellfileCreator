@@ -87,7 +87,7 @@ import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
 import { ColorField } from './ColorField'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
@@ -1652,27 +1652,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   })
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
-  const mixedBorderColor = useMemo(
-    () => alpha(
-      theme.palette.text.primary,
-      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light,
-    ),
-    [theme],
-  )
-  const mixedPatternColor = useMemo(
-    () => alpha(
-      theme.palette.text.primary,
-      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light,
-    ),
-    [theme],
-  )
-  const mixedTextColor = useMemo(
-    () => alpha(
-      theme.palette.text.primary,
-      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light,
-    ),
-    [theme],
-  )
+  // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
+  const mixedBorderColor = theme.custom.multiEditMixedBorder
+  const mixedPatternColor = theme.custom.multiEditMixedBg
+  const mixedTextColor = theme.custom.multiEditMixedText
   const substatColors = _substatColors
   const recipeCount = _recipeCount
   // Shared styling for the builder's status chips (Flex, Only locked, Auto ≥ …).
@@ -2242,7 +2225,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     minWidth: 16,
     height: 16,
     borderRadius: '50%',
-    backgroundColor: theme.palette.warning.main,
+    backgroundColor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
+    // getContrastText requires a concrete hex/rgb value; CSS var strings are not supported.
     color: theme.palette.getContrastText(theme.palette.warning.main),
     fontWeight: theme.typography.fontWeightBold ?? 600,
     fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(10) : '0.65rem',
@@ -3228,7 +3212,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             textShadow: 'none',
           }
         : {
-            color: theme.palette.text.primary,
+            color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
             textShadow: 'none',
           }
       const handleClick = (event: React.MouseEvent) => {
@@ -3325,7 +3309,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
             }
             : {}),
-          color: theme.palette.text.primary,
+          color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
           transition: 'background-color .15s, border-color .15s, color .15s',
           '&[data-interactive-hover="true"]': {
             '--sub-lock-hover-opacity': lockHoverBaseOpacity,
@@ -3334,11 +3318,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             backgroundColor: 'transparent !important',
           },
           '&.Mui-selected[data-interactive-hover="true"]': {
-            backgroundColor: theme.palette.action.selected,
-            color: theme.palette.text.primary,
+            backgroundColor: (theme.vars?.palette.action.selected ?? theme.palette.action.selected),
+            color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
           },
           '&.Mui-selected[data-interactive-hover="true"] .roll-label': {
-            color: theme.palette.text.primary,
+            color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
           },
         } as (SystemStyleObject<Theme> & Record<string, unknown>)
         return base
@@ -3588,7 +3572,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
       })
       const glyph = mixed ? '' : isNotActive ? '¬' : (mode === 'min' ? '≥' : '≤')
-      const glyphColor = (mode === 'max') ? theme.palette.error.main : theme.palette.success.main
+      const glyphColor = (mode === 'max') ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
       const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
       const enforcedWidth = (() => {
         if (chipWidth === 0) return undefined
@@ -3935,7 +3919,7 @@ const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  color: theme.palette.text.secondary,
+  color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
   fontSize: theme.typography.body2.fontSize,
   flexWrap: 'wrap',
   wordBreak: 'break-word',
@@ -3993,10 +3977,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
       const selectedText = themeInner.palette.common.white
       const baseBorder = themeInner.palette.text.secondary
-      const hoverGlow = alpha(
-        themeInner.palette.text.primary,
-        themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
-      )
+      const hoverGlow = 'rgba(var(--mui-palette-text-primaryChannel) / 0.22)'
       const base: SystemStyleObject<Theme> = {
         display: 'grid',
         gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
@@ -4732,10 +4713,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         }
                       }}
                       sx={(theme) => {
-                        const glow = alpha(
-                          theme.palette.text.primary,
-                          theme.palette.mode === 'dark' ? 0.22 : 0.14,
-                        )
+                        // CSS channel token adapts per scheme; 0.18 gives a legible hover ring in both dark and light.
+                        const glow = 'rgba(var(--mui-palette-text-primaryChannel) / 0.18)'
                         return {
                           position: 'absolute',
                           top: -13,
@@ -4752,7 +4731,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: 'transparent',
-                          color: lockedActive ? theme.palette.text.primary : (lockedMixed ? mixedTextColor : theme.palette.text.primary),
+                          color: lockedActive ? (theme.vars?.palette.text.primary ?? theme.palette.text.primary) : (lockedMixed ? mixedTextColor : (theme.vars?.palette.text.primary ?? theme.palette.text.primary)),
                           cursor: lockIconEnabled ? 'pointer' : 'default',
                           '--sub-lock-hover-opacity': lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
                           boxShadow: 'none',
@@ -5899,7 +5878,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         boxShadow: 'none',
-        backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+        backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
       })}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <TextField
@@ -5939,7 +5918,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })}>
           {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -6044,12 +6023,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       update('keep', v === 'keep')
                     }
                   }}
-                  sx={{
+                  sx={(builtTheme) => ({
                     height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     position: 'relative',
-                    // Rounded corners match the safeguard builder mode toggle group.
-                    borderRadius: '8px',
+                    borderRadius: `${builtTheme.shape.borderRadius}px`,
                     overflow: 'hidden',
                     '& .MuiToggleButton-root': {
                       position: 'relative',
@@ -6062,14 +6040,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         content: '""',
                         position: 'absolute',
                         inset: 0,
-                        borderRadius: '8px',
+                        borderRadius: `${builtTheme.shape.borderRadius}px`,
                         border: `1px dashed ${mixedBorderColor}`,
                         backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                         pointerEvents: 'none',
                         zIndex: 0,
                       },
                     } : {}),
-                  }}
+                  })}
                   data-tour-id="builder.action"
                 >
                 <ToggleButton
@@ -6079,12 +6057,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     const selected = keepValue === 'keep'
                     const baseBorder = selected
                       ? muiTheme.palette.success.main
-                      : alpha(
-                          muiTheme.palette.mode === 'dark'
-                            ? muiTheme.palette.common.white
-                            : muiTheme.palette.common.black,
-                          0.12,
-                        )
+                      : 'rgba(var(--mui-palette-text-primaryChannel) / 0.12)'
                     return {
                       borderColor: baseBorder,
                       color: selected ? muiTheme.palette.common.black : muiTheme.palette.text.primary,
@@ -6165,10 +6138,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     px: 1.5,
                     position: 'relative',
                     '&.Mui-selected': {
-                      bgcolor: theme.palette.success.main,
-                      color: theme.palette.common.black,
-                      borderColor: theme.palette.success.main,
-                      '&:hover': { bgcolor: theme.palette.success.light },
+                      bgcolor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
+                      color: (theme.vars?.palette.common.black ?? theme.palette.common.black),
+                      borderColor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
+                      '&:hover': { bgcolor: (theme.vars?.palette.success.light ?? theme.palette.success.light) },
                     },
                   })}
                 >
@@ -6194,10 +6167,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     px: 1.5,
                     position: 'relative',
                     '&.Mui-selected': {
-                      color: theme.palette.success.main,
+                      color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
                       bgcolor: 'transparent',
-                      borderColor: theme.palette.success.main,
-                      '&:hover': { bgcolor: alpha(theme.palette.success.main, 0.12) },
+                      borderColor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
+                      '&:hover': { bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.12)' },
                     },
                   })}
                 >
@@ -6374,7 +6347,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })}>
         {/* Rank — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
@@ -6796,7 +6769,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.level-window">
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -6853,7 +6826,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           // Align hover timing with other groups for Reset hover tint
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
@@ -6884,7 +6857,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
@@ -6923,7 +6896,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
@@ -7004,7 +6977,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       : {}),
                     '&:hover': {
                       backgroundColor: slotState === 'partial'
-                        ? theme.palette.action.selected
+                        ? (theme.vars?.palette.action.selected ?? theme.palette.action.selected)
                         : undefined,
                     },
                   })}
@@ -7070,7 +7043,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })}>
         <FormControl sx={{ m: 0 }}>
           <Box
@@ -7126,7 +7099,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
+          backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })}>
         {/* Sets multi-select with order toggle and search */}
         <FormControl fullWidth sx={{ m: 0 }}>

@@ -20,7 +20,7 @@ import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import SortIcon from '@mui/icons-material/Sort'
 // alpha is used in the scroll-hint overlay background; the card's tints are handled in GearInspectorGridCard.
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { useTheme, type Theme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import GearInspectorOutcomeSummaryChip, { GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS } from './GearInspectorOutcomeSummaryChip'
@@ -296,6 +296,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
+  // Extracted so useMemo dependency arrays can reference stable simple variables instead of complex expressions.
+  const paletteErrorMain = theme.vars?.palette.error.main ?? theme.palette.error.main
+  const paletteSuccessMain = theme.vars?.palette.success.main ?? theme.palette.success.main
   // Sort prefs are the SSOT for glyph inclusion so the Sort popout and grid context menu stay in sync.
   const gearInspectorSubstatSortPreferences = useGearInspectorSubstatSortPreferences()
   const effectiveSubstatSort = useMemo(
@@ -418,8 +421,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
 
     // Theme palette endpoints drive the red→green gradient; fall back to hardcoded RGB if parsing fails.
-    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
-    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    const lowRgb = parseCssColorToRgb(paletteErrorMain) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(paletteSuccessMain) ?? { r: 22, g: 163, b: 74 }
     const range = max - min
 
     // Second pass converts scores into overlay text + range-mapped colors.
@@ -440,8 +443,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     rows,
     effectiveSubstatSort?.priorities,
     effectiveSubstatSort?.weights,
-    theme.palette.error.main,
-    theme.palette.success.main,
+    paletteErrorMain,
+    paletteSuccessMain,
   ])
   // Group chips can optionally compare filtered rows against the original unfiltered dataset.
   const groupSummarySourceRows = allRows ?? rows
@@ -552,8 +555,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       min = Math.min(min, entry.chancePercent)
       max = Math.max(max, entry.chancePercent)
     }
-    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
-    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    const lowRgb = parseCssColorToRgb(paletteErrorMain) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(paletteSuccessMain) ?? { r: 22, g: 163, b: 74 }
     const range = max - min
     const requirementSubstatsToken = '__REQUIREMENT_SUBSTATS__'
     // Pre-format percentage labels + click handlers so row rendering stays allocation-light.
@@ -726,8 +729,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     substatColors,
     useStatButtonColors,
     t,
-    theme.palette.error.main,
-    theme.palette.success.main,
+    paletteErrorMain,
+    paletteSuccessMain,
   ])
   // Safeguard rank bottom chip: "#N" for ranked items with table-format tooltip (primary bold + others).
   // green = kept (within quota), red = sold.
@@ -742,8 +745,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       if (rank <= 0) return
       // Resolve chip color: green = kept, red = sold.
       const color = isWithinQuota
-        ? theme.palette.success.main
-        : theme.palette.error.main
+        ? paletteSuccessMain
+        : paletteErrorMain
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
       // ruleOrdinal is 1-based; safeguardRules array is 0-based.
       const primaryRule = ruleOrdinal != null ? (safeguardRules?.[ruleOrdinal - 1] ?? null) : null
@@ -791,7 +794,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       overlays.set(artifactId, { text: `#${rank}`, color, tooltipRender, ...(onClick ? { onClick } : {}) })
     })
     return overlays.size > 0 ? overlays : null
-  }, [safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, theme.palette.success.main, theme.palette.error.main, t])
+  }, [safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, paletteSuccessMain, paletteErrorMain, t])
 
   // Gear actions only apply to the Gear Inspector grid and must be explicitly enabled.
   const canShowRuleTemplateActions = variant === 'gearInspector'
@@ -1915,7 +1918,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const sharedBodySx = (theme: Theme) => ({
       borderLeft: `1px solid ${theme.palette.divider}`,
       borderRight: `1px solid ${theme.palette.divider}`,
-      backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
+      backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
@@ -2009,7 +2012,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             border: `1px solid ${theme.palette.divider}`,
             borderBottomLeftRadius: expanded ? 0 : `${headerRadius}px`,
             borderBottomRightRadius: expanded ? 0 : `${headerRadius}px`,
-            backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
+            backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
             height: '100%',
             overflow: 'hidden',
           })}
@@ -2372,9 +2375,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             px: 1.25,
             py: 0.5,
             borderRadius: `${Math.max(2, Math.round(Number(theme.shape.borderRadius) / 2))}px`,
-            backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
+            backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)',
             boxShadow: theme.shadows[3],
-            color: theme.palette.text.primary,
+            color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
             transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
             opacity: showScrollGroupHint ? 1 : 0,
             transform: showScrollGroupHint ? 'translateY(0)' : 'translateY(-6px)',

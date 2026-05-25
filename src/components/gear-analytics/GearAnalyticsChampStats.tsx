@@ -257,7 +257,7 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
           {/* Avg marker — solid vertical line overlaid on the curve. */}
           <Box sx={{
             position: 'absolute', left: `${avgPct}%`, width: 2, height: '100%',
-            bgcolor: theme.palette.primary.main, transform: 'translateX(-50%)', zIndex: 1,
+            bgcolor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main), transform: 'translateX(-50%)', zIndex: 1,
           }} />
         </Box>
         </Tooltip>

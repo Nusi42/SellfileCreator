@@ -1196,8 +1196,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                 justifyContent: 'center',
                                 py: 0.75,
                                 borderRadius: 1,
-                                color: theme.palette.text.primary,
-                                '&:hover': { backgroundColor: theme.palette.action.hover },
+                                color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                                '&:hover': { backgroundColor: (theme.vars?.palette.action.hover ?? theme.palette.action.hover) },
                               })}
                             >
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>{content}</Typography>
@@ -1231,8 +1231,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                   justifyContent: 'center',
                                   py: 0.75,
                                   borderRadius: 1,
-                                  color: theme.palette.text.primary,
-                                  '&:hover': { backgroundColor: theme.palette.action.hover },
+                                  color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
+                                  '&:hover': { backgroundColor: (theme.vars?.palette.action.hover ?? theme.palette.action.hover) },
                                 })}
                               >
                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{content}</Typography>
@@ -1374,7 +1374,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                       px: 0.5,
                                       py: 0.25,
                                       cursor: 'help',
-                                      '&:hover': { backgroundColor: theme.palette.action.hover },
+                                      '&:hover': { backgroundColor: (theme.vars?.palette.action.hover ?? theme.palette.action.hover) },
                                     })}
                                   >
                                     {/* EllipsisTooltip prevents long stat labels from overlapping the value. */}

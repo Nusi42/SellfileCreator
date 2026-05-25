@@ -3,7 +3,6 @@ import { Box, IconButton } from '@mui/material'
 import type { BoxProps } from '@mui/material/Box'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
-import { alpha } from '@mui/material/styles'
 import {
   FONT_SIZE_SECONDARY_PX,
   ROLL_BADGE_HOVER_GUTTER_PX,
@@ -12,9 +11,6 @@ import {
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
   BUILDER_SUBSTAT_IDLE_GUTTER_PX,
-  MULTI_EDIT_MIXED_BG_ALPHA,
-  MULTI_EDIT_MIXED_BORDER_ALPHA,
-  MULTI_EDIT_MIXED_TEXT_ALPHA,
 } from '../lib/constants'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
 // Use MarkdownTooltip for both the lock badge and roll indicator so builders see consistent multi-line copy.
@@ -150,10 +146,7 @@ export function SubstatToggleDisplay({
                 disableRipple
                 disabled={lockDisabled || disableInteractions}
                 sx={(theme) => {
-                  const hoverGlow = alpha(
-                    theme.palette.text.primary,
-                    theme.palette.mode === 'dark' ? 0.22 : 0.14,
-                  )
+                  const hoverGlow = theme.custom.neutralBorder
                   return {
                     width: LOCK_TOGGLE_HIT_SIZE_PX,
                     height: LOCK_TOGGLE_HIT_SIZE_PX,
@@ -251,38 +244,26 @@ export function SubstatToggleDisplay({
             } catch {}
           }}
           sx={(theme) => {
-            const mixedBorder = alpha(
-              theme.palette.text.primary,
-              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light,
-            )
-            const mixedBg = alpha(
-              theme.palette.text.primary,
-              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light,
-            )
-            const mixedText = alpha(
-              theme.palette.text.primary,
-              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light,
-            )
+            const mixedBorder = theme.custom.multiEditMixedBorder
+            const mixedBg = theme.custom.multiEditMixedBg
+            const mixedText = theme.custom.multiEditMixedText
             const isRedVariant = hasMax || notSub
             const borderColor = indicatorMixed
               ? mixedBorder
               : (isRedVariant
-                ? theme.palette.error.main
-                : (wildcard || hasMin ? theme.palette.success.main : theme.palette.text.secondary))
+                ? (theme.vars?.palette.error.main ?? theme.palette.error.main)
+                : (wildcard || hasMin ? (theme.vars?.palette.success.main ?? theme.palette.success.main) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)))
             const textColor = indicatorMixed
               ? mixedText
               : (isRedVariant
-                ? theme.palette.error.contrastText
-                : (wildcard || hasMin ? theme.palette.common.white : theme.palette.text.secondary))
+                ? (theme.vars?.palette.error.contrastText ?? theme.palette.error.contrastText)
+                : (wildcard || hasMin ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)))
             const backgroundColor = indicatorMixed
               ? mixedBg
               : (isRedVariant
-                ? theme.palette.error.main
-                : (wildcard || hasMin ? theme.palette.success.main : 'transparent'))
-            const hoverGlow = alpha(
-              theme.palette.text.primary,
-              theme.palette.mode === 'dark' ? 0.22 : 0.14,
-            )
+                ? (theme.vars?.palette.error.main ?? theme.palette.error.main)
+                : (wildcard || hasMin ? (theme.vars?.palette.success.main ?? theme.palette.success.main) : 'transparent'))
+            const hoverGlow = theme.custom.neutralBorder
             return {
               gridColumn: '3',
               justifySelf: 'end',

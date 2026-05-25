@@ -9,7 +9,6 @@
  */
 import React from 'react'
 import { Box } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
@@ -174,8 +173,8 @@ export function GearInspectorSortWeightControls({
             borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
             fontSize: theme.typography.pxToRem(14),
             fontWeight: 800,
-            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
-            color: theme.palette.text.secondary,
+            border: `1px solid ${theme.custom.weakBorder}`,
+            color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
             userSelect: 'none',
           })}
         >
@@ -218,9 +217,9 @@ export function GearInspectorSortWeightControls({
             fontWeight: 800,
             letterSpacing: 0.1,
             fontVariantNumeric: 'tabular-nums',
-            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-            color: theme.palette.success.main,
+            border: `1px solid ${theme.custom.successBorder}`,
+            backgroundColor: theme.custom.successBg,
+            color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
             userSelect: 'none',
           })}
         >
@@ -266,8 +265,8 @@ export function GearInspectorSortWeightControls({
             borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
             fontSize: theme.typography.pxToRem(14),
             fontWeight: 800,
-            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
-            color: theme.palette.text.secondary,
+            border: `1px solid ${theme.custom.weakBorder}`,
+            color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
             userSelect: 'none',
           })}
         >

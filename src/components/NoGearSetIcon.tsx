@@ -1,4 +1,5 @@
 import { Box } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 
 // Use the shared Spider icon asset for the no-set accessory marker.
 // Exported so other components (e.g. GearAnalyticsTabContent) can reference the same URL.
@@ -15,6 +16,7 @@ type NoGearSetIconProps = {
 }
 
 export function NoGearSetIcon({ fontSize = 'small' }: NoGearSetIconProps) {
+  const theme = useTheme()
   // The asset scales with font size so it matches existing icon sizing.
   const size = fontSize === 'inherit' ? '1em' : `${ICON_SIZE_PX[fontSize]}px`
   return (
@@ -32,6 +34,8 @@ export function NoGearSetIcon({ fontSize = 'small' }: NoGearSetIconProps) {
         objectFit: 'contain',
         userSelect: 'none',
         WebkitUserDrag: 'none',
+        // Spider.webp is white-on-transparent; invert in light mode so it draws on the light background.
+        ...theme.applyStyles('light', { filter: 'invert(1)' }),
       }}
     />
   )
