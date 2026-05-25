@@ -169,6 +169,7 @@ import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import SfcImportOptionsDialog, { type SfcImportModes, type SfcImportSelection } from './components/dialogs/SfcImportOptionsDialog'
 import RslHelperConnectButton from './components/RslHelperConnectButton'
+import PongFlyout from './components/PongFlyout'
 import { useAutosave } from './hooks/useAutosave'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
@@ -303,6 +304,7 @@ import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/recipeMultiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useModalCleanup } from './hooks/useModalCleanup'
+import { useEasterEggTrigger } from './hooks/useEasterEggTrigger'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useSfcClipboard, type PendingImport } from './hooks/useSfcClipboard'
@@ -7444,6 +7446,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
                 return { ...cur, artifacts: false, accessories: false }
               }, { mode: 'quickToggle' })
+              if (recordFinalSellEasterEggClick('pong')) setPongOpen(true)
             }}
             aria-label={t('finalSellToggleLabel')}
             aria-pressed={fsEnabled}
@@ -7914,6 +7917,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     t,
   ])
+  // Easter egg: 10 rapid clicks on the Final Sell toggle button opens Pong.
+  const recordFinalSellEasterEggClick = useEasterEggTrigger(10, 10_000)
+  const [pongOpen, setPongOpen] = useState(false)
+
   const handleExportSellfile = useCallback(() => {
     // No rules means both push/download should be a no-op.
     if (!exportRulesCountRef.current) return
@@ -8935,6 +8942,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onClose={handleFileFormatErrorClose}
         />
       ) : null}
+      {/* Easter egg: Pong flyout — opened by 10 rapid clicks on the Final Sell toggle button */}
+      {pongOpen && <PongFlyout onClose={() => setPongOpen(false)} />}
     </Container>
   )
 }
