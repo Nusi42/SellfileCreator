@@ -1329,6 +1329,25 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Yardım / README",
   helpLanguage: "Dil",
+  // Theme settings flyout
+  themeSettings: "Görünüm",
+  themeMode: "Mod",
+  themeDark: "Koyu",
+  themeLight: "Açık",
+  themeDarkAria: "Koyu mod",
+  themeLightAria: "Açık mod",
+  themeColorAccent: "Vurgu",
+  themeColorToggles: "Düğmeler",
+  themeColorSelection: "Seçim",
+  themeColorBackground: "Arka plan",
+  themeColorPaper: "Yüzey",
+  themeColorDividers: "Bölücüler",
+  themeColorSuccess: "Başarı",
+  themeColorWarning: "Uyarı",
+  themeColorError: "Hata",
+  themeCorners: "Köşeler",
+  themeSelectionOpacity: "Seçim %",
+  themePsychedelic: "Psikedelik",
 
   // Tutorial chrome
   tutorialStep: "Adım",

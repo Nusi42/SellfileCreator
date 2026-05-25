@@ -1364,6 +1364,26 @@ const enUS: Catalog = {
   helpAriaLabel: "Help / README",
   helpLanguage: "Language",
 
+  // Theme settings flyout
+  themeSettings: "Theme settings",
+  themeMode: "Mode",
+  themeDark: "Dark",
+  themeLight: "Light",
+  themeDarkAria: "Dark mode",
+  themeLightAria: "Light mode",
+  themeColorAccent: "Accent",
+  themeColorToggles: "Toggles",
+  themeColorSelection: "Selection",
+  themeColorBackground: "Background",
+  themeColorPaper: "Paper",
+  themeColorDividers: "Dividers",
+  themeColorSuccess: "Success",
+  themeColorWarning: "Warning",
+  themeColorError: "Error",
+  themeCorners: "Corners",
+  themeSelectionOpacity: "Selection %",
+  themePsychedelic: "Psychedelic",
+
   // Tutorial chrome
   tutorialStep: "Step",
   tutorialExit: "Exit Tutorial",

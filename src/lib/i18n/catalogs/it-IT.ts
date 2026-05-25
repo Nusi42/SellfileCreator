@@ -1332,6 +1332,25 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Guida / README",
   helpLanguage: "Lingua",
+  // Theme settings flyout
+  themeSettings: "Aspetto",
+  themeMode: "Modalità",
+  themeDark: "Scuro",
+  themeLight: "Chiaro",
+  themeDarkAria: "Modalità scura",
+  themeLightAria: "Modalità chiara",
+  themeColorAccent: "Accento",
+  themeColorToggles: "Pulsanti",
+  themeColorSelection: "Selezione",
+  themeColorBackground: "Sfondo",
+  themeColorPaper: "Superficie",
+  themeColorDividers: "Divisori",
+  themeColorSuccess: "Successo",
+  themeColorWarning: "Avviso",
+  themeColorError: "Errore",
+  themeCorners: "Angoli",
+  themeSelectionOpacity: "Selezione %",
+  themePsychedelic: "Psichedelico",
 
   // Tutorial chrome
   tutorialStep: "Passo",

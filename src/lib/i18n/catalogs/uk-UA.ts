@@ -1330,6 +1330,25 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Довідка / README",
   helpLanguage: "Мова",
+  // Theme settings flyout
+  themeSettings: "Оформлення",
+  themeMode: "Режим",
+  themeDark: "Темний",
+  themeLight: "Світлий",
+  themeDarkAria: "Темний режим",
+  themeLightAria: "Світлий режим",
+  themeColorAccent: "Акцент",
+  themeColorToggles: "Перемикачі",
+  themeColorSelection: "Виділення",
+  themeColorBackground: "Фон",
+  themeColorPaper: "Поверхня",
+  themeColorDividers: "Розділювачі",
+  themeColorSuccess: "Успіх",
+  themeColorWarning: "Попередження",
+  themeColorError: "Помилка",
+  themeCorners: "Заокруглення",
+  themeSelectionOpacity: "Виділення %",
+  themePsychedelic: "Психоделік",
 
   // Tutorial chrome
   tutorialStep: "Крок",

@@ -1327,6 +1327,26 @@ const overrides: Catalog = {
   helpAriaLabel: "Hilfe / README",
   helpLanguage: "Sprache",
 
+  // Theme settings flyout
+  themeSettings: "Darstellung",
+  themeMode: "Modus",
+  themeDark: "Dunkel",
+  themeLight: "Hell",
+  themeDarkAria: "Dunkelmodus",
+  themeLightAria: "Hellmodus",
+  themeColorAccent: "Akzent",
+  themeColorToggles: "Schalter",
+  themeColorSelection: "Auswahl",
+  themeColorBackground: "Hintergrund",
+  themeColorPaper: "Karte",
+  themeColorDividers: "Trennlinien",
+  themeColorSuccess: "Erfolg",
+  themeColorWarning: "Warnung",
+  themeColorError: "Fehler",
+  themeCorners: "Ecken",
+  themeSelectionOpacity: "Auswahl %",
+  themePsychedelic: "Psychedelisch",
+
   // Tutorial chrome
   tutorialStep: "Schritt",
   tutorialExit: "Tutorial beenden",

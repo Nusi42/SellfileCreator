@@ -44,6 +44,18 @@ function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
 
+// Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
+function hslToHex(h: number, s: number, l: number): string {
+  h = ((h % 360) + 360) % 360
+  s /= 100; l /= 100
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
   if (typeof document === 'undefined') return undefined
@@ -109,11 +121,51 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     if (themeMenuOpen) setDraft(themeCustom)
   }
 
+  const [psychedelic, setPsychedelic] = React.useState(false)
+  // Tracks the hue start angle and wall-clock start so the animation resumes smoothly
+  // across effect restarts (e.g., when themeMode changes while the cycle is running).
+  const psychedelicStartRef = React.useRef<{ time: number; startHue: number } | null>(null)
+
   const resetColors = React.useCallback(() => {
+    setPsychedelic(false)
     const blank = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null } as const
     setDraft(blank)
     setThemeCustom(blank)
   }, [setThemeCustom])
+
+  // Psychedelic cycle: all theme colors rotate through HSL hue space in harmony.
+  // Accent colors (S=80) are vivid; background/paper use a desaturated hue tint.
+  // All fields advance at the same rate (18°/s) so harmonic offsets stay fixed.
+  React.useEffect(() => {
+    if (!psychedelic) return
+    const isDark = (themeMode ?? 'dark') === 'dark'
+    const aS = 80
+    const aL = isDark ? 57 : 44
+    const bgS = 15
+    const bgL = isDark ? 8 : 93
+    // Continue from wherever the hue was when the effect last ran (mode switch, etc.)
+    const prev = psychedelicStartRef.current
+    const continuedHue = prev ? prev.startHue + ((Date.now() - prev.time) / 1000) * 18 : Math.random() * 360
+    psychedelicStartRef.current = { time: Date.now(), startHue: continuedHue }
+    const id = setInterval(() => {
+      const start = psychedelicStartRef.current
+      if (!start) return
+      const h = start.startHue + ((Date.now() - start.time) / 1000) * 18
+      setThemeCustom(prev => ({
+        ...prev,
+        primaryColor:   hslToHex(h,        aS, aL),
+        toggleColor:    hslToHex(h + 40,   aS, aL),
+        selectionColor: hslToHex(h + 80,   aS, aL),
+        successColor:   hslToHex(h + 130,  aS, aL),
+        warningColor:   hslToHex(h + 175,  aS, aL),
+        errorColor:     hslToHex(h + 215,  aS, aL),
+        bgColor:        hslToHex(h + 260,  bgS, bgL),
+        paperColor:     hslToHex(h + 280,  bgS + 5, isDark ? bgL + 5 : bgL - 5),
+        dividerColor:   hslToHex(h + 320,  28,  isDark ? 22 : 70),
+      }))
+    }, 80)
+    return () => clearInterval(id)
+  }, [psychedelic, themeMode, setThemeCustom])
 
   const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
   const { statButtonBorders } = useDisplayPreferences()
@@ -252,7 +304,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       maxWidth="lg"
       fullWidth
       slotProps={{ paper: {
-        sx: {
+        sx: (theme) => ({
           maxHeight: '84vh',
           overflow: 'hidden',
           position: 'relative',
@@ -265,13 +317,15 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             backgroundRepeat: 'no-repeat, no-repeat',
             backgroundPosition: 'center top, center',
             backgroundSize: '100% 100%, 80% auto',
-            opacity: 0.16,
+            // soft-light works on dark backgrounds; multiply makes dark pixels
+            // visible on light surfaces so the robot icon shows in light mode.
+            opacity: theme.palette.mode === 'dark' ? 0.16 : 0.10,
             pointerEvents: 'none',
-            mixBlendMode: 'soft-light',
+            mixBlendMode: theme.palette.mode === 'dark' ? 'soft-light' : 'multiply',
             zIndex: 0,
           },
           '& > *': { position: 'relative', zIndex: 1 },
-        },
+        }),
       } }}
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
@@ -286,10 +340,10 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           {setThemeMode != null && (
             <>
-              <Tooltip title="Theme settings">
+              <Tooltip title={t('themeSettings')}>
                 <IconButton
                   size="small"
-                  aria-label="Open theme settings"
+                  aria-label={t('themeSettings')}
                   onClick={(e) => setThemeMenuAnchorEl(e.currentTarget)}
                 >
                   <PaletteIcon fontSize="small" />
@@ -312,7 +366,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
               >
                 {/* Dark/light mode row */}
                 <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Mode</Typography>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeMode')}</Typography>
                   <ToggleButtonGroup
                     exclusive
                     size="small"
@@ -320,33 +374,33 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
                     onChange={(_, v) => { if (v != null && v !== (themeMode ?? 'dark')) { setThemeMode(v as ThemeMode); resetColors() } }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <ToggleButton value="dark" aria-label="Dark mode">
-                      <DarkModeIcon fontSize="small" sx={{ mr: 0.5 }} />Dark
+                    <ToggleButton value="dark" aria-label={t('themeDarkAria')}>
+                      <DarkModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeDark')}
                     </ToggleButton>
-                    <ToggleButton value="light" aria-label="Light mode">
-                      <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />Light
+                    <ToggleButton value="light" aria-label={t('themeLightAria')}>
+                      <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeLight')}
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </MenuItem>
                 <Divider />
                 {/* Color pickers — operate on local draft; debounce commits to store. */}
                 {([
-                  { label: 'Accent',     field: 'primaryColor'  as const, fallback: muiTheme.palette.primary.main            },
+                  { label: t('themeColorAccent'),     field: 'primaryColor'  as const, fallback: muiTheme.palette.primary.main            },
                   // Toggle fallback: dark mode blends action.selected (white@opacity) over paper; light uses primary.
-                  { label: 'Toggles',    field: 'toggleColor'   as const, fallback: themeMode === 'dark'
+                  { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: themeMode === 'dark'
                       ? blendWhiteAlphaOnHex(muiTheme.palette.action.selectedOpacity, muiTheme.palette.background.paper)
                       : muiTheme.palette.primary.main },
                   // Selection fallback: dark mode blends white@8% over paper (= MUI shipped default); light uses primary.
-                  { label: 'Selection',  field: 'selectionColor' as const, fallback: themeMode === 'dark'
+                  { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: themeMode === 'dark'
                       ? blendWhiteAlphaOnHex(0.08, muiTheme.palette.background.paper)
                       : muiTheme.palette.primary.main },
-                  { label: 'Background', field: 'bgColor'       as const, fallback: muiTheme.palette.background.default      },
-                  { label: 'Paper',      field: 'paperColor'    as const, fallback: muiTheme.palette.background.paper        },
-                  { label: 'Dividers',   field: 'dividerColor'  as const, fallback: muiTheme.palette.divider                 },
-                  { label: 'Success',    field: 'successColor'  as const, fallback: muiTheme.palette.success.main            },
-                  { label: 'Warning',    field: 'warningColor'  as const, fallback: muiTheme.palette.warning.main            },
-                  { label: 'Error',      field: 'errorColor'    as const, fallback: muiTheme.palette.error.main              },
-                ] as const).map(({ label, field, fallback }) => (
+                  { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: muiTheme.palette.background.default      },
+                  { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: muiTheme.palette.background.paper        },
+                  { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: muiTheme.palette.divider                 },
+                  { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: muiTheme.palette.success.main            },
+                  { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: muiTheme.palette.warning.main            },
+                  { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: muiTheme.palette.error.main              },
+                ]).map(({ label, field, fallback }) => (
                   <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
                     <ColorField
@@ -360,7 +414,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
                 ))}
                 {/* Border radius — controls global corner rounding for buttons, chips, cards, etc. */}
                 <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Corners</Typography>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeCorners')}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
                     <Slider
                       size="small"
@@ -378,7 +432,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
                 {/* Selection highlight — controls opacity of the primary-tinted selection bg on chips, list items, etc.
                     null = mode default (light: 12%, dark: MUI gray). Slider shows effective percent. */}
                 <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Selection</Typography>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themeSelectionOpacity')}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
                     <Slider
                       size="small"
@@ -392,6 +446,18 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
                       {Math.round((draft.selectionOpacity ?? (themeMode === 'dark' ? 0.08 : 0.12)) * 100)}%
                     </Typography>
                   </Box>
+                </MenuItem>
+                {/* Psychedelic cycle — rotates all theme colors through HSL hue space */}
+                <MenuItem disableRipple sx={{ py: 0.5 }}>
+                  <Button
+                    size="small"
+                    variant={psychedelic ? 'contained' : 'outlined'}
+                    color="secondary"
+                    onClick={(e) => { e.stopPropagation(); setPsychedelic(p => !p) }}
+                    sx={{ width: '100%' }}
+                  >
+                    {t('themePsychedelic')}
+                  </Button>
                 </MenuItem>
                 <Divider />
                 {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
