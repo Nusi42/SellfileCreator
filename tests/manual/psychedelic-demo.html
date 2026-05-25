@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Psychedelic Color Variants — SellfileCreator Dev Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; font-size: 13px; padding: 16px; transition: background 0.2s, color 0.2s; }
+    body.dark  { background: #121212; color: #e0e0e0; }
+    body.light { background: #f0f0f0; color: #212121; }
+
+    h1 { font-size: 15px; font-weight: 600; }
+    .meta { font-size: 11px; opacity: 0.5; }
+
+    .controls {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      margin: 14px 0;
+    }
+    .btn-group { display: flex; }
+    button {
+      padding: 5px 12px; border: 1px solid #555; cursor: pointer;
+      font-size: 12px; background: #2a2a2a; color: #e0e0e0;
+    }
+    .btn-group button:first-child { border-radius: 4px 0 0 4px; }
+    .btn-group button:last-child  { border-radius: 0 4px 4px 0; border-left: none; }
+    button.solo  { border-radius: 4px; }
+    button.active { background: #5c6bc0; border-color: #7986cb; color: #fff; }
+    button:hover:not(.active) { background: #383838; }
+    body.light button { background: #e0e0e0; color: #212121; border-color: #bbb; }
+    body.light button.active { background: #3949ab; color: #fff; border-color: #3949ab; }
+    body.light button:hover:not(.active) { background: #d0d0d0; }
+
+    label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+    input[type=range] { width: 110px; }
+    input[type=checkbox] { cursor: pointer; }
+
+    .section-title {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; opacity: 0.6; margin: 18px 0 4px;
+    }
+    .section-hint { font-size: 11px; opacity: 0.45; margin-bottom: 10px; }
+
+    /* Timeline */
+    .timeline-grid { display: flex; flex-direction: column; gap: 10px; }
+    .variant-row { display: flex; align-items: flex-start; gap: 10px; }
+    .variant-label { width: 160px; flex-shrink: 0; font-size: 11px; padding-top: 2px; line-height: 1.5; }
+    .variant-label strong { display: block; font-size: 12px; }
+    canvas.tl { image-rendering: pixelated; display: block; border-radius: 3px; }
+
+    /* Live grid */
+    .live-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+    .live-card {
+      border-radius: 6px; overflow: hidden;
+      border: 1px solid #333;
+    }
+    body.light .live-card { border-color: #ccc; }
+    .live-title { padding: 5px 8px; font-size: 11px; font-weight: 600; background: rgba(0,0,0,0.25); }
+    body.light .live-title { background: rgba(0,0,0,0.08); }
+    .swatches { display: flex; height: 22px; }
+    .swatch { flex: 1; position: relative; }
+    .sw-lbl {
+      position: absolute; bottom: 1px; left: 0; right: 0;
+      text-align: center; font-size: 8px;
+      color: rgba(255,255,255,0.75); text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+      pointer-events: none;
+    }
+    .mockup-wrap { padding: 6px; }
+    .mock-bg { border-radius: 4px; padding: 6px; }
+    .mock-paper { border-radius: 3px; padding: 6px; }
+    .mock-btns { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 5px; }
+    .mock-btn {
+      padding: 2px 7px; border-radius: 3px; font-size: 10px;
+      border: none; cursor: default; color: #fff;
+    }
+    .mock-divider { height: 1px; margin: 4px 0; }
+    .mock-sel { border-radius: 3px; padding: 3px 6px; font-size: 10px; border-left: 2px solid; }
+  </style>
+</head>
+<body class="dark">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+  <h1>Psychedelic Color Variants</h1>
+  <span class="meta">SellfileCreator dev · open from file:// or local server</span>
+</div>
+
+<div class="controls">
+  <div class="btn-group">
+    <button id="btn-dark"  class="active" onclick="setMode('dark')">Dark</button>
+    <button id="btn-light"            onclick="setMode('light')">Light</button>
+  </div>
+  <button class="solo" onclick="reseed()">🎲 New random phases</button>
+  <label>
+    Start hue
+    <input type="range" id="hue-range" min="0" max="359" value="0" oninput="onHueChange()">
+    <span id="hue-val" style="min-width:34px;font-size:12px;opacity:.7">0°</span>
+  </label>
+  <label title="Writes V0 colors to the app's localStorage key on every tick (open the app in another tab to watch it react)">
+    <input type="checkbox" id="adopt-chk">
+    Push V0 → app localStorage
+  </label>
+</div>
+
+<div class="section-title">Timeline — 90 seconds rendered instantly</div>
+<div class="section-hint">Each column = 0.5 s · Rows top→bottom: Accent · Toggles · Select · Success · Warn · Error · BG · Paper · Divider</div>
+<div class="timeline-grid" id="timeline-grid"></div>
+
+<div class="section-title">Live preview — all variants running in parallel</div>
+<div class="section-hint">Mini mockup shows Background → Paper → Buttons / Divider / Selected item using that variant's colors.</div>
+<div class="live-grid" id="live-grid"></div>
+
+<script>
+// ─── Color math (mirrors HelpDialog.tsx) ───────────────────────────────────
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360
+  s /= 100; l /= 100
+  const a = s * Math.min(l, 1 - l)
+  const f = n => {
+    const k = (n + h / 30) % 12
+    return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+const LS_KEY = 'sellfileCreator.themeCustom.v1'
+
+const VARIANT_INFO = [
+  { name: 'V0: Base', desc: 'Current — linear hue, fixed S/L, fixed offsets' },
+  { name: 'V1: Speed drift', desc: 'Hue speed wanders ~2–14°/s via two incommensurable sines' },
+  { name: 'V2: + S/L wobble', desc: 'V1 + saturation & lightness breathe slowly' },
+  { name: 'V3: + Offset drift', desc: 'V2 + harmonic gaps between colors drift ±15°' },
+]
+
+const COLOR_NAMES = ['Accent', 'Toggles', 'Select', 'Success', 'Warn', 'Error', 'BG', 'Paper', 'Div']
+
+const STEPS = 180   // 90 seconds at dt=0.5
+const DT    = 0.5   // seconds per simulation step
+
+// ─── App state ──────────────────────────────────────────────────────────────
+let isDark   = true
+let phases   = randomPhases()
+let initHue  = 0
+
+function randomPhases() {
+  // 13 phases: [0,1] speed, [2,3] S/L, [4..12] per-offset (9 colors)
+  return Array.from({ length: 13 }, () => Math.random() * Math.PI * 2)
+}
+
+// ─── Simulation ─────────────────────────────────────────────────────────────
+// Returns array of STEPS × 9-color arrays, simulating the chosen variant.
+function simulate(variant) {
+  const result = []
+  let h = initHue, t = 0
+  for (let i = 0; i < STEPS; i++) {
+    result.push(colorsAt(variant, h, t))
+    h += speedAt(variant, t) * DT
+    t += DT
+  }
+  return result
+}
+
+function speedAt(variant, t) {
+  if (variant < 1) return 8
+  return 8 + 4 * Math.sin(t * 0.31 + phases[0]) + 2 * Math.sin(t * 0.73 + phases[1])
+}
+
+function colorsAt(variant, h, t) {
+  let aS = 80, aLOff = 0
+  if (variant >= 2) {
+    aS   = 80 + 12 * Math.sin(t * 0.19 + phases[2])
+    aLOff =  6 * Math.sin(t * 0.11 + phases[3])
+  }
+  const aL  = (isDark ? 57 : 44) + aLOff
+  const bgS = 15
+  const bgL = isDark ? 8 : 93
+
+  // Harmonic offsets for the 9 color fields (in degrees from base hue h)
+  const base = [0, 40, 80, 130, 175, 215, 260, 280, 320]
+  const off  = variant >= 3
+    ? base.map((o, i) => o + 15 * Math.sin(t * (0.07 + i * 0.03) + phases[4 + i]))
+    : base
+
+  return [
+    hslToHex(h + off[0], aS,     aL),
+    hslToHex(h + off[1], aS,     aL),
+    hslToHex(h + off[2], aS,     aL),
+    hslToHex(h + off[3], aS,     aL),
+    hslToHex(h + off[4], aS,     aL),
+    hslToHex(h + off[5], aS,     aL),
+    hslToHex(h + off[6], bgS,    bgL),
+    hslToHex(h + off[7], bgS + 5, isDark ? bgL + 5 : bgL - 5),
+    hslToHex(h + off[8], 28,     isDark ? 22 : 70),
+  ]
+}
+
+// ─── Timeline rendering ─────────────────────────────────────────────────────
+const CELL_W = 4   // pixels per time step
+const CELL_H = 20  // pixels per color row
+
+function buildTimelines() {
+  const grid = document.getElementById('timeline-grid')
+  grid.innerHTML = ''
+  for (let v = 0; v < 4; v++) {
+    const row = document.createElement('div')
+    row.className = 'variant-row'
+    const lbl = document.createElement('div')
+    lbl.className = 'variant-label'
+    lbl.innerHTML = `<strong>${VARIANT_INFO[v].name}</strong>${VARIANT_INFO[v].desc}`
+    const canvas = document.createElement('canvas')
+    canvas.className = 'tl'
+    canvas.id = `tl-${v}`
+    canvas.width  = CELL_W * STEPS
+    canvas.height = CELL_H * 9
+    canvas.style.width  = (CELL_W * STEPS) + 'px'
+    canvas.style.height = (CELL_H * 9) + 'px'
+    row.appendChild(lbl)
+    row.appendChild(canvas)
+    grid.appendChild(row)
+  }
+}
+
+function drawTimeline(v) {
+  const canvas = document.getElementById(`tl-${v}`)
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  const data = simulate(v)
+  for (let step = 0; step < data.length; step++) {
+    const colors = data[step]
+    for (let ci = 0; ci < 9; ci++) {
+      ctx.fillStyle = colors[ci]
+      ctx.fillRect(step * CELL_W, ci * CELL_H, CELL_W, CELL_H)
+    }
+  }
+}
+
+function drawAllTimelines() {
+  for (let v = 0; v < 4; v++) drawTimeline(v)
+}
+
+// ─── Live preview ───────────────────────────────────────────────────────────
+// Each variant runs its own clock so they all start from the same initHue.
+let liveState = null
+
+function resetLiveState() {
+  liveState = Array.from({ length: 4 }, () => ({ h: initHue, t: 0 }))
+}
+
+function buildLiveCards() {
+  const grid = document.getElementById('live-grid')
+  grid.innerHTML = ''
+  for (let v = 0; v < 4; v++) {
+    const card = document.createElement('div')
+    card.className = 'live-card'
+    card.innerHTML = `
+      <div class="live-title">${VARIANT_INFO[v].name}</div>
+      <div class="swatches" id="sw-${v}">
+        ${COLOR_NAMES.map((n, i) => `<div class="swatch" id="sw-${v}-${i}"><div class="sw-lbl">${n.slice(0,3)}</div></div>`).join('')}
+      </div>
+      <div class="mockup-wrap" id="mock-${v}"></div>`
+    grid.appendChild(card)
+  }
+}
+
+function renderMockup(el, colors) {
+  const [accent, toggle, sel, success, warn, error, bg, paper, divider] = colors
+  const text = isDark ? '#e0e0e0' : '#212121'
+  el.innerHTML = `
+    <div class="mock-bg" style="background:${bg}">
+      <div class="mock-paper" style="background:${paper}">
+        <div class="mock-btns">
+          <button class="mock-btn" style="background:${accent}">Accent</button>
+          <button class="mock-btn" style="background:${toggle}">Toggle</button>
+          <button class="mock-btn" style="background:${success}">OK</button>
+          <button class="mock-btn" style="background:${warn};color:#111">Warn</button>
+          <button class="mock-btn" style="background:${error}">Err</button>
+        </div>
+        <div class="mock-divider" style="background:${divider}"></div>
+        <div class="mock-sel" style="background:${sel}30;color:${text};border-color:${sel}">Selected item</div>
+      </div>
+    </div>`
+}
+
+let lastTs = null
+
+function liveTick(ts) {
+  if (!liveState) { requestAnimationFrame(liveTick); return }
+  const dt = lastTs === null ? 0.04 : Math.min((ts - lastTs) / 1000, 0.1)
+  lastTs = ts
+
+  for (let v = 0; v < 4; v++) {
+    const s = liveState[v]
+    const colors = colorsAt(v, s.h, s.t)
+    s.h += speedAt(v, s.t) * dt
+    s.t += dt
+
+    // Update swatches
+    for (let ci = 0; ci < 9; ci++) {
+      const sw = document.getElementById(`sw-${v}-${ci}`)
+      if (sw) sw.style.background = colors[ci]
+    }
+    // Update mockup
+    const mock = document.getElementById(`mock-${v}`)
+    if (mock) renderMockup(mock, colors)
+
+    // Optionally push V0 colors to app's localStorage so the running app picks them up
+    if (v === 0 && document.getElementById('adopt-chk').checked) {
+      try {
+        const [primaryColor, toggleColor, selectionColor, successColor, warningColor, errorColor, bgColor, paperColor, dividerColor] = colors
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          primaryColor, toggleColor, selectionColor,
+          bgColor, paperColor, dividerColor,
+          successColor, warningColor, errorColor,
+          borderRadius: null, selectionOpacity: null,
+        }))
+      } catch (_) {}
+    }
+  }
+
+  requestAnimationFrame(liveTick)
+}
+
+// ─── Controls ───────────────────────────────────────────────────────────────
+function setMode(mode) {
+  isDark = mode === 'dark'
+  document.body.className = mode
+  document.getElementById('btn-dark').classList.toggle('active', isDark)
+  document.getElementById('btn-light').classList.toggle('active', !isDark)
+  drawAllTimelines()
+  resetLiveState()
+}
+
+function reseed() {
+  phases = randomPhases()
+  drawAllTimelines()
+  resetLiveState()
+}
+
+function onHueChange() {
+  initHue = parseInt(document.getElementById('hue-range').value, 10)
+  document.getElementById('hue-val').textContent = initHue + '°'
+  drawAllTimelines()
+  resetLiveState()
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+buildTimelines()
+drawAllTimelines()
+buildLiveCards()
+resetLiveState()
+requestAnimationFrame(liveTick)
+</script>
+</body>
+</html>

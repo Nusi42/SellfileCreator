@@ -26,6 +26,9 @@ type LocalStorageStore<T> = {
   useValue(): T
   set(next: T): void
   update(updater: (prev: T) => T): void
+  /** Like update() but skips localStorage.setItem(). Notifies subscribers so React
+   *  re-renders, but the value is not persisted and will be lost on reload. */
+  updateTransient(updater: (prev: T) => T): void
   getSnapshot(): T
 }
 
@@ -119,12 +122,25 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     set(next)
   }
 
+  const updateTransient = (updater: (prev: T) => T) => {
+    // Compute next without re-reading localStorage — current already reflects
+    // in-memory state (which may itself be a prior transient value).
+    const next = updater(current)
+    if (equality(current, next)) return
+    // Update in-memory only; currentSerialized stays pointing at the last persisted
+    // value so readFromStorage() still returns this in-memory current on the next call
+    // (raw === currentSerialized → short-circuit branch).
+    current = next
+    notify()
+  }
+
   const getSnapshotValue = () => readFromStorage()
 
   return {
     useValue,
     set,
     update,
+    updateTransient,
     getSnapshot: getSnapshotValue,
   }
 }

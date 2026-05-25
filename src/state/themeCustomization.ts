@@ -34,7 +34,7 @@ const parseThemeCustomization = (raw: string | null): ThemeCustomization => {
   return FALLBACK
 }
 
-const themeCustomStore = createLocalStorageStore<ThemeCustomization>({
+export const themeCustomStore = createLocalStorageStore<ThemeCustomization>({
   key: THEME_CUSTOM_KEY,
   fallback: FALLBACK,
   parse: parseThemeCustomization,

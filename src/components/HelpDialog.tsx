@@ -6,7 +6,7 @@ import LightModeIcon from '@mui/icons-material/LightMode'
 import PaletteIcon from '@mui/icons-material/Palette'
 import type { ThemeMode, ColorBlindMode } from '../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
-import { useThemeCustomization } from '../state/themeCustomization'
+import { useThemeCustomization, themeCustomStore } from '../state/themeCustomization'
 import { useDisplayPreferences, useDisplayPreferenceActions } from '../state/preferencesState'
 import { CycleButton } from './CycleButton'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
@@ -42,6 +42,21 @@ function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
   const g = Math.round(parseInt(bgHex.slice(3, 5), 16) + (255 - parseInt(bgHex.slice(3, 5), 16)) * alpha)
   const b = Math.round(parseInt(bgHex.slice(5, 7), 16) + (255 - parseInt(bgHex.slice(5, 7), 16)) * alpha)
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
+// Extracts the hue (0–360) from a #rrggbb hex color. Returns null for achromatic colors.
+function hexToHue(hex: string): number | null {
+  if (hex.length < 7) return null
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  if (d === 0) return null
+  let h: number
+  if (max === r) h = ((g - b) / d + 6) % 6
+  else if (max === g) h = (b - r) / d + 2
+  else h = (r - g) / d + 4
+  return h * 60
 }
 
 // Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
@@ -122,9 +137,19 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   }
 
   const [psychedelic, setPsychedelic] = React.useState(false)
-  // Tracks the hue start angle and wall-clock start so the animation resumes smoothly
-  // across effect restarts (e.g., when themeMode changes while the cycle is running).
-  const psychedelicStartRef = React.useRef<{ time: number; startHue: number } | null>(null)
+  // Animation state: accumulated hue, animation clock, four random phases (φ₀..φ₃),
+  // and the last wall-clock tick. Null when not running. Carried across effect restarts
+  // (e.g., themeMode changes) so hue, time, and phases remain continuous.
+  const psychedelicStateRef = React.useRef<{
+    lastMs: number  // wall clock at the previous interval tick
+    h: number       // accumulated hue in degrees
+    t: number       // animation time in seconds (drives S/L/speed oscillations)
+    p0: number; p1: number  // speed-drift phases
+    p2: number; p3: number  // S/L wobble phases
+  } | null>(null)
+  // Hue extracted from the current primary color at the moment psychedelic is turned on,
+  // so the animation starts from wherever the theme already is rather than jumping randomly.
+  const psychedelicInitHueRef = React.useRef<number | null>(null)
 
   const resetColors = React.useCallback(() => {
     setPsychedelic(false)
@@ -133,39 +158,66 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     setThemeCustom(blank)
   }, [setThemeCustom])
 
-  // Psychedelic cycle: all theme colors rotate through HSL hue space in harmony.
-  // Accent colors (S=80) are vivid; background/paper use a desaturated hue tint.
-  // All fields advance at the same rate (18°/s) so harmonic offsets stay fixed.
+  // Psychedelic cycle (V2): hue rotates with variable speed, saturation and lightness breathe.
+  // Speed drifts via two incommensurable sines (never repeats); S and L each have their own
+  // independent sine wobble. All 9 color fields use the same accumulated hue so offsets stay
+  // harmonious. 40 ms interval → smooth, imperceptible per-tick steps.
   React.useEffect(() => {
     if (!psychedelic) return
     const isDark = (themeMode ?? 'dark') === 'dark'
-    const aS = 80
-    const aL = isDark ? 57 : 44
     const bgS = 15
     const bgL = isDark ? 8 : 93
-    // Continue from wherever the hue was when the effect last ran (mode switch, etc.)
-    const prev = psychedelicStartRef.current
-    const continuedHue = prev ? prev.startHue + ((Date.now() - prev.time) / 1000) * 18 : Math.random() * 360
-    psychedelicStartRef.current = { time: Date.now(), startHue: continuedHue }
+
+    // On a mode-switch restart, carry over hue/time/phases so the animation is continuous.
+    // On first start, seed hue from the current accent color and randomize the four phases.
+    if (!psychedelicStateRef.current) {
+      psychedelicStateRef.current = {
+        lastMs: Date.now(),
+        h:  psychedelicInitHueRef.current ?? Math.random() * 360,
+        t:  0,
+        p0: Math.random() * Math.PI * 2,
+        p1: Math.random() * Math.PI * 2,
+        p2: Math.random() * Math.PI * 2,
+        p3: Math.random() * Math.PI * 2,
+      }
+    } else {
+      psychedelicStateRef.current.lastMs = Date.now()
+    }
+
     const id = setInterval(() => {
-      const start = psychedelicStartRef.current
-      if (!start) return
-      const h = start.startHue + ((Date.now() - start.time) / 1000) * 18
-      setThemeCustom(prev => ({
+      const s = psychedelicStateRef.current
+      if (!s) return
+
+      // Cap dt at 100 ms to avoid a large jump when the tab regains focus.
+      const now  = Date.now()
+      const dt   = Math.min((now - s.lastMs) / 1000, 0.1)
+      s.lastMs   = now
+
+      // V2 — speed drift: base 8°/s ± two incommensurable sines → 2–14°/s
+      const speed = 8 + 4 * Math.sin(s.t * 0.31 + s.p0) + 2 * Math.sin(s.t * 0.73 + s.p1)
+      // V2 — S/L wobble: saturation 68–92%, lightness ±6° around the mode default
+      const aS   = 80 + 12 * Math.sin(s.t * 0.19 + s.p2)
+      const aL   = (isDark ? 57 : 44) + 6 * Math.sin(s.t * 0.11 + s.p3)
+
+      s.h  += speed * dt
+      s.t  += dt
+
+      // updateTransient: in-memory only — no localStorage writes during animation.
+      themeCustomStore.updateTransient(prev => ({
         ...prev,
-        primaryColor:   hslToHex(h,        aS, aL),
-        toggleColor:    hslToHex(h + 40,   aS, aL),
-        selectionColor: hslToHex(h + 80,   aS, aL),
-        successColor:   hslToHex(h + 130,  aS, aL),
-        warningColor:   hslToHex(h + 175,  aS, aL),
-        errorColor:     hslToHex(h + 215,  aS, aL),
-        bgColor:        hslToHex(h + 260,  bgS, bgL),
-        paperColor:     hslToHex(h + 280,  bgS + 5, isDark ? bgL + 5 : bgL - 5),
-        dividerColor:   hslToHex(h + 320,  28,  isDark ? 22 : 70),
+        primaryColor:   hslToHex(s.h,        aS, aL),
+        toggleColor:    hslToHex(s.h + 40,   aS, aL),
+        selectionColor: hslToHex(s.h + 80,   aS, aL),
+        successColor:   hslToHex(s.h + 130,  aS, aL),
+        warningColor:   hslToHex(s.h + 175,  aS, aL),
+        errorColor:     hslToHex(s.h + 215,  aS, aL),
+        bgColor:        hslToHex(s.h + 260,  bgS, bgL),
+        paperColor:     hslToHex(s.h + 280,  bgS + 5, isDark ? bgL + 5 : bgL - 5),
+        dividerColor:   hslToHex(s.h + 320,  28,  isDark ? 22 : 70),
       }))
-    }, 80)
+    }, 40)
     return () => clearInterval(id)
-  }, [psychedelic, themeMode, setThemeCustom])
+  }, [psychedelic, themeMode])
 
   const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
   const { statButtonBorders } = useDisplayPreferences()
@@ -447,17 +499,40 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
                     </Typography>
                   </Box>
                 </MenuItem>
-                {/* Psychedelic cycle — rotates all theme colors through HSL hue space */}
-                <MenuItem disableRipple sx={{ py: 0.5 }}>
-                  <Button
-                    size="small"
-                    variant={psychedelic ? 'contained' : 'outlined'}
-                    color="secondary"
-                    onClick={(e) => { e.stopPropagation(); setPsychedelic(p => !p) }}
-                    sx={{ width: '100%' }}
+                {/* Psychedelic cycle — rotates all theme colors through HSL hue space.
+                    CSS hue-rotate on the button wrapper spins its color through the full
+                    spectrum continuously, giving the button itself a "psychedelic" look. */}
+                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }} onClick={() => setPsychedelic(p => !p)}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themePsychedelic')}</Typography>
+                  <Box
+                    sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {t('themePsychedelic')}
-                  </Button>
+                    <Box sx={{
+                      '@keyframes psychedelicHue': { from: { filter: 'hue-rotate(0deg)' }, to: { filter: 'hue-rotate(360deg)' } },
+                      animation: 'psychedelicHue 3s linear infinite',
+                      display: 'flex', alignItems: 'stretch',
+                    }}>
+                      <Button
+                        size="small"
+                        variant={psychedelic ? 'contained' : 'outlined'}
+                        color="secondary"
+                        sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!psychedelic) {
+                            // Seed the start hue from the current accent color so the animation
+                            // begins at the theme's existing hue rather than jumping to a random one.
+                            psychedelicInitHueRef.current = hexToHue(muiTheme.palette.primary.main) ?? Math.random() * 360
+                            psychedelicStateRef.current = null  // ensure fresh phases on each enable
+                          }
+                          setPsychedelic(p => !p)
+                        }}
+                      >
+                        {psychedelic ? t('commonOn') : t('commonOff')}
+                      </Button>
+                    </Box>
+                  </Box>
                 </MenuItem>
                 <Divider />
                 {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
