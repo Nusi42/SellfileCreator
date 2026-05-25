@@ -96,6 +96,7 @@ import {
 } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
 import { CycleButton } from './CycleButton'
+import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
   parseSpacingPx,
@@ -2886,13 +2887,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
           <CycleButton
-            options={[
-              { value: 'normal',   label: t('colorBlindNormal')   },
-              { value: 'okabeIto', label: t('colorBlindOkabeIto') },
-              { value: 'tritan',   label: t('colorBlindTritan')   },
-            ]}
+            options={makeColorBlindCycleOptions(t)}
             value={colorBlindMode}
-            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            variant={colorBlindCycleVariant(colorBlindMode)}
             onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
           />

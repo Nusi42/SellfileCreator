@@ -1,5 +1,5 @@
-import { alpha, createTheme, darken } from '@mui/material/styles'
-import type { ColorBlindMode, ThemeMode } from './lib/constants'
+import { alpha, createTheme, darken, lighten } from '@mui/material/styles'
+import type { ColorBlindMode, ThemeCustomization, ThemeMode } from './lib/constants'
 import {
   FONT_SIZE_BASE_PX,
   FONT_SIZE_BASE_REM,
@@ -15,7 +15,9 @@ import {
  * Switching these here updates the whole app without touching call sites.
  * themeMode controls the overall light/dark color scheme (testing toggle).
  */
-export function makeTheme(colorBlindMode: ColorBlindMode, themeMode: ThemeMode = 'dark') {
+const EMPTY_CUSTOM: ThemeCustomization = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null }
+
+export function makeTheme(colorBlindMode: ColorBlindMode, themeMode: ThemeMode = 'dark', custom: ThemeCustomization = EMPTY_CUSTOM) {
   // Okabe–Ito colors (deuter/protan friendly)
   const OI = { success: '#0072B2', warning: '#E69F00', error: '#D55E00' }
   // Tritan-friendly alternative (avoid blue/yellow pairing): green/orange/magenta
@@ -29,22 +31,40 @@ export function makeTheme(colorBlindMode: ColorBlindMode, themeMode: ThemeMode =
     : {}
 
   const isDark = themeMode === 'dark'
+  const primaryMain = custom.primaryColor ?? (isDark ? '#58a6ff' : '#0969da')
+  // Custom bg: derive paper as a subtle variant so surfaces feel elevated above the page.
+  const defaultBg = isDark ? '#0f1216' : '#f2f2f2'
+  const defaultPaper = isDark ? '#161b22' : '#f7f7f7'
+  const bgDefault = custom.bgColor ?? defaultBg
+  const bgPaperDerived = custom.bgColor != null
+    ? (isDark ? lighten(bgDefault, 0.06) : darken(bgDefault, 0.03))
+    : defaultPaper
+  // Explicit paperColor overrides the derived value; falling back to derived keeps elevation contrast intact.
+  const bgPaper = custom.paperColor ?? bgPaperDerived
 
   return createTheme({
     palette: {
       mode: themeMode,
-      primary: { main: isDark ? '#58a6ff' : '#0969da' },
-      background: isDark
-        ? { default: '#0f1216', paper: '#161b22' }
-        : { default: '#f2f2f2', paper: '#f7f7f7' },
-      divider: isDark ? '#30363d' : '#d0d7de',
-      // Tint the selected state with the primary blue in light mode only; dark mode keeps MUI's default gray.
-      ...(!isDark && {
-        action: { selected: 'rgba(9,105,218,0.12)', selectedOpacity: 0.12 },
-      }),
+      primary: { main: primaryMain },
+      background: { default: bgDefault, paper: bgPaper },
+      divider: custom.dividerColor ?? (isDark ? '#30363d' : '#d0d7de'),
+      // Selection tint — color/opacity both configurable independently of the accent.
+      // Defaults reproduce the exact previously-shipped values:
+      //   light → alpha(primaryMain, 0.12)  (same as before)
+      //   dark  → alpha('#ffffff', 0.08) = rgba(255,255,255,0.08) (MUI default, same as before)
+      action: (() => {
+        const selColor = custom.selectionColor ?? (isDark ? '#ffffff' : primaryMain)
+        const selOpacity = custom.selectionOpacity ?? (isDark ? 0.08 : 0.12)
+        return { selected: alpha(selColor, selOpacity), selectedOpacity: selOpacity }
+      })(),
       ...over,
+      // Custom semantic colors override color-blind palette — explicit user choice takes precedence.
+      // contrastText omitted so MUI auto-computes it from the chosen color's luminance.
+      ...(custom.successColor != null && { success: { main: custom.successColor } }),
+      ...(custom.warningColor != null && { warning: { main: custom.warningColor } }),
+      ...(custom.errorColor != null && { error:   { main: custom.errorColor   } }),
     },
-    shape: { borderRadius: 8 },
+    shape: { borderRadius: custom.borderRadius ?? 8 },
     typography: {
       fontSize: FONT_SIZE_BASE_PX,
       body1: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
@@ -178,17 +198,34 @@ export function makeTheme(colorBlindMode: ColorBlindMode, themeMode: ThemeMode =
       },
       MuiToggleButton: {
         styleOverrides: {
-          // MUI ToggleButton ignores action.selected — it derives selected bg from text.primary,
-          // which stays gray. Force primary-blue tint for the selected state instead.
-          root: ({ theme }) => theme.palette.mode === 'light' ? {
-            '&.Mui-selected': {
-              color: theme.palette.primary.main,
-              backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity),
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity + 0.08),
+          // MUI ToggleButton ignores action.selected — it derives selected bg from text.primary
+          // (stays gray in dark mode). Overrides:
+          //   Light mode — tint text + bg from toggleColor ?? primary (existing visual).
+          //   Dark mode — only tint the background; text stays text.primary (white) for readability.
+          //   Dark mode without toggleColor — leave MUI's default gray (return {}).
+          root: ({ theme }) => {
+            const tc = custom.toggleColor
+            if (theme.palette.mode === 'dark') {
+              if (tc == null) return {}
+              return {
+                '&.Mui-selected': {
+                  backgroundColor: alpha(tc, 0.2),
+                  '&:hover': { backgroundColor: alpha(tc, 0.28) },
+                },
+              }
+            }
+            // Light mode: color the text too so the selected state reads as an accent.
+            const toggleMain = tc ?? theme.palette.primary.main
+            return {
+              '&.Mui-selected': {
+                color: toggleMain,
+                backgroundColor: alpha(toggleMain, theme.palette.action.selectedOpacity),
+                '&:hover': {
+                  backgroundColor: alpha(toggleMain, theme.palette.action.selectedOpacity + 0.08),
+                },
               },
-            },
-          } : {},
+            }
+          },
         },
       },
     },

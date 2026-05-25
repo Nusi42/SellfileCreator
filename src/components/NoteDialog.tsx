@@ -3134,7 +3134,7 @@ export default function NoteDialog({
   const { t, lang, setLang } = useI18n()
   const theme = useTheme()
   // Editor background adapts to the active theme mode; Prism tooltip blocks stay dark (token colors need it).
-  const editorBg = theme.palette.mode === 'dark' ? NOTE_EDITOR_BG_COLOR : theme.palette.background.default
+  const editorBg = theme.palette.background.default
   const languageOptions = useLanguageOptions()
   const langSelectValue = useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
@@ -4063,7 +4063,7 @@ function NoteEditorContent({
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const theme = useTheme()
-  const editorBg = theme.palette.mode === 'dark' ? NOTE_EDITOR_BG_COLOR : theme.palette.background.default
+  const editorBg = theme.palette.background.default
   // Anchor for the EBNF reference popover; null when closed.
   const [ebnfAnchorEl, setEbnfAnchorEl] = useState<HTMLElement | null>(null)
   // Stable close handler so useContextMenuPaperGuard dependency stays fixed.

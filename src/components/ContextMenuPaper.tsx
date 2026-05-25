@@ -3,6 +3,7 @@ import Paper, { type PaperProps } from '@mui/material/Paper'
 import IconButton from '@mui/material/IconButton'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import type { SxProps, Theme } from '@mui/material/styles'
+import { darken, lighten } from '@mui/material/styles'
 import {
   CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,
   CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX,
@@ -32,12 +33,19 @@ const basePaperSx: SxProps<Theme> = {
 }
 
 const closeButtonSx: SxProps<Theme> = (theme) => {
-  const baseBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[400]
-  const hoverBg = theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.grey[500]
-  const focusBg = theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[600]
-  const baseBorder = theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[500]
-  const hoverBorder = theme.palette.mode === 'dark' ? theme.palette.grey[600] : theme.palette.grey[600]
-  const focusBorder = theme.palette.mode === 'dark' ? theme.palette.grey[500] : theme.palette.grey[700]
+  // Derive all colors from the configurable background.paper and divider tokens so the
+  // button automatically adapts when the user sets custom theme colors.
+  // lighten/darken amounts are tuned so default dark mode output matches the original
+  // hardcoded grey values (grey[800]/grey[900]/grey[700]) within ~5 % luminance.
+  const p = theme.palette.background.paper
+  const d = theme.palette.divider
+  const isDark = theme.palette.mode === 'dark'
+  const baseBg     = isDark ? lighten(p, 0.18) : darken(p, 0.06)
+  const hoverBg    = isDark ? lighten(p, 0.10) : darken(p, 0.12)
+  const focusBg    = isDark ? lighten(p, 0.27) : darken(p, 0.18)
+  const baseBorder  = isDark ? lighten(d, 0.25) : d
+  const hoverBorder = isDark ? lighten(d, 0.35) : darken(d, 0.08)
+  const focusBorder = isDark ? lighten(d, 0.45) : darken(d, 0.15)
   return {
     position: 'absolute',
     top: CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,

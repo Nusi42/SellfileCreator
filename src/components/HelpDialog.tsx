@@ -1,9 +1,20 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography, IconButton, Tooltip } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography, IconButton, Tooltip, Menu, Divider, ToggleButtonGroup, ToggleButton, useTheme, Slider } from '@mui/material'
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
-import type { ThemeMode } from '../lib/constants'
+import PaletteIcon from '@mui/icons-material/Palette'
+import type { ThemeMode, ColorBlindMode } from '../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
+import { useThemeCustomization } from '../state/themeCustomization'
+import { useDisplayPreferences, useDisplayPreferenceActions } from '../state/preferencesState'
+import { CycleButton } from './CycleButton'
+import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
+import { makeManageColorsIcon } from '../lib/icons'
+import MarkdownTooltip from './MarkdownTooltip'
+import ColorField from './ColorField'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
@@ -21,6 +32,18 @@ import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { DEFAULT_LANGUAGE } from '../lib/i18n/types'
 
+/**
+ * Composites a semi-transparent rgba(255,255,255,alpha) overlay onto a #RRGGBB background
+ * to get a solid hex approximation — used for the toggle-button swatch in dark mode.
+ */
+function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
+  if (bgHex.length < 7) return '#3a3f48'
+  const r = Math.round(parseInt(bgHex.slice(1, 3), 16) + (255 - parseInt(bgHex.slice(1, 3), 16)) * alpha)
+  const g = Math.round(parseInt(bgHex.slice(3, 5), 16) + (255 - parseInt(bgHex.slice(3, 5), 16)) * alpha)
+  const b = Math.round(parseInt(bgHex.slice(5, 7), 16) + (255 - parseInt(bgHex.slice(5, 7), 16)) * alpha)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
   if (typeof document === 'undefined') return undefined
@@ -32,7 +55,7 @@ const getFaviconLinkHref = (): string | undefined => {
   return undefined
 }
 
-export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, themeMode, setThemeMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; themeMode?: ThemeMode; setThemeMode?: (m: ThemeMode) => void }) {
+export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, themeMode, setThemeMode, colorBlindMode, setColorBlindMode, onOpenManageColors }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; themeMode?: ThemeMode; setThemeMode?: (m: ThemeMode) => void; colorBlindMode?: ColorBlindMode; setColorBlindMode?: (m: ColorBlindMode) => void; onOpenManageColors?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
   const languageOptions = useLanguageOptions()
@@ -62,6 +85,39 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])
   const languageLabel = t('helpLanguage')
+  const muiTheme = useTheme()
+  // Stable icon src for the manage-colors button; canvas generation only happens once.
+  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
+  const [themeCustom, setThemeCustom] = useThemeCustomization()
+  const [themeMenuAnchorEl, setThemeMenuAnchorEl] = React.useState<HTMLElement | null>(null)
+  const themeMenuOpen = Boolean(themeMenuAnchorEl)
+  const closeThemeMenu = React.useCallback(() => setThemeMenuAnchorEl(null), [])
+  // Ref attached to every open ColorField popover paper so the outside-click guard
+  // treats drags inside the color picker as "inside" and doesn't close the menu.
+  const colorPickerPopoverRef = React.useRef<HTMLDivElement>(null)
+  const { menuRef: themeMenuRef, contextMenuGuard: themeMenuGuard } = useContextMenuPaperGuard({ open: themeMenuOpen, onClose: closeThemeMenu, insideRefs: [colorPickerPopoverRef] })
+
+  // Draft state: color pickers write here on every drag step (onChange) so the picker
+  // stays visually responsive. The store (and thus the MUI theme rebuild) is only updated
+  // via onChangeCommitted — once when the popover closes — same pattern as ManageColorsDialog.
+  const [draft, setDraft] = React.useState(themeCustom)
+  // Rising-edge sync: pull committed customization into draft whenever the menu opens.
+  // Uses the render-time comparison pattern (same as prevHelpOpen above) to avoid refs.
+  const [prevMenuOpen, setPrevMenuOpen] = React.useState(themeMenuOpen)
+  if (themeMenuOpen !== prevMenuOpen) {
+    setPrevMenuOpen(themeMenuOpen)
+    if (themeMenuOpen) setDraft(themeCustom)
+  }
+
+  const resetColors = React.useCallback(() => {
+    const blank = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null } as const
+    setDraft(blank)
+    setThemeCustom(blank)
+  }, [setThemeCustom])
+
+  const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
+  const { statButtonBorders } = useDisplayPreferences()
+  const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Strip the H1 title (and any injected version badge) from the README before rendering.
   // Why: The title is now rendered as a custom styled React element above the markdown content,
   // so the markdown H1 would be a duplicate. We detect the app title on line 0 and drop it
@@ -229,15 +285,173 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           {setThemeMode != null && (
-            <Tooltip title={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-              <IconButton
-                size="small"
-                aria-label={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+            <>
+              <Tooltip title="Theme settings">
+                <IconButton
+                  size="small"
+                  aria-label="Open theme settings"
+                  onClick={(e) => setThemeMenuAnchorEl(e.currentTarget)}
+                >
+                  <PaletteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                open={themeMenuOpen}
+                anchorEl={themeMenuAnchorEl}
+                onClose={closeThemeMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{
+                  paper: { ...buildContextMenuPaperSlotProps({
+                    component: ContextMenuPaper,
+                    contextMenuGuard: themeMenuGuard,
+                    onRequestClose: closeThemeMenu,
+                    closeLabel: t('close'),
+                  }), ref: themeMenuRef as React.Ref<HTMLDivElement> },
+                }}
               >
-                {themeMode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
+                {/* Dark/light mode row */}
+                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Mode</Typography>
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={themeMode ?? 'dark'}
+                    onChange={(_, v) => { if (v != null && v !== (themeMode ?? 'dark')) { setThemeMode(v as ThemeMode); resetColors() } }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ToggleButton value="dark" aria-label="Dark mode">
+                      <DarkModeIcon fontSize="small" sx={{ mr: 0.5 }} />Dark
+                    </ToggleButton>
+                    <ToggleButton value="light" aria-label="Light mode">
+                      <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />Light
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </MenuItem>
+                <Divider />
+                {/* Color pickers — operate on local draft; debounce commits to store. */}
+                {([
+                  { label: 'Accent',     field: 'primaryColor'  as const, fallback: muiTheme.palette.primary.main            },
+                  // Toggle fallback: dark mode blends action.selected (white@opacity) over paper; light uses primary.
+                  { label: 'Toggles',    field: 'toggleColor'   as const, fallback: themeMode === 'dark'
+                      ? blendWhiteAlphaOnHex(muiTheme.palette.action.selectedOpacity, muiTheme.palette.background.paper)
+                      : muiTheme.palette.primary.main },
+                  // Selection fallback: dark mode blends white@8% over paper (= MUI shipped default); light uses primary.
+                  { label: 'Selection',  field: 'selectionColor' as const, fallback: themeMode === 'dark'
+                      ? blendWhiteAlphaOnHex(0.08, muiTheme.palette.background.paper)
+                      : muiTheme.palette.primary.main },
+                  { label: 'Background', field: 'bgColor'       as const, fallback: muiTheme.palette.background.default      },
+                  { label: 'Paper',      field: 'paperColor'    as const, fallback: muiTheme.palette.background.paper        },
+                  { label: 'Dividers',   field: 'dividerColor'  as const, fallback: muiTheme.palette.divider                 },
+                  { label: 'Success',    field: 'successColor'  as const, fallback: muiTheme.palette.success.main            },
+                  { label: 'Warning',    field: 'warningColor'  as const, fallback: muiTheme.palette.warning.main            },
+                  { label: 'Error',      field: 'errorColor'    as const, fallback: muiTheme.palette.error.main              },
+                ] as const).map(({ label, field, fallback }) => (
+                  <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
+                    <ColorField
+                      value={draft[field] ?? fallback}
+                      onChange={(v) => setDraft(prev => ({ ...prev, [field]: v }))}
+                      onChangeCommitted={(v) => setThemeCustom(prev => ({ ...prev, [field]: v }))}
+                      onClear={() => { setDraft(prev => ({ ...prev, [field]: null })); setThemeCustom(prev => ({ ...prev, [field]: null })) }}
+                      popoverRef={colorPickerPopoverRef}
+                    />
+                  </MenuItem>
+                ))}
+                {/* Border radius — controls global corner rounding for buttons, chips, cards, etc. */}
+                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Corners</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
+                    <Slider
+                      size="small"
+                      value={draft.borderRadius ?? 8}
+                      min={0} max={24} step={1}
+                      onChange={(_, v) => setDraft(prev => ({ ...prev, borderRadius: v as number }))}
+                      onChangeCommitted={(_, v) => setThemeCustom(prev => ({ ...prev, borderRadius: v as number }))}
+                      sx={{ flex: 1 }}
+                    />
+                    <Typography variant="caption" sx={{ minWidth: 30, textAlign: 'right', color: 'text.secondary' }}>
+                      {draft.borderRadius ?? 8}px
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                {/* Selection highlight — controls opacity of the primary-tinted selection bg on chips, list items, etc.
+                    null = mode default (light: 12%, dark: MUI gray). Slider shows effective percent. */}
+                <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>Selection</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
+                    <Slider
+                      size="small"
+                      value={Math.round((draft.selectionOpacity ?? (themeMode === 'dark' ? 0.08 : 0.12)) * 100)}
+                      min={0} max={30} step={1}
+                      onChange={(_, v) => setDraft(prev => ({ ...prev, selectionOpacity: (v as number) / 100 }))}
+                      onChangeCommitted={(_, v) => setThemeCustom(prev => ({ ...prev, selectionOpacity: (v as number) / 100 }))}
+                      sx={{ flex: 1 }}
+                    />
+                    <Typography variant="caption" sx={{ minWidth: 30, textAlign: 'right', color: 'text.secondary' }}>
+                      {Math.round((draft.selectionOpacity ?? (themeMode === 'dark' ? 0.08 : 0.12)) * 100)}%
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
+                <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
+                  <CycleButton
+                    options={makeColorBlindCycleOptions(t)}
+                    value={colorBlindMode ?? 'normal'}
+                    variant={colorBlindCycleVariant(colorBlindMode)}
+                    onChange={(v) => setColorBlindMode?.(v as ColorBlindMode)}
+                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                  />
+                </MenuItem>
+                <Divider />
+                {/* Substat chip colorization — same On/Off + manage-colors pattern as gear inspector */}
+                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
+                  <Box
+                    sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      size="small"
+                      variant={statButtonBorders ? 'contained' : 'outlined'}
+                      color="success"
+                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
+                      onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
+                    >
+                      {statButtonBorders ? t('commonOn') : t('commonOff')}
+                    </Button>
+                    <MarkdownTooltip markdown={t('manageColors')}>
+                      <span>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          disabled={!statButtonBorders}
+                          sx={{ minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, px: 0.25 }}
+                          onClick={(e) => { e.stopPropagation(); if (statButtonBorders) onOpenManageColors?.() }}
+                          aria-label={t('manageColorsAria')}
+                        >
+                          <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                        </Button>
+                      </span>
+                    </MarkdownTooltip>
+                  </Box>
+                </MenuItem>
+                {/* Reset colors — only shown when the user has active customizations */}
+                {hasCustomization && (
+                  <>
+                    <Divider />
+                    <MenuItem disableRipple sx={{ py: 0.5 }}>
+                      <Button size="small" variant="outlined" color="error" onClick={resetColors} sx={{ width: '100%' }}>
+                        {t('resetToDefaults')}
+                      </Button>
+                    </MenuItem>
+                  </>
+                )}
+              </Menu>
+            </>
           )}
           <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>

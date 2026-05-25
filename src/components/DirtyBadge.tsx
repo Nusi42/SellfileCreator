@@ -21,7 +21,7 @@ function DirtyBadge({ active, children, sx, ref, ...rest }: DirtyBadgeProps) {
         <Box
           component="span"
           sx={(theme) => {
-            const neutralDot = theme.palette.mode === 'dark' ? theme.palette.grey[400] : theme.palette.grey[500]
+            const neutralDot = theme.palette.text.secondary
             const borderColor = theme.palette.background.paper
             return {
               position: 'absolute',

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { keyframes } from '@emotion/react'
 import type { MouseEvent } from 'react'
 import { ACCEPT_SFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
@@ -252,8 +253,8 @@ export default function HeaderActions(props: {
                 transform: 'translateX(-50%)',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
-                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(30,30,30,0.94)' : 'rgba(255,255,255,0.97)',
-                color: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+                backgroundColor: alpha(theme.palette.background.paper, 0.94),
+                color: theme.palette.text.primary,
                 borderRadius: 999,
                 padding: '8px 22px',
                 fontSize: '1rem',

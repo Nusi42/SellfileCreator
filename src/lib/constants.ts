@@ -89,6 +89,22 @@ export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 export const THEME_MODE_KEY = 'sellfileCreator.themeMode.v1'
 export type ThemeMode = 'dark' | 'light'
 
+// Persisted per-element theme overrides from the theme editor popover
+export const THEME_CUSTOM_KEY = 'sellfileCreator.themeCustom.v1'
+export type ThemeCustomization = {
+  primaryColor: string | null     // null = use mode default
+  toggleColor: string | null      // null = derive from primaryColor in light, MUI default in dark
+  selectionColor: string | null   // null = primaryColor in light, #ffffff in dark (ships rgba(255,255,255,0.08))
+  bgColor: string | null       // null = use mode default; paper is derived unless paperColor is set
+  paperColor: string | null    // null = derive from bgColor (or use mode default)
+  dividerColor: string | null  // null = use mode default (#30363d dark / #d0d7de light)
+  successColor: string | null  // null = use palette default; overrides color-blind mode when set
+  warningColor: string | null  // null = use palette default; overrides color-blind mode when set
+  errorColor: string | null    // null = use palette default; overrides color-blind mode when set
+  borderRadius: number | null      // null = use default (8px); valid range 0–24
+  selectionOpacity: number | null  // null = mode default (light: 0.12, dark: 0.08); range 0–0.30
+}
+
 // Non-breaking space for UI formatting (keeps labels glued to following token)
 export const NBSP = '\u00A0'
 // Rightward arrow glyph for diff/rename summaries across the UI.

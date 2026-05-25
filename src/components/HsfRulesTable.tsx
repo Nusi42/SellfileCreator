@@ -42,6 +42,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { CycleButton } from './CycleButton'
+import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -2010,13 +2011,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); applyNextColorBlindMode() }}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>
           <CycleButton
-            options={[
-              { value: 'normal',   label: t('colorBlindNormal')   },
-              { value: 'okabeIto', label: t('colorBlindOkabeIto') },
-              { value: 'tritan',   label: t('colorBlindTritan')   },
-            ]}
+            options={makeColorBlindCycleOptions(t)}
             value={colorBlindMode}
-            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            variant={colorBlindCycleVariant(colorBlindMode)}
             onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
           />

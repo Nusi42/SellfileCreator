@@ -141,6 +141,7 @@ export function ColorField({
   onClear,
   label,
   allowAlpha = false,
+  popoverRef,
 }: {
   value: string
   onChange: (v: string) => void
@@ -151,6 +152,9 @@ export function ColorField({
   onClear?: () => void
   label?: string
   allowAlpha?: boolean
+  /** Optional ref attached to the Popover paper — callers can pass this to outside-click
+   *  guards (insideRefs) so that dragging inside the picker doesn't close the parent menu. */
+  popoverRef?: React.Ref<HTMLDivElement>
 }) {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
   const open = Boolean(anchorEl)
@@ -221,7 +225,7 @@ export function ColorField({
   return (
     <>
       {label ? <EllipsisTooltip title={label}>{button}</EllipsisTooltip> : button}
-      <Popover open={open} onClose={handleClose} anchorEl={anchorEl} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+      <Popover open={open} onClose={handleClose} anchorEl={anchorEl} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} slotProps={{ paper: { ref: popoverRef } }}>
         {open ? (
           <ColorPickerContent
             key={allowAlpha ? 'alpha' : 'solid'}

@@ -17,11 +17,13 @@ import './styles.css'
 import { I18nProvider } from './lib/i18n'
 import { useColorBlindPreference } from './state/colorBlindPreference'
 import { useThemeModePreference } from './state/themeModePreference'
+import { useThemeCustomization } from './state/themeCustomization'
 
 function AppShell() {
   const [cbMode, setCbMode] = useColorBlindPreference()
   const [themeMode, setThemeMode] = useThemeModePreference()
-  const theme = useMemo(() => makeTheme(cbMode, themeMode), [cbMode, themeMode])
+  const [themeCustom] = useThemeCustomization()
+  const theme = useMemo(() => makeTheme(cbMode, themeMode, themeCustom), [cbMode, themeMode, themeCustom])
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

@@ -8508,6 +8508,9 @@ export default function App({ colorBlindMode, setColorBlindMode, themeMode, setT
           onToggleConnect={handleToggleRslHelperConnect}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
+          colorBlindMode={colorBlindMode}
+          setColorBlindMode={setColorBlindMode}
+          onOpenManageColors={openColors}
         />
       ) : null}
       {/* Only mount the Note dialog when visible so recipe chip previews stay out of the tree. */}
