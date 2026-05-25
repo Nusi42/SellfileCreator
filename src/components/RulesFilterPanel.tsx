@@ -117,8 +117,7 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   height: CLEAR_ICON_BUTTON_SIZE_PX,
   flexShrink: 0,
 } as const
-// Keep the closed combobox width aligned with the rest of the filter row.
-const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
+const CHAMPION_SELECT_WIDTH_PX = 160
 // Champion names can run long; give the dropdown menu extra width without stretching the closed control.
 const CHAMPION_MENU_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 1.35)
 const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
