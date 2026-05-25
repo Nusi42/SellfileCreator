@@ -550,6 +550,7 @@ export default function GridIconBox({
                   fontSize: '0.95rem',
                   color: starPos < ascensionStars ? '#a855f7' : '#fcd34d',
                   ml: starPos === 0 ? 0 : '-6px',
+                  filter: 'drop-shadow(0 0 1.5px rgba(0,0,0,0.85))',
                 }}
               />
             ))}
