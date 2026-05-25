@@ -257,6 +257,16 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               variant="fullWidth"
               textColor="primary"
               indicatorColor="primary"
+              sx={{
+                // Dialog paper has zoom:var(--app-zoom) for SBS mode. MUI computes the
+                // indicator position with getBoundingClientRect() (viewport px) then applies
+                // those values as CSS px — which differ inside a zoomed context. Using CSS
+                // percentages instead makes the position zoom-invariant.
+                '& .MuiTabs-indicator': {
+                  left: `calc(${LOGIC_HUB_DIALOG_TABS.indexOf(normalizedTab)} / ${LOGIC_HUB_DIALOG_TABS.length} * 100%) !important`,
+                  width: `calc(1 / ${LOGIC_HUB_DIALOG_TABS.length} * 100%) !important`,
+                },
+              }}
             >
               <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('gearInspectorFinalSell')} />
               <Tab value={LOGIC_HUB_DIALOG_TAB_SUBSTAT_TARGETS} label={t('tabSubstatTargets')} />
