@@ -541,7 +541,6 @@ export default function GridIconBox({
               pointerEvents: 'none',
               px: 1,
               py: 0.25,
-              background: showRankStarsBackground ? 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))' : undefined,
             }}
           >
             {Array.from({ length: numericRank }, (_, i) => i).map((starPos) => (
