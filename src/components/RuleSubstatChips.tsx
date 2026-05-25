@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, darken, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
@@ -22,10 +22,23 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
   fallbackLabelColor: string
 }): { labelColor: string; chipBg: string; chipBorder: string } {
   const { variant, substatColors, colorize, fallbackLabelColor } = params
+  const isLight = theme.palette.mode === 'light'
+
+  // Light mode: the dark BG colors (#1E2E14, #2F1A14 etc.) at 25% alpha on white look muddy.
+  // Instead derive chip appearance from the vibrant FG color at low opacity for clean tinted chips.
+  if (isLight && colorize) {
+    const fgColor = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? fallbackLabelColor
+    return {
+      chipBg: alpha(fgColor, 0.15),
+      chipBorder: alpha(fgColor, 0.25),
+      labelColor: darken(fgColor, 0.45),
+    }
+  }
+
   const statBgRaw = colorize ? (substatColors[variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variant]) : undefined
   const parsedBg = parseHexWithAlpha(statBgRaw)
   const fallbackBase = fallbackLabelColor
-  const fallbackAlpha = theme.palette.mode === 'dark' ? 0.2 : 0.12
+  const fallbackAlpha = isLight ? 0.12 : 0.2
   const chipBase = parsedBg?.base ?? fallbackBase
   const chipAlpha = parsedBg?.alpha ?? fallbackAlpha
   const chipBg = alpha(chipBase, chipAlpha)

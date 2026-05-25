@@ -16,17 +16,19 @@ import { warmupWasmRuleEngine } from './lib/wasm/wasmRuleEngine'
 import './styles.css'
 import { I18nProvider } from './lib/i18n'
 import { useColorBlindPreference } from './state/colorBlindPreference'
+import { useThemeModePreference } from './state/themeModePreference'
 
 function AppShell() {
   const [cbMode, setCbMode] = useColorBlindPreference()
-  const theme = useMemo(() => makeTheme(cbMode), [cbMode])
+  const [themeMode, setThemeMode] = useThemeModePreference()
+  const theme = useMemo(() => makeTheme(cbMode, themeMode), [cbMode, themeMode])
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <I18nProvider>
         <AppStateProvider initial={makeInitialAppState({ substatTargets: defaultSubstatTargets(), metasets: defaultMetasets() })}>
           <DisplayPreferencesProvider>
-            <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
+            <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} themeMode={themeMode} setThemeMode={setThemeMode} />
           </DisplayPreferencesProvider>
         </AppStateProvider>
       </I18nProvider>

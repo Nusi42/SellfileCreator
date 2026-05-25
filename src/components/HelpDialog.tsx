@@ -1,6 +1,9 @@
 import React from 'react'
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, Button, Box, Typography, IconButton, Tooltip } from '@mui/material'
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import LightModeIcon from '@mui/icons-material/LightMode'
+import type { ThemeMode } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
@@ -29,7 +32,7 @@ const getFaviconLinkHref = (): string | undefined => {
   return undefined
 }
 
-export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void }) {
+export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, themeMode, setThemeMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; themeMode?: ThemeMode; setThemeMode?: (m: ThemeMode) => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
   const languageOptions = useLanguageOptions()
@@ -224,23 +227,36 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             v{APP_VERSION} — © Nusi㊷ - 2026
           </Typography>
         </Box>
-        <FormControl size="small" sx={{ minWidth: 220, flexShrink: 0 }}>
-          <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
-          <Select
-            labelId="i18n-language-select-label"
-            id="i18n-language-select"
-            label={languageLabel}
-            value={selectValue}
-            onChange={(e) => setLang(e.target.value as typeof lang)}
-          >
-            {languageOptions.map((opt) => (
-              <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          {setThemeMode != null && (
+            <Tooltip title={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              <IconButton
+                size="small"
+                aria-label={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+              >
+                {themeMode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
+            <Select
+              labelId="i18n-language-select-label"
+              id="i18n-language-select"
+              label={languageLabel}
+              value={selectValue}
+              onChange={(e) => setLang(e.target.value as typeof lang)}
+            >
+              {languageOptions.map((opt) => (
+                <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
       </DialogTitle>
       <DialogContent dividers>
-        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
+        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={themeMode ?? 'dark'} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
             rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}

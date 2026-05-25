@@ -85,6 +85,10 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 // Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
+// Persisted light/dark UI mode — testing toggle in Help screen
+export const THEME_MODE_KEY = 'sellfileCreator.themeMode.v1'
+export type ThemeMode = 'dark' | 'light'
+
 // Non-breaking space for UI formatting (keeps labels glued to following token)
 export const NBSP = '\u00A0'
 // Rightward arrow glyph for diff/rename summaries across the UI.

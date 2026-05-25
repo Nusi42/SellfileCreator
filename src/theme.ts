@@ -1,5 +1,5 @@
 import { alpha, createTheme, darken } from '@mui/material/styles'
-import type { ColorBlindMode } from './lib/constants'
+import type { ColorBlindMode, ThemeMode } from './lib/constants'
 import {
   FONT_SIZE_BASE_PX,
   FONT_SIZE_BASE_REM,
@@ -13,26 +13,35 @@ import {
  * Generates the MUI theme using a color-blind aware palette when requested.
  * Why: Many components rely on `success` / `warning` / `error` semantic tokens.
  * Switching these here updates the whole app without touching call sites.
+ * themeMode controls the overall light/dark color scheme (testing toggle).
  */
-export function makeTheme(mode: ColorBlindMode) {
+export function makeTheme(colorBlindMode: ColorBlindMode, themeMode: ThemeMode = 'dark') {
   // Okabe–Ito colors (deuter/protan friendly)
   const OI = { success: '#0072B2', warning: '#E69F00', error: '#D55E00' }
   // Tritan-friendly alternative (avoid blue/yellow pairing): green/orange/magenta
   const TR = { success: '#009E73', warning: '#E69F00', error: '#CC79A7' }
 
-  // Select palette overrides based on mode
-  const over = mode === 'okabeIto'
+  // Select palette overrides based on color-blind mode
+  const over = colorBlindMode === 'okabeIto'
     ? { success: { main: OI.success, contrastText: '#fff' }, warning: { main: OI.warning, contrastText: '#000' }, error: { main: OI.error, contrastText: '#fff' } }
-    : mode === 'tritan'
+    : colorBlindMode === 'tritan'
     ? { success: { main: TR.success, contrastText: '#fff' }, warning: { main: TR.warning, contrastText: '#000' }, error: { main: TR.error, contrastText: '#000' } }
     : {}
 
+  const isDark = themeMode === 'dark'
+
   return createTheme({
     palette: {
-      mode: 'dark',
-      primary: { main: '#58a6ff' },
-      background: { default: '#0f1216', paper: '#161b22' },
-      divider: '#30363d',
+      mode: themeMode,
+      primary: { main: isDark ? '#58a6ff' : '#0969da' },
+      background: isDark
+        ? { default: '#0f1216', paper: '#161b22' }
+        : { default: '#f2f2f2', paper: '#f7f7f7' },
+      divider: isDark ? '#30363d' : '#d0d7de',
+      // Tint the selected state with the primary blue in light mode only; dark mode keeps MUI's default gray.
+      ...(!isDark && {
+        action: { selected: 'rgba(9,105,218,0.12)', selectedOpacity: 0.12 },
+      }),
       ...over,
     },
     shape: { borderRadius: 8 },
@@ -55,7 +64,7 @@ export function makeTheme(mode: ColorBlindMode) {
           },
         },
       },
-      MuiPaper: { styleOverrides: { root: { border: '1px solid #30363d' } } },
+      MuiPaper: { styleOverrides: { root: ({ theme }) => ({ border: `1px solid ${theme.palette.divider}` }) } },
       MuiAlert: {
         styleOverrides: {
           // Darken filled success alerts globally so toast surfaces are less neon/bright.
@@ -167,12 +176,27 @@ export function makeTheme(mode: ColorBlindMode) {
           mark: { height: 8 },
         },
       },
+      MuiToggleButton: {
+        styleOverrides: {
+          // MUI ToggleButton ignores action.selected — it derives selected bg from text.primary,
+          // which stays gray. Force primary-blue tint for the selected state instead.
+          root: ({ theme }) => theme.palette.mode === 'light' ? {
+            '&.Mui-selected': {
+              color: theme.palette.primary.main,
+              backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity),
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity + 0.08),
+              },
+            },
+          } : {},
+        },
+      },
     },
   })
 }
 
 // Default theme for environments that import the default export directly
-const theme = makeTheme('normal')
+const theme = makeTheme('normal', 'dark')
 export default theme
 /**
  * theme.ts

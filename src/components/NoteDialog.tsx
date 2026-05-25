@@ -3132,6 +3132,9 @@ export default function NoteDialog({
   drawerLeftPx?: number
 }) {
   const { t, lang, setLang } = useI18n()
+  const theme = useTheme()
+  // Editor background adapts to the active theme mode; Prism tooltip blocks stay dark (token colors need it).
+  const editorBg = theme.palette.mode === 'dark' ? NOTE_EDITOR_BG_COLOR : theme.palette.background.default
   const languageOptions = useLanguageOptions()
   const langSelectValue = useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
@@ -3825,12 +3828,12 @@ export default function NoteDialog({
               <Box
                 data-allow-select={1 as const}
                 data-allow-context={1 as const}
-                data-color-mode={('dark' as const)}
+                data-color-mode={theme.palette.mode}
                 sx={{
                   // Stretch the preview to fill the dialog body.
                   flex: 1,
                   minHeight: 0,
-                  bgcolor: NOTE_EDITOR_BG_COLOR,
+                  bgcolor: editorBg,
                   '& .wmde-markdown img': { backgroundColor: 'transparent' },
                   borderRadius: 1,
                   px: 2,
@@ -4059,6 +4062,8 @@ function NoteEditorContent({
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const theme = useTheme()
+  const editorBg = theme.palette.mode === 'dark' ? NOTE_EDITOR_BG_COLOR : theme.palette.background.default
   // Anchor for the EBNF reference popover; null when closed.
   const [ebnfAnchorEl, setEbnfAnchorEl] = useState<HTMLElement | null>(null)
   // Stable close handler so useContextMenuPaperGuard dependency stays fixed.
@@ -4506,7 +4511,7 @@ function NoteEditorContent({
           ref={editWrapRef}
           data-allow-select={1 as const}
           data-allow-context={1 as const}
-          data-color-mode={('dark' as const)}
+          data-color-mode={theme.palette.mode}
           sx={{
             // Stretch the editor shell to fill the dialog body.
             flex: 1,
@@ -4514,21 +4519,21 @@ function NoteEditorContent({
             '& .w-md-editor': {
               // Keep layout defaults from the editor so text overlay math stays correct.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
-              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
-              color: (theme) => `${theme.palette.text.primary} !important`,
+              backgroundColor: `${editorBg} !important`,
+              color: (t) => `${t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
-              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
-              color: (theme) => `${theme.palette.text.primary} !important`,
+              backgroundColor: `${editorBg} !important`,
+              color: (t) => `${t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre': {
               // Match the textarea font sizing so highlights overlay 1:1.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
-              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
-              color: (theme) => `${theme.palette.text.primary} !important`,
+              backgroundColor: `${editorBg} !important`,
+              color: (t) => `${t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-input': {
@@ -4537,17 +4542,17 @@ function NoteEditorContent({
               lineHeight: 1.7,
               backgroundColor: 'transparent',
               color: 'inherit',
-              borderColor: (theme) => theme.palette.divider,
-              caretColor: (theme) => theme.palette.text.primary,
+              borderColor: (t) => t.palette.divider,
+              caretColor: (t) => t.palette.text.primary,
             },
             '& .w-md-editor .w-md-editor-content': {
               // Keep sizing controlled by the editor height prop to avoid desync.
-              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+              backgroundColor: `${editorBg} !important`,
             },
             '& .w-md-editor .w-md-editor-preview': {
               // Preserve default preview layout so overlays align with selections.
-              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
-              color: (theme) => `${theme.palette.text.primary} !important`,
+              backgroundColor: `${editorBg} !important`,
+              color: (t) => `${t.palette.text.primary} !important`,
             },
             '& .wmde-markdown': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,

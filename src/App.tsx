@@ -385,7 +385,7 @@ import {
 
 // Components are organized under src/components
 
-import type { ColorBlindMode } from './lib/constants'
+import type { ColorBlindMode, ThemeMode } from './lib/constants'
 
 const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
 
@@ -446,7 +446,7 @@ type PipelineCacheEntry = {
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
-export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
+export default function App({ colorBlindMode, setColorBlindMode, themeMode, setThemeMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void; themeMode: ThemeMode; setThemeMode: (m: ThemeMode) => void }) {
   // Session-constant: true when ?express was present in the URL at load time.
   const [simpleMode] = useState(getSimpleMode)
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -8506,6 +8506,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           connectEnabled={rslHelperConnectEnabled}
           pushEndpointReachable={pushEndpointReachable}
           onToggleConnect={handleToggleRslHelperConnect}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
         />
       ) : null}
       {/* Only mount the Note dialog when visible so recipe chip previews stay out of the tree. */}
