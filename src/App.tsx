@@ -170,6 +170,7 @@ import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import SfcImportOptionsDialog, { type SfcImportModes, type SfcImportSelection } from './components/dialogs/SfcImportOptionsDialog'
 import RslHelperConnectButton from './components/RslHelperConnectButton'
 import PongFlyout from './components/PongFlyout'
+import TetrisFlyout from './components/TetrisFlyout'
 import { useAutosave } from './hooks/useAutosave'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
@@ -7374,6 +7375,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     </ToggleButtonGroup>
   )
 
+  // Easter egg hooks — declared here so the closures inside substatTargetsElement can reference them.
+  const recordFinalSellEasterEggClick = useEasterEggTrigger(10, 10_000)
+  const [pongOpen, setPongOpen] = useState(false)
+  const recordRecipesEasterEggClick = useEasterEggTrigger(10, 10_000)
+  const [tetrisOpen, setTetrisOpen] = useState(false)
+
   // Builder panel header right side: optional Substat Targets + global Recipes/FinalSell/Safeguards/Tools controls.
   const fsEnabled = (finalSellRemainder.artifacts || finalSellRemainder.accessories) && (finalSellRemainder.levels?.length ?? 0) > 0
   const safeguardsDisabledWarningForBuilder = builderMode === 'safeguard' && !safeguardsEnabled && safeguardRules.length > 0
@@ -7386,7 +7393,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           value="recipesToggle"
           selected={recipesEnabled}
           size="small"
-          onClick={() => applyRecipesEnabledChange(!recipesEnabled)}
+          onClick={() => {
+              applyRecipesEnabledChange(!recipesEnabled)
+              if (recordRecipesEasterEggClick('tetris')) setTetrisOpen(true)
+            }}
           aria-label={t('recipesToggleLabel')}
           aria-pressed={recipesEnabled}
           sx={(theme) => {
@@ -7917,10 +7927,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     t,
   ])
-  // Easter egg: 10 rapid clicks on the Final Sell toggle button opens Pong.
-  const recordFinalSellEasterEggClick = useEasterEggTrigger(10, 10_000)
-  const [pongOpen, setPongOpen] = useState(false)
-
   const handleExportSellfile = useCallback(() => {
     // No rules means both push/download should be a no-op.
     if (!exportRulesCountRef.current) return
@@ -8944,6 +8950,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ) : null}
       {/* Easter egg: Pong flyout — opened by 10 rapid clicks on the Final Sell toggle button */}
       {pongOpen && <PongFlyout onClose={() => setPongOpen(false)} />}
+      {/* Easter egg: Tetris flyout — opened by 10 rapid clicks on the Recipes toggle button */}
+      {tetrisOpen && <TetrisFlyout onClose={() => setTetrisOpen(false)} />}
     </Container>
   )
 }

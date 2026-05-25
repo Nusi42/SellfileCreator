@@ -64,6 +64,7 @@ import { GearAnalyticsChampStats } from '../gear-analytics/GearAnalyticsChampSta
 import { GearAnalyticsNotEquipped } from '../gear-analytics/GearAnalyticsNotEquipped'
 import { useI18n } from '../../lib/i18n'
 import { canWriteImageToClipboard } from '../../lib/clipboard'
+import { buildWatermarkText, encodeStegOnDataUrl } from '../../lib/snapshotSteg'
 
 type Props = {
   /** All loaded gear rows, unfiltered. Stats always reflect the full inventory. */
@@ -169,15 +170,14 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
     if (!contentRef.current || copying) return
     setCopying(true)
     try {
-      const el = contentRef.current
+      const el  = contentRef.current
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
       // Reveal the watermark before reading dimensions so its height is included in scrollHeight.
       const wm = watermarkRef.current
       if (wm) {
-        const now = new Date()
-        const pad = (n: number) => String(n).padStart(2, '0')
         const localTs = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-        // Append UTC offset so snapshots are unambiguous when shared across timezones.
-        // getTimezoneOffset() returns minutes *behind* UTC, so negate it for the display sign.
+        // getTimezoneOffset() returns minutes *behind* UTC, so negate for the display sign.
         const offsetMin = -now.getTimezoneOffset()
         const sign = offsetMin >= 0 ? '+' : '-'
         const absH = Math.floor(Math.abs(offsetMin) / 60)
@@ -212,15 +212,19 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       try {
         // Pass explicit width/height so html-to-image uses them instead of getBoundingClientRect,
         // which would otherwise return the visible (clipped) height from the parent overflow chain.
-        const dataUrl = await toPng(el, {
-          cacheBust: true,
-          pixelRatio: Math.min(window.devicePixelRatio, 2),
-          backgroundColor: theme.palette.background.paper,
-          width: fullWidth,
-          height: fullHeight,
-          // Hide Clear-filter buttons (no semantic value in a snapshot) but keep active chips.
-          filter: (node) => !(node instanceof Element && node.hasAttribute('data-snapshot-hide')),
-        })
+        // Steg-encode the fingerprint into the PNG before delivery.
+        const dataUrl = await encodeStegOnDataUrl(
+          await toPng(el, {
+            cacheBust: true,
+            pixelRatio: Math.min(window.devicePixelRatio, 2),
+            backgroundColor: theme.palette.background.paper,
+            width: fullWidth,
+            height: fullHeight,
+            // Hide Clear-filter buttons (no semantic value in a snapshot) but keep active chips.
+            filter: (node) => !(node instanceof Element && node.hasAttribute('data-snapshot-hide')),
+          }),
+          buildWatermarkText(now, pad),
+        )
         if (canCopy) {
           // Secure context: copy PNG blob directly to clipboard.
           const res  = await fetch(dataUrl)
@@ -229,9 +233,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
         } else {
           // Non-secure context (plain http://): trigger a browser file download instead.
           // Build a timestamp-stamped filename so multiple snapshots don't overwrite each other.
-          const now2 = new Date()
-          const pad2 = (n: number) => String(n).padStart(2, '0')
-          const ts = `${now2.getFullYear()}${pad2(now2.getMonth() + 1)}${pad2(now2.getDate())}-${pad2(now2.getHours())}${pad2(now2.getMinutes())}`
+          const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
           const a = document.createElement('a')
           a.href = dataUrl
           a.download = `gear-analytics-${ts}.png`
