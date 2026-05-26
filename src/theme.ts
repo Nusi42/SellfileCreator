@@ -156,12 +156,14 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
         defaultProps: { slotProps: { root: { closeAfterTransition: false } } },
         styleOverrides: {
           // scale (not zoom) avoids shrinking offsetWidth so MUI's overflow-clamp is unaffected.
-          paper: { scale: 'var(--app-zoom, 1)', transformOrigin: 'top left !important' },
+          // No transformOrigin override — MUI sets it via inline style per-menu based on anchor
+          // position. Forcing 'top left !important' would break right-anchored menus in SBS zoom.
+          paper: { scale: 'var(--app-zoom, 1)' },
         },
       },
       MuiAutocomplete: {
         styleOverrides: {
-          paper: { scale: 'var(--app-zoom, 1)', transformOrigin: 'top left !important' },
+          paper: { scale: 'var(--app-zoom, 1)' },
         },
       },
       MuiSlider: {
