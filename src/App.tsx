@@ -8006,7 +8006,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
-          scrollbarColor: `${theme.palette.divider} transparent`,
+          scrollbarColor: `${theme.vars?.palette.divider ?? theme.palette.divider} transparent`,
         },
         // Firefox does not render overlay scrollbars; keep the default width there
         '@media all and (min--moz-device-pixel-ratio:0)': {
@@ -8029,15 +8029,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         },
         '::-webkit-scrollbar': {},
         '::-webkit-scrollbar-track': {
-          backgroundColor: theme.palette.background.paper,
+          backgroundColor: (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
         },
         '::-webkit-scrollbar-thumb': {
-          backgroundColor: theme.palette.divider,
+          backgroundColor: (theme.vars?.palette.divider ?? theme.palette.divider),
           borderRadius: 8,
-          border: `2px solid ${theme.palette.background.paper}`,
+          border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
         },
         '::-webkit-scrollbar-thumb:hover': {
-          backgroundColor: theme.palette.text.disabled,
+          backgroundColor: (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled),
         },
         'input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button': {
           WebkitAppearance: 'auto',

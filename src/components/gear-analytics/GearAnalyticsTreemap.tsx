@@ -15,7 +15,7 @@
  * animation on the tile layout.  10 distinct variants are available.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { alpha, Box, Collapse, Tooltip, Typography, useTheme } from '@mui/material'
+import { Box, Collapse, Tooltip, Typography, useTheme } from '@mui/material'
 import type { SetOutcomeCount } from '../../lib/gearAnalytics'
 import { useI18n } from '../../lib/i18n'
 import { clamp01, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
@@ -270,7 +270,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
   }, [])
 
   const hasSelection = selected.size > 0
-  const paper = (theme.vars?.palette.background.paper ?? theme.palette.background.paper)
+  // alpha() cannot decompose CSS variable strings — use channel tokens directly instead.
 
   // Outcome color for each band — matches the outcome donut's palette.
   const bandColor: Record<Band, string> = {
@@ -587,7 +587,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   // Selection ring via outline; hover reveals primary-light border.
                   outline: isSelected
                     ? `2px solid ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}`
-                    : `1px solid ${alpha(paper, 0.25)}`,
+                    : `1px solid rgba(var(--mui-palette-background-paperChannel) / 0.25)`,
                   outlineOffset: isSelected ? -2 : -1,
                   '&:hover': {
                     opacity: 1,
@@ -622,7 +622,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   >
                     {/* Icon disc — shown when icons are on (or as fallback when tile is too small for a label). */}
                     {showIcon && (
-                      <Box sx={{ bgcolor: alpha(paper, 0.82), borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
+                      <Box sx={{ bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.82)', borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
                         <Box
                           component="img"
                           src={icon!.url}
@@ -655,7 +655,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                       * overflow: hidden hides content that doesn't fit; the chip itself is not rendered at all
                       * when the tile is too narrow (showNumbers gate). */}
                     {showNumbers && (
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: alpha(paper, 0.8), borderRadius: 999, px: '5px', py: 0.125, gap: 0.4, flexShrink: 0 }}>
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.8)', borderRadius: 999, px: '5px', py: 0.125, gap: 0.4, flexShrink: 0 }}>
                         <Typography sx={{ fontSize: 9, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>{entry.total}</Typography>
                         {COUNT_ORDER.map(band => entry[band] > 0 && (
                           <Box key={band} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4 }}>
@@ -677,12 +677,12 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
       <Box sx={{ display: 'flex', gap: 1.5, mt: 0.75, flexWrap: 'wrap' }}>
         {/* Total swatch — matches the leading count in each tile's chip (text.secondary color). */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
+          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), border: '1px solid rgba(var(--mui-palette-dividerChannel) / 0.5)' }} />
           <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{t('gearAnalyticsTotal')}</Typography>
         </Box>
         {visibleBands.map(band => (
           <Box key={band} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }} />
+            <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: '1px solid rgba(var(--mui-palette-dividerChannel) / 0.5)' }} />
             <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
               {t(({ sell: 'gearAnalyticsOutcomeSell', safe: 'gearAnalyticsOutcomeSafe', keep: 'gearAnalyticsOutcomeKeep', none: 'gearAnalyticsOutcomeNone' } as const)[band])}
             </Typography>

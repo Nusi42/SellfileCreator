@@ -3,7 +3,7 @@ import Paper, { type PaperProps } from '@mui/material/Paper'
 import IconButton from '@mui/material/IconButton'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { darken, lighten } from '@mui/material/styles'
+import { darken } from '@mui/material/styles'
 import {
   CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,
   CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX,
@@ -33,19 +33,14 @@ const basePaperSx: SxProps<Theme> = {
 }
 
 const closeButtonSx: SxProps<Theme> = (theme) => {
-  // Derive all colors from the configurable background.paper and divider tokens so the
-  // button automatically adapts when the user sets custom theme colors.
-  // lighten/darken amounts are tuned so default dark mode output matches the original
-  // hardcoded grey values (grey[800]/grey[900]/grey[700]) within ~5 % luminance.
-  // Light-mode values are the base; dark-mode overrides are applied via applyStyles.
-  // Use concrete light-scheme hex for darken/lighten math (CSS var strings break color math).
-  // Dark-scheme hex extracted from colorSchemes for the applyStyles override section.
+  // Light-mode: derive from paper/divider tokens so the button adapts to custom colors.
+  // darken() receives light-scheme hex (theme.palette.* = light in CSS vars mode) — safe.
+  // Dark-mode: hardcoded MUI grey[800]/grey[900]/grey[700] values via applyStyles so the
+  // button matches the original origin/master appearance on the default dark paper (#161b22).
+  // Grey values are scheme-invariant, and darkP (#161b22) is already near grey[900] lightness
+  // so lighten() deltas cannot reach the contrast that grey[800]=#424242 provides.
   const p = theme.palette.background.paper
   const d = theme.palette.divider
-  // Dark-scheme defaults match buildSchemePalette in theme.ts.
-  // colorSchemes isn't typed on Theme in sx callbacks, so we use known defaults.
-  const darkP = '#161b22'
-  const darkD = '#30363d'
   const textColor = theme.vars?.palette.text.primary ?? theme.palette.text.primary
   return {
     position: 'absolute',
@@ -79,21 +74,24 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
       boxShadow: theme.shadows[6],
       borderColor: darken(d, 0.15),
     },
-    // Dark mode: lighten dark-scheme hex (not light-scheme p/d) so button sits above dark paper.
+    // Dark mode: use MUI grey scale values (same as origin/master's grey[800]/grey[900]/grey[700])
+    // since darkP (#161b22) is already near grey[900] lightness — lighten() deltas are
+    // too small to reach the contrast that grey[800]=#424242 provides.
+    // Grey values are scheme-invariant (same in dark and light), so hardcoding is safe here.
     ...theme.applyStyles('dark', {
-      backgroundColor: lighten(darkP, 0.18),
-      borderColor: lighten(darkD, 0.25),
+      backgroundColor: '#424242',  // grey[800]
+      borderColor: '#616161',      // grey[700]
       '&:hover': {
-        backgroundColor: lighten(darkP, 0.10),
-        borderColor: lighten(darkD, 0.35),
+        backgroundColor: '#212121',  // grey[900]
+        borderColor: '#757575',      // grey[600]
         color: textColor,
         boxShadow: theme.shadows[4],
       },
       '&.Mui-focusVisible': {
-        backgroundColor: lighten(darkP, 0.27),
+        backgroundColor: '#616161',  // grey[700]
         color: textColor,
         boxShadow: theme.shadows[6],
-        borderColor: lighten(darkD, 0.45),
+        borderColor: '#9e9e9e',      // grey[500]
       },
     }),
   }

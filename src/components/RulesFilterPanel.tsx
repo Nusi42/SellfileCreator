@@ -246,7 +246,7 @@ const SUBSTAT_NOT_LABEL_SX: SxProps<Theme> = {
   },
 }
 
-const toggleBorderColor = (theme: Theme) => theme.palette.divider
+const toggleBorderColor = (theme: Theme) => theme.vars?.palette.divider ?? theme.palette.divider
 // Grid-based toggle groups rely on real spacing, so restore each chip's outline.
 // Narrowed to a single theme callback so the value is safe inside `sx` arrays.
 type SxCallback = (theme: Theme) => SystemStyleObject<Theme>
@@ -1767,7 +1767,7 @@ function RulesFilterPanel({
     <Box sx={{ display: 'contents' }}>
       <Box
         sx={(theme) => ({
-          border: `1px solid ${theme.palette.divider}`,
+          border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
           p: 0.75,
           borderRadius: 1,
           mb: 1,
@@ -2730,7 +2730,7 @@ function RulesFilterPanel({
 	                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
 	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
 	                        // Mirror the Gear Inspector grid rarity border so the dropdown signals overall quality at a glance.
-	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
+	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? (theme.vars?.palette.divider ?? theme.palette.divider)
                         const championTrimmed = championLabel.trim()
                         const championFallbackInitial = championTrimmed.length > 0 ? championTrimmed.charAt(0).toUpperCase() : '?'
                         return (

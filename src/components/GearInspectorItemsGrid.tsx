@@ -1916,8 +1916,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const nested = item.depth > 0
     // Inner slices reuse the same border + background logic so nested accordions still look layered.
     const sharedBodySx = (theme: Theme) => ({
-      borderLeft: `1px solid ${theme.palette.divider}`,
-      borderRight: `1px solid ${theme.palette.divider}`,
+      borderLeft: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+      borderRight: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
       backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
       height: '100%',
       display: 'flex',
@@ -2009,7 +2009,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           data-header-key={group.key}
           sx={(theme) => ({
             borderRadius: `${headerRadius}px`,
-            border: `1px solid ${theme.palette.divider}`,
+            border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
             borderBottomLeftRadius: expanded ? 0 : `${headerRadius}px`,
             borderBottomRightRadius: expanded ? 0 : `${headerRadius}px`,
             backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
@@ -2046,7 +2046,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               px: theme.spacing(1.5),
               py: theme.spacing(1),
               minHeight: `${item.height}px`,
-              borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
+              borderBottom: expanded ? `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` : 'none',
             })}
             aria-expanded={expanded}
           >
@@ -2165,7 +2165,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           sx={(theme) => ({
             ...sharedBodySx(theme),
             borderBottom: item.position === 'bottom'
-              ? `1px solid ${theme.palette.divider}`
+              ? `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`
               : 'none',
             borderBottomLeftRadius: item.position === 'bottom'
               ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
@@ -2202,7 +2202,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         <Box
           sx={(theme) => ({
             ...sharedBodySx(theme),
-            borderBottom: ownsBottomBorder ? `1px solid ${theme.palette.divider}` : 'none',
+            borderBottom: ownsBottomBorder ? `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` : 'none',
             borderBottomLeftRadius: ownsBottomBorder
               ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
               : 0,
@@ -2925,7 +2925,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             gap: 1,
             px: 1.5,
             py: 0.5,
-            borderTop: `1px solid ${theme.palette.divider}`,
+            borderTop: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
             flexShrink: 0,
           })}
         >

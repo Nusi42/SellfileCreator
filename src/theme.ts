@@ -172,16 +172,21 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
       },
       MuiToggleButton: {
         styleOverrides: {
-          // applyStyles('dark'/'light') emits [data-mui-color-scheme] selectors, so this
-          // responds to scheme changes without any React re-renders or palette.mode checks.
+          // applyStyles('light'/'dark') emits [data-mui-color-scheme] selectors so this
+          // responds to scheme changes without React re-renders or palette.mode checks.
+          // Base styles have NO selected-state overrides — each scheme applies its own via
+          // applyStyles, leaving the other scheme to use MUI's natural defaults.
           root: ({ theme }) => {
             const tc = custom.toggleColor
             if (tc != null) {
               return {
                 '&.Mui-selected': {
-                  color: tc,
-                  backgroundColor: alpha(tc, lightPalette.action.selectedOpacity),
-                  '&:hover': { backgroundColor: alpha(tc, lightPalette.action.selectedOpacity + 0.08) },
+                  // Light: tint from custom toggleColor.
+                  ...theme.applyStyles('light', {
+                    color: tc,
+                    backgroundColor: alpha(tc, lightPalette.action.selectedOpacity),
+                    '&:hover': { backgroundColor: alpha(tc, lightPalette.action.selectedOpacity + 0.08) },
+                  }),
                   // Dark: tint bg only; text stays text.primary (white) for readability.
                   ...theme.applyStyles('dark', {
                     color: 'inherit',
@@ -191,18 +196,17 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
                 },
               }
             }
-            // No custom toggleColor in dark mode → leave MUI's default gray selected state.
-            // Light mode → tint from primary.
+            // No custom toggleColor → light mode tints from primary; dark mode uses
+            // MUI's default action.selected (rgba(255,255,255,0.08)) with no override.
             const toggleMain = lightPalette.primary.main
             return {
               '&.Mui-selected': {
-                color: toggleMain,
-                backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity),
-                '&:hover': { backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity + 0.08) },
-                ...theme.applyStyles('dark', {
-                  color: 'inherit',
-                  backgroundColor: 'unset',
+                ...theme.applyStyles('light', {
+                  color: toggleMain,
+                  backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity),
+                  '&:hover': { backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity + 0.08) },
                 }),
+                // Dark: no override → MUI's default gray selected highlight is preserved.
               },
             }
           },

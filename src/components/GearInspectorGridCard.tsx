@@ -85,7 +85,6 @@ const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STA
 // GRID_GAP is a local alias so card internals don't need to reference the layout module constant by its long name.
 const GRID_GAP = GEAR_INSPECTOR_GRID_COLUMN_GAP_UNITS
 const CARD_COLUMN_GAP_UNITS = 1.5
-const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
 const CARD_MATCH_ROW_HEIGHT_PX = 24
 const CARD_MATCH_ROW_GAP_PX = 2
@@ -1137,7 +1136,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           width: CARD_ACTION_BUTTON_SIZE_PX,
           height: CARD_ACTION_BUTTON_SIZE_PX,
           borderRadius: '50%',
-          border: `1px solid ${theme.palette.divider}`,
+          border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
           color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
           // Overlay buttons do not participate in the text layout flow.
           flexShrink: 0,
@@ -1245,7 +1244,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         // Narrow the gap in ultra-dense mode to reclaim horizontal space for the stats column.
         columnGap: theme.spacing(isUltraDense ? 0.75 : CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
-        borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
+        borderRadius: `${Number(theme.shape.borderRadius)}px`,
         // theme.vars.palette.* gives CSS variable references that adapt per scheme.
         // Selection uses primary border; safeguard highlight uses info; default uses divider.
         border: `1px solid ${selected ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
@@ -1985,7 +1984,7 @@ function GearInspectorGridCardSkeleton({
         gridTemplateColumns: skeletonCardTemplate,
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
-        borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
+        borderRadius: `${Number(theme.shape.borderRadius)}px`,
         border: `1px solid ${highlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
         bgcolor: (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
         minHeight: cardHeightStyle,

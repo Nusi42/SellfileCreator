@@ -38,8 +38,31 @@ export const GEAR_INSPECTOR_GRID_ROW_PADDING_UNITS = 0.75
 // Inline end padding applied to the Gear Inspector grid scroll container.
 export const GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS = 0.5
 
-// Parse a spacing string (e.g. "12px") into a numeric pixel value.
-export const parseSpacingPx = (value: string): number => Number.parseFloat(value) || 0
+// Parse a spacing string into a numeric pixel value. Handles both concrete values ('8px',
+// '3px') and MUI v9 CSS vars mode expressions where theme.spacing() returns variable refs
+// instead of concrete pixels:
+//   spacing(1)     → 'var(--mui-spacing)'
+//   spacing(0.375) → 'calc(0.375 * var(--mui-spacing))'
+// In CSS vars mode, the var has no inline fallback — the CSS variable value is read from
+// the document root. Optional inline fallback (var(--name, 8px)) is also supported.
+export const parseSpacingPx = (value: string): number => {
+  const direct = Number.parseFloat(value)
+  if (Number.isFinite(direct) && direct >= 0) return direct
+  // MUI v9 CSS vars mode: var(--mui-spacing) or calc(N * var(--mui-spacing)).
+  const varMatch = value.match(/var\(([^,)]+)(?:,\s*([\d.]+)px)?\)/)
+  if (varMatch) {
+    const varName = (varMatch[1] ?? '').trim()
+    const fallback = varMatch[2] != null ? Number.parseFloat(varMatch[2]) : NaN
+    // Read the resolved CSS variable value from the document root (browser context only).
+    const resolved = typeof document !== 'undefined'
+      ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(varName))
+      : NaN
+    const basePx = Number.isFinite(resolved) ? resolved : (Number.isFinite(fallback) ? fallback : 8)
+    const multMatch = value.match(/^calc\(\s*([\d.]+)\s*\*/)
+    return basePx * (multMatch ? Number.parseFloat(multMatch[1] ?? '1') : 1)
+  }
+  return 0
+}
 
 type ResolveGearInspectorCardWidthParams = {
   panelWidthPx: number | null

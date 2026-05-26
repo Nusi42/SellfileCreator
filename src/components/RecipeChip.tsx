@@ -257,7 +257,7 @@ function RecipeChip({
           : (selected ? (theme.vars?.palette.action.selected ?? theme.palette.action.selected) : 'transparent')
         const baseBorderColor = selected
           ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
-          : (showDuplicateFrame ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : theme.palette.divider)
+          : (showDuplicateFrame ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.divider ?? theme.palette.divider))
         // Full-width column layout: avoid percentage-based flex so chips don't stretch vertically.
         const flexSizing = isSeparator
           ? '0 0 auto'

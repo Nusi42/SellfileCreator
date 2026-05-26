@@ -219,8 +219,10 @@ export function GearInspectorNormalizedPresetEditorMenu({
               ...(selected ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.08)', ...theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.14)' }) } : {}),
               '&:hover': {
                 backgroundColor: selected
+                  // Light: 0.12, dark: 0.20 — mirrors the original alpha(success.main, isDark ? 0.20 : 0.12) logic.
                   ? 'rgba(var(--mui-palette-success-mainChannel) / 0.12)'
                   : (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
+                ...( selected ? theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' }) : {} ),
               },
               display: 'flex',
               alignItems: 'center',

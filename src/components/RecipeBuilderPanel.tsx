@@ -6055,17 +6055,19 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   data-tour-id="builder.action.keep"
                   sx={(muiTheme) => {
                     const selected = keepValue === 'keep'
+                    const successMain = muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main
+                    const successLight = muiTheme.vars?.palette.success.light ?? muiTheme.palette.success.light
                     const baseBorder = selected
-                      ? muiTheme.palette.success.main
+                      ? successMain
                       : 'rgba(var(--mui-palette-text-primaryChannel) / 0.12)'
                     return {
                       borderColor: baseBorder,
-                      color: selected ? muiTheme.palette.common.black : muiTheme.palette.text.primary,
+                      color: selected ? (muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black) : (muiTheme.vars?.palette.text.primary ?? muiTheme.palette.text.primary),
                       '&.Mui-selected': {
-                        borderColor: muiTheme.palette.success.main,
-                        bgcolor: muiTheme.palette.success.main,
-                        color: muiTheme.palette.common.black,
-                        '&:hover': { bgcolor: muiTheme.palette.success.light },
+                        borderColor: successMain,
+                        bgcolor: successMain,
+                        color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
+                        '&:hover': { bgcolor: successLight },
                       },
                     }
                   }}
