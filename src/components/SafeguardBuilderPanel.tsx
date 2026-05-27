@@ -1668,10 +1668,10 @@ export default function SafeguardBuilderPanel({
                 minWidth: 0,
                 px: 1.5,
                 '&.Mui-selected': {
-                  bgcolor: muiTheme.palette.success.main,
-                  borderColor: muiTheme.palette.success.main,
-                  color: muiTheme.palette.common.black,
-                  '&:hover': { bgcolor: muiTheme.palette.success.light },
+                  bgcolor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
+                  borderColor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
+                  color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
+                  '&:hover': { bgcolor: muiTheme.vars?.palette.success.light ?? muiTheme.palette.success.light },
                 },
               })}
             >
@@ -1685,10 +1685,10 @@ export default function SafeguardBuilderPanel({
                 minWidth: 0,
                 px: 1.5,
                 '&.Mui-selected': {
-                  bgcolor: muiTheme.palette.warning.main,
-                  borderColor: muiTheme.palette.warning.main,
-                  color: muiTheme.palette.getContrastText(muiTheme.palette.warning.main),
-                  '&:hover': { bgcolor: muiTheme.palette.warning.dark },
+                  bgcolor: muiTheme.vars?.palette.warning.main ?? muiTheme.palette.warning.main,
+                  borderColor: muiTheme.vars?.palette.warning.main ?? muiTheme.palette.warning.main,
+                  color: muiTheme.vars?.palette.warning.contrastText ?? muiTheme.palette.warning.contrastText,
+                  '&:hover': { bgcolor: muiTheme.vars?.palette.warning.dark ?? muiTheme.palette.warning.dark },
                 },
               })}
             >
@@ -2671,7 +2671,7 @@ export default function SafeguardBuilderPanel({
                   borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
                   backgroundColor: bg,
                   color: canInteract ? color : colorDim,
-                  borderLeft: `1px solid ${chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' : 'rgba(var(--mui-palette-divider) / 0.5)'}`,
+                  borderLeft: `1px solid ${chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
                   '&:hover': canInteract ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
                   ...(chipEnabled ? theme.applyStyles('dark', {

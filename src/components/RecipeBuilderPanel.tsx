@@ -3974,9 +3974,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         },
       }
     const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
-      const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
-      const selectedText = themeInner.palette.common.white
-      const baseBorder = themeInner.palette.text.secondary
+      const highlight = mode === 'min'
+        ? (themeInner.vars?.palette.success.main ?? themeInner.palette.success.main)
+        : (themeInner.vars?.palette.error.main ?? themeInner.palette.error.main)
+      const selectedText = themeInner.vars?.palette.common.white ?? themeInner.palette.common.white
+      const baseBorder = themeInner.vars?.palette.text.secondary ?? themeInner.palette.text.secondary
       const hoverGlow = 'rgba(var(--mui-palette-text-primaryChannel) / 0.22)'
       const base: SystemStyleObject<Theme> = {
         display: 'grid',
@@ -4000,7 +4002,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           px: 0,
           borderRadius: '50%',
           border: `1px solid ${baseBorder}`,
-          color: themeInner.palette.text.secondary,
+          color: themeInner.vars?.palette.text.secondary ?? themeInner.palette.text.secondary,
           backgroundColor: 'transparent',
           clipPath: 'circle(50% at 50% 50%)',
           transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
@@ -4011,7 +4013,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         },
         '& .MuiToggleButton-root:hover': {
           boxShadow: `0 0 0 1px ${hoverGlow}`,
-          backgroundColor: themeInner.palette.action.hover,
+          backgroundColor: themeInner.vars?.palette.action.hover ?? themeInner.palette.action.hover,
           borderColor: baseBorder,
         },
         '& .MuiToggleButton-root .menu-roll-label': {

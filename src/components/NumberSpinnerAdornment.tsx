@@ -36,7 +36,7 @@ export function NumberSpinnerAdornment({ ariaLabel, disabled, onStep }: NumberSp
     ml: '-4px',
     mr: '-11px',
     py: 0.25,
-    borderLeft: `1px solid ${theme.palette.divider}`,
+    borderLeft: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
   })
 
   return (

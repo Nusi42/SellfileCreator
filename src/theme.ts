@@ -45,7 +45,7 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
   const bgPaper = custom.paperColor ?? bgPaperDerived
 
   const selColor   = custom.selectionColor ?? (isDark ? '#ffffff' : primaryMain)
-  const selOpacity = custom.selectionOpacity ?? (isDark ? 0.08 : 0.12)
+  const selOpacity = custom.selectionOpacity ?? (isDark ? 0.16 : 0.12)
 
   return {
     primary: { main: primaryMain },

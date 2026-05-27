@@ -252,8 +252,9 @@ function triggerBarDance(container: HTMLElement, rows: ReadonlyMap<number | stri
 
 export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
-  const primary = accentColor ?? theme.palette.primary.main
-  const base = baseColor ?? theme.palette.primary.light
+  const primary = accentColor ?? (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
+  // alpha() crashes on CSS var strings; use channel token for the default case.
+  const fadedBase = baseColor != null ? alpha(baseColor, 0.35) : 'rgba(var(--mui-palette-primary-lightChannel) / 0.35)'
   const hasSelection = selected.size > 0
   // Normalise bar widths against the tallest bar in the current data.
   const maxCount = data.reduce((m, e) => Math.max(m, e.count), 0)
@@ -287,7 +288,7 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
           const isSelected = selected.has(entry.id)
           // When nothing is selected all bars use the full accent color;
           // when a selection is active, deselected bars dim to a faded base color.
-          const barColor = !hasSelection ? primary : isSelected ? primary : alpha(base, 0.35)
+          const barColor = !hasSelection ? primary : isSelected ? primary : fadedBase
           const barPct = maxCount > 0 ? (entry.count / maxCount) * 100 : 0
           return (
             <Box

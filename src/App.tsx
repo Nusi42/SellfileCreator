@@ -72,7 +72,7 @@ import { buildPreviewArtifactFromGearInspectorItem } from './lib/gearInspectorPr
 import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+
 import SettingsIcon from '@mui/icons-material/Settings'
 
 import SaveIcon from '@mui/icons-material/Save'
@@ -7400,7 +7400,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           aria-label={t('recipesToggleLabel')}
           aria-pressed={recipesEnabled}
           sx={(theme) => {
-            const baseColor = recipesDisabledWarningForBuilder ? theme.palette.error : theme.palette.success
+            const baseKey = recipesDisabledWarningForBuilder ? 'error' : 'success'
+            const baseVars = recipesDisabledWarningForBuilder ? theme.vars?.palette.error : theme.vars?.palette.success
+            const baseRaw  = recipesDisabledWarningForBuilder ? theme.palette.error : theme.palette.success
+            const mainColor      = baseVars?.main ?? baseRaw.main
+            const darkColor      = baseVars?.dark ?? baseRaw.dark
+            const contrastText   = baseVars?.contrastText ?? baseRaw.contrastText
             return {
               height: SMALL_BUTTON_HEIGHT_PX,
               minHeight: SMALL_BUTTON_HEIGHT_PX,
@@ -7408,16 +7413,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               lineHeight: 1,
               textTransform: 'none',
               whiteSpace: 'nowrap',
-              borderColor: baseColor.main,
-              color: baseColor.main,
+              borderColor: mainColor,
+              color: mainColor,
               '&.Mui-selected': {
-                color: baseColor.contrastText,
-                backgroundColor: baseColor.main,
-                '&:hover': { backgroundColor: baseColor.dark },
+                color: contrastText,
+                backgroundColor: mainColor,
+                '&:hover': { backgroundColor: darkColor },
               },
               '&:hover': {
-                borderColor: baseColor.dark,
-                backgroundColor: alpha(baseColor.main, 0.08),
+                borderColor: darkColor,
+                backgroundColor: `rgba(var(--mui-palette-${baseKey}-mainChannel) / 0.08)`,
               },
             }
           }}
@@ -7527,7 +7532,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           aria-label={t('safeguardsToggleLabel')}
           aria-pressed={safeguardsEnabled}
           sx={(theme) => {
-            const baseColor = safeguardsDisabledWarningForBuilder ? theme.palette.error : theme.palette.success
+            const baseKey = safeguardsDisabledWarningForBuilder ? 'error' : 'success'
+            const baseVars = safeguardsDisabledWarningForBuilder ? theme.vars?.palette.error : theme.vars?.palette.success
+            const baseRaw  = safeguardsDisabledWarningForBuilder ? theme.palette.error : theme.palette.success
+            const mainColor      = baseVars?.main ?? baseRaw.main
+            const darkColor      = baseVars?.dark ?? baseRaw.dark
+            const contrastText   = baseVars?.contrastText ?? baseRaw.contrastText
             return {
               height: SMALL_BUTTON_HEIGHT_PX,
               minHeight: SMALL_BUTTON_HEIGHT_PX,
@@ -7535,16 +7545,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               lineHeight: 1,
               textTransform: 'none',
               whiteSpace: 'nowrap',
-              borderColor: baseColor.main,
-              color: baseColor.main,
+              borderColor: mainColor,
+              color: mainColor,
               '&.Mui-selected': {
-                color: baseColor.contrastText,
-                backgroundColor: baseColor.main,
-                '&:hover': { backgroundColor: baseColor.dark },
+                color: contrastText,
+                backgroundColor: mainColor,
+                '&:hover': { backgroundColor: darkColor },
               },
               '&:hover': {
-                borderColor: baseColor.dark,
-                backgroundColor: alpha(baseColor.main, 0.08),
+                borderColor: darkColor,
+                backgroundColor: `rgba(var(--mui-palette-${baseKey}-mainChannel) / 0.08)`,
               },
             }
           }}

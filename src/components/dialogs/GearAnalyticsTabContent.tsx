@@ -718,7 +718,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           gap: 1,
           px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
           py: 0.75,
-          borderBottom: `1px solid ${theme.palette.divider}`,
+          borderBottom: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
           flexShrink: 0,
         })}
       >
