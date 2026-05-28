@@ -161,6 +161,7 @@ import { GearDbDiffToast } from './components/GearDbDiffToast'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import LogicHubDialog from './components/dialogs/LogicHubDialog'
 import HelpDialog from './components/HelpDialog'
+import { PsychedelicEffect } from './components/ThemeEditorMenu'
 import MarkdownTooltip from './components/MarkdownTooltip'
 import EllipsisTooltip from './components/EllipsisTooltip'
 import { TutorialCoach } from './components/tutorial/TutorialCoach'
@@ -8496,6 +8497,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       </Stack>
 
+      {/* Psychedelic animation — always mounted so it runs regardless of which dialogs are open. */}
+      <PsychedelicEffect />
       {/* Help / README dialog. Marks the version as seen when closed. */}
       {tutorial.helpOpen ? (
         <HelpDialog

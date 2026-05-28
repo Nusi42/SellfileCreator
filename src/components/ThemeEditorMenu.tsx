@@ -2,7 +2,8 @@
  * ThemeEditorMenu
  *
  * Self-contained palette/theme editor: the PaletteIcon button + the Menu it opens.
- * Owns all color-picker state, psychedelic animation, dark/light toggle, and display prefs.
+ * Owns color-picker state, dark/light toggle, and display prefs. The psychedelic animation
+ * runs in the companion PsychedelicEffect component (always mounted in App.tsx).
  * Extracted from HelpDialog so HelpDialog stays focused on content layout.
  */
 import React from 'react'
@@ -37,20 +38,6 @@ function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
 
-// Extracts the hue (0–360) from a #rrggbb hex color. Returns null for achromatic colors.
-function hexToHue(hex: string): number | null {
-  if (hex.length < 7) return null
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
-  if (d === 0) return null
-  let h: number
-  if (max === r) h = ((g - b) / d + 6) % 6
-  else if (max === g) h = (b - r) / d + 2
-  else h = (r - g) / d + 4
-  return h * 60
-}
 
 // Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
 function hslToHex(h: number, s: number, l: number): string {
@@ -62,6 +49,31 @@ function hslToHex(h: number, s: number, l: number): string {
     return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0')
   }
   return `#${f(0)}${f(8)}${f(4)}`
+}
+
+// Extracts H (0–360), S (0–100), L (0–100) from a #rrggbb hex string. Returns null for invalid input.
+function hexToHSL(hex: string): { h: number; s: number; l: number } | null {
+  if (hex.length < 7) return null
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  const l = (max + min) / 2
+  if (d === 0) return { h: 0, s: 0, l: l * 100 }
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h: number
+  if (max === r) h = ((g - b) / d + 6) % 6
+  else if (max === g) h = (b - r) / d + 2
+  else h = (r - g) / d + 4
+  return { h: h * 60, s: s * 100, l: l * 100 }
+}
+
+// Seconds over which the animation blends from the current theme colors into psychedelic targets.
+const WARMUP_SECS = 6
+
+// Converts a #rrggbb hex to the space-separated "R G B" channel string MUI uses.
+function hexToChannel(hex: string): string {
+  return `${parseInt(hex.slice(1, 3), 16)} ${parseInt(hex.slice(3, 5), 16)} ${parseInt(hex.slice(5, 7), 16)}`
 }
 
 // CSS variables written/removed by the psychedelic animation — stable module-level constant
@@ -90,10 +102,6 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
   // colorSchemes exists at runtime in CSS vars mode but isn't on useTheme()'s Theme type.
   type SchemeMap = { dark?: { palette: typeof muiTheme.palette }; light?: { palette: typeof muiTheme.palette } }
   const schemePalette = ((muiTheme as unknown as { colorSchemes?: SchemeMap }).colorSchemes?.[isDark ? 'dark' : 'light'])?.palette
-  // Ref so the animation interval sees the current scheme without restarting on mode switch.
-  const isDarkRef = React.useRef(isDark)
-  // Sync the ref in an effect so the mutation never happens during render.
-  React.useEffect(() => { isDarkRef.current = isDark }, [isDark])
 
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const [themeCustom, setThemeCustom] = useThemeCustomization()
@@ -117,20 +125,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
     if (themeMenuOpen) setDraft(themeCustom)
   }
 
-  const [psychedelic, setPsychedelic] = React.useState(false)
-  // Animation state: accumulated hue, animation clock, four random phases (φ₀..φ₃),
-  // and the last wall-clock tick. Null when not running. Carried across effect restarts
-  // (e.g., themeMode changes) so hue, time, and phases remain continuous.
-  const psychedelicStateRef = React.useRef<{
-    lastMs: number  // wall clock at the previous interval tick
-    h: number       // accumulated hue in degrees
-    t: number       // animation time in seconds (drives S/L/speed oscillations)
-    p0: number; p1: number  // speed-drift phases
-    p2: number; p3: number  // S/L wobble phases
-  } | null>(null)
-  // Hue extracted from the current primary color at the moment psychedelic is turned on,
-  // so the animation starts from wherever the theme already is rather than jumping randomly.
-  const psychedelicInitHueRef = React.useRef<number | null>(null)
+  const { psychedelic } = useDisplayPreferences()
+  const { setPsychedelic } = useDisplayPreferenceActions()
 
   const resetColors = React.useCallback(() => {
     setPsychedelic(false)
@@ -138,93 +134,6 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
     setDraft(blank)
     setThemeCustom(blank)
   }, [setThemeCustom])
-
-  // Converts a #rrggbb hex to the space-separated "R G B" channel string MUI uses.
-  const hexToChannel = (hex: string): string => {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return `${r} ${g} ${b}`
-  }
-
-  // Psychedelic cycle (V2): direct DOM CSS variable writes — zero React state changes,
-  // zero emotion CSS regeneration, zero localStorage writes per tick.
-  // Speed drifts via two incommensurable sines (2–14°/s); S and L each have their own
-  // independent wobble. isDarkRef lets mode switch take effect without restarting the effect.
-  React.useEffect(() => {
-    if (!psychedelic) return
-
-    if (!psychedelicStateRef.current) {
-      psychedelicStateRef.current = {
-        lastMs: Date.now(),
-        h:  psychedelicInitHueRef.current ?? Math.random() * 360,
-        t:  0,
-        p0: Math.random() * Math.PI * 2,
-        p1: Math.random() * Math.PI * 2,
-        p2: Math.random() * Math.PI * 2,
-        p3: Math.random() * Math.PI * 2,
-      }
-    } else {
-      psychedelicStateRef.current.lastMs = Date.now()
-    }
-
-    const root = document.documentElement
-    const id = setInterval(() => {
-      const s = psychedelicStateRef.current
-      if (!s) return
-
-      const dark = isDarkRef.current
-      const bgS  = 15
-      const bgL  = dark ? 8 : 93
-
-      const now   = Date.now()
-      const dt    = Math.min((now - s.lastMs) / 1000, 0.1)
-      s.lastMs    = now
-
-      const speed = 8 + 4 * Math.sin(s.t * 0.31 + s.p0) + 2 * Math.sin(s.t * 0.73 + s.p1)
-      const aS    = 80 + 12 * Math.sin(s.t * 0.19 + s.p2)
-      const aL    = (dark ? 57 : 44) + 6 * Math.sin(s.t * 0.11 + s.p3)
-
-      s.h += speed * dt
-      s.t += dt
-
-      const primary   = hslToHex(s.h,       aS, aL)
-      const success   = hslToHex(s.h + 130, aS, aL)
-      const warning   = hslToHex(s.h + 175, aS, aL)
-      const error     = hslToHex(s.h + 215, aS, aL)
-      const bgDefault = hslToHex(s.h + 260, bgS, bgL)
-      const bgPaper   = hslToHex(s.h + 280, bgS + 5, dark ? bgL + 5 : bgL - 5)
-      const divider   = hslToHex(s.h + 320, 28, dark ? 22 : 70)
-      const selHex    = hslToHex(s.h + 80,  aS, aL)
-      const selOpacity = dark ? 0.08 : 0.12
-      const { r: sr, g: sg, b: sb } = (() => {
-        const ri = parseInt(selHex.slice(1, 3), 16)
-        const gi = parseInt(selHex.slice(3, 5), 16)
-        const bi = parseInt(selHex.slice(5, 7), 16)
-        return { r: ri, g: gi, b: bi }
-      })()
-      const selSelected = `rgba(${sr},${sg},${sb},${selOpacity})`
-
-      root.style.setProperty('--mui-palette-primary-main',         primary)
-      root.style.setProperty('--mui-palette-primary-mainChannel',  hexToChannel(primary))
-      root.style.setProperty('--mui-palette-success-main',         success)
-      root.style.setProperty('--mui-palette-success-mainChannel',  hexToChannel(success))
-      root.style.setProperty('--mui-palette-warning-main',         warning)
-      root.style.setProperty('--mui-palette-warning-mainChannel',  hexToChannel(warning))
-      root.style.setProperty('--mui-palette-error-main',           error)
-      root.style.setProperty('--mui-palette-error-mainChannel',    hexToChannel(error))
-      root.style.setProperty('--mui-palette-background-default',   bgDefault)
-      root.style.setProperty('--mui-palette-background-defaultChannel', hexToChannel(bgDefault))
-      root.style.setProperty('--mui-palette-background-paper',     bgPaper)
-      root.style.setProperty('--mui-palette-background-paperChannel',  hexToChannel(bgPaper))
-      root.style.setProperty('--mui-palette-divider',              divider)
-      root.style.setProperty('--mui-palette-action-selected',      selSelected)
-    }, 40)
-    return () => {
-      clearInterval(id)
-      for (const v of PSYCHEDELIC_VARS) root.style.removeProperty(v)
-    }
-  }, [psychedelic])
 
   const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
   const { statButtonBorders } = useDisplayPreferences()
@@ -342,7 +251,7 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         {/* Psychedelic cycle — rotates all theme colors through HSL hue space.
             CSS hue-rotate on the button wrapper spins its color through the full
             spectrum continuously, giving the button itself a "psychedelic" look. */}
-        <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }} onClick={() => setPsychedelic(p => !p)}>
+        <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }} onClick={() => setPsychedelic(!psychedelic)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themePsychedelic')}</Typography>
           <Box
             sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
@@ -360,15 +269,7 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
                 sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (!psychedelic) {
-                    // Prefer the runtime CSS variable (may differ from compiled default if
-                    // user set a custom color); fall back to compiled palette value.
-                    const runtimeHex = getComputedStyle(document.documentElement)
-                      .getPropertyValue('--mui-palette-primary-main').trim()
-                    psychedelicInitHueRef.current = hexToHue(runtimeHex) ?? hexToHue(muiTheme.palette.primary.main) ?? Math.random() * 360
-                    psychedelicStateRef.current = null
-                  }
-                  setPsychedelic(p => !p)
+                  setPsychedelic(!psychedelic)
                 }}
               >
                 {psychedelic ? t('commonOn') : t('commonOff')}
@@ -436,4 +337,97 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
       </Menu>
     </>
   )
+}
+
+/**
+ * PsychedelicEffect — null-rendering component, always mounted in App.tsx.
+ * Runs the hue-cycling animation when psychedelic is enabled in the display
+ * preferences context. Lifecycle is fully independent of any dialog or menu.
+ */
+export function PsychedelicEffect() {
+  const { psychedelic } = useDisplayPreferences()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme !== 'light'
+  // Ref so the interval sees the current scheme without restarting on mode switch.
+  const isDarkRef = React.useRef(isDark)
+  React.useEffect(() => { isDarkRef.current = isDark }, [isDark])
+
+  // Animation state persists across psychedelic on→off→on cycles via the ref.
+  // Nulled on turn-off so the next turn-on starts fresh with a new warmup.
+  const stateRef = React.useRef<{
+    lastMs: number; h: number; t: number
+    p0: number; p1: number; p2: number; p3: number
+    initS: number; initL: number; initBgS: number; initBgL: number
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (!psychedelic) {
+      stateRef.current = null
+      for (const v of PSYCHEDELIC_VARS) document.documentElement.style.removeProperty(v)
+      return
+    }
+
+    // Sample current CSS vars for warmup start colors.
+    const style = getComputedStyle(document.documentElement)
+    const curPrimary = style.getPropertyValue('--mui-palette-primary-main').trim()
+    const curBg      = style.getPropertyValue('--mui-palette-background-default').trim()
+    const initHSL    = hexToHSL(curPrimary)
+    const initBgHSL  = hexToHSL(curBg)
+    stateRef.current = {
+      lastMs: Date.now(), h: initHSL?.h ?? Math.random() * 360, t: 0,
+      p0: Math.random() * Math.PI * 2, p1: Math.random() * Math.PI * 2,
+      p2: Math.random() * Math.PI * 2, p3: Math.random() * Math.PI * 2,
+      initS: initHSL?.s ?? 70, initL: initHSL?.l ?? 50,
+      initBgS: initBgHSL?.s ?? 0, initBgL: initBgHSL?.l ?? 10,
+    }
+
+    const root = document.documentElement
+    const id = setInterval(() => {
+      const s = stateRef.current
+      if (!s) return
+      const dark  = isDarkRef.current
+      const blend = Math.min(s.t / WARMUP_SECS, 1)
+      const bgS   = blend * 15 + (1 - blend) * s.initBgS
+      const bgL   = blend * (dark ? 8 : 93) + (1 - blend) * s.initBgL
+      const now   = Date.now()
+      const dt    = Math.min((now - s.lastMs) / 1000, 0.1)
+      s.lastMs    = now
+      const speed    = 8 + 4 * Math.sin(s.t * 0.31 + s.p0) + 2 * Math.sin(s.t * 0.73 + s.p1)
+      const targetAS = 80 + 12 * Math.sin(s.t * 0.19 + s.p2)
+      const targetAL = (dark ? 57 : 44) + 6 * Math.sin(s.t * 0.11 + s.p3)
+      const aS = blend * targetAS + (1 - blend) * s.initS
+      const aL = blend * targetAL + (1 - blend) * s.initL
+      s.h += speed * dt
+      s.t += dt
+      const primary   = hslToHex(s.h,       aS, aL)
+      const success   = hslToHex(s.h + 130, aS, aL)
+      const warning   = hslToHex(s.h + 175, aS, aL)
+      const error     = hslToHex(s.h + 215, aS, aL)
+      const bgDefault = hslToHex(s.h + 260, bgS, bgL)
+      const bgPaper   = hslToHex(s.h + 280, bgS + 5, dark ? bgL + 5 : bgL - 5)
+      const divider   = hslToHex(s.h + 320, 28, dark ? 22 : 70)
+      const selHex    = hslToHex(s.h + 80, aS, aL)
+      const selOpacity = dark ? 0.08 : 0.12
+      const sr = parseInt(selHex.slice(1, 3), 16)
+      const sg = parseInt(selHex.slice(3, 5), 16)
+      const sb = parseInt(selHex.slice(5, 7), 16)
+      root.style.setProperty('--mui-palette-primary-main',              primary)
+      root.style.setProperty('--mui-palette-primary-mainChannel',       hexToChannel(primary))
+      root.style.setProperty('--mui-palette-success-main',              success)
+      root.style.setProperty('--mui-palette-success-mainChannel',       hexToChannel(success))
+      root.style.setProperty('--mui-palette-warning-main',              warning)
+      root.style.setProperty('--mui-palette-warning-mainChannel',       hexToChannel(warning))
+      root.style.setProperty('--mui-palette-error-main',                error)
+      root.style.setProperty('--mui-palette-error-mainChannel',         hexToChannel(error))
+      root.style.setProperty('--mui-palette-background-default',        bgDefault)
+      root.style.setProperty('--mui-palette-background-defaultChannel', hexToChannel(bgDefault))
+      root.style.setProperty('--mui-palette-background-paper',          bgPaper)
+      root.style.setProperty('--mui-palette-background-paperChannel',   hexToChannel(bgPaper))
+      root.style.setProperty('--mui-palette-divider',                   divider)
+      root.style.setProperty('--mui-palette-action-selected',           `rgba(${sr},${sg},${sb},${selOpacity})`)
+    }, 40)
+    return () => clearInterval(id)
+  }, [psychedelic])
+
+  return null
 }

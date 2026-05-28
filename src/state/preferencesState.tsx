@@ -17,6 +17,8 @@ export type DisplayPreferencesState = {
   showSetIcons: boolean
   showFactionIcons: boolean
   statButtonBorders: boolean
+  // Transient session flag — not persisted to localStorage, resets on page reload.
+  psychedelic: boolean
 }
 
 export type DisplayPreferenceDispatchers = {
@@ -24,6 +26,7 @@ export type DisplayPreferenceDispatchers = {
   setShowSetIcons: (next: boolean) => void
   setShowFactionIcons: (next: boolean) => void
   setStatButtonBorders: (next: boolean) => void
+  setPsychedelic: (next: boolean) => void
 }
 
 const DEFAULT_PREFERENCES: DisplayPreferencesState = {
@@ -31,6 +34,7 @@ const DEFAULT_PREFERENCES: DisplayPreferencesState = {
   showSetIcons: true,
   showFactionIcons: true,
   statButtonBorders: true,
+  psychedelic: false,
 }
 
 const PreferencesStateContext = createContext<DisplayPreferencesState | null>(null)
@@ -63,6 +67,7 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     showSetIcons: readBooleanPref(RULES_TABLE_SHOW_SET_ICONS_KEY, DEFAULT_PREFERENCES.showSetIcons),
     showFactionIcons: readBooleanPref(RULES_TABLE_SHOW_FACTION_ICONS_KEY, DEFAULT_PREFERENCES.showFactionIcons),
     statButtonBorders: readBooleanPref(STAT_BUTTON_BORDERS_KEY, DEFAULT_PREFERENCES.statButtonBorders),
+    psychedelic: false,
   }))
 
   const actions: DisplayPreferenceDispatchers = useMemo(() => ({
@@ -86,6 +91,9 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     setStatButtonBorders: (next: boolean) => {
       writeBooleanPref(STAT_BUTTON_BORDERS_KEY, next)
       setPrefs((prev) => prev.statButtonBorders === next ? prev : { ...prev, statButtonBorders: next })
+    },
+    setPsychedelic: (next: boolean) => {
+      setPrefs((prev) => prev.psychedelic === next ? prev : { ...prev, psychedelic: next })
     },
   }), [])
 

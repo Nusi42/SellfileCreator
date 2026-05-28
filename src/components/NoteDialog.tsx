@@ -1,7 +1,7 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { keyframes, useTheme, type Theme } from '@mui/material/styles'
+import { keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -3133,6 +3133,7 @@ export default function NoteDialog({
 }) {
   const { t, lang, setLang } = useI18n()
   const theme = useTheme()
+  const { colorScheme } = useColorScheme()
   // Editor background adapts to the active theme mode; Prism tooltip blocks stay dark (token colors need it).
   const editorBg = (theme.vars?.palette.background.default ?? theme.palette.background.default)
   const languageOptions = useLanguageOptions()
@@ -3828,7 +3829,7 @@ export default function NoteDialog({
               <Box
                 data-allow-select={1 as const}
                 data-allow-context={1 as const}
-                data-color-mode={theme.palette.mode}
+                data-color-mode={colorScheme ?? 'dark'}
                 sx={{
                   // Stretch the preview to fill the dialog body.
                   flex: 1,
@@ -3840,6 +3841,12 @@ export default function NoteDialog({
                   py: 2,
                   overflow: 'auto',
                   '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 },
+                  // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
+                  '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
+                  '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
+                  '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04) !important' },
+                  '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
+                  '& .wmde-markdown table th': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)' },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
               >
@@ -4063,6 +4070,7 @@ function NoteEditorContent({
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const theme = useTheme()
+  const { colorScheme } = useColorScheme()
   const editorBg = (theme.vars?.palette.background.default ?? theme.palette.background.default)
   // Anchor for the EBNF reference popover; null when closed.
   const [ebnfAnchorEl, setEbnfAnchorEl] = useState<HTMLElement | null>(null)
@@ -4511,7 +4519,7 @@ function NoteEditorContent({
           ref={editWrapRef}
           data-allow-select={1 as const}
           data-allow-context={1 as const}
-          data-color-mode={theme.palette.mode}
+          data-color-mode={colorScheme ?? 'dark'}
           sx={{
             // Stretch the editor shell to fill the dialog body.
             flex: 1,
@@ -4560,6 +4568,12 @@ function NoteEditorContent({
               color: (theme) => `${(theme.vars?.palette.text.primary ?? theme.palette.text.primary)} !important`,
             },
             '& .wmde-markdown img': { backgroundColor: 'transparent' },
+            // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
+            '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
+            '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
+            '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04) !important' },
+            '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
+            '& .wmde-markdown table th': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)' },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
             '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {
