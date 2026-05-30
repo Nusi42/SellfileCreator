@@ -27,6 +27,8 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
   filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de equipamentos.
 - **Venda final** — um único toggle adiciona regras de venda coringa para equipamentos não
   correspondidos em intervalos de nível configuráveis, para que nada escape.
+- **Temas** — alterne entre o modo escuro e o claro, personalize cores e raio de borda com
+  o editor de temas integrado, ou ative uma paleta para daltônicos.
 
 ## Como utilizar
 

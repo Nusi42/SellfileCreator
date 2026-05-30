@@ -28,6 +28,8 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
   filtrare tutti gli altri; invia il filtro attivo direttamente all'Ispettore equipaggiamento.
 - **Vendita finale** — un solo toggle aggiunge regole di vendita catch-all per
   l'equipaggiamento non abbinato su fasce di livello configurabili, in modo che nulla sfugga.
+- **Temi** — passa dalla modalità scura a quella chiara, personalizza colori e raggio dei
+  bordi con l'editor temi integrato, o attiva una palette adatta ai daltonici.
 
 ## Come si usa
 

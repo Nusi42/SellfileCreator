@@ -31,6 +31,9 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - **Vente finale** — un seul bouton ajoute des règles de vente fourre-tout pour les
   équipements non correspondants selon des plages de niveaux configurables, afin que rien
   ne passe entre les mailles.
+- **Thèmes** — basculez entre les modes sombre et clair, personnalisez les couleurs et
+  le rayon des coins avec l'éditeur de thème intégré, ou activez une palette adaptée
+  aux daltoniens.
 
 ## Mode d’emploi
 

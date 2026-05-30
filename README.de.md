@@ -27,6 +27,8 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
   aktiven Filter direkt in den Ausrüstungs-Inspektor.
 - **Finaler Verkauf** — ein Schalter fügt Auffangregeln für nicht zugeordnete Ausrüstung
   über konfigurierbare Stufenbereiche hinzu, damit nichts durch die Lücken fällt.
+- **Designs** — wechsle zwischen dunklem und hellem Modus, passe Farben und Eckenradius
+  im integrierten Design-Editor an oder aktiviere eine farbenblindfreundliche Palette.
 
 ## Nutzung
 

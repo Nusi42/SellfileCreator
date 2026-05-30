@@ -27,6 +27,8 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
   aktif filtreyi doğrudan Ekipman denetçisine gönderin.
 - **Nihai satış** — tek bir düğme, ayarlanabilir seviye aralıklarında eşleşmeyen ekipman
   için yedek satış kuralları ekleyerek hiçbir şeyin gözden kaçmamasını sağlar.
+- **Temalar** — koyu ve açık mod arasında geçiş yapın, yerleşik tema düzenleyiciyle
+  renkleri ve köşe yarıçapını özelleştirin veya renk körü dostu bir paleti etkinleştirin.
 
 ## Nasıl kullanılır
 
