@@ -832,7 +832,7 @@ const overrides: Catalog = {
   rulesMenuGridColumnsMedium: "Середній",
   rulesMenuGridColumnsSmall: "Дрібний",
   rulesMenuShowFirstMatch: "Показати перший збіг",
-  rulesMenuShowMatchRecipeIndex: "Показати індекс рецепт.",
+  rulesMenuShowMatchIndex: "Показати індекс збігу",
   rulesMenuShowMatchLine: "Показати № рядка",
   rulesMenuShowOtherMatches: "Показати інші збіги",
   rulesMenuShowChampionIcons: "Показувати іконки чемпіонів",

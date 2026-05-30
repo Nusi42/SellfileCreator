@@ -831,7 +831,7 @@ const overrides: Catalog = {
   rulesMenuGridColumnsMedium: "Mediano",
   rulesMenuGridColumnsSmall: "Pequeño",
   rulesMenuShowFirstMatch: "Mostrar primer emparejamiento",
-  rulesMenuShowMatchRecipeIndex: "Mostrar índice de receta",
+  rulesMenuShowMatchIndex: "Mostrar índice de coincidencia",
   rulesMenuShowMatchLine: "Mostrar nº de línea",
   rulesMenuShowOtherMatches: "Mostrar otros emparejamientos",
   rulesMenuShowChampionIcons: "Mostrar iconos de campeones",

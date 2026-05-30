@@ -2748,7 +2748,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             setShowMatchRecipeIndex(!showMatchRecipeIndex)
           }}
         >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchRecipeIndex')}</Typography>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchIndex')}</Typography>
           <Button
             size="small"
             variant={showMatchRecipeIndex ? 'contained' : 'outlined'}

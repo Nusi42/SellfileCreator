@@ -832,7 +832,7 @@ const overrides: Catalog = {
   rulesMenuGridColumnsMedium: "Orta",
   rulesMenuGridColumnsSmall: "Küçük",
   rulesMenuShowFirstMatch: "İlk eşleşmeyi göster",
-  rulesMenuShowMatchRecipeIndex: "Reçete indeksini göster",
+  rulesMenuShowMatchIndex: "Eşleşme indeksini göster",
   rulesMenuShowMatchLine: "Satır noyu göster",
   rulesMenuShowOtherMatches: "Diğer eşleşmeleri göster",
   rulesMenuShowChampionIcons: "Şampiyon simgelerini göster",

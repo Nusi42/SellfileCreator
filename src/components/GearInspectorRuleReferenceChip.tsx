@@ -94,10 +94,15 @@ export function GearInspectorRuleReferenceChip({
   const textColor = (match.recipeFgColor && trimmedDecoratedName.length > 0)
     ? match.recipeFgColor
     : (isSafeguardSource ? (match.ruleLabelFgColor ?? null) : null)
-  // Number segment is intentionally lightweight: recipe index + line number sans labels,
+  // Number segment is intentionally lightweight: recipe/safeguard index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.
-  const recipeNumberSegment = (showRecipeIndex && recipeIdx != null)
-    ? `#${recipeIdx + 1}`
+  // For safeguard matches with no recipe index, fall back to the 1-based safeguard ordinal.
+  const recipeNumberSegment = showRecipeIndex
+    ? (recipeIdx != null
+      ? `#${recipeIdx + 1}`
+      : (isSafeguardSource && match.safeguardRuleOrdinal != null
+        ? `#${match.safeguardRuleOrdinal}`
+        : ''))
     : ''
   const ruleLineSegment = (showLineNumber && ruleIndex != null)
     ? `#${ruleIndex + 1}`

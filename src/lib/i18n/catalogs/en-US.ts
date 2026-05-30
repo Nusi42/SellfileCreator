@@ -856,7 +856,7 @@ const enUS: Catalog = {
   rulesMenuGridColumnsMedium: "Medium",
   rulesMenuGridColumnsSmall: "Small",
   rulesMenuShowFirstMatch: "Show First Match",
-  rulesMenuShowMatchRecipeIndex: "Show Recipe Index",
+  rulesMenuShowMatchIndex: "Show Match Index",
   rulesMenuShowMatchLine: "Show Line Number",
   rulesMenuShowOtherMatches: "Show Other Matches",
   rulesMenuShowChampionIcons: "Show Champion Icons",

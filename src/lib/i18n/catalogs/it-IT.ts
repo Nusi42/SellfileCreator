@@ -831,7 +831,7 @@ const overrides: Catalog = {
   rulesMenuGridColumnsMedium: "Medio",
   rulesMenuGridColumnsSmall: "Piccolo",
   rulesMenuShowFirstMatch: "Mostra prima corrispondenza",
-  rulesMenuShowMatchRecipeIndex: "Mostra indice ricetta",
+  rulesMenuShowMatchIndex: "Mostra indice corrispondenza",
   rulesMenuShowMatchLine: "Mostra numero riga",
   rulesMenuShowOtherMatches: "Mostra altre corrispondenze",
   rulesMenuShowChampionIcons: "Mostra icone campione",

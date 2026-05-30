@@ -831,7 +831,7 @@ const catalog: Catalog = {
   rulesMenuGridColumnsMedium: "Médio",
   rulesMenuGridColumnsSmall: "Pequeno",
   rulesMenuShowFirstMatch: "Mostrar primeira correspondência",
-  rulesMenuShowMatchRecipeIndex: "Mostrar índice da receita",
+  rulesMenuShowMatchIndex: "Mostrar índice de correspondência",
   rulesMenuShowMatchLine: "Mostrar nº da linha",
   rulesMenuShowOtherMatches: "Mostrar outras correspondências",
   rulesMenuShowChampionIcons: "Mostrar ícones de campeões",
