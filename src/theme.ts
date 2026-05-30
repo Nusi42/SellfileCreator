@@ -53,6 +53,11 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     divider: custom.dividerColor ?? (isDark ? '#30363d' : '#d0d7de'),
     action: { selected: alpha(selColor, selOpacity), selectedOpacity: selOpacity },
     ...over,
+    // Pre-set Alert.successFilledColor before MUI's setColor() runs.
+    // MUI computes this from getContrastText(success.dark) — dark green → white — but
+    // v1.0.13 used getContrastText(success.main) = rgba(0,0,0,0.87).  setColor() only
+    // writes when the key is absent, so pre-setting it here locks in the correct value.
+    ...(isDark ? { Alert: { successFilledColor: 'rgba(0,0,0,0.87)' } } : {}),
     ...(custom.successColor != null && { success: { main: custom.successColor } }),
     ...(custom.warningColor != null && { warning: { main: custom.warningColor } }),
     ...(custom.errorColor   != null && { error:   { main: custom.errorColor   } }),
@@ -102,10 +107,6 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
               border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
               ...theme.applyStyles('dark', {
                 backgroundColor: darken(theme.colorSchemes.dark?.palette.success?.main ?? theme.palette.success.main, 0.42),
-                // Override --Alert-color (which Alert uses for color: var(--Alert-color)) so the
-                // dark-scheme contrastText wins regardless of MUI's filled-variant default.
-                // Matches v1.0.13: bright dark-mode success green → rgba(0,0,0,0.87) contrast text.
-                '--Alert-color': theme.colorSchemes.dark?.palette.success?.contrastText ?? 'rgba(0,0,0,0.87)',
                 border: `1px solid ${alpha(theme.colorSchemes.dark?.palette.success?.light ?? theme.palette.success.light, 0.35)}`,
               }),
             },
