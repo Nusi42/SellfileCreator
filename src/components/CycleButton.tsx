@@ -52,7 +52,12 @@ export function CycleButton({
   const nextIdx = (currentIdx + 1) % safeOptions.length
 
   const resolveZone = (e: React.MouseEvent<HTMLButtonElement>): 'left' | 'right' | null => {
-    const rel = (e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.offsetWidth
+    // Use getBoundingClientRect().width (viewport pixels) rather than offsetWidth (layout pixels)
+    // so zone thresholds stay correct when an ancestor has a CSS scale/zoom applied (e.g. the
+    // MuiPopover paper carries scale: var(--app-zoom) in forced-SBS mode, which shrinks the
+    // visual button without affecting offsetWidth, making the right zone unreachable otherwise).
+    const { left, width } = e.currentTarget.getBoundingClientRect()
+    const rel = (e.clientX - left) / width
     return rel <= 0.15 ? 'left' : rel >= 0.85 ? 'right' : null
   }
 
