@@ -759,6 +759,30 @@ const parseSelectorTokens = (
     return parseTerm()
   }
 
+  // Shared helper: push a diagnostic for a dangling connector (no valid right-hand term).
+  // connTok is the connector token ('and'/'&&'/'or'/'||') — used when the cursor is exhausted
+  // or when the fail token is a symbol that isn't a field name (e.g. '{').
+  const emitConnectorRhsError = (connTok: { index: number; value: string }, word: string): void => {
+    if (!diags) return
+    const failTok = cursor.peek()
+    if (failTok) {
+      const from = absoluteOffset + failTok.index
+      if (failTok.kind === 'symbol' && failTok.value === '@') {
+        diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} minrolls=3'` })
+      } else if (failTok.kind === 'word') {
+        diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
+      } else {
+        // e.g. '{' — the connector has no right-hand operand; point at the connector itself.
+        const connFrom = absoluteOffset + connTok.index
+        diags.push({ from: connFrom, to: connFrom + connTok.value.length, message: `'${word}' has no right-hand side — a selector condition is expected after it` })
+      }
+    } else {
+      // End of input after the connector.
+      const connFrom = absoluteOffset + connTok.index
+      diags.push({ from: connFrom, to: connFrom + connTok.value.length, message: `'${word}' at end of selector — selector condition expected after it` })
+    }
+  }
+
   const parseAnd = (): RecipeOverridesSelector | null => {
     let left = parseNot()
     if (!left) return null
@@ -770,18 +794,7 @@ const parseSelectorTokens = (
       cursor.next()
       const right = parseNot()
       if (!right) {
-        // Emit a diagnostic for whichever token caused the right operand to fail.
-        if (diags) {
-          const failTok = cursor.peek()
-          if (failTok) {
-            const from = absoluteOffset + failTok.index
-            if (failTok.kind === 'symbol' && failTok.value === '@') {
-              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} minrolls=3'` })
-            } else if (failTok.kind === 'word') {
-              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
-            }
-          }
-        }
+        emitConnectorRhsError(token, word)
         return null
       }
       left = { kind: 'and', left, right }
@@ -800,17 +813,7 @@ const parseSelectorTokens = (
       cursor.next()
       const right = parseAnd()
       if (!right) {
-        if (diags) {
-          const failTok = cursor.peek()
-          if (failTok) {
-            const from = absoluteOffset + failTok.index
-            if (failTok.kind === 'symbol' && failTok.value === '@') {
-              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} minrolls=3'` })
-            } else if (failTok.kind === 'word') {
-              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
-            }
-          }
-        }
+        emitConnectorRhsError(token, word)
         return null
       }
       left = { kind: 'or', left, right }
@@ -1119,6 +1122,15 @@ const parseOperations = (
       // Resolve each name to an ArtifactTypeId, skipping unknowns.
       const resolve = (name: string): ArtifactTypeId | undefined =>
         ARTIFACT_TYPE_NAME_MAP.get(name.toLowerCase())
+      // Diagnose unrecognized slot names; valueToken.index locates the value region.
+      if (diags) {
+        for (const t of parsed) {
+          if (resolve(t.value) == null) {
+            const from = absoluteOffset + valueToken.index
+            diags.push({ from, to: from + t.value.length, message: `'${t.value}' is not a recognized slot name — valid values: ${NOTE_RECIPE_OVERRIDES_SLOT_NAMES.join(', ')}` })
+          }
+        }
+      }
       if (listMode === 'replace') {
         const values = parsed.map((t) => resolve(t.value)).filter((v): v is ArtifactTypeId => v != null)
         if (values.length > 0) operations.push({ kind: 'artifactTypes', mode: 'replace', values })
