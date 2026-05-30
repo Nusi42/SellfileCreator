@@ -2287,6 +2287,10 @@ const applySubstatMinOverrides = (
     const nextMin = substatMinByVariant.get(variant) ?? substatMinAll
     if (nextMin == null) return
     const existing = bounds[variant] ?? {}
+    // substatmin is intended to adjust existing minimum requirements, not to
+    // add them to substats configured as wildcard (any: true / no existing min).
+    // Applying min to an any-substat would produce invalid state (min + any).
+    if (existing.min == null) return
     bounds[variant] = { ...existing, min: clampSubstatMin(nextMin) }
   })
   return { ...recipe, substatRollBoundsV: bounds }

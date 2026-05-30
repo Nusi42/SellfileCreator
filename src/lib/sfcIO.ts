@@ -747,7 +747,10 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
           const normalized: ReadableSubstatBounds = {}
           if (typeof maybeBounds.min === 'number' && Number.isFinite(maybeBounds.min)) normalized.min = maybeBounds.min
           if (typeof maybeBounds.max === 'number' && Number.isFinite(maybeBounds.max)) normalized.max = maybeBounds.max
-          if (maybeBounds.any) normalized.any = true
+          // min/max and any are mutually exclusive — mirror the same invariant the
+          // SFC reader enforces (sfcIO.ts lines ~606-608).
+          const hasNumeric = normalized.min !== undefined || normalized.max !== undefined
+          if (!hasNumeric && maybeBounds.any) normalized.any = true
           if (normalized.min !== undefined || normalized.max !== undefined || normalized.any) entry.rollBounds = normalized
         }
       }
