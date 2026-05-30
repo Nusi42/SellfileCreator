@@ -33,7 +33,6 @@ import {
   estimateInlineSelectHiddenCount,
 } from '../../lib/inlineSelectAffordances'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
-import { ACCESSORY_NO_SET_ID } from '../../lib/constants'
 
 type GearSetsSelectProps = {
   value: ArtifactSetSelectionEntry[]
@@ -93,11 +92,13 @@ export default function GearSetsSelect({
   const allowedSetFilter = useMemo(() => (
     allowedSetIds ? new Set(allowedSetIds.map(Number)) : null
   ), [allowedSetIds])
-  // Derive no-set visibility from the allowed pool: show the sentinel whenever
-  // the pool includes it (i.e. accessories are in scope). Default to false when
-  // no allowedSetIds are provided to avoid showing it unconditionally.
-  // showNoSet=true overrides this default (e.g. analytics treemap with no slot filter).
-  const includeNoSet = showNoSet ?? (allowedSetFilter ? allowedSetFilter.has(ACCESSORY_NO_SET_ID) : false)
+  // Include the no-set sentinel whenever a slot-based filter is active (regardless of
+  // whether accessories are in scope), so the entry can be shown disabled rather than
+  // hidden — consistent with Reaction/Refresh. Without an allowed-set filter there is no
+  // slot context to show it, so we fall back to false. showNoSet overrides in both directions.
+  const includeNoSet = showNoSet === false
+    ? false
+    : (showNoSet === true || allowedSetFilter !== null)
   const visibleMetasets = useMemo(
     () => (allowMetasets ? metasets.filter((meta) => meta.show !== false) : []),
     [allowMetasets, metasets],

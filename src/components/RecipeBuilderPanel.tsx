@@ -2332,8 +2332,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
       translate: t,
-      // Only surface no-set when accessories are in scope.
-      includeNoSet: allowNoSet,
+      // Always include no-set so scroll can target it even when disabled.
+      includeNoSet: true,
       noSetLabel: t('noSetAccessories'),
     })
     let targetSetId: number | null = null
@@ -2358,7 +2358,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [allowNoSet, getSetStateForScroll, metaSetsMenuOpen, setsMenuListRef, setsOrder, setsSearch, t])
+  }, [getSetStateForScroll, metaSetsMenuOpen, setsMenuListRef, setsOrder, setsSearch, t])
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder recipe
@@ -5472,8 +5472,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     // Build set list per order/search (shared helper keeps behavior consistent)
     const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
       translate: t,
-      // Keep the no-set sentinel visible only when accessories are in scope.
-      includeNoSet: allowNoSet,
+      // Always include no-set; disabledSetIds below marks it disabled when out of scope —
+      // consistent with Reaction/Refresh (shown disabled, not hidden).
+      includeNoSet: true,
       noSetLabel: t('noSetAccessories'),
     })
     const allowedSetIdsSet = new Set(allowedSetPool.map(Number))
@@ -5736,8 +5737,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   }}
                   zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
                     translate: t,
-                    // Respect accessory-only constraints in empty-state math.
-                    includeNoSet: allowNoSet,
+                    // Always include no-set in empty-state math to match rendered list.
+                    includeNoSet: true,
                     noSetLabel: t('noSetAccessories'),
                   }).length === 0}
                 />
