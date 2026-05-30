@@ -143,6 +143,7 @@ const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'logic-kw':          '#61afef',
   'rarity-name':       '#e5c07b',
   'boolean-val':       '#d19a66',
+  'slot-name':         '#d19a66',  // same warm amber as boolean-val (enumerable value)
   'stat-key':          '#56b6c2',
   'number':            '#d19a66',
   'selector-at':       '#e06c75',

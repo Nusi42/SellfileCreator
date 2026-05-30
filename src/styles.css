@@ -77,6 +77,8 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.logic-kw                   { color: #61afef; }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.rarity-name                { color: #e5c07b; }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.boolean-val                { color: #d19a66; }
+/* Slot names in `slots=` assignments — same warm amber as boolean-val (enumerable values). */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.slot-name                  { color: #d19a66; }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.stat-key                   { color: #56b6c2; }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.number                     { color: #d19a66; }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.cross-domain-kw             { color: #c678dd; }

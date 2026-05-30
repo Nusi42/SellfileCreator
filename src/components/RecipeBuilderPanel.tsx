@@ -1372,6 +1372,20 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     Boolean(effectiveRecipe.autoMinCount) !== Boolean(recipe.autoMinCount)
     || (effectiveRecipe.minCount ?? 0) !== (recipe.minCount ?? 0)
   )
+  // True when a recipe override changes which gear slots are selected.
+  const slotsOverrideActive = !multiEditActive && (
+    [...(effectiveRecipe.artifactTypes ?? [])].sort((a, b) => a - b).join(',') !==
+    [...(recipe.artifactTypes ?? [])].sort((a, b) => a - b).join(',')
+  )
+  // True when a recipe override changes which substats are selected.
+  const substatsVOverrideActive = !multiEditActive && (
+    [...(effectiveRecipe.substatsV ?? [])].sort((a, b) => a - b).join(',') !==
+    [...(recipe.substatsV ?? [])].sort((a, b) => a - b).join(',')
+  )
+  // Mirror the displayRecipe pattern: show effective slot selection when an override is active.
+  const displayArtifactTypes = (!multiEditActive && slotsOverrideActive)
+    ? (effectiveRecipe.artifactTypes ?? [])
+    : (recipe.artifactTypes ?? [])
   // Prefer the recipe overrides-resolved mode for the single-recipe display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
@@ -6920,11 +6934,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {substatsClearButton}
           </Box>
-          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {substatsContent}
+          <Box sx={{ position: 'relative' }}>
+            {substatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              (recipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+              (effectiveRecipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+            ))}
+            <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {substatsContent}
+            </Box>
+            </Collapse>
           </Box>
-          </Collapse>
         </FormControl>
 
         {/* Slots — cols 1-2, spans rows 4a + 4b so it sits flush alongside both right-column items */}
@@ -6952,12 +6972,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {slotsClearButton}
           </Box>
+          <Box sx={{ position: 'relative' }}>
+            {slotsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              (recipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
+              (effectiveRecipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
+            ))}
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
-              const slotState = multiEditActive ? getSlotState(id) : ((recipe.artifactTypes ?? []).includes(id) ? 'all' : 'none')
-              const selected = slotState === 'all' || (!multiEditActive && (recipe.artifactTypes ?? []).includes(id))
+              const slotState = multiEditActive ? getSlotState(id) : (displayArtifactTypes.includes(id) ? 'all' : 'none')
+              const selected = slotState === 'all' || (!multiEditActive && displayArtifactTypes.includes(id))
               return (
                 <ToggleButton
                   key={id}
@@ -7070,6 +7095,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             })}
           </Box>
           </Collapse>
+          </Box>{/* end slots override badge wrapper */}
         </FormControl>
 
         {/* Row 4a right: Min Rolls + Required Substats + Milestones — direct grid item at cols 3-4 */}

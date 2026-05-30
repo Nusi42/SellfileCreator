@@ -28,6 +28,7 @@ import {
   NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS,
   NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
   NOTE_RECIPE_OVERRIDES_ENUM_VALS,
+  NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
   NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS,
   NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS,
   NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS,
@@ -283,6 +284,10 @@ function recipeOverrides(Prism: Refractor): void {
 
         // Enumerated field values: export=, keep=, flex= (SSOT).
         'boolean-val': wordAlt(NOTE_RECIPE_OVERRIDES_ENUM_VALS),
+
+        // Artifact slot names used as values in `slots=` assignments (SSOT).
+        // Case-insensitive to match the parser's lowercase normalization.
+        'slot-name': new RegExp(`\\b(?:${NOTE_RECIPE_OVERRIDES_SLOT_NAMES.join('|')})\\b`, 'i'),
 
         // Stat key tokens including percentage variants. Case-insensitive so
         // `weight.spd` highlights the same as `weight.SPD` (parser lowercases).

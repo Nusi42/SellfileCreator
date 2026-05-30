@@ -94,6 +94,8 @@ export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
   'early', 'late',                  // keep=
   'true', 'false', 'on', 'off',     // flex=
 ] as const
+/** Artifact slot names accepted by the DSL `slots=` assignment field (SSOT from ArtifactType). */
+export const NOTE_RECIPE_OVERRIDES_SLOT_NAMES = Object.keys(ArtifactType) as readonly string[]
 /** Built-in selector and tag-match keywords. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
   'all', 'tagged', 'untagged', 'any', 'none',
