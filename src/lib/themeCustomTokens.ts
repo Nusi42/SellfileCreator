@@ -38,13 +38,40 @@ export const APP_CSS_VAR = {
   cardOutcomeTintAlpha:   '--app-card-outcome-tint-alpha',
   cardStatsDimAlpha:      '--app-card-stats-dim-alpha',
   // Substat chip fallback bg when no per-variant bg color is defined.
-  substatFallbackAlpha:   '--app-substat-fallback-alpha',
+  substatFallbackAlpha:        '--app-substat-fallback-alpha',
+  // Success-tinted selected row (variant picker menu items, filter row highlights).
+  selectedSuccessBgAlpha:      '--app-selected-success-bg-alpha',
+  // Dynamic-palette tinted chips (any palette key; base, hover, and active states).
+  tintedChipBgAlpha:           '--app-tinted-chip-bg-alpha',
+  tintedChipHoverBgAlpha:      '--app-tinted-chip-hover-bg-alpha',
+  tintedChipActiveBgAlpha:     '--app-tinted-chip-active-bg-alpha',
+  // Status icon-button chips (substat-weights and improvement-chance toggles in SafeguardBuilderPanel).
+  statusChipEnabledBgAlpha:    '--app-status-chip-enabled-bg-alpha',
+  statusChipDisabledBgAlpha:   '--app-status-chip-disabled-bg-alpha',
+  statusChipHoverBgAlpha:      '--app-status-chip-hover-bg-alpha',
+  statusChipDimAlpha:          '--app-status-chip-dim-alpha',
+  statusChipDisabledColorAlpha:'--app-status-chip-disabled-color-alpha',
+  // Info-tinted priority badge (PreviewHeaderActions sort-direction indicator).
+  infoBorderAlpha:             '--app-info-border-alpha',
+  infoBgAlpha:                 '--app-info-bg-alpha',
+  // Ghost/placeholder border — lighter neutral outline for inactive controls.
+  ghostBorderAlpha:            '--app-ghost-border-alpha',
+  // File drag overlay — full-screen backdrop and floating instruction panel.
+  overlayBackdropAlpha:        '--app-overlay-backdrop-alpha',
+  overlayPanelBgAlpha:         '--app-overlay-panel-bg-alpha',
+  overlayPanelBorderAlpha:     '--app-overlay-panel-border-alpha',
 } as const
 
 // ─── Per-scheme alpha values ───────────────────────────────────────────────────
 // These are injected as [data-mui-color-scheme="dark/light"] { --app-*: value }
 // via GlobalStyles so every component reads them without any mode check at callsite.
-export const APP_SCHEME_ALPHAS = {
+//
+// AppAlphas is typed as a record of every APP_CSS_VAR key → number.
+// TypeScript enforces that both schemes have exactly the same keys as APP_CSS_VAR:
+// adding a CSS var without a corresponding alpha entry is a compile error.
+type AppAlphas = { [K in keyof typeof APP_CSS_VAR]: number }
+
+export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppAlphas } = {
   dark: {
     hoverBgAlpha:           0.20,
     selectedHoverBgAlpha:   0.40,
@@ -70,7 +97,22 @@ export const APP_SCHEME_ALPHAS = {
     sourceChipHoverAlpha:   0.45,
     cardOutcomeTintAlpha:   0.20,
     cardStatsDimAlpha:      0.30,
-    substatFallbackAlpha:   0.20,
+    substatFallbackAlpha:        0.20,
+    selectedSuccessBgAlpha:      0.14,
+    tintedChipBgAlpha:           0.18,
+    tintedChipHoverBgAlpha:      0.24,
+    tintedChipActiveBgAlpha:     0.30,
+    statusChipEnabledBgAlpha:    0.18,
+    statusChipDisabledBgAlpha:   0.08,
+    statusChipHoverBgAlpha:      0.28,
+    statusChipDimAlpha:          0.45,
+    statusChipDisabledColorAlpha:0.35,
+    infoBorderAlpha:             0.65,
+    infoBgAlpha:                 0.12,
+    ghostBorderAlpha:            0.18,
+    overlayBackdropAlpha:        0.60,
+    overlayPanelBgAlpha:         0.90,
+    overlayPanelBorderAlpha:     0.20,
   },
   light: {
     hoverBgAlpha:           0.10,
@@ -97,9 +139,41 @@ export const APP_SCHEME_ALPHAS = {
     sourceChipHoverAlpha:   0.18,
     cardOutcomeTintAlpha:   0.10,
     cardStatsDimAlpha:      0.67,
-    substatFallbackAlpha:   0.12,
+    substatFallbackAlpha:        0.12,
+    selectedSuccessBgAlpha:      0.08,
+    tintedChipBgAlpha:           0.18,
+    tintedChipHoverBgAlpha:      0.24,
+    tintedChipActiveBgAlpha:     0.30,
+    statusChipEnabledBgAlpha:    0.18,
+    statusChipDisabledBgAlpha:   0.08,
+    statusChipHoverBgAlpha:      0.28,
+    statusChipDimAlpha:          0.45,
+    statusChipDisabledColorAlpha:0.35,
+    infoBorderAlpha:             0.50,
+    infoBgAlpha:                 0.08,
+    ghostBorderAlpha:            0.12,
+    overlayBackdropAlpha:        0.50,
+    overlayPanelBgAlpha:         0.95,
+    overlayPanelBorderAlpha:     0.14,
   },
-} as const
+}
+
+// ─── GlobalStyles injection object ───────────────────────────────────────────
+// Auto-derived from APP_CSS_VAR + APP_SCHEME_ALPHAS — no manual list to maintain.
+// Import this in main.tsx and pass directly to <GlobalStyles styles={SCHEME_ALPHA_STYLES} />.
+// Any new token added to APP_CSS_VAR + APP_SCHEME_ALPHAS is automatically injected.
+export const SCHEME_ALPHA_STYLES = (() => {
+  const dark:  Record<string, number> = {}
+  const light: Record<string, number> = {}
+  for (const k of Object.keys(APP_CSS_VAR) as (keyof typeof APP_CSS_VAR)[]) {
+    dark[APP_CSS_VAR[k]]  = APP_SCHEME_ALPHAS.dark[k]
+    light[APP_CSS_VAR[k]] = APP_SCHEME_ALPHAS.light[k]
+  }
+  return {
+    '[data-mui-color-scheme="dark"]':  dark,
+    '[data-mui-color-scheme="light"]': light,
+  }
+})()
 
 // ─── Static CSS token strings ─────────────────────────────────────────────────
 // Each string is a valid CSS color value referencing MUI channel variables.
@@ -149,10 +223,33 @@ export const CUSTOM_TOKENS = {
   cardSellTintBg:       `rgba(var(--mui-palette-error-mainChannel) / var(${APP_CSS_VAR.cardOutcomeTintAlpha}))`,
   cardStatsDimBg:       `rgba(var(--mui-palette-background-paperChannel) / var(${APP_CSS_VAR.cardStatsDimAlpha}))`,
   // Substat chip neutral fallback bg when no per-variant bg color is configured.
-  substatFallbackBg:    `rgba(var(--mui-palette-text-primaryChannel) / var(${APP_CSS_VAR.substatFallbackAlpha}))`,
+  substatFallbackBg:           `rgba(var(--mui-palette-text-primaryChannel) / var(${APP_CSS_VAR.substatFallbackAlpha}))`,
+  // Success-tinted selected row surface (variant picker menus, filter row highlights).
+  selectedSuccessBg:           `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.selectedSuccessBgAlpha}))`,
+  // Info-tinted priority badge (sort-direction indicator).
+  infoBorder:                  `rgba(var(--mui-palette-info-mainChannel) / var(${APP_CSS_VAR.infoBorderAlpha}))`,
+  infoBg:                      `rgba(var(--mui-palette-info-mainChannel) / var(${APP_CSS_VAR.infoBgAlpha}))`,
+  // Ghost/placeholder border — neutral lighter outline for inactive controls.
+  ghostBorder:                 `rgba(var(--mui-palette-text-secondaryChannel) / var(${APP_CSS_VAR.ghostBorderAlpha}))`,
+  // File drag overlay — full-screen backdrop dimmer. Uses black so it tints content in both schemes.
+  overlayBackdropBg:           `rgba(0 0 0 / var(${APP_CSS_VAR.overlayBackdropAlpha}))`,
+  overlayPanelBg:              `rgba(var(--mui-palette-background-paperChannel) / var(${APP_CSS_VAR.overlayPanelBgAlpha}))`,
+  overlayPanelBorder:          `rgba(var(--mui-palette-text-primaryChannel) / var(${APP_CSS_VAR.overlayPanelBorderAlpha}))`,
+  // Status icon-button chip surfaces (enabled/disabled background, hover).
+  statusChipSuccessEnabledBg:  `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.statusChipEnabledBgAlpha}))`,
+  statusChipSuccessHoverBg:    `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.statusChipHoverBgAlpha}))`,
+  statusChipDisabledBg:        `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDisabledBgAlpha}))`,
 } as const
 
 export type ThemeCustomTokens = typeof CUSTOM_TOKENS
+
+// ─── Plain numeric alpha constants ───────────────────────────────────────────
+// These are used with JS color functions (alpha(), darken()) where CSS custom
+// properties cannot be substituted — e.g. when the input color is a caller-supplied
+// hex string, not an MUI palette channel.
+// Keep any new per-concept values here so there is one number to change per concept.
+export const SUBSTAT_LIGHT_CHIP_BG_ALPHA = 0.15
+export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.25
 
 // ─── TypeScript augmentation ──────────────────────────────────────────────────
 // Adds theme.custom to every MUI Theme so component sx callbacks can write

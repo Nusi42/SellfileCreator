@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
 import { alpha, darken, useColorScheme, useTheme } from '@mui/material/styles'
+import { SUBSTAT_LIGHT_CHIP_BG_ALPHA, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA } from '../lib/themeCustomTokens'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
@@ -39,8 +40,8 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
     const fgColor = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
     if (fgColor) {
       return {
-        chipBg: alpha(fgColor, 0.15),
-        chipBorder: alpha(fgColor, 0.25),
+        chipBg: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BG_ALPHA),
+        chipBorder: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA),
         labelColor: darken(fgColor, 0.45),
       }
     }

@@ -1836,10 +1836,8 @@ export default function PreviewHeaderActions(props: {
                                 fontSize: theme.typography.pxToRem(14),
                                 fontWeight: 700,
                                 letterSpacing: 0.1,
-                                border: `1px solid rgba(var(--mui-palette-info-mainChannel) / 0.5)`,
-                                ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-info-mainChannel) / 0.65)` }),
-                                backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.08)',
-                                ...theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)' }),
+                                border: `1px solid ${theme.custom.infoBorder}`,
+                                backgroundColor: theme.custom.infoBg,
                                 color: (theme.vars?.palette.info.main ?? theme.palette.info.main),
                               })}
                             >
@@ -1861,8 +1859,7 @@ export default function PreviewHeaderActions(props: {
 	                            px: 0.75,
 	                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
 	                            boxSizing: 'border-box',
-	                            border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.12)`,
-                            ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.18)` }),
+	                            border: `1px solid ${theme.custom.ghostBorder}`,
 	                            backgroundColor: 'transparent',
 	                            cursor: priorityDisabled ? 'default' : 'pointer',
 	                            opacity: priorityDisabled ? 0.35 : 1,

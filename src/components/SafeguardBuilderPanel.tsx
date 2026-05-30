@@ -69,6 +69,7 @@ import type { ColorBlindMode } from '../lib/constants'
 import {
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
 } from '../lib/constants'
+import { APP_CSS_VAR } from '../lib/themeCustomTokens'
 import {
   LEVEL_MILESTONES,
   STAT_VARIANTS_PRIORITY_ROW1,
@@ -2543,13 +2544,17 @@ export default function SafeguardBuilderPanel({
               sx={(theme) => {
                 const canInteract = hasSubstatSelection || multiEditActive
                 const chipEnabled = hasSubstatSelection
-                const bg = chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.18)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.08)'
+                const bg = chipEnabled ? theme.custom.statusChipSuccessEnabledBg : theme.custom.statusChipDisabledBg
                 // Light-mode base: darker success tone; dark-mode override via applyStyles.
                 const color = chipEnabled
                   ? (theme.vars?.palette.success.dark ?? theme.palette.success.dark)
                   : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled)
-                const colorDim = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.45)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.45)'
-                const colorDisabled = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.35)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.35)'
+                const colorDim = chipEnabled
+                  ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                  : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                const colorDisabled = chipEnabled
+                  ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
+                  : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
                 return {
                   height: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
@@ -2557,11 +2562,13 @@ export default function SafeguardBuilderPanel({
                   borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                   backgroundColor: bg,
                   color: canInteract ? color : colorDim,
-                  '&:hover': canInteract ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' } : {},
+                  '&:hover': canInteract ? { backgroundColor: theme.custom.statusChipSuccessHoverBg } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
                   ...(chipEnabled ? theme.applyStyles('dark', {
-                    color: canInteract ? (theme.vars?.palette.success.light ?? theme.palette.success.light) : 'rgba(var(--mui-palette-success-lightChannel) / 0.45)',
-                    '&.Mui-disabled': { color: 'rgba(var(--mui-palette-success-lightChannel) / 0.35)' },
+                    color: canInteract
+                      ? (theme.vars?.palette.success.light ?? theme.palette.success.light)
+                      : `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`,
+                    '&.Mui-disabled': { color: `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))` },
                   }) : {}),
                   ...(substatMatchMixed ? {
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
@@ -2657,13 +2664,17 @@ export default function SafeguardBuilderPanel({
                 const isEffectivelyEnabled = displayImprovementChanceEnabled || improvementChanceMixed
                 const canInteract = (hasSubstatSelection || multiEditActive) && isEffectivelyEnabled
                 const chipEnabled = isEffectivelyEnabled
-                const bg = chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.18)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.08)'
+                const bg = chipEnabled ? theme.custom.statusChipSuccessEnabledBg : theme.custom.statusChipDisabledBg
                 // Light-mode base: darker success tone; dark-mode override via applyStyles.
                 const color = chipEnabled
                   ? (theme.vars?.palette.success.dark ?? theme.palette.success.dark)
                   : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled)
-                const colorDim = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.45)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.45)'
-                const colorDisabled = chipEnabled ? 'rgba(var(--mui-palette-success-darkChannel) / 0.35)' : 'rgba(var(--mui-palette-text-disabledChannel) / 0.35)'
+                const colorDim = chipEnabled
+                  ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                  : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                const colorDisabled = chipEnabled
+                  ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
+                  : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
                 return {
                   height: BUILDER_STATUS_CHIP_HEIGHT_PX,
                   minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
@@ -2671,12 +2682,14 @@ export default function SafeguardBuilderPanel({
                   borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
                   backgroundColor: bg,
                   color: canInteract ? color : colorDim,
-                  borderLeft: `1px solid ${chipEnabled ? 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
-                  '&:hover': canInteract ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.28)' } : {},
+                  borderLeft: `1px solid ${chipEnabled ? theme.custom.statusChipSuccessHoverBg : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
+                  '&:hover': canInteract ? { backgroundColor: theme.custom.statusChipSuccessHoverBg } : {},
                   '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
                   ...(chipEnabled ? theme.applyStyles('dark', {
-                    color: canInteract ? (theme.vars?.palette.success.light ?? theme.palette.success.light) : 'rgba(var(--mui-palette-success-lightChannel) / 0.45)',
-                    '&.Mui-disabled': { color: 'rgba(var(--mui-palette-success-lightChannel) / 0.35)' },
+                    color: canInteract
+                      ? (theme.vars?.palette.success.light ?? theme.palette.success.light)
+                      : `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`,
+                    '&.Mui-disabled': { color: `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))` },
                   }) : {}),
                   // Mixed overlay when improvement-chance differs across selected rules.
                   ...(improvementChanceMixed ? {

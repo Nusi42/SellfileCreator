@@ -216,13 +216,12 @@ export function GearInspectorNormalizedPresetEditorMenu({
             onClick={() => onToggleVariant(presetId, variant)}
             sx={(theme) => ({
               // Selection highlight mirrors the Sort popout so the control feels familiar.
-              ...(selected ? { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.08)', ...theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.14)' }) } : {}),
+              // selectedSuccessBg and successHoverBg are CSS custom properties that adapt per scheme automatically.
+              ...(selected ? { backgroundColor: theme.custom.selectedSuccessBg } : {}),
               '&:hover': {
                 backgroundColor: selected
-                  // Light: 0.12, dark: 0.20 — mirrors the original alpha(success.main, isDark ? 0.20 : 0.12) logic.
-                  ? 'rgba(var(--mui-palette-success-mainChannel) / 0.12)'
+                  ? theme.custom.successHoverBg
                   : (theme.vars?.palette.action.hover ?? theme.palette.action.hover),
-                ...( selected ? theme.applyStyles('dark', { backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' }) : {} ),
               },
               display: 'flex',
               alignItems: 'center',

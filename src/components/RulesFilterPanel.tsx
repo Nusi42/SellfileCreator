@@ -32,6 +32,7 @@ import {
   getLocalizedGearSetName,
 } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
+import { APP_CSS_VAR } from '../lib/themeCustomTokens'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
@@ -725,7 +726,7 @@ function RulesFilterPanel({
       px: 0,
       borderRadius,
       overflow: 'hidden',
-      backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.18)`,
+      backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / var(${APP_CSS_VAR.tintedChipBgAlpha}))`,
       // Light mode base: darker tone for contrast on light backgrounds.
       color: palVar?.dark ?? palRaw.dark,
       '& .MuiChip-icon': { color: palVar?.dark ?? palRaw.dark },
@@ -740,10 +741,10 @@ function RulesFilterPanel({
         borderRadius,
       },
       '&.MuiChip-clickable:hover': {
-        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.24)`,
+        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / var(${APP_CSS_VAR.tintedChipHoverBgAlpha}))`,
       },
       '&.MuiChip-clickable:active': {
-        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / 0.3)`,
+        backgroundColor: `rgba(var(--mui-palette-${paletteKey}-mainChannel) / var(${APP_CSS_VAR.tintedChipActiveBgAlpha}))`,
       },
     }
   }, [theme])
