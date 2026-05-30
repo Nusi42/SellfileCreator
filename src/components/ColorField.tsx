@@ -112,6 +112,8 @@ function ColorPickerContent({
           value={draft}
           onChange={(e) => handleDraftChange(e.target.value)}
           onBlur={() => { onCommit(draft) }}
+          // Prevent the parent Menu's typeahead from consuming hex letter keys (a–f).
+          onKeyDown={(e) => e.stopPropagation()}
           sx={{ flex: 1 }}
         />
         <Button size="small" variant="contained" onClick={handleOk}>{t('close')}</Button>
