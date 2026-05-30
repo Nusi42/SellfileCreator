@@ -37,9 +37,14 @@ export type GearDbHistoryMenuProps = {
 function ClippedPreviewBody({
   maxHeightPx,
   children,
+  // CSS channel variable name for the overflow-fade gradient end color.
+  // Defaults to background.paper (correct for the menu context).
+  // Pass '--mui-palette-grey-700' when rendering inside a MUI Tooltip.
+  fadeColorVar = '--mui-palette-background-paper',
 }: {
   maxHeightPx: number
   children: React.ReactNode
+  fadeColorVar?: string
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const [showOverflowCue, setShowOverflowCue] = React.useState(false)
@@ -75,8 +80,8 @@ function ClippedPreviewBody({
               left: 0,
               right: 0,
               bottom: 0,
-              height: theme.spacing(4),
-              background: `linear-gradient(to bottom, ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}00 0%, ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)} 100%)`,
+              height: theme.spacing(7),
+              background: `linear-gradient(to bottom, rgba(var(${fadeColorVar}Channel) / 0) 0%, rgba(var(${fadeColorVar}Channel) / 0.85) 55%, rgba(var(${fadeColorVar}Channel) / 1) 100%)`,
               pointerEvents: 'none',
             },
           }
@@ -272,7 +277,7 @@ export function GearDbHistoryMenu({
                   setHoveredEntryId((current) => (current === entry.id ? null : current))
                 }}
               render={tooltipPayload ? (
-                <ClippedPreviewBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX}>
+                <ClippedPreviewBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX} fadeColorVar="--mui-palette-grey-700">
                   <GearDbDiffToast
                     payload={tooltipPayload}
                     substatColors={substatColors}
