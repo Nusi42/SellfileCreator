@@ -814,6 +814,20 @@ const parseSelectorTokens = (
   }
 
   const parsed = parseOr()
+  // Any tokens remaining after a successful parse were silently dropped — the
+  // selector expression had trailing content with no connector before it.
+  // Flag the first leftover token so the user sees the problem.
+  if (parsed && diags) {
+    const leftover = cursor.peek()
+    if (leftover) {
+      const from = absoluteOffset + leftover.index
+      if (leftover.kind === 'symbol' && leftover.value === '@') {
+        diags.push({ from, to: from + 1, message: `unexpected '@' in selector — did you mean to add 'and' or 'or' before it?` })
+      } else if (leftover.kind === 'word') {
+        diags.push({ from, to: from + leftover.value.length, message: `unexpected '${leftover.value}' in selector — missing 'and'/'or' connector?` })
+      }
+    }
+  }
   if (!parsed) return null
   return parsed
 }
