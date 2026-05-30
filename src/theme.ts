@@ -99,7 +99,9 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
           colorSuccess: ({ theme }) => ({
             '&.MuiAlert-filled': {
               backgroundColor: darken(theme.palette.success.main, 0.42),
-              color: theme.palette.success.contrastText,
+              // CSS var resolves per-scheme so dark mode gets rgba(0,0,0,0.87) (bright-green contrast)
+              // instead of the light-scheme static '#fff' that theme.palette.success.contrastText returns.
+              color: theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText,
               border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
               ...theme.applyStyles('dark', {
                 backgroundColor: darken(theme.colorSchemes.dark?.palette.success?.main ?? theme.palette.success.main, 0.42),

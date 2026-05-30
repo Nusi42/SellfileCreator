@@ -651,8 +651,8 @@ export default function PreviewHeaderActions(props: {
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: theme.shadows[2],
-    backgroundColor: theme.palette[paletteKey].main,
-    color: theme.palette.getContrastText(theme.palette[paletteKey].main),
+    backgroundColor: theme.vars?.palette[paletteKey].main ?? theme.palette[paletteKey].main,
+    color: theme.vars?.palette[paletteKey].contrastText ?? theme.palette.getContrastText(theme.palette[paletteKey].main),
     border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
     fontWeight: theme.typography.fontWeightBold ?? 600,
     fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
@@ -2401,17 +2401,22 @@ export default function PreviewHeaderActions(props: {
                     <HistoryIcon fontSize="small" />
                   </Button>
                 </MarkdownTooltip>
-                {!gearDbCommandError && gearDbCommandSuccess ? (
-                  <>
-                    {/* Success badge now sits on the history button to reinforce update context. */}
-                    <MarkdownTooltip
-                      markdown={gearDbCommandSuccess}
-                      placement="left"
-                      onClose={() => { onClearGearDbCommandSuccess?.() }}
-                    >
-                      <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
-                    </MarkdownTooltip>
-                  </>
+                {gearDbCommandError ? (
+                  <MarkdownTooltip
+                    markdown={gearDbCommandError}
+                    placement="left"
+                    onClose={() => { onClearGearDbCommandError?.() }}
+                  >
+                    <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
+                  </MarkdownTooltip>
+                ) : gearDbCommandSuccess ? (
+                  <MarkdownTooltip
+                    markdown={gearDbCommandSuccess}
+                    placement="left"
+                    onClose={() => { onClearGearDbCommandSuccess?.() }}
+                  >
+                    <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
+                  </MarkdownTooltip>
                 ) : null}
               </Box>
               <GearDbHistoryMenu
@@ -2486,18 +2491,6 @@ export default function PreviewHeaderActions(props: {
                 </FilePickerButton>
               </MarkdownTooltip>
             </>
-            {gearDbCommandError ? (
-              <>
-                {/* Status badges use MarkdownTooltip so the success/error strings inherit the global delay. */}
-                <MarkdownTooltip
-                  markdown={gearDbCommandError}
-                  placement="left"
-                  onClose={() => { onClearGearDbCommandError?.() }}
-                >
-                  <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
-                </MarkdownTooltip>
-              </>
-            ) : null}
           </Box>
           {baseRuleCount ? (
             <ClearIconButton
