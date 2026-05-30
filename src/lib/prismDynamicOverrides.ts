@@ -17,6 +17,11 @@
 
 import { refractor } from 'refractor';
 import type { Refractor, Syntax } from 'refractor/core';
+import markdownLang from 'refractor/markdown';
+// markdown.js auto-registers markup (HTML) as a dependency — both grammars are available
+// after this call. Explicit registration is required because the Vite alias maps
+// 'refractor' → 'refractor/core', which ships no languages pre-loaded.
+refractor.register(markdownLang);
 import {
   NOTE_RECIPE_OVERRIDES_QUESTION_KEYWORDS,
   NOTE_RECIPE_OVERRIDES_FALLBACK_KEYWORDS,

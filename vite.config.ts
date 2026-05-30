@@ -199,12 +199,20 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       : { output: { codeSplitting: false } },
   },
   resolve: {
-    alias: {
-      'react/compiler-runtime': 'react-compiler-runtime',
-      fs: withRootPath('./scripts/vite/shims/fs.cjs'),
-      path: withRootPath('./scripts/vite/shims/path.cjs'),
-      crypto: withRootPath('./scripts/vite/shims/crypto.cjs'),
-    },
+    alias: [
+      // Exact-match aliases — regex avoids prefix-collision with refractor/lang/* subpaths.
+      // rehype-prism-plus default entry imports refractor/all (200+ langs); /common uses only
+      // the 38-lang "common" subset, but with the refractor→core alias below even those are
+      // dropped: only languages explicitly registered by the app end up in the bundle.
+      { find: /^rehype-prism-plus$/, replacement: 'rehype-prism-plus/common' },
+      // refractor main entry pre-loads 38 common languages; /core is the bare engine.
+      // prismDynamicOverrides.ts explicitly registers the only langs we need (markdown + html).
+      { find: /^refractor$/, replacement: 'refractor/core' },
+      { find: 'react/compiler-runtime', replacement: 'react-compiler-runtime' },
+      { find: 'fs',     replacement: withRootPath('./scripts/vite/shims/fs.cjs') },
+      { find: 'path',   replacement: withRootPath('./scripts/vite/shims/path.cjs') },
+      { find: 'crypto', replacement: withRootPath('./scripts/vite/shims/crypto.cjs') },
+    ],
   },
   server: {
     watch: {
