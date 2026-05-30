@@ -141,7 +141,7 @@ import {
 } from './lib/gearDbDiffToast'
 import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
-import { buildGearInspectorOutcomeSummary } from './lib/gearInspectorOutcomeSummary'
+import { buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
@@ -682,11 +682,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return map
   }, [gearInspectorPreviewRows])
-  // Summarize Gear Inspector outcomes so the preview header + note dialog share one chip.
-  const gearInspectorOutcomeSummary = useMemo(
-    () => buildGearInspectorOutcomeSummary(gearInspectorPreviewRows),
-    [gearInspectorPreviewRows],
-  )
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
   // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
   const [improvementChanceByArtifactId, setImprovementChanceByArtifactId] =
@@ -5342,6 +5337,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortGearInspectorRows(rows)
   }, [builderMode, gearInspectorRecipeFilterMode, safeguardSelectedRuleItemKeySet, safeguardAnyMatchItemKeySet, gearInspectorRecipeFilterSelectedSet, gearEntriesAfterRulesFilter])
+  // Summarize Gear Inspector outcomes — single pass over all rows, split by scoped visibility.
+  // Placed after gearEntriesForTable so the scoped half has a defined dep.
+  const { scoped: gearInspectorOutcomeSummaryForPreview, total: gearInspectorOutcomeSummary } = useMemo(() => {
+    // In context mode only primaries represent the active filter; companions (regardless of tag or
+    // source) are contextual and must not inflate the scoped counts.
+    const contextMap = gearInspectorContextGroupById
+    const scopedIds = new Set(
+      gearEntriesForTable
+        .filter((r) => !contextMap || contextMap.get(r.artifact.id) === 'primary')
+        .map((r) => r.artifact.id)
+    )
+    return buildGearInspectorOutcomeSummaryPair(gearInspectorPreviewRows, scopedIds)
+  }, [gearInspectorPreviewRows, gearEntriesForTable, gearInspectorContextGroupById])
   // Deferred filter-based selection reconciliation: fires after the full filter pipeline settles
   // following an endpoint push. Drops selections for items hidden by the active filter; in context
   // mode additionally drops companions and "other" items (only primary stays selected).
@@ -5384,11 +5392,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const indices = selectedRecipeIndices.slice().sort((a, b) => a - b).join(',')
     return `r:${gearInspectorRecipeFilterMode}:${indices}`
   }, [builderMode, gearInspectorRecipeFilterMode, selectedSafeguardRuleIndices, selectedRecipeIndices])
-  // Summarize the filtered Gear Inspector rows so the preview chip mirrors the grid contents.
-  const gearInspectorOutcomeSummaryForPreview = useMemo(
-    () => buildGearInspectorOutcomeSummary(gearEntriesForTable),
-    [gearEntriesForTable],
-  )
   const hasManualGearInspectorRows = useMemo(() => (
     gearInspectorPreviewRows.some((row) => row.artifact.source === 'manual')
   ), [gearInspectorPreviewRows])

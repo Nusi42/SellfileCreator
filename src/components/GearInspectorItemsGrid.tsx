@@ -232,6 +232,24 @@ type GearInspectorGroup = {
   parentKey?: string | null
 }
 
+// Build a key → summary map by walking the group tree recursively.
+// When contextGroupById is provided (context mode active), only primaries contribute to each summary.
+function buildGroupOutcomeSummaryMap(
+  roots: readonly GearInspectorGroup[],
+  contextGroupById?: Map<number, GearInspectorContextGroup> | null,
+) {
+  const map = new Map<string, ReturnType<typeof buildGearInspectorOutcomeSummary>>()
+  const add = (group: GearInspectorGroup) => {
+    const rows = contextGroupById
+      ? group.rows.filter((r) => contextGroupById.get(r.artifact.id) === 'primary')
+      : group.rows
+    map.set(group.key, buildGearInspectorOutcomeSummary(rows))
+    group.children?.forEach(add)
+  }
+  roots.forEach(add)
+  return map
+}
+
 type GroupRowsBySetOptions = {
   grouping: GearInspectorGroupingState
   substatSort: GearInspectorSubstatSortSpec | null
@@ -867,26 +885,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     groups.forEach(addGroup)
     return map
   }, [groups])
-  const groupOutcomeSummaryByKey = useMemo(() => {
-    // Cache one outcome summary per group so header rendering avoids repeated row scans.
-    const map = new Map<string, ReturnType<typeof buildGearInspectorOutcomeSummary>>()
-    const addGroupSummary = (group: GearInspectorGroup) => {
-      map.set(group.key, buildGearInspectorOutcomeSummary(group.rows))
-      group.children?.forEach(addGroupSummary)
-    }
-    groups.forEach(addGroupSummary)
-    return map
-  }, [groups])
-  const groupTotalOutcomeSummaryByKey = useMemo(() => {
-    // Mirror the same lookup for unfiltered rows so filtered views can show X / Y like the global chip.
-    const map = new Map<string, ReturnType<typeof buildGearInspectorOutcomeSummary>>()
-    const addGroupSummary = (group: GearInspectorGroup) => {
-      map.set(group.key, buildGearInspectorOutcomeSummary(group.rows))
-      group.children?.forEach(addGroupSummary)
-    }
-    summaryGroups.forEach(addGroupSummary)
-    return map
-  }, [summaryGroups])
+  const groupOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(groups, contextGroupById), [groups, contextGroupById])
+  const groupTotalOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(summaryGroups), [summaryGroups])
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
     if (!group || !group.parentKey) {

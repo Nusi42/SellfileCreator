@@ -24,3 +24,36 @@ export function buildGearInspectorOutcomeSummary(rows: readonly GearInspectorPre
     keptBySafeguards: safeguardKeepCount,
   }
 }
+
+// Paired result: scoped counts (items visible after filtering) alongside totals (full DB).
+export type GearInspectorOutcomeSummaryPair = {
+  scoped: GearInspectorOutcomeSummary
+  total: GearInspectorOutcomeSummary
+}
+
+// Compute scoped and total summaries in a single pass over all rows.
+// scopedIds contains the artifact IDs of items currently visible after filtering;
+// every row contributes to total, but only rows in scopedIds contribute to scoped.
+export function buildGearInspectorOutcomeSummaryPair(
+  allRows: readonly GearInspectorPreviewRow[],
+  scopedIds: ReadonlySet<number>,
+): GearInspectorOutcomeSummaryPair {
+  let totalSold = 0, totalSafeguard = 0
+  let scopedSold = 0, scopedSafeguard = 0, scopedTotal = 0
+  for (const row of allRows) {
+    const isSell = row.match?.keep === false
+    const isSafeguard = row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS
+    if (isSell) totalSold += 1
+    if (isSafeguard) totalSafeguard += 1
+    if (scopedIds.has(row.artifact.id)) {
+      scopedTotal += 1
+      if (isSell) scopedSold += 1
+      if (isSafeguard) scopedSafeguard += 1
+    }
+  }
+  const totalCount = allRows.length
+  return {
+    scoped: { total: scopedTotal, sold: scopedSold, kept: scopedTotal - scopedSold, keptBySafeguards: scopedSafeguard },
+    total: { total: totalCount, sold: totalSold, kept: totalCount - totalSold, keptBySafeguards: totalSafeguard },
+  }
+}
