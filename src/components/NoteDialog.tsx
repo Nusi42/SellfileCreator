@@ -196,7 +196,6 @@ function renderPrismHighlighted(text: string, grammar: string, sx: Record<string
   }
 }
 
-const NOTE_EDITOR_BG_COLOR = '#0d1117'
 // Keep substat ordering aligned with the rule card layout.
 const NOTE_SUBSTAT_ORDER = new Map<number, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
@@ -1622,12 +1621,11 @@ const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
   lineHeight: 1.35,
   // Reset default <pre> margins to avoid extra gaps.
   m: 0,
-  // Dark background matches the editor so Prism token colors read correctly
-  // against the same palette they were designed for.
-  backgroundColor: NOTE_EDITOR_BG_COLOR,
+  // Use CSS vars so the block adapts per scheme instead of always being dark.
+  backgroundColor: 'var(--mui-palette-background-default)',
   borderRadius: '4px',
   p: '6px 8px',
-  color: '#abb2bf',
+  color: 'var(--mui-palette-text-primary)',
 } satisfies Record<string, unknown>
 
 // ── Safeguard-overrides EBNF documentation ─────────────────────────────────
