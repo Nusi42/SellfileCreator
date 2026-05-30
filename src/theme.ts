@@ -99,12 +99,13 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
           colorSuccess: ({ theme }) => ({
             '&.MuiAlert-filled': {
               backgroundColor: darken(theme.palette.success.main, 0.42),
-              // CSS var resolves per-scheme so dark mode gets rgba(0,0,0,0.87) (bright-green contrast)
-              // instead of the light-scheme static '#fff' that theme.palette.success.contrastText returns.
-              color: theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText,
               border: `1px solid ${alpha(theme.palette.success.light, 0.35)}`,
               ...theme.applyStyles('dark', {
                 backgroundColor: darken(theme.colorSchemes.dark?.palette.success?.main ?? theme.palette.success.main, 0.42),
+                // Override --Alert-color (which Alert uses for color: var(--Alert-color)) so the
+                // dark-scheme contrastText wins regardless of MUI's filled-variant default.
+                // Matches v1.0.13: bright dark-mode success green → rgba(0,0,0,0.87) contrast text.
+                '--Alert-color': theme.colorSchemes.dark?.palette.success?.contrastText ?? 'rgba(0,0,0,0.87)',
                 border: `1px solid ${alpha(theme.colorSchemes.dark?.palette.success?.light ?? theme.palette.success.light, 0.35)}`,
               }),
             },

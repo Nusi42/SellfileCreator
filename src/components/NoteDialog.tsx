@@ -4528,20 +4528,20 @@ function NoteEditorContent({
               // Keep layout defaults from the editor so text overlay math stays correct.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               backgroundColor: `${editorBg} !important`,
-              color: (t) => `${t.palette.text.primary} !important`,
+              color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
               backgroundColor: `${editorBg} !important`,
-              color: (t) => `${t.palette.text.primary} !important`,
+              color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre': {
               // Match the textarea font sizing so highlights overlay 1:1.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
               backgroundColor: `${editorBg} !important`,
-              color: (t) => `${t.palette.text.primary} !important`,
+              color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-input': {
@@ -4550,8 +4550,8 @@ function NoteEditorContent({
               lineHeight: 1.7,
               backgroundColor: 'transparent',
               color: 'inherit',
-              borderColor: (t) => t.palette.divider,
-              caretColor: (t) => t.palette.text.primary,
+              borderColor: (t) => t.vars?.palette.divider ?? t.palette.divider,
+              caretColor: (t) => t.vars?.palette.text.primary ?? t.palette.text.primary,
             },
             '& .w-md-editor .w-md-editor-content': {
               // Keep sizing controlled by the editor height prop to avoid desync.
@@ -4560,7 +4560,7 @@ function NoteEditorContent({
             '& .w-md-editor .w-md-editor-preview': {
               // Preserve default preview layout so overlays align with selections.
               backgroundColor: `${editorBg} !important`,
-              color: (t) => `${t.palette.text.primary} !important`,
+              color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
             },
             '& .wmde-markdown': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
