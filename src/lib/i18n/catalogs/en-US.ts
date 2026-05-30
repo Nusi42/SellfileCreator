@@ -1386,6 +1386,7 @@ const enUS: Catalog = {
   themeCorners: "Corners",
   themeSelectionOpacity: "Selection %",
   themePsychedelic: "Psychedelic",
+  themePsychedelicTooltip: "Just for fun — cycles all theme colors through the hue spectrum continuously. Not intended for normal use.",
 
   // Tutorial chrome
   tutorialStep: "Step",

@@ -1352,6 +1352,7 @@ const overrides: Catalog = {
   themeCorners: "Заокруглення",
   themeSelectionOpacity: "Виділення %",
   themePsychedelic: "Психоделік",
+  themePsychedelicTooltip: "Просто для розваги — безперервно перебирає всі кольори теми крізь спектр відтінків. Не призначено для звичайного використання.",
 
   // Tutorial chrome
   tutorialStep: "Крок",

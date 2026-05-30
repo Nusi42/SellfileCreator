@@ -1353,6 +1353,7 @@ const catalog: Catalog = {
   themeCorners: "Cantos",
   themeSelectionOpacity: "Seleção %",
   themePsychedelic: "Psicodélico",
+  themePsychedelicTooltip: "Só por diversão — alterna continuamente todas as cores do tema pelo espectro de matizes. Não é destinado ao uso normal.",
 
   // Tutorial chrome
   tutorialStep: "Passo",

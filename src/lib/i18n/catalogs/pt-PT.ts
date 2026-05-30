@@ -1353,6 +1353,7 @@ const overrides: Catalog = {
   themeCorners: "Cantos",
   themeSelectionOpacity: "Seleção %",
   themePsychedelic: "Psicodélico",
+  themePsychedelicTooltip: "Apenas por diversão — alterna continuamente todas as cores do tema pelo espectro de tonalidades. Não é destinado para uso normal.",
 
   // Tutorial chrome
   tutorialStep: "Passo",

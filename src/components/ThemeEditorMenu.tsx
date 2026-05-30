@@ -248,35 +248,6 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </Typography>
           </Box>
         </MenuItem>
-        {/* Psychedelic cycle — rotates all theme colors through HSL hue space.
-            CSS hue-rotate on the button wrapper spins its color through the full
-            spectrum continuously, giving the button itself a "psychedelic" look. */}
-        <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }} onClick={() => setPsychedelic(!psychedelic)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themePsychedelic')}</Typography>
-          <Box
-            sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Box sx={{
-              '@keyframes psychedelicHue': { from: { filter: 'hue-rotate(0deg)' }, to: { filter: 'hue-rotate(360deg)' } },
-              animation: 'psychedelicHue 3s linear infinite',
-              display: 'flex', alignItems: 'stretch',
-            }}>
-              <Button
-                size="small"
-                variant={psychedelic ? 'contained' : 'outlined'}
-                color="secondary"
-                sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setPsychedelic(!psychedelic)
-                }}
-              >
-                {psychedelic ? t('commonOn') : t('commonOff')}
-              </Button>
-            </Box>
-          </Box>
-        </MenuItem>
         <Divider />
         {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
@@ -334,6 +305,38 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </MenuItem>
           </>
         )}
+        <Divider />
+        {/* Psychedelic cycle — purely cosmetic fun feature; lives at the bottom so it stays out of the way. */}
+        <MenuItem disableRipple sx={{ gap: 0, alignItems: 'center', p: 0 }} onClick={() => setPsychedelic(!psychedelic)}>
+          <MarkdownTooltip markdown={t('themePsychedelicTooltip')} placement="left">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, px: 2, py: 0.75 }}>
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('themePsychedelic')}</Typography>
+              <Box
+                sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Box sx={{
+                  '@keyframes psychedelicHue': { from: { filter: 'hue-rotate(0deg)' }, to: { filter: 'hue-rotate(360deg)' } },
+                  animation: 'psychedelicHue 3s linear infinite',
+                  display: 'flex', alignItems: 'stretch',
+                }}>
+                  <Button
+                    size="small"
+                    variant={psychedelic ? 'contained' : 'outlined'}
+                    color="secondary"
+                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPsychedelic(!psychedelic)
+                    }}
+                  >
+                    {psychedelic ? t('commonOn') : t('commonOff')}
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          </MarkdownTooltip>
+        </MenuItem>
       </Menu>
     </>
   )
