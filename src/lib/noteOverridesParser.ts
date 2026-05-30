@@ -14,6 +14,9 @@ import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
 
 export type TokenKind = 'word' | 'string' | 'symbol'
 
+/** A character range in the source text flagged as structurally erroneous. */
+export type DiagnosticSpan = { from: number; to: number; message: string }
+
 export type Token = {
   kind: TokenKind
   value: string

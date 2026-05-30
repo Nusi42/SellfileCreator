@@ -13,6 +13,7 @@ import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 import { normalizeTagValue } from './tagHelpers'
 import {
   type Token,
+  type DiagnosticSpan,
   type NoteCountAstNode,
   type NoteQuestionGroupType,
   type ParsedOverridesOption,
@@ -563,7 +564,11 @@ const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
   return extras
 }
 
-const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null => {
+const parseSelectorTokens = (
+  tokens: Token[],
+  absoluteOffset = 0,
+  diags?: DiagnosticSpan[],
+): RecipeOverridesSelector | null => {
   const cursor = new TokenCursor(tokens)
   const parseTerm = (): RecipeOverridesSelector | null => {
     const token = cursor.peek()
@@ -759,7 +764,21 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
       if (word !== 'and' && word !== '&&') break
       cursor.next()
       const right = parseNot()
-      if (!right) return null
+      if (!right) {
+        // Emit a diagnostic for whichever token caused the right operand to fail.
+        if (diags) {
+          const failTok = cursor.peek()
+          if (failTok) {
+            const from = absoluteOffset + failTok.index
+            if (failTok.kind === 'symbol' && failTok.value === '@') {
+              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} minrolls=3'` })
+            } else if (failTok.kind === 'word') {
+              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
+            }
+          }
+        }
+        return null
+      }
       left = { kind: 'and', left, right }
     }
     return left
@@ -775,7 +794,20 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
       if (word !== 'or' && word !== '||') break
       cursor.next()
       const right = parseAnd()
-      if (!right) return null
+      if (!right) {
+        if (diags) {
+          const failTok = cursor.peek()
+          if (failTok) {
+            const from = absoluteOffset + failTok.index
+            if (failTok.kind === 'symbol' && failTok.value === '@') {
+              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} minrolls=3'` })
+            } else if (failTok.kind === 'word') {
+              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
+            }
+          }
+        }
+        return null
+      }
       left = { kind: 'or', left, right }
     }
     return left
@@ -788,7 +820,13 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
 
 // crossDomain=true enables $count/$value expression parsing for numeric fields (rank,
 // minrolls, lockedminrolls, minsubstats) — used when the block came from the other domain.
-const parseOperations = (cursor: TokenCursor, endSymbol: string, crossDomain = false): RecipeOverridesOperation[] => {
+const parseOperations = (
+  cursor: TokenCursor,
+  endSymbol: string,
+  crossDomain = false,
+  absoluteOffset = 0,
+  diags?: DiagnosticSpan[],
+): RecipeOverridesOperation[] => {
   const operations: RecipeOverridesOperation[] = []
   while (true) {
     const token = cursor.peek()
@@ -805,6 +843,16 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string, crossDomain = f
     }
     if (token.kind !== 'word') {
       // Skip unknown tokens to keep the parser from stalling.
+      // Diagnose '@' specifically — it always means the user wrote @field=value
+      // inside an assignment block instead of just field=value.
+      if (diags && token.kind === 'symbol' && token.value === '@') {
+        const from = absoluteOffset + token.index
+        diags.push({
+          from,
+          to: from + 1,
+          message: `'@' inside an assignment block — write the field name directly (e.g. 'lockedminrolls=3', not '@lockedminrolls=3')`,
+        })
+      }
       cursor.next()
       continue
     }
@@ -1171,11 +1219,15 @@ type ParsedQuestionEntry = { index: number; question: ParsedQuestionDefinition }
  * Parse a single recipe `@selector { … }` block.
  * Exported for use as a cross-domain block parser inside safeguard-overrides markers.
  */
-export function parseRecipeSelectorBlock(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
+export function parseRecipeSelectorBlock(
+  cursor: TokenCursor,
+  diags?: DiagnosticSpan[],
+  absoluteOffset = 0,
+): RecipeOverridesSelectorBlock | null {
   const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
   if (!selectorTokens) return null
-  const selector = parseSelectorTokens(selectorTokens)
-  const operations = parseOperations(cursor, '}')
+  const selector = parseSelectorTokens(selectorTokens, absoluteOffset, diags)
+  const operations = parseOperations(cursor, '}', false, absoluteOffset, diags)
   if (!selector || operations.length === 0) return null
   return { selector, operations }
 }
@@ -1186,17 +1238,58 @@ export function parseRecipeSelectorBlock(cursor: TokenCursor): RecipeOverridesSe
  * Used by noteSafeguardOverrides when parsing `recipe @selector { … }` blocks inside
  * safeguard-overrides slider questions.
  */
-export function parseRecipeSelectorBlockCross(cursor: TokenCursor): RecipeOverridesSelectorBlock | null {
+export function parseRecipeSelectorBlockCross(
+  cursor: TokenCursor,
+  diags?: DiagnosticSpan[],
+  absoluteOffset = 0,
+): RecipeOverridesSelectorBlock | null {
   const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
   if (!selectorTokens) return null
-  const selector = parseSelectorTokens(selectorTokens)
-  const operations = parseOperations(cursor, '}', true)
+  const selector = parseSelectorTokens(selectorTokens, absoluteOffset, diags)
+  const operations = parseOperations(cursor, '}', true, absoluteOffset, diags)
   if (!selector || operations.length === 0) return null
   return { selector, operations }
 }
 
 /** Module-internal alias for the selector block parser (passed to shared infrastructure). */
 const parseSelectorBlock = parseRecipeSelectorBlock
+
+/**
+ * Parses `rawBlock` (a full `<!-- recipe-overrides … -->` comment) for structural
+ * errors and appends diagnostics to `diags`.  Unlike `resolveRecipeOverridesTags`,
+ * this call is purely for linting — the returned instructions are discarded.
+ *
+ * The function uses a closure to thread `diags` and `absoluteOffset` into the
+ * existing `parseRecipeSelectorBlock` without changing the generic callback
+ * signatures in the shared `parseOverridesMarkerBody` infrastructure.
+ */
+export function collectRecipeOverridesDiagnostics(
+  rawBlock: string,
+  blockStart: number,
+  diags: DiagnosticSpan[],
+): void {
+  const stripped = stripCommentWrapper(rawBlock)
+  // Compute how far into rawBlock the stripped content starts so token.index
+  // values (which are relative to stripped) produce correct absolute positions.
+  const strippedPos = rawBlock.indexOf(stripped)
+  const absoluteOffset = blockStart + (strippedPos >= 0 ? strippedPos : 0)
+
+  // Wrap the selector block parser in a closure that captures diags/offset.
+  // The generic infrastructure (parseGroupBlocks, parseSelectorBlockList, etc.)
+  // stays unchanged — it just calls this closure as its `parseSelectorBlock` callback.
+  const diagSelectorBlock = (c: TokenCursor): RecipeOverridesSelectorBlock | null =>
+    parseRecipeSelectorBlock(c, diags, absoluteOffset)
+
+  // Cross-domain blocks mirror the normal marker, no diagnostic extension yet.
+  const diagCrossBlock = (c: TokenCursor) => parseSafeguardSelectorBlock(c)
+
+  parseOverridesMarkerBody<RecipeOverridesSelector, RecipeOverridesOperation>(
+    stripped,
+    NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS,
+    diagSelectorBlock,
+    diagCrossBlock,
+  )
+}
 
 // Parse a question marker body using the shared infrastructure with the recipe selector block parser.
 // parseSafeguardSelectorBlock is from a circular import; safe because it's only called inside this

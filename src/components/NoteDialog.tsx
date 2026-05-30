@@ -1,4 +1,5 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
@@ -18,6 +19,7 @@ import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
+import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -194,6 +196,80 @@ function renderPrismHighlighted(text: string, grammar: string, sx: Record<string
     // Grammar not yet registered or unsupported – fall back to plain text.
     return <Box component="pre" sx={sx}>{text}</Box>
   }
+}
+
+// ── DSL error overlay ───────────────────────────────────────────────────────
+// Renders a transparent pre element portaled into `.w-md-editor-text` (the
+// MDEditor text container). Non-error text is invisible; error spans carry a
+// wavy underline so the user sees where the DSL is structurally broken without
+// altering the existing Prism token coloring.
+//
+// Layout math: `.w-md-editor-text` has padding:10px and position:relative.
+// The overlay uses position:absolute inset:0 padding:10px so its text content
+// starts at the same pixel as `.w-md-editor-text-pre`'s content, giving
+// character-accurate underline positions.
+const DSL_OVERLAY_PADDING_PX = 10
+
+function DslErrorOverlay({ text, diags }: { text: string; diags: DiagnosticSpan[] }) {
+  if (diags.length === 0) return null
+
+  // Split the full note text into alternating normal/error segments.
+  const sorted = [...diags].sort((a, b) => a.from - b.from)
+  const nodes: React.ReactNode[] = []
+  let pos = 0
+  for (const diag of sorted) {
+    if (diag.from > pos) nodes.push(text.slice(pos, diag.from))
+    nodes.push(
+      // Inline styles are intentional — emotion scopes sx-generated rules to
+      // the Box class which may not reliably reach React portal targets.
+      <span
+        key={diag.from}
+        data-msg={diag.message}
+        style={{
+          color: 'transparent',
+          textDecorationLine: 'underline',
+          textDecorationStyle: 'wavy',
+          textDecorationColor: '#f4a',
+          textDecorationSkipInk: 'none',
+        }}
+      >
+        {text.slice(diag.from, diag.to)}
+      </span>,
+    )
+    pos = diag.to
+  }
+  if (pos < text.length) nodes.push(text.slice(pos))
+
+  return (
+    // aria-hidden: the overlay is purely decorative; the textarea is the
+    // accessible input.  pointer-events:none lets all mouse/keyboard events
+    // pass through to the textarea layer above.
+    <pre
+      aria-hidden
+      className="dsl-error-overlay"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        padding: DSL_OVERLAY_PADDING_PX,
+        margin: 0,
+        pointerEvents: 'none',
+        background: 'transparent',
+        color: 'transparent',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        // Font properties inherit from .w-md-editor-text so wrapping is 1:1.
+        font: 'inherit',
+        lineHeight: 'inherit',
+        zIndex: 1,
+      }}
+    >
+      {nodes}
+      {/* MDEditor appends a trailing newline to its pre — match it so line
+          heights stay in sync on the last line. */}
+      {'\n'}
+    </pre>
+  )
 }
 
 // Keep substat ordering aligned with the rule card layout.
@@ -4247,6 +4323,9 @@ function NoteEditorContent({
 }) {
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
+  // Target element for the DSL error overlay portal — the `.w-md-editor-text`
+  // container, which has position:relative and the correct padding context.
+  const [editorTextEl, setEditorTextEl] = useState<HTMLElement | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
@@ -4286,6 +4365,22 @@ function NoteEditorContent({
     closeEditRecipeOverridesMenu()
   }, [closeEditRecipeOverridesMenu])
   const [draft, setDraft] = useState<string>(note ?? '')
+
+  // Collect DSL diagnostics (error squiggles) once per draft change.
+  const dslDiags = useMemo(() => collectOverridesDiagnostics(draft), [draft])
+
+  // Resolve the MDEditor text container once after mount so we can portal
+  // the error overlay into it.  The element is stable for the component
+  // lifetime — MDEditor does not replace it on re-render.
+  useEffect(() => {
+    // The .w-md-editor-text DOM node is created by MDEditor on first paint and
+    // cannot be queried before mount, so useState initialisation here is correct.
+    const root = editWrapRef.current
+    const el = root?.querySelector<HTMLElement>('.w-md-editor-text') ?? null
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/set-state-in-effect
+    setEditorTextEl(el)
+  }, [])
+
   // Track recipe overrides changes so the view-mode button can signal edits.
   const baseRecipeOverridesSignature = useMemo(
     () => buildNoteRecipeOverridesSignature(note ?? ''),
@@ -4764,6 +4859,9 @@ function NoteEditorContent({
             },
             '& .w-md-editor .w-md-editor-toolbar li button svg': { width: 18, height: 18 },
             '& .w-md-editor .w-md-editor-toolbar-divider': { height: '18px', margin: '-3px 6px 0 6px !important' },
+            // Error-span styles are inline on the span elements themselves —
+            // emotion-scoped sx rules may not reach React portal targets reliably.
+            '& .w-md-editor-text': { position: 'relative' },
             ...NOTE_COLOR_SX_SELECTORS,
           }}
           onMouseDownCapture={(e) => {
@@ -4888,6 +4986,14 @@ function NoteEditorContent({
                 }}
               />
             </NoteRenderContext>
+        {/* Portal the DSL error overlay into the MDEditor text container so
+            wavy underlines appear at the correct character positions.  The
+            overlay uses transparent text so it never obscures the Prism
+            token colors; only the .dsl-err underline marks are visible. */}
+        {editorTextEl && createPortal(
+          <DslErrorOverlay text={draft} diags={dslDiags} />,
+          editorTextEl,
+        )}
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
