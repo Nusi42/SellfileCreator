@@ -170,6 +170,7 @@ export default function MetasetsDialog({
   metasetUsageCounts,
   safeguardMetasetUsageCounts,
   onSelectRecipesByMetaset,
+  onSelectSafeguardsByMetaset,
   setsSearch,
   onSetsSearchChange,
   setsOrder,
@@ -187,8 +188,9 @@ export default function MetasetsDialog({
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   safeguardMetasetUsageCounts: Record<string, number>
-  // When the "Used" chip is clicked, select all recipes that reference this metaset.
+  // When a chip is clicked, select all recipes/safeguards that reference this metaset.
   onSelectRecipesByMetaset: (id: string) => void
+  onSelectSafeguardsByMetaset: (id: string) => void
   setsSearch: string
   onSetsSearchChange: (v: string) => void
   setsOrder: 'game' | 'az' | 'icons'
@@ -197,6 +199,12 @@ export default function MetasetsDialog({
   setMetaSetsMenuOpen: (v: boolean) => void
 }) {
   const { t, lang } = useI18n()
+  // Shared column width for both the header labels and the chips below them.
+  // Must be wide enough for the longest translated header text at caption size.
+  const USAGE_COL_W = 80
+  // True when any metaset is referenced by at least one safeguard rule — controls
+  // whether the "Safeguards" column header and per-row safeguard chip are rendered.
+  const anySafeguardUsage = Object.values(safeguardMetasetUsageCounts).some((n) => n > 0)
   // Note: Ordering state is owned by the Builder and passed in via props to keep
   // behavior identical between Builder and Metasets editor. No persistence here.
   // Keep an in-dialog draft so click feedback never waits on App-wide rerenders.
@@ -717,11 +725,34 @@ export default function MetasetsDialog({
       <Dialog open={open} onClose={handleDialogClose} maxWidth="lg" fullWidth transitionDuration={{ exit: 0 }} slotProps={{ paper: { ref: metasetsDialogProps.PaperProps.ref } }}>
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
-          {/* Sticky header: description only */}
-          <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 1 }}>
+          {/* Fixed header: description + column labels — lives outside the scroll container so nothing scrolls under it */}
+          <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0.5 }}>
             <Typography variant="body2" color="text.secondary">{t('metasetsHeaderBlurb')}</Typography>
             <Divider sx={{ mt: 1, opacity: 0.5 }} />
           </Box>
+          {/* Column label row: sits between description and the scroll area.
+              overflow:hidden makes it a scroll container so scrollbar-gutter is honoured in Chrome,
+              reserving the same right-side gutter as the list below — keeping labels aligned with chips. */}
+          <Box sx={{
+            px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
+            pb: 0.5,
+            overflow: 'hidden',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 0.5,
+            ...reserveScrollbarGutterSpace({ reserveStart: false }),
+          }}>
+            <Typography variant="caption" color="text.secondary" sx={{ width: USAGE_COL_W, textAlign: 'center' }}>
+              {t('metasetsColumnRecipes')}
+            </Typography>
+            {anySafeguardUsage && (
+              <Typography variant="caption" color="text.secondary" sx={{ width: USAGE_COL_W, textAlign: 'center' }}>
+                {t('metasetsColumnSafeguards')}
+              </Typography>
+            )}
+          </Box>
+          <Divider sx={{ opacity: 0.4 }} />
           {/* Scrollable list only for metasets */}
           <Box
             ref={listRef}
@@ -732,8 +763,8 @@ export default function MetasetsDialog({
               height: metasetsListHeight,
               maxHeight: metasetsListHeight,
               minHeight: metasetsListHeight,
-              // Reserve scrollbar gutter (Chrome) and inject Firefox-only padding so width stays fixed in both.
-              ...reserveScrollbarGutterSpace(),
+              // Reserve right-side scrollbar gutter only (matches the column label row above).
+              ...reserveScrollbarGutterSpace({ reserveStart: false }),
             }}
           >
             <Stack spacing={1}>
@@ -951,55 +982,42 @@ export default function MetasetsDialog({
                       setDeleteReplaceMetaId('')
                       setConfirmDeleteMetaId(m.name)
                     }}>{t('delete')}</Button>
-                    {totalUsed > 0 ? (
+                    {recipeUsed > 0 ? (
                       <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
-                        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                          <Chip
-                            size="small"
-                            label={t('metasetsUses', { n: recipeUsed })}
-                            color={'warning'}
-                            sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
-                            onClick={() => {
-                              // Map Safeguard references are informational only; the chip keeps
-                              // selecting recipes to mirror the previous affordance.
-                              try { onSelectRecipesByMetaset(m.name) } catch {}
-                              // Close the dialog so the selection is visible in the chips list
-                              try { onClose() } catch {}
-                            }}
-                          />
-                          {safeguardUsed > 0 ? (
-                            <Box
-                              component="span"
-                              sx={(theme) => ({
-                                position: 'absolute',
-                                top: -6,
-                                right: -6,
-                                borderRadius: 1,
-                                px: 0.5,
-                                py: 0.25,
-                                fontSize: 11,
-                                lineHeight: 1,
-                                fontWeight: 700,
-                                bgcolor: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
-                                color: theme.palette.getContrastText(theme.palette.warning.main),
-                                boxShadow: theme.shadows[2],
-                                pointerEvents: 'none',
-                              })}
-                            >
-                              {/* Inline badge shows the Safeguard rule count (+X). */}
-                              {`+${safeguardUsed}`}
-                            </Box>
-                          ) : null}
-                        </Box>
+                        <Chip
+                          size="small"
+                          label={String(recipeUsed)}
+                          color="warning"
+                          sx={{ width: USAGE_COL_W, justifyContent: 'center', cursor: 'pointer' }}
+                          onClick={() => {
+                            try { onSelectRecipesByMetaset(m.name) } catch {}
+                            // Close the dialog so the selection is visible in the recipe list
+                            try { onClose() } catch {}
+                          }}
+                        />
                       </MarkdownTooltip>
                     ) : (
-                      <Chip
-                        size="small"
-                        label={t('metasetsUses', { n: recipeUsed })}
-                        color={'default'}
-                        sx={{ width: 84, justifyContent: 'center' }}
-                      />
+                      <Chip size="small" label={String(recipeUsed)} color="default" sx={{ width: USAGE_COL_W, justifyContent: 'center' }} />
                     )}
+                    {/* Safeguard chip: always present when any safeguard uses a metaset so the
+                        column aligns with the header label; clickable only when count > 0. */}
+                    {anySafeguardUsage && (safeguardUsed > 0 ? (
+                      <MarkdownTooltip markdown={t('metasetsSafeguardUsesTooltip')}>
+                        <Chip
+                          size="small"
+                          label={String(safeguardUsed)}
+                          color="warning"
+                          sx={{ width: USAGE_COL_W, justifyContent: 'center', cursor: 'pointer' }}
+                          onClick={() => {
+                            try { onSelectSafeguardsByMetaset(m.name) } catch {}
+                            // Close the dialog so the selection is visible in the safeguard list
+                            try { onClose() } catch {}
+                          }}
+                        />
+                      </MarkdownTooltip>
+                    ) : (
+                      <Chip size="small" label={String(safeguardUsed)} color="default" sx={{ width: USAGE_COL_W, justifyContent: 'center' }} />
+                    ))}
                   </Box>
                 )
                 return (

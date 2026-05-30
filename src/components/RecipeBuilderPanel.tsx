@@ -183,7 +183,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, recipeOverridesInstructions, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose, onRegisterOpenMetasetsDialog }: {
+export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, onSelectSafeguardsByMetaset, recipeOverridesInstructions, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose, onRegisterOpenMetasetsDialog }: {
   recipe: BuilderRecipe,
   onChange: (c: BuilderRecipe) => void
   onAddToCustom: () => void
@@ -218,8 +218,9 @@ export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingI
   // Flag Insert/Apply actions that will not appear under "Preview recipes".
   insertHiddenByFilters: boolean
   saveHiddenByFilters: boolean
-  // Select all recipes that reference a given metaset ID (used from Metasets dialog "Used" chip)
+  // Select all recipes/safeguards that reference a given metaset ID (used from Metasets dialog chips)
   onSelectRecipesByMetaset: (id: string) => void
+  onSelectSafeguardsByMetaset: (id: string) => void
   recipeOverridesInstructions: RecipeOverridesInstructions
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedRecipes?: readonly BuilderRecipe[] | null
@@ -7161,6 +7162,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             metasetUsageCounts={metasetUsageCounts}
             safeguardMetasetUsageCounts={safeguardMetasetUsageCounts}
             onSelectRecipesByMetaset={onSelectRecipesByMetaset}
+            onSelectSafeguardsByMetaset={onSelectSafeguardsByMetaset}
             setsSearch={setsSearch}
             onSetsSearchChange={setSetsSearch}
             setsOrder={setsOrder}

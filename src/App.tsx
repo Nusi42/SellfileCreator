@@ -6684,6 +6684,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const last = lastIdx >= 0 ? indices[lastIdx]! : null
         syncSelectedRecipeIdx(last, { preserveSelection: indices.length > 1 })
       }}
+      onSelectSafeguardsByMetaset={(id) => {
+        // Select all safeguard rules that reference the given metaset ID.
+        const indices: number[] = []
+        for (let i = 0; i < safeguardRules.length; i += 1) {
+          const metas = safeguardRules[i]?.combination.metaSetNames ?? []
+          if (metas.includes(id)) indices.push(i)
+        }
+        setSelectedSafeguardRuleIndices(indices)
+        const last = indices.length > 0 ? indices[indices.length - 1]! : null
+        setSelectedSafeguardRuleIdx(last)
+      }}
       onApplyMultiEdit={applyMultiEditDraft}
       multiEdit={multiEditHandle}
       multiSelectedRecipes={multiSelectedRecipes}
