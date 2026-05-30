@@ -85,7 +85,7 @@ const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
  *  for that slot group (most missing first). */
 type SortMode = 'rank' | 'all' | 'artifacts' | 'accessories'
 
-const LS_SORT_MODE = 'gearAnalytics.visibleChampionsSortMode'
+const LS_SORT_MODE = 'sellfileCreator.gearAnalytics.sortMode.v1'
 const DEFAULT_SORT_MODE: SortMode = 'rank'
 
 function readSortMode(): SortMode {
@@ -100,7 +100,7 @@ function readSortMode(): SortMode {
 // ── Simulate-sold toggle ──────────────────────────────────────────────────────
 
 /** Persisted on/off state for the "simulate sold gear" overlay. */
-const LS_SIMULATE_SOLD = 'gearAnalytics.visibleChampionsSimulateSold'
+const LS_SIMULATE_SOLD = 'sellfileCreator.gearAnalytics.simulateSold.v1'
 const DEFAULT_SIMULATE_SOLD = false
 
 function readSimulateSold(): boolean {
@@ -110,7 +110,7 @@ function readSimulateSold(): boolean {
 // ── Show-fully-equipped toggle ────────────────────────────────────────────────
 
 /** Persisted on/off state for the "show fully equipped champions" expansion. */
-const LS_SHOW_FULLY_EQUIPPED = 'gearAnalytics.visibleChampionsShowFullyEquipped'
+const LS_SHOW_FULLY_EQUIPPED = 'sellfileCreator.gearAnalytics.showFullyEquipped.v1'
 const DEFAULT_SHOW_FULLY_EQUIPPED = false
 
 function readShowFullyEquipped(): boolean {

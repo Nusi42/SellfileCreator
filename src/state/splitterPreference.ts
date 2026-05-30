@@ -23,7 +23,7 @@ const SPLITTER_MIN_RATIO = 0.1
 const SPLITTER_MAX_RATIO = 0.9
 
 const store = createLocalStorageStore<number>({
-  key: 'side-by-side-splitter-ratio',
+  key: 'sellfileCreator.layout.splitterRatio.v1',
   fallback: SPLITTER_DEFAULT_RATIO,
   parse: (raw) => {
     // Clamp to valid range; fall back to default on missing / non-numeric values.

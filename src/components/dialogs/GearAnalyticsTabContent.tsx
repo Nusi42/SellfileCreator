@@ -97,7 +97,7 @@ type Props = {
 const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
 type GearAnalyticsSectionId = (typeof GEAR_ANALYTICS_SECTION_IDS)[number]
 
-const COLLAPSED_STORAGE_KEY = 'gearAnalytics.collapsed'
+const COLLAPSED_STORAGE_KEY = 'sellfileCreator.gearAnalytics.collapsed.v1'
 
 /** Returns a fully-expanded default collapsed record (all false = expanded). */
 function defaultCollapsed(): Record<GearAnalyticsSectionId, boolean> {
