@@ -214,7 +214,16 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       interval: 400       // ms between checks
     },
     host: true,           // optional, helps with WSL2 networking
-    strictPort: false     // false = search for next free port
+    strictPort: false,    // false = search for next free port
+    // Pre-transform the entry + top-level app modules so Playwright (and the first
+    // real navigation) doesn't pay the cold dep-graph compile inside the test timeout.
+    warmup: {
+      clientFiles: [
+        './index.html',
+        './src/main.tsx',
+        './src/App.tsx',
+      ],
+    },
   }
   }
 })
