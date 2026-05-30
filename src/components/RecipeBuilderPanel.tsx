@@ -6068,13 +6068,26 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       : 'rgba(var(--mui-palette-text-primaryChannel) / 0.12)'
                     return {
                       borderColor: baseBorder,
-                      color: selected ? (muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black) : (muiTheme.vars?.palette.text.primary ?? muiTheme.palette.text.primary),
-                      '&.Mui-selected': {
-                        borderColor: successMain,
-                        bgcolor: successMain,
-                        color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
-                        '&:hover': { bgcolor: successLight },
-                      },
+                      // Default (light) outer color when selected; dark overrides below.
+                      color: selected ? successMain : (muiTheme.vars?.palette.text.primary ?? muiTheme.palette.text.primary),
+                      '&.Mui-selected': { borderColor: successMain },
+                      // Light: tinted bg + success.main text, matching the blue toggle style.
+                      ...muiTheme.applyStyles('light', {
+                        '&.Mui-selected': {
+                          bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.12)',
+                          color: successMain,
+                          '&:hover': { bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' },
+                        },
+                      }),
+                      // Dark: filled solid green + black text; also override outer color.
+                      ...muiTheme.applyStyles('dark', {
+                        ...(selected ? { color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black } : {}),
+                        '&.Mui-selected': {
+                          bgcolor: successMain,
+                          color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
+                          '&:hover': { bgcolor: successLight },
+                        },
+                      }),
                     }
                   }}
                 >
@@ -6083,15 +6096,23 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <ToggleButton
                   value="sell"
                   data-tour-id="builder.action.sell"
-                  sx={keepValue === 'sell' ? {
-                    borderColor: 'error.main',
-                    color: 'error.main',
-                    '&.Mui-selected': {
-                      bgcolor: 'error.main',
-                      color: '#fff',
-                      '&:hover': { bgcolor: 'error.dark' },
-                    },
-                  } : {}}
+                  sx={(theme) => ({
+                    '&.Mui-selected': { borderColor: theme.vars?.palette.error.main ?? theme.palette.error.main },
+                    ...theme.applyStyles('light', {
+                      '&.Mui-selected': {
+                        bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.12)',
+                        color: theme.vars?.palette.error.main ?? theme.palette.error.main,
+                        '&:hover': { bgcolor: 'rgba(var(--mui-palette-error-mainChannel) / 0.20)' },
+                      },
+                    }),
+                    ...theme.applyStyles('dark', {
+                      '&.Mui-selected': {
+                        bgcolor: theme.vars?.palette.error.main ?? theme.palette.error.main,
+                        color: '#fff',
+                        '&:hover': { bgcolor: theme.vars?.palette.error.dark ?? theme.palette.error.dark },
+                      },
+                    }),
+                  })}
                 >
                   {t('keepValueSell')}
                 </ToggleButton>
@@ -6145,12 +6166,21 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   sx={(theme) => ({
                     px: 1.5,
                     position: 'relative',
-                    '&.Mui-selected': {
-                      bgcolor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
-                      color: (theme.vars?.palette.common.black ?? theme.palette.common.black),
-                      borderColor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
-                      '&:hover': { bgcolor: (theme.vars?.palette.success.light ?? theme.palette.success.light) },
-                    },
+                    '&.Mui-selected': { borderColor: theme.vars?.palette.success.main ?? theme.palette.success.main },
+                    ...theme.applyStyles('light', {
+                      '&.Mui-selected': {
+                        bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.12)',
+                        color: theme.vars?.palette.success.main ?? theme.palette.success.main,
+                        '&:hover': { bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' },
+                      },
+                    }),
+                    ...theme.applyStyles('dark', {
+                      '&.Mui-selected': {
+                        bgcolor: theme.vars?.palette.success.main ?? theme.palette.success.main,
+                        color: theme.vars?.palette.common.black ?? theme.palette.common.black,
+                        '&:hover': { bgcolor: theme.vars?.palette.success.light ?? theme.palette.success.light },
+                      },
+                    }),
                   })}
                 >
                   <MarkdownTooltip

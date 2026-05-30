@@ -1668,12 +1668,21 @@ export default function SafeguardBuilderPanel({
                 flex: 1,
                 minWidth: 0,
                 px: 1.5,
-                '&.Mui-selected': {
-                  bgcolor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
-                  borderColor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
-                  color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
-                  '&:hover': { bgcolor: muiTheme.vars?.palette.success.light ?? muiTheme.palette.success.light },
-                },
+                '&.Mui-selected': { borderColor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main },
+                ...muiTheme.applyStyles('light', {
+                  '&.Mui-selected': {
+                    bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.12)',
+                    color: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
+                    '&:hover': { bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' },
+                  },
+                }),
+                ...muiTheme.applyStyles('dark', {
+                  '&.Mui-selected': {
+                    bgcolor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
+                    color: muiTheme.vars?.palette.common.black ?? muiTheme.palette.common.black,
+                    '&:hover': { bgcolor: muiTheme.vars?.palette.success.light ?? muiTheme.palette.success.light },
+                  },
+                }),
               })}
             >
               {t('safeguardsRuleModeProtectShort')}
