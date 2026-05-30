@@ -528,14 +528,18 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const requestGenericStatsForKey = (key: string, query: DungeonSimGenericQuery, sampledTotalDrops: number) => {
     // Avoid duplicate requests while a hover fetch is already in flight.
     if (genericLoadingRef.current[key]) return
-    // Reuse only entries sampled at the current run count.
+    // Only treat as cache-hit when we have real (non-null) stats for the current sample.
+    // Null results mean the worker was not yet ready (WASM still warming up, idle-terminated, or
+    // cachedSession not yet created) — don't store them so the next hover can retry.
     const cached = genericStatsRef.current[key]
-    if (cached && cached.sampledTotalDrops === sampledTotalDrops) return
+    if (cached && cached.stats !== null && cached.sampledTotalDrops === sampledTotalDrops) return
     setGenericLoadingByKey((prev) => ({ ...prev, [key]: true }))
     requestGenericStats(query).then((stats) => {
+      setGenericLoadingByKey((prev) => ({ ...prev, [key]: false }))
+      // Don't cache null — worker was unavailable or session not yet ready; retry on next hover.
+      if (stats === null) return
       // Store both the stats and denominator so rates stay internally consistent.
       setGenericStatsByKey((prev) => ({ ...prev, [key]: { stats, sampledTotalDrops } }))
-      setGenericLoadingByKey((prev) => ({ ...prev, [key]: false }))
     })
   }
 
@@ -1267,7 +1271,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           }), ref: detailPopoverPaperRef },
         }}
       >
-        <Stack spacing={1}>
+        <Stack spacing={1} data-testid="dungeon-sim-detail-popout">
           {/* ContextMenuTitle keeps the popout header aligned with the shared menu style. */}
           <ContextMenuTitle
             title={detailDungeonLabel}
@@ -1363,6 +1367,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                   }}
                                 >
                                   <ButtonBase
+                                    data-testid="dungeon-sim-generic-row"
                                     sx={(theme) => ({
                                       display: 'grid',
                                       gridTemplateColumns: 'minmax(0, 1fr) auto',
