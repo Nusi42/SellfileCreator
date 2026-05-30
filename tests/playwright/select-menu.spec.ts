@@ -39,6 +39,9 @@ test('MUI Select listbox dismisses on Escape', async ({ page }) => {
   await combobox.click()
   const listbox = page.locator('[role="listbox"]').first()
   await expect(listbox).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  await page.keyboard.press('Escape')
+  // Use locator.press() (not page.keyboard.press) so focus lands on the listbox first.
+  // Firefox occasionally leaves focus on the combobox button after the open transition,
+  // and MUI Menu only listens for Escape on the listbox — page-level keys never reach the handler.
+  await listbox.press('Escape')
   await expect(listbox).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 })
