@@ -436,6 +436,7 @@ const enUS: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Target chance",
   dungeonDropsSubstatGenericSpecificLabel: "{count} specific",
   dungeonDropsSubstatGenericLoading: "Calculating generic substat odds...",
+  dungeonDropsSubstatGenericUnavailable: "Substat odds unavailable — start a new simulation to reload.",
   dungeonDropsSubstatGenericEmpty: "No eligible drops at this level.",
   // Dungeon boss names.
   dungeonIceGolem: "Ice Golem",

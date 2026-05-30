@@ -422,6 +422,7 @@ const overrides: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Цільова ймовірність",
   dungeonDropsSubstatGenericSpecificLabel: "{count} конкретні",
   dungeonDropsSubstatGenericLoading: "Обчислення узагальнених шансів підстатів...",
+  dungeonDropsSubstatGenericUnavailable: "Шанси підстатів недоступні — запустіть нову симуляцію для перезавантаження.",
   dungeonDropsSubstatGenericEmpty: "Немає відповідних дропів на цьому рівні.",
   // Dungeon boss names.
   dungeonIceGolem: "Крижаний голем",

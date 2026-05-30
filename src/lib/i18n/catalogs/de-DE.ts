@@ -421,6 +421,7 @@ const overrides: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Zielchance",
   dungeonDropsSubstatGenericSpecificLabel: "{count} spezifisch",
   dungeonDropsSubstatGenericLoading: "Berechne generische Substat-Chancen...",
+  dungeonDropsSubstatGenericUnavailable: "Substat-Chancen nicht verfügbar — starte eine neue Simulation, um neu zu laden.",
   dungeonDropsSubstatGenericEmpty: "Keine passenden Drops auf dieser Stufe.",
   // Dungeon boss names.
   dungeonIceGolem: "Eisgolem",

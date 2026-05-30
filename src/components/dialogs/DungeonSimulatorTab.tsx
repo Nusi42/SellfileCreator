@@ -338,7 +338,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   if (!running && prevRunning) {
     setPrevRunning(running)
   }
-
   // Persisted stage selection updates (mode and stage).
   const updateDungeonSelection = (dungeonId: DungeonId, next: Partial<{ mode: 'normal' | 'hard'; stage: number }>) => {
     setPrefs((prev) => {
@@ -528,20 +527,79 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const requestGenericStatsForKey = (key: string, query: DungeonSimGenericQuery, sampledTotalDrops: number) => {
     // Avoid duplicate requests while a hover fetch is already in flight.
     if (genericLoadingRef.current[key]) return
-    // Only treat as cache-hit when we have real (non-null) stats for the current sample.
-    // Null results mean the worker was not yet ready (WASM still warming up, idle-terminated, or
-    // cachedSession not yet created) — don't store them so the next hover can retry.
     const cached = genericStatsRef.current[key]
+    // A cached null means the worker was unavailable — don't retry; show the unavailable state.
+    if (cached && cached.stats === null) return
+    // Cache hit: real stats for the same sample denominator — no need to re-fetch.
     if (cached && cached.stats !== null && cached.sampledTotalDrops === sampledTotalDrops) return
     setGenericLoadingByKey((prev) => ({ ...prev, [key]: true }))
     requestGenericStats(query).then((stats) => {
       setGenericLoadingByKey((prev) => ({ ...prev, [key]: false }))
-      // Don't cache null — worker was unavailable or session not yet ready; retry on next hover.
-      if (stats === null) return
+      if (stats === null) {
+        // Cache the null result so subsequent hovers skip the retry and show "unavailable".
+        // The cache is cleared on the next simulation run, at which point retries are safe again.
+        setGenericStatsByKey((prev) => ({ ...prev, [key]: { stats: null, sampledTotalDrops } }))
+        return
+      }
       // Store both the stats and denominator so rates stay internally consistent.
       setGenericStatsByKey((prev) => ({ ...prev, [key]: { stats, sampledTotalDrops } }))
     })
   }
+
+  // Keep a stable ref to requestGenericStatsForKey so the prefetch effect below
+  // always calls the current closure without listing it in the deps array.
+  const requestGenericStatsForKeyRef = useRef(requestGenericStatsForKey)
+  useLayoutEffect(() => {
+    requestGenericStatsForKeyRef.current = requestGenericStatsForKey
+  })
+  // Track previous running in a ref so the prefetch effect can detect
+  // the true→false transition without triggering extra renders.
+  const prevRunningForPrefetchRef = useRef(running)
+  // On simulation completion, eagerly fetch generic substat odds for all breakdown
+  // combos that appear in the results.  By the time the idle timer fires (30 s),
+  // every tooltip will already have its data in genericStatsByKey and can render
+  // without querying the WASM worker again.
+  // `running` is external async worker state (not a UI event), so no-event-handler
+  // does not apply here.  simulation/progress/prefs.eventSpotlight are intentionally
+  // read at the moment of the running transition rather than as tracked deps.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps */
+  useEffect(() => {
+    const wasRunning = prevRunningForPrefetchRef.current
+    prevRunningForPrefetchRef.current = running
+    // Only act on the true → false edge (sim just finished).
+    if (running || !wasRunning) return
+    if (!simulation || !progress) return
+    const fn = requestGenericStatsForKeyRef.current
+    const spotlight = prefs.eventSpotlight
+    for (const dungeonId of DUNGEON_IDS) {
+      const totalDrops = progress.completedByDungeon?.[dungeonId] ?? 0
+      if (totalDrops <= 0) continue
+      // Enumerate sets that were simulated for this dungeon.
+      const setIds = resolveDungeonSets(dungeonId, spotlight)
+      for (const setId of setIds) {
+        const setResults = simulation[dungeonId]?.[setId]
+        if (!setResults) continue
+        for (const level of DUNGEON_SIM_LEVELS) {
+          const cell = setResults.levels[level]
+          if (!cell) continue
+          for (const entry of cell.breakdown) {
+            // Only prefetch combos where at least one item was kept.
+            if (entry.kept <= 0) continue
+            const query: DungeonSimGenericQuery = {
+              dungeonId,
+              spotlight,
+              setId,
+              level,
+              slot: entry.slot,
+              main: entry.main,
+            }
+            fn(buildGenericStatsKey(query), query, totalDrops)
+          }
+        }
+      }
+    }
+  }, [running])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps */
 
   // Slot list depends on the dungeon source (artifact vs accessory vs mixed).
   const detailSlotIds = useMemo(() => (
@@ -589,7 +647,16 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     stats: DungeonSimGenericStats | null,
     loading: boolean,
     totalDrops: number,
+    failed: boolean,
   ) => {
+    // Worker was unavailable (idle-terminated or not yet created) — cached null result.
+    if (failed) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          {t('dungeonDropsSubstatGenericUnavailable')}
+        </Typography>
+      )
+    }
     // Surface loading/empty states so hover always yields a response.
     if (loading || !stats) {
       return (
@@ -1354,10 +1421,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                               // Keep denominator aligned with the stats sample to avoid drift.
                               const genericTotalDrops = genericStatsEntry?.sampledTotalDrops ?? detailTotalDrops
                               const genericLoading = genericKey ? Boolean(genericLoadingByKey[genericKey]) : false
+                              // A cached entry with null stats means the worker was unavailable.
+                              const genericFailed = genericKey ? (genericStatsEntry !== null && genericStats === null) : false
                               return (
                                 <MarkdownTooltip
                                   key={`${entry.slot}-${entry.main}`}
-                                  render={renderGenericTooltipContent(genericStats, genericLoading, genericTotalDrops)}
+                                  render={renderGenericTooltipContent(genericStats, genericLoading, genericTotalDrops, genericFailed)}
                                   hoverIntent="informational"
                                   placement="right"
                                   maxWidth={360}

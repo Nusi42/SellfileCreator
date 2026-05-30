@@ -421,6 +421,7 @@ const catalog: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Chance alvo",
   dungeonDropsSubstatGenericSpecificLabel: "{count} específicos",
   dungeonDropsSubstatGenericLoading: "Calculando chances genéricas de subatributos...",
+  dungeonDropsSubstatGenericUnavailable: "Probabilidades de subatributos indisponíveis — inicie uma nova simulação para recarregar.",
   dungeonDropsSubstatGenericEmpty: "Nenhum drop elegível neste nível.",
   // Dungeon boss names.
   dungeonIceGolem: "Golem de Gelo",

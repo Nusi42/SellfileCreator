@@ -422,6 +422,7 @@ const overrides: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Hedef olasılık",
   dungeonDropsSubstatGenericSpecificLabel: "{count} belirli",
   dungeonDropsSubstatGenericLoading: "Genel alt stat olasılıkları hesaplanıyor...",
+  dungeonDropsSubstatGenericUnavailable: "Alt stat olasılıkları kullanılamıyor — yeniden yüklemek için yeni bir simülasyon başlatın.",
   dungeonDropsSubstatGenericEmpty: "Bu seviyede uygun düşüş yok.",
   // Dungeon boss names.
   dungeonIceGolem: "Buz Golemi",

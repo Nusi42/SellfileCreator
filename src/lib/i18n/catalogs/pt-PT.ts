@@ -421,6 +421,7 @@ const overrides: Catalog = {
   dungeonDropsSubstatGenericRunsHeader: "Probabilidade alvo",
   dungeonDropsSubstatGenericSpecificLabel: "{count} específicos",
   dungeonDropsSubstatGenericLoading: "A calcular probabilidades genéricas de subatributos...",
+  dungeonDropsSubstatGenericUnavailable: "Probabilidades de subatributos indisponíveis — inicia uma nova simulação para recarregar.",
   dungeonDropsSubstatGenericEmpty: "Nenhum drop elegível neste nível.",
   // Dungeon boss names.
   dungeonIceGolem: "Golem de Gelo",

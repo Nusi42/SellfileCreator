@@ -38,8 +38,9 @@ test('dungeon sim detail popout opens and generic-stats tooltip appears on row h
   await expect(popout).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
   // Find the first slot+main breakdown row (each wraps a MarkdownTooltip that fires
-  // a generic-stats query when the user hovers). With the null-caching fix applied,
-  // a "worker not ready" response no longer blocks future retries.
+  // a generic-stats query when the user hovers). Generic stats are pre-fetched on sim
+  // completion so the cache is warm before the user interacts; failed fetches now store
+  // a null sentinel so the tooltip shows "unavailable" instead of retrying indefinitely.
   const firstGenericRow = page.getByTestId('dungeon-sim-generic-row').first()
   await expect(firstGenericRow).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   await firstGenericRow.hover()
