@@ -125,7 +125,7 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
     const blank = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null } as const
     setDraft(blank)
     setThemeCustom(blank)
-  }, [setThemeCustom])
+  }, [setThemeCustom, setPsychedelic])
 
   const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
   const { statButtonBorders } = useDisplayPreferences()
