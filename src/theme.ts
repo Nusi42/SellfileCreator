@@ -44,7 +44,7 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     : defaultPaper
   const bgPaper = custom.paperColor ?? bgPaperDerived
 
-  const selColor   = custom.selectionColor ?? (isDark ? '#ffffff' : primaryMain)
+  const selColor   = custom.selectionColor ?? (isDark ? '#4e94e5' : primaryMain)
   const selOpacity = custom.selectionOpacity ?? (isDark ? 0.16 : 0.12)
 
   return {
@@ -205,9 +205,9 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
                 },
               }
             }
-            // No custom toggleColor → light mode tints from primary; dark mode uses
-            // MUI's default action.selected (rgba(255,255,255,0.08)) with no override.
+            // No custom toggleColor → light tints from primary, dark tints from #ffffff.
             const toggleMain = lightPalette.primary.main
+            const darkToggleMain = '#ffffff'
             return {
               '&.Mui-selected': {
                 ...theme.applyStyles('light', {
@@ -215,7 +215,11 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
                   backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity),
                   '&:hover': { backgroundColor: alpha(toggleMain, lightPalette.action.selectedOpacity + 0.08) },
                 }),
-                // Dark: no override → MUI's default gray selected highlight is preserved.
+                ...theme.applyStyles('dark', {
+                  color: darkToggleMain,
+                  backgroundColor: alpha(darkToggleMain, darkPalette.action.selectedOpacity),
+                  '&:hover': { backgroundColor: alpha(darkToggleMain, darkPalette.action.selectedOpacity + 0.08) },
+                }),
               },
             }
           },

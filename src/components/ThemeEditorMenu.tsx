@@ -30,14 +30,6 @@ import { useI18n } from '../lib/i18n'
 
 // Composites semi-transparent rgba(255,255,255,alpha) onto a #RRGGBB background
 // to get a solid hex approximation — used for toggle-button swatch fallbacks in dark mode.
-function blendWhiteAlphaOnHex(alpha: number, bgHex: string): string {
-  if (bgHex.length < 7) return '#3a3f48'
-  const r = Math.round(parseInt(bgHex.slice(1, 3), 16) + (255 - parseInt(bgHex.slice(1, 3), 16)) * alpha)
-  const g = Math.round(parseInt(bgHex.slice(3, 5), 16) + (255 - parseInt(bgHex.slice(3, 5), 16)) * alpha)
-  const b = Math.round(parseInt(bgHex.slice(5, 7), 16) + (255 - parseInt(bgHex.slice(5, 7), 16)) * alpha)
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-}
-
 
 // Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
 function hslToHex(h: number, s: number, l: number): string {
@@ -187,13 +179,13 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         {/* Color pickers — operate on local draft; debounce commits to store. */}
         {([
           { label: t('themeColorAccent'),     field: 'primaryColor'  as const, fallback: schemePalette?.primary?.main ?? muiTheme.palette.primary.main },
-          // Toggle fallback: dark mode blends action.selected (white@opacity) over paper; light uses primary.
+          // Toggle fallback: dark uses #ffffff (matches theme.ts default); light uses primary.
           { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: isDark
-              ? blendWhiteAlphaOnHex(schemePalette?.action?.selectedOpacity ?? muiTheme.palette.action.selectedOpacity, schemePalette?.background?.paper ?? muiTheme.palette.background.paper)
+              ? '#ffffff'
               : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
-          // Selection fallback: dark mode blends white@8% over paper (= MUI shipped default); light uses primary.
+          // Selection fallback: dark uses #4e94e5 (matches theme.ts default); light uses primary.
           { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: isDark
-              ? blendWhiteAlphaOnHex(0.08, schemePalette?.background?.paper ?? muiTheme.palette.background.paper)
+              ? '#4e94e5'
               : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
           { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: schemePalette?.background?.default ?? muiTheme.palette.background.default },
           { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: schemePalette?.background?.paper ?? muiTheme.palette.background.paper },
@@ -294,17 +286,6 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </MarkdownTooltip>
           </Box>
         </MenuItem>
-        {/* Reset colors — only shown when the user has active customizations */}
-        {hasCustomization && (
-          <>
-            <Divider />
-            <MenuItem disableRipple sx={{ py: 0.5 }}>
-              <Button size="small" variant="outlined" color="error" onClick={resetColors} sx={{ width: '100%' }}>
-                {t('resetToDefaults')}
-              </Button>
-            </MenuItem>
-          </>
-        )}
         <Divider />
         {/* Psychedelic cycle — purely cosmetic fun feature; lives at the bottom so it stays out of the way. */}
         <MenuItem disableRipple sx={{ gap: 0, alignItems: 'center', p: 0 }} onClick={() => setPsychedelic(!psychedelic)}>
@@ -337,6 +318,17 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </Box>
           </MarkdownTooltip>
         </MenuItem>
+        {/* Reset colors — only shown when the user has active customizations */}
+        {hasCustomization && (
+          <>
+            <Divider />
+            <MenuItem disableRipple sx={{ py: 0.5 }}>
+              <Button size="small" variant="outlined" color="error" onClick={resetColors} sx={{ width: '100%' }}>
+                {t('resetToDefaults')}
+              </Button>
+            </MenuItem>
+          </>
+        )}
       </Menu>
     </>
   )
