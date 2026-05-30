@@ -1,7 +1,7 @@
 /**
  * easterEggCanvas.ts
  *
- * Shared canvas drawing utilities for Easter egg game flyouts (Pong, Tetris).
+ * Shared canvas drawing utilities for Easter egg game flyouts (Pong, Sellfall).
  * All coordinates are in logical pixels; callers apply ctx.setTransform(SCALE,…)
  * before invoking these functions so physical rendering scales automatically.
  */
@@ -11,7 +11,7 @@
 /**
  * Draws a semi-transparent scrim over the game area and three centred text
  * lines (headline / subline / hint). Used for idle, won, lost, and game-over
- * screens in both Pong and Tetris.
+ * screens in both Pong and Sellfall.
  *
  * @param width  Logical width of the area to cover (game field only, not panel).
  * @param height Logical height of the area to cover.

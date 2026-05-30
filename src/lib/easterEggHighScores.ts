@@ -6,12 +6,12 @@
  * before display. Top 10 are shown; up to 50 are kept in storage.
  *
  * Canvas drawing is included here (no React dependency) so both PongFlyout
- * and TetrisFlyout share one definition — SSOT for the leaderboard look.
+ * and SellfallFlyout share one definition — SSOT for the leaderboard look.
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type GameId = 'pong' | 'tetris'
+export type GameId = 'pong' | 'sellfall'
 
 export type ScoreEntry = {
   score: number
@@ -28,8 +28,8 @@ export type ScoreEntry = {
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 const STORAGE_KEY: Record<GameId, string> = {
-  pong:   'sfc-easter-egg-pong-scores',
-  tetris: 'sfc-easter-egg-tetris-scores',
+  pong:     'sfc-easter-egg-pong-scores',
+  sellfall: 'sfc-easter-egg-sellfall-scores',
 }
 
 /** Maximum entries kept in localStorage per game to avoid unbounded growth. */
@@ -47,8 +47,8 @@ export const LEADERBOARD_SIZE = 10
  * These are merged with player-saved entries and the combined top-10 is shown.
  */
 const BUILTIN_SCORES: Record<GameId, ScoreEntry[]> = {
-  pong:   [],
-  tetris: [],
+  pong:     [],
+  sellfall: [],
 }
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────

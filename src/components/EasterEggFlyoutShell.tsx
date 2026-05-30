@@ -1,7 +1,7 @@
 /**
  * EasterEggFlyoutShell.tsx
  *
- * Shared flyout container for canvas-based Easter egg games (Pong, Tetris).
+ * Shared flyout container for canvas-based Easter egg games (Pong, Sellfall).
  * Handles: fixed-position Paper, drag-to-move behaviour, title bar with
  * screenshot and close buttons. The game canvas is rendered as children.
  *

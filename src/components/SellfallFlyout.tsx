@@ -1,10 +1,10 @@
 /**
- * TetrisFlyout.tsx
+ * SellfallFlyout.tsx
  *
- * Easter-egg Tetris game triggered by 10 rapid clicks on the Recipes toggle.
+ * Easter-egg Sellfall game triggered by 10 rapid clicks on the Recipes toggle.
  *
  * Layout: EasterEggFlyoutShell (title bar) + canvas (CW×SCALE × CH×SCALE px).
- * Left: 10 × 20 play field. Right: PANEL_W sidebar (score / level / lines / next).
+ * Left: 12 × 18 play field. Right: PANEL_W sidebar (score / level / lines / next).
  *
  * Controls (phase = 'playing'):
  *   ArrowLeft / ArrowRight  : shift piece
@@ -32,13 +32,13 @@ import {
 const SCALE = 2
 
 const CELL   = 20
-const COLS   = 10
-const ROWS   = 20
-const GAME_W = COLS * CELL   // 200 logical px — play field width
-const GAME_H = ROWS * CELL   // 400 logical px — play field height
+const COLS   = 12
+const ROWS   = 18
+const GAME_W = COLS * CELL   // 240 logical px — play field width
+const GAME_H = ROWS * CELL   // 360 logical px — play field height
 const PANEL_W = 88           // sidebar width
-const CW = GAME_W + PANEL_W  // 288
-const CH = GAME_H            // 400
+const CW = GAME_W + PANEL_W  // 328
+const CH = GAME_H            // 360
 
 // ─── Drop timing ─────────────────────────────────────────────────────────────
 
@@ -48,7 +48,8 @@ const LINES_PER_LEVEL    = 10
 
 // ─── Scoring ─────────────────────────────────────────────────────────────────
 
-const LINE_SCORES: readonly number[] = [0, 100, 300, 500, 800]
+// Rewards combos more aggressively than the classic 100/300/500/800 scale.
+const LINE_SCORES: readonly number[] = [0, 80, 250, 480, 900]
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -59,22 +60,24 @@ const C_TEXT  = 'rgba(255,255,255,0.82)'
 const C_LABEL = 'rgba(255,255,255,0.38)'
 const C_GHOST = 'rgba(255,255,255,0.10)'
 
-// ─── Tetrominoes ─────────────────────────────────────────────────────────────
+// ─── Pieces ───────────────────────────────────────────────────────────────────
 
 type ShapeMatrix = ReadonlyArray<ReadonlyArray<number>>
-type Tetromino   = { readonly shape: ShapeMatrix; readonly color: string }
+type Piece       = { readonly shape: ShapeMatrix; readonly color: string }
 
-const PIECES: readonly Tetromino[] = [
-  { shape: [[1, 1, 1, 1]],          color: '#00e5e5' }, // I
-  { shape: [[1, 1], [1, 1]],        color: '#e5d800' }, // O
-  { shape: [[0, 1, 0], [1, 1, 1]],  color: '#b000e5' }, // T
-  { shape: [[0, 1, 1], [1, 1, 0]],  color: '#00c800' }, // S
-  { shape: [[1, 1, 0], [0, 1, 1]],  color: '#e50000' }, // Z
-  { shape: [[1, 0, 0], [1, 1, 1]],  color: '#0050e5' }, // J
-  { shape: [[0, 0, 1], [1, 1, 1]],  color: '#e58000' }, // L
+// Warm earth-tone palette — visually distinct from classic primary-color block games.
+const PIECES: readonly Piece[] = [
+  { shape: [[1, 1, 1, 1]],          color: '#e8a020' }, // I — amber
+  { shape: [[1, 1], [1, 1]],        color: '#c05030' }, // O — terracotta
+  { shape: [[0, 1, 0], [1, 1, 1]],  color: '#5090c8' }, // T — steel blue
+  { shape: [[0, 1, 1], [1, 1, 0]],  color: '#a0c050' }, // S — lime
+  { shape: [[1, 1, 0], [0, 1, 1]],  color: '#c87840' }, // Z — burnt orange
+  { shape: [[1, 0, 0], [1, 1, 1]],  color: '#8858b0' }, // J — muted violet
+  { shape: [[0, 0, 1], [1, 1, 1]],  color: '#60a878' }, // L — sage green
+  { shape: [[0,1,0],[1,1,1],[0,1,0]], color: '#d060a0' }, // + — dusty rose (pentomino)
 ]
 
-function randomPiece(): Tetromino { return PIECES[Math.floor(Math.random() * PIECES.length)]! }
+function randomPiece(): Piece { return PIECES[Math.floor(Math.random() * PIECES.length)]! }
 
 function rotateCW(shape: ShapeMatrix): number[][] {
   const rows = shape.length, cols = shape[0]!.length
@@ -92,7 +95,7 @@ type ActivePiece = { shape: number[][]; color: string; x: number; y: number }
 type Phase       = 'idle' | 'playing' | 'over'
 
 type GameState = {
-  phase: Phase; grid: Grid; current: ActivePiece; next: Tetromino
+  phase: Phase; grid: Grid; current: ActivePiece; next: Piece
   score: number; lines: number; level: number; dropAccum: number
 }
 
@@ -137,7 +140,7 @@ function ghostY(grid: Grid, piece: ActivePiece): number {
   return y
 }
 
-function spawnPiece(t: Tetromino): ActivePiece {
+function spawnPiece(t: Piece): ActivePiece {
   return { shape: t.shape.map((row) => [...row]), color: t.color,
            x: Math.floor((COLS - t.shape[0]!.length) / 2), y: -1 }
 }
@@ -167,9 +170,14 @@ function lockAndSpawn(state: GameState): boolean {
 function drawCell(ctx: CanvasRenderingContext2D, col: number, row: number, color: string, alpha = 1) {
   ctx.globalAlpha = alpha
   ctx.fillStyle = color
-  ctx.fillRect(col * CELL + 1, row * CELL + 1, CELL - 2, CELL - 2)
+  // Rounded corners distinguish the block style from sharp-rect implementations.
+  ctx.beginPath()
+  ctx.roundRect(col * CELL + 1, row * CELL + 1, CELL - 2, CELL - 2, 3)
+  ctx.fill()
   ctx.fillStyle = 'rgba(255,255,255,0.22)'
-  ctx.fillRect(col * CELL + 2, row * CELL + 2, CELL - 4, 4)
+  ctx.beginPath()
+  ctx.roundRect(col * CELL + 2, row * CELL + 2, CELL - 4, 4, 2)
+  ctx.fill()
   ctx.globalAlpha = 1
 }
 
@@ -198,7 +206,9 @@ function drawGhostPiece(ctx: CanvasRenderingContext2D, grid: Grid, piece: Active
     for (let c = 0; c < piece.shape[r]!.length; c++) {
       if (!piece.shape[r]![c]) continue
       ctx.fillStyle = C_GHOST
-      ctx.fillRect((piece.x + c) * CELL + 1, (gy + r) * CELL + 1, CELL - 2, CELL - 2)
+      ctx.beginPath()
+      ctx.roundRect((piece.x + c) * CELL + 1, (gy + r) * CELL + 1, CELL - 2, CELL - 2, 3)
+      ctx.fill()
     }
 }
 
@@ -237,9 +247,13 @@ function drawPanel(ctx: CanvasRenderingContext2D, state: GameState) {
     for (let c = 0; c < np.shape[r]!.length; c++) {
       if (!np.shape[r]![c]) continue
       ctx.fillStyle = np.color
-      ctx.fillRect(sx + c * PC + 1, 148 + r * PC + 1, PC - 2, PC - 2)
+      ctx.beginPath()
+      ctx.roundRect(sx + c * PC + 1, 148 + r * PC + 1, PC - 2, PC - 2, 3)
+      ctx.fill()
       ctx.fillStyle = 'rgba(255,255,255,0.22)'
-      ctx.fillRect(sx + c * PC + 2, 148 + r * PC + 2, PC - 4, 4)
+      ctx.beginPath()
+      ctx.roundRect(sx + c * PC + 2, 148 + r * PC + 2, PC - 4, 4, 2)
+      ctx.fill()
     }
 }
 
@@ -261,7 +275,7 @@ function drawFrame(
     drawActivePiece(ctx, state.current)
   } else if (state.phase === 'idle') {
     drawActivePiece(ctx, state.current, 0.45)
-    drawFlyoutOverlay(ctx, GAME_W, GAME_H, 'TETRIS', 'Arrow keys  ·  Space to drop', 'Click or Enter to start')
+    drawFlyoutOverlay(ctx, GAME_W, GAME_H, 'SELLFALL', 'Arrow keys  ·  Space to drop', 'Click or Enter to start')
     drawHighScoreList(ctx, scores, GAME_W / 2, scoresY, { halfWidth: 88, animTick })
   } else {
     drawFlyoutOverlay(ctx, GAME_W, GAME_H, 'GAME OVER', `Score  ${state.score}`, 'Click or Enter to restart')
@@ -274,7 +288,7 @@ function drawFrame(
 
 type Props = Readonly<{ onClose: () => void }>
 
-export default function TetrisFlyout({ onClose }: Props) {
+export default function SellfallFlyout({ onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
 
   const stateRef    = useRef<GameState>(initState())
@@ -287,7 +301,7 @@ export default function TetrisFlyout({ onClose }: Props) {
   // ── Initial idle frame ───────────────────────────────────────────────────────
 
   useEffect(() => {
-    scoresRef.current = getHighScores('tetris')
+    scoresRef.current = getHighScores('sellfall')
     const ctx = canvasRef.current?.getContext('2d')
     if (ctx) drawFrame(ctx, stateRef.current, scoresRef.current, 0)
     return () => {
@@ -351,8 +365,8 @@ export default function TetrisFlyout({ onClose }: Props) {
           if (lockAndSpawn(state)) {
             state.phase = 'over'
             setPhase('over')
-            recordHighScore('tetris', state.score)
-            scoresRef.current = getHighScores('tetris')
+            recordHighScore('sellfall', state.score)
+            scoresRef.current = getHighScores('sellfall')
             drawFrame(ctx, state, scoresRef.current, 0)
             return
           }
@@ -415,8 +429,8 @@ export default function TetrisFlyout({ onClose }: Props) {
           if (lockAndSpawn(state)) {
             state.phase = 'over'
             setPhase('over')
-            recordHighScore('tetris', state.score)
-            scoresRef.current = getHighScores('tetris')
+            recordHighScore('sellfall', state.score)
+            scoresRef.current = getHighScores('sellfall')
             const ovCtx = canvasRef.current?.getContext('2d')
             if (ovCtx) drawFrame(ovCtx, state, scoresRef.current, 0)
             cancelAnimationFrame(rafRef.current)
@@ -444,11 +458,11 @@ export default function TetrisFlyout({ onClose }: Props) {
 
   return (
     <EasterEggFlyoutShell
-      title="TETRIS"
+      title="SELLFALL"
       canvasRef={canvasRef}
-      snapshotFilename="tetris"
+      snapshotFilename="sellfall"
       pixelScale={SCALE}
-      getStegExtra={() => `tetris:score=${stateRef.current.score}`}
+      getStegExtra={() => `sellfall:score=${stateRef.current.score}`}
       onClose={onClose}
     >
       <canvas

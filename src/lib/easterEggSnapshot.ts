@@ -1,7 +1,7 @@
 /**
  * easterEggSnapshot.ts
  *
- * Screenshot utility for canvas-based Easter egg games (Pong, Tetris).
+ * Screenshot utility for canvas-based Easter egg games (Pong, Sellfall).
  * Overlays a subtle right-aligned timestamp watermark — same opacity and style
  * as the Gear Analytics DOM watermark — then embeds a steganographic
  * fingerprint before delivering the PNG to the clipboard or file download.
