@@ -1486,7 +1486,7 @@ selectorBlock := "@" selector "{" assignment+ "}"
 crossBlock    := "safeguard" "@" selector "{" sgAssignment+ "}"  // targets safeguard rules from a recipe-overrides marker
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
-notExpr       := ("not" | "!") notExpr | term
+notExpr       := ("not" | "!") notExpr | "(" expr ")" | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
@@ -1661,7 +1661,7 @@ recipeField   := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "m
              | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
-notExpr       := ("not" | "!") notExpr | term
+notExpr       := ("not" | "!") notExpr | "(" expr ")" | term
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
 sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
              | "count" "=" countExpr   // $count/$value expand to current slider position

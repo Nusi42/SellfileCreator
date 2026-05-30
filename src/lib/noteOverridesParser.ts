@@ -362,6 +362,14 @@ export const parseTagSelector = (tokens: Token[]): NoteTagSelector | null => {
       if (!inner) return null
       return { kind: 'not', inner }
     }
+    // Parenthesised sub-expression: "(" expr ")"
+    if (token.kind === 'symbol' && token.value === '(') {
+      cursor.next()
+      const inner = parseOr()
+      if (!inner) return null
+      cursor.consumeSymbol(')')
+      return inner
+    }
     return parseTerm()
   }
 
