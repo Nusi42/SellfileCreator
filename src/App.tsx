@@ -8126,13 +8126,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           <AppTitle />
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ color: 'text.disabled', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 v{APP_VERSION} — © Nusi㊷ - 2026 — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!
               </Typography>
               {/* Update notice — animated entry/nag/exit handled inside the component */}

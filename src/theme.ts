@@ -52,6 +52,9 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     background: { default: bgDefault, paper: bgPaper },
     divider: custom.dividerColor ?? (isDark ? '#30363d' : '#d0d7de'),
     action: { selected: alpha(selColor, selOpacity), selectedOpacity: selOpacity },
+    // Light mode: raise disabled text opacity from MUI's default 0.38 to 0.50 so it
+    // reads clearly against the off-white bg without looking like active secondary text.
+    ...(!isDark ? { text: { disabled: 'rgba(0,0,0,0.50)' } } : {}),
     ...over,
     // Pre-set Alert.successFilledColor before MUI's setColor() runs.
     // MUI computes this from getContrastText(success.dark) — dark green → white — but

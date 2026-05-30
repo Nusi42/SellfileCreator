@@ -1004,10 +1004,10 @@ export default function PreviewHeaderActions(props: {
           <EllipsisTooltip title={filterHeaderLabel}>
             <Typography
               variant="caption"
-              color="text.secondary"
               noWrap
               data-ellipsis-target
               sx={{
+                color: 'text.disabled',
                 lineHeight: 1.2,
                 maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
                 textAlign: 'right',
