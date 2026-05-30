@@ -272,6 +272,52 @@ function DslErrorOverlay({ text, diags }: { text: string; diags: DiagnosticSpan[
   )
 }
 
+// ── DSL error panel ─────────────────────────────────────────────────────────
+// Compact list rendered below the editor (as a flex sibling inside DialogContent)
+// showing deduplicated diagnostic messages from the overlay.  Repeated messages
+// are folded with a ×N count so a single broken pattern that fires on every
+// selector block doesn't fill the panel.
+function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
+  if (diags.length === 0) return null
+  // Fold repeated messages, preserving first-seen order.
+  const counts = new Map<string, number>()
+  for (const d of diags) counts.set(d.message, (counts.get(d.message) ?? 0) + 1)
+  return (
+    <Box
+      sx={{
+        flexShrink: 0,
+        borderTop: 1,
+        borderColor: 'divider',
+        px: 1.5,
+        py: 0.5,
+        maxHeight: '5.5em',
+        overflowY: 'auto',
+        // Subtle warning tint that works in both light and dark themes.
+        bgcolor: (t) =>
+          t.vars?.palette.warning.mainChannel
+            ? `rgba(${t.vars.palette.warning.mainChannel} / 0.08)`
+            : 'rgba(237,108,2,0.08)',
+      }}
+    >
+      {[...counts.entries()].map(([msg, count]) => (
+        <Typography
+          key={msg}
+          variant="caption"
+          sx={{ display: 'flex', gap: 0.75, lineHeight: 1.6, color: 'warning.main' }}
+        >
+          <Box component="span" sx={{ flexShrink: 0 }}>⚠</Box>
+          <Box component="span">
+            {count > 1 && (
+              <Box component="span" sx={{ opacity: 0.65, mr: 0.25 }}>{`×${count}`}</Box>
+            )}
+            {msg}
+          </Box>
+        </Typography>
+      ))}
+    </Box>
+  )
+}
+
 // Keep substat ordering aligned with the rule card layout.
 const NOTE_SUBSTAT_ORDER = new Map<number, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
@@ -4995,6 +5041,9 @@ function NoteEditorContent({
           editorTextEl,
         )}
         </Box>
+        {/* Error messages shown below the editor — the panel only appears when
+            dslDiags is non-empty; the editor box (flex:1) shrinks to fit it. */}
+        <DslErrorPanel diags={dslDiags} />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
