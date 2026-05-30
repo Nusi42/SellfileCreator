@@ -1491,6 +1491,8 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
              | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
+             | "substatmin" ("=" | ">=" | "<=") number | "substatmin." statKey ("=" | ">=" | "<=") number
+             | "minima.any" ("=" | ">=" | "<=") number | "minima." starKey "." statKey ("=" | ">=" | "<=") number
 assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value

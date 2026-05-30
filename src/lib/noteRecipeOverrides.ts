@@ -101,16 +101,23 @@ export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
 export const NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS = NOTE_OVERRIDES_CONSTRAINT_KEYWORDS
 /** @see NOTE_OVERRIDES_LOGIC_KEYWORDS */
 export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = NOTE_OVERRIDES_LOGIC_KEYWORDS
+// Fields valid in BOTH selector terms and assignment blocks.
+// Add a new field here to make it available in both @term conditions and rule assignments.
+const TERM_AND_ASSIGNMENT_FIELDS = [
+  'rank', 'rarity', 'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima',
+] as const
 /** Field names valid on the left-hand side of assignment blocks. */
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
-  'export', 'rank', 'rarity', 'lvl', 'keep', 'autolate',
-  'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima', 'rolltarget',
+  'export',
+  ...TERM_AND_ASSIGNMENT_FIELDS,
+  'lvl', 'keep', 'autolate', 'rolltarget',
   // List-valued fields for slot, substat, main-stat, and artifact-set/metaset filtering (comma-separated).
   'slots', 'substats', 'mainstats', 'gearsets', 'metasets',
 ] as const
 /** Field names valid in selector term comparisons. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS = [
-  'tag', 'rank', 'rarity', 'minrolls', 'lockedminrolls', 'minsubstats', 'flex',
+  'tag',
+  ...TERM_AND_ASSIGNMENT_FIELDS,
 ] as const
 
 export type RecipeOverridesSelector =
@@ -124,6 +131,12 @@ export type RecipeOverridesSelector =
   | { kind: 'lockedMinRolls'; op: TagOverrideOp; value: number }
   | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
   | { kind: 'flex'; value: boolean }
+  // substatmin conditions — match per-recipe substat roll-minimum bounds.
+  | { kind: 'substatMin'; op: TagOverrideOp; value: number }
+  | { kind: 'substatMinField'; op: TagOverrideOp; variant: StatVariant; value: number }
+  // minima conditions — match against the shared SubstatTargetTable (requires targets to be threaded in).
+  | { kind: 'minimaAny'; op: TagOverrideOp; value: number }
+  | { kind: 'minimaField'; op: TagOverrideOp; star: Star; variant: StatVariant; value: number }
   | { kind: 'not'; inner: RecipeOverridesSelector }
   | { kind: 'and'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
   | { kind: 'or'; left: RecipeOverridesSelector; right: RecipeOverridesSelector }
@@ -660,6 +673,62 @@ const parseSelectorTokens = (tokens: Token[]): RecipeOverridesSelector | null =>
       const parsed = parseBooleanValue(valueToken.value)
       if (parsed == null) return null
       return { kind: 'flex', value: parsed }
+    }
+    // Note: the tokenizer treats '.' as part of word tokens, so 'substatmin.SPD' and
+    // 'minima.5.SPD' arrive as single word tokens.  Plain 'substatmin' is matched by
+    // the exact-equality check first; dotted variants are caught by startsWith below.
+    if (keyword === 'substatmin') {
+      // Plain form: substatmin op N — matches when ALL active substats satisfy the condition.
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol') return null
+      const op = normalizeOverrideOp(opToken.value)
+      if (!op) return null
+      cursor.next()
+      const valToken = cursor.peek()
+      if (!valToken || (valToken.kind !== 'word' && valToken.kind !== 'string')) return null
+      cursor.next()
+      const numeric = parseIntegerValue(valToken.value)
+      if (numeric == null) return null
+      return { kind: 'substatMin', op, value: numeric }
+    }
+    if (keyword.startsWith('substatmin.')) {
+      // Dotted form: substatmin.STAT op N — whole keyword is one token, e.g. "substatmin.spd".
+      const variant = variantFromLabel(keyword.slice('substatmin.'.length))
+      if (variant == null) return null
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol') return null
+      const op = normalizeOverrideOp(opToken.value)
+      if (!op) return null
+      cursor.next()
+      const valToken = cursor.peek()
+      if (!valToken || (valToken.kind !== 'word' && valToken.kind !== 'string')) return null
+      cursor.next()
+      const numeric = parseIntegerValue(valToken.value)
+      if (numeric == null) return null
+      return { kind: 'substatMinField', op, variant, value: numeric }
+    }
+    if (keyword.startsWith('minima.')) {
+      // Both 'minima.any' and 'minima.STAR.STAT' arrive as single word tokens.
+      // Reuse parseMinimaField which already handles both shapes.
+      const parsed = parseMinimaField(keyword)
+      if (!parsed) return null
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol') return null
+      const op = normalizeOverrideOp(opToken.value)
+      if (!op) return null
+      cursor.next()
+      const valToken = cursor.peek()
+      if (!valToken || (valToken.kind !== 'word' && valToken.kind !== 'string')) return null
+      cursor.next()
+      const numeric = parseIntegerValue(valToken.value)
+      if (numeric == null) return null
+      if (parsed.kind === 'any') return { kind: 'minimaAny', op, value: numeric }
+      const variant = variantFromLabel(parsed.statKey)
+      if (variant == null) return null
+      return { kind: 'minimaField', op, star: parsed.star, variant, value: numeric }
     }
     return null
   }
@@ -1926,7 +1995,11 @@ const matchesRaritySelector = (recipe: BuilderRecipe, selector: RecipeOverridesS
   return range.max <= rarityRangeValue(code ?? RarityCodeEnum.Any).max
 }
 
-const matchesSelector = (selector: RecipeOverridesSelector, recipe: BuilderRecipe): boolean => {
+const matchesSelector = (
+  selector: RecipeOverridesSelector,
+  recipe: BuilderRecipe,
+  targets?: SubstatTargetTable,
+): boolean => {
   switch (selector.kind) {
     case 'all':
       return true
@@ -1959,12 +2032,36 @@ const matchesSelector = (selector: RecipeOverridesSelector, recipe: BuilderRecip
       return compareNumeric(resolveEffectiveMinCount(recipe), selector.op, selector.value)
     case 'flex':
       return Boolean(recipe.autoSubstatFlex) === selector.value
+    case 'substatMin': {
+      // Match if ALL active substats satisfy the min-bound condition (absent entry → 0).
+      const active = new Set<number>()
+      ;(recipe.substatsV ?? []).forEach((v) => active.add(Number(v)))
+      ;(recipe.fixedSubstatsV ?? []).forEach((v) => active.add(Number(v)))
+      const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number }>
+      if (active.size === 0) return compareNumeric(0, selector.op, selector.value)
+      return [...active].every((v) => compareNumeric(bounds[v]?.min ?? 0, selector.op, selector.value))
+    }
+    case 'substatMinField': {
+      // Match against one specific substat variant's stored min (absent → 0).
+      const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number }>
+      return compareNumeric(bounds[selector.variant]?.min ?? 0, selector.op, selector.value)
+    }
+    case 'minimaAny':
+      // Requires SubstatTargetTable; returns false if unavailable.
+      if (!targets) return false
+      return compareNumeric(targets.anyRankDefaultsTo, selector.op, selector.value)
+    case 'minimaField': {
+      // Requires SubstatTargetTable; returns false if unavailable.
+      if (!targets) return false
+      const starKey = starKeyForSubstatTargets(selector.star)
+      return compareNumeric(targets[starKey]?.[selector.variant] ?? 0, selector.op, selector.value)
+    }
     case 'not':
-      return !matchesSelector(selector.inner, recipe)
+      return !matchesSelector(selector.inner, recipe, targets)
     case 'and':
-      return matchesSelector(selector.left, recipe) && matchesSelector(selector.right, recipe)
+      return matchesSelector(selector.left, recipe, targets) && matchesSelector(selector.right, recipe, targets)
     case 'or':
-      return matchesSelector(selector.left, recipe) || matchesSelector(selector.right, recipe)
+      return matchesSelector(selector.left, recipe, targets) || matchesSelector(selector.right, recipe, targets)
     default:
       return false
   }
@@ -2024,6 +2121,7 @@ const rarityCodeToRange = (rarity: RarityCode): { min: number; max: number } => 
 const resolveRecipeOverridesExportModeWithInstructions = (
   recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
+  targets?: SubstatTargetTable,
 ): SellfileExportMode => {
   // Separators should never be overridden by options.
   if (recipe.exportMode === 'separator') return 'separator'
@@ -2031,7 +2129,7 @@ const resolveRecipeOverridesExportModeWithInstructions = (
   let nextMode: SellfileExportMode = recipe.exportMode
   let hasInstruction = false
   for (const instruction of instructions) {
-    if (!matchesSelector(instruction.selector, recipe)) continue
+    if (!matchesSelector(instruction.selector, recipe, targets)) continue
     hasInstruction = true
     instruction.operations.forEach((op) => {
       if (op.kind !== 'exportMode') return
@@ -2049,8 +2147,9 @@ const resolveRecipeOverridesExportModeWithInstructions = (
 export const resolveRecipeOverridesExportMode = (
   recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
+  targets?: SubstatTargetTable,
 ): SellfileExportMode => {
-  return resolveRecipeOverridesExportModeWithInstructions(recipe, instructions)
+  return resolveRecipeOverridesExportModeWithInstructions(recipe, instructions, targets)
 }
 
 const applySubstatMinOverrides = (
@@ -2077,6 +2176,7 @@ const applySubstatMinOverrides = (
 const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   recipe: BuilderRecipe,
   instructions: RecipeOverridesInstructions,
+  targets?: SubstatTargetTable,
 ): BuilderRecipe => {
   // Separators stay isolated from recipe overrides logic.
   if (recipe.exportMode === 'separator') return recipe
@@ -2115,7 +2215,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let nextArtifactMetaSetsOp: Extract<RecipeOverridesOperation, { kind: 'artifactMetaSets' }> | undefined
   let hasInstruction = false
   for (const instruction of instructions) {
-    if (!matchesSelector(instruction.selector, recipe)) continue
+    if (!matchesSelector(instruction.selector, recipe, targets)) continue
     hasInstruction = true
     instruction.operations.forEach((op) => {
       if (op.kind === 'exportMode') {
@@ -2372,11 +2472,12 @@ export const resolveRecipeOverridesEffectiveRecipe = (
 export const buildRecipeOverridesExportModeResolution = (
   recipes: readonly BuilderRecipe[],
   instructions: RecipeOverridesInstructions,
+  targets?: SubstatTargetTable,
 ): RecipeOverridesExportModeResolution => {
   const modes: SellfileExportMode[] = []
   const overriddenIndices: number[] = []
   recipes.forEach((recipe, idx) => {
-    const nextMode = resolveRecipeOverridesExportModeWithInstructions(recipe, instructions)
+    const nextMode = resolveRecipeOverridesExportModeWithInstructions(recipe, instructions, targets)
     modes.push(nextMode)
     if (nextMode !== recipe.exportMode) {
       overriddenIndices.push(idx)
@@ -2406,10 +2507,11 @@ export const applyRecipeOverridesExportModeOverrides = (
 export const applyRecipeOverrides = (
   recipes: readonly BuilderRecipe[],
   instructions: RecipeOverridesInstructions,
+  targets?: SubstatTargetTable,
 ): BuilderRecipe[] => {
   let mutated = false
   const next = recipes.map((recipe) => {
-    const resolved = resolveRecipeOverridesEffectiveRecipeWithInstructions(recipe, instructions)
+    const resolved = resolveRecipeOverridesEffectiveRecipeWithInstructions(recipe, instructions, targets)
     if (resolved !== recipe) mutated = true
     return resolved
   })
@@ -2438,9 +2540,10 @@ const starKeyForSubstatTargets = (star: Star): SubstatTargetStarKey => {
 const instructionAppliesToAnyRecipe = (
   instruction: RecipeOverridesSelectorBlock,
   recipes: readonly BuilderRecipe[],
+  targets?: SubstatTargetTable,
 ): boolean => {
   if (recipes.length === 0) return instruction.selector.kind === 'all'
-  return recipes.some((recipe) => matchesSelector(instruction.selector, recipe))
+  return recipes.some((recipe) => matchesSelector(instruction.selector, recipe, targets))
 }
 
 // Combined entry point: applies recipe overrides to both recipes and substat
@@ -2453,7 +2556,7 @@ export const applyAllRecipeOverrides = (
   substatTargets: SubstatTargetTable,
   instructions: RecipeOverridesInstructions,
 ): { recipes: BuilderRecipe[]; substatTargets: SubstatTargetTable; substatTargetsOverridesActive: boolean } => {
-  const modifiedRecipes = applyRecipeOverrides(recipes, instructions)
+  const modifiedRecipes = applyRecipeOverrides(recipes, instructions, substatTargets)
   const { substatTargets: effectiveSubstatTargets, overridesActive } =
     applyRecipeOverridesSubstatTargetsOverrides(substatTargets, modifiedRecipes, instructions)
   return { recipes: modifiedRecipes, substatTargets: effectiveSubstatTargets, substatTargetsOverridesActive: overridesActive }
@@ -2467,7 +2570,7 @@ export const applyRecipeOverridesSubstatTargetsOverrides = (
   let next = substatTargets
   let overridesActive = false
   for (const instruction of instructions) {
-    if (!instructionAppliesToAnyRecipe(instruction, recipes)) continue
+    if (!instructionAppliesToAnyRecipe(instruction, recipes, substatTargets)) continue
     for (const op of instruction.operations) {
       if (op.kind !== 'minimaAnyRank' && op.kind !== 'minimaTarget') continue
       overridesActive = true

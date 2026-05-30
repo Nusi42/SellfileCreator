@@ -3,10 +3,14 @@ import assert from 'node:assert/strict'
 import {
   resolveRecipeOverridesTags,
   resolveRecipeOverridesEffectiveRecipe,
+  applyAllRecipeOverrides,
   NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
   type RecipeOverridesOperation,
+  type RecipeOverridesSelector,
 } from '../../src/lib/noteRecipeOverrides.js'
 import { createFactoryBuilderDefaults } from '../../src/lib/builderDefaults.js'
+import type { SubstatTargetTable } from '../../src/lib/hsfBuilder/types.js'
+import { variantFromLabel } from '../../src/lib/types.js'
 
 test('global explicit ids exclude options across questions', () => {
   // Build a note with two recipe-overrides markers.
@@ -736,6 +740,173 @@ test('gearsets=+-Name works inside a tag-scoped selector block', () => {
   assert.equal(op.mode, 'mutate')
   assert.equal(op.add.length, 1)
   assert.equal(op.add[0]!.excluded, true)
+})
+
+test('substatmin plain term parses to substatMin selector', () => {
+  // Parser must produce a substatMin AST node from @substatmin>=N.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @substatmin>=2 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  assert.equal(instructions.length, 1, 'expected one instruction block')
+  const sel = instructions[0]!.selector as RecipeOverridesSelector
+  assert.equal(sel.kind, 'substatMin', 'expected substatMin selector kind')
+  if (sel.kind !== 'substatMin') return
+  assert.equal(sel.op, 'gte', 'expected gte operator')
+  assert.equal(sel.value, 2, 'expected value 2')
+})
+
+test('substatmin dotted term parses to substatMinField selector', () => {
+  // Parser must produce a substatMinField AST node from @substatmin.SPD<=N.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @substatmin.SPD<=3 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  assert.equal(instructions.length, 1)
+  const sel = instructions[0]!.selector as RecipeOverridesSelector
+  assert.equal(sel.kind, 'substatMinField', 'expected substatMinField selector kind')
+  if (sel.kind !== 'substatMinField') return
+  assert.equal(sel.op, 'lte', 'expected lte operator')
+  assert.equal(sel.value, 3, 'expected value 3')
+  // Variant must resolve to the canonical SPD stat variant.
+  assert.equal(sel.variant, variantFromLabel('SPD'), 'expected SPD variant')
+})
+
+test('minima.any term parses to minimaAny selector', () => {
+  // Parser must produce a minimaAny AST node from @minima.any=N.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @minima.any=5 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  assert.equal(instructions.length, 1)
+  const sel = instructions[0]!.selector as RecipeOverridesSelector
+  assert.equal(sel.kind, 'minimaAny', 'expected minimaAny selector kind')
+  if (sel.kind !== 'minimaAny') return
+  assert.equal(sel.op, 'eq', 'expected eq operator')
+  assert.equal(sel.value, 5, 'expected value 5')
+})
+
+test('minima dotted term parses to minimaField selector', () => {
+  // Parser must produce a minimaField AST node from @minima.5.SPD>=N.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @minima.5.SPD>=100 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  assert.equal(instructions.length, 1)
+  const sel = instructions[0]!.selector as RecipeOverridesSelector
+  assert.equal(sel.kind, 'minimaField', 'expected minimaField selector kind')
+  if (sel.kind !== 'minimaField') return
+  assert.equal(sel.op, 'gte', 'expected gte operator')
+  assert.equal(sel.star, 5, 'expected star 5')
+  assert.equal(sel.value, 100, 'expected value 100')
+  assert.equal(sel.variant, variantFromLabel('SPD'), 'expected SPD variant')
+})
+
+test('substatMin selector matches recipe when all active substats meet threshold', () => {
+  // @substatmin>=2 must activate only when every active substat bound satisfies the condition.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @substatmin>=2 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  const spdVariant = variantFromLabel('SPD')!
+  const atkVariant = variantFromLabel('ATK')!
+  // Both substats have min=3 — condition satisfied.
+  const matching = {
+    ...createFactoryBuilderDefaults(),
+    exportMode: 'disabled' as const,
+    substatsV: [spdVariant, atkVariant],
+    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 3 } },
+  }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(matching, instructions).exportMode, 'active')
+  // ATK substat has min=1 which falls below the threshold.
+  const unmatched = {
+    ...createFactoryBuilderDefaults(),
+    exportMode: 'disabled' as const,
+    substatsV: [spdVariant, atkVariant],
+    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 1 } },
+  }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(unmatched, instructions).exportMode, 'disabled')
+})
+
+test('substatMinField selector matches one specific substat variant', () => {
+  // @substatmin.SPD>=2 must check only the SPD variant bound, ignoring others.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @substatmin.SPD>=2 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  const spdVariant = variantFromLabel('SPD')!
+  const atkVariant = variantFromLabel('ATK')!
+  // SPD min=3 satisfies >=2 even though ATK min=1 does not.
+  const matching = {
+    ...createFactoryBuilderDefaults(),
+    exportMode: 'disabled' as const,
+    substatsV: [spdVariant, atkVariant],
+    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 1 } },
+  }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(matching, instructions).exportMode, 'active')
+  // SPD min=1 does not satisfy >=2.
+  const unmatched = {
+    ...createFactoryBuilderDefaults(),
+    exportMode: 'disabled' as const,
+    substatsV: [spdVariant],
+    substatRollBoundsV: { [spdVariant]: { min: 1 } },
+  }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(unmatched, instructions).exportMode, 'disabled')
+})
+
+test('minimaAny selector gates per-recipe operations via SubstatTargetTable', () => {
+  // @minima.any=5 must activate only when SubstatTargetTable.anyRankDefaultsTo equals 5.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @minima.any=5 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  const recipe = { ...createFactoryBuilderDefaults(), exportMode: 'disabled' as const }
+  const matching: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 5 }
+  const { recipes: matched } = applyAllRecipeOverrides([recipe], matching, instructions)
+  assert.equal(matched[0]!.exportMode, 'active', 'expected export=active when anyRankDefaultsTo=5')
+  const unmatched: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 4 }
+  const { recipes: notMatched } = applyAllRecipeOverrides([recipe], unmatched, instructions)
+  assert.equal(notMatched[0]!.exportMode, 'disabled', 'expected export=disabled when anyRankDefaultsTo=4')
+})
+
+test('minimaField selector gates per-recipe operations via star-keyed SubstatTargetTable cell', () => {
+  // @minima.5.SPD>=100 must activate only when targets.five[SPD]>=100.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "test"',
+    'radio "opt" * { @minima.5.SPD>=100 { export=active } }',
+    '-->',
+  ].join('\n')
+  const { instructions } = resolveRecipeOverridesTags(note)
+  const recipe = { ...createFactoryBuilderDefaults(), exportMode: 'disabled' as const }
+  const spdVariant = variantFromLabel('SPD')!
+  const matching: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: { [spdVariant]: 100 }, six: {}, anyRankDefaultsTo: 6 }
+  const { recipes: matched } = applyAllRecipeOverrides([recipe], matching, instructions)
+  assert.equal(matched[0]!.exportMode, 'active', 'expected active when five.SPD=100 satisfies >=100')
+  const unmatched: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: { [spdVariant]: 50 }, six: {}, anyRankDefaultsTo: 6 }
+  const { recipes: notMatched } = applyAllRecipeOverrides([recipe], unmatched, instructions)
+  assert.equal(notMatched[0]!.exportMode, 'disabled', 'expected disabled when five.SPD=50 does not satisfy >=100')
 })
 
 export {}
