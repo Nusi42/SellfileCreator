@@ -5491,6 +5491,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
     const hasMetasetsSection = visibleMetasets.length > 0
     const metasetsMenu: Metaset[] = visibleMetasets
+    // Disable a meta-set only when every member set is outside the allowed pool.
+    const disabledMetasetIds = new Set(
+      metasetsMenu
+        .filter((meta) => meta.sets.every((setId) => !allowedSetIdsSet.has(Number(setId))))
+        .map((meta) => meta.name)
+    )
 
     // Select node: sets+metasets dropdown wrapped in EllipsisTooltip.
     const setsSelectNode = (() => {
@@ -5642,17 +5648,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const metaState = multiEditActive ? getMetasetState(m.name) : (selectedMetaIds.includes(m.name) ? 'all' : 'none')
                 const isSelectedMeta = metaState === 'all'
                 const isPartialMeta = metaState === 'partial'
+                const isMetaDisabled = disabledMetasetIds.has(m.name)
                 return (
                   <MenuItem
                     key={m.name}
                     value={`m:${m.name}`}
                     selected={isSelectedMeta}
+                    disabled={isMetaDisabled}
                     data-metaset-id={m.name}
                     onMouseEnter={() => setHoveredSetMetaId(m.name)}
                     onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.name ? null : prev))}
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
+                      if (isMetaDisabled) return
                       if (multiEditActive && multiEdit) {
                         toggleMetaset(m.name)
                         return

@@ -311,7 +311,7 @@ export default function GearSetsSelect({
     if (!allowedSetFilter || !allowMetasets) return new Set<string>()
     return new Set(
       visibleMetasets
-        .filter((meta) => !meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
+        .filter((meta) => meta.sets.every((setId) => !allowedSetFilter.has(Number(setId))))
         .map((meta) => meta.name)
     )
   }, [allowedSetFilter, allowMetasets, visibleMetasets])
