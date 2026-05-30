@@ -4847,12 +4847,11 @@ function NoteEditorContent({
             // Stretch the editor shell to fill the dialog body.
             flex: 1,
             minHeight: 0,
+            // position:relative scoped to non-fullscreen only — applying it
+            // unconditionally would override the position:fixed that MDEditor
+            // sets on .w-md-editor-fullscreen, breaking the fullscreen toggle.
+            '& .w-md-editor:not(.w-md-editor-fullscreen)': { position: 'relative' },
             '& .w-md-editor': {
-              // position:relative makes .w-md-editor a containing block for the
-              // absolutely-positioned DslErrorPanel in normal (non-fullscreen) mode.
-              // In fullscreen mode MDEditor sets position:fixed, which is also a
-              // containing block, so the panel stays at the bottom either way.
-              position: 'relative',
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               backgroundColor: `${editorBg} !important`,
               color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
