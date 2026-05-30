@@ -216,6 +216,42 @@ const NOTE_DRAWER_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
+// ── CSS zoom coordinate helpers ───────────────────────────────────────────────
+// #root has `zoom: N` applied by useAutoSideBySideZoom in SBS mode.
+// CSS zoom DOES scale position:fixed offsets (top/left/width) for elements inside
+// the zoomed ancestor.  Coordinate model:
+//   CSS px × zoom  = visual px  (what getBoundingClientRect / e.clientX report)
+//   CSS px         = visual px / zoom
+// So when writing a CSS `left` from a visual-px value, divide by getAppZoom().
+function getAppZoom(): number {
+  if (typeof document === 'undefined') return 1
+  return Number(document.documentElement.style.getPropertyValue('--app-zoom') || '1') || 1
+}
+// ── Floating panel snap behavior ──────────────────────────────────────────────
+// The panel snaps to the left or right viewport edge; height always fills from
+// the header to the bottom. Width is adjustable via the side resize handles.
+// Snap side and width persist across sessions via localStorage.
+const PANEL_SNAP_KEY = 'sellfileCreator.notePanel.v1'
+const PANEL_MIN_WIDTH_PX = 280
+interface PanelSnapData { side: 'left' | 'right'; width: number }
+
+function loadPanelSnap(): PanelSnapData | null {
+  try {
+    const raw = localStorage.getItem(PANEL_SNAP_KEY)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || !parsed) return null
+    const p = parsed as Record<string, unknown>
+    const side = p['side'] === 'right' ? 'right' as const : 'left' as const
+    const width = typeof p['width'] === 'number' && p['width'] >= PANEL_MIN_WIDTH_PX ? p['width'] : null
+    if (width === null) return null
+    return { side, width }
+  } catch { return null }
+}
+
+function savePanelSnap(data: PanelSnapData): void {
+  try { localStorage.setItem(PANEL_SNAP_KEY, JSON.stringify(data)) } catch { /* storage unavailable */ }
+}
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
   0%   { box-shadow: 0 0 0 0 rgba(var(--mui-palette-success-mainChannel) / 0.7); }
@@ -3622,45 +3658,142 @@ export default function NoteDialog({
     return () => { animRef.current = null }
   }, [useFloatingPanel, noteDialogProps.PaperProps.ref])
 
-  // Drag: origin captured on title pointerdown; panel position updated directly via style
-  // properties to avoid React re-renders on every mousemove (same pattern as SideBySideSplitter).
-  const dragOriginRef = useRef<{ mouseX: number; mouseY: number; panelX: number; panelY: number } | null>(null)
+  // Snap-to-side state: the panel always aligns to the left or right viewport edge.
+  // Width is independently resizable; both are persisted so the session restores cleanly.
+  const [panelSide, setPanelSide] = useState<'left' | 'right'>(() => loadPanelSnap()?.side ?? 'left')
+  const [panelWidth, setPanelWidth] = useState<number>(() => loadPanelSnap()?.width ?? (drawerWidthPx ?? 400))
+  // Mutable refs hold current values so pointer-event handlers (useCallback with []) can read them
+  // without capturing stale closures. Updated via effects so they are not mutated during render.
+  const panelSideRef = useRef(panelSide)
+  const panelWidthRef = useRef(panelWidth)
+  const drawerLeftPxRef = useRef(drawerLeftPx)
+  React.useEffect(() => { panelSideRef.current = panelSide }, [panelSide])
+  React.useEffect(() => { panelWidthRef.current = panelWidth }, [panelWidth])
+  React.useEffect(() => { drawerLeftPxRef.current = drawerLeftPx }, [drawerLeftPx])
 
+  // Keep panel left/width aligned with snap state after state changes.
+  // All CSS left values are divided by zoom because position:fixed offsets inside a CSS-zoomed
+  // ancestor are in the zoomed coordinate space (1 CSS px = zoom visual px).
+  //
+  // drawerLeftPx is intentionally kept in deps so the panel re-snaps when the splitter moves.
+  // The gesture guard uses panel.dataset['gesture'] (a DOM attribute set by pointer handlers)
+  // to detect an active drag/resize without reading any user-managed ref inside the effect
+  // (which would cause react-hooks/immutability lint errors).
+  React.useLayoutEffect(() => {
+    if (!useFloatingPanel) return
+    const panel = panelRef.current
+    if (!panel) return
+    // Skip while a drag or resize gesture is in progress to avoid overriding inline styles
+    // that the pointer-move handlers are updating every frame.
+    if (panel.dataset['gesture']) return
+    const zoom = getAppZoom()
+    // drawerLeftPx is visual px (from getBoundingClientRect); convert to CSS px.
+    const cssLeft = panelSide === 'left'
+      ? (drawerLeftPx ?? 0) / zoom
+      : window.innerWidth / zoom - panelWidth
+    panel.style.setProperty('left', `${Math.max(0, cssLeft)}px`)
+    panel.style.setProperty('width', `${panelWidth}px`)
+  }, [useFloatingPanel, panelSide, panelWidth, drawerLeftPx])
+
+  // Drag: captures X position on title pointerdown; snaps to nearest side on release.
+  // startLeft stored as visual px (from getBoundingClientRect); divided by zoom before writing.
+  const dragOriginRef = useRef<{ mouseX: number; startVisLeft: number } | null>(null)
+  // Resize: captures start geometry when an edge handle is grabbed.
+  // startCssLeft is in CSS px; startWidth is CSS px (offsetWidth).
+  const resizeOriginRef = useRef<{ mouseX: number; startWidth: number; startCssLeft: number; handle: 'left' | 'right' } | null>(null)
+
+  // Drag: title-bar pointerdown → capture → move tracks cursor → release snaps to side.
+  // Uses React synthetic events exactly as the original code did (same wiring that worked).
   const handleTitlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // Let interactive children handle their own events so buttons/selects still work normally.
     if ((e.target as HTMLElement).closest('button, input, select, a, [role="button"], [role="combobox"]')) return
     const panel = panelRef.current
     if (!panel) return
     const rect = panel.getBoundingClientRect()
-    dragOriginRef.current = { mouseX: e.clientX, mouseY: e.clientY, panelX: rect.left, panelY: rect.top }
-    // Capture all subsequent pointer events on the panel so moves fire even outside it.
+    dragOriginRef.current = { mouseX: e.clientX, startVisLeft: rect.left }
+    panel.dataset['gesture'] = 'drag'
     panel.setPointerCapture(e.pointerId)
     document.body.style.cursor = 'grabbing'
     document.body.style.userSelect = 'none'
   }, [])
 
-  const handlePanelPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragOriginRef.current) return
+  // Resize handle pointerdown: capture start geometry for the grabbed edge.
+  const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLElement>, handle: 'left' | 'right') => {
+    e.stopPropagation()
     const panel = panelRef.current
     if (!panel) return
-    const dx = e.clientX - dragOriginRef.current.mouseX
-    const dy = e.clientY - dragOriginRef.current.mouseY
-    // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom,
-    // so all values here are plain viewport px — no zoom correction needed.
-    // Keep at least 80 px of width and 40 px of height inside the viewport so the drag
-    // handle always stays reachable. Clamp top to the header bottom so the title bar
-    // never slides behind the app header.
-    const newLeft = Math.max(-(panel.offsetWidth - 80), Math.min(window.innerWidth - 80, dragOriginRef.current.panelX + dx))
-    const newTop = Math.max(drawerTopPx ?? 0, Math.min(window.innerHeight - 40, dragOriginRef.current.panelY + dy))
-    panel.style.setProperty('left', `${newLeft}px`)
-    panel.style.setProperty('top', `${newTop}px`)
-  }, [drawerTopPx])
+    const rect = panel.getBoundingClientRect()
+    const zoom = getAppZoom()
+    resizeOriginRef.current = { mouseX: e.clientX, startWidth: panel.offsetWidth, startCssLeft: rect.left / zoom, handle }
+    panel.dataset['gesture'] = 'resize'
+    panel.setPointerCapture(e.pointerId)
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  const handlePanelPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const panel = panelRef.current
+    if (!panel) return
+    const zoom = getAppZoom()
+    if (dragOriginRef.current) {
+      const dx = e.clientX - dragOriginRef.current.mouseX
+      const visW = panel.getBoundingClientRect().width
+      const newVisLeft = Math.max(-(visW - 80), Math.min(window.innerWidth - 80, dragOriginRef.current.startVisLeft + dx))
+      panel.style.setProperty('left', `${newVisLeft / zoom}px`)
+      return
+    }
+    if (resizeOriginRef.current) {
+      const { mouseX, startWidth, startCssLeft, handle } = resizeOriginRef.current
+      const dxCss = (e.clientX - mouseX) / zoom
+      const viewCssW = window.innerWidth / zoom
+      if (handle === 'right') {
+        const newCssW = Math.max(PANEL_MIN_WIDTH_PX, Math.min(viewCssW - startCssLeft - 10, startWidth + dxCss))
+        panel.style.setProperty('left', `${startCssLeft}px`)
+        panel.style.setProperty('width', `${newCssW}px`)
+      } else {
+        const rightCssEdge = startCssLeft + startWidth
+        const newCssLeft = Math.max(0, Math.min(rightCssEdge - PANEL_MIN_WIDTH_PX, startCssLeft + dxCss))
+        panel.style.setProperty('left', `${newCssLeft}px`)
+        panel.style.setProperty('width', `${rightCssEdge - newCssLeft}px`)
+      }
+    }
+  }, [])
 
   const handlePanelPointerUp = useCallback(() => {
-    if (!dragOriginRef.current) return
-    dragOriginRef.current = null
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
+    const panel = panelRef.current
+    if (!panel) return
+    const zoom = getAppZoom()
+    if (dragOriginRef.current) {
+      dragOriginRef.current = null
+      delete panel.dataset['gesture']
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      const rect = panel.getBoundingClientRect()
+      const panelCenter = rect.left + rect.width / 2
+      const newSide: 'left' | 'right' = panelCenter < window.innerWidth / 2 ? 'left' : 'right'
+      const currentCssWidth = panelWidthRef.current
+      const snapCssLeft = newSide === 'left'
+        ? (drawerLeftPxRef.current ?? 0) / zoom
+        : Math.max(0, window.innerWidth / zoom - currentCssWidth)
+      panel.style.setProperty('left', `${snapCssLeft}px`)
+      setPanelSide(newSide)
+      savePanelSnap({ side: newSide, width: currentCssWidth })
+      return
+    }
+    if (resizeOriginRef.current) {
+      resizeOriginRef.current = null
+      delete panel.dataset['gesture']
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      const newCssWidth = Math.max(PANEL_MIN_WIDTH_PX, panel.offsetWidth)
+      const snapSide = panelSideRef.current
+      const snapCssLeft = snapSide === 'left'
+        ? (drawerLeftPxRef.current ?? 0) / zoom
+        : Math.max(0, window.innerWidth / zoom - newCssWidth)
+      panel.style.setProperty('left', `${snapCssLeft}px`)
+      panel.style.setProperty('width', `${newCssWidth}px`)
+      setPanelWidth(newCssWidth)
+      savePanelSnap({ side: snapSide, width: newCssWidth })
+    }
   }, [])
 
   // Close on Escape — only needed in floating mode; Dialog mode gets this from the Modal.
@@ -3671,18 +3804,20 @@ export default function NoteDialog({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [useFloatingPanel, handleDialogClose])
 
-  // Slide the panel in from the left on mount, matching the old Drawer enter transition rhythm.
+  // Slide the panel in on mount: left-snap slides from the left, right-snap from the right.
   // Double RAF ensures the initial transform is painted before the transition starts.
   const clearTransitionTidRef = useRef<number | null>(null)
   React.useLayoutEffect(() => {
     const panel = panelRef.current
     if (!panel) return
-    panel.style.setProperty('transform', 'translateX(-100%)')
+    // Use the ref so the effect captures the mount-time value without needing it in the dep array.
+    const initialTranslate = panelSideRef.current === 'right' ? 'translateX(100%)' : 'translateX(-100%)'
+    panel.style.setProperty('transform', initialTranslate)
     const raf1 = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         panel.style.setProperty('transition', 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)')
         panel.style.setProperty('transform', '')
-        // Clear transition after animation completes so drag position updates remain instant.
+        // Clear transition after animation completes so position updates remain instant.
         clearTransitionTidRef.current = window.setTimeout(() => {
           panel.style.setProperty('transition', '')
           clearTransitionTidRef.current = null
@@ -3694,6 +3829,33 @@ export default function NoteDialog({
       if (clearTransitionTidRef.current !== null) window.clearTimeout(clearTransitionTidRef.current)
     }
   }, [])
+
+  // Re-snap and clamp panel width whenever the viewport or zoom changes.
+  React.useEffect(() => {
+    if (!useFloatingPanel) return
+    const onResize = () => {
+      const panel = panelRef.current
+      if (!panel) return
+      const zoom = getAppZoom()
+      const viewCssW = window.innerWidth / zoom  // viewport in CSS px
+      // Clamp CSS width so the panel never exceeds the viewport.
+      const maxCssW = Math.max(PANEL_MIN_WIDTH_PX, viewCssW - 20)
+      const newCssW = Math.max(PANEL_MIN_WIDTH_PX, Math.min(panel.offsetWidth, maxCssW))
+      // Recompute snap position in CSS px.
+      const newCssLeft = panelSideRef.current === 'left'
+        ? Math.max(0, (drawerLeftPxRef.current ?? 0) / zoom)
+        : Math.max(0, viewCssW - newCssW)
+      panel.style.setProperty('left', `${newCssLeft}px`)
+      panel.style.setProperty('width', `${newCssW}px`)
+      // Persist if width was clamped.
+      if (newCssW !== panelWidthRef.current) {
+        setPanelWidth(newCssW)
+        savePanelSnap({ side: panelSideRef.current, width: newCssW })
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [useFloatingPanel])
 
   // Shared panel body — rendered inside either the floating Paper (SBS + expert/normal mode)
   // or the standard centered Dialog (single-column or simple mode).
@@ -3869,8 +4031,10 @@ export default function NoteDialog({
                 // Expert / normal mode: left cluster + right close button.
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', p: 1, width: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    {/* Edit button is hidden in simple mode — use Go Expert to access editing. */}
-                    {!hideEditButton && !simpleMode ? (
+                    {/* Edit button is hidden in simple mode — use Go Expert to access editing.
+                        Use isSimpleMode (not simpleMode) so the button appears when the user
+                        activated expert mode during a simple-URL session. */}
+                    {!hideEditButton && !isSimpleMode ? (
                       <Button
                         size="small"
                         variant="outlined"
@@ -3960,6 +4124,8 @@ export default function NoteDialog({
       {useFloatingPanel ? (
         // Floating fixed-position panel: no Modal backdrop, pointer events pass through to
         // elements outside the panel so the gear inspector stays fully interactive.
+        // left/width are not set here — the position layout effect applies them as inline
+        // styles so they can be updated frame-by-frame during drag/resize without re-renders.
         <Paper
           ref={panelRef}
           elevation={24}
@@ -3967,21 +4133,33 @@ export default function NoteDialog({
           onPointerUp={handlePanelPointerUp}
           sx={{
             position: 'fixed',
-            // position:fixed top/left are viewport-relative and unaffected by ancestor CSS zoom.
             top: drawerTopPx ?? 0,
-            // bottom:0 fills to the viewport edge without a calc(100vh - X) that would be
-            // further scaled by inherited CSS zoom, causing the panel to appear too short.
             bottom: 0,
-            // drawerLeftPx comes from getBoundingClientRect().left of the splitter container,
-            // which accounts for the centering transform (left:50% translateX(-50%)) so the
-            // panel aligns with the builder column's left edge rather than the viewport edge.
-            left: drawerLeftPx ?? 0,
             zIndex: (theme) => theme.zIndex.modal,
-            width: `${drawerWidthPx}px`,
             ...NOTE_DRAWER_PAPER_SX,
             overscrollBehavior: 'contain',
           }}
         >
+          {/* Left resize handle — only active when right-snapped (left edge is the free edge) */}
+          <Box
+            component="div"
+            sx={{
+              position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, zIndex: 1,
+              cursor: panelSide === 'right' ? 'ew-resize' : 'default',
+              pointerEvents: panelSide === 'right' ? 'auto' : 'none',
+            }}
+            onPointerDown={panelSide === 'right' ? (e) => handleResizePointerDown(e, 'left') : undefined}
+          />
+          {/* Right resize handle — only active when left-snapped (right edge is the free edge) */}
+          <Box
+            component="div"
+            sx={{
+              position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, zIndex: 1,
+              cursor: panelSide === 'left' ? 'ew-resize' : 'default',
+              pointerEvents: panelSide === 'left' ? 'auto' : 'none',
+            }}
+            onPointerDown={panelSide === 'left' ? (e) => handleResizePointerDown(e, 'right') : undefined}
+          />
           {panelBody}
         </Paper>
       ) : (
