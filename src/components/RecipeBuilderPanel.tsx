@@ -45,6 +45,7 @@ import {
   normalizeRecipeKeepState,
   normalizeLevelWindow,
   normalizeSlotsOverrideFaction,
+  pruneSubstatDependents,
 } from '../lib/recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from '../lib/raritySupplements'
 import {
@@ -1230,31 +1231,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     const mainChanged = rawMainStatsKey !== sanitizedMainStatsKey
     const subChanged  = rawSubstatsKey  !== sanitizedSubstatsKey
     if (mainChanged || subChanged) {
-      // When substats are pruned, also clean up per-substat fields (mirrors manual substat removal).
-      const prunedSubPatch: Partial<BuilderRecipe> = {}
-      if (subChanged) {
-        const keptVariants = new Set(sanitizedSubstatsV.map(Number))
-        // fixedSubstatsV must remain a subset of substatsV.
-        const sanitizedFixedV = (recipe.fixedSubstatsV ?? []).filter((v) => keptVariants.has(Number(v)))
-        // substatRollBoundsV: drop variant-keyed entries for removed substats.
-        const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }>
-        const prunedBoundsV: Record<number, { min?: number; max?: number; any?: boolean; not?: boolean }> = {}
-        for (const [k, v] of Object.entries(boundsV)) {
-          if (keptVariants.has(Number(k))) prunedBoundsV[Number(k)] = v
-        }
-        // minCount must not exceed the remaining positive substat count.
-        const nextMin = (recipe.autoMinCount
-          ? Math.min(4, countPositiveSubstats(sanitizedSubstatsV, prunedBoundsV))
-          : (recipe.minCount > sanitizedSubstatsV.length ? sanitizedSubstatsV.length : recipe.minCount)) as 0 | 1 | 2 | 3 | 4
-        prunedSubPatch.substatsV = sanitizedSubstatsV
-        prunedSubPatch.fixedSubstatsV = sanitizedFixedV
-        prunedSubPatch.substatRollBoundsV = prunedBoundsV
-        prunedSubPatch.minCount = nextMin
-      }
       onChange({
         ...recipe,
         ...(mainChanged ? { mainStatsV: sanitizedMainStats } : {}),
-        ...prunedSubPatch,
+        ...(subChanged ? { substatsV: sanitizedSubstatsV, ...pruneSubstatDependents(recipe, sanitizedSubstatsV) } : {}),
       })
     }
   }
@@ -1386,6 +1366,16 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const displayArtifactTypes = (!multiEditActive && slotsOverrideActive)
     ? (effectiveRecipe.artifactTypes ?? [])
     : (recipe.artifactTypes ?? [])
+  // True when a recipe override changes the effective mainstat selection.
+  const mainStatsVOverrideActive = !multiEditActive && (
+    [...(effectiveRecipe.mainStatsV ?? [])].sort((a, b) => a - b).join(',') !==
+    [...(recipe.mainStatsV ?? [])].sort((a, b) => a - b).join(',')
+  )
+  // Show effective mainstats and only enable buttons valid for effective slots.
+  const displayMainStatsV = (!multiEditActive && mainStatsVOverrideActive)
+    ? (effectiveRecipe.mainStatsV ?? [])
+    : (recipe.mainStatsV ?? [])
+  const displayMainStatOptions = getMainStatOptionsForSlots(displayArtifactTypes)
   // Prefer the recipe overrides-resolved mode for the single-recipe display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
@@ -2772,7 +2762,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   })()
 
   // Mainstat toggle button rows (row1: SPD/CR/CDMG/ACC/RES, row2: HP/ATK/DEF and % variants).
-  const mainStatValue: string[] = ((recipe as (BuilderRecipe & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
+  const mainStatValue: string[] = displayMainStatsV.map(String)
   const handleMainStatChange = (_: React.SyntheticEvent, v: string[]) => {
     if (!Array.isArray(v)) return
     const nextNumbers = Array.from(new Set(v.map((token) => Number(token)).filter((n) => Number.isFinite(n))))
@@ -2800,7 +2790,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             <ToggleButton
               key={variant}
               value={`${variant}`}
-              disabled={!mainStatOptions.includes(variant)}
+              disabled={!displayMainStatOptions.includes(variant)}
               selected={multiEditActive ? state === 'all' : mainStatValue.includes(String(variant))}
               onClick={(event) => {
                 if (!multiEditActive) return
@@ -2840,7 +2830,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
             <ToggleButton
               key={variant}
               value={`${variant}`}
-              disabled={!mainStatOptions.includes(variant)}
+              disabled={!displayMainStatOptions.includes(variant)}
               selected={multiEditActive ? state === 'all' : mainStatValue.includes(String(variant))}
               onClick={(event) => {
                 if (!multiEditActive) return
@@ -6896,11 +6886,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {mainStatClearButton}
           </Box>
-          <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {mainStatToggleRows}
+          <Box sx={{ position: 'relative' }}>
+            {mainStatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              (recipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+              (effectiveRecipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+            ))}
+            <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {mainStatToggleRows}
+            </Box>
+            </Collapse>
           </Box>
-          </Collapse>
         </FormControl>
 
         {/* Substats — cols 3-4 */}

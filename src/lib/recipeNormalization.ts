@@ -93,6 +93,38 @@ export function countPositiveSubstats(
   return substatsV.filter(v => bounds[v]?.not !== true).length
 }
 
+type SubstatBoundsEntry = { min?: number; max?: number; any?: boolean; not?: boolean }
+
+/**
+ * Cascade-prune per-substat fields after substatsV has been narrowed.
+ * Keeps fixedSubstatsV as a subset of the new substatsV, drops stale
+ * substatRollBoundsV entries, and clamps minCount to the remaining count.
+ * Call this whenever substatsV is narrowed programmatically (e.g. by a
+ * slot or main-stat constraint) to keep dependent fields consistent.
+ */
+export function pruneSubstatDependents(
+  recipe: Pick<BuilderRecipe, 'fixedSubstatsV' | 'substatRollBoundsV' | 'minCount' | 'autoMinCount'>,
+  nextSubstatsV: ReadonlyArray<number>,
+): {
+  fixedSubstatsV: number[]
+  substatRollBoundsV: Record<number, SubstatBoundsEntry>
+  minCount: 0 | 1 | 2 | 3 | 4
+} {
+  const keptVariants = new Set(nextSubstatsV.map(Number))
+  const fixedSubstatsV = (recipe.fixedSubstatsV ?? []).filter((v) => keptVariants.has(Number(v)))
+  const boundsV = (recipe.substatRollBoundsV ?? {}) as Record<number, SubstatBoundsEntry>
+  const substatRollBoundsV: Record<number, SubstatBoundsEntry> = {}
+  for (const [k, v] of Object.entries(boundsV)) {
+    if (keptVariants.has(Number(k))) substatRollBoundsV[Number(k)] = v
+  }
+  const maxCount = nextSubstatsV.length
+  const minCount = (recipe.autoMinCount
+    ? Math.min(4, countPositiveSubstats(nextSubstatsV, substatRollBoundsV))
+    : ((recipe.minCount ?? 0) > maxCount ? maxCount : (recipe.minCount ?? 0))
+  ) as 0 | 1 | 2 | 3 | 4
+  return { fixedSubstatsV, substatRollBoundsV, minCount }
+}
+
 export function isMilestoneThresholdsActive(recipe: Pick<BuilderRecipe, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
   try {
     if (hasSubstatThresholds(recipe)) return true

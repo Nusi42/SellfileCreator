@@ -101,3 +101,18 @@ export function retainAllowedSubstats<T>(
   const allowed = resolveAllowedSubstatsForSlotsAndMains(constraints)
   return items.filter((item) => allowed.includes(Number(getVariant(item)) as StatVariant))
 }
+
+// retainAllowedMainStats filters a mainstat array to those valid for the given slots.
+// StatVariant.Any is always kept regardless of the slot set (it means no restriction).
+// When slots is empty the full list is returned unchanged (no slot constraint).
+export function retainAllowedMainStats(
+  mainStats: StatVariantLike[],
+  slots: ArtifactTypeId[],
+): StatVariant[] {
+  if (slots.length === 0) return mainStats.map(Number) as StatVariant[]
+  const allowed = new Set<number>([StatVariantEnum.Any])
+  slots.forEach((slotId) => {
+    ALLOWED_MAIN_BY_SLOT[Number(slotId) as ArtifactType]?.forEach((v) => allowed.add(v))
+  })
+  return mainStats.map(Number).filter((v) => allowed.has(v)) as StatVariant[]
+}

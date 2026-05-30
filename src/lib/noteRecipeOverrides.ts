@@ -52,6 +52,7 @@ import {
   isLevelMilestone,
   variantFromLabel,
 } from './types'
+import { retainAllowedMainStats, retainAllowedSubstats } from './statCompatibility'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import {
   normalizeAggregateRollTargets,
@@ -59,6 +60,8 @@ import {
   normalizeAutoSubstatFlex,
   normalizeKeepMode,
   normalizeLevelWindow,
+  normalizeSlotsOverrideFaction,
+  pruneSubstatDependents,
   type AutoRaritySupplementsThreshold,
 } from './recipeNormalization'
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
@@ -2534,6 +2537,25 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       const existing = new Set(base)
       next.artifactTypes = [...base, ...op.add.filter((id) => !existing.has(id))]
     }
+    // Mirror the builder's cascade when slots change:
+    // 1. Clear faction when the new slot set includes armor (armor + faction is invalid).
+    next = normalizeSlotsOverrideFaction(next)
+    // 2. Prune mainstats invalid for the new slot set.
+    const newSlots = next.artifactTypes ?? []
+    if (newSlots.length > 0 && (next.mainStatsV ?? []).length > 0) {
+      next.mainStatsV = retainAllowedMainStats(next.mainStatsV ?? [], newSlots)
+    }
+    // 3. Prune substats conflicting with the updated slot+mainstat scope, then
+    //    cascade-prune fixedSubstatsV, substatRollBoundsV, and minCount.
+    if (newSlots.length > 0 && (next.substatsV ?? []).length > 0) {
+      const prunedSubstats = retainAllowedSubstats(next.substatsV ?? [], (v) => v, {
+        slots: newSlots,
+        mainStats: next.mainStatsV,
+      })
+      if (prunedSubstats.length !== (next.substatsV ?? []).length) {
+        Object.assign(next, { substatsV: prunedSubstats, ...pruneSubstatDependents(next, prunedSubstats) })
+      }
+    }
   }
   if (substatsChanged) {
     const op = nextSubstatsOp!
@@ -2545,6 +2567,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       const existing = new Set(base)
       next.substatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
     }
+    // Cascade: fixedSubstatsV, substatRollBoundsV, and minCount depend on substatsV.
+    Object.assign(next, pruneSubstatDependents(next, next.substatsV ?? []))
   }
   if (mainStatsChanged) {
     const op = nextMainStatsOp!
