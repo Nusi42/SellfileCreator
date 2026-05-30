@@ -1140,7 +1140,7 @@ function renderDiffGrid(params: {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {left}
         </Box>
-        <Typography variant="body2" sx={{ color: (theme.vars?.palette.info.main ?? theme.palette.info.main) }}>→</Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(var(--mui-palette-common-whiteChannel) / 0.70)' }}>→</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {right}
         </Box>
@@ -1574,7 +1574,8 @@ function buildVariantUnion(previous: number[], next: number[]): number[] {
 function makeRollIndicator(params: { min?: number; max?: number; wildcard?: boolean; theme: Theme }): React.ReactNode {
   const { min, max, wildcard, theme } = params
   if (wildcard) {
-    const color = (theme.vars?.palette.success.main ?? theme.palette.success.main)
+    const bgColor = theme.vars?.palette.success.main ?? theme.palette.success.main
+    const fgColor = theme.palette.getContrastText(theme.palette.success.main)
     return (
       <Box
         component="span"
@@ -1585,8 +1586,8 @@ function makeRollIndicator(params: { min?: number; max?: number; wildcard?: bool
           width: 16,
           height: 16,
           borderRadius: '50%',
-          bgcolor: color,
-          color: theme.palette.getContrastText(color),
+          bgcolor: bgColor,
+          color: fgColor,
           fontSize: '0.65rem',
           lineHeight: 1,
           fontWeight: 600,
@@ -1599,7 +1600,8 @@ function makeRollIndicator(params: { min?: number; max?: number; wildcard?: bool
   if (max === undefined && min === undefined) return null
   const showCap = max !== undefined
   const value = showCap ? max! : min!
-  const color = showCap ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
+  const staticColor = showCap ? theme.palette.error.main : theme.palette.success.main
+  const bgColor = showCap ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
   return (
     <Box
       component="span"
@@ -1610,8 +1612,8 @@ function makeRollIndicator(params: { min?: number; max?: number; wildcard?: bool
         width: 16,
         height: 16,
         borderRadius: '50%',
-        bgcolor: color,
-        color: theme.palette.getContrastText(color),
+        bgcolor: bgColor,
+        color: theme.palette.getContrastText(staticColor),
         fontSize: '0.65rem',
         lineHeight: 1,
         fontWeight: 600,

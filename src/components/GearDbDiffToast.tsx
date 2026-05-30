@@ -222,7 +222,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
     >
       {left}
       {/* Use the shared arrow glyph so diff previews stay consistent. */}
-      <Typography variant="body2" sx={{ color: (theme.vars?.palette.info.main ?? theme.palette.info.main), fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ color: 'rgba(var(--mui-palette-common-whiteChannel) / 0.70)', fontWeight: 600 }}>
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
