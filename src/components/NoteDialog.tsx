@@ -326,6 +326,9 @@ function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
 const NOTE_SUBSTAT_ORDER = new Map<number, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
 )
+// Stable DOM id assigned to the shared DialogTitle so the floating-panel surface can
+// reference it via aria-labelledby (satisfies the role="dialog" accessible-name requirement).
+const NOTE_DIALOG_TITLE_ID = 'note-dialog-title'
 // Standard centered Dialog height — used in single-column or simple mode.
 const NOTE_DIALOG_HEIGHT = '84vh'
 const NOTE_DIALOG_PAPER_SX = {
@@ -3985,9 +3988,12 @@ export default function NoteDialog({
 
   // Shared panel body — rendered inside either the floating Paper (SBS + expert/normal mode)
   // or the standard centered Dialog (single-column or simple mode).
+  // Stable id on the title lets the floating Paper reference it via aria-labelledby so the
+  // surface satisfies the role="dialog" + accessible-name pattern (also drives Playwright getByRole).
   const panelBody = (
     <>
       <DialogTitle
+        id={NOTE_DIALOG_TITLE_ID}
         {...(useFloatingPanel ? { onPointerDown: handleTitlePointerDown } : {})}
         sx={{
           ...(useFloatingPanel ? { cursor: 'grab' } : {}),
@@ -4252,9 +4258,13 @@ export default function NoteDialog({
         // elements outside the panel so the gear inspector stays fully interactive.
         // left/width are not set here — the position layout effect applies them as inline
         // styles so they can be updated frame-by-frame during drag/resize without re-renders.
+        // role="dialog" exposes the same accessible-name pattern as the MUI Dialog branch;
+        // aria-modal is intentionally omitted because the panel is non-modal (no focus trap, no backdrop).
         <Paper
           ref={panelRef}
           elevation={24}
+          role="dialog"
+          aria-labelledby={NOTE_DIALOG_TITLE_ID}
           onPointerMove={handlePanelPointerMove}
           onPointerUp={handlePanelPointerUp}
           sx={{
