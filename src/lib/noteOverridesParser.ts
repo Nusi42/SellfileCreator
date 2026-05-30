@@ -533,6 +533,8 @@ export function parseGroupBlocks<S, O>(
   cursor: TokenCursor,
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
   parseCrossBlock?: (cursor: TokenCursor) => unknown | null,
+  diags?: DiagnosticSpan[],
+  blockOffset = 0,
 ): {
   blocks: OverridesSelectorBlock<S, O>[]
   fallbackBlocks: OverridesSelectorBlock<S, O>[]
@@ -568,6 +570,21 @@ export function parseGroupBlocks<S, O>(
       const block = parseSelectorBlock(cursor)
       if (block) blocks.push(block)
       continue
+    }
+    // Diagnose a word token followed by a comparison operator — this pattern
+    // strongly suggests a selector block whose '@' sigil was omitted, e.g.
+    // `minrolls=4 { … }` instead of `@minrolls=4 { … }`.  Without the '@',
+    // each token in `field op value { … }` is skipped individually and the
+    // inner closing `}` will prematurely close the outer group.
+    if (diags && token.kind === 'word') {
+      const nextTok = cursor.peek(1)
+      if (nextTok?.kind === 'symbol' && (nextTok.value === '=' || nextTok.value === '>=' || nextTok.value === '<=')) {
+        diags.push({
+          from: blockOffset + token.index,
+          to: blockOffset + token.index + token.value.length,
+          message: `'${token.value}' looks like a selector expression — missing '@' before it (e.g. '@${token.value}${nextTok.value}...')`,
+        })
+      }
     }
     cursor.next()
   }
@@ -627,6 +644,8 @@ export function parseOverridesOptionBlock<S, O>(
   groupType: NoteQuestionGroupType,
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
   parseCrossBlock?: (cursor: TokenCursor) => void,
+  diags?: DiagnosticSpan[],
+  blockOffset = 0,
 ): ParsedOverridesOption<S, O> | null {
   const labelToken = cursor.consumeString()
   if (!labelToken) return null
@@ -684,7 +703,7 @@ export function parseOverridesOptionBlock<S, O>(
     }
     // If no params were parsed, apply defaults.
     if (!sliderParams) sliderParams = { min: 0, max: 10, step: 1, default: 1 }
-    const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock)
+    const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock, diags, blockOffset)
     const baseLabel = normalizeQuestionText(label).toLowerCase()
     const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
     return {
@@ -796,6 +815,8 @@ export function parseOverridesMarkerBody<S, O>(
   markerKeywords: readonly string[],
   parseSelectorBlock: (cursor: TokenCursor) => OverridesSelectorBlock<S, O> | null,
   parseCrossBlock?: (cursor: TokenCursor) => void,
+  diags?: DiagnosticSpan[],
+  blockOffset = 0,
 ): ParsedOverridesQuestion<S, O> | null {
   const tokens = tokenize(inner)
   const cursor = new TokenCursor(tokens)
@@ -825,7 +846,7 @@ export function parseOverridesMarkerBody<S, O>(
     const groupType = parseGroupType(token.value)
     if (!groupType) { cursor.next(); continue }
     cursor.next()
-    const parsed = parseOverridesOptionBlock(cursor, parsedOptions.length, groupType, parseSelectorBlock, parseCrossBlock)
+    const parsed = parseOverridesOptionBlock(cursor, parsedOptions.length, groupType, parseSelectorBlock, parseCrossBlock, diags, blockOffset)
     if (!parsed) { if (cursor.peek()) cursor.next(); continue }
     parsedOptions.push(parsed)
   }

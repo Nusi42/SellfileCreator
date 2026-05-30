@@ -874,9 +874,20 @@ const parseOperations = (
     const field = token.value.toLowerCase()
     cursor.next()
     const opToken = cursor.peek()
-    // Require a comparison operator after the field.
+    // Require a comparison operator after the field name.
     if (!opToken || opToken.kind !== 'symbol') {
-      cursor.next()
+      // Flag the field as malformed only when something follows it (opToken !== null)
+      // so truncated blocks at end-of-input don't produce spurious diagnostics.
+      if (diags && opToken !== null) {
+        diags.push({
+          from: absoluteOffset + token.index,
+          to: absoluteOffset + token.index + token.value.length,
+          message: `'${token.value}' — expected '=', '>=', or '<=' after field name`,
+        })
+      }
+      // Do NOT consume opToken — if it is a valid field name the next iteration
+      // should parse it correctly (e.g. `xxx1 lockedminrolls=2` → skip xxx1, then
+      // parse lockedminrolls=2 cleanly).
       continue
     }
     // Normalize supported operator glyphs into override modes.
@@ -1302,6 +1313,8 @@ export function collectRecipeOverridesDiagnostics(
     NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS,
     diagSelectorBlock,
     diagCrossBlock,
+    diags,
+    absoluteOffset,
   )
 }
 

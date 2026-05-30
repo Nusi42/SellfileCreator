@@ -2,7 +2,7 @@ import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, 
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -211,6 +211,7 @@ function renderPrismHighlighted(text: string, grammar: string, sx: Record<string
 const DSL_OVERLAY_PADDING_PX = 10
 
 function DslErrorOverlay({ text, diags }: { text: string; diags: DiagnosticSpan[] }) {
+  const theme = useTheme()
   if (diags.length === 0) return null
 
   // Split the full note text into alternating normal/error segments.
@@ -229,7 +230,7 @@ function DslErrorOverlay({ text, diags }: { text: string; diags: DiagnosticSpan[
           color: 'transparent',
           textDecorationLine: 'underline',
           textDecorationStyle: 'wavy',
-          textDecorationColor: '#f4a',
+          textDecorationColor: theme.palette.warning.main,
           textDecorationSkipInk: 'none',
         }}
       >
@@ -292,11 +293,7 @@ function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
         py: 0.5,
         maxHeight: '5.5em',
         overflowY: 'auto',
-        // Subtle warning tint that works in both light and dark themes.
-        bgcolor: (t) =>
-          t.vars?.palette.warning.mainChannel
-            ? `rgba(${t.vars.palette.warning.mainChannel} / 0.08)`
-            : 'rgba(237,108,2,0.08)',
+        bgcolor: (t) => alpha(t.palette.warning.main, 0.08),
       }}
     >
       {[...counts.entries()].map(([msg, count]) => (
