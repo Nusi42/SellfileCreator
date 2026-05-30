@@ -297,8 +297,18 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   // Extracted so useMemo dependency arrays can reference stable simple variables instead of complex expressions.
-  const paletteErrorMain = theme.vars?.palette.error.main ?? theme.palette.error.main
-  const paletteSuccessMain = theme.vars?.palette.success.main ?? theme.palette.success.main
+  // In CSS vars mode, theme.vars.palette.X returns a CSS var string (e.g. 'var(--mui-palette-error-main)').
+  // parseCssColorToRgb cannot parse CSS var strings, so resolve to the computed hex via the DOM instead.
+  const paletteErrorMain = (() => {
+    const v = theme.vars?.palette.error.main ?? theme.palette.error.main
+    if (!v.startsWith('var(')) return v
+    return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || v
+  })()
+  const paletteSuccessMain = (() => {
+    const v = theme.vars?.palette.success.main ?? theme.palette.success.main
+    if (!v.startsWith('var(')) return v
+    return getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || v
+  })()
   // Sort prefs are the SSOT for glyph inclusion so the Sort popout and grid context menu stay in sync.
   const gearInspectorSubstatSortPreferences = useGearInspectorSubstatSortPreferences()
   const effectiveSubstatSort = useMemo(

@@ -1313,7 +1313,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                       key={`dungeon-detail-slot-${id}`}
                       sx={(theme) => ({
                         borderRadius: 1,
-                        border: `1px solid ${theme.palette.divider}`,
+                        border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
                         px: 0.75,
                         py: 0.6,
                         minWidth: 0,
