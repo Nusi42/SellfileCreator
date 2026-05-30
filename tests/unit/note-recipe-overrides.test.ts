@@ -815,7 +815,7 @@ test('minima dotted term parses to minimaField selector', () => {
 })
 
 test('substatMin selector matches recipe when all active substats meet threshold', () => {
-  // @substatmin>=2 must activate only when every active substat bound satisfies the condition.
+  // @substatmin>=2 must activate when at least one active substat bound satisfies the condition.
   const note = [
     '<!-- recipe-overrides',
     'q "test"',
@@ -825,20 +825,20 @@ test('substatMin selector matches recipe when all active substats meet threshold
   const { instructions } = resolveRecipeOverridesTags(note)
   const spdVariant = variantFromLabel('SPD')!
   const atkVariant = variantFromLabel('ATK')!
-  // Both substats have min=3 — condition satisfied.
+  // Only SPD has min=3 — condition satisfied because at least one qualifies.
   const matching = {
     ...createFactoryBuilderDefaults(),
     exportMode: 'disabled' as const,
     substatsV: [spdVariant, atkVariant],
-    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 3 } },
+    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 1 } },
   }
   assert.equal(resolveRecipeOverridesEffectiveRecipe(matching, instructions).exportMode, 'active')
-  // ATK substat has min=1 which falls below the threshold.
+  // Neither substat meets the threshold.
   const unmatched = {
     ...createFactoryBuilderDefaults(),
     exportMode: 'disabled' as const,
     substatsV: [spdVariant, atkVariant],
-    substatRollBoundsV: { [spdVariant]: { min: 3 }, [atkVariant]: { min: 1 } },
+    substatRollBoundsV: { [spdVariant]: { min: 1 }, [atkVariant]: { min: 1 } },
   }
   assert.equal(resolveRecipeOverridesEffectiveRecipe(unmatched, instructions).exportMode, 'disabled')
 })

@@ -2126,13 +2126,13 @@ const matchesSelector = (
     case 'flex':
       return Boolean(recipe.autoSubstatFlex) === selector.value
     case 'substatMin': {
-      // Match if ALL active substats satisfy the min-bound condition (absent entry → 0).
+      // Match if ANY active substat satisfies the min-bound condition (absent entry → 0).
       const active = new Set<number>()
       ;(recipe.substatsV ?? []).forEach((v) => active.add(Number(v)))
       ;(recipe.fixedSubstatsV ?? []).forEach((v) => active.add(Number(v)))
       const bounds = (recipe.substatRollBoundsV ?? {}) as Record<number, { min?: number }>
       if (active.size === 0) return compareNumeric(0, selector.op, selector.value)
-      return [...active].every((v) => compareNumeric(bounds[v]?.min ?? 0, selector.op, selector.value))
+      return [...active].some((v) => compareNumeric(bounds[v]?.min ?? 0, selector.op, selector.value))
     }
     case 'substatMinField': {
       // Match against one specific substat variant's stored min (absent → 0).
