@@ -691,7 +691,14 @@ export default function SafeguardChipsPanel({
     : rules.length
   const selectedCount = multiselectMode && selectedRuleIndices ? selectedRuleIndices.length : (selectedRuleIdx !== null ? 1 : 0)
 
-  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), focus ring, empty-click-to-deselect.
+  // Ordered list of visible rule indices for arrow/page/home/end navigation.
+  const visibleOrderedRuleIndices = useMemo((): readonly number[] => {
+    if (!visibleRuleIndices) return rules.map((_, i) => i)
+    return rules.map((_, i) => i).filter((i) => visibleRuleIndices.has(i))
+  }, [rules, visibleRuleIndices])
+
+  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), navigation (arrows/page/home/end),
+  // focus ring, empty-click-to-deselect.
   const {
     showFocusRing,
     handleKeyDown: chipListHandleKeyDown,
@@ -705,6 +712,11 @@ export default function SafeguardChipsPanel({
     onDeleteSelected: onDeleteSelected ?? (() => {}),
     onSelectAll: onSelectAll ?? (() => {}),
     onClearSelection: onClearSelection ?? (() => {}),
+    visibleOrderedIndices: visibleOrderedRuleIndices,
+    cursorIdx: selectedRuleIdx,
+    onNavigate: onSelect,
+    chipIndexAttr: 'data-safeguard-chip-index',
+    containerRef: scrollRootRef,
   })
 
   const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleIdx: number) => {

@@ -80,6 +80,8 @@ function RecipeChipsPanel(props: {
   applyAsSafeguardLabel?: string
   onPrepareDragSelection: (idx: number) => number[]
   onReorderRecipes: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
+  /** Keyboard arrow/page/home/end navigation — called with the target visible item index. */
+  onNavigateTo: (idx: number) => void
 }) {
   const { t } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
@@ -122,6 +124,7 @@ function RecipeChipsPanel(props: {
     applyAsSafeguardLabel,
     onPrepareDragSelection,
     onReorderRecipes,
+    onNavigateTo,
   } = props
 
   // Unified chip + background context menu state — chipIdx < 0 means background right-click.
@@ -203,7 +206,11 @@ function RecipeChipsPanel(props: {
     return maxHeightPx
   }, [maxHeightPx, chipsAvailableHeight])
 
-  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), focus ring, empty-click-to-deselect.
+  // Cursor is the last selected index, used as the navigation anchor.
+  const cursorIdx = selectedIndices.length > 0 ? (selectedIndices[selectedIndices.length - 1] ?? null) : null
+
+  // Shared SSOT hook: keyboard shortcuts (Delete, Ctrl+A), navigation (arrows/page/home/end),
+  // focus ring, empty-click-to-deselect.
   const {
     showFocusRing,
     handleKeyDown: chipListHandleKeyDown,
@@ -217,6 +224,11 @@ function RecipeChipsPanel(props: {
     onDeleteSelected,
     onSelectAll,
     onClearSelection,
+    visibleOrderedIndices: renderedIndices,
+    cursorIdx,
+    onNavigate: onNavigateTo,
+    chipIndexAttr: 'data-recipe-chip-index',
+    containerRef,
   })
   const dragAllowed = recipes.length > 1 && renderedIndices.length > 0
 
@@ -269,6 +281,7 @@ function RecipeChipsPanel(props: {
     <>
       <Box
         ref={containerRef}
+        tabIndex={0}
         sx={(theme) => {
           const gutterPadding = theme.spacing(1)
           return {
@@ -458,6 +471,7 @@ function areRecipeChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.applyAsSafeguardLabel === next.applyAsSafeguardLabel
     && prev.onPrepareDragSelection === next.onPrepareDragSelection
     && prev.onReorderRecipes === next.onReorderRecipes
+    && prev.onNavigateTo === next.onNavigateTo
 }
 
 export default memo(RecipeChipsPanel, areRecipeChipsPanelPropsEqual)

@@ -5671,6 +5671,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep the ref in sync so shift-click in useSafeguardSelection reads the latest visible set.
   useLayoutEffect(() => { visibleSafeguardRuleIdsRef.current = visibleSafeguardRuleIds })
   const selectAllLabelKey = visibleRecipeIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
+  // Plain index-based navigate — used by arrow/page/home/end keyboard navigation in RecipeChipsPanel.
+  // Routes through handleRecipeSelect with no modifiers so the builder form loads the recipe,
+  // selection indices update, and the scroll request fires — the same as a plain left-click.
+  const handleRecipeNavigateTo = useCallback((idx: number) => {
+    handleRecipeSelect({ shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent, idx)
+  }, [handleRecipeSelect])
   const scrollSelectedRecipeIntoView = useCallback(() => {
     if (multiselectActive || selectedRecipeIdx === null) return
     try {
@@ -6817,6 +6823,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onDeleteSelected={handleDeleteSelected}
       onPrepareDragSelection={prepareDragSelection}
       onReorderRecipes={handleRecipeReorderWithAutoApply}
+      onNavigateTo={handleRecipeNavigateTo}
     />
   )
 
