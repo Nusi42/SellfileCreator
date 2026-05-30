@@ -667,7 +667,12 @@ function CandidateCardPreview({
   const scaledW = Math.ceil(cardSizing.minWidthPx * scale)
   const scaledH = Math.ceil(cardSizing.cardHeightPx * scale)
   return (
-    <Box sx={{ width: scaledW, height: scaledH, overflow: 'hidden', borderRadius: 1 }}>
+    <Box
+      sx={{
+        width: scaledW, height: scaledH, overflow: 'hidden', borderRadius: 1,
+        ...theme.applyStyles('light', { filter: 'brightness(0.92)' }),
+      }}
+    >
       <Box
         sx={{
           width: cardSizing.minWidthPx,

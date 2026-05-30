@@ -327,6 +327,7 @@ function ScaledGearInspectorGridCard({
 }: ScaledGearInspectorGridCardProps) {
   // Build a full Gear Inspector preview row from the snapshot payload.
   const row = buildGearInspectorPreviewRow(snapshot, match)
+  const theme = useTheme()
   // Single-sided add/remove grids tint borders so direction is obvious at a glance.
   const accentBorderColor = tone === 'added'
     ? 'rgba(var(--mui-palette-success-mainChannel) / 0.55)'
@@ -346,6 +347,10 @@ function ScaledGearInspectorGridCard({
         // Clip Gear Inspector card overflow inside history preview wrappers so no nested card scroll regions appear.
         overflow: 'hidden',
         ...(accentBorderColor ? { border: `1px solid ${accentBorderColor}` } : {}),
+        // In light mode, darken the card uniformly so it doesn't read as stark white
+        // against the toast/tooltip background. Affects all internals (GridIconBox etc.)
+        // without touching any internal colour values.
+        ...theme.applyStyles('light', { filter: 'brightness(0.92)' }),
       }}
     >
       <Box
