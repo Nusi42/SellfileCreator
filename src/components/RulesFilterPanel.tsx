@@ -492,8 +492,8 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
 }
 
 const ZERO_RESULTS_PULSE = keyframes`
-  0%, 100% { background-color: rgba(0,0,0,0); }
-  60% { background-color: rgba(244, 67, 54, 0.28); }
+  0%, 100% { background-color: transparent; }
+  60% { background-color: rgba(var(--mui-palette-error-mainChannel) / 0.28); }
 `
 
 const EMPTY_ROLL_ROWS: readonly GearInspectorRollFilterRow[] = []

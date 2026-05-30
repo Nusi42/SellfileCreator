@@ -163,7 +163,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                         cursor: 'pointer',
                         fontSize: 9,
                         // Light text on medium-to-high intensity cells (green range), dark text on red/empty.
-                        color: intensity > 0.4 ? 'rgba(255,255,255,0.9)' : 'text.secondary',
+                        color: intensity > 0.4 ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                         fontWeight: intensity > 0 ? 600 : 400,
                         border: '1px solid',
                         borderColor: 'divider',

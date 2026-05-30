@@ -24,14 +24,21 @@ export interface ScrollbarGutterOptions {
  * background would otherwise blend with the default transparent track.
  */
 export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
-  // Webkit: explicit track + thumb colours with a slim width
+  // Webkit: explicit track + thumb colours with a slim width.
+  // Default (light mode): black-alpha via common.blackChannel; dark mode: white-alpha via common.whiteChannel.
   '&::-webkit-scrollbar': { width: 9 },
-  '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.06)', borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.22)', borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.38)' },
+  '&::-webkit-scrollbar-track': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.04)', borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.15)', borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.25)' },
   // Firefox: shorthand thumb/track colour + thin width
-  scrollbarColor: 'rgba(255,255,255,0.22) rgba(255,255,255,0.06)',
+  scrollbarColor: 'rgba(var(--mui-palette-common-blackChannel) / 0.15) rgba(var(--mui-palette-common-blackChannel) / 0.04)',
   scrollbarWidth: 'thin',
+  '[data-mui-color-scheme="dark"] &': {
+    '&::-webkit-scrollbar-track': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.06)' },
+    '&::-webkit-scrollbar-thumb': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.22)' },
+    '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.38)' },
+    scrollbarColor: 'rgba(var(--mui-palette-common-whiteChannel) / 0.22) rgba(var(--mui-palette-common-whiteChannel) / 0.06)',
+  },
 })
 
 export const reserveScrollbarGutterSpace = (options?: ScrollbarGutterOptions): SystemStyleObject<Theme> => {

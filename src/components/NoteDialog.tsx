@@ -4448,7 +4448,7 @@ function NoteEditorContent({
               }
               handle.close()
               }}
-              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid var(--mui-palette-divider)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
             </button>

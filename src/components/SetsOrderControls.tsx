@@ -38,8 +38,8 @@ export default function SetsOrderControls({
   const { t } = useI18n()
   // Gentle pulse to draw attention when search matches zero sets.
   const pulseRed = keyframes`
-    0%, 100% { background-color: rgba(0,0,0,0); }
-    60% { background-color: rgba(244, 67, 54, 0.28); }
+    0%, 100% { background-color: transparent; }
+    60% { background-color: rgba(var(--mui-palette-error-mainChannel) / 0.28); }
   `
   return (
     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', minWidth: 0, width: '100%' }}>

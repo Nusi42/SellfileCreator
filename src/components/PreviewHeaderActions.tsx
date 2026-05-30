@@ -653,7 +653,7 @@ export default function PreviewHeaderActions(props: {
     boxShadow: theme.shadows[2],
     backgroundColor: theme.vars?.palette[paletteKey].main ?? theme.palette[paletteKey].main,
     color: theme.vars?.palette[paletteKey].contrastText ?? theme.palette.getContrastText(theme.palette[paletteKey].main),
-    border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
+    border: `2px solid ${(theme.vars?.palette.divider ?? theme.palette.divider)}`,
     fontWeight: theme.typography.fontWeightBold ?? 600,
     fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
     lineHeight: 1,

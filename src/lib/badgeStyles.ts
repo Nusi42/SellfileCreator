@@ -17,8 +17,8 @@ export const buildWarningBadgeBase = (theme: Theme) => ({
   // Use the precomputed contrastText from the CSS vars palette; getContrastText
   // only receives light-scheme hex in CSS-vars mode, giving wrong results in dark.
   color: (theme.vars?.palette.warning.contrastText ?? theme.palette.warning.contrastText),
-  // Outline the badge against the dialog background.
-  border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
+  // Outline the badge using the divider token — visible in light mode, subtle in dark.
+  border: `2px solid ${(theme.vars?.palette.divider ?? theme.palette.divider)}`,
   // Keep the glyph weight consistent with other badges.
   fontWeight: theme.typography.fontWeightBold ?? 600,
   fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
