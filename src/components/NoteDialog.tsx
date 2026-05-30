@@ -274,10 +274,9 @@ function DslErrorOverlay({ text, diags }: { text: string; diags: DiagnosticSpan[
 }
 
 // ── DSL error panel ─────────────────────────────────────────────────────────
-// Compact list rendered below the editor (as a flex sibling inside DialogContent)
-// showing deduplicated diagnostic messages from the overlay.  Repeated messages
-// are folded with a ×N count so a single broken pattern that fires on every
-// selector block doesn't fill the panel.
+// Portaled into `.w-md-editor` (the MDEditor root) as an absolutely-positioned
+// element at the bottom, so it remains visible in both normal and fullscreen
+// (position:fixed) editor modes.  Repeated messages are folded with ×N.
 function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
   if (diags.length === 0) return null
   // Fold repeated messages, preserving first-seen order.
@@ -286,7 +285,13 @@ function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
   return (
     <Box
       sx={{
-        flexShrink: 0,
+        // Absolute position inside .w-md-editor so it floats above editor content
+        // in normal mode and stays fixed to the bottom in fullscreen mode.
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 10,
         borderTop: 1,
         borderColor: 'divider',
         px: 1.5,
@@ -294,6 +299,7 @@ function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
         maxHeight: '5.5em',
         overflowY: 'auto',
         bgcolor: (t) => alpha(t.palette.warning.main, 0.08),
+        backdropFilter: 'blur(4px)',
       }}
     >
       {[...counts.entries()].map(([msg, count]) => (
@@ -4842,7 +4848,11 @@ function NoteEditorContent({
             flex: 1,
             minHeight: 0,
             '& .w-md-editor': {
-              // Keep layout defaults from the editor so text overlay math stays correct.
+              // position:relative makes .w-md-editor a containing block for the
+              // absolutely-positioned DslErrorPanel in normal (non-fullscreen) mode.
+              // In fullscreen mode MDEditor sets position:fixed, which is also a
+              // containing block, so the panel stays at the bottom either way.
+              position: 'relative',
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               backgroundColor: `${editorBg} !important`,
               color: (t) => `${t.vars?.palette.text.primary ?? t.palette.text.primary} !important`,
@@ -5037,10 +5047,13 @@ function NoteEditorContent({
           <DslErrorOverlay text={draft} diags={dslDiags} />,
           editorTextEl,
         )}
+        {/* Error panel portaled into .w-md-editor so it is visible in both
+            normal and fullscreen (position:fixed) editor modes. */}
+        {editorTextEl && createPortal(
+          <DslErrorPanel diags={dslDiags} />,
+          editorTextEl.closest('.w-md-editor') ?? editorTextEl,
+        )}
         </Box>
-        {/* Error messages shown below the editor — the panel only appears when
-            dslDiags is non-empty; the editor box (flex:1) shrinks to fit it. */}
-        <DslErrorPanel diags={dslDiags} />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

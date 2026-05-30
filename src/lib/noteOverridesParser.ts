@@ -303,7 +303,11 @@ export type NoteTagSelector =
  * tag=…, tag in […], tag any, tag none, not/!, and/&&, or/||.
  * Recipe-specific terms (rank, rarity, minrolls, flex) are NOT included here.
  */
-export const parseTagSelector = (tokens: Token[]): NoteTagSelector | null => {
+export const parseTagSelector = (
+  tokens: Token[],
+  absoluteOffset = 0,
+  diags?: DiagnosticSpan[],
+): NoteTagSelector | null => {
   const cursor = new TokenCursor(tokens)
 
   const parseTerm = (): NoteTagSelector | null => {
@@ -386,7 +390,20 @@ export const parseTagSelector = (tokens: Token[]): NoteTagSelector | null => {
       if (word !== 'and' && word !== '&&') break
       cursor.next()
       const right = parseNot()
-      if (!right) return null
+      if (!right) {
+        if (diags) {
+          const failTok = cursor.peek()
+          if (failTok) {
+            const from = absoluteOffset + failTok.index
+            if (failTok.kind === 'symbol' && failTok.value === '@') {
+              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} tag=foo'` })
+            } else if (failTok.kind === 'word') {
+              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
+            }
+          }
+        }
+        return null
+      }
       left = { kind: 'and', left, right }
     }
     return left
@@ -402,13 +419,37 @@ export const parseTagSelector = (tokens: Token[]): NoteTagSelector | null => {
       if (word !== 'or' && word !== '||') break
       cursor.next()
       const right = parseAnd()
-      if (!right) return null
+      if (!right) {
+        if (diags) {
+          const failTok = cursor.peek()
+          if (failTok) {
+            const from = absoluteOffset + failTok.index
+            if (failTok.kind === 'symbol' && failTok.value === '@') {
+              diags.push({ from, to: from + 1, message: `'@' after '${word}' — write the field name directly, e.g. '${word} tag=foo'` })
+            } else if (failTok.kind === 'word') {
+              diags.push({ from, to: from + failTok.value.length, message: `'${failTok.value}' is not a valid selector condition` })
+            }
+          }
+        }
+        return null
+      }
       left = { kind: 'or', left, right }
     }
     return left
   }
 
   const parsed = parseOr()
+  if (parsed && diags) {
+    const leftover = cursor.peek()
+    if (leftover) {
+      const from = absoluteOffset + leftover.index
+      if (leftover.kind === 'symbol' && leftover.value === '@') {
+        diags.push({ from, to: from + 1, message: `unexpected '@' in selector — did you mean to add 'and' or 'or' before it?` })
+      } else if (leftover.kind === 'word') {
+        diags.push({ from, to: from + leftover.value.length, message: `unexpected '${leftover.value}' in selector — missing 'and'/'or' connector?` })
+      }
+    }
+  }
   if (!parsed) return null
   return parsed
 }

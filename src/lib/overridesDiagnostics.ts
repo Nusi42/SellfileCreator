@@ -21,6 +21,7 @@ import {
 } from './noteOverridesParser'
 import { NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD } from './noteSafeguardOverrides'
 import { collectRecipeOverridesDiagnostics } from './noteRecipeOverrides'
+import { collectSafeguardOverridesDiagnostics } from './noteSafeguardOverrides'
 
 export type { DiagnosticSpan }
 
@@ -52,7 +53,9 @@ export function collectOverridesDiagnostics(text: string): DiagnosticSpan[] {
     // String-literal diagnostics (tokenizer-level; cannot be detected by the parser).
     collectStringDiagnostics(block, blockOffset, diags)
     // Structural diagnostics: @ placement, unknown terms (detected by the real parser).
+    // Each function silently no-ops when the block's marker keyword doesn't match.
     collectRecipeOverridesDiagnostics(block, blockOffset, diags)
+    collectSafeguardOverridesDiagnostics(block, blockOffset, diags)
   }
   return diags
 }

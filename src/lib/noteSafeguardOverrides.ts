@@ -41,6 +41,7 @@ import {
   SAFEGUARD_WEIGHT_DEFAULT,
 } from './generated/domainConstants'
 import {
+  type DiagnosticSpan,
   type NoteQuestionGroupType,
   type NoteTagSelector,
   type NoteCountAstNode,
@@ -243,7 +244,11 @@ const consumeStatListRemainder = (cursor: TokenCursor): string[] => {
 // ── Operations parser ─────────────────────────────────────────────────────────
 
 /** Parse safeguard-overrides operation assignments inside a `{ … }` block. */
-const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => {
+const parseOperations = (
+  cursor: TokenCursor,
+  absoluteOffset = 0,
+  diags?: DiagnosticSpan[],
+): SafeguardOverridesOperation[] => {
   const operations: SafeguardOverridesOperation[] = []
   while (true) {
     const token = cursor.peek()
@@ -252,11 +257,26 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
     if (token.kind === 'symbol' && token.value === '}') { cursor.next(); break }
     // Skip optional commas between assignments.
     if (token.kind === 'symbol' && token.value === ',') { cursor.next(); continue }
-    if (token.kind !== 'word') { cursor.next(); continue }
+    if (token.kind !== 'word') {
+      if (diags && token.kind === 'symbol' && token.value === '@') {
+        const from = absoluteOffset + token.index
+        diags.push({ from, to: from + 1, message: `'@' inside an assignment block — write the field name directly (e.g. 'activation=off', not '@activation=off')` })
+      }
+      cursor.next(); continue
+    }
     const field = token.value.toLowerCase()
     cursor.next()
     // Require `=` after the field name.
-    if (!cursor.consumeSymbol('=')) { if (cursor.peek()) cursor.next(); continue }
+    if (!cursor.consumeSymbol('=')) {
+      if (diags) {
+        diags.push({
+          from: absoluteOffset + token.index,
+          to: absoluteOffset + token.index + token.value.length,
+          message: `'${token.value}' — expected '=' after field name`,
+        })
+      }
+      if (cursor.peek()) cursor.next(); continue
+    }
 
     // ── count = <expr> (full expression parser, no pre-consumed value token) ───
     // Intercept before the generic value-reading path so the expression parser
@@ -478,17 +498,51 @@ const parseOperations = (cursor: TokenCursor): SafeguardOverridesOperation[] => 
  * Parse a single safeguard `@selector { … }` block.
  * Exported for use as a cross-domain block parser inside recipe-overrides markers.
  */
-export function parseSafeguardSelectorBlock(cursor: TokenCursor): SafeguardOverridesSelectorBlock | null {
+export function parseSafeguardSelectorBlock(
+  cursor: TokenCursor,
+  diags?: DiagnosticSpan[],
+  absoluteOffset = 0,
+): SafeguardOverridesSelectorBlock | null {
   const selectorTokens = collectSelectorTokensAndOpenBlock(cursor)
   if (!selectorTokens) return null
-  const selector = parseTagSelector(selectorTokens)
-  const operations = parseOperations(cursor)
+  const selector = parseTagSelector(selectorTokens, absoluteOffset, diags)
+  const operations = parseOperations(cursor, absoluteOffset, diags)
   if (!selector || operations.length === 0) return null
   return { selector, operations }
 }
 
 /** Module-internal alias for the selector block parser (passed to shared infrastructure). */
 const parseSelectorBlock = parseSafeguardSelectorBlock
+
+/**
+ * Parses `rawBlock` (a full `<!-- safeguard-overrides … -->` comment) for
+ * structural errors and appends diagnostics to `diags`.  Mirrors the recipe
+ * equivalent in noteRecipeOverrides.ts.
+ */
+export function collectSafeguardOverridesDiagnostics(
+  rawBlock: string,
+  blockStart: number,
+  diags: DiagnosticSpan[],
+): void {
+  const stripped = stripCommentWrapper(rawBlock)
+  const strippedPos = rawBlock.indexOf(stripped)
+  const absoluteOffset = blockStart + (strippedPos >= 0 ? strippedPos : 0)
+
+  const diagSelectorBlock = (c: TokenCursor): SafeguardOverridesSelectorBlock | null =>
+    parseSafeguardSelectorBlock(c, diags, absoluteOffset)
+
+  // Cross-domain blocks (`recipe @selector { … }`) inside safeguard markers.
+  const diagCrossBlock = (c: TokenCursor) => parseRecipeSelectorBlockCross(c)
+
+  parseOverridesMarkerBody<NoteTagSelector, SafeguardOverridesOperation>(
+    stripped,
+    [NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD],
+    diagSelectorBlock,
+    diagCrossBlock,
+    diags,
+    absoluteOffset,
+  )
+}
 
 // ── Internal parsed types (parameterized shared types) ───────────────────────
 
