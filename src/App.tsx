@@ -7316,9 +7316,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : null
     if (!btn) return
     const anim = btn.animate([
-      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(25, 118, 210, 0.7)' },
-      { transform: 'scale(1.12)', boxShadow: '0 0 0 10px rgba(25, 118, 210, 0)' },
-      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(25, 118, 210, 0)' },
+      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(var(--mui-palette-primary-mainChannel) / 0.7)' },
+      { transform: 'scale(1.12)', boxShadow: '0 0 0 10px rgba(var(--mui-palette-primary-mainChannel) / 0)' },
+      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(var(--mui-palette-primary-mainChannel) / 0)' },
     ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
     return () => { anim.cancel() }
   }, [simpleMode, isSimpleViewAtStart, restoreDlgOpen])

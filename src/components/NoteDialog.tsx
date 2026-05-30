@@ -218,9 +218,9 @@ const NOTE_DRAWER_PAPER_SX = {
 }
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
-  0%   { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-  50%  { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(var(--mui-palette-success-mainChannel) / 0.7); }
+  50%  { box-shadow: 0 0 0 8px rgba(var(--mui-palette-success-mainChannel) / 0); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--mui-palette-success-mainChannel) / 0); }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 // Duration for all express↔expert mode transitions (ms).
@@ -3304,12 +3304,13 @@ export default function NoteDialog({
               sx={(theme) => ({
                 borderRadius: 1,
                 border: 1,
-                borderColor: autoPushExpressEnabled ? 'success.main' : 'divider',
+                borderColor: autoPushExpressEnabled ? 'success.main' : 'primary.main',
                 bgcolor: autoPushExpressEnabled ? 'success.main' : 'transparent',
-                color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'text.secondary',
+                color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'primary.main',
                 '&:hover': {
-                  bgcolor: autoPushExpressEnabled ? 'success.dark' : 'rgba(var(--mui-palette-success-mainChannel) / 0.08)',
-                  borderColor: 'success.main',
+                  bgcolor: autoPushExpressEnabled ? 'success.dark' : 'primary.main',
+                  borderColor: autoPushExpressEnabled ? 'success.main' : 'primary.main',
+                  color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'primary.contrastText',
                 },
                 ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}),
               })}
