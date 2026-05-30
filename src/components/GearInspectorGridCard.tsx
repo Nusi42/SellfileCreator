@@ -12,7 +12,8 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import SellIcon from '@mui/icons-material/Sell'
-import { alpha, keyframes, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, keyframes, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
+import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined'
@@ -434,6 +435,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t, lang } = useI18n()
   const theme = useTheme()
+  const { colorScheme } = useColorScheme()
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
@@ -782,7 +784,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const mainInline = mainValue ? t('gearInspectorMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
   const mainVariant = artifact.mainStat?.variant
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'
-    ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
+    ? lightAdaptedSubstatFg(substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant], colorScheme === 'light')
     : undefined
   const glyphDeltaColor = (theme.vars?.palette.success.main ?? theme.palette.success.main)
   // Compact (<=4 columns) cards need explicit per-field alignment for substats.
@@ -805,7 +807,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       const statLabel = t(statVariantI18nKey(stat.variant))
       const statValue = formatStatPreGlyph(stat) || t('gearInspectorValueUnknown')
       const statColor = useStatButtonColors
-        ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
+        ? lightAdaptedSubstatFg(substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant], colorScheme === 'light')
         : undefined
       const glyphMagnitude = Math.abs(Number(stat.glyphValue) || 0)
       const glyphDelta = glyphMagnitude >= 0.01
@@ -871,7 +873,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
   const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
   const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
-    ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
+    ? lightAdaptedSubstatFg(substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant], colorScheme === 'light')
     : undefined
   const ascInlineFontSize = 'calc(100% - 1.5px)'
   const ascLabelNode = ascLabel ? (

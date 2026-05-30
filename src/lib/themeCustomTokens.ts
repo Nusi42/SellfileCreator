@@ -8,6 +8,7 @@
  * Alpha values live here so there is exactly one number per concept; they are injected
  * as CSS custom properties once via GlobalStyles in main.tsx.
  */
+import { darken } from '@mui/material/styles'
 
 // ─── CSS variable names ───────────────────────────────────────────────────────
 export const APP_CSS_VAR = {
@@ -248,8 +249,16 @@ export type ThemeCustomTokens = typeof CUSTOM_TOKENS
 // properties cannot be substituted — e.g. when the input color is a caller-supplied
 // hex string, not an MUI palette channel.
 // Keep any new per-concept values here so there is one number to change per concept.
-export const SUBSTAT_LIGHT_CHIP_BG_ALPHA = 0.15
-export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.25
+export const SUBSTAT_LIGHT_CHIP_BG_ALPHA = 0.11
+export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.20
+
+// Adapts a substat fg color for plain text labels on a light-theme surface.
+// Chip labels use the deeper darken(0.55) in resolveSubstatChipPalette;
+// text-only coloring uses 0.35 since there is no tinted chip background to amplify saturation.
+export function lightAdaptedSubstatFg(fg: string | undefined, isLight: boolean): string | undefined {
+  if (!fg || !isLight) return fg
+  return darken(fg, 0.35)
+}
 
 // ─── TypeScript augmentation ──────────────────────────────────────────────────
 // Adds theme.custom to every MUI Theme so component sx callbacks can write

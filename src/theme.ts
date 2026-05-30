@@ -36,8 +36,8 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     : {}
 
   const primaryMain = custom.primaryColor ?? (isDark ? '#58a6ff' : '#0969da')
-  const defaultBg    = isDark ? '#0f1216' : '#f2f2f2'
-  const defaultPaper = isDark ? '#161b22' : '#f7f7f7'
+  const defaultBg    = isDark ? '#0f1216' : '#eeeeee'
+  const defaultPaper = isDark ? '#161b22' : '#f5f5f5'
   const bgDefault    = custom.bgColor ?? defaultBg
   const bgPaperDerived = custom.bgColor != null
     ? (isDark ? lighten(bgDefault, 0.06) : darken(bgDefault, 0.03))

@@ -91,7 +91,7 @@ import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPH
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
@@ -1652,6 +1652,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     onJumpToHistoryIndex,
   })
   const theme = useTheme()
+  const { colorScheme } = useColorScheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
@@ -3571,6 +3572,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         substatColors,
         colorize: shouldColorize,
         fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
+        isLight: colorScheme === 'light',
       })
       const glyph = mixed ? '' : isNotActive ? '¬' : (mode === 'min' ? '≥' : '≤')
       const glyphColor = (mode === 'max') ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main)

@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from 'react'
 import type React from 'react'
 import type { JSX } from 'react'
 import { Box, Chip, IconButton, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -34,6 +34,7 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
@@ -170,6 +171,7 @@ function RecipeChip({
   const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
+  const { colorScheme } = useColorScheme()
   const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
@@ -210,8 +212,9 @@ function RecipeChip({
       recipeIndex: index,
       tooltipsDisabled: tooltipSuppressed,
       catalogVersion: gearSetCatalogVersion,
+      isLight: colorScheme === 'light',
     }),
-    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion],
+    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, colorScheme],
   )
   const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -584,6 +587,7 @@ export function summaryParts(
     recipeIndex?: number
     tooltipsDisabled?: boolean
     catalogVersion?: number
+    isLight?: boolean
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
@@ -738,7 +742,7 @@ export function summaryParts(
     if (v.length > 0) {
       const nodes = v.map((vk) => {
         const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+        const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
         return (
           <Box key={`m-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
         )
@@ -762,7 +766,7 @@ export function summaryParts(
       try {
         nodes = sv.map((vk) => {
           const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-          const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+          const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
         // Render per-substat roll bounds using a compact, readable indicator circle
         // like the Builder’s roll badge, but without fill: a red (cap/not) or green (min/any)
         // outlined circle with the symbol inside.

@@ -42,7 +42,7 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
       return {
         chipBg: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BG_ALPHA),
         chipBorder: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA),
-        labelColor: darken(fgColor, 0.45),
+        labelColor: darken(fgColor, 0.55),
       }
     }
   }

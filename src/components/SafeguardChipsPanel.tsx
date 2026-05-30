@@ -27,7 +27,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { alpha } from '@mui/material/styles'
+import { alpha, useColorScheme } from '@mui/material/styles'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   GLYPH_IGNORE_COLLECTION,
@@ -179,6 +179,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   onDelete, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
 }: SafeguardChipProps) {
   // Derive display values from the rule; recomputed only when this chip's props change.
+  const { colorScheme } = useColorScheme()
   const rawName = (pendingName ?? rule.appearance?.name ?? '').trim()
   const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
   // Color comes from fgColor; fall back to inherit when unset.
@@ -207,8 +208,9 @@ const SafeguardChip = React.memo(function SafeguardChip({
       showSlotIcons,
       t,
       lang,
+      isLight: colorScheme === 'light',
     }),
-    [rule, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang],
+    [rule, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, colorScheme],
   )
 
   return (
