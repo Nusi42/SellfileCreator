@@ -214,7 +214,7 @@ function GearInspectorRuleReferenceChipBody({
     : baseSx
   const canJump = clickable && typeof onJump === 'function' && typeof ruleIndex === 'number'
   const interactiveProps = canJump
-    ? { component: 'button' as const, onClick: () => onJump(ruleIndex, recipeIdx) }
+    ? { component: 'button' as const, onClick: (e: React.MouseEvent) => { e.stopPropagation(); onJump(ruleIndex, recipeIdx) } }
     : {}
   const iconProps = icon ? { icon } : {}
   const dataMatchSourceProps = dataMatchSource ? { 'data-match-source': dataMatchSource } : {}
@@ -237,7 +237,9 @@ function GearInspectorRuleReferenceChipBody({
   )
   if (!clickable) {
     return (
-      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
+      // stopPropagation prevents the card's selection onClick from firing when the user
+      // clicks a non-interactive chip (e.g. Final Sell) that has no jump action of its own.
+      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         {chipWithEllipsis}
       </Box>
     )

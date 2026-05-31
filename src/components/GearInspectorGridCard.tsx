@@ -665,6 +665,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   })
   // Overflow chip defers the popover until the user explicitly taps it to keep VT tree shallow.
   const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation()
     if (matchingOverflowCount <= 0) return
     setMatchingPopoverAnchor(event.currentTarget)
   }
@@ -711,7 +712,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           ? {
               component: 'button' as const,
               type: 'button' as const,
-              onClick: () => {
+              onClick: (e: React.MouseEvent) => {
+                e.stopPropagation()
                 options?.onSelect?.()
                 handleMatchingRecipeJump(entry.recipeIdx)
               },
