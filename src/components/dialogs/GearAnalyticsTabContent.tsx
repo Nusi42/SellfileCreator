@@ -667,12 +667,16 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   )
 
   // Outcome donut: map outcome strings to MUI theme semantic colors.
+  // Use theme.palette.* (concrete scheme hex), NOT theme.vars.palette.* (var(--mui-…) strings):
+  // the donut runs these through alpha() and getContrastText(), and MUI's color math decomposes
+  // colors in JS — it throws on var()/color-mix(). Concrete colors keep both paths safe and match
+  // rarityColorById, which likewise hands the donut plain hex.
   const outcomeColorById = useCallback(
     (id: number | string): string | undefined => {
-      if (id === 'sell') return (theme.vars?.palette.error.main ?? theme.palette.error.main)
-      if (id === 'keep') return (theme.vars?.palette.success.main ?? theme.palette.success.main)
-      if (id === 'safe') return (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
-      if (id === 'none') return (theme.vars?.palette.success.light ?? theme.palette.success.light)
+      if (id === 'sell') return theme.palette.error.main
+      if (id === 'keep') return theme.palette.success.main
+      if (id === 'safe') return theme.palette.warning.main
+      if (id === 'none') return theme.palette.success.light
       return undefined
     },
     [theme],
