@@ -4368,7 +4368,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     dismissGearDbCommandToast()
     try {
       // Normalize the raw rows into the canonical Gear Inspector dataset before diffing.
-      const { dataset, gearInspectorItems, artifactCount, inboxCount } = createDatasetFromSnapshot(command)
+      // Pass the previous dataset so protected fields (lastUseLocalTimestamp, isLocked)
+      // are merged rather than silently overwritten when the new feed omits them.
+      const { dataset, gearInspectorItems, artifactCount, inboxCount } = createDatasetFromSnapshot(
+        command, gearDbRawDatasetRef.current ?? undefined,
+      )
       // Snapshot only the changed subset of incoming artifacts for the diff.
       const nextSnapshots = snapshotGearDbDataset(dataset, changedIdsFilter)
       // Build the per-item diff list for the endpoint toast.

@@ -187,6 +187,23 @@ export const createLastUsedLookup = (rows: Iterable<GearDbLastUsedRow>): LastUse
   return map
 }
 
+/**
+ * Merge an incoming lastUsed lookup over a previous one so that artifacts absent
+ * from the new feed (sparse endpoint payload) retain their previously known timestamp.
+ * Incoming entries always win when present; the previous lookup is used as a fallback
+ * for any id not present in `incoming`.
+ */
+export const mergeLastUsedLookup = (
+  incoming: LastUsedLookup,
+  previous: LastUsedLookup,
+): LastUsedLookup => {
+  // Start from previous so every known timestamp is preserved by default.
+  const merged = new Map(previous)
+  // Overlay incoming entries — they represent fresher data and always take precedence.
+  for (const [id, ts] of incoming) merged.set(id, ts)
+  return merged
+}
+
 export const upsertLastUsedRow = (map: LastUsedLookup, row: GearDbLastUsedRow): string | null => {
   const parsed = toLastUsedRow(row)
   if (!parsed) return null

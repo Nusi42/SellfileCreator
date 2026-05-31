@@ -16,6 +16,7 @@ import {
 import {
   createChampionLookup,
   createLastUsedLookup,
+  mergeLastUsedLookup,
   type ChampionLookup,
   type LastUsedLookup,
 } from './gearDbLookups'
@@ -34,16 +35,36 @@ type ArtifactSource = 'artifacts' | 'inbox'
 /**
  * Build a full dataset from a JSON snapshot event so callers can diff it against
  * the currently rendered Gear Inspector queue.
+ *
+ * `previousDataset` is optional. When supplied, two protected fields are merged
+ * rather than blindly replaced:
+ * - `lastUseLocalTimestamp`: a non-null previous value is kept when the new feed
+ *   omits the artifact from the lastUsed array (sparse payload protection).
+ * - `isLocked`: when the incoming row did not include the field (`row.isLocked ===
+ *   undefined`), a previously known `true` lock state is preserved rather than
+ *   silently defaulting to `false`.
  */
 export const createDatasetFromSnapshot = (
   snapshot: GearDbRawSnapshotCommand,
+  previousDataset?: GearDbRawDataset,
 ): { dataset: GearDbRawDataset; gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
   // Build champion/last-used lookups first so artifact normalization has all
   // of the metadata the SQL importer would have provided.
   const championLookup = createChampionLookup(snapshot.champions)
-  const lastUsedLookup = createLastUsedLookup(snapshot.lastUsed)
-  const artifacts = buildArtifactMap(snapshot.artifacts, 'artifacts', championLookup, lastUsedLookup)
-  const inboxArtifacts = buildArtifactMap(snapshot.inboxArtifacts ?? [], 'inbox', championLookup, lastUsedLookup)
+  const incomingLastUsed = createLastUsedLookup(snapshot.lastUsed)
+  // Merge over the previous lookup so timestamps absent from the new feed are
+  // not dropped — endpoint lastUsed arrays can be sparse across pushes.
+  const lastUsedLookup = previousDataset
+    ? mergeLastUsedLookup(incomingLastUsed, previousDataset.lastUsed)
+    : incomingLastUsed
+  const artifacts = buildArtifactMap(
+    snapshot.artifacts, 'artifacts', championLookup, lastUsedLookup,
+    previousDataset?.artifacts,
+  )
+  const inboxArtifacts = buildArtifactMap(
+    snapshot.inboxArtifacts ?? [], 'inbox', championLookup, lastUsedLookup,
+    previousDataset?.inboxArtifacts,
+  )
   const dataset: GearDbRawDataset = {
     snapshotId: snapshot.snapshotId ?? null,
     champions: championLookup,
@@ -85,6 +106,9 @@ const buildArtifactMap = (
   source: ArtifactSource,
   champions: ChampionLookup,
   lastUsed: LastUsedLookup,
+  // When provided, previously known protected field values are preserved over
+  // endpoint defaults when the incoming row omits those fields.
+  previousArtifacts?: ReadonlyMap<number, NormalizedGearArtifact>,
 ): Map<number, NormalizedGearArtifact> => {
   const map = new Map<number, NormalizedGearArtifact>()
   for (const row of rows) {
@@ -101,6 +125,23 @@ const buildArtifactMap = (
           lastUseLocalTimestamp: lastUsed.get(id) ?? null,
         },
       )
+      // isLocked protection: when the endpoint row omits the field entirely
+      // (undefined), the normalizer defaults to false. If we have a previous
+      // artifact with isLocked=true, keep it — the endpoint is not asserting
+      // "unlocked", it simply did not report the field.
+      if (row.isLocked === undefined) {
+        const prev = previousArtifacts?.get(id)
+        if (prev?.isLocked === true) {
+          normalized.isLocked = true
+          normalized.gearInspectorItem = {
+            ...normalized.gearInspectorItem,
+            previewExtras: {
+              ...normalized.gearInspectorItem.previewExtras,
+              isLocked: true,
+            },
+          }
+        }
+      }
       map.set(id, normalized)
     } catch {
       // Invalid rows can appear when helper metadata slips through; drop them.
