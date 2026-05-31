@@ -1412,15 +1412,23 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     // After the flattened list settles, measure the header again and nudge scrollTop so it stays in-frame.
     const targetNode = container.querySelector<HTMLElement>(`[data-gear-inspector-grid-header="true"][data-header-key="${pending.key}"]`)
     if (!targetNode) {
-      // Header is not in the DOM yet (collapsed list, new sibling), so scroll the virtualizer to it explicitly.
-      const targetIndex = flattenedItems.findIndex(
-        (item) => item.kind === 'groupHeader' && item.group.key === pending.key,
-      )
-      if (targetIndex >= 0) {
-        rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
-        pending.attemptedMount = true
-        return
+      // Header is not in the DOM yet (collapsed list, new sibling). Jump the virtualizer to it ONCE so it
+      // mounts, then let the follow-up pass do the precise nudge. The attemptedMount guard is essential:
+      // this effect re-runs on every scroll (virtualizationRange deps), so without it a header that keeps
+      // leaving the render range would be re-scrolled on each scroll event — snapping the user back and
+      // making the list impossible to scroll after toggling a pinned header.
+      if (!pending.attemptedMount) {
+        const targetIndex = flattenedItems.findIndex(
+          (item) => item.kind === 'groupHeader' && item.group.key === pending.key,
+        )
+        if (targetIndex >= 0) {
+          rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
+          pending.attemptedMount = true
+          return
+        }
       }
+      // No index to jump to, or we already tried once and it still isn't mounted: release the anchor so
+      // ongoing scrolling stays free instead of fighting a header that won't stay in the render range.
       pendingScrollAnchorRef.current = null
       return
     }
