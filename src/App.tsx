@@ -6567,6 +6567,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       metasets={metasets}
       onMetasetsChange={handleMetasetsChange}
       describeNextChange={describeNextChange}
+      onMetasetRenamed={(previousName, nextName) => {
+        // Cascade the rename into all places that reference metasets by name.
+        setBuilder(prev => {
+          const currentMeta = prev.artifactMetaSets ?? []
+          if (!currentMeta.includes(previousName)) return prev
+          return { ...prev, artifactMetaSets: currentMeta.map(n => (n === previousName ? nextName : n)) }
+        })
+        setCustomRecipesTransition(prev => {
+          let anyChanged = false
+          const next = prev.map(c => {
+            const currentMeta = c.artifactMetaSets ?? []
+            if (!currentMeta.includes(previousName)) return c
+            anyChanged = true
+            return { ...c, artifactMetaSets: currentMeta.map(n => (n === previousName ? nextName : n)) }
+          })
+          return anyChanged ? next : prev
+        })
+        setSafeguardRulesTransition(prev => {
+          let mutated = false
+          const next = prev.map(rule => {
+            const metaIds = rule.combination.metaSetNames ?? []
+            if (!metaIds.includes(previousName)) return rule
+            mutated = true
+            return {
+              ...rule,
+              combination: {
+                ...rule.combination,
+                metaSetNames: metaIds.map(n => (n === previousName ? nextName : n)),
+              },
+            }
+          })
+          return mutated ? next : prev
+        })
+      }}
       onDeleteMetaset={(id, opts) => {
         // Determine replacement strategy before mutating metasets/recipes/safeguard rules
         const metaToDelete = metasets.find(m => m.name === id) || null

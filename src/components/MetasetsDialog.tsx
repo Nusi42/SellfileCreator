@@ -165,6 +165,7 @@ export default function MetasetsDialog({
   onMetasetsChange,
   describeNextChange,
   onDeleteMetaset,
+  onMetasetRenamed,
   onResetMetasets,
   setUsageCounts,
   metasetUsageCounts,
@@ -184,6 +185,8 @@ export default function MetasetsDialog({
   onMetasetsChange: (next: Metaset[]) => void
   describeNextChange: DescribeNextChangeFn
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
+  /** Called after the metaset list has been flushed with the new name so App can rewrite recipe/safeguard references. */
+  onMetasetRenamed: (previousName: string, nextName: string) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
@@ -1109,14 +1112,17 @@ export default function MetasetsDialog({
                     highlight={legendaryMetaId === m.name}
                     allNames={draftMetasets.map((dm) => dm.name)}
                     onCommitName={(nextName) => {
-                      // Names are the primary key; reject renames that would create a duplicate.
+                      // Names are the primary key; reject renames that would create a duplicate or no-op.
                       const trimmed = nextName.trim()
-                      if (!trimmed || draftMetasets.some((other, otherIdx) => otherIdx !== idx && other.name === trimmed)) return
+                      const previousName = draftMetasets[idx]?.name
+                      if (!trimmed || !previousName || previousName === trimmed || draftMetasets.some((other, otherIdx) => otherIdx !== idx && other.name === trimmed)) return
                       commitMetasetUpdate(
                         idx,
                         (prevMeta) => ({ ...prevMeta, name: trimmed }),
                         (previousMeta, nextMeta) => ({ kind: 'metasetRenamed', previous: previousMeta, next: nextMeta }),
                       )
+                      // Flush the rename to App immediately, then cascade to recipes/safeguards on the next frame.
+                      flushDraftThen(() => onMetasetRenamed(previousName, trimmed))
                     }}
                   />
                   <EllipsisTooltip
