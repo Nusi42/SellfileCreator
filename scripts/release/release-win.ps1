@@ -90,6 +90,35 @@ try {
   }
   $archivePath = Join-Path $RepoRoot $archiveName
 
+  # Ask upfront — before any slow steps — so the user isn't blocked mid-run.
+  $runTests = $true
+  if (-not $DevBuild) {
+    $userAnswered = $false
+    try {
+      for ($i = 5; $i -gt 0; $i--) {
+        Write-Host -NoNewline "`r  Run test suite? [Y/n]  Defaulting to Y in $i second(s)... "
+        $sliceStart = [DateTime]::Now
+        while (([DateTime]::Now - $sliceStart).TotalMilliseconds -lt 1000) {
+          if ([Console]::KeyAvailable) {
+            $key = [Console]::ReadKey($true)
+            Write-Host ''
+            if ($key.KeyChar -eq 'n' -or $key.KeyChar -eq 'N') {
+              $runTests = $false
+            }
+            $userAnswered = $true
+            break
+          }
+          Start-Sleep -Milliseconds 100
+        }
+        if ($userAnswered) { break }
+      }
+      if (-not $userAnswered) { Write-Host '' }
+    } catch {
+      Write-Host ''
+      Write-Warning "Could not read console input (non-interactive session?); defaulting to run tests."
+    }
+  }
+
   # Sync node_modules to the committed lockfile so the release is built from
   # exactly what's in version control. Skipped for -DevBuild to preserve fast
   # iteration; dev builds use whatever the developer has installed locally.
@@ -111,13 +140,17 @@ try {
   # Run unit (+ e2e tests for production releases; skip for dev builds to keep iteration fast.
   # don't error out if e2e tests fail
   if (-not $DevBuild) {
-    Write-Host 'Running test suite (npm run test:unit)...'
-    npm run --silent test:unit
-    if ($LASTEXITCODE -ne 0) {
-      throw "Tests failed with exit code $LASTEXITCODE"
+    if ($runTests) {
+      Write-Host 'Running test suite (npm run test:unit)...'
+      npm run --silent test:unit
+      if ($LASTEXITCODE -ne 0) {
+        throw "Tests failed with exit code $LASTEXITCODE"
+      }
+      Write-Host 'Running test suite (npm run test:e2e)...'
+      npm run --silent test:e2e
+    } else {
+      Write-Host 'Skipping test suite.' -ForegroundColor Yellow
     }
-    Write-Host 'Running test suite (npm run test:e2e)...'
-    npm run --silent test:e2e
   }
 
   # Ensure clean staging directory
