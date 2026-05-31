@@ -992,6 +992,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const cardWidthMeasureRef = useRef<number | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
+  // Inner content width (clientWidth) of the scroll container — already excludes the reserved scrollbar
+  // gutter. The sticky overlay is a sibling spanning the full border box, so we size it to this width so
+  // its pinned headers occupy exactly the same horizontal band as the real headers (never the gutter).
+  const [overlayContentWidthPx, setOverlayContentWidthPx] = useState(0)
+  const setOverlayContentWidthRef = useRef(setOverlayContentWidthPx)
+  useEffect(() => { setOverlayContentWidthRef.current = setOverlayContentWidthPx }, [setOverlayContentWidthPx])
+  // Last content width pushed to state, so the scroll handler only re-renders when it actually changes.
+  const overlayContentWidthValueRef = useRef(0)
   const [showScrollGroupHint, setShowScrollGroupHint] = useState(false)
   const scrollHintVisibleRef = useRef(false)
   const scrollHintHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
@@ -1017,6 +1025,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const measure = () => {
       const nextHeight = node.clientHeight
       setViewportHeightRef.current(nextHeight)
+      // Capture the inner content width so the sticky overlay mirrors the real headers' band exactly.
+      const nextContentWidth = Math.max(0, node.clientWidth)
+      setOverlayContentWidthRef.current(nextContentWidth)
       if (nextHeight <= 0) {
         scheduleViewportMeasure()
       }
@@ -1042,6 +1053,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
+    // The sticky overlay only matters once scrolled, and scroll always fires on the live, laid-out
+    // container — so capture its inner content width here (the standalone measure effect can miss a late
+    // container remount). This keeps pinned-header width matched to the real headers, never the gutter.
+    const liveContentWidth = event.currentTarget.clientWidth
+    if (liveContentWidth > 0 && liveContentWidth !== overlayContentWidthValueRef.current) {
+      overlayContentWidthValueRef.current = liveContentWidth
+      setOverlayContentWidthRef.current(liveContentWidth)
+    }
     if (!scrollHintVisibleRef.current) {
       scrollHintVisibleRef.current = true
       setShowScrollGroupHint(true)
@@ -1167,6 +1186,12 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     return () => observer.disconnect()
   }, [onScrollbarWidthMeasured, shouldMeasureScrollbarWidth])
   const accordionSummaryHeightPx = useMemo(() => parseSpacingPx(theme.spacing(5)), [theme])
+  // Pixel value of the scroll container's inline-end padding, so the sticky overlay can reproduce the
+  // same right-edge inset on its clones (absolutely-positioned children ignore the overlay's own padding).
+  const containerPaddingEndPx = useMemo(
+    () => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS)),
+    [theme],
+  )
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -1201,6 +1226,73 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     gridLeafPaddingPx,
     groups,
   ])
+  // Cumulative pixel offsets for each flattened item: offsets[i] = top of item i, offsets[i+1] = bottom.
+  // Mirrors TanStack Virtual's internal sizing so sticky-header calculations stay pixel-aligned.
+  const flattenedItemOffsets = useMemo(() => {
+    const offsets = new Float64Array(flattenedItems.length + 1)
+    for (let i = 0; i < flattenedItems.length; i++) {
+      offsets[i + 1] = offsets[i]! + (flattenedItems[i]?.height ?? 0)
+    }
+    return offsets
+  }, [flattenedItems])
+  // Maps each group header (by key) to the pixel offset of the next group header at depth <= its own.
+  // That "displacer" is the header which ends this group's relevance: a sibling/uncle subgroup, or the
+  // next root group. When it scrolls up into the sticky zone it pushes this header (and its sticky
+  // ancestors) off the top, attaching them to the bottom of the group's last content row. Infinity when
+  // no such header follows (the final group), so its headers stay pinned until the scroll bottoms out.
+  const headerDisplacerOffsetByKey = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < flattenedItems.length; i++) {
+      const item = flattenedItems[i]
+      if (item?.kind !== 'groupHeader') continue
+      let displacerOffset = Number.POSITIVE_INFINITY
+      // Walk forward to the first header at the same or shallower depth — it takes over this slot.
+      for (let j = i + 1; j < flattenedItems.length; j++) {
+        const candidate = flattenedItems[j]
+        if (candidate?.kind === 'groupHeader' && candidate.depth <= item.depth) {
+          displacerOffset = flattenedItemOffsets[j]!
+          break
+        }
+      }
+      map.set(item.group.key, displacerOffset)
+    }
+    return map
+  }, [flattenedItems, flattenedItemOffsets])
+  // Ordered list of group headers currently pinned at the top, each with its resolved on-screen Y.
+  //
+  // A header at depth d rests at slot Y = d * headerHeight (root atop, each child one row below). It is
+  // sticky the instant its natural top would rise above that slot — i.e. the moment it would otherwise
+  // be scrolled off the top OR slip behind a shallower sticky header. So while any card of a group is
+  // visible, that group's header (and every ancestor) is on screen, stacked in nesting order.
+  //
+  // Push-out: as the displacer header approaches, the header slides up from its slot, tracking the
+  // bottom of the group's last row, until it leaves the top together with its ancestors. Because each
+  // header's pinnedY is clamped against the SAME displacer screen position minus a header height, a
+  // parent and its deepest sticky child converge and exit as one unit — no header jumps or vanishes.
+  const stickyStack = useMemo(() => {
+    type StickyEntry = { index: number; item: Extract<FlattenedGridItem, { kind: 'groupHeader' }>; pinnedY: number }
+    const headerHeight = accordionSummaryHeightPx
+    const result: StickyEntry[] = []
+    for (let i = 0; i < flattenedItems.length; i++) {
+      const item = flattenedItems[i]
+      if (item?.kind !== 'groupHeader') continue
+      const restY = item.depth * headerHeight
+      const naturalTop = flattenedItemOffsets[i]! - scrollTop
+      // Natural position still below its resting slot — not sticky yet, and (since every later header
+      // sits at least one row lower) nothing after it can be sticky either, so we can stop scanning.
+      if (naturalTop > restY) break
+      // The displacer's on-screen top; once it rises within a header height of the slot it pushes up.
+      const displacerOffset = headerDisplacerOffsetByKey.get(item.group.key) ?? Number.POSITIVE_INFINITY
+      const displacerTop = displacerOffset - scrollTop
+      const pinnedY = Math.min(restY, displacerTop - headerHeight)
+      // Fully pushed above the top edge — the group (and its header) has scrolled away.
+      if (pinnedY <= -headerHeight) continue
+      result.push({ index: i, item: item as Extract<FlattenedGridItem, { kind: 'groupHeader' }>, pinnedY })
+    }
+    return result
+  }, [flattenedItems, flattenedItemOffsets, headerDisplacerOffsetByKey, scrollTop, accordionSummaryHeightPx])
+  // Set of flattenedItems indices currently in the sticky stack; used in O(1) lookups during render.
+  const stickyIndicesSet = useMemo(() => new Set(stickyStack.map((e) => e.index)), [stickyStack])
   // Anchor for shift-range selection: the last item clicked without shift held.
   const [anchorArtifactId, setAnchorArtifactId] = useState<number | null>(null)
   // Single-select mode: plain click selects only one card; persisted to localStorage.
@@ -1921,6 +2013,230 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       </EmptyStateMessage>
     )
   }
+  // Renders the inner content of a group header. Used by both the virtual-list item and the sticky overlay clone.
+  const renderGroupHeaderContent = (
+    item: Extract<FlattenedGridItem, { kind: 'groupHeader' }>,
+    isSticky = false,
+  ) => {
+    const group = item.group
+    const nested = item.depth > 0
+    const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
+    const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
+    // Count of selected items in this group's direct rows only — children are excluded so
+    // parent and sub-accordion headers each show their own independent tally without overlap.
+    const groupSelectedCount = gearSelectionEnabled && selectedGearItemIds
+      ? group.rows.filter(row => {
+          const id = Number(row.artifact?.id)
+          return Number.isFinite(id) && selectedGearItemIds.has(id)
+        }).length
+      : 0
+    const expanded = item.expanded
+    const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
+    const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
+    const trimmedGroupLabel = group.label.trim()
+    const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
+    const groupSetTooltipProps = groupDisplayName
+      ? { displayName: groupDisplayName, showName: true }
+      : undefined
+    const headerIconSizePx = 24
+    const summarySetIcon = numericSetId != null ? (
+      <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
+        <SetIcon
+          setId={numericSetId as ArtifactSetId}
+          size={headerIconSizePx}
+          {...(groupDisplayName ? { label: groupDisplayName } : {})}
+        />
+      </Box>
+    ) : null
+    // Slot groups should always show their icon so headers stay scannable.
+    // createElement avoids the "component created during render" lint rule — mirrors SafeguardCandidateRankList pattern.
+    const slotIconType = group.kind === 'artifactSlot' && group.slot != null
+      ? artifactTypeIconFor(group.slot)
+      : null
+    const slotIconNode = slotIconType ? (
+      <Box
+        sx={{
+          lineHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: headerIconSizePx,
+          height: headerIconSizePx,
+          fontSize: headerIconSizePx,
+        }}
+      >
+        {createElement(slotIconType, { fontSize: 'inherit' })}
+      </Box>
+    ) : null
+    // No-set accessories need a visible glyph when no set icon exists.
+    const noSetGroup = group.kind === 'accessorySet'
+      && (group.setId === 0 || group.setId === ACCESSORY_NO_SET_ID)
+    // No-set accessories use a custom tooltip describing the Spider drop source.
+    const noSetTooltipMarkdown = noSetGroup ? buildNoSetTooltipMarkdown(t) : null
+    const noSetIconInner = noSetGroup ? (
+      <Box
+        component="span"
+        sx={{
+          lineHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: headerIconSizePx,
+          height: headerIconSizePx,
+          fontSize: headerIconSizePx,
+          // Mirror SetIcon's built-in trailing margin so no-set/faction spacing matches set/faction spacing.
+          mr: 0.75,
+        }}
+      >
+        <NoGearSetIcon fontSize="inherit" />
+      </Box>
+    ) : null
+    const noSetIconNode = noSetTooltipMarkdown && noSetIconInner ? (
+      <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
+        {noSetIconInner}
+      </MarkdownTooltip>
+    ) : noSetIconInner
+    const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
+    // Sticky clones always show expanded bottom-radius (content is visually below them).
+    const effectiveExpanded = isSticky || expanded
+    return (
+      <Box
+        data-gear-inspector-grid-header="true"
+        data-header-key={group.key}
+        sx={(theme) => ({
+          borderRadius: `${headerRadius}px`,
+          border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+          borderBottomLeftRadius: effectiveExpanded ? 0 : `${headerRadius}px`,
+          borderBottomRightRadius: effectiveExpanded ? 0 : `${headerRadius}px`,
+          backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
+          height: '100%',
+          overflow: 'hidden',
+        })}
+      >
+        <ButtonBase
+          component="div"
+          role="button"
+          tabIndex={0}
+          onClick={(event) => handleGroupToggle(group.key, !expanded, event)}
+          onContextMenu={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            handleGroupToggle(group.key, !expanded, event, { applyToAll: true })
+            handleGridHintSeen()
+          }}
+          onKeyDown={(event) => {
+            // Activate on Enter/Space like a native button when rendered as div
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              handleGroupToggle(group.key, !expanded, event as unknown as React.MouseEvent)
+            }
+          }}
+          sx={(theme) => ({
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            height: '100%',
+            boxSizing: 'border-box',
+            textAlign: 'left',
+            justifyContent: 'flex-start',
+            px: theme.spacing(1.5),
+            py: theme.spacing(1),
+            minHeight: `${item.height}px`,
+            borderBottom: effectiveExpanded ? `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` : 'none',
+          })}
+          aria-expanded={expanded}
+        >
+          {/* 3-column grid: left (icon+title), center (chip, always centered), right (buttons). */}
+          <Box sx={(theme) => ({ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%', columnGap: theme.spacing(1.5) })}>
+            {/* Left: set/slot icons followed by the group label. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+              {groupSetTooltipName && summarySetIcon ? (
+                <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
+                  {summarySetIcon}
+                </WithSetTooltip>
+              ) : summarySetIcon}
+              {noSetIconNode}
+              {slotIconNode}
+              {group.factionId ? (
+                <FactionIcon
+                  faction={group.factionId}
+                  size={group.kind === 'accessoryFaction' ? 24 : 18}
+                />
+              ) : null}
+              <Typography
+                variant={nested ? 'subtitle2' : 'subtitle1'}
+                sx={{ minWidth: 0 }}
+                noWrap
+              >
+                {group.label}
+              </Typography>
+            </Box>
+            {/* Center column: chip always centered in the header row. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GearInspectorOutcomeSummaryChip
+                summary={groupOutcomeSummary}
+                totalSummary={groupTotalOutcomeSummary}
+                showWhenEmpty
+                showFilteredTotals={Boolean(filterActive)}
+                metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
+                leavingGeneration={leavingGeneration}
+                animateIn={enteringGroupKeys.has(group.key)}
+              />
+            </Box>
+            {/* Right: select buttons (when active) + expand/collapse icon, aligned to the end. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+              {gearSelectionEnabled && onGearItemsSelect && (
+                // Stop propagation on the container and both buttons so clicks never reach the
+                // accordion ButtonBase and accidentally expand/collapse the group.
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {groupSelectedCount > 0 && (
+                    <Chip
+                      size="small"
+                      label={t('gearInspectorSelectionCount', { count: groupSelectedCount })}
+                    />
+                  )}
+                  <Tooltip title={t('gearInspectorSelectionSelectAll')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const ids = collectGroupArtifactIds(group)
+                        onGearItemsSelect(new Set([...(selectedGearItemIds ?? []), ...ids]))
+                      }}
+                      aria-label={t('gearInspectorSelectionSelectAll')}
+                    >
+                      <PlaylistAddCheckIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('gearInspectorSelectionClearAll')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const groupIds = new Set(collectGroupArtifactIds(group))
+                        onGearItemsSelect(
+                          new Set([...(selectedGearItemIds ?? [])].filter((id) => !groupIds.has(id))),
+                        )
+                      }}
+                      aria-label={t('gearInspectorSelectionClearAll')}
+                    >
+                      <PlaylistRemoveIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </Box>
+            </Box>
+          </Box>
+        </ButtonBase>
+      </Box>
+    )
+  }
   const renderFlattenedItem = (item: FlattenedGridItem, virtualItem: ReturnType<typeof rowVirtualizer.getVirtualItems>[number]) => {
     if (!item) return null
     const nested = item.depth > 0
@@ -1935,221 +2251,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       justifyContent: 'center',
     })
     if (item.kind === 'groupHeader') {
-      const group = item.group
-      const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
-      const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
-      // Count of selected items in this group's direct rows only — children are excluded so
-      // parent and sub-accordion headers each show their own independent tally without overlap.
-      const groupSelectedCount = gearSelectionEnabled && selectedGearItemIds
-        ? group.rows.filter(row => {
-            const id = Number(row.artifact?.id)
-            return Number.isFinite(id) && selectedGearItemIds.has(id)
-          }).length
-        : 0
-      const expanded = item.expanded
-      const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
-      const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
-      const trimmedGroupLabel = group.label.trim()
-      const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
-      const groupSetTooltipProps = groupDisplayName
-        ? { displayName: groupDisplayName, showName: true }
-        : undefined
-      const headerIconSizePx = 24
-      const summarySetIcon = numericSetId != null ? (
-        <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
-          <SetIcon
-            setId={numericSetId as ArtifactSetId}
-            size={headerIconSizePx}
-            {...(groupDisplayName ? { label: groupDisplayName } : {})}
-          />
-        </Box>
-      ) : null
-      // Slot groups should always show their icon so headers stay scannable.
-      // createElement avoids the "component created during render" lint rule — mirrors SafeguardCandidateRankList pattern.
-      const slotIconType = group.kind === 'artifactSlot' && group.slot != null
-        ? artifactTypeIconFor(group.slot)
-        : null
-      const slotIconNode = slotIconType ? (
-        <Box
-          sx={{
-            lineHeight: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: headerIconSizePx,
-            height: headerIconSizePx,
-            fontSize: headerIconSizePx,
-          }}
-        >
-          {createElement(slotIconType, { fontSize: 'inherit' })}
-        </Box>
-      ) : null
-      // No-set accessories need a visible glyph when no set icon exists.
-      const noSetGroup = group.kind === 'accessorySet'
-        && (group.setId === 0 || group.setId === ACCESSORY_NO_SET_ID)
-      // No-set accessories use a custom tooltip describing the Spider drop source.
-      const noSetTooltipMarkdown = noSetGroup ? buildNoSetTooltipMarkdown(t) : null
-      const noSetIconInner = noSetGroup ? (
-        <Box
-          component="span"
-          sx={{
-            lineHeight: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: headerIconSizePx,
-            height: headerIconSizePx,
-            fontSize: headerIconSizePx,
-            // Mirror SetIcon's built-in trailing margin so no-set/faction spacing matches set/faction spacing.
-            mr: 0.75,
-          }}
-        >
-          <NoGearSetIcon fontSize="inherit" />
-        </Box>
-      ) : null
-      const noSetIconNode = noSetTooltipMarkdown && noSetIconInner ? (
-        <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
-          {noSetIconInner}
-        </MarkdownTooltip>
-      ) : noSetIconInner
-      const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
-      return (
-        <Box
-          data-gear-inspector-grid-header="true"
-          data-header-key={group.key}
-          sx={(theme) => ({
-            borderRadius: `${headerRadius}px`,
-            border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
-            borderBottomLeftRadius: expanded ? 0 : `${headerRadius}px`,
-            borderBottomRightRadius: expanded ? 0 : `${headerRadius}px`,
-            backgroundColor: nested ? (theme.vars?.palette.background.default ?? theme.palette.background.default) : (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
-            height: '100%',
-            overflow: 'hidden',
-          })}
-        >
-          <ButtonBase
-            component="div"
-            role="button"
-            tabIndex={0}
-            onClick={(event) => handleGroupToggle(group.key, !expanded, event)}
-            onContextMenu={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              handleGroupToggle(group.key, !expanded, event, { applyToAll: true })
-              handleGridHintSeen()
-            }}
-            onKeyDown={(event) => {
-              // Activate on Enter/Space like a native button when rendered as div
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                handleGroupToggle(group.key, !expanded, event as unknown as React.MouseEvent)
-              }
-            }}
-            sx={(theme) => ({
-              display: 'flex',
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-              boxSizing: 'border-box',
-              textAlign: 'left',
-              justifyContent: 'flex-start',
-              px: theme.spacing(1.5),
-              py: theme.spacing(1),
-              minHeight: `${item.height}px`,
-              borderBottom: expanded ? `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` : 'none',
-            })}
-            aria-expanded={expanded}
-          >
-            {/* 3-column grid: left (icon+title), center (chip, always centered), right (buttons). */}
-            <Box sx={(theme) => ({ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%', columnGap: theme.spacing(1.5) })}>
-              {/* Left: set/slot icons followed by the group label. */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                {groupSetTooltipName && summarySetIcon ? (
-                  <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
-                    {summarySetIcon}
-                  </WithSetTooltip>
-                ) : summarySetIcon}
-                {noSetIconNode}
-                {slotIconNode}
-                {group.factionId ? (
-                  <FactionIcon
-                    faction={group.factionId}
-                    size={group.kind === 'accessoryFaction' ? 24 : 18}
-                  />
-                ) : null}
-                <Typography
-                  variant={nested ? 'subtitle2' : 'subtitle1'}
-                  sx={{ minWidth: 0 }}
-                  noWrap
-                >
-                  {group.label}
-                </Typography>
-              </Box>
-              {/* Center column: chip always centered in the header row. */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <GearInspectorOutcomeSummaryChip
-                  summary={groupOutcomeSummary}
-                  totalSummary={groupTotalOutcomeSummary}
-                  showWhenEmpty
-                  showFilteredTotals={Boolean(filterActive)}
-                  metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
-                  leavingGeneration={leavingGeneration}
-                  animateIn={enteringGroupKeys.has(group.key)}
-                />
-              </Box>
-              {/* Right: select buttons (when active) + expand/collapse icon, aligned to the end. */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                {gearSelectionEnabled && onGearItemsSelect && (
-                  // Stop propagation on the container and both buttons so clicks never reach the
-                  // accordion ButtonBase and accidentally expand/collapse the group.
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {groupSelectedCount > 0 && (
-                      <Chip
-                        size="small"
-                        label={t('gearInspectorSelectionCount', { count: groupSelectedCount })}
-                      />
-                    )}
-                    <Tooltip title={t('gearInspectorSelectionSelectAll')}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const ids = collectGroupArtifactIds(group)
-                          onGearItemsSelect(new Set([...(selectedGearItemIds ?? []), ...ids]))
-                        }}
-                        aria-label={t('gearInspectorSelectionSelectAll')}
-                      >
-                        <PlaylistAddCheckIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('gearInspectorSelectionClearAll')}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const groupIds = new Set(collectGroupArtifactIds(group))
-                          onGearItemsSelect(
-                            new Set([...(selectedGearItemIds ?? [])].filter((id) => !groupIds.has(id))),
-                          )
-                        }}
-                        aria-label={t('gearInspectorSelectionClearAll')}
-                      >
-                        <PlaylistRemoveIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                )}
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                </Box>
-              </Box>
-            </Box>
-          </ButtonBase>
-        </Box>
-      )
+      // When this header is pinned in the sticky overlay, hide the real DOM node so it doesn't show twice.
+      if (stickyIndicesSet.has(virtualItem.index)) {
+        return <Box sx={{ visibility: 'hidden', pointerEvents: 'none', height: '100%' }} />
+      }
+      return renderGroupHeaderContent(item)
     }
     if (item.kind === 'spacer') {
       return (
@@ -2371,6 +2477,48 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           })}
         </Box>
       </Box>
+      {/* Sticky group header overlay — pins ancestor headers at the top while scrolling through cards. */}
+      {stickyStack.length > 0 && (
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            // Size the overlay to the scroll container's inner content width (clientWidth already excludes
+            // the reserved scrollbar gutter). Fall back to full width for the first frame before measurement.
+            width: overlayContentWidthPx > 0 ? `${overlayContentWidthPx}px` : '100%',
+            pointerEvents: 'none',
+            zIndex: 1,
+            // Re-enable pointer events on header nodes so expand/collapse still works via sticky clones.
+            '& [data-gear-inspector-grid-header="true"]': { pointerEvents: 'auto' },
+          }}
+        >
+          {/* Sequential tuck: the parent must paint ON TOP of its children, so an exiting subgroup
+              slides up and disappears UNDER its parent rather than crossing over it. Entries are in
+              document order (shallow-to-deep), so the shallowest gets the highest z-index. */}
+          {stickyStack.map((entry, stackIdx) => (
+            <Box
+              key={entry.item.group.key}
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                // Inset the right edge by the container's inline-end padding so the clone's width matches
+                // the real header exactly (right:N on an absolute box honors the inset; width:100% wouldn't).
+                right: `${containerPaddingEndPx}px`,
+                height: `${accordionSummaryHeightPx}px`,
+                // Shallower headers stack above deeper ones; the parent is the stable anchor on top.
+                zIndex: stickyStack.length - stackIdx,
+                // Scroll-driven pin: no CSS transition — must track 1:1 with scroll position.
+                transform: `translateY(${entry.pinnedY}px)`,
+              }}
+            >
+              {renderGroupHeaderContent(entry.item, true)}
+            </Box>
+          ))}
+        </Box>
+      )}
       {/* Flyout floats above the grid but ignores all pointer/touch events so cards stay interactive. */}
       {scrollHintDetails ? (
         <Box
