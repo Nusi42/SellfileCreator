@@ -4988,6 +4988,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     safeguardsGridFilterMode,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     gearInspectorSort: gearInspectorSubstatSortPrefs.state,
   }), [
@@ -4997,6 +4998,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     metasets,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     safeguardRules,
     safeguardsEnabled,
