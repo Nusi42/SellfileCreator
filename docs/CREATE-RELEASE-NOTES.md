@@ -50,13 +50,22 @@ Deutsch:
 
 ### 4. Append maintainer items to `$CHECKLIST_FILE` (single-pass only; skip if empty)
 
-Anything a maintainer should act on **before or after** shipping. Bullets only; no headings — the script wraps them in a per-version section afterward. Examples worth flagging:
-- Unfinished cleanup ("remove `FEATURE_X_FALLBACK` after one release").
-- Migrations or persisted-data shape changes that need verification post-deploy.
-- Regressions you suspect but cannot confirm from the diff.
+A checklist item is a **concrete action the maintainer still has to take** — not a reminder to look at something that already shipped. The default is to add **nothing**. Before flagging anything, confirm a later commit in the range hasn't already resolved it. Bullets only; no headings — the script wraps them in a per-version section afterward.
+
+Add an item ONLY when it is actionable and still open, e.g.:
+- Unfinished cleanup gated on a condition ("remove `FEATURE_X_FALLBACK` once Helper sends Affinity").
+- A migration or persisted-data shape change you could **not** confirm is backward-compatible from the diff (per CLAUDE.md, persisted field changes need migration paths).
+- A regression you genuinely suspect but cannot confirm from the diff — say why.
 - Tests skipped/`xfail`'d in the window with no removal date.
 - Docs that drifted out of sync with the change (especially `docs/TECHNICAL.md` and `CLAUDE.md`).
-- SFC backward-compatibility concerns (per CLAUDE.md, persisted field changes need migration paths).
+
+Do NOT add:
+- "Verify `<feature>` works" notes for changes that shipped with passing unit/e2e tests.
+- Restatements that tests, fixtures, or all i18n locales were updated when the diff already shows they were.
+- "No follow-up needed" notes — if there is no action, write nothing.
+- Generic "test across browsers / languages / viewports" reminders without a specific, identified risk.
+
+Each item must name the action and its trigger/condition. When in doubt, leave it out — an empty checklist is the expected, healthy outcome.
 
 If you find no concerns, leave `$CHECKLIST_FILE` untouched.
 

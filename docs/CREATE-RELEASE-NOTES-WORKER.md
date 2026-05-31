@@ -53,17 +53,22 @@ If a commit is purely internal (lint, test scaffolding, build script) and change
 
 ### 4. Append to `$CHECKLIST_FILE`
 
-Anything a maintainer should act on **before or after** shipping `v$TARGET_VERSION`. Plain bullets, no per-chunk heading — the script wraps the whole file in a single `## v<version> — <date>` section afterward.
+A checklist item is a **concrete action the maintainer still has to take** — not a reminder to look at something that already shipped. The default is to add **nothing**; most chunks should leave `$CHECKLIST_FILE` untouched. Before flagging anything, confirm a later commit in your range hasn't already resolved it.
 
-Examples worth flagging:
-- Unfinished cleanup ("remove `FEATURE_X_FALLBACK` after one release").
-- Migrations or persisted-data shape changes that need verification post-deploy.
-- Regressions you suspect from the diff but cannot confirm.
+Add an item ONLY when it is actionable and still open, e.g.:
+- Unfinished cleanup gated on a condition ("remove `FEATURE_X_FALLBACK` once Helper sends Affinity"; "drop the suppression flag when import-x ships the API").
+- A migration or persisted-data shape change you could **not** confirm is backward-compatible from the diff — per CLAUDE.md, persisted field changes need a migration path.
+- A regression you genuinely suspect from the diff but cannot confirm — say why.
 - Tests skipped or `xfail`'d in this chunk with no documented removal date.
-- Docs that drifted out of sync (especially `docs/TECHNICAL.md` and `CLAUDE.md`).
-- SFC backward-compatibility concerns — per CLAUDE.md, persisted field changes need a migration path.
+- Docs that drifted out of sync with the code in this chunk (especially `docs/TECHNICAL.md` and `CLAUDE.md`).
 
-End each item with the short hash in parens so the maintainer can trace it.
+Do NOT add:
+- "Verify `<feature>` works" notes for changes that shipped with passing unit/e2e tests — that is what the test suite is for.
+- Restatements that tests, fixtures, or all i18n locales were updated when the diff already shows they were.
+- "No follow-up needed" / "documenting the deliberate removal" notes — if there is no action, write nothing.
+- Generic "test across browsers / languages / viewports" reminders without a specific, identified risk.
+
+Each item must name the action and its trigger/condition, and end with the short hash in parens so the maintainer can trace it. When in doubt, leave it out — an empty checklist is the expected, healthy outcome.
 
 If your chunk has no concerns, leave `$CHECKLIST_FILE` alone — do not write a "no concerns" line.
 
