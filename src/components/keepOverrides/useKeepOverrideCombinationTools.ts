@@ -75,12 +75,15 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     const hasArmor = normalizedSlots.length > 0 && normalizedSlots.some((slotId) => !isAccessorySlot(slotId))
     const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
     const filteredFactions = hasArmor ? [] : dedupeNumericArray(combination.factions ?? [])
-    const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetNames?.length ?? 0) > 0
-    // Skip the no-set sentinel when choosing a fallback real set — it sorts first
-    // (most-negative ID) but is not a meaningful default for any slot type.
+    // Only individual sets count for the fallback — metasets are returned separately in filteredMetaIds.
+    const hadExplicitSetSelection = combination.sets.length > 0
+    // Fallback: when the user had individual sets and the slot change wiped them all out,
+    // pick the first usable set from the pool rather than silently reverting to "any set".
+    // Skip both the no-set sentinel (most-negative ID, not a real selection) and any surviving
+    // metasets — if filteredMetaIds is non-empty the user's overall selection is still meaningful.
     const resolvedSets = filteredSets.length > 0
       ? filteredSets
-      : (hadExplicitSetSelection
+      : (hadExplicitSetSelection && filteredMetaIds.length === 0
           ? (() => {
               const fallback = (allowedSetPool as readonly number[]).find((id) => id !== ACCESSORY_NO_SET_ID)
               return fallback != null ? [{ id: fallback as ArtifactSetId }] : []
