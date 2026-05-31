@@ -9,7 +9,7 @@ import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { getWorkloadIndicator } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { EXAMPLE_NUSI_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint.
 const ENDPOINT_URL = 'ws://localhost:8080/'
@@ -97,11 +97,11 @@ test.describe('binary-endpoint-memory', () => {
     // Boot with the endpoint param so the app immediately opens the WebSocket.
     await page.goto(`/?endpoint=${ENDPOINT_URL}`, APP_GOTO_OPTIONS)
 
-    // Load example.sfc so safeguard rules activate — required for the full WASM pipeline
+    // Load lategame.sfc so safeguard rules activate — required for the full WASM pipeline
     // (storeArtifactRows + evaluateAndCollectSafeguardProtection) to run on each push.
     const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
+    await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
     await dismissBlockingDialogs(page)
 
     // Wait for the SFC-triggered rule-build pipeline to finish before we start pushing.

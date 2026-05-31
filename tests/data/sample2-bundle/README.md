@@ -1,11 +1,11 @@
-# Example + sample2 Fixture Bundle
+# Lategame + sample2 Fixture Bundle
 
-- Source SFC: `examples/example.sfc`
+- Source SFC: `presets/lategame.sfc`
 - Shared DB fixture: `tests/data/sample2.db`
 
 ## Layout
 
-- `recipes/`: one `.sfc` fixture per recipe from `example.sfc` (keep uniques removed).
+- `recipes/`: one `.sfc` fixture per recipe from `lategame.sfc` (keep uniques removed).
 - `keep-uniques/`: one `.sfc` fixture per Keep Uniques rule (full recipe list retained, single keep-unique rule retained).
 - `manifest.json`: index mapping source ordinals/names to generated files.
 

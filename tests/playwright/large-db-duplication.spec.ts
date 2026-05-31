@@ -10,12 +10,12 @@ import {
   RULES_FILTER_STATE_STORAGE_KEY,
   cloneDefaultRulesFilterState,
 } from '../../src/state/rulesFilterPersistence'
-import { EXAMPLE_NUSI_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
-// Use the full Example SFC + large DB to exercise the large-artifact-set matching path.
-const SFC_PATH = EXAMPLE_NUSI_SFC_PATH
+// Use the full lategame preset SFC + large DB to exercise the large-artifact-set matching path.
+const SFC_PATH = PRESET_LATEGAME_SFC_PATH
 const DB_PATH = LARGE_ACCOUNT_DB_PATH
 // Duplicate recipe #2 (one-based), which is zero-based index 1.
 const TARGET_RECIPE_INDEX = 1
@@ -83,7 +83,7 @@ test.beforeAll(async ({ browser }) => {
 })
 
 test.describe('Gear Inspector grid matches remain stable with large DB', () => {
-  test('duplicating recipe #2 keeps Gear Inspector outcomes unchanged (example.sfc + large DB)', async ({ page }) => {
+  test('duplicating recipe #2 keeps Gear Inspector outcomes unchanged (lategame.sfc + large DB)', async ({ page }) => {
     // Two full WASM passes over the 68 MB DB each take ~20 s; budget covers both.
     // Individual step timeouts stay at ≤ 15 s — workload/result waits are soft/hard
     // 15 s respectively, so the 68 MB WASM finishes well within the 60 s window.

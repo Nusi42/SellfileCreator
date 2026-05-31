@@ -14,8 +14,8 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { highlightElementKeyframes } from '../lib/attentionCatalog'
-import basicSfcRaw from '../../examples/Basic.sfc?raw'
-import nusiSfcRaw from '../../examples/example.sfc?raw'
+import beginnerSfcRaw from '../../presets/beginner.sfc?raw'
+import lategameSfcRaw from '../../presets/lategame.sfc?raw'
 
 // Glow-pulse keyframe: soft drop-shadow that fades in and out.
 const sfcNudgeKf = keyframes`
@@ -290,7 +290,7 @@ export default function HeaderActions(props: {
           <MenuItem
             onClick={() => {
               closeSfcMenu()
-              setPendingPreset({ raw: basicSfcRaw, filename: 'Basic.sfc' })
+              setPendingPreset({ raw: beginnerSfcRaw, filename: 'beginner.sfc' })
             }}
           >
             {t('loadPresetBeginner')}
@@ -298,7 +298,7 @@ export default function HeaderActions(props: {
           <MenuItem
             onClick={() => {
               closeSfcMenu()
-              setPendingPreset({ raw: nusiSfcRaw, filename: 'example.sfc' })
+              setPendingPreset({ raw: lategameSfcRaw, filename: 'lategame.sfc' })
             }}
           >
             {t('loadPresetMidToEndGame')}

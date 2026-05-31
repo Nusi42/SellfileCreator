@@ -5,7 +5,7 @@
  * Simulate safeguard improvement chance for a specific item at a modified
  * level/substat value, using the real SFC + DB pipeline.
  *
- * Usage: node sim-improvement-chance.js --sfc examples/example.sfc --db examples/um109288203_RSLHelper.db
+ * Usage: node sim-improvement-chance.js --sfc presets/lategame.sfc --db examples/um109288203_RSLHelper.db
  */
 import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
@@ -112,7 +112,7 @@ const run = async (): Promise<void> => {
   await warmupWasmRuleEngine()
 
   const args = process.argv.slice(2)
-  const sfcPath = resolvePath(process.cwd(), args.includes('--sfc') ? args[args.indexOf('--sfc') + 1] ?? 'examples/example.sfc' : 'examples/example.sfc')
+  const sfcPath = resolvePath(process.cwd(), args.includes('--sfc') ? args[args.indexOf('--sfc') + 1] ?? 'presets/lategame.sfc' : 'presets/lategame.sfc')
   const dbPath = resolvePath(process.cwd(), args.includes('--db') ? args[args.indexOf('--db') + 1] ?? 'examples/um109288203_RSLHelper.db' : 'examples/um109288203_RSLHelper.db')
 
   console.log(`Loading SFC: ${sfcPath}`)

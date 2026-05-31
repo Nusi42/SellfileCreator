@@ -3282,8 +3282,8 @@ export default function NoteDialog({
   rslHelperConnectEnabled?: boolean
   pushEndpointReachable?: boolean
   onToggleRslHelperConnect?: () => void
-  // Called when the express preset toggle changes; loads the full Basic or Endgame SFC.
-  onLoadSimplePreset?: (variant: 'basic' | 'endgame') => void
+  // Called when the express preset toggle changes; loads the beginner or lategame preset SFC.
+  onLoadSimplePreset?: (variant: 'beginner' | 'lategame') => void
   // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
   // the builder column, leaving the gear inspector visible on the right.
   drawerWidthPx?: number
@@ -3338,11 +3338,11 @@ export default function NoteDialog({
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
 
   // Express mode: tracks which preset note is currently shown in the toggle.
-  // Default to endgame — it is the richer, more flexible preset.
-  const [simpleSfcVariant, setSimpleSfcVariant] = useState<'basic' | 'endgame'>('endgame')
+  // Default to lategame — it is the richer, more flexible preset.
+  const [simpleSfcVariant, setSimpleSfcVariant] = useState<'beginner' | 'lategame'>('lategame')
   // Load the chosen preset when the express SFC toggle changes.
   const handleSimpleVariantChange = useCallback(
-    (_: React.MouseEvent, value: 'basic' | 'endgame' | null) => {
+    (_: React.MouseEvent, value: 'beginner' | 'lategame' | null) => {
       if (!value) return
       setSimpleSfcVariant(value)
       onLoadSimplePreset?.(value)
@@ -4077,8 +4077,8 @@ export default function NoteDialog({
             onChange={handleSimpleVariantChange}
             aria-label={t('simpleModePresetLabel')}
           >
-            <ToggleButton value="basic">{t('simpleModeBasicSfc')}</ToggleButton>
-            <ToggleButton value="endgame">{t('simpleModeEndgameSfc')}</ToggleButton>
+            <ToggleButton value="beginner">{t('simpleModeBasicSfc')}</ToggleButton>
+            <ToggleButton value="lategame">{t('simpleModeEndgameSfc')}</ToggleButton>
           </ToggleButtonGroup>
           <Box sx={{ flex: 1 }} />
           {showNoteSummaryChip && (

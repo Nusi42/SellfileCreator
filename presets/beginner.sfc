@@ -1,0 +1,1041 @@
+{
+  "Version": "1.0.2-dev",
+  "Metasets": [
+    {
+      "name": "Nuker - Limited Sets",
+      "setNames": [
+        "Cruel",
+        "Swift Parry",
+        "Lethal",
+        "Instinct",
+        "Zeal",
+        "Merciless",
+        "Slayer",
+        "Stonecleaver"
+      ],
+      "show": true
+    },
+    {
+      "name": "Nuker",
+      "setNames": [
+        "Crit Damage",
+        "Savage",
+        "Cruel",
+        "Swift Parry",
+        "Lethal",
+        "Stoneskin",
+        "Killstroke",
+        "Instinct",
+        "Zeal",
+        "Merciless",
+        "Slayer",
+        "Stonecleaver",
+        "Mercurial"
+      ],
+      "show": true
+    },
+    {
+      "name": "Support - Limited Sets",
+      "setNames": [
+        "Bolster",
+        "Impulse",
+        "Supersonic",
+        "Merciless",
+        "Feral",
+        "Pinpoint",
+        "Rebirth",
+        "Chronophage"
+      ],
+      "show": true
+    },
+    {
+      "name": "Need 4 Speed",
+      "setNames": [
+        "Speed",
+        "Divine Speed",
+        "Swift Parry",
+        "Deflection",
+        "Perception",
+        "Protection",
+        "Stoneskin",
+        "Impulse",
+        "Righteous",
+        "Supersonic",
+        "Merciless",
+        "Feral",
+        "Pinpoint",
+        "Rebirth",
+        "Chronophage",
+        "Mercurial"
+      ],
+      "show": true
+    },
+    {
+      "name": "Debuffer",
+      "setNames": [
+        "Speed",
+        "Accuracy",
+        "Divine Speed",
+        "Deflection",
+        "Perception",
+        "Protection",
+        "Stoneskin",
+        "Impulse",
+        "Righteous",
+        "Supersonic",
+        "Feral",
+        "Pinpoint",
+        "Rebirth",
+        "Chronophage",
+        "Mercurial"
+      ],
+      "show": true
+    },
+    {
+      "name": "Survivability",
+      "setNames": [
+        "Regeneration",
+        "Immunity",
+        "Shield",
+        "Immortal",
+        "Divine Speed",
+        "Swift Parry",
+        "Deflection",
+        "Resilience",
+        "Untouchable",
+        "Frostbite",
+        "Guardian",
+        "Fortitude",
+        "Protection",
+        "Stoneskin",
+        "Bolster",
+        "Defiant",
+        "Righteous",
+        "Supersonic",
+        "Feral",
+        "Pinpoint",
+        "Rebirth",
+        "Chronophage",
+        "Mercurial"
+      ],
+      "show": true
+    },
+    {
+      "name": "Extra Turn",
+      "setNames": [
+        "Relentless",
+        "Reflex",
+        "Merciless"
+      ],
+      "show": true
+    },
+    {
+      "name": "Utility",
+      "setNames": [
+        "Lifesteal",
+        "Daze",
+        "Cursed",
+        "Frost",
+        "Destroy",
+        "Stun",
+        "Toxic",
+        "Provoke",
+        "Retaliation",
+        "Affinitybreaker",
+        "Frostbite",
+        "Bloodthirst"
+      ],
+      "show": true
+    },
+    {
+      "name": "Accessory Specific",
+      "setNames": [
+        "Swift Parry",
+        "Deflection",
+        "Protection",
+        "Stoneskin",
+        "Supersonic",
+        "Merciless",
+        "Slayer",
+        "Feral",
+        "Pinpoint",
+        "Stonecleaver",
+        "Rebirth",
+        "Chronophage",
+        "Mercurial",
+        "Refresh",
+        "Cleansing",
+        "Bloodshield",
+        "Reaction",
+        "Revenge"
+      ],
+      "show": true
+    },
+    {
+      "name": "Debuffer - Limited Sets",
+      "setNames": [
+        "Deflection",
+        "Stoneskin",
+        "Impulse",
+        "Righteous",
+        "Supersonic",
+        "Merciless",
+        "Feral",
+        "Pinpoint",
+        "Chronophage",
+        "Mercurial",
+        "Refresh",
+        "Reaction"
+      ],
+      "show": true
+    },
+    {
+      "name": "Accessory Specific - Modern",
+      "setNames": [
+        "Swift Parry",
+        "Deflection",
+        "Protection",
+        "Stoneskin",
+        "Supersonic",
+        "Merciless",
+        "Slayer",
+        "Feral",
+        "Pinpoint",
+        "Stonecleaver",
+        "Rebirth",
+        "Chronophage",
+        "Mercurial"
+      ],
+      "show": true
+    },
+    {
+      "name": "Useless",
+      "setNames": [
+        "Life",
+        "Offense",
+        "Defense",
+        "Divine Offense"
+      ],
+      "show": true
+    }
+  ],
+  "Minima": {
+    "one": {
+      "HP%": 1,
+      "HP": 43,
+      "ATK%": 1,
+      "ATK": 4,
+      "DEF%": 1,
+      "DEF": 4,
+      "SPD": 1,
+      "RES": 3,
+      "ACC": 3,
+      "CR%": 1,
+      "CDMG%": 1
+    },
+    "two": {
+      "HP%": 1,
+      "HP": 50,
+      "ATK%": 1,
+      "ATK": 4,
+      "DEF%": 1,
+      "DEF": 4,
+      "SPD": 1,
+      "RES": 4,
+      "ACC": 4,
+      "CR%": 2,
+      "CDMG%": 2
+    },
+    "three": {
+      "HP%": 2,
+      "HP": 79,
+      "ATK%": 2,
+      "ATK": 5,
+      "DEF%": 2,
+      "DEF": 5,
+      "SPD": 2,
+      "RES": 5,
+      "ACC": 5,
+      "CR%": 2,
+      "CDMG%": 2
+    },
+    "four": {
+      "HP%": 3,
+      "HP": 97,
+      "ATK%": 3,
+      "ATK": 7,
+      "DEF%": 3,
+      "DEF": 7,
+      "SPD": 3,
+      "RES": 6,
+      "ACC": 6,
+      "CR%": 3,
+      "CDMG%": 3
+    },
+    "five": {
+      "HP%": 4,
+      "HP": 136,
+      "ATK%": 4,
+      "ATK": 12,
+      "DEF%": 4,
+      "DEF": 12,
+      "SPD": 4,
+      "RES": 8,
+      "ACC": 8,
+      "CR%": 4,
+      "CDMG%": 4
+    },
+    "six": {
+      "HP%": 5,
+      "HP": 200,
+      "ATK%": 5,
+      "ATK": 15,
+      "DEF%": 5,
+      "DEF": 15,
+      "SPD": 5,
+      "RES": 9,
+      "ACC": 9,
+      "CR%": 5,
+      "CDMG%": 5
+    },
+    "anyRankDefaultsTo": "three"
+  },
+  "Recipes": [
+    {
+      "name": "Keep everything with at least 2 rolls",
+      "keep": true,
+      "SellfileVisibility": "Separator",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "≥ Rare",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "ACC",
+        "RES",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Gauntlets",
+        "Chestplate",
+        "Boots"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "≥ Rare",
+      "Faction": "Any",
+      "mainStats": [
+        "CDMG%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Amulet"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "ACC/RES are not needed early on, but later",
+      "keep": true,
+      "SellfileVisibility": "Separator",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "≥ 4★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "≥ 4★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "ACC",
+        "RES",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Gauntlets",
+        "Chestplate",
+        "Boots"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "≥ 4★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 1,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "≥ 4★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 1,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "For now, keep anything beyond 4 star",
+      "keep": true,
+      "SellfileVisibility": "Separator",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "≥ 5★",
+      "Rarity": "≥ Rare",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [],
+      "minCount": 0,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    }
+  ],
+  "FinalSellRemainder": {
+    "artifacts": true,
+    "accessories": true,
+    "levels": [
+      0,
+      4,
+      8,
+      12
+    ],
+    "setsMode": "any"
+  },
+  "Safeguards": [
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring",
+          "Amulet",
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [],
+        "factions": []
+      },
+      "name": "Accessories"
+    },
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Weapon",
+          "Helmet",
+          "Shield",
+          "Gauntlets",
+          "Chestplate",
+          "Boots",
+          "Ring",
+          "Amulet",
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [],
+        "factions": []
+      },
+      "name": "Just any gear"
+    },
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [
+          "SPD"
+        ],
+        "factions": []
+      },
+      "name": "SPD boots"
+    },
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Chestplate"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [
+          "ACC",
+          "RES",
+          "HP%",
+          "ATK%",
+          "DEF%"
+        ],
+        "factions": []
+      },
+      "name": "All Chestplate Types"
+    },
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Gauntlets"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [
+          "CR%",
+          "CDMG%",
+          "HP%",
+          "ATK%",
+          "DEF%"
+        ],
+        "factions": []
+      },
+      "name": "All Gauntlet Types"
+    },
+    {
+      "requiredCount": 5,
+      "activation": "protectExisting",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards": true,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [
+          "HP%",
+          "ATK%",
+          "DEF%"
+        ],
+        "factions": []
+      },
+      "name": "All other Boot types"
+    }
+  ],
+  "SafeguardsEnabled": true,
+  "RecipesEnabled": true,
+  "Note": [
+    "# Sellfile Preset for Beginner Accounts",
+    "",
+    "<span data-color=\"red\">Use at your own risk!</span>",
+    "",
+    "## Recipes",
+    "If your account is keeping 3★ and 4★ gear, then this sellfile is a base to start with.",
+    "",
+    "At the beginning, you essentially want to keep every gear piece which has no flat stats, or when upgraded, rolls for a good substat.",
+    "",
+    "We created matching rules for this scenario.",
+    "",
+    "",
+    "<!-- recipes:1,2,3,4,5,6,7,8,9,10,11,12 -->",
+    "",
+    "",
+    "## Safeguards",
+    "",
+    "If you connect **Sellfile Creator** with the **RSL Helper** (or its DB), then these rules below will dynamically create special *keep* rules which ensure that you keep the most basic items regardless how bad they are.  ",
+    "First, we want to ensure that you have Accessories for all your faction wars teams:",
+    "<!-- safeguards:1 -->",
+    "",
+    "And then we want to ensure that you keep basic gear for typical scenarios for 5 champs:",
+    "<!-- safeguards:2,3,4,5,6,7 -->",
+    ""
+  ]
+}

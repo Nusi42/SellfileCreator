@@ -3,7 +3,7 @@
  * repro-wasm-pipeline
  *
  * Headless Node harness that replays the rule-cache-worker pipeline against
- * the largest sample fixtures (examples/example.sfc + um109288203_RSLHelper.db).
+ * the largest sample fixtures (presets/lategame.sfc + um109288203_RSLHelper.db).
  * Goal: deterministically reproduce the `memory access out of bounds` crash
  * that shows up in-browser during the final compute_merged_rules_value call,
  * so we can iterate on fixes without browser reloads.
@@ -69,9 +69,9 @@ function toArrayBuffer(bytes: Buffer): ArrayBuffer {
 }
 
 const ROOT_DIR = process.cwd()
-// example.sfc has 192 recipes + 66 safeguards + 12 metasets — same shape as the
-// user's broken autosave that produces the talc OOB crash in browser.
-const SFC_PATH = resolve(ROOT_DIR, 'examples', 'example.sfc')
+// lategame.sfc has 192 recipes + 66 safeguards + 12 metasets — same shape as
+// the broken autosave from real use that produces the talc OOB crash in browser.
+const SFC_PATH = resolve(ROOT_DIR, 'presets', 'lategame.sfc')
 // Largest sample DB — ~8000 artifacts, matching the user's gear inspector state.
 const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
 

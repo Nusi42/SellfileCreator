@@ -200,65 +200,76 @@ try {
   if (-not (Test-Path -LiteralPath $noticesSrc)) { throw "Third-party notices file not found: $noticesSrc" }
   Copy-Item -LiteralPath $noticesSrc -Destination (Join-Path $staging 'THIRD_PARTY_NOTICES.txt') -Force
 
-  # Pick the most recent Nusi_* examples to include as ship-ready references.
-  # Why: Ship current, user-relevant examples without hardcoding old filenames.
-  $samplesDir = Join-Path $RepoRoot 'examples'
+  # Table-driven preset staging. Each row describes one shipped preset:
+  #   SourceFile  — filename inside presets/ that holds the base SFC
+  #   StagedFile  — destination filename inside staging/Sellfiles/
+  #   HsfVariants — recipe-overrides DSL tokens to materialize alongside; an
+  #                 empty array means "ship just the SFC, no derived HSF"
+  # Adding a new preset = one extra row; the loop below handles patching and
+  # HSF generation uniformly. A sibling patch file at
+  # presets/<basename>.patch.json (e.g. lategame.patch.json) is applied
+  # automatically — see presets/PATCHES.md for the schema.
+  $presets = @(
+    @{
+      SourceFile  = 'lategame.sfc'
+      StagedFile  = '_RECIPE_SAMPLE_.sfc'
+      HsfVariants = @(
+        @{ Token = 'midgame';  OutputName = 'midgame-sellfile.hsf' },
+        @{ Token = 'lategame'; OutputName = 'lategame-sellfile.hsf' },
+        @{ Token = 'endgame';  OutputName = 'endgame-sellfile.hsf' }
+      )
+    },
+    @{
+      SourceFile  = 'beginner.sfc'
+      StagedFile  = 'basic.sfc'
+      HsfVariants = @()
+    }
+  )
 
-  $sampleSfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $sampleSfc) {
-    $fallbackSfcPath = Join-Path $samplesDir 'example.sfc'
-    if (Test-Path -LiteralPath $fallbackSfcPath) {
-      $sampleSfc = Get-Item -LiteralPath $fallbackSfcPath
+  # Shared paths and tool resolutions used by every row.
+  $presetsDir = Join-Path $RepoRoot 'presets'
+  $sellfilesDir = Join-Path $staging 'Sellfiles'
+  if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
+  $patchScript = Join-Path $RepoRoot 'scripts\tooling\apply-preset-patch.mjs'
+  $genScript = Join-Path $RepoRoot 'scripts\tooling\gen-release-hsf.mjs'
+
+  foreach ($preset in $presets) {
+    $sourcePath = Join-Path $presetsDir $preset.SourceFile
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+      throw "Preset not found: $sourcePath"
+    }
+    # The staged file is the post-patch (or verbatim) baseline. Every HSF
+    # variant for this row reads from it, so they all see the same edits.
+    $stagedPath = Join-Path $sellfilesDir $preset.StagedFile
+    $basename = [System.IO.Path]::GetFileNameWithoutExtension($preset.SourceFile)
+    $patchPath = Join-Path $presetsDir ("{0}.patch.json" -f $basename)
+    if (Test-Path -LiteralPath $patchPath) {
+      Write-Host ("Applying preset patch: {0}" -f (Split-Path -Leaf $patchPath))
+      node --experimental-wasm-modules $patchScript $sourcePath $patchPath $stagedPath
+      if ($LASTEXITCODE -ne 0) { throw "Preset patch application failed for $($preset.SourceFile) (exit code $LASTEXITCODE)" }
     } else {
-      $fallbackSfcPath = Join-Path $samplesDir 'example.sfc'
-      if (Test-Path -LiteralPath $fallbackSfcPath) {
-        $sampleSfc = Get-Item -LiteralPath $fallbackSfcPath
-      } else {
-        throw "No Example recipe sample (.sfc/.hsfc) found in 'examples'"
+      # No patch declared — ship the source verbatim under its staged name.
+      Copy-Item -LiteralPath $sourcePath -Destination $stagedPath -Force
+    }
+    # Generate any declared HSF variants against the staged SFC.
+    if ($preset.HsfVariants.Count -gt 0) {
+      Write-Host ("Generating preset sellfiles from {0}..." -f $preset.SourceFile)
+      foreach ($variant in $preset.HsfVariants) {
+        Write-Host ("  Generating {0} ({1})..." -f $variant.OutputName, $variant.Token)
+        node --experimental-wasm-modules $genScript $stagedPath $variant.Token (Join-Path $sellfilesDir $variant.OutputName)
+        if ($LASTEXITCODE -ne 0) { throw "Sellfile generation failed for '$($variant.Token)' (exit code $LASTEXITCODE)" }
       }
     }
   }
-
-  Write-Host ("Using SFC sample: {0}" -f $sampleSfc.Name)
-  $sellfilesDir = Join-Path $staging 'Sellfiles'
-  if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
-  Copy-Item -LiteralPath $sampleSfc.FullName -Destination (Join-Path $sellfilesDir '_RECIPE_SAMPLE_.sfc') -Force
-
-  # Generate sellfiles from example.sfc using recipe-overrides presets.
-  # Why: Avoids maintaining pre-built HSF binaries in the repo; output is always
-  # derived from the same SFC shipped as the recipe sample.
-  # To add a new variant: add another gen-release-hsf call below with the preset
-  # token (id= value in the DSL) and the desired archive filename.
-  $genScript = Join-Path $RepoRoot 'scripts\tooling\gen-release-hsf.mjs'
-  $gen = { param($token, $name)
-    Write-Host "  Generating $name ($token)..."
-    node --experimental-wasm-modules $genScript $sampleSfc.FullName $token (Join-Path $sellfilesDir $name)
-    if ($LASTEXITCODE -ne 0) { throw "Sellfile generation failed for '$token' (exit code $LASTEXITCODE)" }
-  }
-  Write-Host 'Generating sample sellfiles from example.sfc...'
-  & $gen 'midgame'  'midgame-sellfile.hsf'
-  & $gen 'lategame' 'lategame-sellfile.hsf'
-  & $gen 'endgame'  'endgame-sellfile.hsf'
-  # Ship the baseline Basic.sfc so newcomers can inspect an intentionally minimal recipe.
-  $basicSfcPath = Join-Path $samplesDir 'Basic.sfc'
-  if (-not (Test-Path -LiteralPath $basicSfcPath)) {
-    $legacyBasicSfcPath = Join-Path $samplesDir 'Basic.sfc'
-    if (Test-Path -LiteralPath $legacyBasicSfcPath) {
-      $basicSfcPath = $legacyBasicSfcPath
-    } else {
-      throw "Basic recipe sample (.sfc/.hsfc) not found in 'examples'"
-    }
-  }
-  Copy-Item -LiteralPath $basicSfcPath -Destination (Join-Path $sellfilesDir 'basic.sfc') -Force
 
   # Stage the WebSocket DB watchers under dev/ for helper integrations.
   $devDir = Join-Path $staging 'dev'
   if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
 
-  $sampleServerScripts = @(
+  $watcherScripts = @(
     'run-db-watcher.ps1'
   )
-  foreach ($scriptName in $sampleServerScripts) {
+  foreach ($scriptName in $watcherScripts) {
     # Pull watcher scripts from the dedicated scripts/watchers folder.
     $scriptSrc = Join-Path $RepoRoot "scripts\\watchers\\$scriptName"
     if (Test-Path $scriptSrc) {
@@ -278,21 +289,21 @@ try {
   }
 
   # Keep the helper BAT in the watcher bundle.
-  $sampleServerBatSrc = Join-Path $RepoRoot 'scripts\watchers\Stream-Helper-DB-to-Creator.bat'
-  if (Test-Path $sampleServerBatSrc) {
-    $sampleServerBatOut = Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat'
-    $sampleServerBatRaw = Get-Content -Raw -LiteralPath $sampleServerBatSrc
+  $watcherBatSrc = Join-Path $RepoRoot 'scripts\watchers\Stream-Helper-DB-to-Creator.bat'
+  if (Test-Path $watcherBatSrc) {
+    $watcherBatOut = Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat'
+    $watcherBatRaw = Get-Content -Raw -LiteralPath $watcherBatSrc
     # Rewrite the fixed app entry for packaged builds so runtime probing is unnecessary.
     $prodEntryLine = 'set "APP_ENTRY_PATH=!SCRIPT_DIR!..\SellfileCreator.html"'
-    $sampleServerBatPatched = [regex]::Replace(
-      $sampleServerBatRaw,
+    $watcherBatPatched = [regex]::Replace(
+      $watcherBatRaw,
       '(?im)^set "APP_ENTRY_PATH=.*"$',
       $prodEntryLine
     )
-    if ($sampleServerBatPatched -eq $sampleServerBatRaw) {
-      throw "Expected APP_ENTRY_PATH line not found in $sampleServerBatSrc"
+    if ($watcherBatPatched -eq $watcherBatRaw) {
+      throw "Expected APP_ENTRY_PATH line not found in $watcherBatSrc"
     }
-    Write-TextUtf8NoBom -Path $sampleServerBatOut -Text $sampleServerBatPatched
+    Write-TextUtf8NoBom -Path $watcherBatOut -Text $watcherBatPatched
   }
 
   # Legacy HTTP sample payloads are no longer staged.

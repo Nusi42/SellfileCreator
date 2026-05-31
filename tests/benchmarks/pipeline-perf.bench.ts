@@ -3,7 +3,7 @@
  * pipeline-perf.bench
  *
  * Wall-clock benchmarks for the evaluation + merge hot paths.
- * Uses the real example.sfc (recipes + safeguards) and the largest sample DB
+ * Uses the real lategame.sfc (recipes + safeguards) and the largest sample DB
  * so numbers reflect worst-case production workloads.
  *
  * Benchmarks:
@@ -97,15 +97,15 @@ function toArrayBuffer(bytes: Buffer): ArrayBuffer {
 }
 
 const ROOT_DIR = process.cwd()
-// example.sfc has both recipes AND safeguards — simulates a realistic full pipeline.
-const SFC_PATH = resolve(ROOT_DIR, 'examples', 'example.sfc')
+// lategame.sfc has both recipes AND safeguards — simulates a realistic full pipeline.
+const SFC_PATH = resolve(ROOT_DIR, 'presets', 'lategame.sfc')
 // Largest sample DB for worst-case timing.
 const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
 
 console.log('\n[bench:pipeline-perf] loading fixtures…')
 const sfcRaw = JSON.parse(readFileSync(SFC_PATH, 'utf8'))
 const parsed = parseSfcObject(sfcRaw, { metasets: [], substatTargets: defaultSubstatTargets() })
-// example.sfc has safeguards; ?? [] is a type-system defensive fallback.
+// lategame.sfc has safeguards; ?? [] is a type-system defensive fallback.
 const safeguardRules: SafeguardRule[] = resolveSafeguardRulesWithMetasets(parsed.safeguardRules ?? [], parsed.metasets)
 const recipeModes: SellfileExportMode[] = parsed.recipes.map((cfg) => cfg.exportMode)
 

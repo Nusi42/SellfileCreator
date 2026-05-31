@@ -9,8 +9,8 @@
  */
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
-import basicSfcRaw from '../examples/Basic.sfc?raw'
-import nusiSfcRaw from '../examples/example.sfc?raw'
+import beginnerSfcRaw from '../presets/beginner.sfc?raw'
+import lategameSfcRaw from '../presets/lategame.sfc?raw'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import {
@@ -7324,23 +7324,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleUnknownImportedFile,
   ])
 
-  // Loads the Basic or Example preset SFC directly without a confirmation dialog.
+  // Loads the beginner or lategame preset SFC directly without a confirmation dialog.
   // Used by the express-mode preset toggle in NoteDialog.
-  const handleLoadSimplePreset = useCallback((variant: 'basic' | 'endgame') => {
-    const raw = variant === 'basic' ? basicSfcRaw : nusiSfcRaw
-    const filename = variant === 'basic' ? 'Basic.sfc' : 'example.sfc'
+  const handleLoadSimplePreset = useCallback((variant: 'beginner' | 'lategame') => {
+    const raw = variant === 'beginner' ? beginnerSfcRaw : lategameSfcRaw
+    const filename = variant === 'beginner' ? 'beginner.sfc' : 'lategame.sfc'
     const file = new File([raw], filename, { type: 'application/json' })
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
-  // Auto-load the Mid-to-Endgame preset SFC once when starting in express simple mode.
+  // Auto-load the lategame preset SFC once when starting in express simple mode.
   // Skipped when expert mode was already on — the user gets the normal app.
   const simplePresetLoadDoneRef = useRef(false)
   useEffect(() => {
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!isSimpleViewAtStart || simplePresetLoadDoneRef.current) return
     simplePresetLoadDoneRef.current = true
-    handleLoadSimplePreset('endgame')
+    handleLoadSimplePreset('lategame')
   }, [isSimpleViewAtStart, handleLoadSimplePreset])
 
   // Keep the openNoteViewer ref stable so the auto-open effect can call it once.

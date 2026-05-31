@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-02-13T00:12:09.007Z",
-  "sourceSfc": "examples/example.sfc",
+  "sourceSfc": "presets/lategame.sfc",
   "sharedDb": "tests/data/sample2.db",
   "profiles": [
     {

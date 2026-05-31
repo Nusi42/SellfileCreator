@@ -8,8 +8,8 @@
  * Equivalently: later tiers may only add to the sell set, never remove from it.
  *
  * Run against all three example databases so coverage spans different account
- * inventories. Expects the EXAMPLE_NUSI_SFC_PATH fixture to include the Midgame,
- * Lategame, and Endgame recipe override checkboxes in example.sfc.
+ * inventories. Expects the PRESET_LATEGAME_SFC_PATH fixture to include the Midgame,
+ * Lategame, and Endgame recipe override checkboxes in lategame.sfc.
  */
 import path from 'node:path'
 import { type Browser, type Page } from '@playwright/test'
@@ -18,7 +18,7 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { NOTE_DIALOG_TITLES, NOTE_DIALOG_CLOSE_LABEL } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
-import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 
@@ -110,11 +110,11 @@ const collectOutcomesForMode = async (
     await prepareApp(page)
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    // Load example.sfc — the note dialog auto-opens after import.
+    // Load lategame.sfc — the note dialog auto-opens after import.
     const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
+    await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
 
     // Use page.waitForFunction to find and click the mode checkbox in the note dialog.
     // Scanning inputs directly inside [role="dialog"] avoids Playwright locator

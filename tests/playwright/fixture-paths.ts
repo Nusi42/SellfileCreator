@@ -4,8 +4,10 @@ import path from 'node:path'
 const REPO_ROOT = process.cwd()
 // Shared test data lives under tests/data.
 const TEST_DATA_DIR = path.resolve(REPO_ROOT, 'tests', 'data')
-// Example exports live under examples/.
+// Example DB fixtures live under examples/.
 const EXAMPLES_DIR = path.resolve(REPO_ROOT, 'examples')
+// Shipped preset SFCs live under presets/.
+const PRESETS_DIR = path.resolve(REPO_ROOT, 'presets')
 
 // Large SFC fixture used by table-heavy Playwright scenarios.
 export const SAMPLE_SFC_PATH = path.resolve(TEST_DATA_DIR, 'sample.sfc')
@@ -17,8 +19,8 @@ export const SAMPLE_SMALL_SFC_DISABLED_RECIPE_OVERRIDES_PATH = path.resolve(TEST
 export const SAMPLE_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample.db')
 // Slim DB fixture used by Playwright to keep matcher runs under 15s.
 export const SAMPLE_SMALL_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample-small.db')
-// Example SFC export from the bundled Example recipes.
-export const EXAMPLE_NUSI_SFC_PATH = path.resolve(EXAMPLES_DIR, 'example.sfc')
+// Shipped lategame preset — the comprehensive SFC bundled with releases.
+export const PRESET_LATEGAME_SFC_PATH = path.resolve(PRESETS_DIR, 'lategame.sfc')
 // Full RSLHelper DB — used by file-input tests (setInputFiles).
 // binary-endpoint-memory.spec.ts trims AccRecords in memory before sending over WebSocket.
 export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db')

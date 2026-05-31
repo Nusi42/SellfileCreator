@@ -8,7 +8,7 @@ import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { getWorkloadIndicator } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint; app reads it from ?endpoint= query param.
 const ENDPOINT_URL = 'ws://localhost:8080/'
@@ -65,11 +65,11 @@ test.describe('endpoint-replay', () => {
     // Navigate with the endpoint param so the app opens the WebSocket on boot.
     await page.goto(`/?endpoint=${ENDPOINT_URL}`, APP_GOTO_OPTIONS)
 
-    // Load example.sfc to activate safeguard rules — the storeArtifactRows WASM call
+    // Load lategame.sfc to activate safeguard rules — the storeArtifactRows WASM call
     // only runs when needsDetection is true (i.e., safeguards are configured).
     const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
+    await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
     // Note dialog may appear after SFC import — dismiss it before continuing.
     await dismissBlockingDialogs(page)
 
@@ -170,7 +170,7 @@ test.describe('endpoint-replay', () => {
 
     const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-    await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
+    await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
     await dismissBlockingDialogs(page)
 
     const workload = getWorkloadIndicator(page)

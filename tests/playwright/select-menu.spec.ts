@@ -3,7 +3,7 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { warmupAppShell } from './app-warmup'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { EXAMPLE_NUSI_SFC_PATH } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 
 test.beforeAll(async ({ browser }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   // Load an example SFC so the builder populates with recipes + metasets — that's what surfaces MUI Selects.
   const sfcInput = page.locator('[data-tour-id="sfc.load"] input[type="file"]').first()
   await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-  await sfcInput.setInputFiles(EXAMPLE_NUSI_SFC_PATH)
+  await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
   await dismissBlockingDialogs(page)
 })
 

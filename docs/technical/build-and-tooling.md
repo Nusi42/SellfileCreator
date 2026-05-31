@@ -283,17 +283,18 @@ Coding patterns adopted during the refactor (required for PRs):
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
 - Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
-- Sample sellfiles are generated at build time by `scripts/tooling/gen-release-hsf.mjs` from `examples/example.sfc` using the recipe-overrides DSL — the `lategame` and `endgame` preset tokens select the respective account-level override, and the script applies them through the same `computeMergedRules` path the app uses. The script is self-contained: it reuses `tmp/tsc/tests` when already present (production builds, which run `test:unit` first) and compiles it on-demand otherwise (dev builds that skip the test suite).
+- Preset sellfiles are generated at build time by `scripts/tooling/gen-release-hsf.mjs` from `presets/lategame.sfc` using the recipe-overrides DSL — the `lategame` and `endgame` preset tokens select the respective account-level override, and the script applies them through the same `computeMergedRules` path the app uses. The script is self-contained: it reuses `tmp/tsc/tests` when already present (production builds, which run `test:unit` first) and compiles it on-demand otherwise (dev builds that skip the test suite).
+- An optional `presets/<preset>.patch.json` file can declaratively alter the base preset before generation (drop a metaset entry, soft-disable a safeguard, edit the embedded Note). The patch applier (`scripts/tooling/apply-preset-patch.mjs`, `src/lib/presetPatch.ts`) runs before `gen-release-hsf.mjs` when a patch file is detected. Schema and worked examples live in [`presets/PATCHES.md`](../../presets/PATCHES.md).
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`
   - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfc` — prefers the most recent `Nusi_*.sfc` in `examples/`; falls back to `example.sfc` if no timestamped sample is present
-  - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `example.sfc` with the `lategame` recipe-override preset applied
-  - `Sellfiles/endgame-sellfile.hsf` — generated at build time from `example.sfc` with the `endgame` recipe-override preset applied
-  - `Sellfiles/basic.sfc` — copied from `examples/Basic.sfc` as the minimal starter recipe
+  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfc` — copied from `presets/lategame.sfc` (with any `presets/lategame.patch.json` applied)
+  - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `lategame` recipe-override preset applied
+  - `Sellfiles/endgame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `endgame` recipe-override preset applied
+  - `Sellfiles/basic.sfc` — copied from `presets/beginner.sfc` as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
 
