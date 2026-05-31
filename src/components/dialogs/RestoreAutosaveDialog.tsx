@@ -77,6 +77,7 @@ export default function RestoreAutosaveDialog({
   const hasNote = Boolean(
     (draft?.Note && draft.Note.trim())
     || (draft?.NoteRecipeOverridesAnswers && Object.keys(draft.NoteRecipeOverridesAnswers).length > 0)
+    || (draft?.NoteSafeguardOverridesAnswers && Object.keys(draft.NoteSafeguardOverridesAnswers).length > 0)
     || draft?.NoteRecipeOverridesDisabled
   )
   const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0

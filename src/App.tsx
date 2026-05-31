@@ -375,6 +375,8 @@ import {
 import {
   applySafeguardOverrides,
   resolveNoteSafeguardOverridesTags,
+  pruneNoteSafeguardOverridesAnswers,
+  NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
   type SafeguardOverridesResolution,
 } from './lib/noteSafeguardOverrides'
 import {
@@ -4039,6 +4041,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedRecipeIndex: selectedRecipeIdx,
     note: sfcNote,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     filters: autosaveFiltersState,
     gearInspectorSort: gearInspectorSubstatSortPrefs.state,
@@ -4931,6 +4934,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const recipeOverridesPayload = Object.keys(noteRecipeOverridesAnswers).length > 0
       ? noteRecipeOverridesAnswers
       : null
+    // Persist safeguard overrides answers in autosave only when non-empty.
+    const safeguardOverridesPayload = Object.keys(noteSafeguardOverridesAnswers).length > 0
+      ? noteSafeguardOverridesAnswers
+      : null
     // Persist recipe overrides disabled flag only when turned off.
     const overridesDisabledPayload = noteOverridesDisabled ? true : null
     return {
@@ -4939,6 +4946,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(recipeOverridesPayload ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeOverridesPayload } : {}),
+      ...(safeguardOverridesPayload ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: safeguardOverridesPayload } : {}),
       ...(overridesDisabledPayload ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(gearInspectorSortPayload ? { GearInspectorSort: gearInspectorSortPayload } : {}),
@@ -4954,6 +4962,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     metasets,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     safeguardRules,
     recipesEnabled,
@@ -8792,6 +8801,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
                 const restoredAnswers = draft.NoteRecipeOverridesAnswers ?? {}
                 setNoteRecipeOverridesAnswers(pruneNoteRecipeOverridesAnswers(restoredNote, restoredAnswers))
+                const restoredSafeguardAnswers = draft.NoteSafeguardOverridesAnswers ?? {}
+                setNoteSafeguardOverridesAnswers(pruneNoteSafeguardOverridesAnswers(restoredNote, restoredSafeguardAnswers))
                 setNoteOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
               }
               if (selection.filters) {

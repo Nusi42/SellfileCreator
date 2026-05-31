@@ -36,6 +36,11 @@ import {
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
 import {
+  NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
+  normalizeNoteSafeguardOverridesAnswers,
+  type NoteSafeguardOverridesAnswers,
+} from '../lib/noteSafeguardOverrides'
+import {
   isDefaultGearInspectorSubstatSortState,
   normalizeGearInspectorSubstatSortState,
   type GearInspectorSubstatSortState,
@@ -60,6 +65,7 @@ export type RestoreDraft = {
   Note?: string
   NoteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers
   NoteRecipeOverridesDisabled?: boolean
+  NoteSafeguardOverridesAnswers?: NoteSafeguardOverridesAnswers
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
   GearInspectorSort?: GearInspectorSubstatSortState
@@ -309,6 +315,7 @@ function computeInitialAutosaveState(args: {
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
+  noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
   filters: AutosaveFiltersState
   gearInspectorSort: GearInspectorSubstatSortState
   safeguardRules: SafeguardRule[]
@@ -388,9 +395,16 @@ function computeInitialAutosaveState(args: {
       const savedOverridesDisabled = payloadRecord
         ? payloadRecord[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] === true
         : false
-      // Consider either the note or recipe overrides answers as a reason to restore.
+      // Read any safeguard overrides answers stored alongside the autosave payload.
+      const savedSafeguardOverridesAnswers = normalizeNoteSafeguardOverridesAnswers(
+        payloadRecord
+          ? payloadRecord[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]
+          : null,
+      )
+      // Consider the note, recipe overrides, or safeguard overrides answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
         || (savedRecipeOverridesAnswers && Object.keys(savedRecipeOverridesAnswers).length > 0)
+        || (savedSafeguardOverridesAnswers && Object.keys(savedSafeguardOverridesAnswers).length > 0)
         || savedOverridesDisabled
       const payloadRecordForGridMode = entry.payload && typeof entry.payload === 'object'
         ? (entry.payload as Record<string, unknown>)
@@ -446,6 +460,7 @@ function computeInitialAutosaveState(args: {
             ...(savedSgSelIdx != null ? { SelectedSafeguardRuleIdx: savedSgSelIdx } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
+            ...(savedSafeguardOverridesAnswers ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: savedSafeguardOverridesAnswers } : {}),
             ...(savedOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
@@ -479,6 +494,7 @@ export function useAutosaveRestore(opts: {
   selectedRecipeIndex: number | null
   note: string | null
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
+  noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
   noteOverridesDisabled: boolean
   filters: AutosaveFiltersState
   gearInspectorSort: GearInspectorSubstatSortState
@@ -499,6 +515,7 @@ export function useAutosaveRestore(opts: {
     selectedRecipeIndex: _selectedRecipeIndex,
     note,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     filters,
     gearInspectorSort,
@@ -520,6 +537,7 @@ export function useAutosaveRestore(opts: {
     finalSellRemainder,
     note,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     filters,
     gearInspectorSort,
     safeguardRules,
@@ -557,6 +575,9 @@ export function useAutosaveRestore(opts: {
       ...(Object.keys(noteRecipeOverridesAnswers).length > 0
         ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: noteRecipeOverridesAnswers }
         : {}),
+      ...(Object.keys(noteSafeguardOverridesAnswers).length > 0
+        ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: noteSafeguardOverridesAnswers }
+        : {}),
       ...(noteOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
       ...(gearInspectorSortForSnapshot ? { GearInspectorSort: gearInspectorSortForSnapshot } : {}),
@@ -570,6 +591,7 @@ export function useAutosaveRestore(opts: {
     finalSellRemainder,
     note,
     noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     filters,
     gearInspectorSort,
