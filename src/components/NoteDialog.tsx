@@ -4300,11 +4300,14 @@ export default function NoteDialog({
         </Paper>
       ) : (
         // Standard centered Dialog: used in single-column layout or simple (express) mode.
+        // aria-labelledby wires the auto-id MUI generates to the same id the DialogTitle
+        // carries; without it MUI v9 generates a mismatched id and the dialog has no name.
         <Dialog
           open
           onClose={handleDialogClose}
           maxWidth="lg"
           fullWidth
+          aria-labelledby={NOTE_DIALOG_TITLE_ID}
           transitionDuration={noteDialogProps.transitionDuration}
           slotProps={{ paper: { ref: noteDialogProps.PaperProps.ref, sx: NOTE_DIALOG_PAPER_SX } }}
         >

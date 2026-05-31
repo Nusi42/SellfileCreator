@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 
 // Shared dialog titles so test selectors stay consistent.
-export const NOTE_DIALOG_TITLES = ['Note & Recipe Overrides', 'Note'] as const
+export const NOTE_DIALOG_TITLES = ['Note & Dynamic Overrides', 'Note'] as const
 // Restore prompts use a flexible title across app versions.
 export const RESTORE_DIALOG_TITLE = /restore/i
 // Standard close labels used across dialogs in the UI.
