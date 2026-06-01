@@ -9,12 +9,12 @@ const NOTE_TOGGLE_SELECTOR = '[data-tour-id="note.toggle"]'
 
 // Boot the shell once so each test only pays for navigation, not cold compile.
 test.beforeAll(async ({ browser }) => {
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   await warmupAppShell(browser)
 })
 
 test.beforeEach(async ({ page }) => {
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   await prepareApp(page)
   await page.goto('/', APP_GOTO_OPTIONS)
   await expect(page.getByRole('button', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
@@ -71,3 +71,4 @@ test('dialog role and aria-modal are set on LogicHub', async ({ page }) => {
   await expect(dialog).toHaveAttribute('role', 'dialog')
   await expect(dialog).toHaveAttribute('aria-modal', 'true')
 })
+

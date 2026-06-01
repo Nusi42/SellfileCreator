@@ -9,6 +9,8 @@ export const RESTORE_DIALOG_TITLE = /restore/i
 export const NOTE_DIALOG_CLOSE_LABEL = 'Close'
 // Restore prompts rely on a Dismiss call to action.
 export const RESTORE_DIALOG_DISMISS_LABEL = /Dismiss/i
+// Help/README dialog aria-label; shown on first run and whenever the user clicks Help.
+export const HELP_DIALOG_ARIA_LABEL = 'Help / README'
 
 type CloseDialogOptions = {
   closeLabel?: string | RegExp
@@ -56,6 +58,10 @@ export async function openDialogByTrigger(
 }
 
 export async function dismissBlockingDialogs(page: Page): Promise<void> {
+  // Close the Help/README dialog if it is open (e.g. left open by a prior test step or a manual
+  // click). No appearTimeout: prepareApp marks README as seen, so the dialog never auto-opens in
+  // tests; this is just a safety net for cases where it was opened as a side-effect.
+  await closeDialogIfVisible(page.getByRole('dialog', { name: HELP_DIALOG_ARIA_LABEL }))
   // Close note dialogs that can appear after config imports.
   for (const title of NOTE_DIALOG_TITLES) {
     await closeDialogIfVisible(page.getByRole('dialog', { name: title }), {

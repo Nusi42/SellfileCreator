@@ -1028,6 +1028,12 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // Capture the inner content width so the sticky overlay mirrors the real headers' band exactly.
       const nextContentWidth = Math.max(0, node.clientWidth)
       setOverlayContentWidthRef.current(nextContentWidth)
+      // Read the actual computed padding-right; browsers like Firefox add extra scrollbar-gutter
+      // padding via a browser-specific media query that theme.spacing() does not account for.
+      const computedPr = parseFloat(window.getComputedStyle(node).paddingRight)
+      if (Number.isFinite(computedPr) && computedPr > 0) {
+        setOverlayCloneRightInsetRef.current(computedPr)
+      }
       if (nextHeight <= 0) {
         scheduleViewportMeasure()
       }
@@ -1048,6 +1054,12 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
     }
   }, [])
+  // Track whether we've read the definitive padding-right from the live container.
+  // The mount effect may fire before a browser-specific media query (e.g. Firefox
+  // -moz-device-pixel-ratio) takes effect; reading it on first scroll guarantees the CSS
+  // is fully applied by the time we measure.
+  const overlayCloneRightInsetSettledRef = useRef(false)
+  const overlayCloneRightInsetValueRef = useRef(0)
   const [scrollVersion, setScrollVersion] = useState(0)
   // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
@@ -1060,6 +1072,16 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     if (liveContentWidth > 0 && liveContentWidth !== overlayContentWidthValueRef.current) {
       overlayContentWidthValueRef.current = liveContentWidth
       setOverlayContentWidthRef.current(liveContentWidth)
+    }
+    // Re-read the actual computed padding-right on first scroll so browser-specific media queries
+    // (e.g. Firefox -moz-device-pixel-ratio) that may not have applied at mount time are captured.
+    if (!overlayCloneRightInsetSettledRef.current) {
+      overlayCloneRightInsetSettledRef.current = true
+      const livePaddingRight = parseFloat(window.getComputedStyle(event.currentTarget).paddingRight)
+      if (Number.isFinite(livePaddingRight) && livePaddingRight !== overlayCloneRightInsetValueRef.current) {
+        overlayCloneRightInsetValueRef.current = livePaddingRight
+        setOverlayCloneRightInsetRef.current(livePaddingRight)
+      }
     }
     if (!scrollHintVisibleRef.current) {
       scrollHintVisibleRef.current = true
@@ -1192,6 +1214,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => parseSpacingPx(theme.spacing(GEAR_INSPECTOR_GRID_CONTAINER_PADDING_END_UNITS)),
     [theme],
   )
+  // Actual computed padding-right of the scroll container (px). Browsers that cannot use
+  // scrollbar-gutter (e.g. Firefox) add extra padding via a browser-specific media query in
+  // reserveScrollbarGutterSpace (+16 px), so the theme-derived containerPaddingEndPx alone is wrong
+  // there. We read getComputedStyle() at measure time and fall back to containerPaddingEndPx until
+  // the first measurement arrives.
+  const [overlayCloneRightInsetPx, setOverlayCloneRightInsetPx] = useState(() => containerPaddingEndPx)
+  const setOverlayCloneRightInsetRef = useRef(setOverlayCloneRightInsetPx)
+  useEffect(() => { setOverlayCloneRightInsetRef.current = setOverlayCloneRightInsetPx }, [setOverlayCloneRightInsetPx])
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -2512,9 +2542,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                // Inset the right edge by the container's inline-end padding so the clone's width matches
-                // the real header exactly (right:N on an absolute box honors the inset; width:100% wouldn't).
-                right: `${containerPaddingEndPx}px`,
+                // Inset the right edge by the container's actual computed padding-right so the clone
+                // matches the real header exactly in every browser. Firefox adds +16 px via a browser-specific
+                // media query in reserveScrollbarGutterSpace; overlayCloneRightInsetPx captures that at
+                // measure time whereas containerPaddingEndPx only reflects the theme-level base value.
+                right: `${overlayCloneRightInsetPx}px`,
                 height: `${accordionSummaryHeightPx}px`,
                 // Shallower headers stack above deeper ones; the parent is the stable anchor on top.
                 zIndex: stickyStack.length - stackIdx,

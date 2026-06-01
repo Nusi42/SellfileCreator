@@ -107,6 +107,7 @@ test.describe('Gear Inspector sticky headers', () => {
         gutter: container.offsetWidth - container.clientWidth,
         overlay: all.filter((h) => h.inOverlay),
         real: all.filter((h) => !h.inOverlay),
+
       }
     })
     expect(m).not.toBeNull()

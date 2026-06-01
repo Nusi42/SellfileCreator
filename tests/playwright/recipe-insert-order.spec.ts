@@ -35,8 +35,8 @@ function positionsAreOrdered(positions: readonly number[]): boolean {
 
 test.describe('config insert ordering', () => {
   test('HSF preview rows stay aligned with config order after paste after', async ({ page }) => {
-    // Allow long timeout for the rebuilds triggered by SFC parsing + paste.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    // SFC load + two rebuild-settle waits push this past testLong on loaded systems.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     await prepareApp(page, { stubClipboard: true })
 
     // Load the shell without waiting on full window load.

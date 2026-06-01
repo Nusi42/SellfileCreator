@@ -75,8 +75,9 @@ test.describe('HSF preview performance', () => {
     }
 
     const firstRow = page.locator('table tbody tr[data-recipe-idx]').first()
-    // Use the long timeout reserved for rebuild-driven table hydration.
-    const firstRowTimeoutMs = PLAYWRIGHT_TIMEOUTS.expectLong
+    // Use the heavy budget: under post-parallel-suite CPU load, rebuilds can take
+    // significantly longer than expectLong (15 s) before the first row appears.
+    const firstRowTimeoutMs = PLAYWRIGHT_TIMEOUTS.testHeavy
     // Wait for the first row to attach even if visibility lags.
     await firstRow.waitFor({ state: 'attached', timeout: firstRowTimeoutMs })
     const rowVisible = await firstRow.isVisible().catch(() => false)
