@@ -58,7 +58,7 @@ export const EVENT_SPOTLIGHT_OPTIONS: readonly EventSpotlightSelection[] = ['chr
 
 export type DungeonId = 'iceGolem' | 'fireKnight' | 'dragon' | 'spider' | 'event'
 export type DungeonBoostableId = Exclude<DungeonId, 'spider' | 'event'>
-export type DungeonBoostMode = 'off' | '2x' | '3x'
+export type DungeonBoostMode = 'off' | '2x' | '3x' | '5x'
 export type DungeonBoostSelection = {
   mode: DungeonBoostMode
   setId: ArtifactSetId | null
@@ -71,7 +71,7 @@ export const DUNGEON_BOOSTABLE_IDS: readonly DungeonBoostableId[] = [
   'iceGolem',
 ] as const
 // Expose supported boost options for UI toggles.
-export const DUNGEON_BOOST_MODES: readonly DungeonBoostMode[] = ['off', '2x', '3x'] as const
+export const DUNGEON_BOOST_MODES: readonly DungeonBoostMode[] = ['off', '2x', '3x', '5x'] as const
 // Default boost selection keeps the drop pool uniform.
 export const DUNGEON_BOOST_DEFAULT: DungeonBoostSelection = { mode: 'off', setId: null }
 
@@ -1085,6 +1085,7 @@ const eventRankWeightsForStage = (stage: number): readonly number[] => {
 const resolveBoostMultiplier = (mode: DungeonBoostMode): number => {
   if (mode === '2x') return 2
   if (mode === '3x') return 3
+  if (mode === '5x') return 5
   return 1
 }
 

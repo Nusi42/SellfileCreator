@@ -400,6 +400,7 @@ const overrides: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: "2×",
   dungeonDropsBoost3x: "3×",
+  dungeonDropsBoost5x: "5×",
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Zindan tablosunu daralt",
   dungeonDropsExpandLabel: "Zindan tablosunu genişlet",

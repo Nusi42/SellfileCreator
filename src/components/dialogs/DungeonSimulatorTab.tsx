@@ -38,6 +38,7 @@ import {
   resolveDungeonStageRange,
   resolveDungeonSlotIds,
   resolveEventSpotlightSet,
+  type DungeonBoostMode,
   type DungeonBoostSelection,
   type DungeonBoostableId,
   type DungeonId,
@@ -72,6 +73,14 @@ const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
   spider: 'dungeonSpider',
   dragon: 'dungeonDragon',
   event: 'dungeonEvent',
+}
+
+// Map each boost multiplier to its toggle-button i18n key (single source for labels).
+const DUNGEON_BOOST_MODE_LABEL_KEYS: Record<DungeonBoostMode, string> = {
+  off: 'dungeonDropsBoostOff',
+  '2x': 'dungeonDropsBoost2x',
+  '3x': 'dungeonDropsBoost3x',
+  '5x': 'dungeonDropsBoost5x',
 }
 
 // Percent precision aims for at least two significant figures in tiny rates.
@@ -1124,11 +1133,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     >
                       {DUNGEON_BOOST_MODES.map((mode) => (
                         <ToggleButton key={`${dungeonId}-boost-mode-${mode}`} value={mode}>
-                          {mode === 'off'
-                            ? t('dungeonDropsBoostOff')
-                            : mode === '2x'
-                              ? t('dungeonDropsBoost2x')
-                              : t('dungeonDropsBoost3x')}
+                          {t(DUNGEON_BOOST_MODE_LABEL_KEYS[mode])}
                         </ToggleButton>
                       ))}
                     </ToggleButtonGroup>

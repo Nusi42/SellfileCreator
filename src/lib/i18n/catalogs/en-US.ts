@@ -410,6 +410,7 @@ const enUS: Catalog = {
   // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: "2×",
   dungeonDropsBoost3x: "3×",
+  dungeonDropsBoost5x: "5×",
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Collapse dungeon table",
   dungeonDropsExpandLabel: "Expand dungeon table",
