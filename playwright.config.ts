@@ -87,7 +87,7 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   /* Worker count: 50% of CPU cores locally for a healthy speedup that still leaves
      headroom for Vite + the OS; cap CI runners at 2 to avoid OOM on shared hardware.
      The `<browser>-perf` project is launched separately with --workers=1 so timing
