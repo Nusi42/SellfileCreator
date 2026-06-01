@@ -105,7 +105,10 @@ test.describe('endpoint-replay', () => {
       await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
 
       // Short pause between rounds so the JS heap can stabilise before the next burst.
-      await page.waitForTimeout(500)
+      // Catch page-closed errors (e.g. OOM under full-suite load) so the crash flag
+      // drives the final assertion with a clear message instead of an unhandled throw.
+      await page.waitForTimeout(500).catch(() => { crashed = true })
+      if (crashed) break
     }
 
     // Final check — any crash or uncaught error means the fix is incomplete.
