@@ -125,6 +125,12 @@ each re-pin, so there is no leak.
 - **Gated work** — when the split-view is **closed**, only the delta runs (~1 linear pass
   over the gear list per commit, for the chip). The flip diff + row index + joined rows are
   built **only when the view is open** (`active` arg to `useGearDiffCompare`).
+- **Steady during rebuilds** — an edit re-pins the baseline immediately (dropping the live
+  delta to 0) but the new verdicts only land when the worker commits. App snapshots the diff
+  at each verdicts commit (setState-in-render) and shows that frozen value while a rebuild is
+  pending (`gearDiffDisplayDelta` / `gearDiffDisplayRows`), so the chip and split-view list
+  don't flash empty mid-edit. Set reference / override toggles don't change the signature, so
+  they update immediately.
 - **Cache-hit indicator** — the rebuilding/progress indicator is set only on a pipeline
   cache **miss** (the cache lookup was hoisted above the indicator toggles in
   `launchPipeline`), so undo/redo revisits that hit the cache no longer flash the

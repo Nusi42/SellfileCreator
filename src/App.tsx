@@ -283,7 +283,7 @@ import type {
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import { buildVerdictMapFromRows, type DiffRow } from './lib/gearDiff/verdictDiff'
-import { useGearDiffCompare, type GearDiffRows } from './hooks/useGearDiffCompare'
+import { useGearDiffCompare, type GearDiffDelta, type GearDiffRows } from './hooks/useGearDiffCompare'
 import { useChangePulse } from './hooks/useChangePulse'
 import GearDiffSplitView from './components/GearDiffSplitView'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
@@ -2037,6 +2037,41 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // changes never show as a diff, and an active comparison survives a push. The "first load
   // over an empty setup produces no diff" case is handled by the auto-tracker's empty-rows /
   // empty-rules guards above.
+  // Hold the diff display steady from a rule edit until the worker commits new verdicts, so
+  // the header chip and split-view list don't flash empty during the re-pin → rebuild window:
+  // the auto-tracker re-pins the baseline to the pre-edit state the instant an edit changes
+  // the signature, dropping the live delta to 0 until the new verdicts land. While a rebuild
+  // is pending (current signature has no matching verdicts commit yet) we show the last
+  // committed diff. Set reference / override toggles don't change the signature, so they
+  // update immediately.
+  //
+  // Snapshot the diff at each verdicts commit via the setState-in-render pattern (React's
+  // getDerivedStateFromProps equivalent): the live map only changes when a pipeline result
+  // lands, and on that render the delta/diffRows memos are already recomputed, so we capture
+  // the fresh values plus the signature they correspond to.
+  const [gearDiffFreeze, setGearDiffFreeze] = useState<{
+    prevVerdicts: typeof gearInspectorMatchesByItemId
+    delta: GearDiffDelta | null
+    diffRows: GearDiffRows | null
+    commitSig: string | null
+  }>(() => ({
+    prevVerdicts: gearInspectorMatchesByItemId,
+    delta: gearDiffCompare.delta,
+    diffRows: gearDiffCompare.diffRows,
+    commitSig: currentEntrySignature?.crc ?? null,
+  }))
+  if (gearDiffFreeze.prevVerdicts !== gearInspectorMatchesByItemId) {
+    setGearDiffFreeze({
+      prevVerdicts: gearInspectorMatchesByItemId,
+      delta: gearDiffCompare.delta,
+      diffRows: gearDiffCompare.diffRows,
+      commitSig: currentEntrySignature?.crc ?? null,
+    })
+  }
+  // True while the current rule signature has not yet produced its verdicts commit.
+  const gearDiffRebuildPending = (currentEntrySignature?.crc ?? null) !== gearDiffFreeze.commitSig
+  const gearDiffDisplayDelta = gearDiffRebuildPending ? gearDiffFreeze.delta : gearDiffCompare.delta
+  const gearDiffDisplayRows = gearDiffRebuildPending ? gearDiffFreeze.diffRows : gearDiffCompare.diffRows
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called
@@ -5245,7 +5280,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // so a piece that filters in on only one side still shows the other side for comparison.
   // Scope/context grouping is intentionally not applied here — the diff is a plain filter.
   const gearDiffFilteredRows = useMemo<GearDiffRows | null>(() => {
-    const dr = gearDiffCompare.diffRows
+    // Use the frozen display rows so the split-view list holds steady during a rebuild.
+    const dr = gearDiffDisplayRows
     if (!dr) return null
     if (!gearInspectorFilterActive) return dr
     const all = [...dr.newlySell, ...dr.newlyKeep]
@@ -5273,7 +5309,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       newlyKeep: dr.newlyKeep.filter((r) => keepIds.has(r.artifact.id)),
     }
   }, [
-    gearDiffCompare.diffRows,
+    gearDiffDisplayRows,
     gearInspectorFilterActive,
     gearInspectorRulesFilter,
     metasetsForGearInspectorFilter,
@@ -8663,7 +8699,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleDiffMode={handleToggleGearDiffMode}
         onSetDiffReference={handleSetGearDiffReference}
         onToggleDiffAuto={handleToggleGearDiffAuto}
-        diffDelta={gearDiffCompare.delta}
+        diffDelta={gearDiffDisplayDelta}
         diffReferencePulsing={gearDiffReferencePulsing}
       />
           {filterOpen && (
