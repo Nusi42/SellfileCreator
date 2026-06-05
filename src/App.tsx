@@ -8306,6 +8306,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       halfPaneColumns?: boolean
       collapsedGroups?: Set<string>
       onCollapsedGroupsChange?: React.Dispatch<React.SetStateAction<Set<string>>>
+      showGroupDeltas?: boolean
     },
   ) => (
     <GearInspectorItemsGrid
@@ -8313,7 +8314,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rows={diffRows}
       allRows={diffRows}
       halfPaneColumns={opts?.halfPaneColumns ?? false}
-      diffMode
+      showGroupDeltas={opts?.showGroupDeltas ?? false}
       {...(opts?.collapsedGroups ? { collapsedGroups: opts.collapsedGroups } : {})}
       {...(opts?.onCollapsedGroupsChange ? { onCollapsedGroupsChange: opts.onCollapsedGroupsChange } : {})}
       // Gear selection works in diff mode when a push endpoint is connected. Both panes

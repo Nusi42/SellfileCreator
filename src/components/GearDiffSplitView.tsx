@@ -18,6 +18,9 @@ type GearDiffSplitViewProps = {
     halfPaneColumns?: boolean
     collapsedGroups?: Set<string>
     onCollapsedGroupsChange?: Dispatch<SetStateAction<Set<string>>>
+    // After pane only: show per-group before→after deltas in the headers (the before pane
+    // keeps the normal absolute outcome chip).
+    showGroupDeltas?: boolean
   }) => ReactNode
 }
 
@@ -102,7 +105,7 @@ export function GearDiffSplitView({ diffRows, renderGrid }: GearDiffSplitViewPro
             <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
               {t('gearDiffSplitCurrentHeading')}
             </Typography>
-            <Box ref={rightPaneRef} sx={{ flex: 1, minHeight: 0 }}>{renderGrid(afterRows, { halfPaneColumns: true, collapsedGroups, onCollapsedGroupsChange: setCollapsedGroups })}</Box>
+            <Box ref={rightPaneRef} sx={{ flex: 1, minHeight: 0 }}>{renderGrid(afterRows, { halfPaneColumns: true, collapsedGroups, onCollapsedGroupsChange: setCollapsedGroups, showGroupDeltas: true })}</Box>
           </Box>
         </Box>
       )}

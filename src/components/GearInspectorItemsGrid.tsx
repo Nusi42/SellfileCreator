@@ -204,10 +204,11 @@ type GearInspectorItemsGridProps = {
   // Gear-diff split-view: this grid is one of two half-width panes. Rounds the dynamic
   // column count so each pane shows half the full-grid columns at identical card width.
   halfPaneColumns?: boolean
-  // Gear-diff split-view: rows are DiffRows (carry beforeMatch / afterMatch). Group headers
-  // then show that group's before→after delta (±sold / ±kept / ±safeguard) instead of the
-  // absolute outcome summary chip.
-  diffMode?: boolean
+  // Gear-diff split-view (the AFTER pane only): rows are DiffRows (carry beforeMatch /
+  // afterMatch), so group headers show that group's before→after delta (±sold / ±kept /
+  // ±safeguard) instead of the absolute outcome summary chip. The BEFORE pane leaves this
+  // off and keeps the normal absolute chip.
+  showGroupDeltas?: boolean
   // Optional controlled collapse state. When provided (diff split-view), both panes share
   // one Set + setter so group collapse/expand stays synchronized across them.
   collapsedGroups?: Set<string>
@@ -334,7 +335,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     safeguardRules,
     safeguardRankByArtifactId = null,
     halfPaneColumns = false,
-    diffMode = false,
+    showGroupDeltas = false,
     collapsedGroups: collapsedGroupsProp,
     onCollapsedGroupsChange,
     enterKey = undefined,
@@ -930,10 +931,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   }, [groups])
   const groupOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(groups, contextGroupById), [groups, contextGroupById])
   const groupTotalOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(summaryGroups), [summaryGroups])
-  // Diff split-view only: per-group before→after deltas for the group-header chips.
+  // Diff split-view after-pane only: per-group before→after deltas for the group-header chips.
   const groupDiffDeltaByKey = useMemo(
-    () => (diffMode ? buildGroupDiffDeltaMap(summaryGroups) : null),
-    [diffMode, summaryGroups],
+    () => (showGroupDeltas ? buildGroupDiffDeltaMap(summaryGroups) : null),
+    [showGroupDeltas, summaryGroups],
   )
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
@@ -2260,10 +2261,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 {group.label}
               </Typography>
             </Box>
-            {/* Center column: chip always centered in the header row. In diff mode the
-                group shows its before→after delta; otherwise its absolute outcome summary. */}
+            {/* Center column: chip always centered in the header row. The diff after-pane
+                shows the group's before→after delta; everywhere else, the absolute summary. */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {diffMode && groupDiffDelta ? (
+              {showGroupDeltas && groupDiffDelta ? (
                 <GearDiffDeltaChip delta={groupDiffDelta} />
               ) : (
                 <GearInspectorOutcomeSummaryChip

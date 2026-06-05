@@ -95,10 +95,12 @@ Only the inline split-view exists (no modal). `GearDiffSplitView.tsx` renders tw
   card conveys its verdict through normal styling (no extra badge). There are **no
   directional buckets** — the changed items are one flat list, sorted/grouped/filtered by the
   normal Gear Inspector controls (the diff is just an extra "only changed" filter on top).
-- **Per-group deltas** — in diff mode (`diffMode` grid prop) each accordion header swaps its
-  absolute outcome chip for that group's **before→after delta** (`GearDiffDeltaChip`), built
-  by `buildGroupDiffDeltaMap` from the group's DiffRows (summarise the beforeMatch and
-  afterMatch sides, subtract). Both panes show the same per-group delta.
+- **Per-group deltas** — in the **after** pane (`showGroupDeltas` grid prop) each accordion
+  header swaps its absolute outcome chip for that group's **before→after delta**
+  (`GearDiffDeltaChip`), built by `buildGroupDiffDeltaMap` from the group's DiffRows
+  (summarise the beforeMatch and afterMatch sides, subtract). The **before** pane keeps the
+  normal absolute chip (showing that group's baseline counts), so the two headers read as
+  "what it was" → "what changed".
 - **Selection** — gear selection works in diff mode when a push endpoint is connected. Both
   panes share one selection set + handler, so selecting on either side reflects on the other.
 
