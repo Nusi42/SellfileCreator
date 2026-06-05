@@ -18,10 +18,10 @@ of the sort cluster. It is enabled only in Gear Inspector preview mode.
 
 A **delta chip** (`GearDiffDeltaChip.tsx`) renders to the right of the `Diff` button
 whenever a meaningful diff exists (any non-zero metric) — independent of whether the
-split-view is open, so the diff is a passive, always-available indicator. It matches the
-Gear Inspector outcome summary chip's pill/height/tooltip style but uses the **secondary**
-tint + a leading compare icon so it reads as a clearly different thing (the diff delta, not
-the absolute totals), and shows signed **Sell / Keep / Safeguards** deltas vs the reference.
+split-view is open, so the diff is a passive, always-available indicator. It mirrors the
+Gear Inspector outcome summary chip's pill/height/tint/tooltip style; it's distinguished by
+its **content** (signed +/- deltas) and its position beside the Diff button, and shows
+signed **Sell / Keep / Safeguards** deltas vs the reference.
 
 When the reference itself changes (auto-track re-pin, **Set reference**, or a load), the
 `Diff` button runs a brief **shine** — a "reference moved" cue, driven by `useChangePulse`
