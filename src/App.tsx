@@ -8313,6 +8313,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rows={diffRows}
       allRows={diffRows}
       halfPaneColumns={opts?.halfPaneColumns ?? false}
+      diffMode
       {...(opts?.collapsedGroups ? { collapsedGroups: opts.collapsedGroups } : {})}
       {...(opts?.onCollapsedGroupsChange ? { onCollapsedGroupsChange: opts.onCollapsedGroupsChange } : {})}
       // Gear selection works in diff mode when a push endpoint is connected. Both panes

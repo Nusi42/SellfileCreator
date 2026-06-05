@@ -24,6 +24,9 @@ import { useTheme, type Theme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import GearInspectorOutcomeSummaryChip, { GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS } from './GearInspectorOutcomeSummaryChip'
+import { GearDiffDeltaChip } from './GearDiffDeltaChip'
+import type { GearDiffDelta } from '../hooks/useGearDiffCompare'
+import type { DiffRow } from '../lib/gearDiff/verdictDiff'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { NoGearSetIcon } from './NoGearSetIcon'
@@ -201,6 +204,10 @@ type GearInspectorItemsGridProps = {
   // Gear-diff split-view: this grid is one of two half-width panes. Rounds the dynamic
   // column count so each pane shows half the full-grid columns at identical card width.
   halfPaneColumns?: boolean
+  // Gear-diff split-view: rows are DiffRows (carry beforeMatch / afterMatch). Group headers
+  // then show that group's before→after delta (±sold / ±kept / ±safeguard) instead of the
+  // absolute outcome summary chip.
+  diffMode?: boolean
   // Optional controlled collapse state. When provided (diff split-view), both panes share
   // one Set + setter so group collapse/expand stays synchronized across them.
   collapsedGroups?: Set<string>
@@ -237,6 +244,27 @@ type GearInspectorGroup = {
   showHeader?: boolean
   children?: GearInspectorGroup[]
   parentKey?: string | null
+}
+
+// Build a key → before→after delta map for the diff split-view group headers, mirroring
+// buildGroupOutcomeSummaryMap. In diff mode each group's rows are DiffRows (they carry
+// beforeMatch / afterMatch); summarise each side and subtract so the header shows that
+// group's net ±sold / ±kept / ±safeguard instead of absolute counts.
+function buildGroupDiffDeltaMap(roots: readonly GearInspectorGroup[]): Map<string, GearDiffDelta> {
+  const map = new Map<string, GearDiffDelta>()
+  const add = (group: GearInspectorGroup) => {
+    const rows = group.rows as DiffRow[]
+    const before = buildGearInspectorOutcomeSummary(rows.map((r) => ({ ...r, match: r.beforeMatch })))
+    const after = buildGearInspectorOutcomeSummary(rows.map((r) => ({ ...r, match: r.afterMatch })))
+    map.set(group.key, {
+      sold: after.sold - before.sold,
+      kept: after.kept - before.kept,
+      keptBySafeguards: after.keptBySafeguards - before.keptBySafeguards,
+    })
+    group.children?.forEach(add)
+  }
+  roots.forEach(add)
+  return map
 }
 
 // Build a key → summary map by walking the group tree recursively.
@@ -306,6 +334,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     safeguardRules,
     safeguardRankByArtifactId = null,
     halfPaneColumns = false,
+    diffMode = false,
     collapsedGroups: collapsedGroupsProp,
     onCollapsedGroupsChange,
     enterKey = undefined,
@@ -901,6 +930,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   }, [groups])
   const groupOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(groups, contextGroupById), [groups, contextGroupById])
   const groupTotalOutcomeSummaryByKey = useMemo(() => buildGroupOutcomeSummaryMap(summaryGroups), [summaryGroups])
+  // Diff split-view only: per-group before→after deltas for the group-header chips.
+  const groupDiffDeltaByKey = useMemo(
+    () => (diffMode ? buildGroupDiffDeltaMap(summaryGroups) : null),
+    [diffMode, summaryGroups],
+  )
   const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
     const group = groupLookup.get(groupKey)
     if (!group || !group.parentKey) {
@@ -2075,6 +2109,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     const nested = item.depth > 0
     const groupOutcomeSummary = groupOutcomeSummaryByKey.get(group.key) ?? null
     const groupTotalOutcomeSummary = groupTotalOutcomeSummaryByKey.get(group.key) ?? groupOutcomeSummary
+    // Diff mode: this group's before→after delta, shown in place of the absolute chip.
+    const groupDiffDelta = groupDiffDeltaByKey?.get(group.key) ?? null
     // Count of selected items in this group's direct rows only — children are excluded so
     // parent and sub-accordion headers each show their own independent tally without overlap.
     const groupSelectedCount = gearSelectionEnabled && selectedGearItemIds
@@ -2224,17 +2260,22 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 {group.label}
               </Typography>
             </Box>
-            {/* Center column: chip always centered in the header row. */}
+            {/* Center column: chip always centered in the header row. In diff mode the
+                group shows its before→after delta; otherwise its absolute outcome summary. */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <GearInspectorOutcomeSummaryChip
-                summary={groupOutcomeSummary}
-                totalSummary={groupTotalOutcomeSummary}
-                showWhenEmpty
-                showFilteredTotals={Boolean(filterActive)}
-                metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
-                leavingGeneration={leavingGeneration}
-                animateIn={enteringGroupKeys.has(group.key)}
-              />
+              {diffMode && groupDiffDelta ? (
+                <GearDiffDeltaChip delta={groupDiffDelta} />
+              ) : (
+                <GearInspectorOutcomeSummaryChip
+                  summary={groupOutcomeSummary}
+                  totalSummary={groupTotalOutcomeSummary}
+                  showWhenEmpty
+                  showFilteredTotals={Boolean(filterActive)}
+                  metricMode={safeguardsVariant ? 'safeguardsOnly' : 'all'}
+                  leavingGeneration={leavingGeneration}
+                  animateIn={enteringGroupKeys.has(group.key)}
+                />
+              )}
             </Box>
             {/* Right: select buttons (when active) + expand/collapse icon, aligned to the end. */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
