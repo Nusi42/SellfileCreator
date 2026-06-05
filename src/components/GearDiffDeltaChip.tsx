@@ -18,9 +18,14 @@ function toneColor(theme: Theme, value: number, activeColor: string): string {
   return activeColor
 }
 
-// Pill chrome mirrors the Gear Inspector outcome summary chip (same padding, neutral info
-// tint, border, shadow, sizing) so the chips line up. The diff chip is distinguished by its
-// content — signed +/- deltas — and its position beside the Diff button, not by colour.
+// Slate blue-grey (#5b6b8c) chrome — a muted, distinct fill vs the outcome summary chip's
+// info-blue, so the two read as different things. The colourblind-friendly palette already
+// spends blue (info/primary), orange (sell), green (keep) and amber (safeguards), so slate
+// sits in an unused gap and never collides with a verdict colour. Per-metric value colours
+// inside still convey sold/kept/safeguarded.
+const DIFF_CHIP_SLATE_RGB = '91, 107, 140' as const
+// Pill chrome otherwise mirrors the outcome summary chip (padding, border weight, shadow,
+// sizing) so the two chips line up in the header.
 const CHIP_SX = (theme: Theme) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -31,8 +36,8 @@ const CHIP_SX = (theme: Theme) => ({
   // String bypasses MUI's sx borderRadius multiplier so it stays a full pill regardless of
   // theme.shape.borderRadius (same idiom as the outcome chip).
   borderRadius: '999px',
-  backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)',
-  border: '1px solid rgba(var(--mui-palette-info-mainChannel) / 0.3)',
+  backgroundColor: `rgba(${DIFF_CHIP_SLATE_RGB}, 0.18)`,
+  border: `1px solid rgba(${DIFF_CHIP_SLATE_RGB}, 0.5)`,
   boxShadow: theme.shadows[1],
   fontWeight: 700,
   lineHeight: 1,
