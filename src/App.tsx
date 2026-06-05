@@ -3597,8 +3597,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Manual view opens should also clear auto-open gating.
   const openNoteViewerManual = useCallback(() => {
     setNoteAutoOpenedFromSfc(false)
+    // Explicitly opening the Note dialog means "I'm about to tune overrides" — pin a fresh
+    // reference now so override changes in the dialog diff against the state at open time.
+    // (Auto-opens from loading an SFC/preset go through openNoteViewer directly and keep the
+    // pre-load reference instead.)
+    gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
     openNoteViewer()
-  }, [openNoteViewer, setNoteAutoOpenedFromSfc])
+  }, [openNoteViewer, setNoteAutoOpenedFromSfc, t])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
   useLayoutEffect(() => { requestDeleteSingleRef.current = requestDeleteSingle })

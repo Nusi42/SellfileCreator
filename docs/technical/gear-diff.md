@@ -48,6 +48,11 @@ documented asymmetry, surfaced in the `Diff` tooltip:
 - **Toggling Dynamic Overrides** (Note dialog) does **not** change the signature → the
   reference stays put → successive override changes **accumulate**, so the diff shows the
   combined effect of all override choices, not just the last one.
+- **Explicitly opening the Note dialog** (`openNoteViewerManual`, i.e. the user clicks to
+  open it — not the auto-open from loading an SFC/preset) pins a **fresh reference** at that
+  moment, so override tuning in the dialog diffs against the state when it was opened. The
+  auto-open path (`openNoteViewer` from a load) does not re-pin, keeping the pre-load
+  reference instead.
 - Turning Auto-track off (or using **Set reference**) fixes one reference so everything —
   overrides and builder edits alike — accumulates against it.
 
