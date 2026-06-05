@@ -1647,7 +1647,7 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
 ${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")
-             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)* [elseBlock] "}"
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
 crossBlock    := "safeguard" "@" selector "{" sgAssignment+ "}"  // targets safeguard rules from a recipe-overrides marker
@@ -1664,7 +1664,8 @@ assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
              | "rolltarget." statKey "=" number ("," [number])*
-fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
+elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   // option-level: applied when THIS option is unselected (e.g. unchecked box)
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
@@ -1815,9 +1816,9 @@ markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
 question      := ("q" | "question") string group+ [fallbackBlock]
 group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"checkbox"|"check")
-             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
+             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)* [elseBlock] "}"
              | ("slider"|"range") string [headerToken {headerToken}] [constraints]
-               sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [fallbackBlock] "}"
+               sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [elseBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
@@ -1853,7 +1854,8 @@ subMatchVal   := "${_sgMatchVals}"
 impChanceVal  := "off" | "disabled" | number ("," [number])*
                  // 1–4 comma-separated values; omitted slots inherit from the previous stage
 flexVal       := "on" | "off" | "true" | "false"
-fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"
+elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   // option-level: applied when THIS option is unselected
+fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*

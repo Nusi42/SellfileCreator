@@ -194,6 +194,9 @@ export type NoteQuestionOption = {
   blocks: RecipeOverridesSelectorBlock[]
   // Cross-domain blocks that target safeguard rules when this option is active.
   safeguardBlocks: SafeguardOverridesSelectorBlock[]
+  // `else` blocks: applied when THIS option is NOT selected (per-option, e.g. an unchecked box).
+  elseBlocks: RecipeOverridesSelectorBlock[]
+  safeguardElseBlocks: SafeguardOverridesSelectorBlock[]
   isDefault: boolean
   token: string
   setOptionIds: string[]
@@ -1499,15 +1502,9 @@ const buildQuestionGroups = (
       groupMap.set(resolved.groupType, group)
       groupOrder.push(group)
     }
-    // Accumulate group-level fallback blocks in source order.
-    if (parsedOption.fallbackBlocks.length > 0) {
-      // Initialize fallback storage for this group if needed.
-      const fallback = group.fallback ?? { blocks: [], safeguardBlocks: [] }
-      // Append the parsed group fallback blocks in source order.
-      fallback.blocks.push(...parsedOption.fallbackBlocks)
-      // Only keep the fallback when at least one block exists.
-      group.fallback = fallback.blocks.length > 0 ? fallback : null
-    }
+    // Per-option `else` blocks are now carried on the option itself (resolved.elseBlocks)
+    // and applied when that option is unselected — see resolveRecipeOverridesTags.
+    // Group-empty defaults are expressed by the question-level `fallback` block.
     group.options.push(resolved)
   })
   return groupOrder
@@ -1556,6 +1553,8 @@ const buildResolvedQuestion = (
       detail: option.detail,
       blocks: option.blocks,
       safeguardBlocks: option.crossBlocks as SafeguardOverridesSelectorBlock[],
+      elseBlocks: option.fallbackBlocks,
+      safeguardElseBlocks: option.crossFallbackBlocks as SafeguardOverridesSelectorBlock[],
       isDefault: option.isDefault,
       token,
       setOptionIds,
@@ -2097,32 +2096,16 @@ export const resolveRecipeOverridesTags = (
   const safeguardInstructions: SafeguardOverridesInstruction[] = []
   for (const question of questions) {
     const selected = new Set(question.answer)
-    // Track whether each group has at least one selected option.
-    const groupSelections = new Map<NoteQuestionGroupType, boolean>()
-    question.groups.forEach((group) => {
-      // Determine whether any option in the group is selected.
-      const hasSelection = group.options.some((option) => selected.has(option.id))
-      // Cache the result so we can reuse it per option.
-      groupSelections.set(group.type, hasSelection)
-    })
-    // Apply group-level fallback blocks when a group has no selections.
-    const appliedGroupFallback = new Set<NoteQuestionGroupType>()
+    // Emit each option's blocks when selected, or its `else` blocks when not.
+    // `else` is per-option (e.g. a single unchecked box), in source order.
     question.options.forEach((option) => {
-      const groupType = option.groupType
-      // Apply group-level fallback once, at the first option of the group.
-      if (!appliedGroupFallback.has(groupType) && !groupSelections.get(groupType)) {
-        appliedGroupFallback.add(groupType)
-        // Find the group so we can append its fallback blocks in order.
-        const group = question.groups.find((entry) => entry.type === groupType)
-        // Append the group fallback blocks when present.
-        group?.fallback?.blocks.forEach((block) => instructions.push(block))
-        group?.fallback?.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
+      if (selected.has(option.id)) {
+        option.blocks.forEach((block) => instructions.push(block))
+        option.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
+      } else {
+        option.elseBlocks.forEach((block) => instructions.push(block))
+        option.safeguardElseBlocks.forEach((block) => safeguardInstructions.push(block))
       }
-      // Skip unselected options once group fallback has been applied.
-      if (!selected.has(option.id)) return
-      // Append selected option blocks in source order.
-      option.blocks.forEach((block) => instructions.push(block))
-      option.safeguardBlocks.forEach((block) => safeguardInstructions.push(block))
     })
     // Apply question-level fallback when no options are selected anywhere.
     if (selected.size === 0 && question.fallback) {

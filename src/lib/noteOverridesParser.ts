@@ -528,6 +528,12 @@ export function readTokenList(cursor: TokenCursor, sink: string[]): void {
     if (token.kind === 'symbol' && token.value === ',') { cursor.next(); continue }
     if (token.kind === 'word' && (isQuestionKeyword(token) || isFallbackKeyword(token))) break
     if (token.kind === 'word' && parseGroupType(token.value)) break
+    // Stop at the start of a new directive so chained constraints (e.g. `^a -b unset c`)
+    // are not swallowed into the current list: a leading '-' marks an unset token, and
+    // the set/unset/excl/only keywords each open their own list.
+    if (token.kind === 'word' && token.value.startsWith('-')) break
+    if (token.kind === 'word'
+        && (NOTE_OVERRIDES_CONSTRAINT_KEYWORDS as readonly string[]).includes(token.value.toLowerCase())) break
     if (token.kind === 'symbol' && token.value === '{') break
     if (token.kind !== 'word' && token.kind !== 'string') break
     cursor.next()

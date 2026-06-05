@@ -567,7 +567,9 @@ export type SafeguardNoteQuestionOption = {
   label: string
   detail: string | null
   blocks: SafeguardOverridesSelectorBlock[]
+  // `else` blocks: applied when THIS option is NOT selected (per-option, e.g. an unchecked box).
   fallbackBlocks: SafeguardOverridesSelectorBlock[]
+  recipeFallbackBlocks: RecipeOverridesSelectorBlock[]
   // Cross-domain blocks that target recipes when this option is active.
   recipeBlocks: RecipeOverridesSelectorBlock[]
   isDefault: boolean
@@ -649,11 +651,9 @@ const buildQuestionGroups = (
       groupMap.set(resolved.groupType, group)
       groupOrder.push(group)
     }
-    if (parsed.fallbackBlocks.length > 0) {
-      const fallback = group.fallback ?? { blocks: [], recipeBlocks: [] }
-      fallback.blocks.push(...parsed.fallbackBlocks)
-      group.fallback = fallback.blocks.length > 0 ? fallback : null
-    }
+    // Per-option `else` blocks ride on the option (resolved.fallbackBlocks) and apply
+    // when that option is unselected — see the resolver. Group-empty defaults use the
+    // question-level `fallback` block.
     group.options.push(resolved)
   })
   return groupOrder
@@ -683,6 +683,7 @@ const buildResolvedQuestion = (
       detail: option.detail,
       blocks: option.blocks,
       fallbackBlocks: option.fallbackBlocks,
+      recipeFallbackBlocks: option.crossFallbackBlocks as RecipeOverridesSelectorBlock[],
       recipeBlocks: option.crossBlocks as RecipeOverridesSelectorBlock[],
       isDefault: option.isDefault,
       token,
@@ -900,19 +901,14 @@ export const resolveNoteSafeguardOverridesTags = (
   const recipeInstructions: RecipeOverridesSelectorBlock[] = []
   for (const question of questions) {
     const selected = new Set(question.answer)
-    const groupFallbackApplied = new Set<string>()
-    question.groups.forEach((group) => {
-      // Slider groups are always "selected"; only radio/checkbox groups need id matching.
-      const hasSelection = group.type === 'slider' || group.options.some((opt) => selected.has(opt.id))
-      if (!hasSelection && group.fallback && !groupFallbackApplied.has(group.id)) {
-        groupFallbackApplied.add(group.id)
-        group.fallback.blocks.forEach((block) => instructions.push(block))
-        group.fallback.recipeBlocks.forEach((block) => recipeInstructions.push(block))
-      }
-    })
     // Emit blocks from selected options; slider options are always active (their answer is numeric).
     for (const option of question.options) {
-      if (option.groupType !== 'slider' && !selected.has(option.id)) continue
+      // Unselected non-slider option: emit its per-option `else` blocks instead.
+      if (option.groupType !== 'slider' && !selected.has(option.id)) {
+        for (const block of option.fallbackBlocks) instructions.push(block)
+        for (const block of option.recipeFallbackBlocks) recipeInstructions.push(block)
+        continue
+      }
       // For slider groups: resolve $count / $value (and arithmetic ASTs) to numeric counts.
       if (option.groupType === 'slider') {
         const numericStr = answers?.[question.id]?.[0] ?? ''
