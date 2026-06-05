@@ -474,6 +474,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = useAppState()
   const customRecipesRef = useRef(customRecipes)
   useEffect(() => { customRecipesRef.current = customRecipes }, [customRecipes])
+  const safeguardRulesRef = useRef(safeguardRules)
+  useEffect(() => { safeguardRulesRef.current = safeguardRules }, [safeguardRules])
   const {
     setCustomRecipes,
     setSelectedRecipeIdx: setSelectedRecipeIdxRaw,
@@ -2002,6 +2004,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // time the pipeline has not yet recomputed, so the still-current rows are the pre-edit
   // "before" — exactly the checkpoint to diff the upcoming change against.
   const gearDiffAutoSignatureRef = useRef<string | null>(null)
+  // Tracks whether the rule set was empty (no recipes AND no safeguards) at the previously
+  // recorded checkpoint, so the first load over an empty setup is not treated as a diff.
+  const gearDiffPrevRulesEmptyRef = useRef(true)
   // Reacting to the derived undo-signature is the right tool here: edits funnel in from
   // many call sites (builder, safeguards, overrides, SFC load), so there is no single
   // event to hook — the signature change IS the checkpoint signal.
@@ -2009,30 +2014,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (!gearDiffAutoMode) return
     const crc = currentEntrySignature?.crc ?? null
-    // Skip the first run after enabling (no prior checkpoint to compare from yet). On each
-    // later checkpoint, pin the still-current (pre-recompute) rows as the new baseline so
-    // the diff reflects the change the latest edit introduced — even with the split closed.
-    // Don't pin against an empty row set: before the gear DB loads there is nothing to
-    // compare, and pinning an empty baseline would make the first load look like a full diff.
+    // Read the (post-change) rule emptiness now; the value recorded last run reflects the
+    // PREVIOUS checkpoint's emptiness, which gates the pin decision below.
+    const rulesEmptyNow = customRecipesRef.current.length === 0 && safeguardRulesRef.current.length === 0
+    // Pin the still-current (pre-recompute) rows as the new baseline so the diff reflects
+    // the change the latest checkpoint introduced — even with the split closed. Skipped:
+    //  - the first run after enabling (no prior checkpoint),
+    //  - an empty row set (before the gear DB loads there is nothing to compare),
+    //  - a transition OUT of an empty setup (e.g. loading your first SFC), which would
+    //    otherwise show everything as a flip.
     if (
       gearDiffAutoSignatureRef.current !== null
       && gearDiffAutoSignatureRef.current !== crc
       && gearInspectorPreviewRowsRef.current.length > 0
+      && !gearDiffPrevRulesEmptyRef.current
     ) {
       gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
     }
     gearDiffAutoSignatureRef.current = crc
+    gearDiffPrevRulesEmptyRef.current = rulesEmptyNow
   }, [currentEntrySignature, gearDiffAutoMode, t])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
-  // Treat SFC loads / autosave restores and gear-DB loads/pushes as fresh starting points,
-  // not diffs. These change the rule signature and/or the artifact set, which the auto
-  // tracker above could otherwise pin as a "change". Clearing the baseline here (this effect
-  // is declared AFTER the tracker, so it runs later in the same commit) drops any baseline
-  // pinned for the transition; the diff re-arms on the next genuine rule edit. Inventory
-  // changes are not rule diffs, so a DB push never shows as a change on its own.
+  // Gear-DB loads/pushes (and autosave restores, which bring gear) change the artifact set;
+  // those are inventory changes, not rule diffs, so clear the baseline here (this effect is
+  // declared AFTER the tracker, so it runs later in the same commit and drops any baseline
+  // pinned for the transition). Note: an explicit `.sfc` load does NOT change the artifact
+  // set, so it flows through the tracker above and DOES produce a diff (except the first
+  // load over an empty setup, handled there).
   useEffect(() => {
     gearDiffExitCompareRef.current()
-  }, [sfcLoadNonce, gearInspectorPreviewArtifacts])
+  }, [gearInspectorPreviewArtifacts])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called

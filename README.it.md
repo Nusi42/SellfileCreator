@@ -15,6 +15,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
   collezioni con nome e riutilizzali nelle ricette e nelle protezioni.
 - **Ispettore equipaggiamento** — connetti RSL Helper per la sincronizzazione in tempo reale o carica un file `.db` per vedere quali oggetti corrispondono a ogni ricetta e quanti verrebbero conservati o venduti.
+- **Confronto equipaggiamento** — attiva una vista prima/dopo per vedere esattamente quali pezzi passano tra *tieni* e *vendi* mentre regoli le ricette o provi gli override dinamici. Un chip mostra i totali correnti; un elenco affiancato mostra ogni pezzo cambiato.
 - **Simulatore dungeon** — consulta le percentuali di probabilità di conservare per il
   Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
   potenziamento per confermare l'effetto del tuo file di vendita durante il farming o il
@@ -249,6 +250,18 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 - Connetti RSL Helper per la sincronizzazione in tempo reale (il pulsante Connect nell'intestazione dell'anteprima) o trascina file `.db` sull'app o usa il pulsante "Load RSL Helper Sellfile".- Ogni riga dell'Ispettore Equipaggiamento mostra slot, set, livello, statistica principale, sotto-stat (con glifi e roll), provenienza (inventario vs inbox) e i chip Mantieni/Vendi + la prima ricetta/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "No match" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
 - I contatori dell'intestazione mostrano i totali Mantieni/Vendi/Ambito/Senza regola. I quattro pulsanti del filtro risultato — **Mantieni**, **Vendi**, **Ambito** e **Senza regola** — funzionano come interruttori indipendenti: attiva qualsiasi combinazione per restringere la lista. **Ambito** attenua (ma mantiene visibili) gli oggetti che condividono lo stesso set+slot di un pezzo che le tue regole venderebbero, così puoi confrontare un candidato con la sua concorrenza in un'unica vista senza dover fare due passaggi di filtro. Quando sono selezionate anche una o più **Sorgenti**, queste fungono da insieme di riferimento — solo gli oggetti contrassegnati per la vendita provenienti dalle sorgenti selezionate diventano elementi principali, mentre i compagni vengono ricercati in *tutte* le sorgenti, permettendoti di vedere ogni copia di quell'equipaggiamento indipendentemente da dove si trovi. **Senza regola** mostra l'equipaggiamento che nessuna regola tocca — utile per individuare lacune nelle ricette. Combinali con il selettore `Prima`/`Per corrispondenza` delle Ricette per concentrarti sui casi limite prima di esportare.
 - Usa l'interruttore dell'anteprima per passare tra la tabella Regole e l'Ispettore Equipaggiamento senza riaprire Strumenti — perfetto per confrontare le righe generate con gli oggetti che le attivano.
+
+### Confronto equipaggiamento (Prima / Dopo)
+- Il pulsante **Diff** nell'intestazione dell'Ispettore Equipaggiamento attiva un confronto che mostra quali pezzi passano tra **Tieni** e **Vendi** quando cambi qualcosa — utile per regolare le ricette o provare gli override dinamici nella finestra Nota.
+- Un piccolo chip accanto al pulsante mostra la variazione corrente rispetto al tuo punto di riferimento: quanti pezzi in più (o in meno) sono ora **Venduti**, **Tenuti** e protetti dalle **Salvaguardie**.
+- Clic sinistro su **Diff** apre una vista **affiancata prima/dopo** dei pezzi cambiati (sinistra = prima, destra = dopo) con scorrimento sincronizzato. Clicca di nuovo per chiudere.
+- Clic destro sul pulsante per le opzioni:
+  - **Imposta riferimento** — fissa lo stato attuale come il «prima» con cui confronti.
+  - **Segui riferimento automaticamente** (attivo per impostazione predefinita) — mantiene il «prima» sulla tua ultima modifica di ricetta/salvaguardia, così il confronto riflette sempre la tua modifica più recente.
+- Due cose da sapere:
+  - Attivare gli **override dinamici** nella finestra Nota **si somma** — più override mostrano il loro effetto combinato, non solo l'ultimo.
+  - Modificare una ricetta o una salvaguardia nel builder sposta il riferimento a quella modifica (finché «Segui riferimento automaticamente» è attivo). Disattivalo (o usa «Imposta riferimento») per confrontare tutto rispetto a un punto fisso.
+- I tuoi filtri abituali dell'Ispettore Equipaggiamento continuano a valere: un pezzo appare se corrisponde al filtro prima o dopo la modifica.
 
 ### Esportazione
 - Clicca "Esporta Sellfile di RSL Helper unito" (o "Esporta Sellfile di RSL Helper" quando non è caricato alcun file base).

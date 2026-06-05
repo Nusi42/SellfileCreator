@@ -15,6 +15,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - **Métasets** — regroupez des ensembles d'équipements (ex. Vitesse + Perception) en
   collections nommées et réutilisez-les dans vos recettes et protections.
 - **Inspecteur d'équipement** — connectez RSL Helper pour une synchronisation en direct ou chargez un fichier `.db` pour prévisualiser les objets correspondant à chaque recette et combien seraient conservés ou vendus.
+- **Comparaison d'équipement** — activez une vue avant/après pour voir exactement quelles pièces basculent entre *garder* et *vendre* lorsque vous ajustez des recettes ou essayez les surcharges dynamiques. Une puce affiche les totaux en cours ; une liste côte à côte montre chaque pièce modifiée.
 - **Simulateur de donjon** — consultez les pourcentages de chance de conservation pour le
   Chevalier du Feu, le Dragon et le Golem de Glace selon les niveaux de difficulté et de
   mise à niveau pour confirmer l'effet de votre fichier de vente lors du farming ou de
@@ -266,6 +267,18 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 - Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
 - Les compteurs de l’en-tête affichent les totaux Conserver/Vendre/Portée/Sans règle. Les quatre boutons du filtre de résultat — **Conserver**, **Vendre**, **Portée** et **Sans règle** — fonctionnent comme des bascules indépendantes : activez n’importe quelle combinaison pour affiner la liste. **Portée** atténue (mais garde visibles) les objets qui partagent le même set+emplacement qu’une pièce que vos règles vendraient, afin de comparer un candidat avec ses concurrents en une seule vue sans avoir à faire deux passes de filtre. Lorsqu'une ou plusieurs **Sources** sont également sélectionnées, elles servent de référence — seuls les objets estampillés Vendre des sources sélectionnées deviennent des éléments principaux, tandis que les compagnons sont trouvés dans *toutes* les sources, ce qui vous permet de voir chaque exemplaire de la pièce quel que soit son emplacement. **Sans règle** affiche l’équipement qu’aucune règle ne touche — utile pour repérer les lacunes de vos recettes. Combinez avec le sélecteur `Première`/`Par correspondance` des Recettes pour vous concentrer sur les cas limites avant l’export.
 - Utilisez l’interrupteur d’aperçu pour alterner entre les tables Règles et Inspecteur d’équipement sans rouvrir le dialogue Outils — idéal pour comparer les lignes générées et l’équipement qui les a déclenchées.
+
+### Comparaison d'équipement (Avant / Après)
+- Le bouton **Diff** dans l'en-tête de l'Inspecteur d'équipement active une comparaison qui montre quelles pièces basculent entre **Garder** et **Vendre** quand vous changez quelque chose — pratique pour ajuster les recettes ou essayer les surcharges dynamiques dans la boîte de dialogue Note.
+- Une petite puce à côté du bouton affiche le changement en cours par rapport à votre point de référence : combien de pièces sont désormais en plus (ou en moins) **Vendues**, **Gardées** et protégées par des **Protections**.
+- Clic gauche sur **Diff** pour ouvrir une vue **côte à côte avant/après** des pièces modifiées (gauche = avant, droite = après) avec défilement synchronisé. Cliquez à nouveau pour fermer.
+- Clic droit sur le bouton pour les options :
+  - **Définir la référence** — fige l'état actuel comme l'« avant » auquel vous comparez.
+  - **Suivi auto de la référence** (activé par défaut) — garde l'« avant » sur votre dernière modification de recette/protection, afin que la comparaison reflète toujours votre changement le plus récent.
+- Deux choses à savoir :
+  - Basculer les **surcharges dynamiques** dans la boîte de dialogue Note **s'additionne** — plusieurs surcharges montrent leur effet combiné, pas seulement la dernière.
+  - Modifier une recette ou une protection dans le constructeur déplace la référence vers cette modification (tant que « Suivi auto de la référence » est activé). Désactivez-le (ou utilisez « Définir la référence ») pour tout comparer à un point fixe.
+- Vos filtres habituels de l'Inspecteur d'équipement s'appliquent toujours : une pièce apparaît si elle correspond au filtre avant ou après le changement.
 
 ### Export
 - « Exporter Sellfile RSL Helper fusionnée » apparaît si un fichier de base est chargé ; sinon « Exporter Sellfile RSL Helper ».

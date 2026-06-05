@@ -15,6 +15,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 - **Metasetler** — ekipman setlerini (örn. Hız + Algı) adlandırılmış koleksiyonlarda
   gruplandırın ve tariflerde ve koruma kurallarında yeniden kullanın.
 - **Ekipman denetçisi** — gerçek zamanlı senkronizasyon için RSL Helper'a bağlanın veya her tarifin hangi öğelerle eşleştiğini görmek için bir `.db` dosyası yükleyin.
+- **Ekipman Farkı** — tarifleri ayarlarken veya dinamik geçersiz kılmaları denerken hangi parçaların *sakla* ile *sat* arasında geçtiğini tam olarak görmek için bir önce/sonra görünümü açın. Bir çip güncel toplamları gösterir; yan yana bir liste değişen her parçayı gösterir.
 - **Zindan simülatörü** — farming yaparken veya ekipman geliştirirken satış dosyanızın
   etkisini doğrulamak için çeşitli zorluk ve yükseltme seviyelerinde Ateş Şövalyesi,
   Ejderha ve Buz Golemi için saklama olasılığı yüzdelerini görün.
@@ -259,6 +260,18 @@ Araçlar'ı açıp **Ekipman Analizi** sekmesine geçin — içe aktarılan ekip
 - RSL Helper'a bağlanarak gerçek zamanlı senkronizasyon sağlayın (önizleme başlığındaki Connect düğmesi) veya `.db` dosyalarını uygulamaya bırakın ya da “Load RSL Helper Sellfile” düğmesini kullanın.- Her Ekipman Denetçisi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen reçete etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
 - Başlıktaki sayaçlar Keep/Sell/Kapsam/Eşleşme yok toplamlarını gösterir. Dört sonuç filtresi butonu — **Keep**, **Sell**, **Kapsam** ve **Eşleşme yok** — bağımsız birer anahtar gibi çalışır: listeyi daraltmak için herhangi bir kombinasyonu etkinleştirin. **Kapsam**, kurallarınızın satacağı bir parçayla aynı set+slot’u paylaşan öğeleri soldurur (ancak görünür tutar), böylece bir adayı rakipleriyle tek bir görünümde karşılaştırabilirsiniz. Bir veya daha fazla **Kaynak** da seçiliyse, bunlar referans küme olarak görev yapar — yalnızca seçili kaynaklardaki Satış etiketli öğeler birincil öğe olur; arkadaşlar ise *tüm* kaynaklardan alınır ve söz konusu ekipman parçasının nerede olduğundan bağımsız olarak her kopyasını görebilirsiniz. **Eşleşme yok**, hiçbir kuralın dokunmadığı ekipmanı gösterir – reçetelerinizdeki boşlukları tespit etmek için yararlıdır. Dışa aktarmadan önce edge case’lere odaklanmak için `Seçim` `Off`/`İlk`/`Eşleşmeye göre` anahtarıyla birleştirin.
 - Önizleme anahtarını kullanarak kurallar tablosu ile Ekipman Denetçisi tablosu arasında Araçlar iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
+
+### Ekipman Farkı (Önce / Sonra)
+- Ekipman Denetçisi başlığındaki **Diff** düğmesi, bir şeyi değiştirdiğinizde hangi parçaların **Sakla** ile **Sat** arasında geçtiğini gösteren bir karşılaştırmayı açar — tarifleri ince ayarlarken veya Not iletişim kutusundaki dinamik geçersiz kılmaları denerken kullanışlıdır.
+- Düğmenin yanındaki küçük bir çip, referans noktanıza göre güncel değişimi gösterir: kaç parçanın artık daha fazla (veya daha az) **Satıldığını**, **Saklandığını** ve **Korumalar** tarafından korunduğunu.
+- **Diff** düğmesine sol tıklama, değişen parçaların **yan yana önce/sonra** görünümünü açar (sol = önce, sağ = sonra) ve eşzamanlı kaydırma sağlar. Kapatmak için tekrar tıklayın.
+- Seçenekler için düğmeye sağ tıklayın:
+  - **Referans ayarla** — karşılaştırdığınız «önce» olarak mevcut durumu sabitler.
+  - **Referansı otomatik izle** (varsayılan olarak açık) — «önce»yi en son tarif/koruma düzenlemenizde tutar, böylece fark her zaman en son değişikliğinizi yansıtır.
+- Bilmeniz gereken iki şey:
+  - Not iletişim kutusunda **dinamik geçersiz kılmaları** değiştirmek **birikir** — birden çok geçersiz kılma, yalnızca sonuncuyu değil, birleşik etkilerini gösterir.
+  - Oluşturucuda bir tarif veya koruma düzenlemek, referansı o düzenlemeye taşır («Referansı otomatik izle» açıkken). Her şeyi sabit bir noktayla karşılaştırmak için onu kapatın (veya «Referans ayarla» kullanın).
+- Normal Ekipman Denetçisi filtreleriniz hâlâ geçerlidir: bir parça, değişiklikten önce veya sonra filtreyle eşleşirse görünür.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».

@@ -15,6 +15,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Metaconjuntos** — agrupa conjuntos de equipo (p. ej. Velocidad + Percepción) en
   colecciones con nombre y reutilízalos en recetas y protecciones.
 - **Inspector de equipo** — conecta RSL Helper para sincronización en vivo o carga un archivo `.db` para previsualizar qué objetos coinciden con cada receta y cuántos se conservarían o venderían.
+- **Comparación de equipo** — activa una vista de antes/después para ver exactamente qué piezas cambian entre *conservar* y *vender* mientras ajustas recetas o pruebas las sustituciones dinámicas. Un chip muestra los totales actuales; una lista en paralelo muestra cada pieza que cambió.
 - **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
   el Caballero de Fuego, el Dragón y el Gólem de Hielo en distintos niveles de dificultad
   y mejora para confirmar el efecto de tu archivo de venta al farmear o mejorar equipo.
@@ -260,6 +261,18 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 - Los contadores del encabezado muestran los totales de Conservar/Vender/Ámbito/Sin regla. Los cuatro botones de filtro de resultado — **Conservar**, **Vender**, **Ámbito** y **Sin regla** — funcionan como conmutadores independientes: activa cualquier combinación para reducir la lista. **Ámbito** atenúa (pero mantiene visibles) los objetos que comparten el mismo set+ranura que una pieza que tus reglas venderían, para que puedas comparar un candidato con su competencia en una sola vista sin necesidad de dos pasadas de filtro. Cuando también se seleccionan una o más **Fuentes**, estas actúan como conjunto de referencia — solo los objetos marcados para vender de las fuentes seleccionadas se convierten en elementos principales, mientras que los acompañantes se extraen de *todas* las fuentes, lo que permite ver cada copia de esa pieza de equipo independientemente de dónde esté. **Sin regla** muestra el equipo que ninguna regla toca: útil para detectar huecos en tus recetas. Combínalos con el selector `Primera`/`Por coincidencia` de Recetas para centrarte en los casos límite antes de exportar.
 - Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Inspector de Equipo sin volver a abrir el diálogo Herramientas, ideal para comparar el resultado de cada regla con la pieza que la activó.
 - La tabla del Inspector de Equipo está virtualizada, de modo que incluso con más de 7000 filas importadas sigue respondiendo con fluidez.
+
+### Comparación de equipo (Antes / Después)
+- El botón **Diff** en la cabecera del Inspector de Equipo activa una comparación que muestra qué piezas cambian entre **Conservar** y **Vender** cuando cambias algo — útil al ajustar recetas o probar las sustituciones dinámicas en el diálogo de Nota.
+- Un pequeño chip junto al botón muestra el cambio actual respecto a tu punto de referencia: cuántas piezas más (o menos) están ahora **Vendidas**, **Conservadas** y protegidas por **Salvaguardas**.
+- Clic izquierdo en **Diff** abre una vista **en paralelo de antes/después** de las piezas que cambiaron (izquierda = antes, derecha = después) con desplazamiento sincronizado. Clic de nuevo para cerrar.
+- Clic derecho en el botón para opciones:
+  - **Fijar referencia** — congela el estado actual como el «antes» con el que comparas.
+  - **Seguir referencia automáticamente** (activado por defecto) — mantiene el «antes» en tu última edición de receta/salvaguarda, de modo que la comparación siempre refleja tu cambio más reciente.
+- Dos cosas que conviene saber:
+  - Alternar las **sustituciones dinámicas** en el diálogo de Nota **se acumula** — varias sustituciones muestran su efecto combinado, no solo la última.
+  - Editar una receta o salvaguarda en el constructor mueve la referencia a esa edición (mientras «Seguir referencia automáticamente» esté activado). Desactívalo (o usa «Fijar referencia») para comparar todo contra un punto fijo.
+- Tus filtros habituales del Inspector de Equipo siguen aplicándose: una pieza aparece si coincide con el filtro antes o después del cambio.
 
 ### Exportar
 - «Exportar Sellfile de RSL Helper combinada» aparece cuando hay archivo base; si no, verás «Exportar Sellfile de RSL Helper».

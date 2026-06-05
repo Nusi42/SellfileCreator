@@ -15,6 +15,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
   Sammlungen zusammen und verwende sie in Rezepten und Schutzmaßnahmen wieder.
 - **Ausrüstungs-Inspektor** — verbinde RSL Helper für Live-Synchronisation oder lade eine `.db`-Datei, um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten oder verkauft würden.
+- **Ausrüstungs-Diff** — schalte eine Vorher/Nachher-Ansicht ein, um genau zu sehen, welche Ausrüstungsteile beim Anpassen von Rezepten oder beim Ausprobieren der dynamischen Overrides zwischen *Behalten* und *Verkaufen* wechseln. Ein Chip zeigt die laufenden Summen; eine Seite-an-Seite-Liste zeigt jedes geänderte Teil.
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
   und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
   Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
@@ -259,6 +260,18 @@ Hinweise:
 - Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Slot, Set, Level, Mainstat, Substats (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
 - Die Header-Zähler zeigen Behalten/Verkaufen/Bereich/Kein Treffer. Die vier Ergebnisfilter-Buttons — **Behalten**, **Verkaufen**, **Bereich** und **Kein Treffer** — funktionieren als unabhängige Schalter: jede Kombination lässt sich aktivieren, um die Liste einzugrenzen. **Bereich** dunkelt Items ab (hält sie aber sichtbar), die denselben Set+Slot wie ein zum Verkauf stehendes Stück teilen – so kannst du einen Kandidaten direkt im Vergleich zu seiner Konkurrenz sehen, ohne zwei Filterdurchläufe. Sind zusätzlich eine oder mehrere **Quellen** ausgewählt, fungieren diese als Referenzgruppe – nur als Verkauf markierte Items aus den gewählten Quellen werden zu Haupttreffern, während Begleiter aus *allen* Quellen stammen und du so jedes Exemplar dieser Ausrüstung unabhängig von seinem Standort siehst. **Kein Treffer** zeigt Ausrüstung, die von keiner Regel erfasst wird – nützlich, um Lücken in deinen Rezepten aufzudecken. Kombiniere dies mit dem `First-Match-Auswertung`/`Nach Treffer`-Schalter, um vor dem Export gezielt auf Randfälle zu fokussieren.
 - Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
+
+### Ausrüstungs-Diff (Vorher / Nachher)
+- Der **Diff**-Schalter in der Kopfzeile des Ausrüstungsinspektors aktiviert einen Vergleich, der zeigt, welche Teile zwischen **Behalten** und **Verkaufen** wechseln, wenn du etwas änderst — praktisch beim Feinjustieren von Rezepten oder beim Ausprobieren der dynamischen Overrides im Notiz-Dialog.
+- Ein kleiner Chip neben dem Schalter zeigt die laufende Änderung gegenüber deinem Referenzpunkt: wie viele Teile jetzt mehr (oder weniger) **Verkauft**, **Behalten** und durch **Schutzmaßnahmen** geschützt sind.
+- Linksklick auf **Diff** öffnet eine **Seite-an-Seite-Vorher/Nachher-Ansicht** der geänderten Teile (links = vorher, rechts = nachher) mit synchronisiertem Scrollen. Erneut klicken zum Schließen.
+- Rechtsklick auf den Schalter für Optionen:
+  - **Referenz setzen** — friert den aktuellen Stand als „Vorher" ein, mit dem du vergleichst.
+  - **Referenz automatisch folgen** (standardmäßig an) — hält das „Vorher" auf deiner letzten Rezept-/Schutzmaßnahmen-Änderung, sodass der Diff stets deine jüngste Änderung zeigt.
+- Zwei Dinge, die du wissen solltest:
+  - Das Umschalten der **dynamischen Overrides** im Notiz-Dialog **summiert sich** — mehrere Overrides zeigen ihre kombinierte Wirkung, nicht nur die letzte.
+  - Das Bearbeiten eines Rezepts oder einer Schutzmaßnahme im Builder verschiebt die Referenz auf diese Änderung (solange „Referenz automatisch folgen" aktiv ist). Schalte es aus (oder nutze „Referenz setzen"), um alles gegen einen festen Punkt zu vergleichen.
+- Deine üblichen Ausrüstungsinspektor-Filter gelten weiterhin: Ein Teil wird angezeigt, wenn es den Filter entweder vorher oder nachher erfüllt.
 
 ### Export
 - „Zusammengeführte RSL Helper Sellfile exportieren“ exportiert mit Basisdatei, sonst „RSL Helper Sellfile exportieren“.

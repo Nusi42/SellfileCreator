@@ -15,6 +15,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - **Metaconjuntos** — agrupe conjuntos de equipamentos (ex. Velocidade + Percepção) em
   coleções nomeadas e reutilize-os em receitas e proteções.
 - **Inspetor de equipamentos** — conecte-se ao RSL Helper para sincronização ao vivo ou carregue um arquivo `.db` para pré-visualizar quais itens correspondem a cada receita e quantos seriam mantidos ou vendidos.
+- **Comparação de equipamento** — ative uma visão de antes/depois para ver exatamente quais peças mudam entre *manter* e *vender* enquanto você ajusta receitas ou testa as substituições dinâmicas. Um chip mostra os totais atuais; uma lista lado a lado mostra cada peça que mudou.
 - **Simulador de masmorras** — veja os percentuais de chance de manter para o Cavaleiro do
   Fogo, o Dragão e o Golem de Gelo nos níveis de dificuldade e aprimoramento para confirmar
   o efeito do seu arquivo de venda ao farmar ou melhorar equipamentos.
@@ -259,6 +260,18 @@ Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma vis�
 - Conecte-se ao RSL Helper para sincronização ao vivo (o botão Connect no cabeçalho da prévia) ou arraste um arquivo `.db` para o aplicativo ou use o botão “Load RSL Helper Sellfile”.- Cada linha do Inspetor de Equipamento mostra slot, set, nível, main stat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, então `No Match` representa o que o Sellfile deixaria passar.
 - Os contadores no cabeçalho mostram os totais de Manter/Vender/Escopo/Sem regra. Os quatro botões de filtro de resultado — **Manter**, **Vender**, **Escopo** e **Sem regra** — funcionam como interruptores independentes: ative qualquer combinação para restringir a lista. **Escopo** esmaece (mas mantém visíveis) os itens que compartilham o mesmo set+slot que uma peça que suas regras venderiam, para que você possa comparar um candidato com sua concorrência em uma única visualização, sem precisar de dois filtros. Quando uma ou mais **Fontes** também estão selecionadas, essas fontes atuam como conjunto de referência — apenas os itens marcados para venda das fontes selecionadas se tornam itens principais, enquanto os acompanhantes são buscados em *todas* as fontes, permitindo ver cada cópia dessa peça de equipamento independentemente de onde esteja. **Sem regra** mostra equipamentos que nenhuma regra toca — útil para identificar lacunas nas suas receitas. Combine com o seletor `Primeira`/`Por correspondência` de Receitas para focar nos casos-limite antes de exportar.
 - Use o interruptor da prévia para alternar entre as tabelas «Rules» e «Inspetor de Equipamento» sem reabrir Ferramentas — perfeito para comparar as linhas geradas com o item que disparou cada resultado.
+
+### Comparação de equipamento (Antes / Depois)
+- O botão **Diff** no cabeçalho do Inspetor de Equipamento ativa uma comparação que mostra quais peças mudam entre **Manter** e **Vender** quando você muda algo — útil ao ajustar receitas ou testar as substituições dinâmicas na caixa de diálogo Nota.
+- Um pequeno chip ao lado do botão mostra a mudança atual em relação ao seu ponto de referência: quantas peças a mais (ou a menos) estão agora **Vendidas**, **Mantidas** e protegidas por **Salvaguardas**.
+- Clique esquerdo em **Diff** abre uma visão **lado a lado de antes/depois** das peças alteradas (esquerda = antes, direita = depois) com rolagem sincronizada. Clique de novo para fechar.
+- Clique direito no botão para opções:
+  - **Definir referência** — congela o estado atual como o «antes» com o qual você compara.
+  - **Acompanhar referência automaticamente** (ativado por padrão) — mantém o «antes» na sua última edição de receita/salvaguarda, então a comparação sempre reflete sua mudança mais recente.
+- Duas coisas que vale saber:
+  - Alternar as **substituições dinâmicas** na caixa de diálogo Nota **soma** — várias substituições mostram o efeito combinado, não apenas a última.
+  - Editar uma receita ou salvaguarda no construtor move a referência para essa edição (enquanto «Acompanhar referência automaticamente» estiver ativado). Desative-o (ou use «Definir referência») para comparar tudo contra um ponto fixo.
+- Seus filtros normais do Inspetor de Equipamento continuam valendo: uma peça aparece se corresponder ao filtro antes ou depois da mudança.
 
 ### Exportar
 - «Exportar Sellfile do RSL Helper combinada» aparece quando existe arquivo base; caso contrário verá «Exportar Sellfile do RSL Helper».
