@@ -1726,6 +1726,15 @@ const overrides: Catalog = {
   setBloodshield: "Bouclier de sang",
   setReaction: "Réaction",
   setRevenge: "Vengeance",
+  // Gear diff (sell/keep before-vs-after comparison)
+  gearDiffEmpty: "Aucun changement vendre/garder à afficher.",
+  gearDiffSplitBaselineHeading: "Avant",
+  gearDiffSplitCurrentHeading: "Après",
+  gearDiffPinBaseline: "Définir l'état actuel comme référence",
+  gearDiffToggleLabel: "Diff",
+  gearDiffToggleTooltip: "**Comparaison d'équipement** — un avant/après des pièces qui basculent entre **vendre** et **garder**, mesuré par rapport à un point de référence.\n\nBasculer les **surcharges dynamiques** dans la boîte de dialogue Note ne déplace pas cette référence ; les changements de surcharge successifs s'**accumulent** donc — la comparaison montre l'effet combiné de tous vos choix de surcharge, pas seulement le dernier.\n\nModifier une recette ou une protection dans le constructeur déplace **bien** la référence vers cette modification tant que **Suivi auto de la référence** est activé, afin que la comparaison montre votre dernière modification.\n\nClic gauche pour basculer la vue. Clic droit : **Définir la référence** fixe le point de comparaison ; **Suivi auto de la référence** active ou désactive le suivi automatique de la dernière modification.",
+  gearDiffSetReference: "Définir la référence",
+  gearDiffAutoMode: "Suivi auto de la référence",
 }
 
 export default overrides

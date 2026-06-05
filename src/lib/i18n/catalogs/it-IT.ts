@@ -1719,6 +1719,15 @@ const overrides: Catalog = {
   setBloodshield: "Scudo di sangue",
   setReaction: "Reazione",
   setRevenge: "Vendetta",
+  // Gear diff (sell/keep before-vs-after comparison)
+  gearDiffEmpty: "Nessuna modifica vendi/tieni da mostrare.",
+  gearDiffSplitBaselineHeading: "Prima",
+  gearDiffSplitCurrentHeading: "Dopo",
+  gearDiffPinBaseline: "Imposta lo stato attuale come riferimento",
+  gearDiffToggleLabel: "Diff",
+  gearDiffToggleTooltip: "**Confronto equipaggiamento** — un prima/dopo di quali pezzi passano tra **vendi** e **tieni**, misurato rispetto a un punto di riferimento.\n\nAttivare gli **override dinamici** nella finestra Nota non sposta quel riferimento, quindi le modifiche di override successive si **accumulano**: il confronto mostra l'effetto combinato di tutte le tue scelte di override, non solo l'ultima.\n\nModificare una ricetta o una salvaguardia nel builder **sposta** invece il riferimento a quella modifica quando **Segui riferimento automaticamente** è attivo, così il confronto mostra la tua modifica più recente.\n\nClic sinistro per alternare la vista. Clic destro: **Imposta riferimento** fissa il punto di confronto; **Segui riferimento automaticamente** attiva o disattiva lo spostamento automatico all'ultima modifica.",
+  gearDiffSetReference: "Imposta riferimento",
+  gearDiffAutoMode: "Segui riferimento automaticamente",
 }
 
 export default overrides

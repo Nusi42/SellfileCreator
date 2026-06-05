@@ -2387,6 +2387,11 @@ type UseGearInspectorGridLayoutMetricsOptions = {
   showFirstMatch: boolean
   showOtherMatches: boolean
   theme: Theme
+  // Gear-diff split-view: each pane is ~half the preview width. Rounding (instead of
+  // flooring) the width/target ratio keeps the column count at half the full-grid count
+  // and the card width identical, avoiding a collapse to one over-wide card near
+  // exact-multiple widths.
+  halfPaneColumns?: boolean
 }
 
 export function useGearInspectorGridLayoutMetrics({
@@ -2398,6 +2403,7 @@ export function useGearInspectorGridLayoutMetrics({
   showFirstMatch,
   showOtherMatches,
   theme,
+  halfPaneColumns = false,
 }: UseGearInspectorGridLayoutMetricsOptions): GearInspectorGridLayoutMetrics {
   // Layout metrics re-run only on breakpoint or resize events so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
@@ -2419,13 +2425,18 @@ export function useGearInspectorGridLayoutMetrics({
         rowContentWidth = Math.max(0, panelWidthPx - paperPaddingPx * 2 - containerInlineEndPx - leafPaddingPx * 2)
       } else {
         // Static fallback: neither width is available; use the reference column count for the mode.
-        return GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+        // In a half-width diff pane, halve the reference so the transient isn't over-columned.
+        const fallback = GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
+        return halfPaneColumns ? Math.max(1, Math.round(fallback / 2)) : fallback
       }
-      return Math.max(1, Math.floor(rowContentWidth / targetWidth))
+      // Half-width diff panes round so the count stays at half the full-grid columns with
+      // identical card width; the normal grid floors to keep cards at least target-wide.
+      const ratio = rowContentWidth / targetWidth
+      return Math.max(1, halfPaneColumns ? Math.round(ratio) : Math.floor(ratio))
     }
     // Keep-override path: preferredColumnCount is 1 or 2, used verbatim.
     return Math.max(1, preferredColumnCount)
-  }, [isMultiColumn, cardSizeMode, panelWidthPx, containerInnerWidthPx, leafPaddingPx, preferredColumnCount, theme])
+  }, [isMultiColumn, cardSizeMode, panelWidthPx, containerInnerWidthPx, leafPaddingPx, preferredColumnCount, theme, halfPaneColumns])
   // Card internals use a pinned column profile so their layout doesn't shift as the dynamic
   // column count adjusts with panel width. Priority: explicit cardStyleColumnCount override
   // (keep-override path) → mode's reference count (gear-inspector path) → gridColumnCount.

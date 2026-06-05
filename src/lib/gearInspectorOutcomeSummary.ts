@@ -1,4 +1,5 @@
 import { RULE_SOURCE_SAFEGUARDS } from './merge'
+import { isMatchSold } from './gearInspectorVerdict'
 import type { GearInspectorOutcomeSummary, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 
 // Summarize sell/keep outcomes for a given set of Gear Inspector rows.
@@ -9,7 +10,7 @@ export function buildGearInspectorOutcomeSummary(rows: readonly GearInspectorPre
   let safeguardKeepCount = 0
   for (const row of rows) {
     // Explicit sell matches are the only outcomes that leave the kept bucket.
-    if (row.match?.keep === false) soldCount += 1
+    if (isMatchSold(row.match)) soldCount += 1
     // Safeguard injections carry a dedicated rule source tag.
     if (row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS) safeguardKeepCount += 1
   }
@@ -41,7 +42,7 @@ export function buildGearInspectorOutcomeSummaryPair(
   let totalSold = 0, totalSafeguard = 0
   let scopedSold = 0, scopedSafeguard = 0, scopedTotal = 0
   for (const row of allRows) {
-    const isSell = row.match?.keep === false
+    const isSell = isMatchSold(row.match)
     const isSafeguard = row.match?.ruleSource === RULE_SOURCE_SAFEGUARDS
     if (isSell) totalSold += 1
     if (isSafeguard) totalSafeguard += 1

@@ -19,7 +19,7 @@ test('name-only changes mark the builder as dirty', () => {
   )
 
   assert.equal(
-    hasRecipeMeaningfulDifferences(renamed, baseline, SUBSTAT_TARGETS_KEY),
+    hasRecipeMeaningfulDifferences(renamed, baseline),
     true,
     'dirty check should still flag renamed recipes',
   )
@@ -30,7 +30,7 @@ test('identical recipes remain clean', () => {
   const clone = structuredClone(baseline)
 
   assert.equal(
-    hasRecipeMeaningfulDifferences(clone, baseline, SUBSTAT_TARGETS_KEY),
+    hasRecipeMeaningfulDifferences(clone, baseline),
     false,
     'dirty check should treat identical recipes as clean',
   )
@@ -50,7 +50,7 @@ test('switching between manual and auto rarity is detectable', () => {
   )
 
   assert.equal(
-    hasRecipeMeaningfulDifferences(auto, manual, SUBSTAT_TARGETS_KEY),
+    hasRecipeMeaningfulDifferences(auto, manual),
     true,
     'dirty check should flag manual vs auto rarity as a change',
   )
@@ -71,7 +71,7 @@ test('lockedMinRequiredRolls changes invalidate rule fingerprints', () => {
   )
 
   assert.equal(
-    hasRecipeMeaningfulDifferences(stricter, baseline, SUBSTAT_TARGETS_KEY),
+    hasRecipeMeaningfulDifferences(stricter, baseline),
     true,
     'dirty check should flag locked minimum roll edits',
   )

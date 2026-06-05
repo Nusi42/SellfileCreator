@@ -2455,6 +2455,49 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
   )
 }
 
+// ── NoteOverridesSlider ───────────────────────────────────────────────────────
+// Slider for safeguard-overrides values. The thumb follows the drag locally (cheap),
+// but the answer is committed only on release / keyboard settle (onChangeCommitted) —
+// so a single drag triggers ONE answer update + pipeline run instead of one per tick.
+function NoteOverridesSlider({
+  value, min, max, step, disabled, onCommit,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  disabled: boolean
+  onCommit: (value: number) => void
+}): JSX.Element {
+  // Local visual value while dragging; null falls back to the committed `value`.
+  const [dragValue, setDragValue] = useState<number | null>(null)
+  const shown = dragValue ?? value
+  // Sliders here are always single-thumb; collapse the union to a number.
+  const resolve = (v: number | number[]): number => (typeof v === 'number' ? v : (v[0] ?? min))
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Slider
+        size="small"
+        min={min}
+        max={max}
+        step={step}
+        value={shown}
+        marks
+        disabled={disabled}
+        // Visual only — no answer/pipeline churn during the drag.
+        onChange={(_, v) => { if (disabled) return; setDragValue(resolve(v)) }}
+        // Commit once on release (also fires per keyboard step, which is already settled).
+        onChangeCommitted={(_, v) => { if (disabled) return; const nv = resolve(v); setDragValue(null); onCommit(nv) }}
+        valueLabelDisplay="auto"
+        sx={{ flex: 1, color: 'primary.main' }}
+      />
+      <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+        {shown}
+      </Typography>
+    </Box>
+  )
+}
+
 // ── NoteSafeguardOverridesBlock ───────────────────────────────────────────────
 // Renders a `<!-- safeguard-overrides … -->` question card in view mode.
 // Supports single (radio), multi (checkbox), and slider group types.
@@ -2589,28 +2632,16 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       {renderQuestionTextTokens({ tokens: buildQuestionPromptTokens(sliderOpt.label, questionOptions as unknown as LabelOption[], false), chipSx: promptChipSx, labelSx: promptLabelSx })}
                     </Typography>
                   ) : null}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Slider
-                      size="small"
-                      min={min}
-                      max={max}
-                      step={step}
-                      value={sliderValue}
-                      marks
-                      disabled={!safeguardOverridesEditable}
-                      onChange={(_, value) => {
-                        if (!safeguardOverridesEditable) return
-                        const numVal = typeof value === 'number' ? value : Array.isArray(value) ? (value[0] ?? min) : min
-                        // Store the numeric value as the single selected option id string.
-                        applyAnswer([String(numVal)])
-                      }}
-                      valueLabelDisplay="auto"
-                      sx={{ flex: 1, color: 'primary.main' }}
-                    />
-                    <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                      {sliderValue}
-                    </Typography>
-                  </Box>
+                  <NoteOverridesSlider
+                    value={sliderValue}
+                    min={min}
+                    max={max}
+                    step={step}
+                    disabled={!safeguardOverridesEditable}
+                    // Store the numeric value as the single selected option id string,
+                    // committed once on release rather than on every drag tick.
+                    onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
+                  />
                 </Box>
               )
             }

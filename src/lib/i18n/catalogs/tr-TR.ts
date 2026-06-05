@@ -1716,6 +1716,15 @@ const overrides: Catalog = {
   setBloodshield: "Kan kalkanı",
   setReaction: "Tepki",
   setRevenge: "İntikam",
+  // Gear diff (sell/keep before-vs-after comparison)
+  gearDiffEmpty: "Gösterilecek sat/sakla değişikliği yok.",
+  gearDiffSplitBaselineHeading: "Önce",
+  gearDiffSplitCurrentHeading: "Sonra",
+  gearDiffPinBaseline: "Mevcut durumu referans olarak ayarla",
+  gearDiffToggleLabel: "Diff",
+  gearDiffToggleTooltip: "**Ekipman Farkı** — hangi parçaların **sat** ve **sakla** arasında geçtiğinin, bir referans noktasına göre önce/sonra karşılaştırması.\n\nNot iletişim kutusunda **dinamik geçersiz kılmaları** değiştirmek bu referansı taşımaz, bu yüzden art arda yapılan geçersiz kılma değişiklikleri **birikir** — fark, yalnızca sonuncuyu değil, tüm geçersiz kılma seçimlerinizin birleşik etkisini gösterir.\n\nOluşturucuda bir tarif veya koruma düzenlemek, **Referansı otomatik izle** açıkken referansı o düzenlemeye **taşır**, böylece fark en son değişikliğinizi gösterir.\n\nSol tıklama görünümü değiştirir. Sağ tıklama: **Referans ayarla** karşılaştırma noktasını sabitler; **Referansı otomatik izle** son düzenlemeye otomatik geçişi açar veya kapatır.",
+  gearDiffSetReference: "Referans ayarla",
+  gearDiffAutoMode: "Referansı otomatik izle",
 }
 
 export default overrides

@@ -198,6 +198,13 @@ type GearInspectorItemsGridProps = {
   // ruleOrdinal (1-based): the rule that gave this artifact its best rank (click-to-jump + tooltip).
   // otherRules: up to 3 other rules where this artifact is also a candidate (rank + ruleOrdinal).
   safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null
+  // Gear-diff split-view: this grid is one of two half-width panes. Rounds the dynamic
+  // column count so each pane shows half the full-grid columns at identical card width.
+  halfPaneColumns?: boolean
+  // Optional controlled collapse state. When provided (diff split-view), both panes share
+  // one Set + setter so group collapse/expand stays synchronized across them.
+  collapsedGroups?: Set<string>
+  onCollapsedGroupsChange?: React.Dispatch<React.SetStateAction<Set<string>>>
   // Opaque key that changes when the active filter selection changes (not on DB updates).
   // When this key changes, card entering animations are suppressed (the filter changed,
   // not the underlying data) while group chips can still pulse for newly-visible groups.
@@ -298,6 +305,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     improvementChanceByArtifactId = null,
     safeguardRules,
     safeguardRankByArtifactId = null,
+    halfPaneColumns = false,
+    collapsedGroups: collapsedGroupsProp,
+    onCollapsedGroupsChange,
     enterKey = undefined,
     scrollRestoreToken = null,
     selectedGearItemIds,
@@ -853,7 +863,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     setPrevShouldShowGridContextHint(shouldShowGridContextHint)
     if (!shouldShowGridContextHint) setGridContextHintPos(null)
   }
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  // Collapse state is normally internal, but the diff split-view passes a shared state +
+  // setter so collapsing/expanding a group in one pane mirrors in the other.
+  const [internalCollapsedGroups, setInternalCollapsedGroups] = useState<Set<string>>(() => new Set())
+  const collapsedGroups = collapsedGroupsProp ?? internalCollapsedGroups
+  const setCollapsedGroups = onCollapsedGroupsChange ?? setInternalCollapsedGroups
   // Ref-based setter so the focus-scroll layout effect avoids the set-state-in-effect lint rule.
   const setCollapsedGroupsRef = useRef(setCollapsedGroups)
   useEffect(() => { setCollapsedGroupsRef.current = setCollapsedGroups }, [setCollapsedGroups])
@@ -966,7 +980,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [getMultiToggleScope, recordScrollAnchor])
+  }, [getMultiToggleScope, recordScrollAnchor, setCollapsedGroups])
 
   // Render-time state adjustment: prune collapsed groups that no longer exist in the persistent set.
   const [prevPersistentGroupKeys, setPrevPersistentGroupKeys] = useState(persistentGroupKeys)
@@ -1128,6 +1142,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     // Gear Inspector path: panelWidthPx carries the live right-panel width during drag
     // (App.tsx updates it via rAF-throttled onResizeLive) and the committed width at rest.
     ...(!keepOverrideVariant ? { cardSizeMode: storedColumnPreference, panelWidthPx } : {}),
+    halfPaneColumns,
     showFirstMatch,
     showOtherMatches,
     theme,
@@ -1931,7 +1946,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       return next
     })
     closeGridMenu()
-  }, [closeGridMenu, gridMenuGroupKey])
+  }, [closeGridMenu, gridMenuGroupKey, setCollapsedGroups])
   // Guard the grid context menu so outside clicks cannot leave a stuck overlay.
   const { contextMenuGuard: gridMenuGuard } = useContextMenuPaperGuard({
     open: gridMenuOpen,

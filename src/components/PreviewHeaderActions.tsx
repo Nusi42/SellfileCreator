@@ -15,6 +15,7 @@ import {
 	  MENU_CONTROL_MIN_WIDTH_PX,
 	  STATUS_CHIP_BORDER_RADIUS_PX,
 	} from '../lib/constants'
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import PublishIcon from '@mui/icons-material/Publish'
@@ -32,6 +33,8 @@ import MarkdownTooltip from './MarkdownTooltip'
 
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
+import GearDiffDeltaChip from './GearDiffDeltaChip'
+import type { GearDiffDelta } from '../hooks/useGearDiffCompare'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -202,6 +205,20 @@ export default function PreviewHeaderActions(props: {
   onTogglePinSortPreset?: (presetId: string, pinned: boolean) => void
   // True when the preset's sort snapshot matches the live sort state.
   isSortPresetActive?: (preset: SortPreset) => boolean
+  // Gear-diff mode (sell/keep before-vs-after). Only meaningful in Gear Inspector mode.
+  // True when the diff split-view is currently shown in the preview area.
+  diffModeActive?: boolean
+  // True when auto-baseline mode is on (re-pins against the last undo checkpoint).
+  diffAutoMode?: boolean
+  // Toggle the diff split-view on/off (left-click on the diff button).
+  onToggleDiffMode?: () => void
+  // Pin the current state as the diff reference baseline (context-menu "Set reference").
+  onSetDiffReference?: () => void
+  // Toggle auto-baseline mode (context-menu "Auto").
+  onToggleDiffAuto?: () => void
+  // Signed before→after outcome deltas; rendered as a chip beside the Diff button when
+  // the split-view is active.
+  diffDelta?: GearDiffDelta | null
 }) {
   const {
     mergedCount,
@@ -280,6 +297,12 @@ export default function PreviewHeaderActions(props: {
     onHideSortPreset,
     onTogglePinSortPreset,
     isSortPresetActive,
+    diffModeActive = false,
+    diffAutoMode = false,
+    onToggleDiffMode,
+    onSetDiffReference,
+    onToggleDiffAuto,
+    diffDelta,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -907,6 +930,11 @@ export default function PreviewHeaderActions(props: {
 	  const sortMenuOpen = Boolean(sortMenuAnchor)
 	  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
 	  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+	  // Gear-diff button context menu (Set reference / Auto). Same anchored-Menu pattern as
+	  // the sort/filter buttons. Diff mode is only available in Gear Inspector mode.
+	  const [diffMenuAnchor, setDiffMenuAnchor] = React.useState<HTMLElement | null>(null)
+	  const closeDiffMenu = React.useCallback(() => { setDiffMenuAnchor(null) }, [])
+	  const diffModeEnabled = !isRulesMode && typeof onToggleDiffMode === 'function'
 	  const [sortNormalizedPresetEditor, setSortNormalizedPresetEditor] = React.useState<{
 	    presetId: GearInspectorNormalizedPresetId
 	    position: { x: number; y: number }
@@ -1250,6 +1278,62 @@ export default function PreviewHeaderActions(props: {
                 <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
               )}
             </Box>
+            {/* Gear-diff toggle: left-click shows/hides the before-vs-after split-view;
+                right-click opens the Set reference / Auto context menu. Sits to the right
+                of the sort cluster's clear ✕. */}
+            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', ml: 1, mr: 1 }}>
+              <MarkdownTooltip markdown={t('gearDiffToggleTooltip')}>
+                <Box
+                  component="span"
+                  onContextMenu={(event) => {
+                    if (!diffModeEnabled) return
+                    try { event.preventDefault(); event.stopPropagation() } catch {}
+                    setDiffMenuAnchor(event.currentTarget as HTMLElement)
+                  }}
+                >
+                  <Button
+                    size="small"
+                    variant={diffModeActive ? 'contained' : 'outlined'}
+                    color={diffModeActive ? 'warning' : 'success'}
+                    disabled={!diffModeEnabled}
+                    onClick={() => { onToggleDiffMode?.() }}
+                    aria-label={t('gearDiffToggleLabel')}
+                    sx={COMPACT_HEADER_ACTION_BUTTON_SX}
+                  >
+                    <CompareArrowsIcon fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX }} data-ellipsis-target>
+                      {t('gearDiffToggleLabel')}
+                    </Typography>
+                  </Button>
+                </Box>
+              </MarkdownTooltip>
+            </Box>
+            {/* Delta chip sits to the right of the Diff button whenever a meaningful diff
+                exists (any non-zero metric), regardless of whether the split-view is open. */}
+            {diffDelta && (diffDelta.sold !== 0 || diffDelta.kept !== 0 || diffDelta.keptBySafeguards !== 0) ? (
+              <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
+                <GearDiffDeltaChip delta={diffDelta} />
+              </Box>
+            ) : null}
+            {diffModeEnabled ? (
+              <Menu
+                anchorEl={diffMenuAnchor}
+                open={Boolean(diffMenuAnchor)}
+                onClose={closeDiffMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {/* Manual pin: freeze the current state as the comparison baseline. */}
+                <MenuItem onClick={() => { onSetDiffReference?.(); closeDiffMenu() }}>
+                  {t('gearDiffSetReference')}
+                </MenuItem>
+                {/* Auto: re-pin the baseline against the last undo checkpoint automatically. */}
+                <MenuItem onClick={() => { onToggleDiffAuto?.() }}>
+                  <Checkbox size="small" edge="start" checked={diffAutoMode} sx={{ mr: 0.5, p: 0.5 }} />
+                  {t('gearDiffAutoMode')}
+                </MenuItem>
+              </Menu>
+            ) : null}
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={sortPresetHintActive ? sortPresetHintPos : null} />
             {filterMenuEnabled ? (

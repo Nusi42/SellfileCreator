@@ -1753,6 +1753,16 @@ const enUS: Catalog = {
   setBloodshield: "Bloodshield",
   setReaction: "Reaction",
   setRevenge: "Revenge",
+
+  // Gear diff (sell/keep before-vs-after comparison)
+  gearDiffEmpty: "No sell/keep changes to show.",
+  gearDiffSplitBaselineHeading: "Before",
+  gearDiffSplitCurrentHeading: "After",
+  gearDiffPinBaseline: "Pin current as baseline",
+  gearDiffToggleLabel: "Diff",
+  gearDiffToggleTooltip: "**Gear Diff** — a side-by-side before/after of which gear flips between **sell** and **keep**, measured against a reference point.\n\nToggling **Dynamic Overrides** in the Note dialog does not move that reference, so successive override changes **accumulate** — the diff shows the combined effect of all your override choices, not just the last one.\n\nEditing a recipe or safeguard in the builder **does** move the reference to that edit while **Auto-track reference** is on, so the diff shows your latest change.\n\nLeft-click toggles the view. Right-click: **Set reference** fixes the comparison point; **Auto-track reference** toggles the automatic move-to-last-edit.",
+  gearDiffSetReference: "Set reference",
+  gearDiffAutoMode: "Auto-track reference",
 }
 
 export default enUS

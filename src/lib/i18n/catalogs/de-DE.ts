@@ -1714,6 +1714,15 @@ const overrides: Catalog = {
   setBloodshield: "Blutschild",
   setReaction: "Reaktion",
   setRevenge: "Rache",
+  // Gear diff (sell/keep before-vs-after comparison)
+  gearDiffEmpty: "Keine Verkaufen/Behalten-Änderungen vorhanden.",
+  gearDiffSplitBaselineHeading: "Vorher",
+  gearDiffSplitCurrentHeading: "Nachher",
+  gearDiffPinBaseline: "Aktuellen Stand als Referenz setzen",
+  gearDiffToggleLabel: "Diff",
+  gearDiffToggleTooltip: "**Ausrüstungs-Diff** — ein Vorher/Nachher-Vergleich, welche Ausrüstung zwischen **Verkaufen** und **Behalten** wechselt, gemessen an einem Referenzpunkt.\n\nDas Umschalten von **Dynamischen Overrides** im Notiz-Dialog verschiebt diesen Referenzpunkt nicht, daher **summieren** sich aufeinanderfolgende Override-Änderungen — der Diff zeigt die kombinierte Wirkung aller deiner Override-Entscheidungen, nicht nur der letzten.\n\nDas Bearbeiten eines Rezepts oder Safeguards im Builder verschiebt den Referenzpunkt **sehr wohl** auf diese Änderung, solange **Referenz automatisch folgen** aktiv ist, sodass der Diff deine jüngste Änderung zeigt.\n\nLinksklick schaltet die Ansicht um. Rechtsklick: **Referenz setzen** fixiert den Vergleichspunkt; **Referenz automatisch folgen** schaltet das automatische Mitführen auf die letzte Änderung um.",
+  gearDiffSetReference: "Referenz setzen",
+  gearDiffAutoMode: "Referenz automatisch folgen",
 }
 
 export default overrides

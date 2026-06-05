@@ -34,6 +34,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled recipes), shared hooks, effect guidelines, and responsive layout constraints.
 - [Builder Panel Grids](technical/builder-panel-grids.md) — row-by-row grid map for RecipeBuilderPanel and SafeguardBuilderPanel, flex-wrapper mechanics for collapsible sections, and options for layout changes.
 - [Gear Inspector Rule Templates](technical/gear-inspector-rule-templates.md) — gear-card actions, UX behaviors, and default keep/sell template logic.
+- [Gear Diff](technical/gear-diff.md) — sell/keep before-vs-after comparison: the preview-header `Diff` toggle, reference/baseline model (auto-track on builder edits; Dynamic Overrides accumulate), the synced-scroll split-view, the delta chip, filter behavior, and restore/DB-load suppression.
 - [Tooltip & Context Hints](technical/ui-and-layout.md#tooltips-and-context-hints) — canonical guidance for Markdown/Ellipsis tooltips, context-menu hints, and overflow handling.
 - [Release Notes Prompt](CREATE-RELEASE-NOTES.md) and [Worker Prompt](CREATE-RELEASE-NOTES-WORKER.md) — Claude orchestration for maintaining `docs/HISTORY.txt` (single-pass / reducer) and the map-worker role used for large releases. Maintainer review items collected during the run land in `PRE-RELEASE-CHECKLIST.md` at the repo root.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.

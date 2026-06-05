@@ -279,6 +279,9 @@ import type {
 } from './lib/importers/gearDbNormalizer'
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
+import { buildVerdictMapFromRows, type DiffRow } from './lib/gearDiff/verdictDiff'
+import { useGearDiffCompare, type GearDiffRows } from './hooks/useGearDiffCompare'
+import GearDiffSplitView from './components/GearDiffSplitView'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
 import type { ImprovementChanceWasmEntry } from './lib/wasm/wasmRuleEngine'
 import {
@@ -674,16 +677,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearInspectorResultsVersion, setGearInspectorResultsVersion] = useState(0)
   useEffect(() => { gearInspectorPreviewRowsRef.current = gearInspectorPreviewRows }, [gearInspectorPreviewRows])
   const recoverMissingRulesRef = useRef(false)
-  const gearInspectorMatchesByItemId = useMemo(() => {
-    const map = new Map<number, GearInspectorPreviewMatch | null>()
-    for (const row of gearInspectorPreviewRows) {
-      const itemId = Number((row.artifact.gearInspectorItem as GearInspectorItem | undefined)?.itemId ?? NaN)
-      if (Number.isFinite(itemId)) {
-        map.set(itemId, row.match)
-      }
-    }
-    return map
-  }, [gearInspectorPreviewRows])
+  // Live sell/keep verdict map. Built via the shared projection so the gear-diff
+  // baseline snapshot and this map stay keyed identically (see verdictDiff.ts).
+  const gearInspectorMatchesByItemId = useMemo(
+    () => buildVerdictMapFromRows(gearInspectorPreviewRows),
+    [gearInspectorPreviewRows],
+  )
+  // Gear-diff compare mode: pins a "before" snapshot and diffs it against the live
+  // verdict map. The "after" side is always the live pipeline output (see hook note).
+  const gearDiffCompare = useGearDiffCompare({
+    currentRows: gearInspectorPreviewRows,
+    currentVerdicts: gearInspectorMatchesByItemId,
+  })
+  // Whether the inline before/after split-view is shown in the preview area.
+  const [gearDiffSplitOpen, setGearDiffSplitOpen] = useState(false)
+  // Auto-baseline mode (default on): keep a baseline pinned at the last undo checkpoint so
+  // the diff is always available — the header delta chip can then show "what changed since
+  // the last edit" without the user opening the split-view first.
+  const [gearDiffAutoMode, setGearDiffAutoMode] = useState(true)
+  // Toggle auto-baseline mode. (The toggle/reference handlers that need `t` are defined
+  // after the i18n hook below.)
+  const handleToggleGearDiffAuto = useCallback(() => {
+    setGearDiffAutoMode((prev) => !prev)
+  }, [])
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
   // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
   const [improvementChanceByArtifactId, setImprovementChanceByArtifactId] =
@@ -1245,16 +1261,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rulesBuildingTokenRef.current = requestToken
       const shouldTrackGearInspectorBuild = includeMatchesInPipeline || Boolean(gearInspectorMatchResetRef.current)
       if (shouldTrackGearInspectorBuild) setGearEntriesActiveBuildId(requestToken)
-      // Build/progress toggles fan out through many memoized panels; transition them
-      // so user input stays responsive while the worker pipeline spins up.
-      startTransition(() => {
-        setActiveGearInspectorBuildOrigin(queuedBuildOrigin)
-        setRulesBuilding(true)
-        setRulesBuildProgress(null)
-        // Rules preview mode skips Gear Inspector rows, so avoid flipping build state/progress.
-        setGearEntriesBuilding(includeMatchesInPipeline)
-        if (includeMatchesInPipeline) setGearEntriesProgress(null)
-      })
+      // Resolve the pipeline cache key + entry up front (key spec documented below) so the
+      // "rebuilding" indicators can be skipped on a cache hit. Otherwise undo/redo revisits
+      // — which hit the cache and never touch the worker — still flash the worker/progress
+      // UI, reading as "the worker started again".
+      const currentSig = currentEntrySignatureRef.current
+      // Snapshot at launch time so the key is stable for the lifetime of this pipeline call.
+      const artifactCacheVersion = artifactCacheVersionRef.current
+      const overridesKey = noteOverridesDisabledRef.current
+        ? 'off'
+        : JSON.stringify(noteRecipeOverridesAnswersRef.current)
+      const sgOverridesKey = noteOverridesDisabledRef.current
+        ? 'off'
+        : JSON.stringify(noteSafeguardOverridesAnswersRef.current)
+      const cacheKey = currentSig
+        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
+        : null
+      const nowMs = Date.now()
+      const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
+      // Treat entries past their TTL as misses and remove them eagerly to free memory.
+      const cachedEntry = rawEntry !== null && nowMs - rawEntry.insertedAt <= PIPELINE_CACHE_TTL_MS
+        ? rawEntry : null
+      if (rawEntry !== null && cachedEntry === null) {
+        pipelineCacheRef.current.delete(cacheKey!)
+        pipelineCacheOrderRef.current.delete(cacheKey!)
+      }
+      // Build/progress toggles fan out through many memoized panels; transition them so
+      // user input stays responsive while the worker spins up. Skip entirely on a cache
+      // hit so undo/redo revisits don't flash the rebuilding indicator.
+      if (cachedEntry === null) {
+        startTransition(() => {
+          setActiveGearInspectorBuildOrigin(queuedBuildOrigin)
+          setRulesBuilding(true)
+          setRulesBuildProgress(null)
+          // Rules preview mode skips Gear Inspector rows, so avoid flipping build state/progress.
+          setGearEntriesBuilding(includeMatchesInPipeline)
+          if (includeMatchesInPipeline) setGearEntriesProgress(null)
+        })
+      }
 
       // Safeguards payload seeds the worker with the current (overrides-applied) rule set.
       // effectiveSafeguardRules has safeguard-overrides DSL applied on top of resolved rules.
@@ -1322,39 +1366,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Request WASM improvement-chance computation when the overlay or sort column is active.
         computeImprovementChance: showSafeguardImprovementChance || safeguardChanceSortEnabled,
       }
-      // Build a cache key from the history signature (covers recipes, note, safeguards, etc.),
-      // the 5 boolean flags that affect pipeline output, a recipe-overrides fingerprint, and the
-      // artifact cache version. The version is bumped whenever gearInspectorPreviewArtifacts
-      // changes; including it prevents a run that completed before a DB swap from being served
-      // as a cache hit to the first run after the swap — even when history and flags are identical.
-      // Recipe overrides answers/disabled are session-only (not in the history CRC), so they must
-      // be included explicitly — otherwise a stale cache hit serves the pre-override result.
-      // Safeguard overrides answers are likewise session-only and must also be included.
-      // Null when no history entry exists yet.
-      // Read via refs so this logic stays out of the effect dep array (avoids selection-only re-runs).
-      const currentSig = currentEntrySignatureRef.current
-      // Snapshot at launch time so the key is stable for the lifetime of this pipeline call.
-      const artifactCacheVersion = artifactCacheVersionRef.current
-      const overridesKey = noteOverridesDisabledRef.current
-        ? 'off'
-        : JSON.stringify(noteRecipeOverridesAnswersRef.current)
-      // Mirror the recipe overrides gate: collapse to 'off' when dynamic overrides are disabled.
-      const sgOverridesKey = noteOverridesDisabledRef.current
-        ? 'off'
-        : JSON.stringify(noteSafeguardOverridesAnswersRef.current)
-      const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
-        : null
-      const nowMs = Date.now()
-      const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
-      // Treat entries past their TTL as misses and remove them eagerly to free memory.
-      const cachedEntry = rawEntry !== null && nowMs - rawEntry.insertedAt <= PIPELINE_CACHE_TTL_MS
-        ? rawEntry : null
-      if (rawEntry !== null && cachedEntry === null) {
-        pipelineCacheRef.current.delete(cacheKey!)
-        pipelineCacheOrderRef.current.delete(cacheKey!)
-      }
-
+      // (cache key + entry resolved above, before the rebuilding-indicator guard.)
       // Cancel the prior in-flight run only when dispatching a new payload.
       // Effect rerenders alone no longer abort active work.
       if (pipelineAbortRef.current) {
@@ -1702,6 +1714,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [])
   const { t, lang, registerRuntimeCatalog } = useI18n()
+  // Gear-diff toggle/reference handlers (need `t`, so defined after the i18n hook).
+  // Stable refs avoid re-creating these as compare state changes each pipeline commit.
+  const gearDiffPinBaselineRef = useRef(gearDiffCompare.pinBaseline)
+  useEffect(() => { gearDiffPinBaselineRef.current = gearDiffCompare.pinBaseline }, [gearDiffCompare.pinBaseline])
+  const gearDiffIsComparingRef = useRef(gearDiffCompare.isComparing)
+  useEffect(() => { gearDiffIsComparingRef.current = gearDiffCompare.isComparing }, [gearDiffCompare.isComparing])
+  const gearDiffExitCompareRef = useRef(gearDiffCompare.exitCompare)
+  useEffect(() => { gearDiffExitCompareRef.current = gearDiffCompare.exitCompare }, [gearDiffCompare.exitCompare])
+  // Toggle the inline diff split-view. Opening pins the current state as the baseline
+  // (unless auto mode already manages it), so the diff starts empty and fills as the user
+  // edits. Closing leaves compare mode.
+  const handleToggleGearDiffMode = useCallback(() => {
+    setGearDiffSplitOpen((open) => {
+      const next = !open
+      if (next) {
+        // Pin an initial baseline on open so the diff has a reference immediately. In
+        // auto mode the checkpoint effect re-pins on each subsequent edit.
+        if (!gearDiffIsComparingRef.current) {
+          gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
+        }
+      } else {
+        gearDiffExitCompareRef.current()
+      }
+      return next
+    })
+  }, [t])
+  // Manual "Set reference": pin the current state as the comparison baseline now.
+  const handleSetGearDiffReference = useCallback(() => {
+    gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
+  }, [t])
   // Subscribe to runtime gear-set catalog changes so any consumers refresh.
   // Why: drag/drop patches must re-render chips/selects immediately.
   const gearSetCatalogVersion = useGearSetCatalogVersion()
@@ -1955,6 +1997,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useLayoutEffect(() => { describeNextChangeRef.current = describeNextChange })
   // Keep the ref in sync so launchPipeline (200ms-debounced) reads the correct value when it fires.
   useEffect(() => { currentEntrySignatureRef.current = currentEntrySignature }, [currentEntrySignature])
+  // Auto-baseline: when auto mode is on and the diff split-view is open, re-pin the
+  // baseline on each new undo checkpoint (rule-state signature change). At signature-change
+  // time the pipeline has not yet recomputed, so the still-current rows are the pre-edit
+  // "before" — exactly the checkpoint to diff the upcoming change against.
+  const gearDiffAutoSignatureRef = useRef<string | null>(null)
+  // Reacting to the derived undo-signature is the right tool here: edits funnel in from
+  // many call sites (builder, safeguards, overrides, SFC load), so there is no single
+  // event to hook — the signature change IS the checkpoint signal.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- derived checkpoint signal, not a single discrete event */
+  useEffect(() => {
+    if (!gearDiffAutoMode) return
+    const crc = currentEntrySignature?.crc ?? null
+    // Skip the first run after enabling (no prior checkpoint to compare from yet). On each
+    // later checkpoint, pin the still-current (pre-recompute) rows as the new baseline so
+    // the diff reflects the change the latest edit introduced — even with the split closed.
+    // Don't pin against an empty row set: before the gear DB loads there is nothing to
+    // compare, and pinning an empty baseline would make the first load look like a full diff.
+    if (
+      gearDiffAutoSignatureRef.current !== null
+      && gearDiffAutoSignatureRef.current !== crc
+      && gearInspectorPreviewRowsRef.current.length > 0
+    ) {
+      gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
+    }
+    gearDiffAutoSignatureRef.current = crc
+  }, [currentEntrySignature, gearDiffAutoMode, t])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
+  // Treat SFC loads / autosave restores and gear-DB loads/pushes as fresh starting points,
+  // not diffs. These change the rule signature and/or the artifact set, which the auto
+  // tracker above could otherwise pin as a "change". Clearing the baseline here (this effect
+  // is declared AFTER the tracker, so it runs later in the same commit) drops any baseline
+  // pinned for the transition; the diff re-arms on the next genuine rule edit. Inventory
+  // changes are not rule diffs, so a DB push never shows as a change on its own.
+  useEffect(() => {
+    gearDiffExitCompareRef.current()
+  }, [sfcLoadNonce, gearInspectorPreviewArtifacts])
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called
@@ -3660,10 +3738,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     suppressInitialHelpOpen: isSimpleViewAtStart,
   })
 
-  // Compute a stable key for recipes that affects HSF rule generation (ignores display-only fields like `name`).
-  // Why: Changing the recipe name should not cause a refresh of the Sellfile Preview table.
-  const ruleSubstatTargetsKey = recipeRulesState.substatTargetsKey
-
   const rulesByRecipe = recipeRulesState.rulesByRecipe
   const recipeRuleCounts = recipeRulesState.countsByRecipe
   const mergedRules = recipeRulesState.mergedRules
@@ -3677,8 +3751,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selectedRecipeIdx === null) return false
     const target = customRecipes[selectedRecipeIdx]
     if (!target) return false
-    return hasRecipeMeaningfulDifferences(builder, target, ruleSubstatTargetsKey)
-  }, [builder, customRecipes, ruleSubstatTargetsKey, selectedRecipeIdx])
+    // Structural comparison only — intentionally independent of the pipeline's
+    // substat-targets key so prospective/compare evaluations cannot churn it and
+    // spuriously mark the builder dirty (see recipeDiff.ts STRUCTURAL_FINGERPRINT_KEY).
+    return hasRecipeMeaningfulDifferences(builder, target)
+  }, [builder, customRecipes, selectedRecipeIdx])
 
   const builderUiDirty = multiselectActive && multiEditDraftState
     ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
@@ -5154,6 +5231,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearEntriesAfterRulesFilter = gearInspectorFilterResult.items
   // Companion context groups for opacity rendering; present only when Matched/Unmatched is active.
   const gearInspectorContextGroupById = gearInspectorFilterResult.contextGroupById ?? null
+  // Gear-diff split-view rows after applying the active Gear Inspector filter. An item is
+  // shown (in BOTH panes) when the filter matches EITHER its baseline OR its current verdict,
+  // so a piece that filters in on only one side still shows the other side for comparison.
+  // Scope/context grouping is intentionally not applied here — the diff is a plain filter.
+  const gearDiffFilteredRows = useMemo<GearDiffRows | null>(() => {
+    const dr = gearDiffCompare.diffRows
+    if (!dr) return null
+    if (!gearInspectorFilterActive) return dr
+    const all = [...dr.newlySell, ...dr.newlyKeep]
+    if (all.length === 0) return dr
+    const filterOpts = {
+      recipeNames,
+      recipeTags,
+      specialRuleLabels: specialRuleSourceLabels,
+      improvementChanceByArtifactId,
+    }
+    // Project each changed row to its baseline / current verdict, then filter each side.
+    const beforeVariants = all.map((r) => ({ ...r, match: r.beforeMatch }))
+    const afterVariants = all.map((r) => ({ ...r, match: r.afterMatch }))
+    const keepIds = new Set<number>()
+    for (const r of filterGearInspectorItems(beforeVariants, gearInspectorRulesFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    for (const r of filterGearInspectorItems(afterVariants, gearInspectorRulesFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    return {
+      newlySell: dr.newlySell.filter((r) => keepIds.has(r.artifact.id)),
+      newlyKeep: dr.newlyKeep.filter((r) => keepIds.has(r.artifact.id)),
+    }
+  }, [
+    gearDiffCompare.diffRows,
+    gearInspectorFilterActive,
+    gearInspectorRulesFilter,
+    metasetsForGearInspectorFilter,
+    recipeNames,
+    recipeTags,
+    specialRuleSourceLabels,
+    improvementChanceByArtifactId,
+  ])
   // Derive the set of recipe indices that are the first match for at least one filtered Gear Inspector row.
   // Built from already-computed worker results — no WASM evaluation needed. Used to short-circuit the
   // expensive evaluateFirst loop in builderInsertBecomesGearInspectorFirstMatch when the builder is clean.
@@ -8105,6 +8218,60 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Suppress overlay during tutorial — drops are blocked so the overlay would be misleading.
   const dragOverlayVisible = fileDragActive && !tutorial.tutorialOpen && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
 
+  // Display/callback props shared by every Gear Inspector grid instance (main preview +
+  // gear-diff surfaces). Defined once so the diff modal/split-view reuse the same grid
+  // wiring instead of forking it (SSOT). Surface-specific props (rows, selection, focus,
+  // panel width, context groups) are passed per call site.
+  const gearGridSharedProps = useMemo(() => ({
+    substatColors,
+    useStatButtonColors: statButtonBorders,
+    onToggleStatColors: setStatButtonBorders,
+    onOpenManageColors: openColors,
+    colorBlindMode,
+    onChangeColorBlindMode: setColorBlindMode,
+    colorIconSrc,
+    recipeNames: gearInspectorRecipeNamesForGrid,
+    recipeFgColors: gearInspectorRecipeFgColorsForGrid,
+    onJumpToRule: handleGearInspectorRuleView,
+    onJumpToSafeguardRule: openLogicHubSafeguardRule,
+    onCreateRuleTemplate: handleGearInspectorRuleTemplateCreate,
+    grouping: gearInspectorSubstatSortPrefs.state.grouping,
+    substatSort: gearInspectorSubstatSortSpec,
+    sortState: gearInspectorSubstatSortPrefs.state,
+    safeguardRules: resolvedSafeguardRules,
+    improvementChanceByArtifactId,
+    safeguardRankByArtifactId,
+  }), [
+    substatColors, statButtonBorders, setStatButtonBorders, openColors, colorBlindMode,
+    setColorBlindMode, colorIconSrc, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
+    handleGearInspectorRuleView, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
+    gearInspectorSubstatSortPrefs.state, gearInspectorSubstatSortSpec, resolvedSafeguardRules,
+    improvementChanceByArtifactId, safeguardRankByArtifactId,
+  ])
+
+  // Renders a reused Gear Inspector grid for a set of diff rows (modal + split-view).
+  // The diff rows ARE GearInspectorPreviewRows (each carrying its baseline/current match),
+  // so the same component renders them; the before/after panes convey the verdict through
+  // each card's normal sell/keep styling.
+  const renderGearDiffGrid = useCallback((
+    diffRows: DiffRow[],
+    opts?: {
+      halfPaneColumns?: boolean
+      collapsedGroups?: Set<string>
+      onCollapsedGroupsChange?: React.Dispatch<React.SetStateAction<Set<string>>>
+    },
+  ) => (
+    <GearInspectorItemsGrid
+      {...gearGridSharedProps}
+      rows={diffRows}
+      allRows={diffRows}
+      halfPaneColumns={opts?.halfPaneColumns ?? false}
+      {...(opts?.collapsedGroups ? { collapsedGroups: opts.collapsedGroups } : {})}
+      {...(opts?.onCollapsedGroupsChange ? { onCollapsedGroupsChange: opts.onCollapsedGroupsChange } : {})}
+      hasGearInspectorData
+    />
+  ), [gearGridSharedProps])
+
   return (
     <Container maxWidth={false} disableGutters sx={{
       pt: 1.5,
@@ -8471,6 +8638,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleHideGearDbUpdateToast={toggleHideGearDbUpdateToast}
         pauseEndpointUpdates={pauseEndpointUpdates}
         onTogglePauseEndpointUpdates={togglePauseEndpointUpdates}
+        diffModeActive={gearDiffSplitOpen}
+        diffAutoMode={gearDiffAutoMode}
+        onToggleDiffMode={handleToggleGearDiffMode}
+        onSetDiffReference={handleSetGearDiffReference}
+        onToggleDiffAuto={handleToggleGearDiffAuto}
+        diffDelta={gearDiffCompare.delta}
       />
           {filterOpen && (
             <RulesFilterPanel
@@ -8517,40 +8690,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 data-tour-id={previewMode === 'gearInspector' ? 'preview.gear-inspector-grid-top' : undefined}
                 sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
               />
-              <GearInspectorItemsGrid
-                rows={gearEntriesForTable}
-                allRows={gearInspectorPreviewRows}
-                filterActive={gearInspectorFilterActive || gearInspectorRecipeFilterActive}
-                substatColors={substatColors}
-                useStatButtonColors={statButtonBorders}
-                onToggleStatColors={setStatButtonBorders}
-                onOpenManageColors={openColors}
-                colorBlindMode={colorBlindMode}
-                onChangeColorBlindMode={setColorBlindMode}
-                colorIconSrc={colorIconSrc}
-                recipeNames={gearInspectorRecipeNamesForGrid}
-                recipeFgColors={gearInspectorRecipeFgColorsForGrid}
-                focusArtifactRequest={gearInspectorArtifactFocusRequest}
-                onFocusArtifactFilteredOut={handleGearInspectorFocusArtifactFilteredOut}
-                onJumpToRule={handleGearInspectorRuleView}
-                onJumpToSafeguardRule={openLogicHubSafeguardRule}
-                onCreateRuleTemplate={handleGearInspectorRuleTemplateCreate}
-                suppressMatchDetails={suppressGearInspectorMatchDetails}
-                contextGroupById={gearInspectorContextGroupById}
-                grouping={gearInspectorSubstatSortPrefs.state.grouping}
-                substatSort={gearInspectorSubstatSortSpec}
-                sortState={gearInspectorSubstatSortPrefs.state}
-                safeguardRules={resolvedSafeguardRules}
-                improvementChanceByArtifactId={improvementChanceByArtifactId}
-                safeguardRankByArtifactId={safeguardRankByArtifactId}
-                emptyStateVerticalAlign={emptyStateVerticalAlign}
-                enterKey={gearInspectorEnterKey}
-                scrollRestoreToken={endpointScrollRestoreToken}
-                gearSelectionEnabled={!!pushExportEndpoint}
-                selectedGearItemIds={selectedGearItemIds}
-                onGearItemsSelect={handleGearItemsSelect}
-                {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
-              />
+              {gearDiffSplitOpen ? (
+                // Diff mode: replace the single grid with the before/after split-view.
+                <GearDiffSplitView
+                  diffRows={gearDiffFilteredRows}
+                  renderGrid={renderGearDiffGrid}
+                />
+              ) : (
+                <GearInspectorItemsGrid
+                  {...gearGridSharedProps}
+                  rows={gearEntriesForTable}
+                  allRows={gearInspectorPreviewRows}
+                  filterActive={gearInspectorFilterActive || gearInspectorRecipeFilterActive}
+                  focusArtifactRequest={gearInspectorArtifactFocusRequest}
+                  onFocusArtifactFilteredOut={handleGearInspectorFocusArtifactFilteredOut}
+                  suppressMatchDetails={suppressGearInspectorMatchDetails}
+                  contextGroupById={gearInspectorContextGroupById}
+                  emptyStateVerticalAlign={emptyStateVerticalAlign}
+                  enterKey={gearInspectorEnterKey}
+                  scrollRestoreToken={endpointScrollRestoreToken}
+                  gearSelectionEnabled={!!pushExportEndpoint}
+                  selectedGearItemIds={selectedGearItemIds}
+                  onGearItemsSelect={handleGearItemsSelect}
+                  {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
+                />
+              )}
             </Box>
             <Box
               aria-hidden={previewMode === 'gearInspector'}
