@@ -31,12 +31,12 @@ conic-gradient ring whose angle (`--gd-ref-angle`, registered in `styles.css`) r
 ## The reference (baseline) model
 
 `useGearDiffCompare` (`src/hooks/useGearDiffCompare.ts`) holds the pinned baseline. It is
-deliberately **compact** — only the verdict map (for the flip diff) plus the outcome
-summary captured **once** at pin time (for the delta). It does **not** retain the preview
-rows: the split-view renders the *current* rows with the baseline match swapped in, so the
-old rows are never needed, and the header delta is `current summary − stored summary`
-(no per-commit re-scan of the unchanged baseline). The "after" side is always the **live
-pipeline output** — there is no separate non-committing evaluation.
+deliberately **compact** — just the verdict map. It does **not** retain the preview rows
+(the split-view renders the *current* rows with the baseline match swapped in) nor a stored
+summary: both the flip diff and the header delta are computed over the **intersection** of
+the baseline map and the live verdicts (one pass over the live map, O(1) baseline lookups).
+The "after" side is always the **live pipeline output** — there is no separate
+non-committing evaluation.
 
 **Auto-track** re-pins the baseline on each change of the rule-state signature
 (`currentEntrySignature.crc` from `useSfcHistory`). The signature serializes recipes,
@@ -57,13 +57,17 @@ documented asymmetry, surfaced in the `Diff` tooltip:
 - Turning Auto-track off (or using **Set reference**) fixes one reference so everything —
   overrides and builder edits alike — accumulates against it.
 
-### Suppressed transitions (no spurious diff)
+### No spurious diff from loads / inventory
 
-The auto-tracker never pins against an empty row set (before the gear DB loads), and the
-baseline is cleared whenever `sfcLoadNonce` (SFC load / autosave restore) or
-`gearInspectorPreviewArtifacts` (gear-DB load/push) changes. Inventory changes are not rule
-diffs, so a fresh restart, an autosave restore, or a DB push never shows as a diff on its
-own; the diff re-arms on the next genuine rule edit.
+Two guards keep startup and inventory changes from looking like a diff:
+
+- The auto-tracker never pins against an **empty row set** (before the gear DB loads), nor
+  on a transition **out of an empty setup** (e.g. your first SFC load — `gearDiffPrevRulesEmptyRef`).
+  So a fresh restart / autosave restore produces no diff; the diff arms on the next edit.
+- The diff is computed over the **intersection** of the baseline and live verdict maps (both
+  `diffVerdicts` and the delta). A gear-DB **load/push** changes inventory, not rules, so
+  added/removed items are never counted — the diff stays empty for a pure inventory change,
+  and **an active reference is left untouched** (a push does not clear or re-pin it).
 
 ## Surfaces
 
@@ -105,9 +109,9 @@ context/companion grouping) is neutralized for the diff — `gearDiffFilteredRow
 - **Diff core** — `src/lib/gearDiff/verdictDiff.ts`: `diffVerdicts(before, after)` →
   `{ newlySell, newlyKeep }`, keyed by `gearInspectorItem.itemId` (the same keying as App's
   live `gearInspectorMatchesByItemId`). Unit tests: `tests/unit/gear-diff-verdicts.test.ts`.
-- **Delta** — `useGearDiffCompare.delta` is `buildGearInspectorOutcomeSummary(currentRows)`
-  minus the baseline summary captured at pin time (one pass over the live rows per commit;
-  the baseline side is not re-scanned).
+- **Delta** — `useGearDiffCompare.delta` counts sold / safeguard-kept on each side over the
+  **intersection** of the baseline and live verdict maps (one pass over the live map), so a
+  gear-DB push adding/removing items never shifts it — only rule-driven flips do.
 
 ## Performance notes
 
@@ -115,9 +119,9 @@ The diff feature has cost only while a baseline is pinned (auto-track keeps one 
 you have rules and gear). It is bounded — a single snapshot, replaced (not accumulated) on
 each re-pin, so there is no leak.
 
-- **Compact baseline** — the baseline holds just the verdict `Map` + a 4-number summary, not
-  a second copy of the preview rows. The `Map` keeps the small per-row match objects alive,
-  not the full rows, so RAM stays near the verdict map even for large DBs.
+- **Compact baseline** — the baseline holds just the verdict `Map` (no preview-rows copy, no
+  stored summary). The `Map` keeps the small per-row match objects alive, not the full rows,
+  so RAM stays near the verdict map even for large DBs.
 - **Gated work** — when the split-view is **closed**, only the delta runs (~1 linear pass
   over the gear list per commit, for the chip). The flip diff + row index + joined rows are
   built **only when the view is open** (`active` arg to `useGearDiffCompare`).

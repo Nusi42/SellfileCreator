@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { GearInspectorOutcomeSummary, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
-import { buildGearInspectorOutcomeSummary } from '../lib/gearInspectorOutcomeSummary'
+import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+import { isMatchSold } from '../lib/gearInspectorVerdict'
+import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import {
   buildRowsByVerdictItemId,
   buildVerdictMapFromRows,
@@ -11,13 +12,13 @@ import {
   type VerdictMap,
 } from '../lib/gearDiff/verdictDiff'
 
-// A pinned "before" snapshot the live state is diffed against. Deliberately compact: we
-// keep only the verdict map (used for the flip diff) and the outcome summary captured ONCE
-// at pin time (so the header delta is `current summary − this`, with no per-commit re-scan
-// of the unchanged baseline and no second copy of the preview rows held in memory).
+// A pinned "before" snapshot the live state is diffed against. Deliberately compact: just
+// the verdict map (no second copy of the preview rows, no stored summary). Both the flip
+// diff and the delta are computed over the INTERSECTION of this map and the live verdicts,
+// so inventory changes (a gear-DB push adding/removing items) never show as a diff — only
+// rule-driven verdict flips do.
 export type GearDiffBaseline = {
   verdicts: VerdictMap
-  summary: GearInspectorOutcomeSummary
   // Human-readable description of what was pinned (e.g. "Before loading lategame.sfc").
   label: string
   // Capture timestamp; only used for display/debug, never for diff logic.
@@ -90,12 +91,11 @@ export function useGearDiffCompare(args: {
 
   const pinBaselineFromRows = useCallback(
     (rows: readonly GearInspectorPreviewRow[], label: string) => {
-      // Capture only what diffing needs: the verdict map (flip comparison) and the outcome
-      // summary (delta). We do NOT retain the rows array — the split-view renders the
-      // CURRENT rows with the baseline match swapped in, so the old rows are never needed.
+      // Capture only the verdict map — the split-view renders the CURRENT rows with the
+      // baseline match swapped in, and the delta is derived from this map vs the live one,
+      // so the old rows are never needed.
       setBaseline({
         verdicts: buildVerdictMapFromRows(rows),
-        summary: buildGearInspectorOutcomeSummary(rows),
         label,
         capturedAt: Date.now(),
       })
@@ -134,18 +134,29 @@ export function useGearDiffCompare(args: {
     }
   }, [diff, currentRowsByItemId])
 
-  // Signed before→after deltas for the header chip: one pass over the LIVE rows minus the
-  // baseline summary captured at pin time (no re-scan of the unchanged baseline). Cheap
-  // enough to keep live every commit, even with the split-view closed.
+  // Signed before→after deltas for the header chip, over the INTERSECTION of the baseline
+  // and live verdict maps: count sold / safeguard-kept on each side for items present in
+  // BOTH, so a gear-DB push adding/removing items shifts neither side. One pass over the
+  // live map (O(1) baseline lookups); cheap enough to keep live every commit, view closed.
   const delta = useMemo<GearDiffDelta | null>(() => {
     if (!baseline) return null
-    const after = buildGearInspectorOutcomeSummary(currentRows)
-    return {
-      sold: after.sold - baseline.summary.sold,
-      kept: after.kept - baseline.summary.kept,
-      keptBySafeguards: after.keptBySafeguards - baseline.summary.keptBySafeguards,
+    let inBoth = 0, beforeSold = 0, afterSold = 0, beforeSafe = 0, afterSafe = 0
+    for (const [itemId, afterMatch] of currentVerdicts) {
+      if (!baseline.verdicts.has(itemId)) continue
+      const beforeMatch = baseline.verdicts.get(itemId) ?? null
+      inBoth += 1
+      if (isMatchSold(beforeMatch)) beforeSold += 1
+      if (isMatchSold(afterMatch)) afterSold += 1
+      if (beforeMatch?.ruleSource === RULE_SOURCE_SAFEGUARDS) beforeSafe += 1
+      if (afterMatch?.ruleSource === RULE_SOURCE_SAFEGUARDS) afterSafe += 1
     }
-  }, [baseline, currentRows])
+    return {
+      sold: afterSold - beforeSold,
+      // Kept = (in both) − sold on each side; over a fixed set this is just −sold delta.
+      kept: (inBoth - afterSold) - (inBoth - beforeSold),
+      keptBySafeguards: afterSafe - beforeSafe,
+    }
+  }, [baseline, currentVerdicts])
 
   return {
     baseline,

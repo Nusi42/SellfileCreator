@@ -1732,8 +1732,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Stable refs avoid re-creating these as compare state changes each pipeline commit.
   const gearDiffPinBaselineRef = useRef(gearDiffCompare.pinBaseline)
   useEffect(() => { gearDiffPinBaselineRef.current = gearDiffCompare.pinBaseline }, [gearDiffCompare.pinBaseline])
-  const gearDiffExitCompareRef = useRef(gearDiffCompare.exitCompare)
-  useEffect(() => { gearDiffExitCompareRef.current = gearDiffCompare.exitCompare }, [gearDiffCompare.exitCompare])
   // Toggle the inline diff split-view. This ONLY shows/hides the view — it never pins or
   // clears the reference. The reference is owned by Auto-track / Set reference, so the diff
   // data stays available (and the header chip stays visible) whether the view is open or
@@ -2034,15 +2032,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearDiffPrevRulesEmptyRef.current = rulesEmptyNow
   }, [currentEntrySignature, gearDiffAutoMode, t])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
-  // Gear-DB loads/pushes (and autosave restores, which bring gear) change the artifact set;
-  // those are inventory changes, not rule diffs, so clear the baseline here (this effect is
-  // declared AFTER the tracker, so it runs later in the same commit and drops any baseline
-  // pinned for the transition). Note: an explicit `.sfc` load does NOT change the artifact
-  // set, so it flows through the tracker above and DOES produce a diff (except the first
-  // load over an empty setup, handled there).
-  useEffect(() => {
-    gearDiffExitCompareRef.current()
-  }, [gearInspectorPreviewArtifacts])
+  // Note: a gear-DB load/push (artifact-set change) intentionally does NOT touch the diff
+  // reference — the diff is intersection-based (see useGearDiffCompare.delta), so inventory
+  // changes never show as a diff, and an active comparison survives a push. The "first load
+  // over an empty setup produces no diff" case is handled by the auto-tracker's empty-rows /
+  // empty-rules guards above.
   // Safety-net: after every SFC load/selective import the nonce changes, which causes
   // this effect to fire in the same React commit as the transition render — AFTER the
   // history snapshot effect (which runs first because useSfcHistoryController was called
