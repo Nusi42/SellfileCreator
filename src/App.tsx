@@ -685,18 +685,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => buildVerdictMapFromRows(gearInspectorPreviewRows),
     [gearInspectorPreviewRows],
   )
-  // Gear-diff compare mode: pins a "before" snapshot and diffs it against the live
-  // verdict map. The "after" side is always the live pipeline output (see hook note).
-  const gearDiffCompare = useGearDiffCompare({
-    currentRows: gearInspectorPreviewRows,
-    currentVerdicts: gearInspectorMatchesByItemId,
-  })
   // Whether the inline before/after split-view is shown in the preview area.
   const [gearDiffSplitOpen, setGearDiffSplitOpen] = useState(false)
   // Auto-baseline mode (default on): keep a baseline pinned at the last undo checkpoint so
   // the diff is always available — the header delta chip can then show "what changed since
   // the last edit" without the user opening the split-view first.
   const [gearDiffAutoMode, setGearDiffAutoMode] = useState(true)
+  // Gear-diff compare mode: pins a "before" snapshot and diffs it against the live verdict
+  // map. The "after" side is always the live pipeline output (see hook note). `active` gates
+  // the heavy row-join work to when the split-view is actually open; the cheap delta (for
+  // the header chip) is computed regardless.
+  const gearDiffCompare = useGearDiffCompare({
+    currentRows: gearInspectorPreviewRows,
+    currentVerdicts: gearInspectorMatchesByItemId,
+    active: gearDiffSplitOpen,
+  })
   // Toggle auto-baseline mode. (The toggle/reference handlers that need `t` are defined
   // after the i18n hook below.)
   const handleToggleGearDiffAuto = useCallback(() => {
@@ -1720,28 +1723,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Stable refs avoid re-creating these as compare state changes each pipeline commit.
   const gearDiffPinBaselineRef = useRef(gearDiffCompare.pinBaseline)
   useEffect(() => { gearDiffPinBaselineRef.current = gearDiffCompare.pinBaseline }, [gearDiffCompare.pinBaseline])
-  const gearDiffIsComparingRef = useRef(gearDiffCompare.isComparing)
-  useEffect(() => { gearDiffIsComparingRef.current = gearDiffCompare.isComparing }, [gearDiffCompare.isComparing])
   const gearDiffExitCompareRef = useRef(gearDiffCompare.exitCompare)
   useEffect(() => { gearDiffExitCompareRef.current = gearDiffCompare.exitCompare }, [gearDiffCompare.exitCompare])
-  // Toggle the inline diff split-view. Opening pins the current state as the baseline
-  // (unless auto mode already manages it), so the diff starts empty and fills as the user
-  // edits. Closing leaves compare mode.
+  // Toggle the inline diff split-view. This ONLY shows/hides the view — it never pins or
+  // clears the reference. The reference is owned by Auto-track / Set reference, so the diff
+  // data stays available (and the header chip stays visible) whether the view is open or
+  // closed, and opening the view shows exactly the diff the chip already reflects.
   const handleToggleGearDiffMode = useCallback(() => {
-    setGearDiffSplitOpen((open) => {
-      const next = !open
-      if (next) {
-        // Pin an initial baseline on open so the diff has a reference immediately. In
-        // auto mode the checkpoint effect re-pins on each subsequent edit.
-        if (!gearDiffIsComparingRef.current) {
-          gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
-        }
-      } else {
-        gearDiffExitCompareRef.current()
-      }
-      return next
-    })
-  }, [t])
+    setGearDiffSplitOpen((open) => !open)
+  }, [])
   // Manual "Set reference": pin the current state as the comparison baseline now.
   const handleSetGearDiffReference = useCallback(() => {
     gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))

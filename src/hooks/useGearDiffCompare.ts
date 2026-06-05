@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+import type { GearInspectorOutcomeSummary, GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { buildGearInspectorOutcomeSummary } from '../lib/gearInspectorOutcomeSummary'
 import {
   buildRowsByVerdictItemId,
@@ -11,15 +11,13 @@ import {
   type VerdictMap,
 } from '../lib/gearDiff/verdictDiff'
 
-// A pinned "before" snapshot the live state is diffed against. Holds the frozen rows
-// (for the split-view's baseline pane) plus their derived verdict map and id index.
-// The rows array is a reference to the snapshot taken at pin time — the pipeline
-// replaces `gearInspectorPreviewRows` wholesale, so the old array stays valid as the
-// immutable baseline without any deep copy.
+// A pinned "before" snapshot the live state is diffed against. Deliberately compact: we
+// keep only the verdict map (used for the flip diff) and the outcome summary captured ONCE
+// at pin time (so the header delta is `current summary − this`, with no per-commit re-scan
+// of the unchanged baseline and no second copy of the preview rows held in memory).
 export type GearDiffBaseline = {
-  rows: readonly GearInspectorPreviewRow[]
   verdicts: VerdictMap
-  rowsByItemId: ReadonlyMap<number, GearInspectorPreviewRow>
+  summary: GearInspectorOutcomeSummary
   // Human-readable description of what was pinned (e.g. "Before loading lategame.sfc").
   label: string
   // Capture timestamp; only used for display/debug, never for diff logic.
@@ -74,8 +72,12 @@ export function useGearDiffCompare(args: {
   currentRows: readonly GearInspectorPreviewRow[]
   // Live verdict map derived from currentRows (passed in to reuse App's memo).
   currentVerdicts: VerdictMap
+  // True when the split-view is open. Gates the heavy per-commit work (flip diff + row
+  // index + joined rows) to when it is actually rendered; the cheap delta for the header
+  // chip is computed regardless so the chip stays live with the view closed.
+  active: boolean
 }): GearDiffCompare {
-  const { currentRows, currentVerdicts } = args
+  const { currentRows, currentVerdicts, active } = args
 
   const [baseline, setBaseline] = useState<GearDiffBaseline | null>(null)
 
@@ -88,10 +90,12 @@ export function useGearDiffCompare(args: {
 
   const pinBaselineFromRows = useCallback(
     (rows: readonly GearInspectorPreviewRow[], label: string) => {
+      // Capture only what diffing needs: the verdict map (flip comparison) and the outcome
+      // summary (delta). We do NOT retain the rows array — the split-view renders the
+      // CURRENT rows with the baseline match swapped in, so the old rows are never needed.
       setBaseline({
-        rows,
         verdicts: buildVerdictMapFromRows(rows),
-        rowsByItemId: buildRowsByVerdictItemId(rows),
+        summary: buildGearInspectorOutcomeSummary(rows),
         label,
         capturedAt: Date.now(),
       })
@@ -108,19 +112,18 @@ export function useGearDiffCompare(args: {
 
   const exitCompare = useCallback(() => setBaseline(null), [])
 
-  // Verdict-level diff: cheap O(n) map walk, recomputed whenever the baseline or the
-  // live verdicts change (i.e. on each committed pipeline run).
+  // Verdict-level flip diff — only needed to render the split-view, so gated on `active`.
   const diff = useMemo(
-    () => (baseline ? diffVerdicts(baseline.verdicts, currentVerdicts) : null),
-    [baseline, currentVerdicts],
+    () => (baseline && active ? diffVerdicts(baseline.verdicts, currentVerdicts) : null),
+    [baseline, active, currentVerdicts],
   )
 
   const flipCount = diff ? diff.newlySell.length + diff.newlyKeep.length : 0
 
-  // Index current rows once so both buckets can join without re-scanning.
+  // Index current rows for the join — also only when the split-view is open.
   const currentRowsByItemId = useMemo(
-    () => (baseline ? buildRowsByVerdictItemId(currentRows) : null),
-    [baseline, currentRows],
+    () => (baseline && active ? buildRowsByVerdictItemId(currentRows) : null),
+    [baseline, active, currentRows],
   )
 
   const diffRows = useMemo<GearDiffRows | null>(() => {
@@ -131,16 +134,16 @@ export function useGearDiffCompare(args: {
     }
   }, [diff, currentRowsByItemId])
 
-  // Signed before→after deltas via the shared outcome summary (one definition of the
-  // sold/kept/safeguarded counts) applied to the baseline rows vs the live rows.
+  // Signed before→after deltas for the header chip: one pass over the LIVE rows minus the
+  // baseline summary captured at pin time (no re-scan of the unchanged baseline). Cheap
+  // enough to keep live every commit, even with the split-view closed.
   const delta = useMemo<GearDiffDelta | null>(() => {
     if (!baseline) return null
-    const before = buildGearInspectorOutcomeSummary(baseline.rows)
     const after = buildGearInspectorOutcomeSummary(currentRows)
     return {
-      sold: after.sold - before.sold,
-      kept: after.kept - before.kept,
-      keptBySafeguards: after.keptBySafeguards - before.keptBySafeguards,
+      sold: after.sold - baseline.summary.sold,
+      kept: after.kept - baseline.summary.kept,
+      keptBySafeguards: after.keptBySafeguards - baseline.summary.keptBySafeguards,
     }
   }, [baseline, currentRows])
 

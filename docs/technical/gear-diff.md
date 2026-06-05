@@ -9,22 +9,28 @@ computed over the whole imported artifact DB.
 A **`Diff`** toggle sits in the preview header (`PreviewHeaderActions.tsx`), to the right
 of the sort cluster. It is enabled only in Gear Inspector preview mode.
 
-- **Left-click** toggles the inline before/after split-view in the preview area.
+- **Left-click** only shows/hides the inline before/after split-view. It does **not** pin
+  or clear the reference, so toggling the view never disturbs the comparison.
 - **Right-click** opens a context menu (same pattern as the filter/sort buttons):
   - **Set reference** — pins the current resolved state as the comparison point.
   - **Auto-track reference** — keeps moving the reference to your latest builder edit
     (default on).
 
 A **delta chip** (`GearDiffDeltaChip.tsx`) renders to the right of the `Diff` button
-whenever a meaningful diff exists (any non-zero metric). It mirrors the Gear Inspector
-outcome summary chip's pill/height/tooltip style and shows signed **Sell / Keep /
-Safeguards** deltas vs the reference.
+whenever a meaningful diff exists (any non-zero metric) — independent of whether the
+split-view is open, so the diff is a passive, always-available indicator. It mirrors the
+Gear Inspector outcome summary chip's pill/height/tooltip style and shows signed **Sell /
+Keep / Safeguards** deltas vs the reference.
 
 ## The reference (baseline) model
 
-`useGearDiffCompare` (`src/hooks/useGearDiffCompare.ts`) holds the pinned baseline: a frozen
-snapshot of the preview rows plus their derived verdict map. The "after" side is always the
-**live pipeline output** — there is no separate non-committing evaluation.
+`useGearDiffCompare` (`src/hooks/useGearDiffCompare.ts`) holds the pinned baseline. It is
+deliberately **compact** — only the verdict map (for the flip diff) plus the outcome
+summary captured **once** at pin time (for the delta). It does **not** retain the preview
+rows: the split-view renders the *current* rows with the baseline match swapped in, so the
+old rows are never needed, and the header delta is `current summary − stored summary`
+(no per-commit re-scan of the unchanged baseline). The "after" side is always the **live
+pipeline output** — there is no separate non-committing evaluation.
 
 **Auto-track** re-pins the baseline on each change of the rule-state signature
 (`currentEntrySignature.crc` from `useSfcHistory`). The signature serializes recipes,
@@ -85,11 +91,22 @@ view (plain filter).
 - **Diff core** — `src/lib/gearDiff/verdictDiff.ts`: `diffVerdicts(before, after)` →
   `{ newlySell, newlyKeep }`, keyed by `gearInspectorItem.itemId` (the same keying as App's
   live `gearInspectorMatchesByItemId`). Unit tests: `tests/unit/gear-diff-verdicts.test.ts`.
-- **Delta** — `useGearDiffCompare.delta` computes signed before→after deltas via the shared
-  `buildGearInspectorOutcomeSummary`.
+- **Delta** — `useGearDiffCompare.delta` is `buildGearInspectorOutcomeSummary(currentRows)`
+  minus the baseline summary captured at pin time (one pass over the live rows per commit;
+  the baseline side is not re-scanned).
 
 ## Performance notes
 
+The diff feature has cost only while a baseline is pinned (auto-track keeps one pinned once
+you have rules and gear). It is bounded — a single snapshot, replaced (not accumulated) on
+each re-pin, so there is no leak.
+
+- **Compact baseline** — the baseline holds just the verdict `Map` + a 4-number summary, not
+  a second copy of the preview rows. The `Map` keeps the small per-row match objects alive,
+  not the full rows, so RAM stays near the verdict map even for large DBs.
+- **Gated work** — when the split-view is **closed**, only the delta runs (~1 linear pass
+  over the gear list per commit, for the chip). The flip diff + row index + joined rows are
+  built **only when the view is open** (`active` arg to `useGearDiffCompare`).
 - **Cache-hit indicator** — the rebuilding/progress indicator is set only on a pipeline
   cache **miss** (the cache lookup was hoisted above the indicator toggles in
   `launchPipeline`), so undo/redo revisits that hit the cache no longer flash the
