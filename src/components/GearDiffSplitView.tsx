@@ -8,7 +8,7 @@ import type { GearDiffRows } from '../hooks/useGearDiffCompare'
 const GRID_SCROLL_SELECTOR = '[data-gear-inspector-grid-container]'
 
 type GearDiffSplitViewProps = {
-  // Changed rows grouped by direction (null when not comparing).
+  // Changed rows (flat list; null when not comparing).
   diffRows: GearDiffRows | null
   // Render a reused Gear Inspector grid for a row set. The host binds shared props; the
   // same closure renders both panes — only the rows' `match` differs (baseline vs
@@ -63,15 +63,11 @@ export function GearDiffSplitView({ diffRows, renderGrid }: GearDiffSplitViewPro
   // in the other (both panes render the same groups in the same order).
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
 
-  // All changed rows (newly-sold first). Each carries before/after matches + direction.
-  const changed = useMemo<DiffRow[]>(
-    () => (diffRows ? [...diffRows.newlySell, ...diffRows.newlyKeep] : []),
-    [diffRows],
-  )
+  // All changed rows. Each carries before/after matches; the grid sorts/groups them itself.
+  const changed = useMemo<DiffRow[]>(() => diffRows ?? [], [diffRows])
 
   // Project each changed row so the grid renders the correct side's verdict. The card
-  // reads `row.match`, so swap in beforeMatch/afterMatch per pane; direction is retained
-  // for the KEEP→SELL / SELL→KEEP badge.
+  // reads `row.match`, so swap in beforeMatch/afterMatch per pane.
   const beforeRows = useMemo<DiffRow[]>(
     () => changed.map((r) => ({ ...r, match: r.beforeMatch })),
     [changed],

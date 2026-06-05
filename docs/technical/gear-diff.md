@@ -1,8 +1,10 @@
-# Gear Diff (sell/keep before-vs-after)
+# Gear Diff (verdict before-vs-after)
 
-The Gear Diff shows which gear pieces flip between **SELL** and **KEEP** as you change
-rules or dynamic overrides — a before/after comparison against a pinned *reference* point,
-computed over the whole imported artifact DB.
+The Gear Diff shows which gear pieces change verdict as you change rules or dynamic
+overrides — a before/after comparison against a pinned *reference* point, computed over the
+whole imported artifact DB. A "change" spans the full **tri-state** verdict (**SELL** ↔
+**KEEP** ↔ **SAFEGUARD**), so a piece a rule was keeping that is now only held by a safeguard
+counts too — both end up kept, but seeing *why* it flipped is the point.
 
 ## Entry point
 
@@ -89,8 +91,10 @@ Only the inline split-view exists (no modal). `GearDiffSplitView.tsx` renders tw
 - **Half-width panes** — the grid rounds (instead of floors) `width / targetWidth` when
   `halfPaneColumns` is set, so each pane shows half the full-grid column count at identical
   card width (no collapse to one over-wide card).
-- **Changes-only** — the split-view shows only flipped items; each card conveys its verdict
-  through normal sell/keep styling (no extra badge).
+- **Changes-only** — the split-view shows only items whose tri-state verdict changed; each
+  card conveys its verdict through normal styling (no extra badge). There are **no
+  directional buckets** — the changed items are one flat list, sorted/grouped/filtered by the
+  normal Gear Inspector controls (the diff is just an extra "only changed" filter on top).
 - **Selection** — gear selection works in diff mode when a push endpoint is connected. Both
   panes share one selection set + handler, so selecting on either side reflects on the other.
 
@@ -108,8 +112,12 @@ context/companion grouping) is neutralized for the diff — `gearDiffFilteredRow
 - **Verdict predicate** — `isMatchSold` / `isMatchKept` in `src/lib/gearInspectorVerdict.ts`
   (sold iff `match?.keep === false`; `null` match counts as kept). Reused by the outcome
   summary and the diff.
-- **Diff core** — `src/lib/gearDiff/verdictDiff.ts`: `diffVerdicts(before, after)` →
-  `{ newlySell, newlyKeep }`, keyed by `gearInspectorItem.itemId` (the same keying as App's
+- **Tri-state verdict** — `resolveVerdictTriState(match)` in `gearInspectorVerdict.ts` →
+  `'sold' | 'safeguarded' | 'kept'` (built on `isMatchSold` / `isMatchKeptBySafeguard`, both
+  reused by the outcome summary and the diff delta). Single definition of "what state is this
+  piece in".
+- **Diff core** — `src/lib/gearDiff/verdictDiff.ts`: `diffVerdicts(before, after)` → a flat
+  list of items whose tri-state verdict differs, keyed by `gearInspectorItem.itemId` (same keying as App's
   live `gearInspectorMatchesByItemId`). Unit tests: `tests/unit/gear-diff-verdicts.test.ts`.
 - **Delta** — `useGearDiffCompare.delta` counts sold / safeguard-kept on each side over the
   **intersection** of the baseline and live verdict maps (one pass over the live map), so a

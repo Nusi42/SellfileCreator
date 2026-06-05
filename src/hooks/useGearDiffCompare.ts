@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
-import { isMatchSold } from '../lib/gearInspectorVerdict'
-import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
+import { isMatchKeptBySafeguard, isMatchSold } from '../lib/gearInspectorVerdict'
 import {
   buildRowsByVerdictItemId,
   buildVerdictMapFromRows,
@@ -25,11 +24,9 @@ export type GearDiffBaseline = {
   capturedAt: number
 }
 
-// Diff rows grouped by direction, joined to the CURRENT-state rows for rendering.
-export type GearDiffRows = {
-  newlySell: DiffRow[]
-  newlyKeep: DiffRow[]
-}
+// Changed rows joined to the CURRENT-state rows for rendering. A flat list — the diff
+// surface sorts/groups/filters them exactly like the normal Gear Inspector grid.
+export type GearDiffRows = DiffRow[]
 
 // Signed before→after deltas of the outcome summary, for the diff header chip.
 // Positive `sold` means more pieces are now sold than at the baseline, etc.
@@ -118,7 +115,7 @@ export function useGearDiffCompare(args: {
     [baseline, active, currentVerdicts],
   )
 
-  const flipCount = diff ? diff.newlySell.length + diff.newlyKeep.length : 0
+  const flipCount = diff ? diff.length : 0
 
   // Index current rows for the join — also only when the split-view is open.
   const currentRowsByItemId = useMemo(
@@ -128,10 +125,7 @@ export function useGearDiffCompare(args: {
 
   const diffRows = useMemo<GearDiffRows | null>(() => {
     if (!diff || !currentRowsByItemId) return null
-    return {
-      newlySell: joinFlipsToRows(diff.newlySell, currentRowsByItemId),
-      newlyKeep: joinFlipsToRows(diff.newlyKeep, currentRowsByItemId),
-    }
+    return joinFlipsToRows(diff, currentRowsByItemId)
   }, [diff, currentRowsByItemId])
 
   // Signed before→after deltas for the header chip, over the INTERSECTION of the baseline
@@ -147,8 +141,8 @@ export function useGearDiffCompare(args: {
       inBoth += 1
       if (isMatchSold(beforeMatch)) beforeSold += 1
       if (isMatchSold(afterMatch)) afterSold += 1
-      if (beforeMatch?.ruleSource === RULE_SOURCE_SAFEGUARDS) beforeSafe += 1
-      if (afterMatch?.ruleSource === RULE_SOURCE_SAFEGUARDS) afterSafe += 1
+      if (isMatchKeptBySafeguard(beforeMatch)) beforeSafe += 1
+      if (isMatchKeptBySafeguard(afterMatch)) afterSafe += 1
     }
     return {
       sold: afterSold - beforeSold,

@@ -1,31 +1,24 @@
 import type { GearInspectorItem } from '../gearInspectorSession'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
-import { isMatchSold } from '../gearInspectorVerdict'
+import { resolveVerdictTriState } from '../gearInspectorVerdict'
 
 // Verdict map: one sell/keep match per artifact, keyed by Gear Inspector item id.
 // This is the comparison primitive for the gear-diff feature — the baseline and the
 // current pipeline output are each projected to this shape, then diffed.
 export type VerdictMap = ReadonlyMap<number, GearInspectorPreviewMatch | null>
 
-// Direction of a single sell/keep flip. Reason-only changes are out of scope (v1):
-// only items that cross the sell/keep boundary appear in a diff.
-export type VerdictDirection = 'newly-sell' | 'newly-keep'
-
-// One artifact whose verdict flipped between baseline and current state.
+// One artifact whose verdict changed between baseline and current state. "Changed" spans the
+// full tri-state space (sell ↔ keep ↔ safeguard) — including same-keep reason changes, e.g.
+// a piece a rule was keeping that is now only held by a safeguard.
 export type VerdictFlip = {
   itemId: number
   beforeMatch: GearInspectorPreviewMatch | null
   afterMatch: GearInspectorPreviewMatch | null
-  direction: VerdictDirection
 }
 
-// The full diff: flips bucketed by direction. Counts are derivable via array length.
-export type VerdictDiff = {
-  // Was kept (or unmatched), now explicitly sold.
-  newlySell: VerdictFlip[]
-  // Was sold, now kept (explicit keep, safeguard, or unmatched).
-  newlyKeep: VerdictFlip[]
-}
+// The full diff: a flat list of changed items (no directional buckets — the diff surface
+// sorts/groups/filters them like the normal Gear Inspector). Count = array length.
+export type VerdictDiff = VerdictFlip[]
 
 // Resolve the verdict-map key for a preview row. Intentionally mirrors the live
 // `gearInspectorMatchesByItemId` memo in App.tsx (keyed by gearInspectorItem.itemId,
@@ -50,49 +43,38 @@ export function buildVerdictMapFromRows(
   return map
 }
 
-// Compute the sell/keep diff between two verdict maps.
+// Compute the verdict diff between two verdict maps.
 //
 // Only items present in BOTH maps are considered: the artifact set is stable across
 // every gear-diff trigger (an SFC/preset carries rules, not gear), so a key missing
 // from one side means a partial/transitional snapshot, not a real add/remove — there
-// is deliberately no add/remove axis. An item is reported only when its sell/keep
-// verdict actually crosses the boundary; reason-only changes are ignored.
+// is deliberately no add/remove axis. An item is reported when its TRI-STATE verdict
+// changes anywhere among sell / keep / safeguard (so a recipe-keep that becomes a
+// safeguard-keep is a diff too).
 export function diffVerdicts(before: VerdictMap, after: VerdictMap): VerdictDiff {
-  const newlySell: VerdictFlip[] = []
-  const newlyKeep: VerdictFlip[] = []
+  const changed: VerdictFlip[] = []
   // Iterate the current ("after") map; skip anything not present in the baseline.
   for (const [itemId, afterMatch] of after) {
     if (!before.has(itemId)) continue
     const beforeMatch = before.get(itemId) ?? null
-    const beforeSold = isMatchSold(beforeMatch)
-    const afterSold = isMatchSold(afterMatch)
-    // Unchanged verdict (both sold or both kept) — not part of the diff.
-    if (beforeSold === afterSold) continue
-    const flip: VerdictFlip = {
-      itemId,
-      beforeMatch,
-      afterMatch: afterMatch ?? null,
-      // Direction is defined by the new verdict: now-sold => newly-sell.
-      direction: afterSold ? 'newly-sell' : 'newly-keep',
-    }
-    if (afterSold) newlySell.push(flip)
-    else newlyKeep.push(flip)
+    // Unchanged tri-state verdict — not part of the diff.
+    if (resolveVerdictTriState(beforeMatch) === resolveVerdictTriState(afterMatch ?? null)) continue
+    changed.push({ itemId, beforeMatch, afterMatch: afterMatch ?? null })
   }
-  return { newlySell, newlyKeep }
+  return changed
 }
 
-// Total flipped-item count — the headline number for toasts/badges.
+// Total changed-item count — the headline number for toasts/badges.
 export function countVerdictFlips(diff: VerdictDiff): number {
-  return diff.newlySell.length + diff.newlyKeep.length
+  return diff.length
 }
 
-// A preview row annotated with its baseline/current verdicts for rendering in the
-// diff surfaces (modal + split-view). The row itself is the CURRENT-state row; the
-// before/after matches and direction come from the flip.
+// A preview row annotated with its baseline/current verdicts for rendering in the diff
+// surface. The row itself is the CURRENT-state row; the diff surface swaps in beforeMatch
+// or afterMatch per pane so each side shows the right verdict.
 export type DiffRow = GearInspectorPreviewRow & {
   beforeMatch: GearInspectorPreviewMatch | null
   afterMatch: GearInspectorPreviewMatch | null
-  direction: VerdictDirection
 }
 
 // Join flips to current preview rows for rendering. Flips whose item id has no current
@@ -109,7 +91,6 @@ export function joinFlipsToRows(
       ...row,
       beforeMatch: flip.beforeMatch,
       afterMatch: flip.afterMatch,
-      direction: flip.direction,
     })
   }
   return out

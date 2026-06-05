@@ -5284,8 +5284,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const dr = gearDiffDisplayRows
     if (!dr) return null
     if (!gearInspectorFilterActive) return dr
-    const all = [...dr.newlySell, ...dr.newlyKeep]
-    if (all.length === 0) return dr
+    if (dr.length === 0) return dr
     const filterOpts = {
       recipeNames,
       recipeTags,
@@ -5299,15 +5298,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? { ...gearInspectorRulesFilter, gearInspectorResult: { ...gearInspectorRulesFilter.gearInspectorResult, matched: false } }
       : gearInspectorRulesFilter
     // Project each changed row to its baseline / current verdict, then filter each side.
-    const beforeVariants = all.map((r) => ({ ...r, match: r.beforeMatch }))
-    const afterVariants = all.map((r) => ({ ...r, match: r.afterMatch }))
+    const beforeVariants = dr.map((r) => ({ ...r, match: r.beforeMatch }))
+    const afterVariants = dr.map((r) => ({ ...r, match: r.afterMatch }))
     const keepIds = new Set<number>()
     for (const r of filterGearInspectorItems(beforeVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
     for (const r of filterGearInspectorItems(afterVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
-    return {
-      newlySell: dr.newlySell.filter((r) => keepIds.has(r.artifact.id)),
-      newlyKeep: dr.newlyKeep.filter((r) => keepIds.has(r.artifact.id)),
-    }
+    return dr.filter((r) => keepIds.has(r.artifact.id))
   }, [
     gearDiffDisplayRows,
     gearInspectorFilterActive,
