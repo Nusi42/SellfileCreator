@@ -210,6 +210,9 @@ const ENDPOINT_PUSH_COOLDOWN_MS = 5000 as const
 const PIPELINE_CACHE_MAX = 10 as const
 // Pipeline result cache: entries older than this are considered stale and evicted.
 const PIPELINE_CACHE_TTL_MS = 3 * 60 * 1000
+// Duration of the Diff-button shine when the diff reference changes (kept in sync with the
+// shine keyframe duration in PreviewHeaderActions).
+const GEAR_DIFF_REFERENCE_PULSE_MS = 1400
 // Stable empty metaset snapshot lets filter memos avoid recomputing on metaset edits
 // when the current filters do not reference any metaset ids.
 const EMPTY_METASETS: Metaset[] = []
@@ -281,6 +284,7 @@ import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './componen
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import { buildVerdictMapFromRows, type DiffRow } from './lib/gearDiff/verdictDiff'
 import { useGearDiffCompare, type GearDiffRows } from './hooks/useGearDiffCompare'
+import { useChangePulse } from './hooks/useChangePulse'
 import GearDiffSplitView from './components/GearDiffSplitView'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
 import type { ImprovementChanceWasmEntry } from './lib/wasm/wasmRuleEngine'
@@ -700,6 +704,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     currentVerdicts: gearInspectorMatchesByItemId,
     active: gearDiffSplitOpen,
   })
+  // Subtle "reference moved" cue: the baseline object identity changes only when a new
+  // reference is pinned (auto-track re-pin, Set reference, or a load), so a brief shine on
+  // the Diff button signals that the comparison point just shifted. Gated to non-null so
+  // clearing the reference doesn't flash.
+  const gearDiffReferencePulsing = useChangePulse(gearDiffCompare.baseline, GEAR_DIFF_REFERENCE_PULSE_MS)
+    && gearDiffCompare.baseline != null
   // Toggle auto-baseline mode. (The toggle/reference handlers that need `t` are defined
   // after the i18n hook below.)
   const handleToggleGearDiffAuto = useCallback(() => {
@@ -5248,12 +5258,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       specialRuleLabels: specialRuleSourceLabels,
       improvementChanceByArtifactId,
     }
+    // Scope (the "matched" result mode) drives context/companion grouping that has no meaning
+    // in a before/after diff — neutralize it so the diff stays a plain filter (set/slot/etc.
+    // narrow it; Keep/Sell still work via the before-OR-after test below).
+    const diffFilter = gearInspectorRulesFilter.gearInspectorResult?.matched
+      ? { ...gearInspectorRulesFilter, gearInspectorResult: { ...gearInspectorRulesFilter.gearInspectorResult, matched: false } }
+      : gearInspectorRulesFilter
     // Project each changed row to its baseline / current verdict, then filter each side.
     const beforeVariants = all.map((r) => ({ ...r, match: r.beforeMatch }))
     const afterVariants = all.map((r) => ({ ...r, match: r.afterMatch }))
     const keepIds = new Set<number>()
-    for (const r of filterGearInspectorItems(beforeVariants, gearInspectorRulesFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
-    for (const r of filterGearInspectorItems(afterVariants, gearInspectorRulesFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    for (const r of filterGearInspectorItems(beforeVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    for (const r of filterGearInspectorItems(afterVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
     return {
       newlySell: dr.newlySell.filter((r) => keepIds.has(r.artifact.id)),
       newlyKeep: dr.newlyKeep.filter((r) => keepIds.has(r.artifact.id)),
@@ -8269,9 +8285,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       halfPaneColumns={opts?.halfPaneColumns ?? false}
       {...(opts?.collapsedGroups ? { collapsedGroups: opts.collapsedGroups } : {})}
       {...(opts?.onCollapsedGroupsChange ? { onCollapsedGroupsChange: opts.onCollapsedGroupsChange } : {})}
+      // Gear selection works in diff mode when a push endpoint is connected. Both panes
+      // share one selection set + handler, so selecting on either side selects on the other.
+      gearSelectionEnabled={!!pushExportEndpoint}
+      selectedGearItemIds={selectedGearItemIds}
+      onGearItemsSelect={handleGearItemsSelect}
       hasGearInspectorData
     />
-  ), [gearGridSharedProps])
+  ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect])
 
   return (
     <Container maxWidth={false} disableGutters sx={{
@@ -8645,6 +8666,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onSetDiffReference={handleSetGearDiffReference}
         onToggleDiffAuto={handleToggleGearDiffAuto}
         diffDelta={gearDiffCompare.delta}
+        diffReferencePulsing={gearDiffReferencePulsing}
       />
           {filterOpen && (
             <RulesFilterPanel

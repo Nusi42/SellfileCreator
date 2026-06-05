@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, InputAdornment, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import { type Theme } from '@mui/material/styles'
+import { keyframes, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
   COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
@@ -107,6 +107,15 @@ function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps)
     </Box>
   )
 }
+
+// Slow "bling": a soft highlight sweeps once across the Diff button when the diff reference
+// changes, so the (otherwise silent) reference move is noticeable. Animates only the button's
+// own background-image gradient — no overlay or overflow clipping.
+const diffReferenceShine = keyframes`
+  0%   { background-position: -100% 0; }
+  60%  { background-position: 100% 0; }
+  100% { background-position: 100% 0; }
+`
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
@@ -219,6 +228,8 @@ export default function PreviewHeaderActions(props: {
   // Signed before→after outcome deltas; rendered as a chip beside the Diff button when
   // the split-view is active.
   diffDelta?: GearDiffDelta | null
+  // True briefly when the diff reference just changed; runs the Diff-button shine.
+  diffReferencePulsing?: boolean
 }) {
   const {
     mergedCount,
@@ -303,6 +314,7 @@ export default function PreviewHeaderActions(props: {
     onSetDiffReference,
     onToggleDiffAuto,
     diffDelta,
+    diffReferencePulsing,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -1298,7 +1310,15 @@ export default function PreviewHeaderActions(props: {
                     disabled={!diffModeEnabled}
                     onClick={() => { onToggleDiffMode?.() }}
                     aria-label={t('gearDiffToggleLabel')}
-                    sx={COMPACT_HEADER_ACTION_BUTTON_SX}
+                    sx={[
+                      COMPACT_HEADER_ACTION_BUTTON_SX,
+                      // Slow shine when the reference just moved (see diffReferenceShine).
+                      diffReferencePulsing ? {
+                        backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0) 100%)',
+                        backgroundSize: '220% 100%',
+                        animation: `${diffReferenceShine} 1400ms ease-out`,
+                      } : null,
+                    ]}
                   >
                     <CompareArrowsIcon fontSize="small" sx={{ mr: 0.5 }} />
                     <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX }} data-ellipsis-target>

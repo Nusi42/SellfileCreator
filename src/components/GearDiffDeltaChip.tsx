@@ -3,6 +3,7 @@ import { Box, Divider, Typography, type Theme } from '@mui/material'
 import SellIcon from '@mui/icons-material/Sell'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import StarsIcon from '@mui/icons-material/Stars'
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import { useI18n } from '../lib/i18n'
 import MarkdownTooltip from './MarkdownTooltip'
 import type { GearDiffDelta } from '../hooks/useGearDiffCompare'
@@ -18,8 +19,9 @@ function toneColor(theme: Theme, value: number, activeColor: string): string {
   return activeColor
 }
 
-// Pill chrome mirrors the Gear Inspector outcome summary chip exactly (same padding,
-// border, shadow, icon/text sizing) so the diff chip sits at the same height beside it.
+// Pill chrome matches the Gear Inspector outcome summary chip's shape/size (so they line up
+// in the header) but uses the SECONDARY tint + a leading compare icon to read as a clearly
+// different thing — the diff delta, not the absolute outcome totals.
 const CHIP_SX = (theme: Theme) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -30,8 +32,8 @@ const CHIP_SX = (theme: Theme) => ({
   // String bypasses MUI's sx borderRadius multiplier so it stays a full pill regardless of
   // theme.shape.borderRadius (same idiom as the outcome chip).
   borderRadius: '999px',
-  backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)',
-  border: '1px solid rgba(var(--mui-palette-info-mainChannel) / 0.3)',
+  backgroundColor: 'rgba(var(--mui-palette-secondary-mainChannel) / 0.12)',
+  border: '1px solid rgba(var(--mui-palette-secondary-mainChannel) / 0.35)',
   boxShadow: theme.shadows[1],
   fontWeight: 700,
   lineHeight: 1,
@@ -76,6 +78,9 @@ export function GearDiffDeltaChip({ delta }: GearDiffDeltaChipProps) {
   return (
     <MarkdownTooltip markdown={tooltip}>
       <Box sx={CHIP_SX} aria-label={tooltip}>
+        {/* Leading compare icon ties the chip to the Diff button and sets it apart from the
+            outcome summary chip. */}
+        <CompareArrowsIcon sx={{ fontSize: 15, color: 'secondary.main' }} />
         <DeltaMetric icon={<SellIcon sx={ICON_SX} />} value={delta.sold} color="var(--mui-palette-error-main)" />
         <Divider orientation="vertical" flexItem sx={{ my: 0.25 }} />
         <DeltaMetric icon={<CheckCircleIcon sx={ICON_SX} />} value={delta.kept} color="var(--mui-palette-success-main)" />

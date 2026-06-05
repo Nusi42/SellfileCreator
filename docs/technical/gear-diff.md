@@ -18,9 +18,14 @@ of the sort cluster. It is enabled only in Gear Inspector preview mode.
 
 A **delta chip** (`GearDiffDeltaChip.tsx`) renders to the right of the `Diff` button
 whenever a meaningful diff exists (any non-zero metric) — independent of whether the
-split-view is open, so the diff is a passive, always-available indicator. It mirrors the
-Gear Inspector outcome summary chip's pill/height/tooltip style and shows signed **Sell /
-Keep / Safeguards** deltas vs the reference.
+split-view is open, so the diff is a passive, always-available indicator. It matches the
+Gear Inspector outcome summary chip's pill/height/tooltip style but uses the **secondary**
+tint + a leading compare icon so it reads as a clearly different thing (the diff delta, not
+the absolute totals), and shows signed **Sell / Keep / Safeguards** deltas vs the reference.
+
+When the reference itself changes (auto-track re-pin, **Set reference**, or a load), the
+`Diff` button runs a brief **shine** — a "reference moved" cue, driven by `useChangePulse`
+on the baseline identity (`GEAR_DIFF_REFERENCE_PULSE_MS`).
 
 ## The reference (baseline) model
 
@@ -74,14 +79,17 @@ Only the inline split-view exists (no modal). `GearDiffSplitView.tsx` renders tw
   card width (no collapse to one over-wide card).
 - **Changes-only** — the split-view shows only flipped items; each card conveys its verdict
   through normal sell/keep styling (no extra badge).
+- **Selection** — gear selection works in diff mode when a push endpoint is connected. Both
+  panes share one selection set + handler, so selecting on either side reflects on the other.
 
 ## Filters
 
 The active Gear Inspector filter applies in diff mode via `gearDiffFilteredRows` (App): an
 item shows in **both** panes when the filter matches **either** its baseline **or** its
 current verdict (OR semantics), so a piece that filters in on only one side still shows the
-other side for comparison. Scope/context grouping is intentionally **not** applied in diff
-view (plain filter).
+other side for comparison. **Scope** (the `matched` result mode, which drives
+context/companion grouping) is neutralized for the diff — `gearDiffFilteredRows` clears
+`matched` so the diff stays a plain filter.
 
 ## SSOT primitives
 
