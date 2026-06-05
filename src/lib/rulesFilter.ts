@@ -942,18 +942,29 @@ export function filterGearInspectorItems<T extends GearInspectorFilterRow>(
     if (recipeNameFilterActive) {
       if (!recipeNameRegexValid) continue
       const candidateNames: string[] = []
-      const recipeIdx = match?.recipeIdx
-      if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeNames)) {
-        const rawName = options.recipeNames[recipeIdx]
-        const trimmedName = typeof rawName === 'string' ? rawName.trim() : ''
-        if (trimmedName.length > 0) candidateNames.push(trimmedName)
-      }
-      if (recipeIdx != null && recipeIdx >= 0 && Array.isArray(options?.recipeTags)) {
-        const tagList = options.recipeTags[recipeIdx]
-        if (Array.isArray(tagList)) {
-          for (const tag of tagList) {
-            const trimmed = typeof tag === 'string' ? tag.trim() : ''
-            if (trimmed.length > 0) candidateNames.push(trimmed)
+      // A single artifact can satisfy several recipes at once, so the name/tag filter must
+      // see EVERY recipe it matched — not just the winning `match.recipeIdx`. Looking only at
+      // the winner hid items that matched the searched recipe as a secondary rule, which made
+      // the filter appear broken once combined with other narrowing options.
+      const matchedRecipeIdxs = new Set<number>(row.matchingRecipeIndices ?? [])
+      // Keep the winning index as a fallback for rows that only populate `match` (legacy/safeguard).
+      if (match?.recipeIdx != null && match.recipeIdx >= 0) matchedRecipeIdxs.add(match.recipeIdx)
+      for (const recipeIdx of matchedRecipeIdxs) {
+        if (recipeIdx < 0) continue
+        // Configured recipe display name for this index.
+        if (Array.isArray(options?.recipeNames)) {
+          const rawName = options.recipeNames[recipeIdx]
+          const trimmedName = typeof rawName === 'string' ? rawName.trim() : ''
+          if (trimmedName.length > 0) candidateNames.push(trimmedName)
+        }
+        // Tags attached to this index also satisfy the name filter.
+        if (Array.isArray(options?.recipeTags)) {
+          const tagList = options.recipeTags[recipeIdx]
+          if (Array.isArray(tagList)) {
+            for (const tag of tagList) {
+              const trimmed = typeof tag === 'string' ? tag.trim() : ''
+              if (trimmed.length > 0) candidateNames.push(trimmed)
+            }
           }
         }
       }

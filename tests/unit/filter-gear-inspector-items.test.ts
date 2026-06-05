@@ -151,6 +151,41 @@ test('filterGearInspectorItems filters by config name', () => {
   assert.equal(result.matchingRecipeIndices.has(0), false)
 })
 
+test('filterGearInspectorItems name filter sees every matched recipe, not just the winner', () => {
+  // The item's winning match is recipe 0 ("Speed Farm"), but it also matches recipe 1
+  // ("Arena Nuker") as a secondary rule. Searching the secondary recipe's name must still
+  // surface the item — otherwise combining the name filter with other options drops rows
+  // whose searched recipe is not their winning match.
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: makeArtifact(), match: { keep: true, recipeIdx: 0 }, matchingRecipeIndices: [0, 1] },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: true, recipeIdx: 0 }, matchingRecipeIndices: [0] },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    recipeName: { query: 'Arena' },
+  }
+  const result = filterGearInspectorItems(rows, state, undefined, { recipeNames: ['Speed Farm', 'Arena Nuker'] })
+  // Only the first row matches "Arena" (via its secondary recipe); the second never matches recipe 1.
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.match?.recipeIdx, 0)
+})
+
+test('filterGearInspectorItems name filter intersects with other options (AND)', () => {
+  // Both rows match recipe 1 ("Arena Nuker"); the set filter narrows to Speed only.
+  const rows: GearInspectorFilterRow[] = [
+    { artifact: makeArtifact({ set: ArtifactSet.Speed }), match: { keep: true, recipeIdx: 1 }, matchingRecipeIndices: [1] },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: true, recipeIdx: 1 }, matchingRecipeIndices: [1] },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    recipeName: { query: 'Arena' },
+    sets: { ...DEFAULT_RULES_FILTER_STATE.sets, selected: [{ id: ArtifactSet.Speed }] },
+  }
+  const result = filterGearInspectorItems(rows, state, undefined, { recipeNames: ['Speed Farm', 'Arena Nuker'] })
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.set, ArtifactSet.Speed)
+})
+
 test('filterGearInspectorItems matches safeguard names without config indices', () => {
   const rows: GearInspectorFilterRow[] = [
     { artifact: makeArtifact(), match: { keep: true, recipeIdx: null, recipeName: 'Safeguard Demo' } },
