@@ -1756,9 +1756,25 @@ export const applyQuestionDirectives = (
   selection: string[],
   options: NoteQuestionOption[],
   preferredId?: string,
+  // Option the user explicitly turned OFF this interaction (e.g. a checkbox uncheck).
+  removedId?: string,
 ): string[] => {
   const next = new Set(selection)
   const optionById = new Map(options.map((option) => [option.id, option]))
+  // When the user explicitly turns an option off, release every selected source
+  // that force-sets it on. This mirrors the single-select release below (where
+  // picking a different radio drops a diverging preset) so that an explicit
+  // uncheck cannot be re-stamped: the forcing preset is deselected instead.
+  if (removedId) {
+    // Drop the option itself so a forcing source cannot immediately re-add it.
+    next.delete(removedId)
+    // Deselect any selected directive source whose set-list re-adds the removed id.
+    options.forEach((option) => {
+      if (!next.has(option.id)) return
+      if (!option.setOptionIds.includes(removedId)) return
+      next.delete(option.id)
+    })
+  }
   options.forEach((option) => {
     if (!next.has(option.id)) return
     // Apply "set" first so explicit unsets can still win.
@@ -1813,6 +1829,8 @@ export const applyQuestionDirectives = (
       })
     }
   }
+  // Keep an explicitly-removed option out even if an indirect source re-added it.
+  if (removedId) next.delete(removedId)
   return options.filter((option) => next.has(option.id)).map((option) => option.id)
 }
 
@@ -1822,12 +1840,13 @@ const resolveSelectionWithOptionRules = (
   groups: NoteQuestionGroup[],
   options: NoteQuestionOption[],
   preferredId?: string,
+  removedId?: string,
 ): string[] => {
   let current = normalizeSelectionOrder(selection, options)
   // Cap iterations so malformed cycles cannot stall parsing.
   const maxPasses = Math.max(8, options.length + groups.length + 2)
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const withDirectives = applyQuestionDirectives(current, options, preferredId)
+    const withDirectives = applyQuestionDirectives(current, options, preferredId, removedId)
     const withExclusions = applyQuestionExclusions(withDirectives, options, preferredId)
     const withFallbacks = applySingleGroupFallbackSelections(withExclusions, groups, options, preferredId)
     const next = normalizeSelectionOrder(withFallbacks, options)
@@ -1841,6 +1860,7 @@ const resolveSelectionWithOptionRules = (
 const applyGlobalOptionExclusions = (
   questions: NoteQuestionDefinition[],
   preferredId?: string,
+  removedId?: string,
 ): NoteQuestionDefinition[] => {
   // Flatten option/group ordering so conflicts resolve deterministically.
   const allOptions = questions.flatMap((question) => question.options)
@@ -1848,7 +1868,7 @@ const applyGlobalOptionExclusions = (
   // Collect the currently selected option IDs.
   const selected = questions.flatMap((question) => question.answer)
   // Resolve directives/exclusions/fallbacks using global option ordering.
-  const resolved = resolveSelectionWithOptionRules(selected, allGroups, allOptions, preferredId)
+  const resolved = resolveSelectionWithOptionRules(selected, allGroups, allOptions, preferredId, removedId)
   // Cache the resolved selection for cheap lookups.
   const resolvedSet = new Set(resolved)
   // Update each question with the globally-resolved selection.
@@ -1865,8 +1885,9 @@ export const applyQuestionSelectionRules = (
   selection: string[],
   question: Pick<NoteQuestionDefinition, 'groups' | 'options'>,
   preferredId?: string,
+  removedId?: string,
 ): string[] => (
-  resolveSelectionWithOptionRules(selection, question.groups, question.options, preferredId)
+  resolveSelectionWithOptionRules(selection, question.groups, question.options, preferredId, removedId)
 )
 
 // Resolve which option IDs are selected for a question.
@@ -1918,6 +1939,7 @@ export const parseNoteRecipeOverrides = (
   note: string,
   answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
+  removedId?: string,
 ): NoteQuestionDefinition[] => {
   // Short-circuit when no note is present.
   if (!note) return []
@@ -1974,6 +1996,7 @@ export const parseNoteRecipeOverrides = (
   return applyGlobalOptionExclusions(
     [...resolved, ...spacerQuestions].sort((a, b) => a.index - b.index),
     preferredId,
+    removedId,
   )
 }
 
@@ -2067,8 +2090,9 @@ export const resolveRecipeOverridesTags = (
   note: string,
   answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
+  removedId?: string,
 ): RecipeOverridesResolution => {
-  const questions = parseNoteRecipeOverrides(note, answers, preferredId)
+  const questions = parseNoteRecipeOverrides(note, answers, preferredId, removedId)
   const instructions: RecipeOverridesInstructions = []
   const safeguardInstructions: SafeguardOverridesInstruction[] = []
   for (const question of questions) {

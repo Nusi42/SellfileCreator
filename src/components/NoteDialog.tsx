@@ -851,6 +851,8 @@ type NoteRenderContextValue = {
     question: NoteQuestionDefinition,
     nextAnswer: string[],
     preferredId?: string,
+    // Option the user explicitly turned off (uncheck) — releases presets forcing it on.
+    removedId?: string,
   ) => void
   // Safeguard overrides resolution map: marker index → question definition.
   safeguardOverridesResolutions: Map<number, SafeguardNoteQuestionDefinition>
@@ -2228,8 +2230,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
   // Wrap answer updates so callers can track changes.
-  const applyAnswer = (next: string[], preferredId?: string) => {
-    onRecipeOverridesAnswerChange(question, next, preferredId)
+  const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
+    onRecipeOverridesAnswerChange(question, next, preferredId, removedId)
   }
   // Shared sizing keeps question cards in lockstep with safeguard cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
@@ -2409,14 +2411,17 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                             const next = new Set(selectedSet)
                             if (event.target.checked) next.add(option.id)
                             else next.delete(option.id)
-                            // Apply exclusions so mutual rules stay enforced.
+                            // Checking marks the preferred option; unchecking marks it
+                            // as explicitly removed so presets forcing it on are released.
                             const preferred = event.target.checked ? option.id : undefined
+                            const removed = event.target.checked ? undefined : option.id
                             const ordered = applyQuestionSelectionRules(
                               Array.from(next),
                               question,
                               preferred,
+                              removed,
                             )
-                            applyAnswer(ordered, preferred)
+                            applyAnswer(ordered, preferred, removed)
                           }}
                         />
                       )}
@@ -3524,6 +3529,7 @@ export default function NoteDialog({
     question: NoteQuestionDefinition,
     nextSelection: string[],
     preferredId?: string,
+    removedId?: string,
   ) => {
     // Normalize to sets for default comparisons.
     const defaultSet = new Set(question.defaultAnswer)
@@ -3543,8 +3549,8 @@ export default function NoteDialog({
         // Persist non-default answers, including explicit empties.
         next[question.id] = orderedSelection
       }
-      // Re-resolve to enforce global exclusions with the preferred option.
-      const { questions } = resolveRecipeOverridesTags(renderNote ?? '', next, preferredId)
+      // Re-resolve to enforce global exclusions with the preferred/removed option.
+      const { questions } = resolveRecipeOverridesTags(renderNote ?? '', next, preferredId, removedId)
       const normalized: NoteRecipeOverridesAnswers = {}
       questions.forEach((resolved) => {
         // Compare resolved answers against defaults to keep storage lean.
@@ -4534,6 +4540,7 @@ function NoteEditorContent({
     _question: NoteQuestionDefinition,
     _nextAnswer: string[],
     _preferredId?: string,
+    _removedId?: string,
   ) => {}, [])
   const ignoreSafeguardOverridesAnswerChange = React.useCallback((
     _question: SafeguardNoteQuestionDefinition,

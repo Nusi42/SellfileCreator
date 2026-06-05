@@ -346,6 +346,67 @@ test('preferred single-select overrides clear conflicting set presets', () => {
   assert.ok(stableFwh?.answer.includes(fwhYesId))
 })
 
+test('explicit checkbox uncheck releases presets that force it on', () => {
+  // A multi-select "account level" preset force-sets a checkbox in another question.
+  // Unchecking that checkbox must release the preset instead of snapping back on.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Account Level"',
+    'cb "Lategame" * id=lategame +keep_nbr { @all { export=active } }',
+    'cb "Endgame" id=endgame +keep_nbr { @all { export=active } }',
+    '-->',
+    '<!-- recipe-overrides',
+    'q "Chaos Ore"',
+    'cb "Ignore gauntlets" id=keep_nbr { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once to capture stable scoped IDs.
+  const seed = resolveRecipeOverridesTags(note)
+  const [account, chaos] = seed.questions
+  assert.ok(account, 'expected account-level question')
+  assert.ok(chaos, 'expected Chaos Ore question')
+  const lategameId = account.options[0]!.id
+  const endgameId = account.options[1]!.id
+  const keepNbrId = chaos.options[0]!.id
+  // Selecting Endgame should force the checkbox on (the desired default).
+  const forced = resolveRecipeOverridesTags(note, { [account.id]: [endgameId] }).questions
+  const forcedChaos = forced.find((entry) => entry.id === chaos.id)
+  assert.ok(forcedChaos?.answer.includes(keepNbrId), 'Endgame should force the checkbox on')
+  // Now the user unchecks the checkbox: the dialog stores an explicit empty chaos
+  // answer and re-resolves with the removed id (4th arg).
+  const afterUncheck = resolveRecipeOverridesTags(
+    note,
+    { [account.id]: [endgameId], [chaos.id]: [] },
+    undefined,
+    keepNbrId,
+  ).questions
+  const uncheckedAccount = afterUncheck.find((entry) => entry.id === account.id)
+  const uncheckedChaos = afterUncheck.find((entry) => entry.id === chaos.id)
+  // The checkbox stays off and the forcing preset is released (no account level).
+  assert.equal(uncheckedChaos?.answer.includes(keepNbrId), false)
+  assert.equal(uncheckedAccount?.answer.includes(endgameId), false)
+  // The default profile must NOT auto-fill — none-selected is a valid state.
+  assert.equal(uncheckedAccount?.answer.includes(lategameId), false)
+  assert.equal(uncheckedAccount?.answer.length, 0)
+  // Persist only non-default answers, matching the dialog normalization step.
+  const normalizedAnswers: Record<string, string[]> = {}
+  afterUncheck.forEach((question) => {
+    const defaultSet = new Set(question.defaultAnswer)
+    const answerSet = new Set(question.answer)
+    const matchesDefault = defaultSet.size === answerSet.size
+      && Array.from(defaultSet).every((id) => answerSet.has(id))
+    if (matchesDefault) return
+    normalizedAnswers[question.id] = question.answer.slice()
+  })
+  // Re-resolving without the removed id must keep the unchecked state stable.
+  const stable = resolveRecipeOverridesTags(note, normalizedAnswers).questions
+  const stableAccount = stable.find((entry) => entry.id === account.id)
+  const stableChaos = stable.find((entry) => entry.id === chaos.id)
+  assert.equal(stableChaos?.answer.includes(keepNbrId), false)
+  assert.equal(stableAccount?.answer.includes(endgameId), false)
+  assert.equal(stableAccount?.answer.includes(lategameId), false)
+})
+
 test('full lategame/endgame/endgame+ block releases lategame on conflicting yes selections', () => {
   // Build the real preset block text plus dependent override questions.
   const note = [
