@@ -280,8 +280,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'All Artifacts',
     savedAt: '',
     builtin: true,
-    // Monochrome gem glyph evokes artifacts; pinned by default so its button ships out of the box.
-    iconId: 'glyph.gem',
+    // Monochrome hammer glyph (⚒) evokes artifacts; pinned by default so its button ships out of the box.
+    iconId: 'glyph.hammer',
     pinned: true,
     // No result restriction — shows every artifact regardless of sell/keep label.
     snapshot: makeBuiltinFilterSnapshot(undefined, ARTIFACT_SLOT_IDS),
@@ -291,8 +291,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'All Accessories',
     savedAt: '',
     builtin: true,
-    // Monochrome crown glyph evokes accessories (Ring/Amulet/Banner); pinned by default alongside All Artifacts.
-    iconId: 'glyph.crown',
+    // Monochrome crystal glyph (◇) evokes accessories (Ring/Amulet/Banner); pinned by default alongside All Artifacts.
+    iconId: 'glyph.crystal',
     pinned: true,
     // No result restriction — shows every accessory regardless of sell/keep label.
     snapshot: makeBuiltinFilterSnapshot(undefined, ACCESSORY_SLOT_IDS),
