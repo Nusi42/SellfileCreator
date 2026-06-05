@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.16-dev",
+  "Version": "1.0.17-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -5233,7 +5233,7 @@
       "autoRarityThreshold": "epic",
       "minCount": 2,
       "autoMinCount": false,
-      "minRequiredRolls": 2,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -18524,7 +18524,7 @@
     "This question targets scarce gear sets like **Merciless**, **Stoneskin**, **Mercurial** (etc) and gear-sets providing Speed as gear set bonus.\"",
     "  rb \"Keep gear that can reach **3×** on one substat by **level 12** (**≥ Epic**)\" id=ore5Epic_On { @tag=ore5Epic { export=active keep=early } }",
     "  rb \"Keep gear that can reach **4×** on one substat by **level 16** (**≥ Legendary**)\" id=ore5Epic_Off { @tag=ore5Epic { export=disabled } }",
-    "  rb \"Keep only gear at level 12–16 that has already rolled **3×**/**4×** on a substat\" id=ore5EpicLegendary_LvlCap { @tag=ore5Epic { lvl=12-16 } }",
+    "  rb \"Keep only gear at level 12–16 that has already rolled **3×**/**4×** on a substat\" id=ore5EpicLegendary_LvlCap { @tag=ore5Epic { lvl=12-16 } @tag=ore5Legendary { lvl=12-16 } }",
     "  rb \"No exceptions — sell all weak **5★** gear\" id=ore5EpicLegendary_Off -ore5EpicLegendary_nbr { @tag=ore5Epic { export=disabled } @tag=ore5Legendary { export=disabled } }",
     "  cb \"Gaunlets, Chestplate, and Boots are ignored for Chaos Ore.\" id=ore5EpicLegendary_nbr -ore5EpicLegendary_Off  { @tag=ore5Epic { slots=Weapon,Helmet,Shield,Ring,Amulet,Banner } @tag=ore5Legendary { slots=Weapon,Helmet,Shield,Ring,Amulet,Banner } }",
     "-->",
@@ -18533,7 +18533,7 @@
     "This question targets scarce gear sets like **Merciless**, **Stoneskin**, **Mercurial** (etc) and gear-sets providing Speed as gear set bonus.\"",
     "  rb \"Keep gear that can reach **3×** on one substat by **level 12** (**≥ Epic**)\" id=ore6Epic_On { @tag=ore6Epic { export=active keep=early } }",
     "  rb \"Keep gear that can reach **4×** on one substat by **level 16** (**≥ Legendary**)\" id=ore6Epic_Off { @tag=ore6Epic { export=disabled } }",
-    "  rb \"Keep only gear at level 12–16 that has already rolled **3×**/**4×** on a substat\" id=ore6EpicLegendary_LvlCap { @tag=ore6Epic { lvl=12-16 } }",
+    "  rb \"Keep only gear at level 12–16 that has already rolled **3×**/**4×** on a substat\" id=ore6EpicLegendary_LvlCap { @tag=ore6Epic { lvl=12-16 } @tag=ore6Legendary { lvl=12-16 } }",
     "  rb \"No exceptions — sell all weak **6★** gear\" id=ore6EpicLegendary_Off -ore6EpicLegendary_nbr { @tag=ore6Epic { export=disabled } @tag=ore6Legendary { export=disabled } }",
     "  cb \"Gaunlets, Chestplate, and Boots are ignored for Chaos Ore.\" id=ore6EpicLegendary_nbr -ore6EpicLegendary_Off  { @tag=ore6Epic { slots=Weapon,Helmet,Shield,Ring,Amulet,Banner } @tag=ore6Legendary { slots=Weapon,Helmet,Shield,Ring,Amulet,Banner } }",
     "-->",
