@@ -108,13 +108,11 @@ function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps)
   )
 }
 
-// Slow "bling": a soft highlight sweeps once across the Diff button when the diff reference
-// changes, so the (otherwise silent) reference move is noticeable. Animates only the button's
-// own background-image gradient — no overlay or overflow clipping.
-const diffReferenceShine = keyframes`
-  0%   { background-position: -100% 0; }
-  60%  { background-position: 100% 0; }
-  100% { background-position: 100% 0; }
+// "Reference moved" cue: a highlighted arc chases once around the Diff button's border.
+// Drives the registered --gd-ref-angle (see styles.css) so the conic-gradient angle
+// interpolates; the gradient lives on a masked ::after ring so only the border lights up.
+const diffReferenceBorderSpin = keyframes`
+  to { --gd-ref-angle: 360deg; }
 `
 
 export default function PreviewHeaderActions(props: {
@@ -228,7 +226,7 @@ export default function PreviewHeaderActions(props: {
   // Signed before→after outcome deltas; rendered as a chip beside the Diff button when
   // the split-view is active.
   diffDelta?: GearDiffDelta | null
-  // True briefly when the diff reference just changed; runs the Diff-button shine.
+  // True briefly when the diff reference just changed; runs the Diff-button border-chase.
   diffReferencePulsing?: boolean
 }) {
   const {
@@ -1312,11 +1310,23 @@ export default function PreviewHeaderActions(props: {
                     aria-label={t('gearDiffToggleLabel')}
                     sx={[
                       COMPACT_HEADER_ACTION_BUTTON_SX,
-                      // Slow shine when the reference just moved (see diffReferenceShine).
+                      // A highlighted arc chases once around the border when the reference moves.
                       diffReferencePulsing ? {
-                        backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0) 100%)',
-                        backgroundSize: '220% 100%',
-                        animation: `${diffReferenceShine} 1400ms ease-out`,
+                        position: 'relative',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: 'inherit',
+                          // Ring thickness: the conic gradient shows only in this padding band.
+                          padding: '1.5px',
+                          background: 'conic-gradient(from var(--gd-ref-angle, 0deg), transparent 0deg 250deg, var(--mui-palette-info-main) 312deg, transparent 360deg)',
+                          WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+                          WebkitMaskComposite: 'xor',
+                          maskComposite: 'exclude',
+                          animation: `${diffReferenceBorderSpin} 1s linear`,
+                          pointerEvents: 'none',
+                        },
                       } : null,
                     ]}
                   >

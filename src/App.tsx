@@ -210,9 +210,9 @@ const ENDPOINT_PUSH_COOLDOWN_MS = 5000 as const
 const PIPELINE_CACHE_MAX = 10 as const
 // Pipeline result cache: entries older than this are considered stale and evicted.
 const PIPELINE_CACHE_TTL_MS = 3 * 60 * 1000
-// Duration of the Diff-button shine when the diff reference changes (kept in sync with the
-// shine keyframe duration in PreviewHeaderActions).
-const GEAR_DIFF_REFERENCE_PULSE_MS = 1400
+// Duration of the Diff-button border-chase when the diff reference changes (kept in sync
+// with the keyframe duration in PreviewHeaderActions).
+const GEAR_DIFF_REFERENCE_PULSE_MS = 1000
 // Stable empty metaset snapshot lets filter memos avoid recomputing on metaset edits
 // when the current filters do not reference any metaset ids.
 const EMPTY_METASETS: Metaset[] = []
@@ -704,10 +704,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     currentVerdicts: gearInspectorMatchesByItemId,
     active: gearDiffSplitOpen,
   })
-  // Subtle "reference moved" cue: the baseline object identity changes only when a new
-  // reference is pinned (auto-track re-pin, Set reference, or a load), so a brief shine on
-  // the Diff button signals that the comparison point just shifted. Gated to non-null so
-  // clearing the reference doesn't flash.
+  // "Reference moved" cue: the baseline object identity changes only when a new reference is
+  // pinned (auto-track re-pin, Set reference, note-open, or a load), so this briefly runs the
+  // Diff button's border-chase. Gated to non-null so clearing the reference doesn't flash.
   const gearDiffReferencePulsing = useChangePulse(gearDiffCompare.baseline, GEAR_DIFF_REFERENCE_PULSE_MS)
     && gearDiffCompare.baseline != null
   // Toggle auto-baseline mode. (The toggle/reference handlers that need `t` are defined

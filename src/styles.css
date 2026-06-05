@@ -92,3 +92,12 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.note-markers-block .token.string            { color: #98c379; }
 .w-md-editor-text-pre .token.note-markers-block .token.number            { color: #d19a66; }
 .w-md-editor-text-pre .token.note-markers-block .token.punctuation       { color: #abb2bf; }
+
+/* Animatable angle for the Gear Diff button's rotating border-chase highlight (see
+   PreviewHeaderActions). Registering it via @property lets the conic-gradient angle
+   interpolate; on browsers without @property support the chase simply does not animate. */
+@property --gd-ref-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}

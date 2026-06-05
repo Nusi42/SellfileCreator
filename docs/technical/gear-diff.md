@@ -23,9 +23,10 @@ Gear Inspector outcome summary chip's pill/height/tint/tooltip style; it's disti
 its **content** (signed +/- deltas) and its position beside the Diff button, and shows
 signed **Sell / Keep / Safeguards** deltas vs the reference.
 
-When the reference itself changes (auto-track re-pin, **Set reference**, or a load), the
-`Diff` button runs a brief **shine** — a "reference moved" cue, driven by `useChangePulse`
-on the baseline identity (`GEAR_DIFF_REFERENCE_PULSE_MS`).
+When the reference changes (auto-track re-pin, **Set reference**, opening the Note dialog, or
+a load), a highlighted arc **chases once around the `Diff` button's border** (~1s) as a
+"reference moved" cue — `useChangePulse` on the baseline identity toggles a masked
+conic-gradient ring whose angle (`--gd-ref-angle`, registered in `styles.css`) rotates.
 
 ## The reference (baseline) model
 
