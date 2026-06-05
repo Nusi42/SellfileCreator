@@ -145,8 +145,8 @@ import { buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcome
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
-import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
-import { useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
+import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
+import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -248,7 +248,7 @@ function computeArtifactCidFingerprint(
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
-import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
+import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
@@ -2970,18 +2970,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorSubstatSortPrefs.state,
   ])
 
-  const handleSaveFilterPreset = useCallback((name: string, includeSort: boolean, color: string | undefined) => {
+  const handleSaveFilterPreset = useCallback((name: string, includeSort: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => {
     // Presets allow duplicates; the internal ID is what disambiguates entries.
     const trimmed = name.trim()
     if (!trimmed) return
-    // exactOptionalPropertyTypes: spread color only when set so the field stays absent for uncolored presets.
+    // exactOptionalPropertyTypes: spread each optional field only when set so absent fields stay absent.
     const colorField: Pick<FilterPreset, 'color'> = color ? { color } : {}
+    const iconField: Pick<FilterPreset, 'iconId'> = iconId ? { iconId } : {}
+    const pinnedField: Pick<FilterPreset, 'pinned'> = pinned ? { pinned: true } : {}
     const preset: FilterPreset = {
       id: createFilterPresetId(),
       name: trimmed,
       savedAt: new Date().toISOString(),
       snapshot: buildFilterPresetSnapshot(includeSort),
       ...colorField,
+      ...iconField,
+      ...pinnedField,
     }
     setFilterPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
   }, [buildFilterPresetSnapshot, createFilterPresetId, setFilterPresets])
@@ -3104,6 +3108,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : [],
     )
   }, [setFilterPresets])
+  const handleTogglePinFilterPreset = useCallback((presetId: string, pinned: boolean) => {
+    // Spread pinned onto the matching entry; omit the field entirely when un-pinning (incl. default-pinned built-ins).
+    setFilterPresets((prev) => Array.isArray(prev)
+      ? prev.map((entry) => entry.id !== presetId ? entry : pinned ? { ...entry, pinned: true as const } : (({ pinned: _p, ...rest }) => rest)(entry))
+      : [],
+    )
+  }, [setFilterPresets])
   const handleMoveFilterPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
     setFilterPresets((prev) => {
       if (!Array.isArray(prev)) return prev
@@ -3124,15 +3135,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // --- Sort preset handlers -------------------------------------------------
 
-  const handleSaveSortPreset = useCallback((name: string, includeFilter: boolean, color: string | undefined) => {
+  const handleSaveSortPreset = useCallback((name: string, includeFilter: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => {
     const trimmed = name.trim()
     if (!trimmed) return
     // Capture the filter snapshot without sort (sort lives in snapshot already; no need to double-store).
     const filterField: Pick<SortPreset, 'filterSnapshot'> = includeFilter
       ? { filterSnapshot: buildFilterPresetSnapshot(false) }
       : {}
-    // exactOptionalPropertyTypes: spread color only when set so the field stays absent for uncolored presets.
+    // exactOptionalPropertyTypes: spread each optional field only when set so absent fields stay absent.
     const colorField: Pick<SortPreset, 'color'> = color ? { color } : {}
+    const iconField: Pick<SortPreset, 'iconId'> = iconId ? { iconId } : {}
+    const pinnedField: Pick<SortPreset, 'pinned'> = pinned ? { pinned: true } : {}
     const preset: SortPreset = {
       // Reuse the same UUID strategy as filter presets for low collision risk.
       id: createFilterPresetId(),
@@ -3142,6 +3155,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       snapshot: JSON.parse(JSON.stringify(gearInspectorSubstatSortPrefs.state)) as typeof gearInspectorSubstatSortPrefs.state,
       ...filterField,
       ...colorField,
+      ...iconField,
+      ...pinnedField,
     }
     setSortPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
   }, [buildFilterPresetSnapshot, createFilterPresetId, gearInspectorSubstatSortPrefs, setSortPresets])
@@ -3185,6 +3200,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : [],
     )
   }, [setSortPresets])
+  const handleTogglePinSortPreset = useCallback((presetId: string, pinned: boolean) => {
+    // Spread pinned onto the matching entry; omit the field entirely when un-pinning.
+    setSortPresets((prev) => Array.isArray(prev)
+      ? prev.map((entry) => entry.id !== presetId ? entry : pinned ? { ...entry, pinned: true as const } : (({ pinned: _p, ...rest }) => rest)(entry))
+      : [],
+    )
+  }, [setSortPresets])
 
   const handleMoveSortPreset = useCallback((presetId: string, direction: 'up' | 'down') => {
     setSortPresets((prev) => {
@@ -3201,6 +3223,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return next
     })
   }, [setSortPresets])
+
+  // A pinned filter preset is "active" when the live state, captured as a snapshot, equals its snapshot.
+  // Capture with matching includeSort so a sort-agnostic preset (sort omitted) ignores the live sort.
+  const isFilterPresetActive = useCallback((preset: FilterPreset): boolean => {
+    const includeSort = preset.snapshot.gearInspectorSubstatSort !== undefined
+    return filterPresetSnapshotsEqual(buildFilterPresetSnapshot(includeSort), preset.snapshot)
+  }, [buildFilterPresetSnapshot])
+  // A pinned sort preset is "active" when the live sort state equals its captured snapshot.
+  const isSortPresetActive = useCallback((preset: SortPreset): boolean => (
+    sortPresetSnapshotsEqual(gearInspectorSubstatSortPrefs.state, preset.snapshot)
+  ), [gearInspectorSubstatSortPrefs.state])
 
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
@@ -8416,12 +8449,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onDeleteFilterPreset={handleDeleteFilterPreset}
           onMoveFilterPreset={handleMoveFilterPreset}
           onHideFilterPreset={handleHideFilterPreset}
+          onTogglePinFilterPreset={handleTogglePinFilterPreset}
+          isFilterPresetActive={isFilterPresetActive}
           sortPresets={sortPresets}
           onSaveSortPreset={handleSaveSortPreset}
           onApplySortPreset={handleApplySortPreset}
           onDeleteSortPreset={handleDeleteSortPreset}
           onMoveSortPreset={handleMoveSortPreset}
           onHideSortPreset={handleHideSortPreset}
+          onTogglePinSortPreset={handleTogglePinSortPreset}
+          isSortPresetActive={isSortPresetActive}
 	        gearInspectorCount={gearInspectorItems.length}
         gearInspectorFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}

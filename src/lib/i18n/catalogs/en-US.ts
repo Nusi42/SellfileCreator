@@ -1281,6 +1281,12 @@ const enUS: Catalog = {
   sortPresetsDeleteDialogMessage: "Delete \"{name}\"? This cannot be undone.",
   sortPresetsSaveIncludeFilter: "Include filter settings",
   presetLabelColor: "Label color",
+  // Icon + pin controls in the save dialog and preset menus.
+  presetIconLabel: "Icon",
+  presetIconPickerAria: "Choose preset icon",
+  presetPinToHeader: "Pin to header",
+  presetPin: "Pin as button",
+  presetUnpin: "Unpin button",
   // Hide/show-hidden actions for preset menus.
   presetHide: "Hide",
   presetUnhide: "Unhide",

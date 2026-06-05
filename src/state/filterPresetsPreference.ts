@@ -17,7 +17,16 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { sanitizeRulesFilterState, type RulesFilterState, type GearInspectorSourceFilter } from '../lib/rulesFilter'
 import { ArtifactType, type ArtifactTypeId } from '../lib/types'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt, sanitizePresetColor } from './presetUtils'
+import {
+  sanitizePresetId,
+  sanitizePresetName,
+  sanitizePresetSavedAt,
+  sanitizePresetColor,
+  sanitizePresetIconId,
+  resolveBuiltinIconPin,
+  buildBuiltinIconPinStub,
+} from './presetUtils'
+import type { MetasetIconId } from '../lib/metasetIcons'
 import {
   DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
   normalizeGearInspectorSubstatSortState,
@@ -51,6 +60,10 @@ export type FilterPreset = {
   snapshot: FilterPresetSnapshot
   // Optional #RRGGBB text color applied to the preset label in the menu.
   color?: string
+  // Optional glyph-catalog icon shown beside the name and as the pinned button face.
+  iconId?: MetasetIconId
+  // When true, the preset renders as a quick-toggle button next to the Filter button.
+  pinned?: true
   // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
   builtin?: true
   // When true, the preset is hidden from the menu unless the user toggles show-hidden.
@@ -267,6 +280,9 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'All Artifacts',
     savedAt: '',
     builtin: true,
+    // Monochrome gem glyph evokes artifacts; pinned by default so its button ships out of the box.
+    iconId: 'glyph.gem',
+    pinned: true,
     // No result restriction — shows every artifact regardless of sell/keep label.
     snapshot: makeBuiltinFilterSnapshot(undefined, ARTIFACT_SLOT_IDS),
   },
@@ -275,6 +291,9 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'All Accessories',
     savedAt: '',
     builtin: true,
+    // Monochrome crown glyph evokes accessories (Ring/Amulet/Banner); pinned by default alongside All Artifacts.
+    iconId: 'glyph.crown',
+    pinned: true,
     // No result restriction — shows every accessory regardless of sell/keep label.
     snapshot: makeBuiltinFilterSnapshot(undefined, ACCESSORY_SLOT_IDS),
   },
@@ -283,6 +302,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Show only Sell',
     savedAt: '',
     builtin: true,
+    // Monochrome recycle glyph evokes selling/discarding gear.
+    iconId: 'glyph.recycle',
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT),
   },
   {
@@ -290,6 +311,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Show only Sell – Artifacts',
     savedAt: '',
     builtin: true,
+    // Unique monochrome swords glyph (artifact-themed) keeps each built-in distinguishable.
+    iconId: 'glyph.swords',
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ARTIFACT_SLOT_IDS),
   },
   {
@@ -297,6 +320,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Show only Sell – Accessories',
     savedAt: '',
     builtin: true,
+    // Unique monochrome banner glyph (accessory-themed).
+    iconId: 'glyph.banner',
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ACCESSORY_SLOT_IDS),
   },
   {
@@ -304,6 +329,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Scoped Sell - Artifacts',
     savedAt: '',
     builtin: true,
+    // Target evokes the narrowed/scoped selection (artifacts).
+    iconId: 'glyph.target',
     snapshot: makeScopedSellSnapshot(ARTIFACT_SLOT_IDS),
   },
   {
@@ -311,6 +338,8 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Scoped Sell - Accessories',
     savedAt: '',
     builtin: true,
+    // Compass evokes the narrowed/scoped selection (accessories; paired with Target above).
+    iconId: 'glyph.compass',
     snapshot: makeScopedSellSnapshot(ACCESSORY_SLOT_IDS),
   },
 ]
@@ -328,19 +357,31 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
   const rec = raw as Record<string, unknown>
   const id = sanitizePresetId(rec['id'])
   if (!id) return null
-  // Built-in stubs store only { id, builtin: true }; resolve to full preset data.
+  // Built-in stubs store only { id, builtin: true } plus any user overrides; resolve to full preset data.
   if (rec['builtin'] === true) {
     const builtin = BUILTIN_FILTER_PRESET_MAP.get(id) ?? null
     if (!builtin) return null
+    const result: FilterPreset = { ...builtin }
     // Restore the hidden flag persisted in the compact stub.
-    if (rec['hidden'] === true) return { ...builtin, hidden: true as const }
-    return builtin
+    if (rec['hidden'] === true) result.hidden = true
+    // icon/pin resolve from the definition unless the stub carries an explicit override.
+    const { iconId, pinned } = resolveBuiltinIconPin(builtin, rec)
+    delete result.iconId
+    delete result.pinned
+    if (iconId) result.iconId = iconId
+    if (pinned) result.pinned = true
+    return result
   }
   const name = sanitizePresetName(rec['name'])
   if (!name) return null
   // exactOptionalPropertyTypes: spread color only when present so the field stays absent for uncolored presets.
   const color = sanitizePresetColor(rec['color'])
   const colorField: Pick<FilterPreset, 'color'> = color !== undefined ? { color } : {}
+  // exactOptionalPropertyTypes: spread iconId only when valid so uncolored/iconless presets stay field-absent.
+  const iconId = sanitizePresetIconId(rec['iconId'])
+  const iconField: Pick<FilterPreset, 'iconId'> = iconId !== undefined ? { iconId } : {}
+  // exactOptionalPropertyTypes: spread pinned only when explicitly true.
+  const pinnedField: Pick<FilterPreset, 'pinned'> = rec['pinned'] === true ? { pinned: true } : {}
   // exactOptionalPropertyTypes: spread hidden only when explicitly true.
   const hiddenField: Pick<FilterPreset, 'hidden'> = rec['hidden'] === true ? { hidden: true } : {}
   return {
@@ -349,6 +390,8 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
     savedAt: sanitizePresetSavedAt(rec['savedAt']),
     snapshot: sanitizeFilterPresetSnapshot(rec['snapshot']),
     ...colorField,
+    ...iconField,
+    ...pinnedField,
     ...hiddenField,
   }
 }
@@ -378,10 +421,15 @@ const serializePresets = (value: FilterPreset[]): string | null => {
   // Keep storage clean: prefer removing the key when there's nothing to save.
   if (!Array.isArray(value) || value.length === 0) return null
   // Built-ins are stored as compact stubs so snapshot data isn't duplicated in localStorage.
-  // Include hidden in the stub when set so the flag survives a reload.
-  const toStore = value.map((p) => (
-    p.builtin ? (p.hidden ? { id: p.id, builtin: true, hidden: true } : { id: p.id, builtin: true }) : p
-  ))
+  // Include hidden + any icon/pin override in the stub so user customizations survive a reload.
+  const toStore = value.map((p) => {
+    if (!p.builtin) return p
+    const stub: Record<string, unknown> = { id: p.id, builtin: true }
+    if (p.hidden) stub.hidden = true
+    // Persist icon/pin only when they differ from the shipped definition (compact + lossless).
+    Object.assign(stub, buildBuiltinIconPinStub(p, BUILTIN_FILTER_PRESET_MAP.get(p.id) ?? {}))
+    return stub
+  })
   return JSON.stringify(toStore)
 }
 
@@ -395,3 +443,13 @@ const presetsStore = createLocalStorageStore<FilterPreset[]>({
 export const useFilterPresetsPreference = createLocalStorageStateHook(presetsStore)
 
 export const getFilterPresetsSnapshot = (): readonly FilterPreset[] => presetsStore.getSnapshot()
+
+/**
+ * Structural equality between two filter-preset snapshots, used to decide whether a
+ * pinned preset is the currently-active state (Apply ⇄ Clear toggle). Both sides pass
+ * through sanitizeFilterPresetSnapshot so key order is deterministic and the optional
+ * sort field is handled identically — a preset that omits sort compares as "sort-agnostic".
+ * Callers capture the live state with matching includeSort so the optional field aligns.
+ */
+export const filterPresetSnapshotsEqual = (a: FilterPresetSnapshot, b: FilterPresetSnapshot): boolean =>
+  JSON.stringify(sanitizeFilterPresetSnapshot(a)) === JSON.stringify(sanitizeFilterPresetSnapshot(b))

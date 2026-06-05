@@ -6,11 +6,12 @@
  * feel consistent with the existing Sort popout (row selection + weight bump chips).
  */
 import React from 'react'
-import { Box, Button, Divider, Menu, MenuItem, Select, Typography } from '@mui/material'
+import { Box, Button, Divider, Menu, MenuItem, Typography } from '@mui/material'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import { useI18n } from '../lib/i18n'
-import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, type MetasetIconId } from '../lib/metasetIcons'
+import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
+import { GlyphPicker } from './GlyphPicker'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
 import {
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
@@ -122,81 +123,16 @@ export function GearInspectorNormalizedPresetEditorMenu({
             justifyContent: 'center',
           }}
         >
-          <Select
-            size="small"
+          {/* Shared glyph picker (extracted): nested in a context menu, so keep it portaled-in and chevron-free. */}
+          <GlyphPicker
             value={preset.iconId ?? DEFAULT_METASET_ICON_ID}
-            aria-label={t('gearInspectorGridNormalizedPresetGlyphPickerAria')}
-            // Keep the glyph centered; the default dropdown chevron shifts short glyphs off-center.
-            IconComponent={() => null}
-            onChange={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              const nextIconId = (event.target.value || DEFAULT_METASET_ICON_ID) as MetasetIconId
-              onSetIconId(presetId, nextIconId)
-            }}
-            renderValue={(value) => {
-              const iconId = (value || DEFAULT_METASET_ICON_ID) as MetasetIconId
-              const opt = metasetIconOptionById(iconId)
-              return (
-                <Box
-                  component="span"
-                  sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1, width: '100%' }}
-                  aria-hidden
-                >
-                  {opt.glyph}
-                </Box>
-              )
-            }}
-            MenuProps={{
-              // Keep the picker inside the preset editor so nested context menus do not treat it as "outside".
-              disablePortal: true,
-              slotProps: {
-                paper: {
-                  sx: {
-                    maxHeight: 320,
-                    minWidth: 88,
-                    width: 'auto',
-                    '& .MuiList-root': {
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(6, 1fr)',
-                      gap: 0.5,
-                      py: 0.5,
-                    },
-                  },
-                },
-              },
-            }}
-            sx={{
-              minWidth: 64,
-              width: 64,
-              height: 28,
-              '& .MuiInputBase-root': {
-                height: 28,
-                minHeight: 28,
-              },
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                lineHeight: 1,
-                textAlign: 'center',
-                px: 1,
-                py: 0,
-              },
-            }}
-          >
-            {METASET_ICON_OPTIONS.map((option) => (
-              <MenuItem
-                key={option.id}
-                value={option.id}
-                aria-label={option.id}
-                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, px: 0.5, width: 'auto' }}
-              >
-                <Box component="span" sx={{ fontSize: 20, width: 32, textAlign: 'center' }} aria-hidden>{option.glyph}</Box>
-              </MenuItem>
-            ))}
-          </Select>
+            ariaLabel={t('gearInspectorGridNormalizedPresetGlyphPickerAria')}
+            disablePortal
+            hideChevron
+            widthPx={64}
+            heightPx={28}
+            onChange={(nextIconId) => onSetIconId(presetId, nextIconId)}
+          />
         </Box>
       </MenuItem>
       <Divider sx={{ my: 0.5 }} />

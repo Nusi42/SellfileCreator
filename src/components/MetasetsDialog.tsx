@@ -11,7 +11,8 @@ import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { cloneMetaset, defaultMetasets } from '../lib/metasets'
-import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
+import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
+import { GlyphPicker } from './GlyphPicker'
 import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
@@ -1156,75 +1157,18 @@ export default function MetasetsDialog({
                       />
                     </Box>
                   </EllipsisTooltip>
-                  <Select
-                    size="small"
+                  {/* Shared glyph picker (extracted) — commit the chosen icon as an undoable metaset update. */}
+                  <GlyphPicker
                     value={iconId}
-                    aria-label={t('metasetIconPickerLabel')}
-                    onChange={(e) => {
-                      const nextIconId = (e.target.value || DEFAULT_METASET_ICON_ID) as MetasetIconId
+                    ariaLabel={t('metasetIconPickerLabel')}
+                    onChange={(nextIconId) => {
                       commitMetasetUpdate(
                         idx,
                         (prevMeta) => ({ ...prevMeta, iconId: nextIconId }),
                         (previousMeta, nextMeta) => ({ kind: 'metasetIconChanged', previous: previousMeta, next: nextMeta }),
                       )
                     }}
-                    renderValue={(value) => {
-                      const opt = metasetIconOptionById((value || DEFAULT_METASET_ICON_ID) as MetasetIconId)
-                      return (
-                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1, width: '100%' }} aria-hidden>
-                          {opt.glyph}
-                        </Box>
-                      )
-                    }}
-                      MenuProps={{
-                        slotProps: {
-                          paper: {
-                            sx: {
-                              maxHeight: 320,
-                              minWidth: 88,
-                              width: 'auto',
-                              '& .MuiList-root': {
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(6, 1fr)',
-                                gap: 0.5,
-                                py: 0.5,
-                              },
-                            },
-                          },
-                        },
-                      }}
-                      sx={{
-                        minWidth: 72,
-                        width: 72,
-                        '& .MuiSelect-select': {
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 18,
-                          lineHeight: 1,
-                          px: 1.5,
-                        },
-                      }}
-                    >
-                    {METASET_ICON_OPTIONS.map((option) => {
-                      // Derive a human-readable aria label from the icon id.
-                      let aria: string
-                      if (option.id === 'none') { aria = 'none' }
-                      else if (option.id === 'empty') { aria = 'empty' }
-                      else if (option.id.startsWith('glyph.num')) { aria = `number ${option.id.slice(-1)}` }
-                      else { const [, raw] = option.id.split('.'); aria = raw?.replace(/[-_]/g, ' ') || option.id }
-                      return (
-                        <MenuItem
-                          key={option.id}
-                          value={option.id}
-                          aria-label={aria}
-                          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, px: 0.5, width: 'auto' }}
-                        >
-                          <Box component="span" sx={{ fontSize: 20, width: 32, textAlign: 'center' }} aria-hidden>{option.glyph}</Box>
-                        </MenuItem>
-                      )
-                  })}
-                  </Select>
+                  />
                 {usageCountsCell}
                   </Box>
                 )

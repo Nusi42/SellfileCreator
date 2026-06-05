@@ -6,7 +6,16 @@
  * can save/restore sort setups independently of filter presets.
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { sanitizePresetId, sanitizePresetName, sanitizePresetSavedAt, sanitizePresetColor } from './presetUtils'
+import {
+  sanitizePresetId,
+  sanitizePresetName,
+  sanitizePresetSavedAt,
+  sanitizePresetColor,
+  sanitizePresetIconId,
+  resolveBuiltinIconPin,
+  buildBuiltinIconPinStub,
+} from './presetUtils'
+import type { MetasetIconId } from '../lib/metasetIcons'
 import {
   DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
   normalizeGearInspectorSubstatSortState,
@@ -36,6 +45,10 @@ export type SortPreset = {
   filterSnapshot?: FilterPresetSnapshot
   // Optional #RRGGBB text color applied to the preset label in the menu.
   color?: string
+  // Optional glyph-catalog icon shown beside the name and as the pinned button face.
+  iconId?: MetasetIconId
+  // When true, the preset renders as a quick-toggle button next to the Sort button.
+  pinned?: true
   // When true, the preset is non-deletable (shipped with the app) but can be freely reordered.
   builtin?: true
   // When true, the preset is hidden from the menu unless the user toggles show-hidden.
@@ -67,6 +80,9 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'Newest',
     savedAt: '',
     builtin: true,
+    // Monochrome sparkles glyph evokes freshly-acquired gear; pinned by default as a quick-toggle button.
+    iconId: 'glyph.sparkles',
+    pinned: true,
     // Sort by acquisition date descending; flat type groups so newest items float to the top globally.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
@@ -79,6 +95,8 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'Latest Used',
     savedAt: '',
     builtin: true,
+    // Monochrome hourglass glyph evokes recency/time.
+    iconId: 'glyph.hourglass',
     // Sort by most recently equipped descending; flat type groups so recently touched items float up.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
@@ -91,6 +109,9 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'SPD',
     savedAt: '',
     builtin: true,
+    // Monochrome lightning glyph evokes speed; pinned by default as a quick-toggle button.
+    iconId: 'glyph.lightning',
+    pinned: true,
     // Single-stat priority: Speed descending, all other settings at default.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
@@ -102,6 +123,8 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'SPD – per Slot',
     savedAt: '',
     builtin: true,
+    // Monochrome grid glyph evokes the per-slot bucketing (and keeps it unique across built-ins).
+    iconId: 'glyph.grid',
     // Speed descending, grouped by slot only (no set grouping so each slot
     // bucket shows its fastest gear regardless of which set it belongs to).
     snapshot: {
@@ -119,6 +142,8 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'Improvement Chance',
     savedAt: '',
     builtin: true,
+    // Monochrome potion glyph evokes the upgrade/improvement chance.
+    iconId: 'glyph.potion',
     // Sort by safeguard improvement chance descending; flat type groups so highest-chance items float up globally.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
@@ -131,6 +156,8 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     name: 'Safeguard Rank',
     savedAt: '',
     builtin: true,
+    // Monochrome shield glyph evokes safeguard protection.
+    iconId: 'glyph.shield',
     // Sort by safeguard rank ascending: rank #1 (most-protected) floats first; unranked items last.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
@@ -154,13 +181,20 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
   const rec = raw as Record<string, unknown>
   const id = sanitizePresetId(rec['id'])
   if (!id) return null
-  // Built-in stubs store only { id, builtin: true }; resolve to full preset data.
+  // Built-in stubs store only { id, builtin: true } plus any user overrides; resolve to full preset data.
   if (rec['builtin'] === true) {
     const builtin = BUILTIN_SORT_PRESET_MAP.get(id) ?? null
     if (!builtin) return null
+    const result: SortPreset = { ...builtin }
     // Restore the hidden flag persisted in the compact stub.
-    if (rec['hidden'] === true) return { ...builtin, hidden: true as const }
-    return builtin
+    if (rec['hidden'] === true) result.hidden = true
+    // icon/pin resolve from the definition unless the stub carries an explicit override.
+    const { iconId, pinned } = resolveBuiltinIconPin(builtin, rec)
+    delete result.iconId
+    delete result.pinned
+    if (iconId) result.iconId = iconId
+    if (pinned) result.pinned = true
+    return result
   }
   const name = sanitizePresetName(rec['name'])
   if (!name) return null
@@ -173,6 +207,11 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
   // exactOptionalPropertyTypes: spread color only when present so the field stays absent for uncolored presets.
   const color = sanitizePresetColor(rec['color'])
   const colorField: Pick<SortPreset, 'color'> = color !== undefined ? { color } : {}
+  // exactOptionalPropertyTypes: spread iconId only when valid so iconless presets stay field-absent.
+  const iconId = sanitizePresetIconId(rec['iconId'])
+  const iconField: Pick<SortPreset, 'iconId'> = iconId !== undefined ? { iconId } : {}
+  // exactOptionalPropertyTypes: spread pinned only when explicitly true.
+  const pinnedField: Pick<SortPreset, 'pinned'> = rec['pinned'] === true ? { pinned: true } : {}
   // exactOptionalPropertyTypes: spread hidden only when explicitly true.
   const hiddenField: Pick<SortPreset, 'hidden'> = rec['hidden'] === true ? { hidden: true } : {}
   return {
@@ -183,6 +222,8 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
     snapshot: normalizeGearInspectorSubstatSortState(rec['snapshot']),
     ...filterField,
     ...colorField,
+    ...iconField,
+    ...pinnedField,
     ...hiddenField,
   }
 }
@@ -212,10 +253,15 @@ const serializePresets = (value: SortPreset[]): string | null => {
   // Remove the key entirely when the list is empty to keep storage tidy.
   if (!Array.isArray(value) || value.length === 0) return null
   // Built-ins are stored as compact stubs so snapshot data isn't duplicated in localStorage.
-  // Include hidden in the stub when set so the flag survives a reload.
-  const toStore = value.map((p) => (
-    p.builtin ? (p.hidden ? { id: p.id, builtin: true, hidden: true } : { id: p.id, builtin: true }) : p
-  ))
+  // Include hidden + any icon/pin override in the stub so user customizations survive a reload.
+  const toStore = value.map((p) => {
+    if (!p.builtin) return p
+    const stub: Record<string, unknown> = { id: p.id, builtin: true }
+    if (p.hidden) stub.hidden = true
+    // Persist icon/pin only when they differ from the shipped definition (compact + lossless).
+    Object.assign(stub, buildBuiltinIconPinStub(p, BUILTIN_SORT_PRESET_MAP.get(p.id) ?? {}))
+    return stub
+  })
   return JSON.stringify(toStore)
 }
 
@@ -229,3 +275,11 @@ const presetsStore = createLocalStorageStore<SortPreset[]>({
 export const useSortPresetsPreference = createLocalStorageStateHook(presetsStore)
 
 export const getSortPresetsSnapshot = (): readonly SortPreset[] => presetsStore.getSnapshot()
+
+/**
+ * Structural equality between two sort states, used to decide whether a pinned sort
+ * preset is the currently-active state (Apply ⇄ Clear toggle). Both sides pass through
+ * normalizeGearInspectorSubstatSortState so key order and schema defaults are deterministic.
+ */
+export const sortPresetSnapshotsEqual = (a: GearInspectorSubstatSortState, b: GearInspectorSubstatSortState): boolean =>
+  JSON.stringify(normalizeGearInspectorSubstatSortState(a)) === JSON.stringify(normalizeGearInspectorSubstatSortState(b))

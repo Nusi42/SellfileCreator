@@ -74,7 +74,11 @@ import { useGearInspectorSortPopoutEasterEgg } from '../hooks/useGearInspectorSo
 import GearInspectorSortPopoutEasterEggOverlay from './GearInspectorSortPopoutEasterEggOverlay'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
-import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
+import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, type MetasetIconId } from '../lib/metasetIcons'
+import { GlyphPicker } from './GlyphPicker'
+import { PinnedPresetButtons, type PinnedPresetButtonDescriptor } from './PinnedPresetButtons'
+import PushPinIcon from '@mui/icons-material/PushPin'
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { GearDbHistoryMenu } from './GearDbHistoryMenu'
 import type { GearDbDiffHistoryEntry } from '../lib/gearDbDiffToast'
@@ -178,18 +182,26 @@ export default function PreviewHeaderActions(props: {
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
-  onSaveFilterPreset?: (name: string, includeSort: boolean, color: string | undefined) => void
+  onSaveFilterPreset?: (name: string, includeSort: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => void
   onApplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
   onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
   // Toggles hidden state; called with the new desired value so callers don't need to read current state.
   onHideFilterPreset?: (presetId: string, hidden: boolean) => void
+  // Toggles the pinned (quick-toggle button) state; called with the new desired value.
+  onTogglePinFilterPreset?: (presetId: string, pinned: boolean) => void
+  // True when the preset's snapshot matches the live filter state (drives the pinned button Apply ⇄ Clear).
+  isFilterPresetActive?: (preset: FilterPreset) => boolean
   sortPresets?: readonly SortPreset[]
-  onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined) => void
+  onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => void
   onApplySortPreset?: (presetId: string) => void
   onDeleteSortPreset?: (presetId: string) => void
   onMoveSortPreset?: (presetId: string, direction: 'up' | 'down') => void
   onHideSortPreset?: (presetId: string, hidden: boolean) => void
+  // Toggles the pinned (quick-toggle button) state; called with the new desired value.
+  onTogglePinSortPreset?: (presetId: string, pinned: boolean) => void
+  // True when the preset's sort snapshot matches the live sort state.
+  isSortPresetActive?: (preset: SortPreset) => boolean
 }) {
   const {
     mergedCount,
@@ -258,17 +270,22 @@ export default function PreviewHeaderActions(props: {
     onDeleteFilterPreset,
     onMoveFilterPreset,
     onHideFilterPreset,
+    onTogglePinFilterPreset,
+    isFilterPresetActive,
     sortPresets = [],
     onSaveSortPreset,
     onApplySortPreset,
     onDeleteSortPreset,
     onMoveSortPreset,
     onHideSortPreset,
+    onTogglePinSortPreset,
+    isSortPresetActive,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
   // Resolve the localized display name for a built-in filter preset; user presets use their stored name.
-  const filterPresetDisplayName = (p: FilterPreset): string => {
+  // useCallback keeps identity stable so the pinned-button memos don't recompute every render.
+  const filterPresetDisplayName = React.useCallback((p: FilterPreset): string => {
     if (!p.builtin) return p.name
     switch (p.id) {
       case 'builtin:all-artifacts':  return t('builtinFilterPresetAllArtifacts')
@@ -278,9 +295,9 @@ export default function PreviewHeaderActions(props: {
       case 'builtin:sell-accessories': return t('builtinFilterPresetShowOnlySellAccessories')
       default: return p.name
     }
-  }
+  }, [t])
   // Resolve the localized display name for a built-in sort preset; user presets use their stored name.
-  const sortPresetDisplayName = (p: SortPreset): string => {
+  const sortPresetDisplayName = React.useCallback((p: SortPreset): string => {
     if (!p.builtin) return p.name
     switch (p.id) {
       case 'builtin:newest':             return t('builtinSortPresetNewest')
@@ -291,7 +308,7 @@ export default function PreviewHeaderActions(props: {
       case 'builtin:safeguard-rank':     return t('builtinSortPresetSafeguardRank')
       default: return p.name
     }
-  }
+  }, [t])
   const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
   const gearInspectorCountValue = Number.isFinite(gearInspectorCount) ? Math.max(0, Math.floor(gearInspectorCount ?? 0)) : 0
   const gearInspectorFilteredValue = Number.isFinite(gearInspectorFilteredCount) ? Math.max(0, Math.floor(gearInspectorFilteredCount ?? 0)) : gearInspectorCountValue
@@ -516,12 +533,50 @@ export default function PreviewHeaderActions(props: {
   )
   const hasHiddenSortPresets = React.useMemo(() => sortPresets.some((p) => p.hidden), [sortPresets])
 
+  // Resolve the glyph face for a preset: its catalog icon, or the name's first letter as a fallback.
+  const presetButtonGlyph = React.useCallback((iconId: MetasetIconId | undefined, name: string): string => {
+    if (iconId) return metasetIconOptionById(iconId).glyph
+    const first = Array.from(name)[0]
+    return first ? first.toUpperCase() : '•'
+  }, [])
+
+  // Pinned filter presets become quick-toggle buttons; hidden ones are excluded so the header matches the menu.
+  const pinnedFilterButtons = React.useMemo<PinnedPresetButtonDescriptor[]>(
+    () => filterPresets
+      .filter((p) => p.pinned && !p.hidden)
+      .map((p) => {
+        const name = filterPresetDisplayName(p)
+        // exactOptionalPropertyTypes: include color only when set so the descriptor stays field-absent.
+        const colorField = p.color ? { color: p.color } : {}
+        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isFilterPresetActive?.(p) ?? false, ...colorField }
+      }),
+    [filterPresets, filterPresetDisplayName, presetButtonGlyph, isFilterPresetActive],
+  )
+  // Same for sort presets — these sit next to the Sort button and only act in Gear Inspector mode.
+  const pinnedSortButtons = React.useMemo<PinnedPresetButtonDescriptor[]>(
+    () => sortPresets
+      .filter((p) => p.pinned && !p.hidden)
+      .map((p) => {
+        const name = sortPresetDisplayName(p)
+        const colorField = p.color ? { color: p.color } : {}
+        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isSortPresetActive?.(p) ?? false, ...colorField }
+      }),
+    [sortPresets, sortPresetDisplayName, presetButtonGlyph, isSortPresetActive],
+  )
+  // When a pinned preset is active, its button already clears the state — so the redundant ✕ is hidden.
+  const anyPinnedFilterActive = React.useMemo(() => pinnedFilterButtons.some((b) => b.active), [pinnedFilterButtons])
+  const anyPinnedSortActive = React.useMemo(() => pinnedSortButtons.some((b) => b.active), [pinnedSortButtons])
+
   const [savePresetOpen, setSavePresetOpen] = React.useState(false)
   const [savePresetName, setSavePresetName] = React.useState('')
   // Whether to include the current sort config in the filter preset snapshot.
   const [savePresetIncludeSort, setSavePresetIncludeSort] = React.useState(true)
   // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
   const [savePresetColor, setSavePresetColor] = React.useState('')
+  // Chosen glyph for the preset; 'none' means no icon (the catalog's no-icon sentinel).
+  const [savePresetIconId, setSavePresetIconId] = React.useState<MetasetIconId>(DEFAULT_METASET_ICON_ID)
+  // Whether to surface the preset as a quick-toggle button next to the Filter button.
+  const [savePresetPinned, setSavePresetPinned] = React.useState(false)
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
   const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
@@ -532,6 +587,9 @@ export default function PreviewHeaderActions(props: {
     setSavePresetIncludeSort(true)
     // Reset color so the default (no color) is shown each time the dialog opens.
     setSavePresetColor('')
+    // Reset icon + pin so each save starts from the defaults (no icon, not pinned).
+    setSavePresetIconId(DEFAULT_METASET_ICON_ID)
+    setSavePresetPinned(false)
     setSavePresetOpen(true)
   }, [])
 
@@ -543,9 +601,11 @@ export default function PreviewHeaderActions(props: {
     const name = savePresetName.trim()
     // Skip empty names; the dialog keeps the user in-context until it's valid.
     if (!name) return
-    onSaveFilterPreset?.(name, savePresetIncludeSort, savePresetColor || undefined)
+    // 'none' is the no-icon sentinel; pass undefined so the store keeps the field absent.
+    const iconId = savePresetIconId === DEFAULT_METASET_ICON_ID ? undefined : savePresetIconId
+    onSaveFilterPreset?.(name, savePresetIncludeSort, savePresetColor || undefined, iconId, savePresetPinned)
     setSavePresetOpen(false)
-  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort, savePresetColor])
+  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort, savePresetColor, savePresetIconId, savePresetPinned])
 
   // --- Sort preset dialog state ---------------------------------------------
 
@@ -555,6 +615,10 @@ export default function PreviewHeaderActions(props: {
   const [saveSortPresetIncludeFilter, setSaveSortPresetIncludeFilter] = React.useState(true)
   // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
   const [saveSortPresetColor, setSaveSortPresetColor] = React.useState('')
+  // Chosen glyph for the sort preset; 'none' means no icon.
+  const [saveSortPresetIconId, setSaveSortPresetIconId] = React.useState<MetasetIconId>(DEFAULT_METASET_ICON_ID)
+  // Whether to surface the sort preset as a quick-toggle button next to the Sort button.
+  const [saveSortPresetPinned, setSaveSortPresetPinned] = React.useState(false)
   const [deleteSortPresetTarget, setDeleteSortPresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
   const openSaveSortPresetDialog = React.useCallback(() => {
@@ -563,6 +627,9 @@ export default function PreviewHeaderActions(props: {
     setSaveSortPresetIncludeFilter(true)
     // Reset color so the default (no color) is shown each time the dialog opens.
     setSaveSortPresetColor('')
+    // Reset icon + pin so each save starts from the defaults (no icon, not pinned).
+    setSaveSortPresetIconId(DEFAULT_METASET_ICON_ID)
+    setSaveSortPresetPinned(false)
     setSaveSortPresetOpen(true)
   }, [])
 
@@ -573,9 +640,11 @@ export default function PreviewHeaderActions(props: {
   const confirmSaveSortPreset = React.useCallback(() => {
     const name = saveSortPresetName.trim()
     if (!name) return
-    onSaveSortPreset?.(name, saveSortPresetIncludeFilter, saveSortPresetColor || undefined)
+    // 'none' is the no-icon sentinel; pass undefined so the store keeps the field absent.
+    const iconId = saveSortPresetIconId === DEFAULT_METASET_ICON_ID ? undefined : saveSortPresetIconId
+    onSaveSortPreset?.(name, saveSortPresetIncludeFilter, saveSortPresetColor || undefined, iconId, saveSortPresetPinned)
     setSaveSortPresetOpen(false)
-  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter, saveSortPresetColor])
+  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter, saveSortPresetColor, saveSortPresetIconId, saveSortPresetPinned])
 
   const requestDeleteSortPreset = React.useCallback((presetId: string, presetName: string) => {
     setDeleteSortPresetTarget({ id: presetId, name: presetName })
@@ -1095,7 +1164,15 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </Box>
               </MarkdownTooltip>
-              {filtersDirty && onClearFilters ? (
+              {/* Pinned filter presets: icon-only quick toggles, sitting left of the clear ✕. Apply on click; clear when active. */}
+              <PinnedPresetButtons
+                buttons={pinnedFilterButtons}
+                onToggle={(id, active) => { if (active) onClearFilters?.(); else onApplyFilterPreset?.(id) }}
+                ariaLabel={(name) => name}
+                tooltip={(name) => name}
+              />
+              {/* Hide the clear ✕ when a pinned preset is active — clicking that active button already clears. */}
+              {filtersDirty && onClearFilters && !anyPinnedFilterActive ? (
                 <ClearIconButton
                   size="small"
                   aria-label={t('filterReset')}
@@ -1149,7 +1226,16 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </Box>
               </MarkdownTooltip>
-              {!isRulesMode && (
+              {/* Pinned sort presets sit left of the clear ✕; only act in Gear Inspector mode, so disable in Rules mode. */}
+              <PinnedPresetButtons
+                buttons={pinnedSortButtons}
+                disabled={isRulesMode}
+                onToggle={(id, active) => { if (active) onClearGearInspectorSubstatSort(); else onApplySortPreset?.(id) }}
+                ariaLabel={(name) => name}
+                tooltip={(name) => name}
+              />
+              {/* Hide the clear ✕ when a pinned sort preset is active — its button already clears. */}
+              {!isRulesMode && !anyPinnedSortActive && (
                 sortPriorities.length > 0
                 || Boolean(gearInspectorSubstatSort.normalized)
                 || !groupingIsDefault
@@ -1186,6 +1272,12 @@ export default function PreviewHeaderActions(props: {
                       }}
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75, ...(preset.hidden ? { opacity: 0.45 } : {}) }}
                     >
+                      {/* Glyph face mirrors the pinned button; tinted with the preset color when set. */}
+                      {preset.iconId ? (
+                        <Box component="span" aria-hidden sx={{ flexShrink: 0, fontSize: 16, width: 22, textAlign: 'center', ...(preset.color ? { color: preset.color } : {}) }}>
+                          {metasetIconOptionById(preset.iconId).glyph}
+                        </Box>
+                      ) : null}
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
                         <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
@@ -1225,6 +1317,26 @@ export default function PreviewHeaderActions(props: {
                             <ArrowDownwardIcon fontSize="inherit" />
                           </IconButton>
                         </>
+                      ) : null}
+                      {/* Thin separator visually splits the move controls from the pin toggle. */}
+                      {onMoveFilterPreset && onTogglePinFilterPreset ? (
+                        <Box sx={{ width: '1px', height: 16, bgcolor: 'divider', mx: 0.25, alignSelf: 'center', flexShrink: 0 }} />
+                      ) : null}
+                      {/* Pin/unpin toggle: surfaces (or removes) this preset as a header quick-toggle button. */}
+                      {onTogglePinFilterPreset ? (
+                        <MarkdownTooltip markdown={preset.pinned ? t('presetUnpin') : t('presetPin')}>
+                          <IconButton
+                            size="small"
+                            aria-label={preset.pinned ? t('presetUnpin') : t('presetPin')}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onTogglePinFilterPreset(preset.id, !preset.pinned)
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            {preset.pinned ? <PushPinIcon fontSize="inherit" /> : <PushPinOutlinedIcon fontSize="inherit" />}
+                          </IconButton>
+                        </MarkdownTooltip>
                       ) : null}
                       {/* Builtin presets: hide/unhide toggle. User presets: delete button. */}
                       {preset.builtin ? (
@@ -1355,6 +1467,27 @@ export default function PreviewHeaderActions(props: {
                       },
                     }}
                   />
+                  {/* Icon + pin row: choose a glyph and optionally surface a header quick-toggle button. */}
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Typography variant="body2" color="text.secondary">{t('presetIconLabel')}</Typography>
+                      <GlyphPicker
+                        value={savePresetIconId}
+                        ariaLabel={t('presetIconPickerAria')}
+                        onChange={setSavePresetIconId}
+                      />
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={savePresetPinned}
+                          onChange={(event) => setSavePresetPinned(event.target.checked)}
+                        />
+                      }
+                      label={t('presetPinToHeader')}
+                    />
+                  </Stack>
                   {/* Allow the user to exclude sort so applying the preset preserves their current sort config. */}
                   <FormControlLabel
                     control={
@@ -1413,6 +1546,12 @@ export default function PreviewHeaderActions(props: {
                       }}
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75, ...(preset.hidden ? { opacity: 0.45 } : {}) }}
                     >
+                      {/* Glyph face mirrors the pinned button; tinted with the preset color when set. */}
+                      {preset.iconId ? (
+                        <Box component="span" aria-hidden sx={{ flexShrink: 0, fontSize: 16, width: 22, textAlign: 'center', ...(preset.color ? { color: preset.color } : {}) }}>
+                          {metasetIconOptionById(preset.iconId).glyph}
+                        </Box>
+                      ) : null}
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
                         <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
@@ -1452,6 +1591,26 @@ export default function PreviewHeaderActions(props: {
                             <ArrowDownwardIcon fontSize="inherit" />
                           </IconButton>
                         </>
+                      ) : null}
+                      {/* Thin separator visually splits the move controls from the pin toggle. */}
+                      {onMoveSortPreset && onTogglePinSortPreset ? (
+                        <Box sx={{ width: '1px', height: 16, bgcolor: 'divider', mx: 0.25, alignSelf: 'center', flexShrink: 0 }} />
+                      ) : null}
+                      {/* Pin/unpin toggle: surfaces (or removes) this preset as a header quick-toggle button. */}
+                      {onTogglePinSortPreset ? (
+                        <MarkdownTooltip markdown={preset.pinned ? t('presetUnpin') : t('presetPin')}>
+                          <IconButton
+                            size="small"
+                            aria-label={preset.pinned ? t('presetUnpin') : t('presetPin')}
+                            onClick={(event) => {
+                              try { event.stopPropagation() } catch {}
+                              onTogglePinSortPreset(preset.id, !preset.pinned)
+                            }}
+                            sx={{ p: 0.5, alignSelf: 'center' }}
+                          >
+                            {preset.pinned ? <PushPinIcon fontSize="inherit" /> : <PushPinOutlinedIcon fontSize="inherit" />}
+                          </IconButton>
+                        </MarkdownTooltip>
                       ) : null}
                       {/* Builtin presets: hide/unhide toggle. User presets: delete button. */}
                       {preset.builtin ? (
@@ -1565,6 +1724,27 @@ export default function PreviewHeaderActions(props: {
                       },
                     }}
                   />
+                  {/* Icon + pin row: choose a glyph and optionally surface a header quick-toggle button. */}
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Typography variant="body2" color="text.secondary">{t('presetIconLabel')}</Typography>
+                      <GlyphPicker
+                        value={saveSortPresetIconId}
+                        ariaLabel={t('presetIconPickerAria')}
+                        onChange={setSaveSortPresetIconId}
+                      />
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={saveSortPresetPinned}
+                          onChange={(event) => setSaveSortPresetPinned(event.target.checked)}
+                        />
+                      }
+                      label={t('presetPinToHeader')}
+                    />
+                  </Stack>
                   {/* Allow the user to exclude filter state so applying the preset preserves their current filters. */}
                   <FormControlLabel
                     control={

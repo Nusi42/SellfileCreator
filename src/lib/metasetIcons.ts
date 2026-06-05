@@ -55,6 +55,18 @@ const BASE_ICON_DEFS: readonly IconDef[] = [
   { key: 'support', emoji: '🤝' },
   { key: 'mage', emoji: '🧙' },
   { key: 'sparkles', emoji: '✨' },
+  // RAID/gacha-flavoured additions: gear economy, accessories, progression, slots.
+  { key: 'coin', emoji: '🪙' },
+  { key: 'moneybag', emoji: '💰' },
+  { key: 'ring', emoji: '💍' },
+  { key: 'trophy', emoji: '🏆' },
+  { key: 'cog', emoji: '⚙️' },
+  { key: 'chart', emoji: '📈' },
+  { key: 'heart', emoji: '❤️' },
+  { key: 'backpack', emoji: '🎒' },
+  { key: 'grid', emoji: '🔳' },
+  { key: 'lock', emoji: '🔒' },
+  { key: 'boot', emoji: '🥾' },
 ]
 
 const GLYPH_FALLBACKS: Record<string, string> = {
@@ -100,6 +112,18 @@ const GLYPH_FALLBACKS: Record<string, string> = {
   support: '⋈',
   mage: '♗',
   sparkles: '✶',
+  // Monochrome fallbacks for the RAID/gacha additions (kept distinct from every glyph above).
+  coin: '¤',
+  moneybag: '$',
+  ring: '⊙',
+  trophy: '♔',
+  cog: '⚙',
+  chart: '⇗',
+  heart: '♥',
+  backpack: '▤',
+  grid: '▦',
+  lock: '⊡',
+  boot: '➶',
 }
 
 export type MetasetIconOption = {
@@ -130,12 +154,19 @@ const NUMBER_GLYPH_CODE_POINTS: readonly number[] = [
   ...Array.from({ length: 9 }, (_, idx) => CIRCLED_ONE_CODE_POINT + idx),
 ]
 
+// Circled forty-two (U+32B7, ㊷) — a deliberate nod to "the answer to everything".
+const CIRCLED_FORTY_TWO_CODE_POINT = 0x32b7
+
 // Provide circled digits U+24EA (0) and U+2460..U+2468 (1-9) so aria labels stay aligned with visible glyphs.
-const NUMBER_GLYPH_OPTIONS: MetasetIconOption[] = NUMBER_GLYPH_CODE_POINTS.map((codePoint, idx) => ({
-  id: `glyph.num${idx}` as const,
-  glyph: String.fromCodePoint(codePoint),
-  variant: 'glyph' as const,
-}))
+const NUMBER_GLYPH_OPTIONS: MetasetIconOption[] = [
+  ...NUMBER_GLYPH_CODE_POINTS.map((codePoint, idx) => ({
+    id: `glyph.num${idx}` as const,
+    glyph: String.fromCodePoint(codePoint),
+    variant: 'glyph' as const,
+  })),
+  // Special multi-digit circled number; aria handling derives "number 42" from the id suffix.
+  { id: 'glyph.num42', glyph: String.fromCodePoint(CIRCLED_FORTY_TWO_CODE_POINT), variant: 'glyph' as const },
+]
 
 export const METASET_ICON_OPTIONS: readonly MetasetIconOption[] = [
   { id: 'none', glyph: '∅', variant: 'none' },
