@@ -1396,8 +1396,8 @@ export default function PreviewHeaderActions(props: {
                 <MenuCycleRow
                   label={t('gearDiffFilterLabel')}
                   options={[
-                    { value: 'any', label: t('gearDiffFilterAny') },
                     { value: 'before', label: t('gearDiffFilterBefore') },
+                    { value: 'any', label: t('gearDiffFilterAny') },
                     { value: 'after', label: t('gearDiffFilterAfter') },
                   ]}
                   value={diffFilterMode}
