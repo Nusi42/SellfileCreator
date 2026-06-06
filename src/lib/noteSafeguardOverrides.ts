@@ -822,13 +822,23 @@ const applyGlobalSgOptionExclusions = <Q extends SgConstraintQuestion>(
 ): Q[] => {
   const allOptions = questions.flatMap((q) => q.options)
   const allGroups = questions.flatMap((q) => q.groups)
-  const selected = questions.flatMap((q) => q.answer)
+  const allowedIds = new Set(allOptions.map((o) => o.id))
+  // Exclude slider numeric strings — they are not option IDs and normalizeSgOrder would drop them,
+  // wiping slider positions from every question's answer on every cascade call.
+  const selected = questions.flatMap((q) => q.answer.filter((v) => allowedIds.has(v)))
   const resolved = resolveWithSgOptionRules(selected, allGroups, allOptions, preferredId, removedId)
   const resolvedSet = new Set(resolved)
-  return questions.map((q) => ({
-    ...q,
-    answer: q.options.filter((o) => resolvedSet.has(o.id)).map((o) => o.id),
-  }))
+  return questions.map((q) => {
+    // Preserve each question's slider answers (non-option-id numeric strings) verbatim.
+    const sliderAnswers = q.answer.filter((v) => !allowedIds.has(v))
+    return {
+      ...q,
+      answer: [
+        ...q.options.filter((o) => resolvedSet.has(o.id)).map((o) => o.id),
+        ...sliderAnswers,
+      ],
+    }
+  })
 }
 
 // ── Group builder ─────────────────────────────────────────────────────────────

@@ -2662,13 +2662,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       const next = new Set(selectedSet)
                       group.options.forEach((option) => next.delete(option.id))
                       if (value) next.add(value)
-                      // Apply within-question rules before the cascade picks up preferredId.
-                      const ordered = applyQuestionSgSelectionRules(
-                        Array.from(next),
-                        question,
-                        value || undefined,
-                      )
-                      applyAnswer(ordered, value || undefined)
+                      applyAnswer(Array.from(next), value || undefined)
                     }}
                     sx={optionGroupSx}
                   >
@@ -2706,13 +2700,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                             // Checking = preferred; unchecking = removed (releases forcing presets).
                             const preferred = event.target.checked ? option.id : undefined
                             const removed = event.target.checked ? undefined : option.id
-                            const ordered = applyQuestionSgSelectionRules(
-                              Array.from(updated),
-                              question,
-                              preferred,
-                              removed,
-                            )
-                            applyAnswer(ordered, preferred, removed)
+                            applyAnswer(Array.from(updated), preferred, removed)
                           }}
                         />
                       }
