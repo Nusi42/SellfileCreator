@@ -6430,6 +6430,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const endpointPushDrainInFlightRef = useRef(false)
   // Cleanup flag prevents post-unmount queue work.
   const endpointPushQueueClosedRef = useRef(false)
+  // Set when a gear-DB push is dropped because the restore dialog is open.
+  // Cleared after re-requesting a fresh sync once the dialog closes.
+  const droppedPushDuringRestoreDlgRef = useRef(false)
   // Timestamp (ms) when the last apply+settle cycle completed; 0 = never.
   const lastEndpointAppliedAtRef = useRef(0)
   // Animation-frame helper allows waiting for paint/commit boundaries.
@@ -6629,13 +6632,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
-    // Block gear-DB pushes while the tutorial is running, the restore dialog is open,
-    // or the user has explicitly paused automatic updates.
+    // Block gear-DB pushes while the tutorial is running or the user has explicitly paused updates.
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
-    // The restore dialog is presenting a snapshot to the user; applying a live update
-    // underneath it would silently discard whatever the user is about to decide.
     // selectRule (above) is left through since it only affects scroll position.
-    if (tutorialOpen || restoreDlgOpen || pauseEndpointUpdates) return
+    if (tutorialOpen || pauseEndpointUpdates) return
+    // Block while the restore dialog is open, but remember that a push arrived so we can
+    // re-request a fresh sync from RSL Helper once the dialog closes.
+    if (restoreDlgOpen) {
+      droppedPushDuringRestoreDlgRef.current = true
+      return
+    }
 
     if (cmd.kind === 'gearDbFileBinary') {
       enqueueEndpointPush(cmd)
@@ -6669,7 +6675,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tutorialOpen,
   ])
 
-  const { sendRequest: sendExternalRequest } = useExternalCommands({
+  const { sendRequest: sendExternalRequest, requestSfcSync } = useExternalCommands({
     pushEndpoint,
     onCommand: handleExternalCommand,
     onReachabilityChange: updatePushEndpointReachable,
@@ -9200,6 +9206,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onDismiss={() => {
             dismissRestore()
             setGearInspectorRestoreDraft(null)
+            // Re-request fresh data if RSL Helper pushed while the dialog was blocking it.
+            if (droppedPushDuringRestoreDlgRef.current) {
+              droppedPushDuringRestoreDlgRef.current = false
+              requestSfcSync()
+            }
           }}
           onRestore={(selection) => {
             flushTransientUi()
@@ -9413,6 +9424,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               restoringAutosaveRef.current = false
               flushTransientUi()
             }, 0)
+            // Re-request fresh data if RSL Helper pushed while the dialog was blocking it.
+            if (droppedPushDuringRestoreDlgRef.current) {
+              droppedPushDuringRestoreDlgRef.current = false
+              requestSfcSync()
+            }
           }}
         />
       ) : null}

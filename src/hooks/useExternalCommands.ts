@@ -23,6 +23,8 @@ export type UseExternalCommandsOptions = {
 
 export type UseExternalCommandsApi = {
   sendRequest: (method: ExternalWsRequestMethod, payload: unknown) => Promise<ExternalWsResponse>
+  // Fire-and-forget re-request: asks RSL Helper to push all current datasets again.
+  requestSfcSync: () => void
 }
 
 const DEFAULT_RECONNECT_DELAY_MS = 2000
@@ -341,7 +343,20 @@ export function useExternalCommands({
     })
   }, [])
 
-  return { sendRequest }
+  // Re-send requestSfcSync on demand (mirrors the onopen handler).
+  // Fire-and-forget — older RSL Helper versions that do not support it will simply not respond.
+  const requestSfcSync = useCallback(() => {
+    const socket = socketRef.current
+    if (!socket || socket.readyState !== WebSocket.OPEN) return
+    try {
+      const id = nextIdRef.current++
+      socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
+    } catch {
+      if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on demand')
+    }
+  }, [])
+
+  return { sendRequest, requestSfcSync }
 }
 
 export default useExternalCommands
