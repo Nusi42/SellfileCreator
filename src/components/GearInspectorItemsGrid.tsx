@@ -99,6 +99,7 @@ import {
 } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
 import { CycleButton } from './CycleButton'
+import { MenuCheckButton } from './MenuCheckButton'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
@@ -2697,18 +2698,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               {t('gearInspectorGridShowSafeguardImprovementChance')}
             </Typography>
           </MarkdownTooltip>
-          <Button
-            size="small"
-            variant={showSafeguardImprovementChance ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowSafeguardImprovementChance(!showSafeguardImprovementChance)
-            }}
-          >
-            {showSafeguardImprovementChance ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showSafeguardImprovementChance} onChange={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)} />
         </MenuItem>
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
@@ -2719,18 +2709,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               {t('gearInspectorGridShowSafeguardRank')}
             </Typography>
           </MarkdownTooltip>
-          <Button
-            size="small"
-            variant={showSafeguardRank ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowSafeguardRank(!showSafeguardRank)
-            }}
-          >
-            {showSafeguardRank ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showSafeguardRank} onChange={() => setShowSafeguardRank(!showSafeguardRank)} />
         </MenuItem>
         <MenuItem
           disableRipple
@@ -2957,154 +2936,52 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFirstMatch(!showFirstMatch)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowFirstMatch')}</Typography>
-          <Button
-            size="small"
-            variant={showFirstMatch ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowFirstMatch(!showFirstMatch)
-            }}
-          >
-            {showFirstMatch ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showFirstMatch} onChange={() => setShowFirstMatch(!showFirstMatch)} />
         </MenuItem>
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
           disabled={!showFirstMatch}
-          onClick={() => {
-            if (!showFirstMatch) return
-            setShowMatchRecipeIndex(!showMatchRecipeIndex)
-          }}
+          onClick={() => { if (!showFirstMatch) return; setShowMatchRecipeIndex(!showMatchRecipeIndex) }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchIndex')}</Typography>
-          <Button
-            size="small"
-            variant={showMatchRecipeIndex ? 'contained' : 'outlined'}
-            color="success"
-            disabled={!showFirstMatch}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              if (!showFirstMatch) return
-              setShowMatchRecipeIndex(!showMatchRecipeIndex)
-            }}
-          >
-            {showMatchRecipeIndex ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showMatchRecipeIndex} disabled={!showFirstMatch} onChange={() => { if (!showFirstMatch) return; setShowMatchRecipeIndex(!showMatchRecipeIndex) }} />
         </MenuItem>
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
           disabled={!showFirstMatch}
-          onClick={() => {
-            if (!showFirstMatch) return
-            setShowMatchLine(!showMatchLineNumber)
-          }}
+          onClick={() => { if (!showFirstMatch) return; setShowMatchLine(!showMatchLineNumber) }}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchLine')}</Typography>
-          <Button
-            size="small"
-            variant={showMatchLineNumber ? 'contained' : 'outlined'}
-            color="success"
-            disabled={!showFirstMatch}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              if (!showFirstMatch) return
-              setShowMatchLine(!showMatchLineNumber)
-            }}
-          >
-            {showMatchLineNumber ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showMatchLineNumber} disabled={!showFirstMatch} onChange={() => { if (!showFirstMatch) return; setShowMatchLine(!showMatchLineNumber) }} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowOtherMatches(!showOtherMatches)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowOtherMatches')}</Typography>
-          <Button
-            size="small"
-            variant={showOtherMatches ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowOtherMatches(!showOtherMatches)
-            }}
-          >
-            {showOtherMatches ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showOtherMatches} onChange={() => setShowOtherMatches(!showOtherMatches)} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowChampionIcons(!showChampionIcons)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowChampionIcons')}</Typography>
-          <Button
-            size="small"
-            variant={showChampionIcons ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setShowChampionIcons(!showChampionIcons)
-            }}
-          >
-            {showChampionIcons ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={showChampionIcons} onChange={() => setShowChampionIcons(!showChampionIcons)} />
         </MenuItem>
         {/* Rule template button is opt-in so we surface it only for the main Gear Inspector grid. */}
         {variant === 'gearInspector' ? (
           <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowRuleTemplates(!showRuleTemplates)}>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('gearInspectorGridShowRuleTemplates')}</Typography>
-            <Button
-              size="small"
-              variant={showRuleTemplates ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-              onClick={(event) => {
-                event.stopPropagation()
-                setShowRuleTemplates(!showRuleTemplates)
-              }}
-            >
-              {showRuleTemplates ? t('commonOn') : t('commonOff')}
-            </Button>
+            <MenuCheckButton checked={showRuleTemplates} onChange={() => setShowRuleTemplates(!showRuleTemplates)} />
           </MenuItem>
         ) : null}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setHighlightKeepSell(!highlightKeepSell)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuHighlightKeepSell')}</Typography>
-          <Button
-            size="small"
-            variant={highlightKeepSell ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              setHighlightKeepSell(!highlightKeepSell)
-            }}
-          >
-            {highlightKeepSell ? t('commonOn') : t('commonOff')}
-          </Button>
+          <MenuCheckButton checked={highlightKeepSell} onChange={() => setHighlightKeepSell(!highlightKeepSell)} />
         </MenuItem>
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
           <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 0.5,
-              width: MENU_CONTROL_MIN_WIDTH_PX,
-              height: MENU_CONTROL_HEIGHT_PX,
-              minHeight: MENU_CONTROL_HEIGHT_PX,
-            }}
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             onClick={(event) => { event.stopPropagation() }}
           >
-            <Button
-              size="small"
-              variant={useStatButtonColors ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
-              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
-            >
-              {useStatButtonColors ? t('commonOn') : t('commonOff')}
-            </Button>
+            <MenuCheckButton checked={useStatButtonColors} onChange={() => onToggleStatColors(!useStatButtonColors)} />
             {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>

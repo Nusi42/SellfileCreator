@@ -40,6 +40,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { CycleButton } from './CycleButton'
+import { MenuCheckButton } from './MenuCheckButton'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
@@ -1901,74 +1902,27 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuWrapRows')}</Typography>
-          <Button
-            size="small"
-            variant={wrapRows ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}
-          >{wrapRows ? t('commonOn') : t('commonOff')}</Button>
+          <MenuCheckButton checked={wrapRows} onChange={() => setWrapRows(!wrapRows)} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSlotIcons(!showSlotIcons)}>
-          <Typography
-            variant="body2"
-            sx={HEADER_MENU_LABEL_SX}
-          >
-            {t('rulesMenuSlotsAsIcons')}
-          </Typography>
-          <Button
-            size="small"
-            variant={showSlotIcons ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); setShowSlotIcons(!showSlotIcons) }}
-          >{showSlotIcons ? t('commonOn') : t('commonOff')}</Button>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSlotsAsIcons')}</Typography>
+          <MenuCheckButton checked={showSlotIcons} onChange={() => setShowSlotIcons(!showSlotIcons)} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFactionIcons(!showFactionIcons)}>
-          <Typography
-            variant="body2"
-            sx={HEADER_MENU_LABEL_SX}
-          >
-            {t('rulesMenuFactionsAsIcons')}
-          </Typography>
-          <Button
-            size="small"
-            variant={showFactionIcons ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); setShowFactionIcons(!showFactionIcons) }}
-          >{showFactionIcons ? t('commonOn') : t('commonOff')}</Button>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuFactionsAsIcons')}</Typography>
+          <MenuCheckButton checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSetsAsIcons')}</Typography>
-          <Button
-            size="small"
-            variant={showSetIcons ? 'contained' : 'outlined'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); setShowSetIcons(!showSetIcons) }}
-          >{showSetIcons ? t('commonOn') : t('commonOff')}</Button>
+          <MenuCheckButton checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} />
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorStatTexts')}</Typography>
           <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 0.5,
-              width: MENU_CONTROL_MIN_WIDTH_PX,
-              height: MENU_CONTROL_HEIGHT_PX,
-              minHeight: MENU_CONTROL_HEIGHT_PX,
-            }}
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             onClick={(e) => { e.stopPropagation() }}
           >
-            <Button
-              size="small"
-              variant={statButtonBorders ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
-              onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
-            >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
+            <MenuCheckButton checked={statButtonBorders} onChange={() => setStatButtonBorders(!statButtonBorders)} />
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button

@@ -23,6 +23,7 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ColorField from './ColorField'
 import { CycleButton } from './CycleButton'
+import { MenuCheckButton } from './MenuCheckButton'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { makeManageColorsIcon } from '../lib/icons'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -257,18 +258,10 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
           <Box
-            sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Button
-              size="small"
-              variant={statButtonBorders ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, flex: '1 1 auto', lineHeight: 1, py: 0, px: 1, height: '100%' }}
-              onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
-            >
-              {statButtonBorders ? t('commonOn') : t('commonOff')}
-            </Button>
+            <MenuCheckButton checked={statButtonBorders} onChange={() => setStatButtonBorders(!statButtonBorders)} />
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
