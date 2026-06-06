@@ -53,6 +53,10 @@ export type SortPreset = {
   builtin?: true
   // When true, the preset is hidden from the menu unless the user toggles show-hidden.
   hidden?: true
+  // When true, applying the preset REPLACES the entire sort (legacy behavior). When absent (the
+  // default), applying ORs/stacks the preset's sort levels onto the current sort, and a pinned
+  // button toggles by subtracting them again.
+  exclusive?: true
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +170,36 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
       grouping: FLAT_TYPE_GROUPING,
     },
   },
+  {
+    id: 'builtin:sort-ascending',
+    name: 'Ascending',
+    savedAt: '',
+    builtin: true,
+    // Bar-chart glyph evokes ordering/ranking direction.
+    iconId: 'glyph.chart',
+    // Direction-only preset: flips the global sort direction to ascending; stacks onto any sort.
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      direction: 'asc',
+    },
+  },
+  {
+    id: 'builtin:group-top-level',
+    name: 'Top-Level',
+    savedAt: '',
+    builtin: true,
+    // Banner glyph evokes the faction banners the accessories bucket splits by.
+    iconId: 'glyph.banner',
+    // Grouping-only preset: artifacts ungrouped, accessories grouped by faction (top-level buckets).
+    snapshot: {
+      ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
+      grouping: {
+        artifacts: { bySet: false, bySlot: false },
+        accessories: { byFaction: true, bySet: false, bySlot: false },
+        hideHeaders: false,
+      },
+    },
+  },
 ]
 
 /** Fast ID → preset lookup used by sanitizePreset to resolve stored built-in stubs. */
@@ -214,6 +248,8 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
   const pinnedField: Pick<SortPreset, 'pinned'> = rec['pinned'] === true ? { pinned: true } : {}
   // exactOptionalPropertyTypes: spread hidden only when explicitly true.
   const hiddenField: Pick<SortPreset, 'hidden'> = rec['hidden'] === true ? { hidden: true } : {}
+  // exactOptionalPropertyTypes: spread exclusive only when explicitly true (absent = OR/stack).
+  const exclusiveField: Pick<SortPreset, 'exclusive'> = rec['exclusive'] === true ? { exclusive: true } : {}
   return {
     id,
     name,
@@ -225,6 +261,7 @@ const sanitizePreset = (raw: unknown): SortPreset | null => {
     ...iconField,
     ...pinnedField,
     ...hiddenField,
+    ...exclusiveField,
   }
 }
 
@@ -240,10 +277,11 @@ const parsePresets = (raw: string | null): SortPreset[] => {
       if (!preset) return
       out.push(preset)
     })
-    // Inject any built-ins absent from stored order at the front (e.g. new ones added in a future version).
+    // Append any built-ins absent from stored order at the END (e.g. ones added in a later version),
+    // so existing users get new built-ins last without disturbing their saved order/customizations.
     const storedIds = new Set(out.map((p) => p.id))
     const missing = BUILTIN_SORT_PRESETS.filter((p) => !storedIds.has(p.id))
-    return [...missing, ...out]
+    return [...out, ...missing]
   } catch {
     return [...BUILTIN_SORT_PRESETS]
   }

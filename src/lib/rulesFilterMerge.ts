@@ -1,23 +1,9 @@
 /**
  * rulesFilterMerge.ts
  *
- * Set-algebra over `RulesFilterState` used by the "OR" (combine) apply mode of
- * filter presets. Three operations form a clean algebra so the pinned-preset
- * toggle stays consistent:
- *
- *   merge(base, add)     → OR/union `add` into `base`.
- *   contains(base, add)  → true iff merge(base, add) deep-equals base (apply is a no-op).
- *   subtract(base, add)  → inverse of merge: remove `add`'s contributions from `base`.
- *
- * Per-field semantics, relative to DEFAULT_RULES_FILTER_STATE:
- *   - Array selections        → set-union / subset / set-difference (keyed identity).
- *   - Boolean-flag groups      → per-flag OR / subset / clear.
- *   - Scalar/object overrides  → `add` wins only when it differs from the default;
- *                                contains = (add at default) || (base equals add);
- *                                subtract = reset to default when add differs from default.
- *
- * Defined relative to the single-source default state so there is exactly one place
- * that decides "what counts as a contribution".
+ * Set-algebra over `RulesFilterState` used by the "OR" (combine) apply mode of filter presets.
+ * The generic engine lives in `stateMergeAlgebra.ts`; here we only declare the per-field op list
+ * (relative to DEFAULT_RULES_FILTER_STATE) plus filter-specific helpers (cross-panel projection).
  */
 import {
   DEFAULT_RULES_FILTER_STATE,
@@ -25,121 +11,49 @@ import {
   type RulesFilterState,
   type GearInspectorSourceFilter,
   type GearInspectorLastUsePreset,
+  type Bool3,
 } from './rulesFilter'
 import type { StatVariant } from './types'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import type { RulesFilterPreviewMode } from '../state/rulesFilterPersistence'
+import {
+  clone,
+  unionBy,
+  subsetBy,
+  differenceBy,
+  arrayField as makeArrayField,
+  scalarField as makeScalarField,
+  flagsField as makeFlagsField,
+  runMerge,
+  runContains,
+  runSubtract,
+  runReapplyScalars,
+  type FieldOp,
+} from './stateMergeAlgebra'
 
 const D = DEFAULT_RULES_FILTER_STATE
 
-// Deep clone via JSON — filter state is plain data (no functions/Dates), matching
-// the existing snapshot cloning used throughout the preset code.
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-
-// Order-independent structural equality. Snapshot/live states can carry the same
-// data with different key order, so we canonicalize keys before comparing — mirrors
-// the intent of filterPresetSnapshotsEqual without depending on sanitize ordering.
-const stableStringify = (value: unknown): string => {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
-  const rec = value as Record<string, unknown>
-  // Sort keys so {a,b} and {b,a} serialize identically.
-  const keys = Object.keys(rec).sort()
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(rec[k])}`).join(',')}}`
-}
-const eq = (a: unknown, b: unknown): boolean => stableStringify(a) === stableStringify(b)
-
-// --- array set helpers (keyed identity) -----------------------------------
-
-const unionBy = <T>(base: readonly T[], add: readonly T[], keyOf: (x: T) => string | number): T[] => {
-  // Base entries first (base wins on key collision), then any add entries not already present.
-  const seen = new Set(base.map(keyOf))
-  const out = [...base]
-  for (const item of add) {
-    const key = keyOf(item)
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(item)
-  }
-  return out
-}
-
-const subsetBy = <T>(add: readonly T[], base: readonly T[], keyOf: (x: T) => string | number): boolean => {
-  // Every add key must already be present in base for the union to be a no-op.
-  const have = new Set(base.map(keyOf))
-  return add.every((item) => have.has(keyOf(item)))
-}
-
-const differenceBy = <T>(base: readonly T[], add: readonly T[], keyOf: (x: T) => string | number): T[] => {
-  // Drop every base entry whose key appears in add.
-  const remove = new Set(add.map(keyOf))
-  return base.filter((item) => !remove.has(keyOf(item)))
-}
-
-// --- per-field operation contract -----------------------------------------
-
-// Each field op reads leaf values from base/add and writes results into a mutable
-// `out` that starts as a deep clone of base. Keeping the field list defined once
-// means merge/contains/subtract can never drift apart.
-type FieldOp = {
-  merge: (base: RulesFilterState, add: RulesFilterState, out: RulesFilterState) => void
-  contains: (base: RulesFilterState, add: RulesFilterState) => boolean
-  subtract: (base: RulesFilterState, add: RulesFilterState, out: RulesFilterState) => void
-}
-
-// Union-array field: read the leaf array, union/subset/difference by `keyOf`.
-const arrayField = <T>(
-  read: (s: RulesFilterState) => readonly T[] | undefined,
-  write: (out: RulesFilterState, value: T[]) => void,
-  keyOf: (x: T) => string | number = (x) => x as unknown as string | number,
-): FieldOp => ({
-  merge: (b, a, out) => write(out, unionBy(read(b) ?? [], read(a) ?? [], keyOf)),
-  contains: (b, a) => subsetBy(read(a) ?? [], read(b) ?? [], keyOf),
-  subtract: (b, a, out) => write(out, differenceBy(read(b) ?? [], read(a) ?? [], keyOf)),
-})
-
-// Scalar/object override field: `add` wins only when it differs from `def`.
+// Bind the generic combinators to RulesFilterState so the field list below stays terse.
+const arrayField = <E>(
+  read: (s: RulesFilterState) => readonly E[] | undefined,
+  write: (out: RulesFilterState, value: E[]) => void,
+  keyOf?: (x: E) => string | number,
+): FieldOp<RulesFilterState> => makeArrayField(read, write, keyOf)
 const scalarField = <V>(
   read: (s: RulesFilterState) => V,
   write: (out: RulesFilterState, value: V) => void,
   def: V,
-): FieldOp => ({
-  merge: (b, a, out) => write(out, clone(eq(read(a), def) ? read(b) : read(a))),
-  contains: (b, a) => eq(read(a), def) || eq(read(b), read(a)),
-  subtract: (b, a, out) => write(out, clone(eq(read(a), def) ? read(b) : def)),
-})
-
-// Boolean-flag group: per-flag OR / subset / clear over a fixed key list.
+): FieldOp<RulesFilterState> => makeScalarField(read, write, def)
 const flagsField = <K extends string>(
   read: (s: RulesFilterState) => Record<K, boolean> | undefined,
   write: (out: RulesFilterState, value: Record<K, boolean>) => void,
   keys: readonly K[],
   def: Record<K, boolean>,
-): FieldOp => ({
-  merge: (b, a, out) => {
-    const bv = read(b) ?? def
-    const av = read(a) ?? def
-    const next = {} as Record<K, boolean>
-    for (const k of keys) next[k] = Boolean(bv[k]) || Boolean(av[k])
-    write(out, next)
-  },
-  contains: (b, a) => {
-    const bv = read(b) ?? def
-    const av = read(a) ?? def
-    // Every flag the addition turns on must already be on in base.
-    return keys.every((k) => !av[k] || Boolean(bv[k]))
-  },
-  subtract: (b, a, out) => {
-    const bv = read(b) ?? def
-    const av = read(a) ?? def
-    const next = {} as Record<K, boolean>
-    for (const k of keys) next[k] = Boolean(bv[k]) && !av[k]
-    write(out, next)
-  },
-})
+): FieldOp<RulesFilterState> => makeFlagsField(read, write, keys, def)
 
 // --- the single field list ------------------------------------------------
 
-const FIELD_OPS: readonly FieldOp[] = [
+const FIELD_OPS: readonly FieldOp<RulesFilterState>[] = [
   // Rule-level Keep/Use tri-states (scalar override; default 'any').
   scalarField((s) => s.rule?.keep ?? D.rule!.keep, (o, v) => { o.rule = { ...(o.rule ?? clone(D.rule!)), keep: v } }, D.rule!.keep),
   scalarField((s) => s.rule?.use ?? D.rule!.use, (o, v) => { o.rule = { ...(o.rule ?? clone(D.rule!)), use: v } }, D.rule!.use),
@@ -213,46 +127,74 @@ const FIELD_OPS: readonly FieldOp[] = [
 // --- public algebra -------------------------------------------------------
 
 /** OR/union `add` into `base`, returning a new state (inputs untouched). */
-export const mergeRulesFilterState = (base: RulesFilterState, add: RulesFilterState): RulesFilterState => {
-  const out = clone(base)
-  for (const op of FIELD_OPS) op.merge(base, add, out)
-  return out
-}
+export const mergeRulesFilterState = (base: RulesFilterState, add: RulesFilterState): RulesFilterState =>
+  runMerge(FIELD_OPS, base, add)
 
 /** True iff merging `add` into `base` would change nothing (base already covers add). */
 export const rulesFilterStateContains = (base: RulesFilterState, add: RulesFilterState): boolean =>
-  FIELD_OPS.every((op) => op.contains(base, add))
+  runContains(FIELD_OPS, base, add)
 
 /** Inverse of merge: remove `add`'s contributions from `base`, returning a new state. */
-export const subtractRulesFilterState = (base: RulesFilterState, add: RulesFilterState): RulesFilterState => {
-  const out = clone(base)
-  for (const op of FIELD_OPS) op.subtract(base, add, out)
-  return out
-}
+export const subtractRulesFilterState = (base: RulesFilterState, add: RulesFilterState): RulesFilterState =>
+  runSubtract(FIELD_OPS, base, add)
+
+/** Re-apply only `add`'s scalar "mode" fields (anyMode, match, etc.) onto `base` — used by un-OR. */
+export const reapplyRulesFilterScalars = (base: RulesFilterState, add: RulesFilterState): RulesFilterState =>
+  runReapplyScalars(FIELD_OPS, base, add)
 
 /** True iff `add` deviates from the default state (i.e. it would contribute something). */
 export const rulesFilterStateHasContribution = (add: RulesFilterState): boolean =>
   !rulesFilterStateContains(cloneDefaultRulesFilterState(), add)
 
-/**
- * True iff `state` contributes anything the Sellfile-preview (rules) filter actually uses — i.e.
- * a non-Gear-Inspector-only field. Gear-Inspector-only fields (result labels, gear DB sources,
- * chaos/glyph/ascension/champions/rolls/last-use/improvement-chance, and the numeric level range)
- * have no effect on the rules preview, so a preset built purely from them does not apply there.
- * Used to disable Gear-Inspector-only pinned presets while the Sellfile preview is active.
- */
-export const rulesFilterStateAppliesToRulesMode = (state: RulesFilterState): boolean => {
-  const stripped = clone(state)
-  stripped.gearInspectorResult = clone(D.gearInspectorResult!)
-  stripped.gearInspectorSources = clone(D.gearInspectorSources!)
-  stripped.gearInspectorChaos = clone(D.gearInspectorChaos!)
-  stripped.gearInspectorGlyphs = clone(D.gearInspectorGlyphs!)
-  stripped.gearInspectorAscension = clone(D.gearInspectorAscension!)
-  stripped.gearInspectorChampions = clone(D.gearInspectorChampions!)
-  stripped.gearInspectorRolls = clone(D.gearInspectorRolls!)
-  stripped.gearInspectorLastUse = clone(D.gearInspectorLastUse!)
-  stripped.gearInspectorImprovementChance = clone(D.gearInspectorImprovementChance!)
+// Reset every Gear-Inspector-only field to default — used when projecting a payload onto the
+// rules (Sellfile preview) panel, which ignores these fields entirely.
+const stripGearInspectorOnlyFields = (out: RulesFilterState): void => {
+  out.gearInspectorResult = clone(D.gearInspectorResult!)
+  out.gearInspectorSources = clone(D.gearInspectorSources!)
+  out.gearInspectorChaos = clone(D.gearInspectorChaos!)
+  out.gearInspectorGlyphs = clone(D.gearInspectorGlyphs!)
+  out.gearInspectorAscension = clone(D.gearInspectorAscension!)
+  out.gearInspectorChampions = clone(D.gearInspectorChampions!)
+  out.gearInspectorRolls = clone(D.gearInspectorRolls!)
+  out.gearInspectorLastUse = clone(D.gearInspectorLastUse!)
+  out.gearInspectorImprovementChance = clone(D.gearInspectorImprovementChance!)
   // Keep level.selected / anyMode (rules-relevant); reset only the Gear-Inspector numeric range.
-  if (stripped.level) stripped.level = { ...stripped.level, gearInspectorRange: clone(D.level.gearInspectorRange!) }
-  return rulesFilterStateHasContribution(stripped)
+  if (out.level) out.level = { ...out.level, gearInspectorRange: clone(D.level.gearInspectorRange!) }
+}
+
+/**
+ * Project a filter payload onto a target panel so a preset works in either panel regardless of
+ * where it was authored (cross-panel mapping — no data-type changes). Fields meaningful in both
+ * panels (slots, sets, rank, rarity, level milestones, main/sub, faction, name) pass through; the
+ * Keep/Sell intent is translated between the two representations:
+ *   - rules panel: `rule.keep` (Bool3) ← Gear-Inspector `gearInspectorResult.keep/sell` (keep-only
+ *     → 'yes', sell-only → 'no', both/neither → no restriction); all Gear-Inspector-only fields drop.
+ *   - Gear Inspector: `gearInspectorResult.keep/sell` ← `rule.keep`; `rule` is then reset (the rule
+ *     enabled/disabled axis has no item-outcome analog).
+ * This is why e.g. "Show only Sell" filters the Sellfile preview (as a Sell rule filter), not just
+ * the Gear Inspector.
+ */
+export const projectFilterStateToMode = (state: RulesFilterState, mode: RulesFilterPreviewMode): RulesFilterState => {
+  const out = clone(state)
+  if (mode === 'rules') {
+    // Read the original result outcome before stripping, then fold it into the rule keep/sell intent.
+    const result = state.gearInspectorResult
+    const keepOnly = Boolean(result?.keep) && !result?.sell
+    const sellOnly = Boolean(result?.sell) && !result?.keep
+    const mappedKeep: Bool3 = keepOnly ? 'yes' : sellOnly ? 'no' : (out.rule?.keep ?? D.rule!.keep)
+    out.rule = { keep: mappedKeep, use: out.rule?.use ?? D.rule!.use }
+    stripGearInspectorOnlyFields(out)
+  } else {
+    // Fold the rule keep/sell intent into the item-outcome flags, then drop the rule axis.
+    const ruleKeep = state.rule?.keep ?? 'any'
+    if (ruleKeep !== 'any') {
+      out.gearInspectorResult = {
+        ...(out.gearInspectorResult ?? clone(D.gearInspectorResult!)),
+        keep: ruleKeep === 'yes' ? true : Boolean(out.gearInspectorResult?.keep),
+        sell: ruleKeep === 'no' ? true : Boolean(out.gearInspectorResult?.sell),
+      }
+    }
+    out.rule = clone(D.rule!)
+  }
+  return out
 }
