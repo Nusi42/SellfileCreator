@@ -28,8 +28,8 @@ export type ScoreEntry = {
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 const STORAGE_KEY: Record<GameId, string> = {
-  pong:     'sfc-easter-egg-pong-scores',
-  sellfall: 'sfc-easter-egg-sellfall-scores',
+  pong:     'sellfileCreator.easterEgg.pong.scores',
+  sellfall: 'sellfileCreator.easterEgg.sellfall.scores',
 }
 
 /** Maximum entries kept in localStorage per game to avoid unbounded growth. */
