@@ -130,10 +130,8 @@ export const useAutoApplyBuilderPreference = createLocalStorageStateHook(autoApp
 // Builder-only: control whether tag chips render beside the Tags button in the form header.
 const showTagsStore = createLocalStorageStore<boolean>({
   key: BUILDER_SHOW_TAG_CHIPS_KEY,
-  // Default off to keep the header compact until users opt in.
-  fallback: false,
+  fallback: true,
   parse: (raw) => raw === 'true',
-  // Store as a compact string for parity with other toggles.
   serialize: (value) => String(value),
 })
 

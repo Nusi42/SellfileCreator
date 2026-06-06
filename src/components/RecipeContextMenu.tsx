@@ -1,5 +1,6 @@
 import React from 'react'
-import { Checkbox, Divider, Menu, MenuItem } from '@mui/material'
+import { Divider, Menu, MenuItem, Typography } from '@mui/material'
+import { MenuCheckButton } from './MenuCheckButton'
 import { useI18n } from '../lib/i18n'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaperGuardToken } from './ContextMenuPaper'
 
@@ -274,9 +275,10 @@ export function RecipeContextMenu({
       <MenuItem
         key="toggleShowTagsInChips"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleAction.handler() }}
+        sx={{ gap: 1, alignItems: 'center' }}
       >
-        <Checkbox size="small" checked={toggleAction.checked} onChange={toggleAction.handler} sx={{ mr: 1, p: 0.5 }} />
-        {t('chipsMenuShowTagsInChips')}
+        <Typography variant="body2" sx={{ flex: 1 }}>{t('chipsMenuShowTagsInChips')}</Typography>
+        <MenuCheckButton checked={toggleAction.checked} onChange={toggleAction.handler} />
       </MenuItem>,
     )
   }

@@ -14,7 +14,6 @@ import {
   Box,
   Button,
   ButtonBase,
-  Checkbox,
   Chip,
   Collapse,
   Divider,
@@ -174,6 +173,7 @@ import {
   type SafeguardOverridesInstruction,
 } from '../lib/noteSafeguardOverrides'
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
+import { MenuCheckButton } from './MenuCheckButton'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -1877,8 +1877,8 @@ export default function SafeguardBuilderPanel({
           <MarkdownTooltip markdown={tagsButtonLabel} placement="top">
             <Button
               size="small"
-              variant="outlined"
-              color={tagsButtonActive ? 'warning' : 'success'}
+              variant={tagsButtonActive ? 'contained' : 'outlined'}
+              color="success"
               onClick={(event) => {
                 // Reset any stale Escape marker before opening the popover.
                 tagsEscapeCloseRef.current = false
@@ -1978,14 +1978,9 @@ export default function SafeguardBuilderPanel({
             onClose={closeTagsContextMenu}
             slotProps={{ paper: { ref: tagsContextPaperRef } }}
           >
-            <MenuItem onClick={() => setShowTagsChips(!showTagsChips)}>
-              <Checkbox
-                size="small"
-                checked={showTagsChips}
-                onChange={(event) => setShowTagsChips(Boolean(event.target.checked))}
-                sx={{ mr: 1, p: 0.5 }}
-              />
-              {t('builderMenuShowTags')}
+            <MenuItem onClick={() => setShowTagsChips(!showTagsChips)} sx={{ gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuShowTags')}</Typography>
+              <MenuCheckButton checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
             </MenuItem>
           </Menu>
           {/* Context menu hint overlay matches the rest of the builder controls. */}
@@ -2998,9 +2993,9 @@ export default function SafeguardBuilderPanel({
           onClose={closeInsertMenu}
           slotProps={{ paper: { ref: insertMenuPaperRef } }}
         >
-          <MenuItem onClick={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }}>
-            <Checkbox size="small" checked={autoResetAfterInsert} onChange={() => {}} sx={{ mr: 1, p: 0.5 }} />
-            {t('builderMenuAutoResetAfterInsert')}
+          <MenuItem onClick={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }} sx={{ gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoResetAfterInsert')}</Typography>
+            <MenuCheckButton checked={autoResetAfterInsert} onChange={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }} />
           </MenuItem>
         </Menu>
 
@@ -3011,9 +3006,9 @@ export default function SafeguardBuilderPanel({
           onClose={closeApplyMenu}
           slotProps={{ paper: { ref: applyMenuPaperRef } }}
         >
-          <MenuItem onClick={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }}>
-            <Checkbox size="small" checked={autoApplySelectedRecipe} onChange={() => {}} sx={{ mr: 1, p: 0.5 }} />
-            {t('safeguardsBuilderMenuAutoApplySelected')}
+          <MenuItem onClick={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }} sx={{ gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ flex: 1 }}>{t('safeguardsBuilderMenuAutoApplySelected')}</Typography>
+            <MenuCheckButton checked={autoApplySelectedRecipe} onChange={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }} />
           </MenuItem>
         </Menu>
 

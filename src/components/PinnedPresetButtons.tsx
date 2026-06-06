@@ -51,9 +51,8 @@ export function PinnedPresetButtons({ buttons, disabled, onToggle, ariaLabel, to
         <MarkdownTooltip key={b.id} markdown={tooltip(b.name, b.active)}>
           <Button
             size="small"
-            variant="outlined"
-            // Mirror the Filter/Sort buttons: warning when active, success when idle.
-            color={b.active ? 'warning' : 'success'}
+            variant={b.active ? 'contained' : 'outlined'}
+            color="success"
             // Row-level disable (e.g. sort presets in Rules mode) OR a per-button disable.
             disabled={disabled || b.disabled}
             aria-pressed={b.active}

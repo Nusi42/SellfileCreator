@@ -40,6 +40,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import { CycleButton } from './CycleButton'
+import { MenuCheckButton } from './MenuCheckButton'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -1204,8 +1205,8 @@ export default function PreviewHeaderActions(props: {
                 >
                   <Button
                     size="small"
-                    variant="outlined"
-                    color={filterActive ? 'warning' : 'success'}
+                    variant={filterActive ? 'contained' : 'outlined'}
+                    color="success"
                     // Left click toggles the filter panel; the preset menu is context-menu only.
                     onClick={() => onToggleFilter?.()}
                     aria-pressed={filterActive}
@@ -1272,8 +1273,8 @@ export default function PreviewHeaderActions(props: {
                 >
                   <Button
                     size="small"
-                    variant="outlined"
-                    color={sortActive ? 'warning' : 'success'}
+                    variant={sortActive ? 'contained' : 'outlined'}
+                    color="success"
                     disabled={isRulesMode}
                     onClick={(event) => {
                       if (isRulesMode) return
@@ -1388,14 +1389,14 @@ export default function PreviewHeaderActions(props: {
                   {t('gearDiffSetReference')}
                 </MenuItem>
                 {/* Auto: re-pin the baseline against the last undo checkpoint automatically. */}
-                <MenuItem onClick={() => { onToggleDiffAuto?.() }}>
-                  <Checkbox size="small" edge="start" checked={diffAutoMode} sx={{ mr: 0.5, p: 0.5 }} />
-                  {t('gearDiffAutoMode')}
+                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => { onToggleDiffAuto?.() }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffAutoMode')}</Typography>
+                  <MenuCheckButton checked={diffAutoMode} onChange={() => { onToggleDiffAuto?.() }} />
                 </MenuItem>
                 {/* Diff chip visibility: 'auto' shows the delta chip when non-zero; 'off' hides it. */}
-                <MenuItem onClick={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }}>
-                  <Checkbox size="small" edge="start" checked={diffChipMode !== 'off'} sx={{ mr: 0.5, p: 0.5 }} />
-                  {t('gearDiffChipLabel')}
+                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffChipLabel')}</Typography>
+                  <MenuCheckButton checked={diffChipMode !== 'off'} onChange={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }} />
                 </MenuItem>
                 {/* Diff filter mode: which verdict side the active Gear Inspector filter tests.
                     CycleButton suits this because it is a 3-state option, not a simple toggle. */}
@@ -1557,15 +1558,10 @@ export default function PreviewHeaderActions(props: {
                 {onToggleFiltersSynced ? (
                   <MenuItem
                     onClick={() => onToggleFiltersSynced(!filtersSynced)}
-                    sx={{ mt: 0.5 }}
+                    sx={{ mt: 0.5, gap: 1, alignItems: 'center' }}
                   >
-                    <Checkbox
-                      size="small"
-                      checked={filtersSynced}
-                      onChange={(event) => onToggleFiltersSynced(Boolean(event.target.checked))}
-                      sx={{ mr: 1, p: 0.5 }}
-                    />
-                    {t('filterSyncViews')}
+                    <Typography variant="body2" sx={{ flex: 1 }}>{t('filterSyncViews')}</Typography>
+                    <MenuCheckButton checked={Boolean(filtersSynced)} onChange={() => onToggleFiltersSynced(!filtersSynced)} />
                   </MenuItem>
                 ) : null}
                 {/* Save-as row: always last and non-reorderable. Show-hidden toggle lives at the right edge. */}
@@ -2814,29 +2810,21 @@ export default function PreviewHeaderActions(props: {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
-                {/* Checkbox toggles whether endpoint success toasts appear. */}
+                {/* Toggles whether endpoint success toasts appear. */}
                 <MenuItem
                   onClick={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)}
+                  sx={{ gap: 1, alignItems: 'center' }}
                 >
-                  <Checkbox
-                    size="small"
-                    checked={hideGearDbUpdateToast}
-                    onChange={(event) => onToggleHideGearDbUpdateToast(Boolean(event.target.checked))}
-                    sx={{ mr: 1, p: 0.5 }}
-                  />
-                  {gearDbHistoryHideToastLabel}
+                  <Typography variant="body2" sx={{ flex: 1 }}>{gearDbHistoryHideToastLabel}</Typography>
+                  <MenuCheckButton checked={hideGearDbUpdateToast} onChange={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)} />
                 </MenuItem>
-                {/* Checkbox pauses endpoint pushes; arriving commands are dropped, not queued. */}
+                {/* Pauses endpoint pushes; arriving commands are dropped, not queued. */}
                 <MenuItem
                   onClick={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)}
+                  sx={{ gap: 1, alignItems: 'center' }}
                 >
-                  <Checkbox
-                    size="small"
-                    checked={pauseEndpointUpdates}
-                    onChange={(event) => onTogglePauseEndpointUpdates(Boolean(event.target.checked))}
-                    sx={{ mr: 1, p: 0.5 }}
-                  />
-                  {gearDbHistoryPauseUpdatesLabel}
+                  <Typography variant="body2" sx={{ flex: 1 }}>{gearDbHistoryPauseUpdatesLabel}</Typography>
+                  <MenuCheckButton checked={pauseEndpointUpdates} onChange={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)} />
                 </MenuItem>
               </Menu>
             </>
@@ -2991,37 +2979,18 @@ export default function PreviewHeaderActions(props: {
               ) : null}
               {/* Auto-push only makes sense when a push endpoint is configured. */}
               {pushActive ? (
-                <MenuItem onClick={() => onToggleAutoPush(!autoPushEnabled)}>
-                  <Checkbox
-                    size="small"
-                    checked={autoPushEnabled}
-                    onChange={(event) => onToggleAutoPush(Boolean(event.target.checked))}
-                    sx={{ mr: 1, p: 0.5 }}
-                  />
-                  {t('exportSellfileAutoPush')}
+                <MenuItem onClick={() => onToggleAutoPush(!autoPushEnabled)} sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileAutoPush')}</Typography>
+                  <MenuCheckButton checked={autoPushEnabled} onChange={() => onToggleAutoPush(!autoPushEnabled)} />
                 </MenuItem>
               ) : null}
-              <MenuItem
-                onClick={() => onToggleOmitDisabled(!omitDisabledForExport)}
-              >
-                <Checkbox
-                  size="small"
-                  checked={omitDisabledForExport}
-                  onChange={(event) => onToggleOmitDisabled(Boolean(event.target.checked))}
-                  sx={{ mr: 1, p: 0.5 }}
-                />
-                {t('exportSellfileOmitDisabled')}
+              <MenuItem onClick={() => onToggleOmitDisabled(!omitDisabledForExport)} sx={{ gap: 1, alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileOmitDisabled')}</Typography>
+                <MenuCheckButton checked={omitDisabledForExport} onChange={() => onToggleOmitDisabled(!omitDisabledForExport)} />
               </MenuItem>
-              <MenuItem
-                onClick={() => onToggleDedupeDefault(!dedupeDefault)}
-              >
-                <Checkbox
-                  size="small"
-                  checked={dedupeDefault}
-                  onChange={(event) => onToggleDedupeDefault(Boolean(event.target.checked))}
-                  sx={{ mr: 1, p: 0.5 }}
-                />
-                {t('exportSellfileDedupDefault')}
+              <MenuItem onClick={() => onToggleDedupeDefault(!dedupeDefault)} sx={{ gap: 1, alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileDedupDefault')}</Typography>
+                <MenuCheckButton checked={dedupeDefault} onChange={() => onToggleDedupeDefault(!dedupeDefault)} />
               </MenuItem>
             </Menu>
           ) : null}

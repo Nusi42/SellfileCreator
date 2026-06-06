@@ -90,7 +90,6 @@ import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
 import { ColorField } from './ColorField'
 import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
-import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
@@ -155,6 +154,7 @@ import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
 import { useRuleCountBadge } from './builderPanel/useRuleCountBadge'
 import { useMultiEditSummary } from './builderPanel/useRecipeMultiEditSummary'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
+import { MenuCheckButton } from './MenuCheckButton'
 import {
   computeRollBudgetForRecipe,
   EMPTY_SELECTION,
@@ -6185,8 +6185,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <EllipsisTooltip title={tagsButtonLabel} selector="[data-ellipsis-target]">
                   <Button
                     size="small"
-                    variant="outlined"
-                    color={tagsButtonActive ? 'warning' : 'success'}
+                    variant={tagsButtonActive ? 'contained' : 'outlined'}
+                    color="success"
                     onClick={(event) => {
                       // Reset any stale Escape marker before opening the popover.
                       tagsEscapeCloseRef.current = false
@@ -6291,14 +6291,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 onClose={closeTagsContextMenu}
                 slotProps={{ paper: { ref: tagsContextPaperRef } }}
               >
-                <MenuItem onClick={() => setShowTagsChips(!showTagsChips)}>
-                  <Checkbox
-                    size="small"
-                    checked={showTagsChips}
-                    onChange={(event) => setShowTagsChips(Boolean(event.target.checked))}
-                    sx={{ mr: 1, p: 0.5 }}
-                  />
-                  {t('builderMenuShowTags')}
+                <MenuItem onClick={() => setShowTagsChips(!showTagsChips)} sx={{ gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuShowTags')}</Typography>
+                  <MenuCheckButton checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
                 </MenuItem>
               </Menu>
               {/* Context menu hint overlay matches the rest of the builder controls. */}
@@ -7292,16 +7287,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onClose={closeInsertMenu}
           slotProps={{ paper: { ref: insertMenuPaperRef } }}
         >
-          <MenuItem
-            onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)}
-          >
-            <Checkbox
-              size="small"
-              checked={autoResetAfterInsert}
-              onChange={(e) => setAutoResetAfterInsertExclusive(Boolean(e.target.checked))}
-              sx={{ mr: 1, p: 0.5 }}
-            />
-            {t('builderMenuAutoResetAfterInsert')}
+          <MenuItem onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)} sx={{ gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoResetAfterInsert')}</Typography>
+            <MenuCheckButton checked={autoResetAfterInsert} onChange={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)} />
           </MenuItem>
         </Menu>
         <Menu
@@ -7310,16 +7298,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onClose={closeApplyMenu}
           slotProps={{ paper: { ref: applyMenuPaperRef } }}
         >
-          <MenuItem
-            onClick={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)}
-          >
-            <Checkbox
-              size="small"
-              checked={autoApplySelectedRecipe}
-              onChange={(e) => setAutoApplySelectedRecipeExclusive(Boolean(e.target.checked))}
-              sx={{ mr: 1, p: 0.5 }}
-            />
-            {t('builderMenuAutoApplySelected')}
+          <MenuItem onClick={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)} sx={{ gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoApplySelected')}</Typography>
+            <MenuCheckButton checked={autoApplySelectedRecipe} onChange={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)} />
           </MenuItem>
         </Menu>
         <Menu
