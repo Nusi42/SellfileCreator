@@ -1759,13 +1759,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Stable refs avoid re-creating these as compare state changes each pipeline commit.
   const gearDiffPinBaselineRef = useRef(gearDiffCompare.pinBaseline)
   useEffect(() => { gearDiffPinBaselineRef.current = gearDiffCompare.pinBaseline }, [gearDiffCompare.pinBaseline])
-  // Toggle the inline diff split-view. This ONLY shows/hides the view — it never pins or
-  // clears the reference. The reference is owned by Auto-track / Set reference, so the diff
-  // data stays available (and the header chip stays visible) whether the view is open or
-  // closed, and opening the view shows exactly the diff the chip already reflects.
+  // Toggle the inline diff split-view. Shows/hides the view; when opening with no reference
+  // set, auto-pins the current state as the baseline so the diff is immediately meaningful.
+  // The reference is otherwise owned by Auto-track / Set reference, so the diff data stays
+  // available (and the header chip stays visible) whether the view is open or closed.
   const handleToggleGearDiffMode = useCallback(() => {
+    if (!gearDiffSplitOpen && gearDiffCompare.baseline === null) {
+      // No reference yet — create one from the current state before opening the view.
+      gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
+    }
     setGearDiffSplitOpen((open) => !open)
-  }, [])
+  }, [gearDiffSplitOpen, gearDiffCompare.baseline, t])
   // Manual "Set reference": pin the current state as the comparison baseline now.
   const handleSetGearDiffReference = useCallback(() => {
     gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
