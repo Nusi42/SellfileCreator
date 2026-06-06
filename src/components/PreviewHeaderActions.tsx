@@ -192,8 +192,10 @@ export default function PreviewHeaderActions(props: {
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
-  onSaveFilterPreset?: (name: string, includeSort: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => void
+  onSaveFilterPreset?: (name: string, includeSort: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean, exclusive: boolean) => void
   onApplyFilterPreset?: (presetId: string) => void
+  // Untoggle a pinned preset: OR presets subtract their selections; exclusive presets clear the filter.
+  onUnapplyFilterPreset?: (presetId: string) => void
   onDeleteFilterPreset?: (presetId: string) => void
   onMoveFilterPreset?: (presetId: string, direction: 'up' | 'down') => void
   // Toggles hidden state; called with the new desired value so callers don't need to read current state.
@@ -293,6 +295,7 @@ export default function PreviewHeaderActions(props: {
     filterPresets = [],
     onSaveFilterPreset,
     onApplyFilterPreset,
+    onUnapplyFilterPreset,
     onDeleteFilterPreset,
     onMoveFilterPreset,
     onHideFilterPreset,
@@ -324,8 +327,7 @@ export default function PreviewHeaderActions(props: {
       case 'builtin:all-artifacts':  return t('builtinFilterPresetAllArtifacts')
       case 'builtin:all-accessories': return t('builtinFilterPresetAllAccessories')
       case 'builtin:sell':            return t('builtinFilterPresetShowOnlySell')
-      case 'builtin:sell-artifacts':  return t('builtinFilterPresetShowOnlySellArtifacts')
-      case 'builtin:sell-accessories': return t('builtinFilterPresetShowOnlySellAccessories')
+      case 'builtin:scoped-sell':     return t('builtinFilterPresetScopedSell')
       default: return p.name
     }
   }, [t])
@@ -611,6 +613,8 @@ export default function PreviewHeaderActions(props: {
   const [savePresetIconId, setSavePresetIconId] = React.useState<MetasetIconId>(DEFAULT_METASET_ICON_ID)
   // Whether to surface the preset as a quick-toggle button next to the Filter button.
   const [savePresetPinned, setSavePresetPinned] = React.useState(false)
+  // When true, applying replaces the whole filter; when false (default), it ORs/merges into it.
+  const [savePresetExclusive, setSavePresetExclusive] = React.useState(false)
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
   const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
@@ -624,6 +628,8 @@ export default function PreviewHeaderActions(props: {
     // Reset icon + pin so each save starts from the defaults (no icon, not pinned).
     setSavePresetIconId(DEFAULT_METASET_ICON_ID)
     setSavePresetPinned(false)
+    // Default to OR/merge apply (exclusive off), matching the built-in presets.
+    setSavePresetExclusive(false)
     setSavePresetOpen(true)
   }, [])
 
@@ -637,9 +643,9 @@ export default function PreviewHeaderActions(props: {
     if (!name) return
     // 'none' is the no-icon sentinel; pass undefined so the store keeps the field absent.
     const iconId = savePresetIconId === DEFAULT_METASET_ICON_ID ? undefined : savePresetIconId
-    onSaveFilterPreset?.(name, savePresetIncludeSort, savePresetColor || undefined, iconId, savePresetPinned)
+    onSaveFilterPreset?.(name, savePresetIncludeSort, savePresetColor || undefined, iconId, savePresetPinned, savePresetExclusive)
     setSavePresetOpen(false)
-  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort, savePresetColor, savePresetIconId, savePresetPinned])
+  }, [onSaveFilterPreset, savePresetName, savePresetIncludeSort, savePresetColor, savePresetIconId, savePresetPinned, savePresetExclusive])
 
   // --- Sort preset dialog state ---------------------------------------------
 
@@ -1209,7 +1215,7 @@ export default function PreviewHeaderActions(props: {
               {/* Pinned filter presets: icon-only quick toggles, sitting left of the clear ✕. Apply on click; clear when active. */}
               <PinnedPresetButtons
                 buttons={pinnedFilterButtons}
-                onToggle={(id, active) => { if (active) onClearFilters?.(); else onApplyFilterPreset?.(id) }}
+                onToggle={(id, active) => { if (active) onUnapplyFilterPreset?.(id); else onApplyFilterPreset?.(id) }}
                 ariaLabel={(name) => name}
                 tooltip={(name) => name}
               />
@@ -1616,6 +1622,17 @@ export default function PreviewHeaderActions(props: {
                       />
                     }
                     label={t('filterPresetsSaveIncludeSort')}
+                  />
+                  {/* Apply mode: unchecked (default) ORs the preset into the current filter; checked replaces it. */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={savePresetExclusive}
+                        onChange={(event) => setSavePresetExclusive(event.target.checked)}
+                      />
+                    }
+                    label={t('filterPresetsSaveExclusive')}
                   />
                 </Stack>
               </DialogContent>

@@ -1256,8 +1256,7 @@ const enUS: Catalog = {
   builtinFilterPresetAllArtifacts: "All Artifacts",
   builtinFilterPresetAllAccessories: "All Accessories",
   builtinFilterPresetShowOnlySell: "Show only Sell",
-  builtinFilterPresetShowOnlySellArtifacts: "Show only Sell – Artifacts",
-  builtinFilterPresetShowOnlySellAccessories: "Show only Sell – Accessories",
+  builtinFilterPresetScopedSell: "Scoped Sell",
   // Built-in sort preset names
   builtinSortPresetNewest: "Newest",
   builtinSortPresetLatestUsed: "Latest Used",
@@ -1275,6 +1274,7 @@ const enUS: Catalog = {
   filterPresetsMoveUp: "Move up",
   filterPresetsMoveDown: "Move down",
   filterPresetsSaveIncludeSort: "Include sort settings",
+  filterPresetsSaveExclusive: "Replace current filter when applied",
   sortPresetsSaveAs: "Save as…",
   sortPresetsEmpty: "No saved sorts yet.",
   sortPresetsSaveDialogTitle: "Save sort preset",

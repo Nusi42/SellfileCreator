@@ -1227,8 +1227,7 @@ const overrides: Catalog = {
   builtinFilterPresetAllArtifacts: "Все артефакты",
   builtinFilterPresetAllAccessories: "Все аксессуары",
   builtinFilterPresetShowOnlySell: "Только продать",
-  builtinFilterPresetShowOnlySellArtifacts: "Только продать – Артефакты",
-  builtinFilterPresetShowOnlySellAccessories: "Только продать – Аксессуары",
+  builtinFilterPresetScopedSell: "Прицельная продажа",
   // Built-in sort preset names
   builtinSortPresetNewest: "Новейшие",
   builtinSortPresetLatestUsed: "Последнее использование",
@@ -1242,6 +1241,7 @@ const overrides: Catalog = {
   filterPresetsMoveUp: "Вверх",
   filterPresetsMoveDown: "Вниз",
   filterPresetsSaveIncludeSort: "Включить настройки сортировки",
+  filterPresetsSaveExclusive: "Заменять текущий фильтр при применении",
   sortPresetsSaveAs: "Сохранить как…",
   sortPresetsEmpty: "Сохранённых сортировок пока нет.",
   sortPresetsSaveDialogTitle: "Сохранить пресет сортировки",

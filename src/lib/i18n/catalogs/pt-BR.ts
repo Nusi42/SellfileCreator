@@ -1229,8 +1229,7 @@ const catalog: Catalog = {
   builtinFilterPresetAllArtifacts: "Todos os artefatos",
   builtinFilterPresetAllAccessories: "Todos os acessórios",
   builtinFilterPresetShowOnlySell: "Somente Vender",
-  builtinFilterPresetShowOnlySellArtifacts: "Somente Vender – Artefatos",
-  builtinFilterPresetShowOnlySellAccessories: "Somente Vender – Acessórios",
+  builtinFilterPresetScopedSell: "Venda direcionada",
   // Built-in sort preset names
   builtinSortPresetNewest: "Mais recentes",
   builtinSortPresetLatestUsed: "Último uso",
@@ -1244,6 +1243,7 @@ const catalog: Catalog = {
   filterPresetsMoveUp: "Mover para cima",
   filterPresetsMoveDown: "Mover para baixo",
   filterPresetsSaveIncludeSort: "Incluir configurações de ordem",
+  filterPresetsSaveExclusive: "Substituir o filtro atual ao aplicar",
   sortPresetsSaveAs: "Salvar como…",
   sortPresetsEmpty: "Nenhuma ordem salva ainda.",
   sortPresetsSaveDialogTitle: "Salvar preset de ordem",

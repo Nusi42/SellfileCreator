@@ -1228,8 +1228,7 @@ const overrides: Catalog = {
   builtinFilterPresetAllArtifacts: "Всі артефакти",
   builtinFilterPresetAllAccessories: "Всі аксесуари",
   builtinFilterPresetShowOnlySell: "Тільки продати",
-  builtinFilterPresetShowOnlySellArtifacts: "Тільки продати – Артефакти",
-  builtinFilterPresetShowOnlySellAccessories: "Тільки продати – Аксесуари",
+  builtinFilterPresetScopedSell: "Цільовий продаж",
   // Built-in sort preset names
   builtinSortPresetNewest: "Найновіші",
   builtinSortPresetLatestUsed: "Останнє використання",
@@ -1243,6 +1242,7 @@ const overrides: Catalog = {
   filterPresetsMoveUp: "Вгору",
   filterPresetsMoveDown: "Вниз",
   filterPresetsSaveIncludeSort: "Включити налаштування сортування",
+  filterPresetsSaveExclusive: "Замінювати поточний фільтр під час застосування",
   sortPresetsSaveAs: "Зберегти як…",
   sortPresetsEmpty: "Збережених сортувань ще немає.",
   sortPresetsSaveDialogTitle: "Зберегти пресет сортування",

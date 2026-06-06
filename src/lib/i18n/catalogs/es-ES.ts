@@ -1229,8 +1229,7 @@ const overrides: Catalog = {
   builtinFilterPresetAllArtifacts: "Todos los artefactos",
   builtinFilterPresetAllAccessories: "Todos los accesorios",
   builtinFilterPresetShowOnlySell: "Solo vender",
-  builtinFilterPresetShowOnlySellArtifacts: "Solo vender – Artefactos",
-  builtinFilterPresetShowOnlySellAccessories: "Solo vender – Accesorios",
+  builtinFilterPresetScopedSell: "Venta selectiva",
   // Built-in sort preset names
   builtinSortPresetNewest: "Más recientes",
   builtinSortPresetLatestUsed: "Último uso",
@@ -1244,6 +1243,7 @@ const overrides: Catalog = {
   filterPresetsMoveUp: "Subir",
   filterPresetsMoveDown: "Bajar",
   filterPresetsSaveIncludeSort: "Incluir configuración de orden",
+  filterPresetsSaveExclusive: "Reemplazar el filtro actual al aplicar",
   sortPresetsSaveAs: "Guardar como…",
   sortPresetsEmpty: "Aún no hay órdenes guardados.",
   sortPresetsSaveDialogTitle: "Guardar preset de orden",

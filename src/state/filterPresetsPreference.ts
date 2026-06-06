@@ -68,6 +68,10 @@ export type FilterPreset = {
   builtin?: true
   // When true, the preset is hidden from the menu unless the user toggles show-hidden.
   hidden?: true
+  // When true, applying the preset REPLACES the entire filter (legacy behavior).
+  // When absent (the default), applying ORs/merges the preset's selections into the
+  // current filter, and a pinned button toggles by subtracting them again.
+  exclusive?: true
 }
 
 const cloneDefaultView = (): FilterPresetView => ({
@@ -232,25 +236,26 @@ const ACCESSORY_SLOT_IDS = [
 /** Sources selected for Scoped Sell presets (inventory + vault). */
 const SCOPED_SELL_SOURCES: GearInspectorSourceFilter[] = ['inventory', 'vault']
 
-/** Collapsed state with results (rule), sources, and slots expanded; everything else closed. */
-const makeScopedSellCollapsed = (): CollapsedSections => ({
-  ...cloneDefaultRulesFilterCollapsed(),
-  rule: false,
-  sources: false,
-  slots: false,
-})
-
 /**
- * Build a Scoped Sell snapshot: sell+scope (matched) result filter, inventory+vault
- * sources, explicit slot list. Results / sources / slots sections start expanded so
- * the active filters are immediately visible when the panel is opened.
+ * Build a Scoped Sell snapshot: sell+scope (matched) result filter and inventory+vault
+ * sources. When slotIds is provided the snapshot also narrows to those slots; when omitted
+ * it leaves slots unrestricted (the plain "Scoped Sell" preset). Results / sources (and slots
+ * when present) start expanded so the active filters are immediately visible on open.
  */
-const makeScopedSellSnapshot = (slotIds: number[]): FilterPresetSnapshot => {
+const makeScopedSellSnapshot = (slotIds?: number[]): FilterPresetSnapshot => {
   const giState: RulesFilterState = {
     ...cloneDefaultRulesFilterState(),
     gearInspectorResult: { keep: false, sell: true, matched: true, unmatched: false },
-    slots: { selected: slotIds as ArtifactTypeId[], anyMode: 'include' },
+    // Explicit slot list narrows to artifacts/accessories; undefined leaves slots unrestricted.
+    ...(slotIds ? { slots: { selected: slotIds as ArtifactTypeId[], anyMode: 'include' } } : {}),
     gearInspectorSources: { selected: SCOPED_SELL_SOURCES },
+  }
+  // Expand the sections this snapshot actually touches; slots only when a slot list is set.
+  const collapsed: CollapsedSections = {
+    ...cloneDefaultRulesFilterCollapsed(),
+    rule: false,
+    sources: false,
+    ...(slotIds ? { slots: false } : {}),
   }
   return {
     version: FILTER_PRESETS_VERSION,
@@ -264,7 +269,7 @@ const makeScopedSellSnapshot = (slotIds: number[]): FilterPresetSnapshot => {
       gearInspector: {
         open: false,
         state: giState,
-        collapsed: makeScopedSellCollapsed(),
+        collapsed,
       },
     },
   }
@@ -307,40 +312,14 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT),
   },
   {
-    id: 'builtin:sell-artifacts',
-    name: 'Show only Sell – Artifacts',
+    id: 'builtin:scoped-sell',
+    name: 'Scoped Sell',
     savedAt: '',
     builtin: true,
-    // Unique monochrome swords glyph (artifact-themed) keeps each built-in distinguishable.
-    iconId: 'glyph.swords',
-    snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ARTIFACT_SLOT_IDS),
-  },
-  {
-    id: 'builtin:sell-accessories',
-    name: 'Show only Sell – Accessories',
-    savedAt: '',
-    builtin: true,
-    // Unique monochrome banner glyph (accessory-themed).
-    iconId: 'glyph.banner',
-    snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT, ACCESSORY_SLOT_IDS),
-  },
-  {
-    id: 'builtin:scoped-sell-artifacts',
-    name: 'Scoped Sell - Artifacts',
-    savedAt: '',
-    builtin: true,
-    // Target evokes the narrowed/scoped selection (artifacts).
+    // Target evokes the narrowed/scoped selection (sell + scope, inventory + vault sources).
     iconId: 'glyph.target',
-    snapshot: makeScopedSellSnapshot(ARTIFACT_SLOT_IDS),
-  },
-  {
-    id: 'builtin:scoped-sell-accessories',
-    name: 'Scoped Sell - Accessories',
-    savedAt: '',
-    builtin: true,
-    // Compass evokes the narrowed/scoped selection (accessories; paired with Target above).
-    iconId: 'glyph.compass',
-    snapshot: makeScopedSellSnapshot(ACCESSORY_SLOT_IDS),
+    // No slot list — the plain Scoped Sell preset leaves slots unrestricted.
+    snapshot: makeScopedSellSnapshot(),
   },
 ]
 
@@ -384,6 +363,8 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
   const pinnedField: Pick<FilterPreset, 'pinned'> = rec['pinned'] === true ? { pinned: true } : {}
   // exactOptionalPropertyTypes: spread hidden only when explicitly true.
   const hiddenField: Pick<FilterPreset, 'hidden'> = rec['hidden'] === true ? { hidden: true } : {}
+  // exactOptionalPropertyTypes: spread exclusive only when explicitly true (absent = OR/merge).
+  const exclusiveField: Pick<FilterPreset, 'exclusive'> = rec['exclusive'] === true ? { exclusive: true } : {}
   return {
     id,
     name,
@@ -393,6 +374,7 @@ const sanitizePreset = (raw: unknown): FilterPreset | null => {
     ...iconField,
     ...pinnedField,
     ...hiddenField,
+    ...exclusiveField,
   }
 }
 

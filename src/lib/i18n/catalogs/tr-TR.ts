@@ -1227,8 +1227,7 @@ const overrides: Catalog = {
   builtinFilterPresetAllArtifacts: "Tüm Artifaktlar",
   builtinFilterPresetAllAccessories: "Tüm Aksesuarlar",
   builtinFilterPresetShowOnlySell: "Sadece Sat",
-  builtinFilterPresetShowOnlySellArtifacts: "Sadece Sat – Artifaktlar",
-  builtinFilterPresetShowOnlySellAccessories: "Sadece Sat – Aksesuarlar",
+  builtinFilterPresetScopedSell: "Hedefli Satış",
   // Built-in sort preset names
   builtinSortPresetNewest: "En Yeniler",
   builtinSortPresetLatestUsed: "Son Kullanılan",
@@ -1242,6 +1241,7 @@ const overrides: Catalog = {
   filterPresetsMoveUp: "Yukarı taşı",
   filterPresetsMoveDown: "Aşağı taşı",
   filterPresetsSaveIncludeSort: "Sıralama ayarlarını dahil et",
+  filterPresetsSaveExclusive: "Uygulandığında mevcut filtreyi değiştir",
   sortPresetsSaveAs: "Farklı kaydet…",
   sortPresetsEmpty: "Henüz kaydedilmiş sıralama yok.",
   sortPresetsSaveDialogTitle: "Sıralama ön ayarını kaydet",
