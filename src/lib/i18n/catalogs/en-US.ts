@@ -33,7 +33,7 @@ const enUS: Catalog = {
   previewModeGearInspector: "Gear Inspector",
   previewModeRulesTooltip: "**Sellfile Preview** — Shows the gear that will be included in your sellfile based on your current recipes.\n\nSwitch to **Gear Inspector** to load your own gear and see exactly which recipe each piece matches.",
   previewModeGearInspectorTooltip: "**Gear Inspector** — Load your actual gear inventory and test it against your recipes in real time. Each piece shows which recipe matched it and why.\n\nSwitch to **Sellfile Preview** to see the combined sellfile output.",
-  manageColors: "Manage Colors",
+  manageColors: "Manage Colors…",
   titleLogicHub: "Tools",
   optionalLoadSellfile: "Optional: Load a Sellfile to preview the merge, or a gear DB (.db) to review items in the Gear Inspector.",
   fileFormatErrorTitle: "File Not Supported",
@@ -1769,6 +1769,11 @@ const enUS: Catalog = {
   gearDiffToggleTooltip: "**Gear Diff** — a side-by-side before/after of which gear flips between **sell** and **keep**, measured against a reference point.\n\nToggling **Dynamic Overrides** in the Note dialog does not move that reference, so successive override changes **accumulate** — the diff shows the combined effect of all your override choices, not just the last one.\n\nEditing a recipe or safeguard in the builder **does** move the reference to that edit while **Auto-track reference** is on, so the diff shows your latest change.\n\nLeft-click toggles the view. Right-click: **Set reference** fixes the comparison point; **Auto-track reference** toggles the automatic move-to-last-edit.",
   gearDiffSetReference: "Set reference",
   gearDiffAutoMode: "Auto-track reference",
+  gearDiffChipLabel: "Diff chip",
+  gearDiffFilterLabel: "Filter mode",
+  gearDiffFilterAny: "Any",
+  gearDiffFilterBefore: "Before",
+  gearDiffFilterAfter: "After",
 }
 
 export default enUS

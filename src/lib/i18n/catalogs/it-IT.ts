@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Ispettore Equipaggiamento",
   previewModeRulesTooltip: "**Anteprima Sellfile** — Mostra l'equipaggiamento che verrà incluso nel tuo sellfile in base alle tue ricette attuali.\n\nPassate al **Tester regole** per caricare il vostro equipaggiamento e vedere esattamente quale ricetta corrisponde a ogni pezzo.",
   previewModeGearInspectorTooltip: "**Ispettore Equipaggiamento** — Carica il tuo inventario di equipaggiamento reale e testalo contro le tue ricette in tempo reale. Ogni pezzo mostra quale ricetta lo ha identificato e perché.\n\nPassate all'**Anteprima Sellfile** per vedere l'output combinato del sellfile.",
-  manageColors: "Gestisci colori",
+  manageColors: "Gestisci colori…",
   titleLogicHub: "Strumenti",
   optionalLoadSellfile: "Opzionale: carica un Sellfile esistente per vedere la fusione oppure un database dell'equipaggiamento (.db) per esaminarlo nell'Ispettore Equipaggiamento.",
   fileFormatErrorTitle: "Formato file non supportato",
@@ -1734,6 +1734,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Confronto equipaggiamento** — un prima/dopo di quali pezzi passano tra **vendi** e **tieni**, misurato rispetto a un punto di riferimento.\n\nAttivare gli **override dinamici** nella finestra Nota non sposta quel riferimento, quindi le modifiche di override successive si **accumulano**: il confronto mostra l'effetto combinato di tutte le tue scelte di override, non solo l'ultima.\n\nModificare una ricetta o una salvaguardia nel builder **sposta** invece il riferimento a quella modifica quando **Segui riferimento automaticamente** è attivo, così il confronto mostra la tua modifica più recente.\n\nClic sinistro per alternare la vista. Clic destro: **Imposta riferimento** fissa il punto di confronto; **Segui riferimento automaticamente** attiva o disattiva lo spostamento automatico all'ultima modifica.",
   gearDiffSetReference: "Imposta riferimento",
   gearDiffAutoMode: "Segui riferimento automaticamente",
+  gearDiffChipLabel: "Chip diff",
+  gearDiffFilterLabel: "Filtro",
+  gearDiffFilterAny: "Tutti",
+  gearDiffFilterBefore: "Prima",
+  gearDiffFilterAfter: "Dopo",
 }
 
 export default overrides
