@@ -723,12 +723,15 @@ export default function PreviewHeaderActions(props: {
   }, [deleteSortPresetTarget, onHideSortPreset])
 
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
-  const filterHeaderLabel = t('filterHeader')
+  // When a push endpoint is active the destructive-export wording becomes "Push…",
+  // mirroring the export/push button label toggle below.
+  const pushActive = !!pushEndpoint
+  const filterHeaderLabel = pushActive ? t('filterHeaderPush') : t('filterHeader')
+  const filterTooltipLabel = pushActive ? t('filterTooltipPush') : t('filterTooltip')
   const filterToggleLabel = t('filterToggleLabel')
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
   const gearDbHistoryPauseUpdatesLabel = t('gearDbHistoryPauseUpdates')
-  const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
     : (baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile'))
@@ -738,7 +741,7 @@ export default function PreviewHeaderActions(props: {
     exportTooltipParts.push(t('pushSellfileTooltip', { endpoint: pushEndpoint }))
   }
   if (filterActive) {
-    exportTooltipParts.push(t('exportIgnoresFilters'))
+    exportTooltipParts.push(pushActive ? t('pushIgnoresFilters') : t('exportIgnoresFilters'))
   }
   const exportTooltip = exportTooltipParts.join('\n')
 
@@ -1143,7 +1146,7 @@ export default function PreviewHeaderActions(props: {
           <>
             <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
               {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
-              <MarkdownTooltip markdown={t('filterTooltip')}>
+              <MarkdownTooltip markdown={filterTooltipLabel}>
                 <Box
                   component="span"
                   onMouseEnter={(event) => {
