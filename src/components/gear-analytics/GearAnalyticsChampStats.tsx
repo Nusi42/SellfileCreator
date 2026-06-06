@@ -277,9 +277,9 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
 // ── localStorage persistence ───────────────────────────────────────────────────
 
-const LS_LOCATION         = 'gearAnalytics.champLocation'
-const LS_FULLY_EQUIPPED   = 'gearAnalytics.champFullyEquipped'
-const LS_INCLUDE_GLYPHS   = 'gearAnalytics.champIncludeGlyphs'
+const LS_LOCATION         = 'sellfileCreator.gearAnalytics.champLocation'
+const LS_FULLY_EQUIPPED   = 'sellfileCreator.gearAnalytics.champFullyEquipped'
+const LS_INCLUDE_GLYPHS   = 'sellfileCreator.gearAnalytics.champIncludeGlyphs'
 
 // Factory defaults — used both on first load and when the parent resets to defaults.
 const DEFAULT_LOCATION: ChampAnalyticsLocation = 'collection'
