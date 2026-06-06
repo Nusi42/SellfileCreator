@@ -1264,6 +1264,8 @@ const enUS: Catalog = {
   builtinSortPresetSpdPerSlot: "SPD – per Slot",
   builtinSortPresetImprovementChance: "Improvement Chance",
   builtinSortPresetSafeguardRank: "Safeguard Rank",
+  builtinSortPresetAscending: "Ascending",
+  builtinSortPresetTopLevel: "Top-Level",
   filterPresetsSaveAs: "Save as…",
   filterPresetsEmpty: "No saved filters yet.",
   filterPresetsSaveDialogTitle: "Save filter preset",
@@ -1282,6 +1284,7 @@ const enUS: Catalog = {
   sortPresetsDeleteDialogTitle: "Delete saved sort?",
   sortPresetsDeleteDialogMessage: "Delete \"{name}\"? This cannot be undone.",
   sortPresetsSaveIncludeFilter: "Include filter settings",
+  sortPresetsSaveExclusive: "Replace current sort when applied",
   presetLabelColor: "Label color",
   // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Icon",

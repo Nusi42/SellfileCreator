@@ -208,8 +208,10 @@ export default function PreviewHeaderActions(props: {
   // while the Sellfile preview is active) — such pinned buttons render disabled.
   isFilterPresetApplicable?: (preset: FilterPreset) => boolean
   sortPresets?: readonly SortPreset[]
-  onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => void
+  onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean, exclusive: boolean) => void
   onApplySortPreset?: (presetId: string) => void
+  // Untoggle a pinned sort preset: OR presets subtract their stacked levels; exclusive presets clear the sort.
+  onUnapplySortPreset?: (presetId: string) => void
   onDeleteSortPreset?: (presetId: string) => void
   onMoveSortPreset?: (presetId: string, direction: 'up' | 'down') => void
   onHideSortPreset?: (presetId: string, hidden: boolean) => void
@@ -308,6 +310,7 @@ export default function PreviewHeaderActions(props: {
     sortPresets = [],
     onSaveSortPreset,
     onApplySortPreset,
+    onUnapplySortPreset,
     onDeleteSortPreset,
     onMoveSortPreset,
     onHideSortPreset,
@@ -345,6 +348,8 @@ export default function PreviewHeaderActions(props: {
       case 'builtin:spd-per-slot':       return t('builtinSortPresetSpdPerSlot')
       case 'builtin:improvement-chance': return t('builtinSortPresetImprovementChance')
       case 'builtin:safeguard-rank':     return t('builtinSortPresetSafeguardRank')
+      case 'builtin:sort-ascending':     return t('builtinSortPresetAscending')
+      case 'builtin:group-top-level':    return t('builtinSortPresetTopLevel')
       default: return p.name
     }
   }, [t])
@@ -605,14 +610,14 @@ export default function PreviewHeaderActions(props: {
 
   const [savePresetOpen, setSavePresetOpen] = React.useState(false)
   const [savePresetName, setSavePresetName] = React.useState('')
-  // Whether to include the current sort config in the filter preset snapshot.
-  const [savePresetIncludeSort, setSavePresetIncludeSort] = React.useState(true)
+  // Whether to include the current sort config in the filter preset snapshot (default off).
+  const [savePresetIncludeSort, setSavePresetIncludeSort] = React.useState(false)
   // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
   const [savePresetColor, setSavePresetColor] = React.useState('')
   // Chosen glyph for the preset; 'none' means no icon (the catalog's no-icon sentinel).
   const [savePresetIconId, setSavePresetIconId] = React.useState<MetasetIconId>(DEFAULT_METASET_ICON_ID)
-  // Whether to surface the preset as a quick-toggle button next to the Filter button.
-  const [savePresetPinned, setSavePresetPinned] = React.useState(false)
+  // Whether to surface the preset as a quick-toggle button next to the Filter button (default on).
+  const [savePresetPinned, setSavePresetPinned] = React.useState(true)
   // When true, applying replaces the whole filter; when false (default), it ORs/merges into it.
   const [savePresetExclusive, setSavePresetExclusive] = React.useState(false)
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
@@ -621,13 +626,13 @@ export default function PreviewHeaderActions(props: {
   const openSavePresetDialog = React.useCallback(() => {
     // Default to an empty field so repeated saves don't accidentally reuse prior input.
     setSavePresetName('')
-    // Default sort inclusion to true so the checkbox matches the previous behavior.
-    setSavePresetIncludeSort(true)
+    // Default the "include sort" opt-in to off so a saved filter preset stays filter-only unless asked.
+    setSavePresetIncludeSort(false)
     // Reset color so the default (no color) is shown each time the dialog opens.
     setSavePresetColor('')
-    // Reset icon + pin so each save starts from the defaults (no icon, not pinned).
+    // Reset icon to no-icon; pin defaults ON so saved presets surface as a header quick-toggle.
     setSavePresetIconId(DEFAULT_METASET_ICON_ID)
-    setSavePresetPinned(false)
+    setSavePresetPinned(true)
     // Default to OR/merge apply (exclusive off), matching the built-in presets.
     setSavePresetExclusive(false)
     setSavePresetOpen(true)
@@ -652,24 +657,28 @@ export default function PreviewHeaderActions(props: {
   const [saveSortPresetOpen, setSaveSortPresetOpen] = React.useState(false)
   const [saveSortPresetName, setSaveSortPresetName] = React.useState('')
   // Default filter inclusion to true so the checkbox matches an "include everything" expectation.
-  const [saveSortPresetIncludeFilter, setSaveSortPresetIncludeFilter] = React.useState(true)
+  const [saveSortPresetIncludeFilter, setSaveSortPresetIncludeFilter] = React.useState(false)
   // Empty string means "no color" (default); a #RRGGBB value sets the label text color.
   const [saveSortPresetColor, setSaveSortPresetColor] = React.useState('')
   // Chosen glyph for the sort preset; 'none' means no icon.
   const [saveSortPresetIconId, setSaveSortPresetIconId] = React.useState<MetasetIconId>(DEFAULT_METASET_ICON_ID)
-  // Whether to surface the sort preset as a quick-toggle button next to the Sort button.
-  const [saveSortPresetPinned, setSaveSortPresetPinned] = React.useState(false)
+  // Whether to surface the sort preset as a quick-toggle button next to the Sort button (default on).
+  const [saveSortPresetPinned, setSaveSortPresetPinned] = React.useState(true)
+  // When true, applying replaces the whole sort; when false (default), it ORs/stacks onto it.
+  const [saveSortPresetExclusive, setSaveSortPresetExclusive] = React.useState(false)
   const [deleteSortPresetTarget, setDeleteSortPresetTarget] = React.useState<{ id: string; name: string } | null>(null)
 
   const openSaveSortPresetDialog = React.useCallback(() => {
     setSaveSortPresetName('')
-    // Reset inclusion flag on every open so the default is always "include both".
-    setSaveSortPresetIncludeFilter(true)
+    // Default the "include filter" opt-in to off so a saved sort preset stays sort-only unless asked.
+    setSaveSortPresetIncludeFilter(false)
     // Reset color so the default (no color) is shown each time the dialog opens.
     setSaveSortPresetColor('')
-    // Reset icon + pin so each save starts from the defaults (no icon, not pinned).
+    // Reset icon to no-icon; pin defaults ON so saved presets surface as a header quick-toggle.
     setSaveSortPresetIconId(DEFAULT_METASET_ICON_ID)
-    setSaveSortPresetPinned(false)
+    setSaveSortPresetPinned(true)
+    // Default to OR/stack apply (exclusive off), matching the built-in sort presets.
+    setSaveSortPresetExclusive(false)
     setSaveSortPresetOpen(true)
   }, [])
 
@@ -682,9 +691,9 @@ export default function PreviewHeaderActions(props: {
     if (!name) return
     // 'none' is the no-icon sentinel; pass undefined so the store keeps the field absent.
     const iconId = saveSortPresetIconId === DEFAULT_METASET_ICON_ID ? undefined : saveSortPresetIconId
-    onSaveSortPreset?.(name, saveSortPresetIncludeFilter, saveSortPresetColor || undefined, iconId, saveSortPresetPinned)
+    onSaveSortPreset?.(name, saveSortPresetIncludeFilter, saveSortPresetColor || undefined, iconId, saveSortPresetPinned, saveSortPresetExclusive)
     setSaveSortPresetOpen(false)
-  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter, saveSortPresetColor, saveSortPresetIconId, saveSortPresetPinned])
+  }, [onSaveSortPreset, saveSortPresetName, saveSortPresetIncludeFilter, saveSortPresetColor, saveSortPresetIconId, saveSortPresetPinned, saveSortPresetExclusive])
 
   const requestDeleteSortPreset = React.useCallback((presetId: string, presetName: string) => {
     setDeleteSortPresetTarget({ id: presetId, name: presetName })
@@ -853,8 +862,8 @@ export default function PreviewHeaderActions(props: {
 	    gearInspectorSubstatSort.normalizedUseActiveOverlay,
 	  ])
 	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective)
-	  // Disable non-normalized controls when they would do nothing (no priorities and normalized isn't effective).
-	  const sortControlsDisabled = !sortActive
+	  // Direction + glyph toggles stay enabled throughout Gear Inspector (even with no priorities) so a
+	  // direction-only / glyphs-only sort preset can be configured and saved; only Rules mode disables them.
 	  // Grouping is independent of sorting, but still irrelevant in Rules mode.
 	  const groupingControlsDisabled = isRulesMode
 	  // Grouping defaults keep the Sort clear button hidden until a user actually changes layout.
@@ -1147,15 +1156,18 @@ export default function PreviewHeaderActions(props: {
         spacing={1}
         sx={{
           mb: 1,
-          flexWrap: 'nowrap',
+          // Wrap control groups onto additional rows rather than overflowing/scrolling the header.
+          flexWrap: 'wrap',
+          rowGap: 1,
           minWidth: 0,
           alignItems: 'center',
-          '& > *': { minWidth: 0, flexShrink: 0 },
+          // Each group caps at the row width so its own contents wrap instead of overflowing.
+          '& > *': { minWidth: 0, maxWidth: '100%' },
         }}
       >
         {onToggleFilter && (
           <>
-            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
               {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
               <MarkdownTooltip markdown={filterTooltipLabel}>
                 <Box
@@ -1224,7 +1236,7 @@ export default function PreviewHeaderActions(props: {
                 <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
               )}
             </Box>
-            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
               <MarkdownTooltip markdown={t('gearInspectorSortTooltip')}>
                 {/* Outer span carries the hint-tracking and right-click handlers. */}
                 <Box
@@ -1262,7 +1274,7 @@ export default function PreviewHeaderActions(props: {
               <PinnedPresetButtons
                 buttons={pinnedSortButtons}
                 disabled={isRulesMode}
-                onToggle={(id, active) => { if (active) onClearGearInspectorSubstatSort(); else onApplySortPreset?.(id) }}
+                onToggle={(id, active) => { if (active) onUnapplySortPreset?.(id); else onApplySortPreset?.(id) }}
                 ariaLabel={(name) => name}
                 tooltip={(name) => name}
               />
@@ -1880,6 +1892,17 @@ export default function PreviewHeaderActions(props: {
                     }
                     label={t('sortPresetsSaveIncludeFilter')}
                   />
+                  {/* Apply mode: unchecked (default) stacks the preset onto the current sort; checked replaces it. */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={saveSortPresetExclusive}
+                        onChange={(event) => setSaveSortPresetExclusive(event.target.checked)}
+                      />
+                    }
+                    label={t('sortPresetsSaveExclusive')}
+                  />
                 </Stack>
               </DialogContent>
               <DialogActions>
@@ -2176,7 +2199,7 @@ export default function PreviewHeaderActions(props: {
               })}
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
-                disabled={sortControlsDisabled}
+                disabled={isRulesMode}
                 onClick={() => onSetGearInspectorSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortDirectionLabel}</Typography>
@@ -2184,7 +2207,7 @@ export default function PreviewHeaderActions(props: {
                   size="small"
                   variant="contained"
                   color="success"
-                  disabled={sortControlsDisabled}
+                  disabled={isRulesMode}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
@@ -2483,7 +2506,7 @@ export default function PreviewHeaderActions(props: {
 	              </MenuItem>
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
-                disabled={sortControlsDisabled}
+                disabled={isRulesMode}
                 onClick={() => onToggleGearInspectorSubstatSortExcludeGlyphs()}
               >
 	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGlyphsLabel}</Typography>
@@ -2492,7 +2515,7 @@ export default function PreviewHeaderActions(props: {
 	                  // Keep both states visually consistent; the label communicates exclude vs include.
 	                  variant="contained"
                   color="success"
-                  disabled={sortControlsDisabled}
+                  disabled={isRulesMode}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()

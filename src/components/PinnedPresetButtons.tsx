@@ -44,8 +44,8 @@ export function PinnedPresetButtons({ buttons, disabled, onToggle, ariaLabel, to
   if (buttons.length === 0) return null
   return (
     <Box
-      // Keep the buttons on one line; scroll horizontally rather than overflow the header when many are pinned.
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0, overflowX: 'auto', flexShrink: 1 }}
+      // Wrap onto additional lines rather than scrolling/overflowing when many presets are pinned.
+      sx={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, minWidth: 0, flexShrink: 1 }}
     >
       {buttons.map((b) => (
         <MarkdownTooltip key={b.id} markdown={tooltip(b.name, b.active)}>

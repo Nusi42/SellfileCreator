@@ -383,10 +383,11 @@ const parsePresets = (raw: string | null): FilterPreset[] => {
       if (!preset) return
       sanitized.push(preset)
     })
-    // Inject any built-ins absent from stored order at the front (e.g. new ones added in a future version).
+    // Append any built-ins absent from stored order at the END (e.g. ones added in a later version),
+    // so existing users get new built-ins last without disturbing their saved order/customizations.
     const storedIds = new Set(sanitized.map((p) => p.id))
     const missing = BUILTIN_FILTER_PRESETS.filter((p) => !storedIds.has(p.id))
-    return [...missing, ...sanitized]
+    return [...sanitized, ...missing]
   } catch {
     return [...BUILTIN_FILTER_PRESETS]
   }

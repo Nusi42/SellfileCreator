@@ -8,9 +8,10 @@ import {
 import {
   mergeRulesFilterState,
   subtractRulesFilterState,
+  reapplyRulesFilterScalars,
   rulesFilterStateContains,
   rulesFilterStateHasContribution,
-  rulesFilterStateAppliesToRulesMode,
+  projectFilterStateToMode,
 } from '../../src/lib/rulesFilterMerge.js'
 
 // Helper: a default state with the given mutation applied (deep, independent copy).
@@ -96,66 +97,71 @@ test('subtract only removes the addition, leaving unrelated selections intact', 
   assert.deepEqual(result.slots.selected, [1])
 })
 
-test('untoggle (subtract + re-merge survivors) preserves a shared scalar another preset needs', () => {
+// Mirror handleUnapplyFilterPreset's math: pure-subtract the untoggled payload's selections, then
+// re-derive shared scalar modes from the other still-active presets. Pure, so we verify it here.
+const unOr = (
+  current: RulesFilterState,
+  untoggled: RulesFilterState,
+  others: RulesFilterState[],
+): RulesFilterState => {
+  const survivors = others.filter((o) => rulesFilterStateHasContribution(o) && rulesFilterStateContains(current, o))
+  let next = subtractRulesFilterState(current, untoggled)
+  for (const s of survivors) next = reapplyRulesFilterScalars(next, s)
+  return next
+}
+
+test('un-OR keeps a disjoint survivor toggled by restoring a shared scalar mode', () => {
   // Mirrors the built-in slot presets, which share slots.anyMode: 'off'.
-  const A = withState((s) => { s.slots = { selected: [1, 2, 3] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
-  const B = withState((s) => { s.slots = { selected: [7, 8, 9] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
-  // Toggle A then B → union of slots, shared anyMode 'off'.
-  const current = mergeRulesFilterState(mergeRulesFilterState(cloneDefaultRulesFilterState(), A), B)
-  assert.deepEqual([...current.slots.selected].sort((a, b) => a - b), [1, 2, 3, 7, 8, 9])
-  assert.equal(current.slots.anyMode, 'off')
-  // Untoggle A the way handleUnapplyFilterPreset does: subtract A, then re-merge the still-active B.
-  const next = mergeRulesFilterState(subtractRulesFilterState(current, A), B)
-  assert.deepEqual([...next.slots.selected].sort((a, b) => a - b), [7, 8, 9])
-  assert.equal(next.slots.anyMode, 'off') // restored by re-merging B
-  assert.equal(rulesFilterStateContains(next, B), true) // B stays active
-  assert.equal(rulesFilterStateContains(next, A), false) // A is gone
+  const artifacts = withState((s) => { s.slots = { selected: [1, 2, 3] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
+  const accessories = withState((s) => { s.slots = { selected: [7, 8, 9] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
+  const current = mergeRulesFilterState(mergeRulesFilterState(cloneDefaultRulesFilterState(), artifacts), accessories)
+  const next = unOr(current, artifacts, [accessories])
+  assert.deepEqual([...next.slots.selected].sort((a, b) => a - b), [7, 8, 9]) // only Artifacts' slots removed
+  assert.equal(next.slots.anyMode, 'off') // shared scalar mode re-derived from Accessories
+  assert.equal(rulesFilterStateContains(next, accessories), true) // stays toggled
+  assert.equal(rulesFilterStateContains(next, artifacts), false)
 })
 
-test('naive subtract alone drops a shared scalar (why re-merge is required)', () => {
-  const A = withState((s) => { s.slots = { selected: [1, 2, 3] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
-  const B = withState((s) => { s.slots = { selected: [7, 8, 9] as RulesFilterState['slots']['selected'], anyMode: 'off' } })
-  const current = mergeRulesFilterState(mergeRulesFilterState(cloneDefaultRulesFilterState(), A), B)
-  const naive = subtractRulesFilterState(current, A)
-  // The shared anyMode is reset to default, which would wrongly deactivate B — hence the re-merge step.
-  assert.equal(naive.slots.anyMode, 'include')
-  assert.equal(rulesFilterStateContains(naive, B), false)
-})
-
-test('a subset preset is subsumed by a superset preset (drives the untoggle drop)', () => {
-  // Mirrors "Show only Sell" (sell) vs "Scoped Sell" (sell + matched + sources).
+test('un-OR removes a shared selection flag regardless of which overlapping preset is untoggled', () => {
+  // "Show only Sell" (sell) and "Scoped Sell" (sell + matched + sources) both active.
   const showOnlySell = withState((s) => { s.gearInspectorResult = { keep: false, sell: true, matched: false, unmatched: false } })
   const scopedSell = withState((s) => {
     s.gearInspectorResult = { keep: false, sell: true, matched: true, unmatched: false }
     s.gearInspectorSources = { selected: ['inventory', 'vault'] }
   })
-  // Scoped Sell fully contains Show only Sell, but not the reverse.
-  assert.equal(rulesFilterStateContains(scopedSell, showOnlySell), true)
-  assert.equal(rulesFilterStateContains(showOnlySell, scopedSell), false)
-  // Untoggling Scoped Sell with no surviving preset to re-merge clears the sell flag entirely.
-  const current = mergeRulesFilterState(cloneDefaultRulesFilterState(), scopedSell)
-  const next = subtractRulesFilterState(current, scopedSell)
-  assert.equal(next.gearInspectorResult?.sell, false)
-  assert.equal(next.gearInspectorResult?.matched, false)
+  const current = mergeRulesFilterState(mergeRulesFilterState(cloneDefaultRulesFilterState(), scopedSell), showOnlySell)
+  // Untoggling the subset clears the shared `sell` flag; the superset reads untoggled.
+  const afterSell = unOr(current, showOnlySell, [scopedSell])
+  assert.equal(afterSell.gearInspectorResult?.sell, false)
+  assert.equal(rulesFilterStateContains(afterSell, scopedSell), false)
+  // Untoggling the superset also clears `sell` (a selection, pure-subtracted) — the subset does not linger.
+  const afterScoped = unOr(current, scopedSell, [showOnlySell])
+  assert.equal(afterScoped.gearInspectorResult?.sell, false)
+  assert.equal(rulesFilterStateContains(afterScoped, showOnlySell), false)
 })
 
-test('appliesToRulesMode is true only when a non-gear-inspector-only field contributes', () => {
-  // Slot selection is meaningful in both panels → applies to the Sellfile preview.
+test('projectFilterStateToMode maps Sell intent across panels (Keep/Sell mapping)', () => {
+  // A Sell preset authored in the Gear Inspector (result.sell) projects onto the rules panel as a
+  // Sell-rule filter (rule.keep = 'no'), dropping Gear-Inspector-only fields.
+  const sellResult = withState((s) => { s.gearInspectorResult = { keep: false, sell: true, matched: true, unmatched: false } })
+  const toRules = projectFilterStateToMode(sellResult, 'rules')
+  assert.equal(toRules.rule?.keep, 'no')
+  assert.equal(toRules.gearInspectorResult?.sell, false) // GI-only field stripped
+  assert.equal(rulesFilterStateHasContribution(toRules), true) // → applicable in the Sellfile preview
+
+  // The reverse: a Sell rule filter projects onto the Gear Inspector as result.sell.
+  const sellRule = withState((s) => { s.rule = { keep: 'no', use: 'any' } })
+  const toGi = projectFilterStateToMode(sellRule, 'gearInspector')
+  assert.equal(toGi.gearInspectorResult?.sell, true)
+  assert.equal(toGi.rule?.keep, 'any') // rule axis reset on the GI side
+
+  // Shared fields (slots) pass through unchanged in either direction.
   const slots = withState((s) => { s.slots = { selected: [1, 2] as RulesFilterState['slots']['selected'], anyMode: 'include' } })
-  assert.equal(rulesFilterStateAppliesToRulesMode(slots), true)
-  // Gear-Inspector-only payloads (result flags / sources) do not apply to the rules preview.
-  const resultOnly = withState((s) => { s.gearInspectorResult = { keep: false, sell: true, matched: true, unmatched: false } })
-  assert.equal(rulesFilterStateAppliesToRulesMode(resultOnly), false)
+  assert.deepEqual(projectFilterStateToMode(slots, 'rules').slots.selected, [1, 2])
+
+  // A purely Gear-Inspector payload (sources only) projects to nothing on the rules panel.
   const sourcesOnly = withState((s) => { s.gearInspectorSources = { selected: ['inventory'] } })
-  assert.equal(rulesFilterStateAppliesToRulesMode(sourcesOnly), false)
-  // Mixed payload (slots + gear-inspector result) still applies because slots are rules-relevant.
-  const mixed = withState((s) => {
-    s.slots = { selected: [1] as RulesFilterState['slots']['selected'], anyMode: 'include' }
-    s.gearInspectorResult = { keep: false, sell: true, matched: false, unmatched: false }
-  })
-  assert.equal(rulesFilterStateAppliesToRulesMode(mixed), true)
-  // The default (empty) state contributes nothing, so it does not "apply".
-  assert.equal(rulesFilterStateAppliesToRulesMode(cloneDefaultRulesFilterState()), false)
+  assert.equal(rulesFilterStateHasContribution(projectFilterStateToMode(sourcesOnly, 'rules')), false)
 })
 
 test('hasContribution reflects whether the state deviates from default', () => {
