@@ -39,6 +39,11 @@ interface Result {
   onOpen: () => void
   /** The hint overlay element — render this somewhere near the trigger. */
   overlay: React.ReactElement | null
+  /**
+   * Directly sets the hint position (e.g. from keyboard focus where clientX/Y are 0).
+   * Calling with null clears the position (same as onMouseLeave).
+   */
+  setPosition: (pos: { x: number; y: number } | null) => void
 }
 
 export function useContextMenuButtonHint(
@@ -76,5 +81,5 @@ export function useContextMenuButtonHint(
 
   const overlay = <ContextMenuHintOverlay text={text} position={active ? pos : null} />
 
-  return { triggerProps: { onMouseEnter, onMouseMove, onMouseLeave }, onOpen, overlay }
+  return { triggerProps: { onMouseEnter, onMouseMove, onMouseLeave }, onOpen, overlay, setPosition: setPos }
 }

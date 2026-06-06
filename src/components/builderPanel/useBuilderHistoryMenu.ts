@@ -6,11 +6,12 @@
  * preserving the dense inline documentation requirements.
  */
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import type React from 'react'
 import type { HistoryPreview } from '../../hooks/useSfcHistory'
 import { formatHistoryTooltipText } from '../../history/historyTooltip'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import type { ContextMenuPaperGuardToken } from '../ContextMenuPaper'
-import { useContextMenuHint } from '../../hooks/useContextMenuHint'
+import { useContextMenuButtonHint } from '../../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../../hooks/contextMenuHintIds'
 import type { I18nContextValue } from '../../lib/i18n'
 
@@ -34,13 +35,17 @@ export interface BuilderHistoryMenuResult {
   historyMenuGuard: ContextMenuPaperGuardToken
   closeHistoryMenu: () => void
   handleHistoryContextMenu: (event: React.MouseEvent) => void
-  handleHistoryMouseMove: (event: React.MouseEvent) => void
-  handleHistoryMouseLeave: () => void
+  /** Spread onto the undo/redo controls container to track cursor for the hint. */
+  historyHintTriggerProps: {
+    onMouseEnter: (event: React.MouseEvent) => void
+    onMouseMove: (event: React.MouseEvent) => void
+    onMouseLeave: () => void
+  }
   handleHistoryMenuContextMenu: (event: React.MouseEvent) => void
   handleRequestClearHistory: () => void
   handleHistoryEntrySelect: (index: number) => void
-  historyHintActive: boolean
-  historyHintPos: { x: number; y: number } | null
+  /** Render near the controls — shows the "right-click for actions" affordance overlay. */
+  historyHintOverlay: React.ReactElement | null
 }
 
 export function useBuilderHistoryMenu({
@@ -98,31 +103,19 @@ export function useBuilderHistoryMenu({
   })
 
   // Hints teach the context-menu affordance; once dismissed they never return.
-  const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint(CONTEXT_HINT_IDS.builderHistoryMenu)
-  const [historyHintPos, setHistoryHintPos] = useState<{ x: number; y: number } | null>(null)
-  // Clear the hint position during render when the hint is dismissed.
-  if (!shouldShowHistoryHint && historyHintPos !== null) {
-    setHistoryHintPos(null)
-  }
-  const historyHintActive = shouldShowHistoryHint && historyHintPos !== null && !historyMenuOpen
+  // Disabled while the menu is open so the overlay does not compete with the menu itself.
+  const { triggerProps: historyHintTriggerProps, overlay: historyHintOverlay, onOpen: onHistoryHintOpen } = useContextMenuButtonHint(CONTEXT_HINT_IDS.builderHistoryMenu, {
+    enabled: !historyMenuOpen,
+    text: t('contextMenuHint'),
+  })
 
   // Pointer-tracking handlers drive both hint positioning and menu activation.
   const handleHistoryContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    onHistoryHintOpen()
     setHistoryMenuState({ open: true, x: event.clientX, y: event.clientY })
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-      setHistoryHintPos(null)
-    }
-  }, [markHistoryHintSeen, shouldShowHistoryHint])
-  const handleHistoryMouseMove = useCallback((event: React.MouseEvent) => {
-    if (!shouldShowHistoryHint || historyMenuOpen) return
-    setHistoryHintPos({ x: event.clientX, y: event.clientY })
-  }, [historyMenuOpen, shouldShowHistoryHint])
-  const handleHistoryMouseLeave = useCallback(() => {
-    setHistoryHintPos(null)
-  }, [])
+  }, [onHistoryHintOpen])
 
   // Prevent nested context-menus from fighting for the secondary-click gesture.
   const handleHistoryMenuContextMenu = useCallback((event: React.MouseEvent) => {
@@ -132,19 +125,14 @@ export function useBuilderHistoryMenu({
 
   // Clearing history or jumping to entries both dismiss the hint immediately so the UX stays tidy.
   const handleRequestClearHistory = useCallback(() => {
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-    }
+    onHistoryHintOpen()
     onRequestClearHistory()
-  }, [markHistoryHintSeen, onRequestClearHistory, shouldShowHistoryHint])
+  }, [onHistoryHintOpen, onRequestClearHistory])
   const handleHistoryEntrySelect = useCallback((index: number) => {
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-    }
+    onHistoryHintOpen()
     closeHistoryMenu()
-    setHistoryHintPos(null)
     onJumpToHistoryIndex(index)
-  }, [closeHistoryMenu, markHistoryHintSeen, onJumpToHistoryIndex, shouldShowHistoryHint])
+  }, [closeHistoryMenu, onHistoryHintOpen, onJumpToHistoryIndex])
 
   return {
     undoTooltipText,
@@ -155,12 +143,10 @@ export function useBuilderHistoryMenu({
     historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
-    handleHistoryMouseMove,
-    handleHistoryMouseLeave,
+    historyHintTriggerProps,
     handleHistoryMenuContextMenu,
     handleRequestClearHistory,
     handleHistoryEntrySelect,
-    historyHintActive,
-    historyHintPos,
+    historyHintOverlay,
   }
 }

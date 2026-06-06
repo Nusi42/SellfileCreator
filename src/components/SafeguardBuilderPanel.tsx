@@ -106,7 +106,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
 import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfcHistory'
@@ -166,7 +166,6 @@ import { safeguardActivationColor } from './safeguardSummaryParts'
 import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
@@ -412,13 +411,11 @@ export default function SafeguardBuilderPanel({
     historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
-    handleHistoryMouseMove,
-    handleHistoryMouseLeave,
+    historyHintTriggerProps,
     handleHistoryMenuContextMenu,
     handleRequestClearHistory,
     handleHistoryEntrySelect,
-    historyHintActive,
-    historyHintPos,
+    historyHintOverlay,
   } = useBuilderHistoryMenu({ undoPreview, redoPreview, t, lang, onRequestClearHistory, onJumpToHistoryIndex })
 
   // ── action menus (Insert / Apply / Reset context menus + hover hints) ─────
@@ -452,15 +449,15 @@ export default function SafeguardBuilderPanel({
   const {
     insert: {
       menu: { anchor: insertMenuAnchor, paperRef: insertMenuPaperRef, close: closeInsertMenu, onContextMenu: handleInsertContextMenu },
-      hint: { active: insertHintActive, pos: insertHintPos, onMouseEnter: handleInsertHintMouseEnter, onMouseMove: handleInsertHintMouseMove, onMouseLeave: handleInsertHintMouseLeave },
+      hint: insertHint,
     },
     apply: {
       menu: { anchor: applyMenuAnchor, paperRef: applyMenuPaperRef, close: closeApplyMenu, onContextMenu: handleApplyContextMenu },
-      hint: { active: applyHintActive, pos: applyHintPos, onMouseEnter: handleApplyHintMouseEnter, onMouseMove: handleApplyHintMouseMove, onMouseLeave: handleApplyHintMouseLeave },
+      hint: applyHint,
     },
     reset: {
       menu: { anchor: resetMenuAnchor, paperRef: resetMenuPaperRef, close: closeResetMenu, onContextMenu: handleResetContextMenu },
-      hint: { active: resetHintActive, pos: resetHintPos, onMouseEnter: handleResetHintMouseEnter, onMouseMove: handleResetHintMouseMove, onMouseLeave: handleResetHintMouseLeave },
+      hint: resetHint,
     },
   } = useBuilderPanelActionMenus({
     builderCanAdd: !multiEditActive,
@@ -1069,16 +1066,7 @@ export default function SafeguardBuilderPanel({
   const tagsContextPaperRef = useRef<HTMLDivElement | null>(null)
   // Persisted preference for whether tag chips render inline next to the button.
   const [showTagsChips, setShowTagsChips] = useShowTagsChipsPreference()
-  // Context menu hint wiring — shared key with RecipeBuilderPanel so one seen = both seen.
-  const {
-    shouldShow: showTagsHint,
-    markSeen: markTagsHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.builderTagsMenu)
-  // Pointer-driven hint position for the Tags context menu hint overlay.
-  const [tagsHintPos, setTagsHintPos] = useState<{ x: number; y: number } | null>(null)
   const tagsPopoverOpen = Boolean(tagsAnchor)
-  // Show the hint only when the menu is closed and the popover is idle.
-  const tagsHintActive = showTagsHint && tagsHintPos !== null && !tagsContextAnchor && !tagsPopoverOpen
   // Centralize the close handler so onClose + outside-click cleanup stay aligned.
   const closeTagsPopover = useCallback(() => {
     setTagsAnchor(null)
@@ -1093,47 +1081,20 @@ export default function SafeguardBuilderPanel({
     onClose: closeTagsContextMenu,
     menuRef: tagsContextPaperRef,
   })
-  // Render-time state adjustment: clear hint position when hint is dismissed.
-  // The React-blessed "Storing information from previous renders" pattern
-  // (https://react.dev/reference/react/useState#storing-information-from-previous-renders):
-  // setters are guarded by an inequality check, so React skips the second render when
-  // nothing changed. The lint rule does not distinguish guarded render-time use from
-  // unguarded setState-in-effect.
-  const [prevShowTagsHint, setPrevShowTagsHint] = useState(showTagsHint)
-  if (showTagsHint !== prevShowTagsHint) {
-    /* eslint-disable @eslint-react/set-state-in-effect -- see block comment above */
-    setPrevShowTagsHint(showTagsHint)
-    if (!showTagsHint) setTagsHintPos(null)
-    /* eslint-enable @eslint-react/set-state-in-effect */
-  }
-  // Track pointer entry to show the tags context menu hint.
-  const handleTagsHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showTagsHint) return
-    if (tagsContextAnchor) return
-    if (tagsPopoverOpen) return
-    setTagsHintPos({ x: event.clientX, y: event.clientY })
-  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
-  // Keep the hint anchored to the pointer as it moves.
-  const handleTagsHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showTagsHint) return
-    if (tagsContextAnchor) return
-    if (tagsPopoverOpen) return
-    setTagsHintPos({ x: event.clientX, y: event.clientY })
-  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
-  // Clear the hint when the pointer leaves the Tags button area.
-  const handleTagsHintMouseLeave = useCallback(() => {
-    setTagsHintPos(null)
-  }, [])
+  // Shared hint key with RecipeBuilderPanel — one seen = both seen.
+  const { triggerProps: tagsHintTriggerProps, overlay: tagsHintOverlay, onOpen: onTagsHintOpen } = useContextMenuButtonHint(CONTEXT_HINT_IDS.builderTagsMenu, {
+    enabled: !tagsContextAnchor && !tagsPopoverOpen,
+    text: t('contextMenuHint'),
+  })
   // Open the Tags context menu on right-click and mark the hint as seen.
   const handleTagsContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
     try {
       event.preventDefault()
       event.stopPropagation()
     } catch {}
-    markTagsHintSeen()
-    setTagsHintPos(null)
+    onTagsHintOpen()
     setTagsContextAnchor(event.currentTarget as HTMLElement)
-  }, [markTagsHintSeen])
+  }, [onTagsHintOpen])
   // ContextMenuPaper guard for the tags popover — consistent with other popovers.
   const { contextMenuGuard: tagsMenuGuard } = useContextMenuPaperGuard({
     open: tagsPopoverOpen,
@@ -1573,8 +1534,7 @@ export default function SafeguardBuilderPanel({
           <Box
             sx={{ ml: 'auto', display: 'flex', alignItems: 'flex-end', gap: 0.5, flexShrink: 0, pb: 0, position: 'relative' }}
             onContextMenu={handleHistoryContextMenu}
-            onMouseMove={handleHistoryMouseMove}
-            onMouseLeave={handleHistoryMouseLeave}
+            {...historyHintTriggerProps}
           >
             <MarkdownTooltip
               render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
@@ -1608,7 +1568,7 @@ export default function SafeguardBuilderPanel({
                 </IconButton>
               </span>
             </MarkdownTooltip>
-            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
+            {historyHintOverlay}
             <HistoryContextMenu
               open={historyMenuOpen}
               anchorPosition={historyMenuAnchor}
@@ -1912,9 +1872,7 @@ export default function SafeguardBuilderPanel({
         <Box
           sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, alignSelf: 'flex-end' }}
           onContextMenu={handleTagsContextMenu}
-          onMouseEnter={handleTagsHintMouseEnter}
-          onMouseMove={handleTagsHintMouseMove}
-          onMouseLeave={handleTagsHintMouseLeave}
+          {...tagsHintTriggerProps}
         >
           <MarkdownTooltip markdown={tagsButtonLabel} placement="top">
             <Button
@@ -2031,7 +1989,7 @@ export default function SafeguardBuilderPanel({
             </MenuItem>
           </Menu>
           {/* Context menu hint overlay matches the rest of the builder controls. */}
-          <ContextMenuHintOverlay text={t('contextMenuHint')} position={tagsHintActive ? tagsHintPos : null} />
+          {tagsHintOverlay}
         </Box>
         </Box>
         </Collapse>
@@ -2952,9 +2910,7 @@ export default function SafeguardBuilderPanel({
           <Box
             component="span"
             onContextMenu={handleInsertContextMenu}
-            onMouseEnter={handleInsertHintMouseEnter}
-            onMouseMove={handleInsertHintMouseMove}
-            onMouseLeave={handleInsertHintMouseLeave}
+            {...insertHint.triggerProps}
             sx={{ display: 'inline-flex' }}
           >
             <Button
@@ -2974,9 +2930,7 @@ export default function SafeguardBuilderPanel({
           <Box
             component="span"
             onContextMenu={handleApplyContextMenu}
-            onMouseEnter={handleApplyHintMouseEnter}
-            onMouseMove={handleApplyHintMouseMove}
-            onMouseLeave={handleApplyHintMouseLeave}
+            {...applyHint.triggerProps}
             sx={{ display: 'inline-flex' }}
           >
             <Button
@@ -3015,9 +2969,9 @@ export default function SafeguardBuilderPanel({
             <Box
               component="span"
               onContextMenu={handleResetContextMenu}
-              onMouseEnter={(e) => { setHoverReset(true); handleResetHintMouseEnter(e) }}
-              onMouseMove={handleResetHintMouseMove}
-              onMouseLeave={() => { setHoverReset(false); handleResetHintMouseLeave() }}
+              onMouseEnter={(e) => { setHoverReset(true); resetHint.triggerProps.onMouseEnter(e) }}
+              onMouseMove={resetHint.triggerProps.onMouseMove}
+              onMouseLeave={() => { setHoverReset(false); resetHint.triggerProps.onMouseLeave() }}
             >
               <Button
                 size="small"
@@ -3033,9 +2987,9 @@ export default function SafeguardBuilderPanel({
         </Stack>
 
         {/* Context menu hint overlays */}
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={insertHintActive ? insertHintPos : null} />
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={applyHintActive ? applyHintPos : null} />
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={resetHintActive ? resetHintPos : null} />
+        {insertHint.overlay}
+        {applyHint.overlay}
+        {resetHint.overlay}
 
         {/* Insert context menu — auto reset after insert */}
         <Menu

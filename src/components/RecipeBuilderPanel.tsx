@@ -18,7 +18,7 @@ import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
@@ -100,7 +100,6 @@ import { useI18n, formatRulesCount } from '../lib/i18n'
 import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { resolveRecipeOverridesEffectiveRecipe, type RecipeOverridesInstructions } from '../lib/noteRecipeOverrides'
 import {
   type MultiEditDraftHandle,
@@ -438,19 +437,11 @@ const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
 const substatMenuRollTargetsRef = React.useRef<HTMLDivElement | null>(null)
 const SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR = 'data-substat-roll-target-input' as const
 const SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR = `input[${SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR}="true"]` as const
-const {
-  shouldShow: showSubstatHint,
-  markSeen: markSubstatHintSeen,
-} = useContextMenuHint(CONTEXT_HINT_IDS.builderSubstats)
-const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
-const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
-const clearSubstatHint = React.useCallback(() => {
-  setSubstatHintPos(null)
-}, [])
-const markSubstatHintSeenAndClear = React.useCallback(() => {
-  markSubstatHintSeen()
-  clearSubstatHint()
-}, [markSubstatHintSeen, clearSubstatHint])
+// Substat hint — disabled while the context menu is open so the overlay doesn't compete.
+const substatHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.builderSubstats, {
+  enabled: !substatMenu,
+  text: t('contextMenuHint'),
+})
 const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
 const canFlexSubstats = canEnableSubstatFlex(recipe)
 const milestoneThresholdsActive = isMilestoneThresholdsActive(recipe)
@@ -1642,13 +1633,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
-    handleHistoryMouseMove,
-    handleHistoryMouseLeave,
+    historyHintTriggerProps,
     handleHistoryMenuContextMenu,
     handleRequestClearHistory,
     handleHistoryEntrySelect,
-    historyHintActive,
-    historyHintPos,
+    historyHintOverlay,
   } = useBuilderHistoryMenu({
     undoPreview,
     redoPreview,
@@ -1855,19 +1844,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const [tagsContextAnchor, setTagsContextAnchor] = useState<HTMLElement | null>(null)
   // Store a ref so outside clicks close the Tags context menu reliably.
   const tagsContextPaperRef = useRef<HTMLDivElement | null>(null)
-  // Context menu hint wiring for the Tags button.
-  const {
-    shouldShow: showTagsHint,
-    markSeen: markTagsHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.builderTagsMenu)
-  // Pointer-driven hint position for the Tags context menu overlay.
-  const [tagsHintPos, setTagsHintPos] = useState<{ x: number; y: number } | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   // Derived UI state for tags in single vs multi-edit.
   const tagsPopoverOpen = Boolean(tagsAnchor)
-  // Show the hint only when the menu is closed and the popover is idle.
-  const tagsHintActive = showTagsHint && tagsHintPos !== null && !tagsContextAnchor && !tagsPopoverOpen
   // Centralize the close handler so onClose + outside-click cleanup stay aligned.
   const closeTagsPopover = useCallback(() => {
     setTagsAnchor(null)
@@ -1882,43 +1862,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     onClose: closeTagsContextMenu,
     menuRef: tagsContextPaperRef,
   })
-  // Render-time state adjustment: clear hint position when hint is dismissed.
-  // Guarded by inequality check (see substat-menu block above for full rationale).
-  const [prevShowTagsHint, setPrevShowTagsHint] = useState(showTagsHint)
-  if (showTagsHint !== prevShowTagsHint) {
-    /* eslint-disable @eslint-react/set-state-in-effect -- see comment above */
-    setPrevShowTagsHint(showTagsHint)
-    if (!showTagsHint) setTagsHintPos(null)
-    /* eslint-enable @eslint-react/set-state-in-effect */
-  }
-  // Track pointer entry to show the tags context menu hint.
-  const handleTagsHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showTagsHint) return
-    if (tagsContextAnchor) return
-    if (tagsPopoverOpen) return
-    setTagsHintPos({ x: event.clientX, y: event.clientY })
-  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
-  // Keep the hint anchored to the pointer as it moves.
-  const handleTagsHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showTagsHint) return
-    if (tagsContextAnchor) return
-    if (tagsPopoverOpen) return
-    setTagsHintPos({ x: event.clientX, y: event.clientY })
-  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
-  // Clear the hint when the pointer leaves the Tags button area.
-  const handleTagsHintMouseLeave = useCallback(() => {
-    setTagsHintPos(null)
-  }, [])
+  // Tags hint — disabled while the context menu or popover is open.
+  const tagsHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.builderTagsMenu, {
+    enabled: !tagsContextAnchor && !tagsPopoverOpen,
+    text: t('contextMenuHint'),
+  })
+  const { onOpen: onTagsHintOpen } = tagsHint
   // Open the Tags context menu on right-click and mark the hint as seen.
   const handleTagsContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
     try {
       event.preventDefault()
       event.stopPropagation()
     } catch {}
-    markTagsHintSeen()
-    setTagsHintPos(null)
+    onTagsHintOpen()
     setTagsContextAnchor(event.currentTarget as HTMLElement)
-  }, [markTagsHintSeen])
+  }, [onTagsHintOpen])
   // Memoize single-recipe tags so callbacks get stable dependencies.
   const tagsValue = useMemo(() => (recipe.tags ?? []), [recipe.tags])
   // Summarize tag presence for multi-edit so mixed tags are styled separately.
@@ -2488,51 +2446,16 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
 
   const {
     insert: {
-      menu: {
-        anchor: insertMenuAnchor,
-        paperRef: insertMenuPaperRef,
-        close: closeInsertMenu,
-        onContextMenu: handleInsertContextMenu,
-      },
-      hint: {
-        active: insertHintActive,
-        pos: insertHintPos,
-        onMouseEnter: handleInsertHintMouseEnter,
-        onMouseMove: handleInsertHintMouseMove,
-        onMouseLeave: handleInsertHintMouseLeave,
-      },
+      menu: { anchor: insertMenuAnchor, paperRef: insertMenuPaperRef, close: closeInsertMenu, onContextMenu: handleInsertContextMenu },
+      hint: insertHint,
     },
     apply: {
-      menu: {
-        anchor: applyMenuAnchor,
-        paperRef: applyMenuPaperRef,
-        close: closeApplyMenu,
-        onContextMenu: handleApplyContextMenu,
-      },
-      hint: {
-        active: applyHintActive,
-        pos: applyHintPos,
-        onMouseEnter: handleApplyHintMouseEnter,
-        onMouseMove: handleApplyHintMouseMove,
-        onMouseLeave: handleApplyHintMouseLeave,
-      },
+      menu: { anchor: applyMenuAnchor, paperRef: applyMenuPaperRef, close: closeApplyMenu, onContextMenu: handleApplyContextMenu },
+      hint: applyHint,
     },
     reset: {
-      menu: {
-        anchor: resetMenuAnchor,
-        paperRef: resetMenuPaperRef,
-        close: closeResetMenu,
-        onContextMenu: handleResetContextMenu,
-      },
-      hint: {
-        shouldShow: showResetHint,
-        active: resetHintActive,
-        pos: resetHintPos,
-        onMouseEnter: handleResetHintMouseEnter,
-        onMouseMove: handleResetHintMouseMove,
-        onMouseLeave: handleResetHintMouseLeave,
-        setPosition: setResetHintPos,
-      },
+      menu: { anchor: resetMenuAnchor, paperRef: resetMenuPaperRef, close: closeResetMenu, onContextMenu: handleResetContextMenu },
+      hint: resetHint,
     },
   } = useBuilderPanelActionMenus({
     builderCanAdd,
@@ -3264,7 +3187,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       }
       const handleContextMenu = (event: React.MouseEvent) => {
         try { event.preventDefault(); event.stopPropagation() } catch {}
-        markSubstatHintSeenAndClear()
+        substatHint.onOpen()
         const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
         const wasSelected = displaySelected
         if (!wasSelected) {
@@ -3342,14 +3265,11 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
           selected={buttonSelected}
           disabled={!allowedSubstatOptions.includes(variant)}
           onClick={handleClick}
-          onMouseMove={(e) => {
-            if (!showSubstatHint || substatMenu) return
-            setSubstatHintPos({ x: e.clientX, y: e.clientY })
-          }}
+          onMouseMove={substatHint.triggerProps.onMouseMove}
           onContextMenu={handleContextMenu}
           onMouseLeave={() => {
             setInteractiveHoverVariant((current) => (current === variant ? null : current))
-            clearSubstatHint()
+            substatHint.triggerProps.onMouseLeave()
           }}
           sx={toggleButtonSx}
           data-tour-id={options?.dataTourId}
@@ -4088,7 +4008,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     return (
       <>
         {toggleGroupContent}
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={substatHintActive ? substatHintPos : null} />
+        {substatHint.overlay}
         <Menu
           open={menuOpen}
           onClose={handleSubstatMenuClose}
@@ -5975,8 +5895,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <Box
               sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}
               onContextMenu={handleHistoryContextMenu}
-              onMouseMove={handleHistoryMouseMove}
-              onMouseLeave={handleHistoryMouseLeave}
+              {...historyHintTriggerProps}
             >
               <MarkdownTooltip
                 render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
@@ -6011,7 +5930,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 </span>
               </MarkdownTooltip>
             </Box>
-            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
+            {historyHintOverlay}
             <HistoryContextMenu
               open={historyMenuOpen}
               anchorPosition={historyMenuAnchor}
@@ -6260,9 +6179,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               <Box
                 component="span"
                 onContextMenu={handleTagsContextMenu}
-                onMouseEnter={handleTagsHintMouseEnter}
-                onMouseMove={handleTagsHintMouseMove}
-                onMouseLeave={handleTagsHintMouseLeave}
+                {...tagsHint.triggerProps}
                 sx={{ display: 'inline-flex' }}
               >
                 <EllipsisTooltip title={tagsButtonLabel} selector="[data-ellipsis-target]">
@@ -6385,7 +6302,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 </MenuItem>
               </Menu>
               {/* Context menu hint overlay matches the rest of the builder controls. */}
-              <ContextMenuHintOverlay text={t('contextMenuHint')} position={tagsHintActive ? tagsHintPos : null} />
+              {tagsHint.overlay}
             </Box>
           </Box>
           </Collapse>
@@ -7253,9 +7170,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box
           component="span"
           onContextMenu={handleInsertContextMenu}
-          onMouseEnter={handleInsertHintMouseEnter}
-          onMouseMove={handleInsertHintMouseMove}
-          onMouseLeave={handleInsertHintMouseLeave}
+          {...insertHint.triggerProps}
           sx={{ display: 'inline-flex' }}
         >
           <Badge
@@ -7284,9 +7199,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box
           component="span"
           onContextMenu={handleApplyContextMenu}
-          onMouseEnter={handleApplyHintMouseEnter}
-          onMouseMove={handleApplyHintMouseMove}
-          onMouseLeave={handleApplyHintMouseLeave}
+          {...applyHint.triggerProps}
           sx={{ display: 'inline-flex' }}
         >
           <Badge
@@ -7346,9 +7259,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box
           component="span"
           onContextMenu={handleResetContextMenu}
-          onMouseEnter={handleResetHintMouseEnter}
-          onMouseMove={handleResetHintMouseMove}
-          onMouseLeave={handleResetHintMouseLeave}
+          {...resetHint.triggerProps}
         >
           <Button
             size="small"
@@ -7356,25 +7267,25 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             disabled={isDefaultBuilder || multiEditActive}
             onMouseEnter={(e) => {
               setHoverReset(true)
-              handleResetHintMouseEnter(e)
+              resetHint.triggerProps.onMouseEnter(e)
             }}
             onMouseLeave={() => setHoverReset(false)}
             onClick={handleResetBuilder}
             onFocus={(e) => {
-              if (multiEditActive || isDefaultBuilder || !showResetHint) return
+              if (multiEditActive || isDefaultBuilder) return
               const rect = e.currentTarget.getBoundingClientRect()
-              setResetHintPos?.({ x: rect.right, y: rect.top })
+              resetHint.setPosition?.({ x: rect.right, y: rect.top })
             }}
-            onBlur={() => setResetHintPos?.(null)}
-            onMouseMove={handleResetHintMouseMove}
+            onBlur={() => resetHint.setPosition?.(null)}
+            onMouseMove={resetHint.triggerProps.onMouseMove}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('builderResetButton')}
           </Button>
         </Box>
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={insertHintActive ? insertHintPos : null} />
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={applyHintActive ? applyHintPos : null} />
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={resetHintActive ? resetHintPos : null} />
+        {insertHint.overlay}
+        {applyHint.overlay}
+        {resetHint.overlay}
         <Menu
           anchorEl={insertMenuAnchor}
           open={Boolean(insertMenuAnchor)}

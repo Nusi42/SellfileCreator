@@ -34,9 +34,8 @@ import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { resolveSafeguardRuleLabel } from '../lib/safeguards'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
@@ -709,27 +708,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     onClose: closeRowMenu,
     menuRef: rowMenuPaperRef,
   })
-  const {
-    shouldShow: showRulesHeaderHint,
-    markSeen: markRulesHeaderHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.rulesTableHeader)
-  const {
-    shouldShow: showRulesRowHint,
-    markSeen: markRulesRowHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.rulesTableRows)
-  const [headerHintPos, setHeaderHintPos] = useState<{ x: number; y: number } | null>(null)
-  const [rowHintPos, setRowHintPos] = useState<{ x: number; y: number } | null>(null)
-  // Render-time state adjustment: clear hint positions when the hint is dismissed.
-  const [prevShowRulesHeaderHint, setPrevShowRulesHeaderHint] = useState(showRulesHeaderHint)
-  if (showRulesHeaderHint !== prevShowRulesHeaderHint) {
-    setPrevShowRulesHeaderHint(showRulesHeaderHint)
-    if (!showRulesHeaderHint) setHeaderHintPos(null)
-  }
-  const [prevShowRulesRowHint, setPrevShowRulesRowHint] = useState(showRulesRowHint)
-  if (showRulesRowHint !== prevShowRulesRowHint) {
-    setPrevShowRulesRowHint(showRulesRowHint)
-    if (!showRulesRowHint) setRowHintPos(null)
-  }
+  // Header hint — disabled while the header menu is open.
+  const headerHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.rulesTableHeader, {
+    enabled: !headerMenu?.open,
+    text: t('contextMenuHintRulesTableHeader'),
+  })
+  // Row hint — disabled while the row menu is open.
+  const rowHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.rulesTableRows, {
+    enabled: !rowMenu?.open,
+    text: t('contextMenuHint'),
+  })
 
   // Header drag-to-reorder support
   const dragSrcIdxRef = useRef<number | null>(null)
@@ -1298,8 +1286,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                   e.preventDefault()
                   e.stopPropagation()
                 } catch {}
-                markRulesRowHintSeen()
-                setRowHintPos(null)
+                rowHint.onOpen()
                 closeHeaderMenu()
                 setRowMenu({
                   open: true,
@@ -1312,9 +1299,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
               onMouseMove={(e) => {
                 // Keep-override rows do not expose a context menu, so skip the hint affordance.
                 if (isKeepOverrideSource) return
-                if (!showRulesRowHint || rowMenu?.open) return
-                setHeaderHintPos(null)
-                setRowHintPos({ x: e.clientX, y: e.clientY })
+                headerHint.triggerProps.onMouseLeave()
+                rowHint.triggerProps.onMouseMove(e)
               }}
               sx={(theme) => ({
                 // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
@@ -1755,23 +1741,22 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         }}
         data-tour-id="preview.table"
         onMouseMove={(e) => {
-          if (!showRulesRowHint || rowMenu?.open) return
           const target = e.target as HTMLElement | null
           if (target && target.closest('thead')) {
-            setRowHintPos(null)
+            rowHint.triggerProps.onMouseLeave()
             return
           }
           // Safeguard rows intentionally have no row actions; suppress the affordance hint there.
           if (target && target.closest(`tr[data-rule-source="${RULE_SOURCE_SAFEGUARDS}"]`)) {
-            setRowHintPos(null)
+            rowHint.triggerProps.onMouseLeave()
             return
           }
           // Empty space below the rows has no context menu handler; suppress the hint there too.
           if (target && !target.closest('tbody tr')) {
-            setRowHintPos(null)
+            rowHint.triggerProps.onMouseLeave()
             return
           }
-          setHeaderHintPos(null)
+          headerHint.triggerProps.onMouseLeave()
           const container = tableContainerRef.current
           if (container) {
             const rect = container.getBoundingClientRect()
@@ -1781,15 +1766,15 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
               && e.clientY < (rect.top + container.clientTop + container.clientHeight)
             // Ignore scrollbar gutter regions so the hint only appears where a context menu can open.
             if (!withinContentX || !withinContentY) {
-              setRowHintPos(null)
+              rowHint.triggerProps.onMouseLeave()
               return
             }
           }
-          setRowHintPos({ x: e.clientX, y: e.clientY })
+          rowHint.triggerProps.onMouseMove(e)
         }}
         onMouseLeave={() => {
-          setHeaderHintPos(null)
-          setRowHintPos(null)
+          headerHint.triggerProps.onMouseLeave()
+          rowHint.triggerProps.onMouseLeave()
         }}
       >
         <Table
@@ -1823,18 +1808,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                 e.preventDefault()
                 e.stopPropagation()
               } catch {}
-              markRulesHeaderHintSeen()
-              setHeaderHintPos(null)
-              setRowHintPos(null)
+              headerHint.onOpen()
+              rowHint.triggerProps.onMouseLeave()
               closeRowMenu()
               setHeaderMenu({ open: true, x: e.clientX, y: e.clientY })
             }}
             onMouseMove={(e) => {
-              if (!showRulesHeaderHint || headerMenu?.open) return
-              setRowHintPos(null)
-              setHeaderHintPos({ x: e.clientX, y: e.clientY })
+              rowHint.triggerProps.onMouseLeave()
+              headerHint.triggerProps.onMouseMove(e)
             }}
-            onMouseLeave={() => setHeaderHintPos(null)}
+            onMouseLeave={headerHint.triggerProps.onMouseLeave}
           >
             <TableRow>
               {visibleColsForContainer.map((c) => {
@@ -1897,8 +1880,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         ) : null}
       </TableContainer>
       {scrollRangeOverlayBox}
-      <ContextMenuHintOverlay text={t('contextMenuHintRulesTableHeader')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesRowHint && !rowMenu?.open) ? rowHintPos : null} />
+      {headerHint.overlay}
+      {rowHint.overlay}
       
       {/* Header context menu (columns + wrap toggle) */}
       <Menu

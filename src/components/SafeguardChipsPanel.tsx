@@ -52,9 +52,8 @@ import { RecipeContextMenu } from './RecipeContextMenu'
 import PasteDialog from './PasteDialog'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
@@ -433,12 +432,12 @@ export default function SafeguardChipsPanel({
   const [pendingDeleteAll, setPendingDeleteAll] = useState(false)
   // Context menu anchor for a specific chip.
   const [ruleMenu, setRuleMenu] = useState<{ ruleIdx: number; x: number; y: number } | null>(null)
-  const {
-    shouldShow: shouldShowChipHint,
-    markSeen: markChipHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.safeguardChipsPanel)
-  const [chipHintPos, setChipHintPos] = useState<{ x: number; y: number } | null>(null)
-  const chipHintActive = chipHintPos !== null && !ruleMenu && shouldShowChipHint
+  // Hint disabled while the rule context menu is open.
+  const chipHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.safeguardChipsPanel, {
+    enabled: !ruleMenu,
+    text: t('contextMenuHint'),
+  })
+  const { onOpen: onChipHintOpen } = chipHint
   // Paste dialog target; ruleIdx is the anchor when pasting "after".
   const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleIdx?: number } | null>(null)
   const [pasteDialogText, setPasteDialogText] = useState('')
@@ -737,10 +736,9 @@ export default function SafeguardChipsPanel({
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX || Math.round(rect.left + rect.width / 2)
     const y = event.clientY || Math.round(rect.top + rect.height / 2)
-    markChipHintSeen()
-    setChipHintPos(null)
+    onChipHintOpen()
     setRuleMenu({ ruleIdx, x, y })
-  }, [markChipHintSeen, onSelect])
+  }, [onChipHintOpen, onSelect])
 
   // ── clipboard / paste ─────────────────────────────────────────────────────
 
@@ -986,12 +984,8 @@ export default function SafeguardChipsPanel({
         onFocus={chipListHandleFocus}
         onBlur={chipListHandleBlur}
         onMouseDown={chipListHandleMouseDown}
-        onMouseMove={(event) => {
-          if (ruleMenu) return
-          if (shouldShowChipHint) setChipHintPos({ x: event.clientX, y: event.clientY })
-          else if (chipHintPos) setChipHintPos(null)
-        }}
-        onMouseLeave={() => { setChipHintPos(null) }}
+        onMouseMove={chipHint.triggerProps.onMouseMove}
+        onMouseLeave={chipHint.triggerProps.onMouseLeave}
         // Open the background context menu (paste/select-all/delete-all) when right-clicking
         // the empty area; chip-level right-clicks stop propagation before reaching here.
         onContextMenu={(event) => openRuleMenu(event, -1)}
@@ -1087,7 +1081,7 @@ export default function SafeguardChipsPanel({
           })
         )}
       </Box>
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={chipHintActive ? chipHintPos : null} />
+      {chipHint.overlay}
     </>
   )
 }

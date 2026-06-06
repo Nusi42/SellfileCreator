@@ -10,9 +10,8 @@ import RecipeChip from './RecipeChip'
 import type { BuilderRecipe, SellfileExportMode } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useChipListDnd } from '../hooks/useChipListDnd'
@@ -144,21 +143,17 @@ function RecipeChipsPanel(props: {
     onClose: closeMenu,
     menuRef: menuPaperRef,
   })
-  const {
-    shouldShow: shouldShowContextHint,
-    markSeen: markContextHintSeen,
-  } = useContextMenuHint(CONTEXT_HINT_IDS.builderRecipeChips)
-  const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const hintActive = hintPos !== null && !chipMenu && shouldShowContextHint
-  const resetHint = React.useCallback(() => {
-    setHintPos(null)
-  }, [])
+  // Hint disabled while a menu is open (drag suppression is checked per-event below).
+  const chipsHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.builderRecipeChips, {
+    enabled: !chipMenu,
+    text: t('contextMenuHint'),
+  })
+  const { onOpen: onChipsHintOpen } = chipsHint
   // Chip right-click: delegate to panel-level menu with the chip's index.
   const handleChipContextMenu = React.useCallback((e: React.MouseEvent, idx: number) => {
-    markContextHintSeen()
-    resetHint()
+    onChipsHintOpen()
     setChipMenu({ chipIdx: idx, x: e.clientX, y: e.clientY })
-  }, [markContextHintSeen, resetHint])
+  }, [onChipsHintOpen])
   const hideTipsTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   React.useEffect(() => () => {
     if (hideTipsTimerRef.current) {
@@ -318,23 +313,16 @@ function RecipeChipsPanel(props: {
           markScrolling()
         }}
         onMouseMove={(e) => {
-          if (hasActiveDrag || chipMenu) return
-          if (shouldShowContextHint) {
-            setHintPos({ x: e.clientX, y: e.clientY })
-          } else if (hintPos) {
-            resetHint()
-          }
+          if (hasActiveDrag) return
+          chipsHint.triggerProps.onMouseMove(e)
         }}
-        onMouseLeave={() => {
-          resetHint()
-        }}
+        onMouseLeave={chipsHint.triggerProps.onMouseLeave}
         onContextMenu={(e) => {
           try {
             e.preventDefault()
             e.stopPropagation()
           } catch {}
-          markContextHintSeen()
-          resetHint()
+          onChipsHintOpen()
           // chipIdx -1 signals background click (no chip selected).
           setChipMenu({ chipIdx: -1, x: e.clientX, y: e.clientY })
         }}
@@ -343,12 +331,15 @@ function RecipeChipsPanel(props: {
         onFocus={(e) => {
           // Delegate focus-ring tracking to the shared hook, then handle hint separately.
           chipListHandleFocus(e)
-          if (shouldShowContextHint && e.currentTarget === e.target) {
+          if (e.currentTarget === e.target) {
             const rect = e.currentTarget.getBoundingClientRect()
-            setHintPos({ x: rect.left + rect.width / 2, y: rect.top })
+            chipsHint.setPosition({ x: rect.left + rect.width / 2, y: rect.top })
           }
         }}
-        onBlur={chipListHandleBlur}
+        onBlur={() => {
+          chipListHandleBlur()
+          chipsHint.triggerProps.onMouseLeave()
+        }}
         onMouseDown={chipListHandleMouseDown}
       >
       {dropGuide ? (
@@ -421,7 +412,7 @@ function RecipeChipsPanel(props: {
           })
         )}
       </Box>
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive && !hasActiveDrag ? hintPos : null} />
+      {chipsHint.overlay}
       <RecipeContextMenu
         open={Boolean(chipMenu)}
         anchorPosition={chipMenu ? { top: chipMenu.y, left: chipMenu.x } : null}
