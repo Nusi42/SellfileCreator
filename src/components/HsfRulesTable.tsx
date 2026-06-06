@@ -1671,7 +1671,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         aria-live="polite"
         sx={(theme) => ({
           position: 'absolute',
-          top: theme.spacing(1.5),
+          // Offset below the sticky table header so the flyout does not overlap column header cells.
+          top: `calc(${headerHeightPx}px + ${theme.spacing(1.5)})`,
           right: theme.spacing(1.5),
           zIndex: theme.zIndex.tooltip,
           pointerEvents: 'none',
@@ -1681,7 +1682,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           backgroundColor: theme.custom.paperOverlayBg,
           boxShadow: theme.shadows[3],
           color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
-          transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
+          transition: theme.transitions.create(['opacity', 'transform', 'top'], { duration: theme.transitions.duration.shorter }),
           opacity: showScrollRangeHint ? 1 : 0,
           transform: showScrollRangeHint ? 'translateY(0)' : 'translateY(-6px)',
         })}

@@ -1348,6 +1348,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   }, [flattenedItems, flattenedItemOffsets, headerDisplacerOffsetByKey, scrollTop, accordionSummaryHeightPx])
   // Set of flattenedItems indices currently in the sticky stack; used in O(1) lookups during render.
   const stickyIndicesSet = useMemo(() => new Set(stickyStack.map((e) => e.index)), [stickyStack])
+  // Pixel distance from the scroll container's top edge to the bottom of the deepest pinned header.
+  // Used to push the scroll-hint flyout below whatever sticky headers are currently visible.
+  const stickyHeadersBottomPx = stickyStack.length * accordionSummaryHeightPx
   // Anchor for shift-range selection: the last item clicked without shift held.
   const [anchorArtifactId, setAnchorArtifactId] = useState<number | null>(null)
   // Single-select mode: plain click selects only one card; persisted to localStorage.
@@ -2551,7 +2554,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           aria-live="polite"
           sx={(theme) => ({
             position: 'absolute',
-            top: theme.spacing(1.5),
+            // Offset below the deepest currently-pinned accordion header so the flyout does not
+            // overlap the expand/collapse button on the right side of any sticky header clone.
+            top: `calc(${stickyHeadersBottomPx}px + ${theme.spacing(1.5)})`,
             right: theme.spacing(1.5),
             zIndex: theme.zIndex.tooltip,
             px: 1.25,
@@ -2560,7 +2565,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)',
             boxShadow: theme.shadows[3],
             color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
-            transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
+            transition: theme.transitions.create(['opacity', 'transform', 'top'], { duration: theme.transitions.duration.shorter }),
             opacity: showScrollGroupHint ? 1 : 0,
             transform: showScrollGroupHint ? 'translateY(0)' : 'translateY(-6px)',
             pointerEvents: 'none',
