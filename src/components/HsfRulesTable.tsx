@@ -35,6 +35,7 @@ import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats
 import { resolveSafeguardRuleLabel } from '../lib/safeguards'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -711,11 +712,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   const {
     shouldShow: showRulesHeaderHint,
     markSeen: markRulesHeaderHintSeen,
-  } = useContextMenuHint('rulesTableHeader')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.rulesTableHeader)
   const {
     shouldShow: showRulesRowHint,
     markSeen: markRulesRowHintSeen,
-  } = useContextMenuHint('rulesTableRows')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.rulesTableRows)
   const [headerHintPos, setHeaderHintPos] = useState<{ x: number; y: number } | null>(null)
   const [rowHintPos, setRowHintPos] = useState<{ x: number; y: number } | null>(null)
   // Render-time state adjustment: clear hint positions when the hint is dismissed.

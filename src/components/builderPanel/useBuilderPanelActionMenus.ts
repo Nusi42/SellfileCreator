@@ -8,6 +8,7 @@ import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useContextMenuCloseOnOutsideRightClick } from '../../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../../hooks/contextMenuHintIds'
 
 export interface ContextMenuHintState {
   shouldShow: boolean
@@ -62,7 +63,7 @@ export const useBuilderPanelActionMenus = ({
   const {
     shouldShow: showInsertHint,
     markSeen: markInsertHintSeen,
-  } = useContextMenuHint('builderInsertMenu')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderInsertMenu)
   const [insertHintPos, setInsertHintPos] = useState<{ x: number; y: number } | null>(null)
   // Clear the insert hint position during render when the hint is dismissed.
   if (!showInsertHint && insertHintPos !== null) {
@@ -109,7 +110,7 @@ export const useBuilderPanelActionMenus = ({
   const {
     shouldShow: showApplyHint,
     markSeen: markApplyHintSeen,
-  } = useContextMenuHint('builderApplyMenu')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderApplyMenu)
   const [applyHintPos, setApplyHintPos] = useState<{ x: number; y: number } | null>(null)
   // Clear the apply hint position during render when the hint is dismissed.
   if (!showApplyHint && applyHintPos !== null) {
@@ -156,7 +157,7 @@ export const useBuilderPanelActionMenus = ({
   const {
     shouldShow: showResetHint,
     markSeen: markResetHintSeen,
-  } = useContextMenuHint('builderReset')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderReset)
   const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
   // Clear the reset hint position during render when the hint is dismissed.
   if (!showResetHint && resetHintPos !== null) {

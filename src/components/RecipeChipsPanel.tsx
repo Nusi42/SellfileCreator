@@ -11,6 +11,7 @@ import type { BuilderRecipe, SellfileExportMode } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { RecipeContextMenu } from './RecipeContextMenu'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
@@ -18,9 +19,8 @@ import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 
-// Shared localStorage key suffix for the Recipe Chips context-menu hint.
-// Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
-const RECIPE_CHIPS_CONTEXT_HINT_ID = 'builderRecipeChips'
+// Recipe chips and individual chip right-clicks share the same hint ID so right-clicking
+// anywhere in the list dismisses the hint — not just on empty space or just on a chip.
 
 /**
  * Derive a stable, unique key for each recipe in a list.
@@ -147,7 +147,7 @@ function RecipeChipsPanel(props: {
   const {
     shouldShow: shouldShowContextHint,
     markSeen: markContextHintSeen,
-  } = useContextMenuHint(RECIPE_CHIPS_CONTEXT_HINT_ID)
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderRecipeChips)
   const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const hintActive = hintPos !== null && !chipMenu && shouldShowContextHint
   const resetHint = React.useCallback(() => {

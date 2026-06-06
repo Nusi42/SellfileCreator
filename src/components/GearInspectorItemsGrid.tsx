@@ -53,8 +53,8 @@ import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { buildGearInspectorNormalizedPresetTooltipMarkdown, formatGearInspectorNormalizedPresetButtonLabel } from '../lib/gearInspectorNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
@@ -870,29 +870,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     && typeof onCreateRuleTemplate === 'function'
   // The store returns the validated mode string directly; no coercion needed here.
   const storedColumnPreference = gridColumnPreference
-  // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
-  const {
-    shouldShow: shouldShowGridContextHint,
-    markSeen: markGridContextHintSeen,
-  } = useContextMenuHint('gearInspectorGridContextMenu')
-  const [gridContextHintPos, setGridContextHintPos] = useState<{ x: number; y: number } | null>(null)
-  const handleGridHintPointerMove = useCallback((event: React.MouseEvent<Element>) => {
-    if (!shouldShowGridContextHint) return
-    setGridContextHintPos({ x: event.clientX, y: event.clientY })
-  }, [shouldShowGridContextHint])
-  const handleGridHintPointerLeave = useCallback(() => {
-    setGridContextHintPos(null)
-  }, [])
-  const handleGridHintSeen = useCallback(() => {
-    markGridContextHintSeen()
-    setGridContextHintPos(null)
-  }, [markGridContextHintSeen])
-  // Render-time state adjustment: clear hint position when the hint is dismissed.
-  const [prevShouldShowGridContextHint, setPrevShouldShowGridContextHint] = useState(shouldShowGridContextHint)
-  if (shouldShowGridContextHint !== prevShouldShowGridContextHint) {
-    setPrevShouldShowGridContextHint(shouldShowGridContextHint)
-    if (!shouldShowGridContextHint) setGridContextHintPos(null)
-  }
   // Collapse state is normally internal, but the diff split-view passes a shared state +
   // setter so collapsing/expanding a group in one pane mirrors in the other.
   const [internalCollapsedGroups, setInternalCollapsedGroups] = useState<Set<string>>(() => new Set())
@@ -1900,7 +1877,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
   // Nested preset editor menu should not close the parent grid menu when clicked.
   const normalizedPresetEditorPaperRef = useRef<HTMLDivElement | null>(null)
-  const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
+  // Grid context-menu hint — initialized here so enabled can reference gridMenuOpen.
+  const {
+    triggerProps: gridHintTriggerProps,
+    onOpen: gridHintOnOpen,
+    overlay: gridHintOverlay,
+  } = useContextMenuButtonHint(CONTEXT_HINT_IDS.gearInspectorGridContextMenu, {
+    enabled: !gridMenuOpen,
+    text: t('contextMenuHint'),
+  })
   const resolveGridContextGroupKey = useCallback((target: EventTarget | null): string | null => {
     // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
     const element = target as Element | null
@@ -1928,8 +1913,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     // Track the pointer target so the menu actions know which group to mutate.
     setGridMenuGroupKey(resolveGridContextGroupKey(event.target))
     setGridMenuPosition({ x: event.clientX, y: event.clientY })
-    handleGridHintSeen()
-  }, [handleGridHintSeen, resolveGridContextGroupKey])
+    gridHintOnOpen()
+  }, [gridHintOnOpen, resolveGridContextGroupKey])
   const closeGridMenu = useCallback(() => {
     // Closing the parent menu should never leave the nested preset editor orphaned.
     setNormalizedPresetEditor(null)
@@ -2212,7 +2197,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             event.preventDefault()
             event.stopPropagation()
             handleGroupToggle(group.key, !expanded, event, { applyToAll: true })
-            handleGridHintSeen()
+            gridHintOnOpen()
           }}
           onKeyDown={(event) => {
             // Activate on Enter/Space like a native button when rendered as div
@@ -2523,8 +2508,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       <Box
         ref={containerRef}
         onScroll={handleScroll}
-        onMouseMove={handleGridHintPointerMove}
-        onMouseLeave={handleGridHintPointerLeave}
+        onMouseMove={gridHintTriggerProps.onMouseMove}
+        onMouseLeave={gridHintTriggerProps.onMouseLeave}
         onContextMenu={handleGridContextMenu}
         data-gear-inspector-grid-container="true"
         sx={(theme) => ({
@@ -2661,7 +2646,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Typography>
         </Box>
       ) : null}
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
+      {gridHintOverlay}
         <Menu
         open={gridMenuOpen}
         onClose={closeGridMenuOrPresetEditor}

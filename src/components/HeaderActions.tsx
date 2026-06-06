@@ -11,8 +11,8 @@ import DirtyBadge from './DirtyBadge'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { highlightElementKeyframes } from '../lib/attentionCatalog'
 import beginnerSfcRaw from '../../presets/beginner.sfc?raw'
 import lategameSfcRaw from '../../presets/lategame.sfc?raw'
@@ -79,13 +79,11 @@ export default function HeaderActions(props: {
   const [sfcCtxMenu, setSfcCtxMenu] = useState<HTMLElement | null>(null)
   // Tracks which preset the user clicked — null means no confirm dialog is open.
   const [pendingPreset, setPendingPreset] = useState<{ raw: string; filename: string } | null>(null)
-  // Cursor position for the "right-click for options" hover hint.
-  const [sfcHintPos, setSfcHintPos] = useState<{ x: number; y: number } | null>(null)
   const sfcButtonRef = useRef<HTMLButtonElement>(null)
   const sfcMenuRef = useRef<HTMLDivElement | null>(null)
   const closeSfcMenu = useCallback(() => setSfcCtxMenu(null), [])
   useContextMenuCloseOnOutsideRightClick({ open: sfcCtxMenu !== null, onClose: closeSfcMenu, menuRef: sfcMenuRef })
-  const { shouldShow: sfcHintShouldShow, markSeen: sfcHintMarkSeen } = useContextMenuHint('sfc.load')
+  const sfcHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.sfcLoad, { text: t('contextMenuHint') })
 
   const recipeChipLabel = formatRecipesCount(
     t,
@@ -189,14 +187,11 @@ export default function HeaderActions(props: {
               onSelect={onSelectFile}
               onContextMenu={(e) => {
                 e.preventDefault()
-                sfcHintMarkSeen()
-                setSfcHintPos(null)
+                sfcHint.onOpen()
                 onSfcLoadNudgeDismiss?.()
                 setSfcCtxMenu(e.currentTarget as HTMLElement)
               }}
-              onMouseEnter={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
-              onMouseMove={(e) => { if (sfcHintShouldShow) setSfcHintPos({ x: e.clientX, y: e.clientY }) }}
-              onMouseLeave={() => setSfcHintPos(null)}
+              {...sfcHint.triggerProps}
               data-tour-id="sfc.load"
               labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
               sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX }}
@@ -272,7 +267,7 @@ export default function HeaderActions(props: {
             </Box>
           )}
         </Box>
-        <ContextMenuHintOverlay text={t('contextMenuHint')} position={sfcHintShouldShow ? sfcHintPos : null} />
+        {sfcHint.overlay}
         <Menu
           anchorEl={sfcCtxMenu}
           open={Boolean(sfcCtxMenu)}

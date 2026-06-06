@@ -25,8 +25,8 @@ import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 // MarkdownTooltip keeps all preview tooltips (filter toggle, export warnings, etc.) aligned with the global styling/delay.
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -463,12 +463,10 @@ export default function PreviewHeaderActions(props: {
     onClose: closeExportMenu,
     menuRef: exportMenuPaperRef,
   })
-  const {
-    shouldShow: showExportHint,
-    markSeen: markExportHintSeen,
-  } = useContextMenuHint('previewExportMenu')
-  const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
+  const exportHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.previewExportMenu, {
+    enabled: exportMenuEnabled && !exportMenuAnchor,
+    text: t('contextMenuHint'),
+  })
   const filterMenuEnabled = React.useMemo(() => {
     // The filter button menu is the entry point for presets + sync, so enable it when any are available.
     return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
@@ -482,12 +480,10 @@ export default function PreviewHeaderActions(props: {
     onClose: closeFilterMenu,
     menuRef: filterMenuPaperRef,
   })
-  const {
-    shouldShow: showFilterHint,
-    markSeen: markFilterHintSeen,
-  } = useContextMenuHint('previewFilterMenu')
-  const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
+  const filterHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.previewFilterMenu, {
+    enabled: filterMenuEnabled && !filterMenuAnchor,
+    text: t('contextMenuHint'),
+  })
 
   // Sort preset context menu — right-click on the sort button, same pattern as the filter menu.
   const sortPresetMenuEnabled = React.useMemo(() => {
@@ -501,12 +497,10 @@ export default function PreviewHeaderActions(props: {
     onClose: closeSortPresetMenu,
     menuRef: sortPresetMenuPaperRef,
   })
-  const {
-    shouldShow: showSortPresetHint,
-    markSeen: markSortPresetHintSeen,
-  } = useContextMenuHint('previewSortPresetMenu')
-  const [sortPresetHintPos, setSortPresetHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const sortPresetHintActive = showSortPresetHint && sortPresetHintPos !== null && !sortPresetMenuAnchor
+  const sortPresetHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.previewSortPresetMenu, {
+    enabled: sortPresetMenuEnabled && !sortPresetMenuAnchor,
+    text: t('contextMenuHint'),
+  })
 
   // Endpoint history icon should only appear when an endpoint is configured.
   const historyMenuEnabled = Boolean(pushEndpoint)
@@ -779,19 +773,11 @@ export default function PreviewHeaderActions(props: {
     padding: 0,
   }), [])
 
-  // Dismiss export hint/menu when their prerequisites change — render-time comparison pattern.
-  const [prevShowExportHint, setPrevShowExportHint] = React.useState(showExportHint)
-  if (showExportHint !== prevShowExportHint) {
-    setPrevShowExportHint(showExportHint)
-    if (!showExportHint) setExportHintPos(null)
-  }
+  // Close the export menu when its prerequisites disappear (e.g. mode switch).
   const [prevExportMenuEnabled, setPrevExportMenuEnabled] = React.useState(exportMenuEnabled)
   if (exportMenuEnabled !== prevExportMenuEnabled) {
     setPrevExportMenuEnabled(exportMenuEnabled)
-    if (!exportMenuEnabled) {
-      setExportHintPos(null)
-      if (exportMenuAnchor) setExportMenuAnchor(null)
-    }
+    if (!exportMenuEnabled && exportMenuAnchor) setExportMenuAnchor(null)
   }
 	  // Normalized presets live in the gear-inspector-grid preference store; Sort reuses them for source selection + overwrite.
 	  const normalizedOverlayPrefs = useGearInspectorGridNormalizedOverlayPreferences()
@@ -961,6 +947,18 @@ export default function PreviewHeaderActions(props: {
 	  const [diffMenuAnchor, setDiffMenuAnchor] = React.useState<HTMLElement | null>(null)
 	  const closeDiffMenu = React.useCallback(() => { setDiffMenuAnchor(null) }, [])
 	  const diffModeEnabled = !isRulesMode && typeof onToggleDiffMode === 'function'
+	  // Guard the diff menu so a right-click on another control cannot strand it open.
+	  const diffMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+	  useContextMenuCloseOnOutsideRightClick({
+	    open: Boolean(diffMenuAnchor),
+	    onClose: closeDiffMenu,
+	    menuRef: diffMenuPaperRef,
+	  })
+	  // Diff button "right-click for actions" hint, mirroring the filter/sort buttons.
+	  const diffHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.previewDiffMenu, {
+	    enabled: diffModeEnabled && !diffMenuAnchor,
+	    text: t('contextMenuHint'),
+	  })
 	  const [sortNormalizedPresetEditor, setSortNormalizedPresetEditor] = React.useState<{
 	    presetId: GearInspectorNormalizedPresetId
 	    position: { x: number; y: number }
@@ -1162,17 +1160,7 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={filterTooltipLabel}>
                 <Box
                   component="span"
-                  onMouseEnter={(event) => {
-                    if (!filterMenuEnabled || !showFilterHint) return
-                    setFilterHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseMove={(event) => {
-                    if (!filterMenuEnabled || !showFilterHint) return
-                    setFilterHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseLeave={() => {
-                    setFilterHintPos(null)
-                  }}
+                  {...filterHint.triggerProps}
                   onContextMenu={(event) => {
                     if (!filterMenuEnabled) return
                     try {
@@ -1180,8 +1168,7 @@ export default function PreviewHeaderActions(props: {
                       event.stopPropagation()
                     } catch {}
                     setFilterMenuAnchor(event.currentTarget as HTMLElement)
-                    markFilterHintSeen()
-                    setFilterHintPos(null)
+                    filterHint.onOpen()
                   }}
                 >
                   <Button
@@ -1242,23 +1229,14 @@ export default function PreviewHeaderActions(props: {
                 {/* Outer span carries the hint-tracking and right-click handlers. */}
                 <Box
                   component="span"
-                  onMouseEnter={(event) => {
-                    if (!sortPresetMenuEnabled || !showSortPresetHint) return
-                    setSortPresetHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseMove={(event) => {
-                    if (!sortPresetMenuEnabled || !showSortPresetHint) return
-                    setSortPresetHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseLeave={() => { setSortPresetHintPos(null) }}
+                  {...sortPresetHint.triggerProps}
                   onContextMenu={(event) => {
                     if (!sortPresetMenuEnabled) return
                     try { event.preventDefault(); event.stopPropagation() } catch {}
                     // Close the sort popover if it happens to be open.
                     setSortMenuAnchor(null)
                     setSortPresetMenuAnchor(event.currentTarget as HTMLElement)
-                    markSortPresetHintSeen()
-                    setSortPresetHintPos(null)
+                    sortPresetHint.onOpen()
                   }}
                 >
                   <Button
@@ -1311,10 +1289,12 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={t('gearDiffToggleTooltip')}>
                 <Box
                   component="span"
+                  {...diffHint.triggerProps}
                   onContextMenu={(event) => {
                     if (!diffModeEnabled) return
                     try { event.preventDefault(); event.stopPropagation() } catch {}
                     setDiffMenuAnchor(event.currentTarget as HTMLElement)
+                    diffHint.onOpen()
                   }}
                 >
                   <Button
@@ -1366,8 +1346,10 @@ export default function PreviewHeaderActions(props: {
                 anchorEl={diffMenuAnchor}
                 open={Boolean(diffMenuAnchor)}
                 onClose={closeDiffMenu}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{ paper: { ref: diffMenuPaperRef } }}
+                // Left-align under the button like the Sort menu, not right-anchored.
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
                 {/* Manual pin: freeze the current state as the comparison baseline. */}
                 <MenuItem onClick={() => { onSetDiffReference?.(); closeDiffMenu() }}>
@@ -1380,8 +1362,9 @@ export default function PreviewHeaderActions(props: {
                 </MenuItem>
               </Menu>
             ) : null}
-            <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
-            <ContextMenuHintOverlay text={t('contextMenuHint')} position={sortPresetHintActive ? sortPresetHintPos : null} />
+            {filterHint.overlay}
+            {sortPresetHint.overlay}
+            {diffHint.overlay}
             {filterMenuEnabled ? (
               <Menu
                 anchorEl={filterMenuAnchor}
@@ -2833,17 +2816,7 @@ export default function PreviewHeaderActions(props: {
                 <Box
                   component="span"
                   sx={{ display: 'flex', flex: 1, minWidth: 0 }}
-                  onMouseEnter={(event) => {
-                    if (!exportMenuEnabled || !showExportHint) return
-                    setExportHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseMove={(event) => {
-                    if (!exportMenuEnabled || !showExportHint) return
-                    setExportHintPos({ x: event.clientX, y: event.clientY })
-                  }}
-                  onMouseLeave={() => {
-                    setExportHintPos(null)
-                  }}
+                  {...exportHint.triggerProps}
                   onContextMenu={(event) => {
                     if (!exportMenuEnabled) return
                     try {
@@ -2851,8 +2824,7 @@ export default function PreviewHeaderActions(props: {
                       event.stopPropagation()
                     } catch {}
                     setExportMenuAnchor(event.currentTarget as HTMLElement)
-                    markExportHintSeen()
-                    setExportHintPos(null)
+                    exportHint.onOpen()
                   }}
                 >
                   <Button
@@ -2890,17 +2862,7 @@ export default function PreviewHeaderActions(props: {
               <Box
                 component="span"
                 sx={{ display: 'flex', flex: 1, minWidth: 0 }}
-                onMouseEnter={(event) => {
-                  if (!exportMenuEnabled || !showExportHint) return
-                  setExportHintPos({ x: event.clientX, y: event.clientY })
-                }}
-                onMouseMove={(event) => {
-                  if (!exportMenuEnabled || !showExportHint) return
-                  setExportHintPos({ x: event.clientX, y: event.clientY })
-                }}
-                onMouseLeave={() => {
-                  setExportHintPos(null)
-                }}
+                {...exportHint.triggerProps}
                 onContextMenu={(event) => {
                   if (!exportMenuEnabled) return
                   try {
@@ -2908,8 +2870,7 @@ export default function PreviewHeaderActions(props: {
                     event.stopPropagation()
                   } catch {}
                   setExportMenuAnchor(event.currentTarget as HTMLElement)
-                  markExportHintSeen()
-                  setExportHintPos(null)
+                  exportHint.onOpen()
                 }}
               >
                 <Button
@@ -2938,7 +2899,7 @@ export default function PreviewHeaderActions(props: {
               </Box>
             </DirtyBadge>
           )}
-          <ContextMenuHintOverlay text={t('contextMenuHint')} position={exportHintActive ? exportHintPos : null} />
+          {exportHint.overlay}
           {exportMenuEnabled ? (
             <Menu
               anchorEl={exportMenuAnchor}

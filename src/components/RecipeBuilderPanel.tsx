@@ -19,6 +19,7 @@ import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useSfcHistory'
@@ -440,7 +441,7 @@ const SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR = `input[${SUBSTAT_MENU_ROLL_TARGE
 const {
   shouldShow: showSubstatHint,
   markSeen: markSubstatHintSeen,
-} = useContextMenuHint('builderSubstats')
+} = useContextMenuHint(CONTEXT_HINT_IDS.builderSubstats)
 const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
 const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
 const clearSubstatHint = React.useCallback(() => {
@@ -1858,7 +1859,7 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const {
     shouldShow: showTagsHint,
     markSeen: markTagsHintSeen,
-  } = useContextMenuHint('builderTagsMenu')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderTagsMenu)
   // Pointer-driven hint position for the Tags context menu overlay.
   const [tagsHintPos, setTagsHintPos] = useState<{ x: number; y: number } | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'

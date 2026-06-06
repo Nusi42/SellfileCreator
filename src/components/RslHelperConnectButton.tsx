@@ -12,10 +12,10 @@ import { Box, Button, CircularProgress, IconButton, Popover, TextField } from '@
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
-import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useI18n } from '../lib/i18n'
 import {
   getRslHelperPort,
@@ -61,10 +61,10 @@ export default function RslHelperConnectButton({
   })
 
   // Right-click hint shown near the cursor until the user discovers the menu (once per version).
-  const { shouldShow: showHint, markSeen: markHintSeen } = useContextMenuHint('rslHelperConnectButton')
-  const [hintPos, setHintPos] = useState<{ x: number; y: number } | null>(null)
-  // Active while hovering with the feature unseen; suppress once the popout is open.
-  const hintActive = showHint && hintPos !== null && !popoverOpen
+  const connectHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.rslHelperConnectButton, {
+    enabled: !popoverOpen,
+    text: t('contextMenuHint'),
+  })
 
   // Raw string for the text field; lets the user type freely while we validate each change.
   const [draft, setDraft] = useState(String(port))
@@ -80,9 +80,7 @@ export default function RslHelperConnectButton({
 
   const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
-    // Record that the user found the right-click feature so the hint stops showing.
-    markHintSeen()
-    setHintPos(null)
+    connectHint.onOpen()
     // Reset draft to the current persisted value each time the popout opens.
     setDraft(String(port))
     setPopoverAnchor(e.currentTarget)
@@ -117,11 +115,6 @@ export default function RslHelperConnectButton({
     : t('connectRslHelperClickConnect')
   const tooltipMd = `**${primaryTooltip}**\n\n${clickAction}\n\n${t('connectRslHelperPortHint')}`
 
-  // Shared mouse handlers for the hint overlay (used by both rendering paths).
-  const onMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (showHint && !popoverOpen) setHintPos({ x: e.clientX, y: e.clientY })
-  }
-  const onMouseLeave = () => setHintPos(null)
 
   // Icon with badge overlay shared between the IconButton and Button rendering paths.
   const iconWithBadge = (
@@ -154,8 +147,7 @@ export default function RslHelperConnectButton({
             color={connectState === 'connected' ? 'success' : 'primary'}
             onClick={onToggleConnect}
             onContextMenu={handleContextMenu}
-            onMouseMove={onMouseMove}
-            onMouseLeave={onMouseLeave}
+            {...connectHint.triggerProps}
             startIcon={iconWithBadge}
             aria-label={primaryTooltip}
             sx={{ whiteSpace: 'nowrap', ...pulseSx }}
@@ -170,8 +162,7 @@ export default function RslHelperConnectButton({
             size="small"
             onClick={onToggleConnect}
             onContextMenu={handleContextMenu}
-            onMouseMove={onMouseMove}
-            onMouseLeave={onMouseLeave}
+            {...connectHint.triggerProps}
             aria-label={primaryTooltip}
             sx={{
               height: 34, width: 34, border: '1px solid', borderRadius: 1,
@@ -189,7 +180,7 @@ export default function RslHelperConnectButton({
       )}
 
       {/* Floating hint near the cursor — disappears once the user right-clicks */}
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive ? hintPos : null} />
+      {connectHint.overlay}
 
       {/* Port config popout — anchored to the button, uses the shared ContextMenuPaper X-close */}
       <Popover

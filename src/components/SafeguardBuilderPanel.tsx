@@ -167,6 +167,7 @@ import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/ta
 import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import {
@@ -1072,7 +1073,7 @@ export default function SafeguardBuilderPanel({
   const {
     shouldShow: showTagsHint,
     markSeen: markTagsHintSeen,
-  } = useContextMenuHint('builderTagsMenu')
+  } = useContextMenuHint(CONTEXT_HINT_IDS.builderTagsMenu)
   // Pointer-driven hint position for the Tags context menu hint overlay.
   const [tagsHintPos, setTagsHintPos] = useState<{ x: number; y: number } | null>(null)
   const tagsPopoverOpen = Boolean(tagsAnchor)

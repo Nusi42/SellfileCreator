@@ -11,6 +11,7 @@ import { formatHistoryTooltipText } from '../../history/historyTooltip'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import type { ContextMenuPaperGuardToken } from '../ContextMenuPaper'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
+import { CONTEXT_HINT_IDS } from '../../hooks/contextMenuHintIds'
 import type { I18nContextValue } from '../../lib/i18n'
 
 type TranslateFn = I18nContextValue['t']
@@ -97,7 +98,7 @@ export function useBuilderHistoryMenu({
   })
 
   // Hints teach the context-menu affordance; once dismissed they never return.
-  const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint('builderHistoryMenu')
+  const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint(CONTEXT_HINT_IDS.builderHistoryMenu)
   const [historyHintPos, setHistoryHintPos] = useState<{ x: number; y: number } | null>(null)
   // Clear the hint position during render when the hint is dismissed.
   if (!shouldShowHistoryHint && historyHintPos !== null) {

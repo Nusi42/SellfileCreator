@@ -55,8 +55,8 @@ import { GearInspectorRuleReferenceChip } from '../GearInspectorRuleReferenceChi
 import GridIconBox, { GRID_ICON_BOX_SIZE_PX } from '../GridIconBox'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
-import { useContextMenuHint } from '../../hooks/useContextMenuHint'
-import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
+import { CONTEXT_HINT_IDS } from '../../hooks/contextMenuHintIds'
+import { useContextMenuButtonHint } from '../../hooks/useContextMenuButtonHint'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
 import { EmptyStateMessage, type EmptyStateMessageProps } from '../EmptyStateMessage'
 
@@ -255,27 +255,7 @@ export function GearInspectorTabContent({
     })
     return counts
   }, [gearInspectorItems])
-  const {
-    shouldShow: shouldShowCompactHint,
-    markSeen: markCompactHintSeen,
-  } = useContextMenuHint('gearInspectorCompact')
-  const [compactHintPos, setCompactHintPos] = useState<{ x: number; y: number } | null>(null)
-  const compactHintActive = shouldShowCompactHint && compactHintPos !== null
-  const handleCompactHintPointerMove = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    if (!shouldShowCompactHint) return
-    setCompactHintPos({ x: event.clientX, y: event.clientY })
-  }, [shouldShowCompactHint])
-  const handleCompactHintPointerLeave = useCallback(() => {
-    setCompactHintPos(null)
-  }, [])
-  const handleCompactHintSeen = useCallback(() => {
-    markCompactHintSeen()
-    setCompactHintPos(null)
-  }, [markCompactHintSeen])
-  // Clear the compact hint position during render when the hint is dismissed.
-  if (!shouldShowCompactHint && compactHintPos !== null) {
-    setCompactHintPos(null)
-  }
+  const compactHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.gearInspectorCompact, { text: t('contextMenuHint') })
   const manualEntries = useMemo(() => (
     gearInspectorItems
       .filter((item) => gearInspectorSourceCategoryForItem(item) === 'manual')
@@ -1038,13 +1018,11 @@ export function GearInspectorTabContent({
                 } : {}),
               }}
               onClick={(event) => handleToggleCompact(it.itemId, event)}
-              onMouseEnter={handleCompactHintPointerMove}
-              onMouseMove={handleCompactHintPointerMove}
-              onMouseLeave={handleCompactHintPointerLeave}
+              {...compactHint.triggerProps}
               onContextMenu={(event) => {
                 event.preventDefault()
                 event.stopPropagation()
-                handleCompactHintSeen()
+                compactHint.onOpen()
                 handleToggleCompact(it.itemId, event, { applyGlobally: true })
               }}
             >
@@ -1924,7 +1902,7 @@ export function GearInspectorTabContent({
           </Button>
         </DialogActions>
       </Dialog>
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={compactHintActive ? compactHintPos : null} />
+      {compactHint.overlay}
     </>
   )
 }
