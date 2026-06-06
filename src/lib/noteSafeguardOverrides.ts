@@ -575,6 +575,12 @@ export type SafeguardNoteQuestionOption = {
   isDefault: boolean
   token: string
   groupType: NoteQuestionGroupType
+  /** Resolved option IDs to force-select when this option is active. */
+  setOptionIds: string[]
+  /** Resolved option IDs to force-deselect when this option is active. */
+  unsetOptionIds: string[]
+  /** Resolved option IDs that cannot coexist with this option. */
+  excludedOptionIds: string[]
   /** Only populated for slider groups. */
   sliderMin?: number
   sliderMax?: number
@@ -623,15 +629,206 @@ const resolveOptionIdsFromTokens = (
   return resolved
 }
 
-const mergeOptionIdLists = (...lists: string[][]): string[] => {
-  const seen = new Set<string>()
-  const merged: string[] = []
-  lists.forEach((list) => list.forEach((id) => {
-    if (seen.has(id)) return
-    seen.add(id)
-    merged.push(id)
+// ── Constraint resolution helpers ────────────────────────────────────────────
+// Mirrors the recipe-overrides constraint engine, typed for SafeguardNoteQuestionOption.
+
+// Minimal option shape the constraint helpers operate on.
+type SgConstraintOption = Pick<SafeguardNoteQuestionOption, 'id' | 'groupType' | 'setOptionIds' | 'unsetOptionIds' | 'excludedOptionIds'>
+type SgConstraintGroup = { type: NoteQuestionGroupType; options: SgConstraintOption[] }
+
+// Convenience types used by applyGlobalSgOptionExclusions.
+type SgConstraintQuestion = {
+  options: SgConstraintOption[]
+  groups: SgConstraintGroup[]
+  answer: string[]
+}
+
+const buildSgExclusionLookup = (options: SgConstraintOption[]): Map<string, Set<string>> => {
+  const lookup = new Map<string, Set<string>>()
+  options.forEach((option) => {
+    if (option.excludedOptionIds.length === 0) return
+    lookup.set(option.id, new Set(option.excludedOptionIds))
+    option.excludedOptionIds.forEach((excluded) => {
+      const existing = lookup.get(excluded) ?? new Set<string>()
+      existing.add(option.id)
+      lookup.set(excluded, existing)
+    })
+  })
+  return lookup
+}
+
+const getSgScopeId = (optionId: string): string => {
+  const sep = optionId.indexOf(':')
+  return sep >= 0 ? optionId.slice(0, sep) : optionId
+}
+
+const normalizeSgOrder = (selection: string[], options: SgConstraintOption[]): string[] => {
+  const s = new Set(selection)
+  return options.filter((o) => s.has(o.id)).map((o) => o.id)
+}
+
+const isSameSgOrder = (left: string[], right: string[]): boolean => (
+  left.length === right.length && left.every((v, i) => v === right[i])
+)
+
+const pickSgSingleGroupFallback = (
+  group: SgConstraintGroup,
+  selected: Set<string>,
+  exclusions: Map<string, Set<string>>,
+): string | null => {
+  for (const opt of group.options) {
+    const blocked = exclusions.get(opt.id)
+    const hasConflict = blocked ? [...selected].some((id) => blocked.has(id)) : false
+    if (!hasConflict) return opt.id
+  }
+  return null
+}
+
+const applySgSingleGroupFallbacks = (
+  selection: string[],
+  groups: SgConstraintGroup[],
+  options: SgConstraintOption[],
+  preferredId?: string,
+): string[] => {
+  const exclusions = buildSgExclusionLookup(options)
+  const next = new Set(selection)
+  groups.forEach((group) => {
+    if (group.type !== 'single') return
+    const inGroup = group.options.filter((o) => next.has(o.id))
+    if (inGroup.length > 0) {
+      // Collapse multiple selections to preferred or first.
+      const keep = (preferredId ? inGroup.find((o) => o.id === preferredId) : null) ?? inGroup[0]!
+      inGroup.forEach((o) => { if (o.id !== keep.id) next.delete(o.id) })
+      return
+    }
+    const fallback = pickSgSingleGroupFallback(group, next, exclusions)
+    if (fallback) next.add(fallback)
+  })
+  return normalizeSgOrder(Array.from(next), options)
+}
+
+const applySgExclusions = (
+  selection: string[],
+  options: SgConstraintOption[],
+  preferredId?: string,
+): string[] => {
+  const next = new Set(selection)
+  const exclusions = buildSgExclusionLookup(options)
+  if (preferredId && next.has(preferredId)) {
+    ;(exclusions.get(preferredId) ?? new Set()).forEach((id) => next.delete(id))
+  }
+  options.forEach((option) => {
+    if (!next.has(option.id)) return
+    const blocked = exclusions.get(option.id)
+    if (!blocked) return
+    blocked.forEach((id) => { if (id !== preferredId) next.delete(id) })
+  })
+  return normalizeSgOrder(Array.from(next), options)
+}
+
+const applySgDirectives = (
+  selection: string[],
+  options: SgConstraintOption[],
+  preferredId?: string,
+  removedId?: string,
+): string[] => {
+  const next = new Set(selection)
+  const optionById = new Map(options.map((o) => [o.id, o]))
+  // Releasing: drop the removed option and any source that force-sets it.
+  if (removedId) {
+    next.delete(removedId)
+    options.forEach((o) => {
+      if (!next.has(o.id)) return
+      if (!o.setOptionIds.includes(removedId)) return
+      next.delete(o.id)
+    })
+  }
+  options.forEach((option) => {
+    if (!next.has(option.id)) return
+    option.setOptionIds.forEach((id) => {
+      next.add(id)
+      // Setting a single-select option replaces its peers.
+      const target = optionById.get(id)
+      if (!target || target.groupType !== 'single') return
+      const targetScope = getSgScopeId(id)
+      options.forEach((candidate) => {
+        if (candidate.id === id || candidate.groupType !== 'single') return
+        if (getSgScopeId(candidate.id) !== targetScope) return
+        next.delete(candidate.id)
+      })
+    })
+    option.unsetOptionIds.forEach((id) => { if (id !== preferredId) next.delete(id) })
+  })
+  // Keep preferred explicit; deselect conflicting preset sources.
+  if (preferredId) {
+    next.add(preferredId)
+    const preferred = optionById.get(preferredId)
+    if (preferred?.groupType === 'single') {
+      const preferredScope = getSgScopeId(preferredId)
+      options.forEach((candidate) => {
+        if (candidate.id === preferredId || candidate.groupType !== 'single') return
+        if (getSgScopeId(candidate.id) !== preferredScope) return
+        next.delete(candidate.id)
+      })
+      options.forEach((candidate) => {
+        if (!next.has(candidate.id) || candidate.id === preferredId) return
+        const forces = candidate.setOptionIds.some((targetId) => {
+          if (targetId === preferredId) return false
+          const target = optionById.get(targetId)
+          if (!target || target.groupType !== 'single') return false
+          return getSgScopeId(targetId) === preferredScope
+        })
+        if (forces) next.delete(candidate.id)
+      })
+    }
+  }
+  if (removedId) next.delete(removedId)
+  return normalizeSgOrder(Array.from(next), options)
+}
+
+const resolveWithSgOptionRules = (
+  selection: string[],
+  groups: SgConstraintGroup[],
+  options: SgConstraintOption[],
+  preferredId?: string,
+  removedId?: string,
+): string[] => {
+  let current = normalizeSgOrder(selection, options)
+  const maxPasses = Math.max(8, options.length + groups.length + 2)
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const withDirectives = applySgDirectives(current, options, preferredId, removedId)
+    const withExclusions = applySgExclusions(withDirectives, options, preferredId)
+    const withFallbacks = applySgSingleGroupFallbacks(withExclusions, groups, options, preferredId)
+    const next = normalizeSgOrder(withFallbacks, options)
+    if (isSameSgOrder(next, current)) return next
+    current = next
+  }
+  return current
+}
+
+// Public helper for the NoteDialog UI toggle handler (single-question update).
+export const applyQuestionSgSelectionRules = (
+  selection: string[],
+  question: Pick<SafeguardNoteQuestionDefinition, 'groups' | 'options'>,
+  preferredId?: string,
+  removedId?: string,
+): string[] => resolveWithSgOptionRules(selection, question.groups, question.options, preferredId, removedId)
+
+// Re-apply constraints across all questions using the global option ordering (cross-question cascade).
+const applyGlobalSgOptionExclusions = <Q extends SgConstraintQuestion>(
+  questions: Q[],
+  preferredId?: string,
+  removedId?: string,
+): Q[] => {
+  const allOptions = questions.flatMap((q) => q.options)
+  const allGroups = questions.flatMap((q) => q.groups)
+  const selected = questions.flatMap((q) => q.answer)
+  const resolved = resolveWithSgOptionRules(selected, allGroups, allOptions, preferredId, removedId)
+  const resolvedSet = new Set(resolved)
+  return questions.map((q) => ({
+    ...q,
+    answer: q.options.filter((o) => resolvedSet.has(o.id)).map((o) => o.id),
   }))
-  return merged
 }
 
 // ── Group builder ─────────────────────────────────────────────────────────────
@@ -671,12 +868,11 @@ const buildResolvedQuestion = (
   // Resolve options to the public option type.
   const options: SafeguardNoteQuestionOption[] = question.options.map((option) => {
     const token = option.explicitToken ?? option.implicitToken ?? ''
-    // Resolve constraint tokens to option IDs for set/unset/excl.
+    // Resolve constraint tokens to option IDs so the cascade engine can enforce them.
     const resolveTokens = (tokens: string[]) => resolveOptionIdsFromTokens(tokens, globalExplicitTokenMap, implicitTokenMap)
-    // Constraint tokens are parsed but not applied in rendering;
-    // they're kept so the NoteDialog can handle set/unset animations if needed.
-    const _ = mergeOptionIdLists(resolveTokens(option.setTokens), resolveTokens(option.unsetTokens), resolveTokens(option.excludedTokens))
-    void _  // consumed only to satisfy linter (unused)
+    const setOptionIds = resolveTokens(option.setTokens)
+    const unsetOptionIds = resolveTokens(option.unsetTokens)
+    const excludedOptionIds = resolveTokens(option.excludedTokens)
     const result: SafeguardNoteQuestionOption = {
       id: option.id,
       label: option.label,
@@ -688,6 +884,9 @@ const buildResolvedQuestion = (
       isDefault: option.isDefault,
       token,
       groupType: option.groupType,
+      setOptionIds,
+      unsetOptionIds,
+      excludedOptionIds,
     }
     // Propagate slider params for slider group options.
     if (option.groupType === 'slider' && option.sliderParams) {
@@ -729,6 +928,8 @@ const buildResolvedQuestion = (
 }
 
 // Resolve stored or default answers against the current option set.
+// Slider answers (raw numeric strings) are preserved separately from option-id answers
+// so the constraint engine can safely operate on the id-based portion only.
 const resolveAnswer = (
   question: Pick<SafeguardNoteQuestionDefinition, 'groups' | 'options' | 'defaultAnswer'>,
   stored: string[] | undefined,
@@ -736,13 +937,14 @@ const resolveAnswer = (
   const allowed = new Set(question.options.map((o) => o.id))
   const hasStored = Array.isArray(stored)
   const filtered = hasStored ? stored.filter((id) => allowed.has(id)) : []
-  const next: string[] = []
+  const optionIds: string[] = []
+  const sliderAnswers: string[] = []
   question.groups.forEach((group) => {
     const storedForGroup = filtered.filter((id) => group.options.some((o) => o.id === id))
     if (group.type === 'single') {
-      if (storedForGroup.length > 0) { next.push(storedForGroup[0]!); return }
+      if (storedForGroup.length > 0) { optionIds.push(storedForGroup[0]!); return }
       const defaultId = question.defaultAnswer.find((id) => group.options.some((o) => o.id === id))
-      if (defaultId) next.push(defaultId)
+      if (defaultId) optionIds.push(defaultId)
       return
     }
     if (group.type === 'slider') {
@@ -751,17 +953,20 @@ const resolveAnswer = (
       if (!sliderOpt) return
       const defaultNum = sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1
       const rawNum = hasStored ? stored.find((v) => Number.isFinite(Number.parseFloat(v))) : undefined
-      next.push(rawNum !== undefined ? rawNum : String(defaultNum))
+      sliderAnswers.push(rawNum !== undefined ? rawNum : String(defaultNum))
       return
     }
     // multi group
-    if (storedForGroup.length > 0) { next.push(...storedForGroup); return }
+    if (storedForGroup.length > 0) { optionIds.push(...storedForGroup); return }
     if (hasStored) return
     question.defaultAnswer
       .filter((id) => group.options.some((o) => o.id === id))
-      .forEach((id) => next.push(id))
+      .forEach((id) => optionIds.push(id))
   })
-  return next
+  // Apply within-question directives/exclusions/fallbacks to the option-id portion.
+  const ruledIds = applyQuestionSgSelectionRules(optionIds, question)
+  // Recombine with slider answers (which are not option ids and pass through unchanged).
+  return [...ruledIds, ...sliderAnswers]
 }
 
 // ── Marker regex ──────────────────────────────────────────────────────────────
@@ -777,6 +982,8 @@ const SAFEGUARD_QUESTION_MARKER_REGEX = new RegExp(
 export const parseNoteSafeguardOverrides = (
   note: string,
   answers?: NoteSafeguardOverridesAnswers | null,
+  preferredId?: string,
+  removedId?: string,
 ): SafeguardNoteQuestionDefinition[] => {
   if (!note) return []
   const parsedEntries: ParsedSgEntry[] = []
@@ -822,8 +1029,10 @@ export const parseNoteSafeguardOverrides = (
   }
   const globalExplicitTokenMap = buildGlobalExplicitTokenMap(parsedEntries)
   const resolved = parsedEntries.map((entry) => buildResolvedQuestion(entry, answers, globalExplicitTokenMap))
+  // Apply cross-question cascade so exclusions/directives propagate across markers.
+  const cascaded = applyGlobalSgOptionExclusions(resolved, preferredId, removedId)
   // Merge spacers into the resolved list in note order.
-  return [...resolved, ...spacerQuestions].sort((a, b) => a.index - b.index)
+  return [...cascaded, ...spacerQuestions].sort((a, b) => a.index - b.index)
 }
 
 // ── Resolution types ──────────────────────────────────────────────────────────
@@ -883,8 +1092,10 @@ const resolveRecipeOpAst = (
 export const resolveNoteSafeguardOverridesTags = (
   note: string,
   answers?: NoteSafeguardOverridesAnswers | null,
+  preferredId?: string,
+  removedId?: string,
 ): SafeguardOverridesResolution => {
-  const questions = parseNoteSafeguardOverrides(note, answers)
+  const questions = parseNoteSafeguardOverrides(note, answers, preferredId, removedId)
   // Build a token → current slider value map used by cross-slider $count.TOKEN references.
   // Only sliders with an explicit id=TOKEN marker contribute to this map.
   const sliderValueByToken = new Map<string, number>()

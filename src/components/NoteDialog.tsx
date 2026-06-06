@@ -82,6 +82,7 @@ import {
 import {
   resolveNoteSafeguardOverridesTags,
   buildNoteSafeguardOverridesSignature,
+  applyQuestionSgSelectionRules,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
@@ -861,6 +862,8 @@ type NoteRenderContextValue = {
   onSafeguardOverridesAnswerChange: (
     question: SafeguardNoteQuestionDefinition,
     nextAnswer: string[],
+    preferredId?: string,
+    removedId?: string,
   ) => void
   // Merged rules + substat targets forwarded from App for dungeon simulation.
   rules: HsfRuleWithRecipe[]
@@ -2555,8 +2558,8 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   const isHorizontal = question.layoutColumns > 0
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
-  const applyAnswer = (next: string[]) => {
-    onSafeguardOverridesAnswerChange(question, next)
+  const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
+    onSafeguardOverridesAnswerChange(question, next, preferredId, removedId)
   }
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   const cols = Math.max(1, question.layoutColumns)
@@ -2659,7 +2662,13 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       const next = new Set(selectedSet)
                       group.options.forEach((option) => next.delete(option.id))
                       if (value) next.add(value)
-                      applyAnswer(Array.from(next))
+                      // Apply within-question rules before the cascade picks up preferredId.
+                      const ordered = applyQuestionSgSelectionRules(
+                        Array.from(next),
+                        question,
+                        value || undefined,
+                      )
+                      applyAnswer(ordered, value || undefined)
                     }}
                     sx={optionGroupSx}
                   >
@@ -2690,11 +2699,20 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                           size="small"
                           checked={checked}
                           disabled={!safeguardOverridesEditable}
-                          onChange={(_, next) => {
+                          onChange={(event) => {
                             if (!safeguardOverridesEditable) return
                             const updated = new Set(selectedSet)
-                            if (next) { updated.add(option.id) } else { updated.delete(option.id) }
-                            applyAnswer(Array.from(updated))
+                            if (event.target.checked) { updated.add(option.id) } else { updated.delete(option.id) }
+                            // Checking = preferred; unchecking = removed (releases forcing presets).
+                            const preferred = event.target.checked ? option.id : undefined
+                            const removed = event.target.checked ? undefined : option.id
+                            const ordered = applyQuestionSgSelectionRules(
+                              Array.from(updated),
+                              question,
+                              preferred,
+                              removed,
+                            )
+                            applyAnswer(ordered, preferred, removed)
                           }}
                         />
                       }
@@ -3623,11 +3641,15 @@ export default function NoteDialog({
     onSafeguardOverridesResolutionChange(safeguardOverridesResolution)
   }, [onSafeguardOverridesResolutionChange, safeguardOverridesResolution])
   // Handle answer changes from safeguard-overrides question blocks in view mode.
+  // Mirrors recipe override handler: applies within-question rules, then re-resolves ALL questions
+  // so cross-question exclusions/directives cascade to other markers.
   const handleSafeguardOverridesAnswerChange = React.useCallback((
     question: SafeguardNoteQuestionDefinition,
     nextSelection: string[],
+    preferredId?: string,
+    removedId?: string,
   ) => {
-    // Slider questions store a raw numeric string — option-id filtering does not apply.
+    // Slider questions store a raw numeric string — constraint rules do not apply.
     const sliderGroup = question.groups.find((g) => g.type === 'slider')
     if (sliderGroup) {
       const sliderOpt = sliderGroup.options[0]
@@ -3646,25 +3668,56 @@ export default function NoteDialog({
       })
       return
     }
+    // Apply within-question rules before the cascade so the selection is already clean.
+    const ruled = applyQuestionSgSelectionRules(nextSelection, question, preferredId, removedId)
     const defaultSet = new Set(question.defaultAnswer)
-    const nextSet = new Set(nextSelection)
-    const sameSize = defaultSet.size === nextSet.size
-    const matchesDefault = sameSize && Array.from(defaultSet).every((id) => nextSet.has(id))
-    // Keep answers ordered by option definition.
+    const ruledSet = new Set(ruled)
+    const matchesDefault = defaultSet.size === ruledSet.size
+      && Array.from(defaultSet).every((id) => ruledSet.has(id))
     const orderedSelection = question.options
-      .filter((option) => nextSet.has(option.id))
+      .filter((option) => ruledSet.has(option.id))
       .map((option) => option.id)
     onSafeguardOverridesAnswersChange((prev) => {
       const next = { ...prev }
-      // Default selections are omitted from storage (keeps the stored payload lean).
       if (matchesDefault) {
         delete next[question.id]
       } else {
         next[question.id] = orderedSelection
       }
-      return next
+      // Re-resolve ALL questions so cross-question exclusions/directives cascade.
+      const { questions: allResolved } = resolveNoteSafeguardOverridesTags(
+        renderNote ?? '',
+        next,
+        preferredId,
+        removedId,
+      )
+      const normalized: NoteSafeguardOverridesAnswers = {}
+      allResolved.forEach((resolved) => {
+        // Sliders: keep only non-default numeric answers.
+        const hasSlider = resolved.groups.some((g) => g.type === 'slider')
+        if (hasSlider) {
+          const sliderOpt = resolved.groups.find((g) => g.type === 'slider')?.options[0]
+          const def = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
+          const storedNum = resolved.answer.find((v) => Number.isFinite(Number.parseFloat(v)))
+          if (storedNum !== undefined && Number.parseFloat(storedNum) !== def) {
+            normalized[resolved.id] = [storedNum]
+          }
+          return
+        }
+        // Non-slider: omit defaults to keep storage lean.
+        const resolvedDefaultSet = new Set(resolved.defaultAnswer)
+        const resolvedSet = new Set(resolved.answer)
+        const resolvedMatchesDefault = resolvedDefaultSet.size === resolvedSet.size
+          && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
+        if (resolvedMatchesDefault) return
+        const resolvedOrdered = resolved.options
+          .filter((option) => resolvedSet.has(option.id))
+          .map((option) => option.id)
+        normalized[resolved.id] = resolvedOrdered
+      })
+      return normalized
     })
-  }, [onSafeguardOverridesAnswersChange])
+  }, [onSafeguardOverridesAnswersChange, renderNote])
   // summaryProgressRatio > 0 signals that the rule cache pipeline is still rebuilding.
   const pipelineRunning = summaryProgressRatio > 0
   const contextValue = useMemo<NoteRenderContextValue>(
@@ -4578,6 +4631,8 @@ function NoteEditorContent({
   const ignoreSafeguardOverridesAnswerChange = React.useCallback((
     _question: SafeguardNoteQuestionDefinition,
     _nextAnswer: string[],
+    _preferredId?: string,
+    _removedId?: string,
   ) => {}, [])
   // Resolve safeguard overrides markers from the draft for the editor preview.
   const editorSafeguardOverridesResolution = useMemo(

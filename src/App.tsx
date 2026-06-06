@@ -3832,9 +3832,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Prune or reset answers based on the new note content.
       return nextNormalized ? pruneNoteRecipeOverridesAnswers(nextNormalized, prev) : {}
     })
-    // Safeguard overrides answers are also session-only; clear them on any note change
-    // since question IDs can shift and stale answers would silently apply the wrong rules.
-    setNoteSafeguardOverridesAnswers({})
+    // Safeguard overrides answers: same policy as recipe — imports clear, edits prune.
+    // Safeguard question IDs are explicit DSL tokens (not positional), so pruning is safe.
+    setNoteSafeguardOverridesAnswers((prev) => {
+      if (mode === 'import') return {}
+      return nextNormalized ? pruneNoteSafeguardOverridesAnswers(nextNormalized, prev) : {}
+    })
     const descriptor = createNoteChangeDescriptor({
       previous: prevNormalized,
       next: nextNormalized,
