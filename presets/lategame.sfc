@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.17-dev",
+  "Version": "1.0.18-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -18640,7 +18640,7 @@
     "  q \"Do you want to keep weak `6★` pieces to roll them up for a `Chaos Ore` `rework` later?",
     "This question targets **any usually useful set** other than those listed in the 2 other options.\"",
     "  rb \"Keep gear that can hit **4×** on one substat (**≥ Legendary**)\" id=ore6_AllSets_4 { @tag=ore6legendary_allsets { export=active lvl=0-16 } }",
-    "  rb \"Keep gear that can hit **5×** on one substat (**Mythical** only)\" id=ore6_AllSets_5 { @tag=ore6legendary_allsets { export=active lvl=0-16 } }",
+    "  rb \"Keep gear that can hit **5×** on one substat (**Mythical** only)\" id=ore6_AllSets_5 { @tag=ore6legendary_allsets { export=active lvl=0-16  substatmin=5 } }",
     "  rb \"Keep only gear already at **level 16** with **≥ 4×** on one substat\" id=ore6_AllSets_LvlCap { @tag=ore6legendary_allsets { export=active lvl=16 } }",
     "  rb \"No exceptions — sell all weak **6★** gear\" id=ore6_AllSets_Off -ore6_AllSets_nbr { @tag=ore6legendary_allsets { export=disabled } }",
     "  cb \"Gaunlets, Chestplate, and Boots are ignored for Chaos Ore.\" id=ore6_AllSets_nbr -ore6_AllSets_Off { @tag=ore6legendary_allsets and !substatmin.SPD>=4 { slots=Weapon,Helmet,Shield,Ring,Amulet,Banner } @tag=ore6legendary_allsets and substatmin.SPD>=4 { export=disabled } }",
