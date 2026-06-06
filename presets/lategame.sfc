@@ -570,6 +570,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -606,6 +609,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -685,6 +691,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -726,6 +735,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -761,6 +773,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -792,6 +807,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -828,6 +846,9 @@
       "appearance": {
         "name": "Speed - Any Set"
       },
+      "Tags": [
+        "spd_any"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -2447,6 +2468,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2512,6 +2536,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2609,6 +2636,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2706,6 +2736,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2803,6 +2836,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2873,6 +2909,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -2974,6 +3013,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3075,6 +3117,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3176,6 +3221,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3244,6 +3292,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3313,6 +3364,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3403,6 +3457,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3493,6 +3550,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3576,6 +3636,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3659,6 +3722,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -3718,6 +3784,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -3781,6 +3850,9 @@
       "appearance": {
         "name": "Damage - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -3865,6 +3937,9 @@
       "appearance": {
         "name": "Survivability - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3927,6 +4002,9 @@
       "appearance": {
         "name": "Survivability - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -3997,6 +4075,9 @@
       "appearance": {
         "name": "Survivability - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -4060,6 +4141,9 @@
       "appearance": {
         "name": "Survivability - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -4130,6 +4214,9 @@
       "appearance": {
         "name": "Survivability - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -4208,6 +4295,9 @@
       "appearance": {
         "name": "Debuffer - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -4313,6 +4403,9 @@
       "appearance": {
         "name": "Debuffer - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -4395,6 +4488,9 @@
       "appearance": {
         "name": "Debuffer - Limited Sets"
       },
+      "Tags": [
+        "limited"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -18459,19 +18555,21 @@
     "These overrides set sensible defaults for your account progression. You can still fine-tune everything below or edit individual rules (recipes & safeguards) after disabling the overrides in this dialog. ",
     "<!-- recipe-overrides [columns=3]",
     "  q \"Which account level do you think you have?\"",
-    "  cb \"`Midgame`\" \"I can clear most **Normal** game modes and dungeons up to level 25.\\nI aim for **5★ Rare** gear and higher.\" id=midgame ^midgame +rank_5plus +rolls_22 +acc_rolls_22 +marius_open +fwh_no +la_no +eg_no +acc_early_no +ore5Epic_On +ore5EpicLegendary_nbr +ore6Epic_On +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
-    "  cb \"`Lategame`\" \"I can clear all **Normal** game modes and most stages in any **Hard** mode.\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\" * id=lategame ^lategame +rank_strict +rolls_33 +acc_rolls_32 +marius_finished +fwh_no +la_no +eg_no +acc_early_no +ore5EpicLegendary_LvlCap +ore5EpicLegendary_nbr +ore6Epic_On +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
-    "  cb \"`Endgame`\" \"I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars.**\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\" id=endgame ^endgame +rank_stricter +rolls_43 +acc_rolls_33 +marius_finished +fwh_yes16 +la_yes16 +eg_early +acc_early_yesspider +ore5EpicLegendary_LvlCap -ore5EpicLegendary_nbr +ore6EpicLegendary_LvlCap +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
+    "  cb \"`Midgame`\" \"I can clear most **Normal** game modes and dungeons up to level 25.\\nI aim for **5★ Rare** gear and higher.\" id=midgame ^midgame +keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_22 +acc_rolls_22 +marius_open +fwh_no +la_no +eg_no +acc_early_no +ore5Epic_On +ore5EpicLegendary_nbr +ore6Epic_On +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
+    "  cb \"`Lategame`\" \"I can clear all **Normal** game modes and most stages in any **Hard** mode.\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\" * id=lategame ^lategame -keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_33 +acc_rolls_32 +marius_finished +fwh_no +la_no +eg_no +acc_early_no +ore5EpicLegendary_LvlCap +ore5EpicLegendary_nbr +ore6Epic_On +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
+    "  cb \"`Endgame`\" \"I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars.**\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\" id=endgame ^endgame -keep_general +keep_limited +keep_acc +keep_spd -keep_safeguards +rolls_43 +acc_rolls_33 +marius_finished +fwh_yes16 +la_yes16 +eg_early +acc_early_yesspider +ore5EpicLegendary_LvlCap -ore5EpicLegendary_nbr +ore6EpicLegendary_LvlCap +ore6EpicLegendary_nbr +ore6_AllSets_5 +ore6_AllSets_nbr {}",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "-->",
     "---",
     "<span data-color=\"orange\">**Optional 1**</span>: You can also customize the above settings in more detail here:",
     "<!-- recipe-overrides [columns=1]",
-    "  q \"Do you still rely on 5★ gear for your champions?\"",
-    "  rb \"`≥ 5★`\" \"Both **5★** and **6★** gear can qualify for keeping.\" id=rank_5plus { @rank=6 && !tag=ore6mythical && !tag=ore6legendary && !tag=ore6epic && !tag=ore5mythical && !tag=ore5legendary && !tag=ore5epic && !tag=ore6legendary_allsets { rank>=5 } @all { minima.any=5 } @tag=notmidgame { export=disabled } @tag=midgame { export=active } }",
-    "  rb \"`6★ mostly`\" \"Only **6★** artifacts are fully evaluated. Most 5★ artifacts are sold unless they roll SPD. 5★ accessories may still qualify on their own.\" id=rank_strict {}",
-    "  rb \"`6★ mostly — and no Safeguards!`\" \"Like above but also extended to Safeguards other than pieces providing speed, the Mercurial set, and accessoires.\" id=rank_stricter { safeguard @tag=debuffer { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=catchrest { rank=6 } }",
+    "  q \"How strict should keeping `5★` gear be?\\nBy default the file keeps `6★` plus the `5★` that is hardest to replace — limited sets, accessories, and SPD. Unchecking a box keeps that category at `6★` only.\"",
+    "  cb \"`Keep general 5★ gear`\" \"Also keep 5★ from any set, not just the hard-to-replace ones below.\" id=keep_general set keep_limited keep_acc keep_spd keep_safeguards { @rank=6 && !tag=ore6mythical && !tag=ore6legendary && !tag=ore6epic && !tag=ore5mythical && !tag=ore5legendary && !tag=ore5epic && !tag=ore6legendary_allsets { rank>=5 } @all { minima.any=5 } @tag=notmidgame { export=disabled } @tag=midgame { export=active } }",
+    "  cb \"`Keep 5★ limited sets`\" \"Stoneskin, Mercurial, Feral etc. Artifacts only.\" id=keep_limited { else { @tag=limited { rank=6 } } }",
+    "  cb \"`Keep 5★ accessories`\" \"Rings, amulets, banners.\" id=keep_acc { else { @tag=acc5 { rank=6 } } }",
+    "  cb \"`Keep 5★ speed gear`\" \"SPD artifacts and banners, any set.\" id=keep_spd { else { @tag=spd_any { rank=6 } } }",
+    "  cb \"`Keep 5★ safeguards`\" \"Let the safety-net reserve 5★ artifacts too.\" id=keep_safeguards { else { safeguard @tag=debuffer { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=catchrest { rank=6 } } }",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Are you done with all progressive missions for Marius?\\nRegardless of your answer, exceptionally good pieces are always protected.\"",
@@ -18603,8 +18701,8 @@
     "Each tier is tuned to a different account stage and adjusts multiple settings at once — rank requirements, substat thresholds, and which sets get extra protection.",
     "",
     "- **Midgame** — You clear Normal dungeons and still rely on **5★ gear** regularly. The sell file keeps more pieces so you have gear options to work with. 5★ artifacts with decent rolls on useful substats are kept.",
-    "- **Lategame** — Your main teams can clear **Hard mode** dungeons. You are mostly chasing **6★ Epic** gear now. 5★ artifacts are sold unless they roll **SPD**. 5★ accessories can still qualify. All gear types need at least **3** good substats to be worth keeping.",
-    "- **Endgame** — Your roster is deep. You clear all Hard content including Cursed City, Soulcross, and Faction Wars Hard. Compared to **Lategame**, several settings tighten up: defensive and support gear now needs **4** good substats instead of **3**; average-quality drops from common sets must look promising by **level 12** rather than level 16; **Faction Wars Hard** utility gear and **Live Arena / Siege** gear are only protected at level 16; **Chaos Ore** candidates (5★ and 6★) are capped to levels 12–16 so only pieces that already rolled well are kept.",
+    "- **Lategame** — Your main teams can clear **Hard mode** dungeons. You are mostly chasing **6★ Epic** gear now. 5★ artifacts are sold unless they roll **SPD** or come from a scarce limited set (Stoneskin, Mercurial, Feral …). 5★ accessories can still qualify. All gear types need at least **3** good substats to be worth keeping.",
+    "- **Endgame** — Your roster is deep. You clear all Hard content including Cursed City, Soulcross, and Faction Wars Hard. Compared to **Lategame**, several settings tighten up: defensive and support gear now needs **4** good substats instead of **3**; average-quality drops from common sets must look promising by **level 12** rather than level 16; **Faction Wars Hard** utility gear and **Live Arena / Siege** gear are only protected at level 16; **Chaos Ore** candidates (5★ and 6★) are capped to levels 12–16 so only pieces that already rolled well are kept. On top of that, **5★** limited-set artifacts (Stoneskin, Mercurial, Feral …) and **5★** accessories are no longer kept — only their **6★** versions qualify. A few 5★ Mercurial and crit-shield pieces can still be held by Safeguards unless you also tick **Stop safeguarding 5★ gear**.",
     "",
     "---",
     "## How does the sell file decide what to keep?",
