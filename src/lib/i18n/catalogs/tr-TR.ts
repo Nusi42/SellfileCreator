@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Ekipman Denetçisi",
   previewModeRulesTooltip: "**Sellfile Önizleme** — Mevcut tariflerinize göre sellfile'ınıza dahil edilecek ekipmanları gösterir.\n\nKendi ekipmanlarınızı yüklemek ve her parçanın hangi tarife uyduğunu tam olarak görmek için **Kural Testi**'ne geçin.",
   previewModeGearInspectorTooltip: "**Ekipman Denetçisi** — Gerçek ekipman envanterinizi yükleyin ve tariflerinize karşı gerçek zamanlı olarak test edin. Her parça hangi tarifin eşleştiğini ve nedenini gösterir.\n\nBirleşik sellfile çıktısını görmek için **Sellfile Önizleme**'ye geçin.",
-  manageColors: "Renkleri yönet",
+  manageColors: "Renkleri yönet…",
   titleLogicHub: "Araçlar",
   optionalLoadSellfile: "İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi'nde incelemek için bir gear veritabanı (.db) yükleyin.",
   fileFormatErrorTitle: "Dosya formatı desteklenmiyor",
@@ -1731,6 +1731,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Ekipman Farkı** — hangi parçaların **sat** ve **sakla** arasında geçtiğinin, bir referans noktasına göre önce/sonra karşılaştırması.\n\nNot iletişim kutusunda **dinamik geçersiz kılmaları** değiştirmek bu referansı taşımaz, bu yüzden art arda yapılan geçersiz kılma değişiklikleri **birikir** — fark, yalnızca sonuncuyu değil, tüm geçersiz kılma seçimlerinizin birleşik etkisini gösterir.\n\nOluşturucuda bir tarif veya koruma düzenlemek, **Referansı otomatik izle** açıkken referansı o düzenlemeye **taşır**, böylece fark en son değişikliğinizi gösterir.\n\nSol tıklama görünümü değiştirir. Sağ tıklama: **Referans ayarla** karşılaştırma noktasını sabitler; **Referansı otomatik izle** son düzenlemeye otomatik geçişi açar veya kapatır.",
   gearDiffSetReference: "Referans ayarla",
   gearDiffAutoMode: "Referansı otomatik izle",
+  gearDiffChipLabel: "Diff chip",
+  gearDiffFilterLabel: "Filtre modu",
+  gearDiffFilterAny: "Herhangi",
+  gearDiffFilterBefore: "Önce",
+  gearDiffFilterAfter: "Sonra",
 }
 
 export default overrides

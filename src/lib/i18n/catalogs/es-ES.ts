@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Inspector de Equipo",
   previewModeRulesTooltip: "**Vista previa del Sellfile** — Muestra el equipo que se incluirá en tu sellfile según tus recetas actuales.\n\nCambia al **Probador de reglas** para cargar tu propio equipo y ver exactamente qué receta coincide con cada pieza.",
   previewModeGearInspectorTooltip: "**Inspector de Equipo** — Carga tu inventario de equipo real y pruébalo contra tus recetas en tiempo real. Cada pieza muestra qué receta la identificó y por qué.\n\nCambia a la **Vista previa del Sellfile** para ver la salida combinada del sellfile.",
-  manageColors: "Gestionar colores",
+  manageColors: "Gestionar colores…",
   titleLogicHub: "Herramientas",
   optionalLoadSellfile: "Opcional: carga un Sellfile existente para previsualizar la fusión o una base de datos de gear (.db) para revisarla en el Probador.",
   fileFormatErrorTitle: "Formato no compatible",
@@ -1733,6 +1733,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Comparación de equipo** — un antes/después de qué piezas cambian entre **vender** y **conservar**, medido respecto a un punto de referencia.\n\nAlternar las **sustituciones dinámicas** en el diálogo de Nota no mueve esa referencia, por lo que los cambios sucesivos de sustitución se **acumulan**: la comparación muestra el efecto combinado de todas tus elecciones de sustitución, no solo la última.\n\nEditar una receta o salvaguarda en el constructor **sí** mueve la referencia a esa edición mientras **Seguir referencia automáticamente** esté activado, de modo que la comparación muestra tu cambio más reciente.\n\nClic izquierdo alterna la vista. Clic derecho: **Fijar referencia** fija el punto de comparación; **Seguir referencia automáticamente** activa o desactiva el seguimiento automático de la última edición.",
   gearDiffSetReference: "Fijar referencia",
   gearDiffAutoMode: "Seguir referencia automáticamente",
+  gearDiffChipLabel: "Chip diff",
+  gearDiffFilterLabel: "Modo filtro",
+  gearDiffFilterAny: "Cualquiera",
+  gearDiffFilterBefore: "Antes",
+  gearDiffFilterAfter: "Después",
 }
 
 export default overrides

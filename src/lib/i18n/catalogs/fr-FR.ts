@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Inspecteur d’équipement",
   previewModeRulesTooltip: "**Aperçu du Sellfile** — Affiche l’équipement qui sera inclus dans votre sellfile en fonction de vos recettes actuelles.\n\nPassez à l’**Inspecteur d’équipement** pour charger votre propre équipement et voir exactement quelle recette correspond à chaque pièce.",
   previewModeGearInspectorTooltip: "**Inspecteur d’équipement** — Chargez votre inventaire d’équipement réel et testez-le contre vos recettes en temps réel. Chaque pièce indique quelle recette lui correspond et pourquoi.\n\nPassez à l’**Aperçu du Sellfile** pour voir la sortie combinée du sellfile.",
-  manageColors: "Gérer les couleurs",
+  manageColors: "Gérer les couleurs…",
   titleLogicHub: "Outils",
   optionalLoadSellfile: "Optionnel : chargez un Sellfile existant pour prévisualiser la fusion ou une base de données d’équipement (.db) pour la consulter dans l’Inspecteur d’équipement.",
   fileFormatErrorTitle: "Format de fichier non pris en charge",
@@ -1741,6 +1741,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Comparaison d'équipement** — un avant/après des pièces qui basculent entre **vendre** et **garder**, mesuré par rapport à un point de référence.\n\nBasculer les **surcharges dynamiques** dans la boîte de dialogue Note ne déplace pas cette référence ; les changements de surcharge successifs s'**accumulent** donc — la comparaison montre l'effet combiné de tous vos choix de surcharge, pas seulement le dernier.\n\nModifier une recette ou une protection dans le constructeur déplace **bien** la référence vers cette modification tant que **Suivi auto de la référence** est activé, afin que la comparaison montre votre dernière modification.\n\nClic gauche pour basculer la vue. Clic droit : **Définir la référence** fixe le point de comparaison ; **Suivi auto de la référence** active ou désactive le suivi automatique de la dernière modification.",
   gearDiffSetReference: "Définir la référence",
   gearDiffAutoMode: "Suivi auto de la référence",
+  gearDiffChipLabel: "Puce diff",
+  gearDiffFilterLabel: "Mode filtre",
+  gearDiffFilterAny: "Tous",
+  gearDiffFilterBefore: "Avant",
+  gearDiffFilterAfter: "Après",
 }
 
 export default overrides

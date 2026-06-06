@@ -39,6 +39,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
+import { CycleButton } from './CycleButton'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -230,6 +231,12 @@ export default function PreviewHeaderActions(props: {
   onSetDiffReference?: () => void
   // Toggle auto-baseline mode (context-menu "Auto").
   onToggleDiffAuto?: () => void
+  // Whether the delta chip is visible. 'auto' shows it when a meaningful delta exists; 'off' hides it.
+  diffChipMode?: 'off' | 'auto'
+  onChangeDiffChipMode?: (mode: 'off' | 'auto') => void
+  // Which verdict side the active Gear Inspector filter tests in the diff split-view.
+  diffFilterMode?: 'any' | 'before' | 'after'
+  onChangeDiffFilterMode?: (mode: 'any' | 'before' | 'after') => void
   // Signed before→after outcome deltas; rendered as a chip beside the Diff button when
   // the split-view is active.
   diffDelta?: GearDiffDelta | null
@@ -321,6 +328,10 @@ export default function PreviewHeaderActions(props: {
     onToggleDiffMode,
     onSetDiffReference,
     onToggleDiffAuto,
+    diffChipMode = 'auto',
+    onChangeDiffChipMode,
+    diffFilterMode = 'any',
+    onChangeDiffFilterMode,
     diffDelta,
     diffReferencePulsing,
   } = props
@@ -1351,7 +1362,7 @@ export default function PreviewHeaderActions(props: {
             </Box>
             {/* Delta chip sits to the right of the Diff button whenever a meaningful diff
                 exists (any non-zero metric), regardless of whether the split-view is open. */}
-            {diffDelta && (diffDelta.sold !== 0 || diffDelta.kept !== 0 || diffDelta.keptBySafeguards !== 0) ? (
+            {diffChipMode !== 'off' && diffDelta && (diffDelta.sold !== 0 || diffDelta.kept !== 0 || diffDelta.keptBySafeguards !== 0) ? (
               <Box sx={{ mr: 1, display: 'inline-flex', alignItems: 'center' }}>
                 <GearDiffDeltaChip delta={diffDelta} />
               </Box>
@@ -1374,6 +1385,36 @@ export default function PreviewHeaderActions(props: {
                 <MenuItem onClick={() => { onToggleDiffAuto?.() }}>
                   <Checkbox size="small" edge="start" checked={diffAutoMode} sx={{ mr: 0.5, p: 0.5 }} />
                   {t('gearDiffAutoMode')}
+                </MenuItem>
+                {/* Diff chip visibility: 'auto' shows the delta chip when non-zero; 'off' hides it. */}
+                <MenuItem onClick={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }}>
+                  <Checkbox size="small" edge="start" checked={diffChipMode !== 'off'} sx={{ mr: 0.5, p: 0.5 }} />
+                  {t('gearDiffChipLabel')}
+                </MenuItem>
+                {/* Diff filter mode: which verdict side the active Gear Inspector filter tests.
+                    CycleButton suits this because it is a 3-state option, not a simple toggle. */}
+                <MenuItem
+                  sx={{ gap: 1, alignItems: 'center' }}
+                  onClick={() => {
+                    const next = diffFilterMode === 'any' ? 'before' : diffFilterMode === 'before' ? 'after' : 'any'
+                    onChangeDiffFilterMode?.(next)
+                  }}
+                >
+                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffFilterLabel')}</Typography>
+                  <Box component="span" onClick={(e) => e.stopPropagation()}>
+                    <CycleButton
+                      options={[
+                        { value: 'any', label: t('gearDiffFilterAny') },
+                        { value: 'before', label: t('gearDiffFilterBefore') },
+                        { value: 'after', label: t('gearDiffFilterAfter') },
+                      ]}
+                      value={diffFilterMode}
+                      variant="contained"
+                      color="success"
+                      onChange={(v) => { onChangeDiffFilterMode?.(v as 'any' | 'before' | 'after') }}
+                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+                    />
+                  </Box>
                 </MenuItem>
               </Menu>
             ) : null}

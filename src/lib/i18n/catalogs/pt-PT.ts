@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Inspetor de Equipamento",
   previewModeRulesTooltip: "**Pré-visualização do Sellfile** — Mostra o equipamento que será incluído no seu sellfile com base nas suas receitas atuais.\n\nMude para o **Teste de Regras** para carregar o seu próprio equipamento e ver exatamente qual receita cada peça corresponde.",
   previewModeGearInspectorTooltip: "**Inspetor de Equipamento** — Carregue o seu inventário de equipamento real e teste-o contra as suas receitas em tempo real. Cada peça mostra qual receita a identificou e porquê.\n\nMude para a **Pré-visualização do Sellfile** para ver a saída combinada do sellfile.",
-  manageColors: "Gerir cores",
+  manageColors: "Gerir cores…",
   titleLogicHub: "Ferramentas",
   optionalLoadSellfile: "Opcional: carregue um Sellfile existente para pré-visualizar a combinação ou uma base de dados de gear (.db) para a rever no Teste de Regras.",
   fileFormatErrorTitle: "Formato não suportado",
@@ -1733,6 +1733,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Comparação de equipamento** — um antes/depois de quais peças mudam entre **vender** e **manter**, medido em relação a um ponto de referência.\n\nAlternar as **substituições dinâmicas** na caixa de diálogo Nota não move essa referência, por isso alterações de substituição sucessivas **acumulam-se** — a comparação mostra o efeito combinado de todas as suas escolhas de substituição, não apenas a última.\n\nEditar uma receita ou salvaguarda no construtor **move** a referência para essa edição enquanto **Acompanhar referência automaticamente** estiver ativado, para que a comparação mostre a sua alteração mais recente.\n\nClique esquerdo alterna a vista. Clique direito: **Definir referência** fixa o ponto de comparação; **Acompanhar referência automaticamente** ativa ou desativa o acompanhamento automático da última edição.",
   gearDiffSetReference: "Definir referência",
   gearDiffAutoMode: "Acompanhar referência automaticamente",
+  gearDiffChipLabel: "Chip diff",
+  gearDiffFilterLabel: "Modo filtro",
+  gearDiffFilterAny: "Qualquer",
+  gearDiffFilterBefore: "Antes",
+  gearDiffFilterAfter: "Depois",
 }
 
 export default overrides

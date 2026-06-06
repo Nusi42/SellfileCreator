@@ -33,7 +33,7 @@ const overrides: Catalog = {
   previewModeGearInspector: "Ausrüstungsinspektor",
   previewModeRulesTooltip: "**Sellfile-Vorschau** — Zeigt die Ausrüstung, die basierend auf deinen aktuellen Rezepten in deiner Sellfile enthalten sein wird.\n\nWechsle zum **Ausrüstungsinspektor**, um deine eigene Ausrüstung zu laden und genau zu sehen, welchem Rezept jedes Teil entspricht.",
   previewModeGearInspectorTooltip: "**Ausrüstungsinspektor** — Lade dein tatsächliches Ausrüstungsinventar und teste es in Echtzeit gegen deine Rezepte. Jedes Teil zeigt, welches Rezept darauf zutrifft und warum.\n\nWechsle zur **Sellfile-Vorschau**, um die kombinierte Sellfile-Ausgabe zu sehen.",
-  manageColors: "Farben verwalten",
+  manageColors: "Farben verwalten…",
   titleLogicHub: "Tools",
   optionalLoadSellfile: "Optional: Bestehende Sellfile laden, um die Zusammenführung anzuzeigen, oder eine Gear-Datenbank (.db), um sie im Ausrüstungsinspektor zu prüfen.",
   fileFormatErrorTitle: "Dateiformat wird nicht unterstützt",
@@ -1729,6 +1729,11 @@ const overrides: Catalog = {
   gearDiffToggleTooltip: "**Ausrüstungs-Diff** — ein Vorher/Nachher-Vergleich, welche Ausrüstung zwischen **Verkaufen** und **Behalten** wechselt, gemessen an einem Referenzpunkt.\n\nDas Umschalten von **Dynamischen Overrides** im Notiz-Dialog verschiebt diesen Referenzpunkt nicht, daher **summieren** sich aufeinanderfolgende Override-Änderungen — der Diff zeigt die kombinierte Wirkung aller deiner Override-Entscheidungen, nicht nur der letzten.\n\nDas Bearbeiten eines Rezepts oder Safeguards im Builder verschiebt den Referenzpunkt **sehr wohl** auf diese Änderung, solange **Referenz automatisch folgen** aktiv ist, sodass der Diff deine jüngste Änderung zeigt.\n\nLinksklick schaltet die Ansicht um. Rechtsklick: **Referenz setzen** fixiert den Vergleichspunkt; **Referenz automatisch folgen** schaltet das automatische Mitführen auf die letzte Änderung um.",
   gearDiffSetReference: "Referenz setzen",
   gearDiffAutoMode: "Referenz automatisch folgen",
+  gearDiffChipLabel: "Diff-Chip",
+  gearDiffFilterLabel: "Filtermodus",
+  gearDiffFilterAny: "Alle",
+  gearDiffFilterBefore: "Vorher",
+  gearDiffFilterAfter: "Nachher",
 }
 
 export default overrides

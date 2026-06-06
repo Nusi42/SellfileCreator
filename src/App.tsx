@@ -722,6 +722,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // the diff is always available — the header delta chip can then show "what changed since
   // the last edit" without the user opening the split-view first.
   const [gearDiffAutoMode, setGearDiffAutoMode] = useState(true)
+  // Diff-chip visibility: 'auto' shows the delta chip when a meaningful delta exists (default);
+  // 'off' hides it entirely regardless of delta values.
+  const [gearDiffChipMode, setGearDiffChipMode] = useState<'off' | 'auto'>('auto')
+  // Diff-row filter mode: which verdict side the Gear Inspector filter tests in the split-view.
+  // 'any' keeps a row when it passes before OR after (union); 'before'/'after' tests only one side.
+  const [gearDiffFilterMode, setGearDiffFilterMode] = useState<'any' | 'before' | 'after'>('any')
   // Gear-diff compare mode: pins a "before" snapshot and diffs it against the live verdict
   // map. The "after" side is always the live pipeline output (see hook note). `active` gates
   // the heavy row-join work to when the split-view is actually open; the cheap delta (for
@@ -740,6 +746,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // after the i18n hook below.)
   const handleToggleGearDiffAuto = useCallback(() => {
     setGearDiffAutoMode((prev) => !prev)
+  }, [])
+  const handleChangeDiffChipMode = useCallback((mode: 'off' | 'auto') => {
+    setGearDiffChipMode(mode)
+  }, [])
+  const handleChangeDiffFilterMode = useCallback((mode: 'any' | 'before' | 'after') => {
+    setGearDiffFilterMode(mode)
   }, [])
   const [safeguardDetection, setSafeguardDetection] = useState<SafeguardDetectionSnapshot | null>(null)
   // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
@@ -5411,14 +5423,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? { ...gearInspectorRulesFilter, gearInspectorResult: { ...gearInspectorRulesFilter.gearInspectorResult, matched: false } }
       : gearInspectorRulesFilter
     // Project each changed row to its baseline / current verdict, then filter each side.
-    const beforeVariants = dr.map((r) => ({ ...r, match: r.beforeMatch }))
-    const afterVariants = dr.map((r) => ({ ...r, match: r.afterMatch }))
+    // Which sides are tested depends on gearDiffFilterMode:
+    //   'any'    → row kept when it passes before OR after (union — default)
+    //   'before' → row kept only when it passes the baseline-verdict filter
+    //   'after'  → row kept only when it passes the current-verdict filter
     const keepIds = new Set<number>()
-    for (const r of filterGearInspectorItems(beforeVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
-    for (const r of filterGearInspectorItems(afterVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    if (gearDiffFilterMode !== 'after') {
+      const beforeVariants = dr.map((r) => ({ ...r, match: r.beforeMatch }))
+      for (const r of filterGearInspectorItems(beforeVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    }
+    if (gearDiffFilterMode !== 'before') {
+      const afterVariants = dr.map((r) => ({ ...r, match: r.afterMatch }))
+      for (const r of filterGearInspectorItems(afterVariants, diffFilter, metasetsForGearInspectorFilter, filterOpts).items) keepIds.add(r.artifact.id)
+    }
     return dr.filter((r) => keepIds.has(r.artifact.id))
   }, [
     gearDiffDisplayRows,
+    gearDiffFilterMode,
     gearInspectorFilterActive,
     gearInspectorRulesFilter,
     metasetsForGearInspectorFilter,
@@ -8852,6 +8873,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleDiffMode={handleToggleGearDiffMode}
         onSetDiffReference={handleSetGearDiffReference}
         onToggleDiffAuto={handleToggleGearDiffAuto}
+        diffChipMode={gearDiffChipMode}
+        onChangeDiffChipMode={handleChangeDiffChipMode}
+        diffFilterMode={gearDiffFilterMode}
+        onChangeDiffFilterMode={handleChangeDiffFilterMode}
         diffDelta={gearDiffDisplayDelta}
         diffReferencePulsing={gearDiffReferencePulsing}
       />

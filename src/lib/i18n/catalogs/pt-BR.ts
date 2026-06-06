@@ -33,7 +33,7 @@ const catalog: Catalog = {
   previewModeGearInspector: "Inspetor de Equipamento",
   previewModeRulesTooltip: "**Prévia do Sellfile** — Mostra o equipamento que será incluído no seu sellfile com base nas suas receitas atuais.\n\nMude para o **Teste de Regras** para carregar seu próprio equipamento e ver exatamente qual receita cada peça corresponde.",
   previewModeGearInspectorTooltip: "**Inspetor de Equipamento** — Carregue seu inventário de equipamento real e teste-o contra suas receitas em tempo real. Cada peça mostra qual receita a identificou e por quê.\n\nMude para a **Prévia do Sellfile** para ver a saída combinada do sellfile.",
-  manageColors: "Gerenciar cores",
+  manageColors: "Gerenciar cores…",
   titleLogicHub: "Ferramentas",
   optionalLoadSellfile: "Opcional: carregue um Sellfile existente para ver a mesclagem ou um banco de dados de gear (.db) para analisá-lo no Teste de Regras.",
   fileFormatErrorTitle: "Formato não suportado",
@@ -1733,6 +1733,11 @@ const catalog: Catalog = {
   gearDiffToggleTooltip: "**Comparação de equipamento** — um antes/depois de quais peças mudam entre **vender** e **manter**, medido em relação a um ponto de referência.\n\nAlternar as **substituições dinâmicas** na caixa de diálogo Nota não move essa referência, então mudanças de substituição sucessivas se **acumulam** — a comparação mostra o efeito combinado de todas as suas escolhas de substituição, não apenas a última.\n\nEditar uma receita ou salvaguarda no construtor **move** a referência para essa edição enquanto **Acompanhar referência automaticamente** estiver ativado, então a comparação mostra sua mudança mais recente.\n\nClique esquerdo alterna a vista. Clique direito: **Definir referência** fixa o ponto de comparação; **Acompanhar referência automaticamente** ativa ou desativa o acompanhamento automático da última edição.",
   gearDiffSetReference: "Definir referência",
   gearDiffAutoMode: "Acompanhar referência automaticamente",
+  gearDiffChipLabel: "Chip diff",
+  gearDiffFilterLabel: "Modo filtro",
+  gearDiffFilterAny: "Qualquer",
+  gearDiffFilterBefore: "Antes",
+  gearDiffFilterAfter: "Depois",
 }
 
 export default catalog
