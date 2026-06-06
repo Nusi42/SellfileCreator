@@ -233,3 +233,26 @@ export const subtractRulesFilterState = (base: RulesFilterState, add: RulesFilte
 /** True iff `add` deviates from the default state (i.e. it would contribute something). */
 export const rulesFilterStateHasContribution = (add: RulesFilterState): boolean =>
   !rulesFilterStateContains(cloneDefaultRulesFilterState(), add)
+
+/**
+ * True iff `state` contributes anything the Sellfile-preview (rules) filter actually uses — i.e.
+ * a non-Gear-Inspector-only field. Gear-Inspector-only fields (result labels, gear DB sources,
+ * chaos/glyph/ascension/champions/rolls/last-use/improvement-chance, and the numeric level range)
+ * have no effect on the rules preview, so a preset built purely from them does not apply there.
+ * Used to disable Gear-Inspector-only pinned presets while the Sellfile preview is active.
+ */
+export const rulesFilterStateAppliesToRulesMode = (state: RulesFilterState): boolean => {
+  const stripped = clone(state)
+  stripped.gearInspectorResult = clone(D.gearInspectorResult!)
+  stripped.gearInspectorSources = clone(D.gearInspectorSources!)
+  stripped.gearInspectorChaos = clone(D.gearInspectorChaos!)
+  stripped.gearInspectorGlyphs = clone(D.gearInspectorGlyphs!)
+  stripped.gearInspectorAscension = clone(D.gearInspectorAscension!)
+  stripped.gearInspectorChampions = clone(D.gearInspectorChampions!)
+  stripped.gearInspectorRolls = clone(D.gearInspectorRolls!)
+  stripped.gearInspectorLastUse = clone(D.gearInspectorLastUse!)
+  stripped.gearInspectorImprovementChance = clone(D.gearInspectorImprovementChance!)
+  // Keep level.selected / anyMode (rules-relevant); reset only the Gear-Inspector numeric range.
+  if (stripped.level) stripped.level = { ...stripped.level, gearInspectorRange: clone(D.level.gearInspectorRange!) }
+  return rulesFilterStateHasContribution(stripped)
+}

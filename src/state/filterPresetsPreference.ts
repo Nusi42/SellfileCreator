@@ -44,7 +44,8 @@ export type FilterPresetView = {
 
 export type FilterPresetSnapshot = {
   version: typeof FILTER_PRESETS_VERSION
-  activeMode: RulesFilterPreviewMode
+  // Note: a preset deliberately does NOT record which preview mode was active when it was saved —
+  // presets are mode-agnostic and apply to whichever filter panel is active when used.
   filtersSynced: boolean
   limitRecipesToFiltered: boolean
   gearInspectorRecipeFilterMode: GearInspectorRecipeFilterMode
@@ -87,7 +88,6 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
   }
   return {
     version: FILTER_PRESETS_VERSION,
-    activeMode: 'rules',
     filtersSynced: false,
     limitRecipesToFiltered: false,
     gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
@@ -95,11 +95,6 @@ const cloneDefaultSnapshot = (): FilterPresetSnapshot => {
     views,
   }
 }
-
-// Validate stored mode; fall back to 'rules' for any unknown value.
-const sanitizeMode = (raw: unknown): RulesFilterPreviewMode => (
-  raw === 'gearInspector' ? 'gearInspector' : 'rules'
-)
 
 const sanitizeGearInspectorRecipeFilterMode = (raw: unknown): GearInspectorRecipeFilterMode => (
   raw === 'first' || raw === 'any' || raw === 'off' ? raw : GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT
@@ -152,7 +147,6 @@ export const sanitizeFilterPresetSnapshot = (raw: unknown): FilterPresetSnapshot
     : {}
   return {
     version: FILTER_PRESETS_VERSION,
-    activeMode: sanitizeMode(rec['activeMode']),
     filtersSynced: rec['filtersSynced'] === true,
     limitRecipesToFiltered: rec['limitRecipesToFiltered'] === true,
     gearInspectorRecipeFilterMode: sanitizeGearInspectorRecipeFilterMode(rec['gearInspectorRecipeFilterMode']),
@@ -170,8 +164,9 @@ export const sanitizeFilterPresetSnapshot = (raw: unknown): FilterPresetSnapshot
 const SELL_ONLY_RESULT = Object.freeze({ keep: false, sell: true, matched: false, unmatched: false })
 
 /**
- * Build a filter-preset snapshot that activates the Gear Inspector view and
- * sets the optional gearInspectorResult + optional slot restrictions.
+ * Build a filter-preset snapshot whose Gear Inspector view holds the optional
+ * gearInspectorResult + optional slot restrictions (presets are mode-agnostic; the
+ * payload lives in the Gear Inspector view and is applied to whichever panel is active).
  * When gearInspectorResult is omitted the default (all-false) is used, meaning
  * no result-label restriction and all items pass through.
  * Sections touched by active filters start expanded; everything else collapsed.
@@ -199,7 +194,6 @@ const makeBuiltinFilterSnapshot = (
   }
   return {
     version: FILTER_PRESETS_VERSION,
-    activeMode: 'gearInspector',
     filtersSynced: false,
     limitRecipesToFiltered: false,
     gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,
@@ -259,7 +253,6 @@ const makeScopedSellSnapshot = (slotIds?: number[]): FilterPresetSnapshot => {
   }
   return {
     version: FILTER_PRESETS_VERSION,
-    activeMode: 'gearInspector',
     filtersSynced: false,
     limitRecipesToFiltered: false,
     gearInspectorRecipeFilterMode: GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT,

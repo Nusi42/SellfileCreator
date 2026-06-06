@@ -21,6 +21,9 @@ export type PinnedPresetButtonDescriptor = {
   color?: string
   // Whether this preset is the currently-applied state (drives styling + clear-vs-apply).
   active: boolean
+  // When true, this individual button is disabled (e.g. a preset that has no effect on the
+  // current panel). Combined with the row-level `disabled` prop below.
+  disabled?: boolean
 }
 
 export type PinnedPresetButtonsProps = {
@@ -51,7 +54,8 @@ export function PinnedPresetButtons({ buttons, disabled, onToggle, ariaLabel, to
             variant="outlined"
             // Mirror the Filter/Sort buttons: warning when active, success when idle.
             color={b.active ? 'warning' : 'success'}
-            disabled={disabled}
+            // Row-level disable (e.g. sort presets in Rules mode) OR a per-button disable.
+            disabled={disabled || b.disabled}
             aria-pressed={b.active}
             aria-label={ariaLabel(b.name, b.active)}
             onClick={() => onToggle(b.id, b.active)}

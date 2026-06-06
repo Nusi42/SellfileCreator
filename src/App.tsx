@@ -145,7 +145,7 @@ import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair 
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
-import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
+import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot, type FilterPresetView } from './state/filterPresetsPreference'
 import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
@@ -180,7 +180,7 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import { mergeRulesFilterState, subtractRulesFilterState, rulesFilterStateContains, rulesFilterStateHasContribution } from './lib/rulesFilterMerge'
+import { mergeRulesFilterState, subtractRulesFilterState, rulesFilterStateContains, rulesFilterStateHasContribution, rulesFilterStateAppliesToRulesMode } from './lib/rulesFilterMerge'
 import type { GearAnalyticsDim, GearAnalyticsOutcome, GearAnalyticsSource } from './lib/gearAnalytics'
 import { EMPTY_GEAR_ANALYTICS_DIM } from './lib/gearAnalytics'
 import {
@@ -456,6 +456,21 @@ type PipelineCacheEntry = {
 }
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
+
+/**
+ * The meaningful filter payload of a preset: the first stored view that actually contributes
+ * something. Presets are mode-agnostic (no saved activeMode) and apply to whichever panel is
+ * active, so a single payload is resolved here rather than fanning out per stored mode.
+ */
+function presetPayloadView(preset: FilterPreset): FilterPresetView | null {
+  const snap = preset.snapshot
+  for (const mode of RULES_FILTER_PREVIEW_MODES) {
+    const view = snap.views?.[mode]
+    if (view && rulesFilterStateHasContribution(view.state)) return view
+  }
+  // No view contributes (degenerate/default preset): fall back to any view so apply is a no-op.
+  return snap.views?.gearInspector ?? snap.views?.rules ?? null
+}
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   // Session-constant: true when ?express was present in the URL at load time.
@@ -3074,7 +3089,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : {}
     return {
       version: FILTER_PRESETS_VERSION,
-      activeMode: previewMode,
       filtersSynced: Boolean(filtersSynced),
       limitRecipesToFiltered: Boolean(limitRecipesToFiltered),
       gearInspectorRecipeFilterMode: gearInspectorRecipeFilterMode,
@@ -3086,7 +3100,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterOpenByMode,
     filtersSynced,
     limitRecipesToFiltered,
-    previewMode,
     rulesFilterByMode,
     gearInspectorRecipeFilterMode,
     gearInspectorSubstatSortPrefs.state,
@@ -3120,23 +3133,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const preset = (filterPresets ?? []).find((entry) => entry.id === presetId)
     if (!preset) return
     const snap = preset.snapshot
-    // OR mode (the default): merge the preset's selections into the current filter without
-    // touching global settings or switching the preview mode (filter-only, no switch).
+    // OR mode (the default): merge the preset's payload into the CURRENT filter panel without
+    // switching the preview mode or touching global settings. setRulesFilter/setFilterCollapsed
+    // are sync-aware (they fan out to both modes when "sync views" is on).
     if (!preset.exclusive) {
-      for (const mode of RULES_FILTER_PREVIEW_MODES) {
-        const view = snap.views?.[mode]
-        if (!view) continue
-        const base = rulesFilterByMode[mode] ?? cloneDefaultRulesFilterState()
-        setRulesFilterStateForMode(mode, mergeRulesFilterState(base, view.state))
-        // Expand any section the preset expands so the merged filters are visible when the panel opens
-        // (collapsed === true means collapsed, so a section stays collapsed only when both agree).
-        const baseCollapsed = filterCollapsedByMode[mode] ?? cloneDefaultRulesFilterCollapsed()
-        const mergedCollapsed = { ...baseCollapsed } as CollapsedSections
-        for (const key of Object.keys(mergedCollapsed) as (keyof CollapsedSections)[]) {
-          mergedCollapsed[key] = Boolean(baseCollapsed[key]) && Boolean(view.collapsed[key])
+      const view = presetPayloadView(preset)
+      if (!view) return
+      setRulesFilter((prev) => mergeRulesFilterState(prev, view.state))
+      // Expand any section the preset expands so the merged filters are immediately visible
+      // (collapsed === true means collapsed, so a section stays collapsed only when both agree).
+      setFilterCollapsed((prev) => {
+        const next = { ...prev } as CollapsedSections
+        for (const key of Object.keys(next) as (keyof CollapsedSections)[]) {
+          next[key] = Boolean(prev[key]) && Boolean(view.collapsed[key])
         }
-        setRulesFilterCollapsedForMode(mode, mergedCollapsed)
-      }
+        return next
+      })
       return
     }
     // Exclusive mode: REPLACE the entire filter (legacy behavior).
@@ -3148,7 +3160,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (snap.gearInspectorSubstatSort !== undefined) {
       setGearInspectorSubstatSortState(snap.gearInspectorSubstatSort)
     }
-    // Apply per-mode filter views so switching tabs keeps the snapshot intact.
+    // Replace both panels' filter views from the snapshot; the preview mode is left untouched
+    // (presets are mode-agnostic and never switch the active panel).
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
       const view = snap.views?.[mode]
       if (!view) continue
@@ -3158,16 +3171,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setRulesFilterStateForMode(mode, clonedState)
       setRulesFilterCollapsedForMode(mode, clonedCollapsed)
     }
-    // Switch to the snapshot's active mode last so the UI reveals the applied state immediately.
-    setPreviewMode(snap.activeMode === 'gearInspector' ? 'gearInspector' : 'rules')
   }, [
     filterPresets,
-    rulesFilterByMode,
-    filterCollapsedByMode,
+    setRulesFilter,
+    setFilterCollapsed,
     setFiltersSyncedRaw,
     setLimitRecipesToFiltered,
     setGearInspectorRecipeFilterMode,
-    setPreviewMode,
   ])
 
   // Translates a Gear Analytics cross-filter selection into a RulesFilterState applied to the
@@ -3326,14 +3336,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setRulesFilterStateForMode(mode, JSON.parse(JSON.stringify(view.state)) as RulesFilterState)
         setRulesFilterCollapsedForMode(mode, JSON.parse(JSON.stringify(view.collapsed)) as CollapsedSections)
       }
-      setPreviewMode(snap.activeMode === 'gearInspector' ? 'gearInspector' : 'rules')
+      // The preview mode is left untouched — restoring a sort preset never switches the active panel.
     }
   }, [
     sortPresets,
     setFiltersSyncedRaw,
     setLimitRecipesToFiltered,
     setGearInspectorRecipeFilterMode,
-    setPreviewMode,
   ])
 
   const handleDeleteSortPreset = useCallback((presetId: string) => {
@@ -3373,20 +3382,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // A pinned filter preset is "active" when the live state, captured as a snapshot, equals its snapshot.
   // Capture with matching includeSort so a sort-agnostic preset (sort omitted) ignores the live sort.
-  // An OR preset is "satisfied" when the live filter already contains every selection it would
-  // merge in (per captured mode) AND it actually contributes something (never an always-on button).
-  // Shared by the pinned active state and the untoggle re-merge so both agree on "currently on".
+  // An OR preset is "satisfied" when the CURRENT panel's filter already contains its payload AND
+  // the payload actually contributes something (never an always-on button). Shared by the pinned
+  // active state and the untoggle re-merge so both agree on "currently on" for this panel.
   const orPresetActive = useCallback((preset: FilterPreset): boolean => {
-    let contributes = false
-    for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const view = preset.snapshot.views?.[mode]
-      if (!view) continue
-      if (rulesFilterStateHasContribution(view.state)) contributes = true
-      const base = rulesFilterByMode[mode] ?? cloneDefaultRulesFilterState()
-      if (!rulesFilterStateContains(base, view.state)) return false
-    }
-    return contributes
-  }, [rulesFilterByMode])
+    const view = presetPayloadView(preset)
+    if (!view || !rulesFilterStateHasContribution(view.state)) return false
+    return rulesFilterStateContains(rulesFilter, view.state)
+  }, [rulesFilter])
 
   const isFilterPresetActive = useCallback((preset: FilterPreset): boolean => {
     // OR presets (the default) toggle on containment; exclusive presets on exact snapshot match.
@@ -3394,6 +3397,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const includeSort = preset.snapshot.gearInspectorSubstatSort !== undefined
     return filterPresetSnapshotsEqual(buildFilterPresetSnapshot(includeSort), preset.snapshot)
   }, [buildFilterPresetSnapshot, orPresetActive])
+  // A preset is "applicable" in the current panel: Gear Inspector uses every field, but the
+  // Sellfile preview ignores Gear-Inspector-only fields — so a preset built purely from those
+  // (e.g. Show only Sell, Scoped Sell) is disabled while the Sellfile preview is active.
+  const isFilterPresetApplicable = useCallback((preset: FilterPreset): boolean => {
+    if (previewMode === 'gearInspector') return true
+    const view = presetPayloadView(preset)
+    if (!view) return true
+    return rulesFilterStateAppliesToRulesMode(view.state)
+  }, [previewMode])
   // A pinned sort preset is "active" when the live sort state equals its captured snapshot.
   const isSortPresetActive = useCallback((preset: SortPreset): boolean => (
     sortPresetSnapshotsEqual(gearInspectorSubstatSortPrefs.state, preset.snapshot)
@@ -6005,38 +6017,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       clearFilters()
       return
     }
-    // True when every mode of `inner` is contained in `outer` — i.e. `inner` adds nothing beyond
-    // `outer`. Used to drop presets that are only "active" as a side effect of the one being
-    // untoggled (e.g. "Show only Sell" satisfied purely because "Scoped Sell" set the sell flag).
-    const subsumedByUntoggled = (inner: FilterPreset): boolean =>
-      RULES_FILTER_PREVIEW_MODES.every((mode) => {
-        const innerView = inner.snapshot.views?.[mode]
-        if (!innerView) return true
-        const outerView = preset.snapshot.views?.[mode]
-        // No outer contribution this mode → it only subsumes when the inner adds nothing either.
-        if (!outerView) return !rulesFilterStateHasContribution(innerView.state)
-        return rulesFilterStateContains(outerView.state, innerView.state)
-      })
-    // Survivors to re-layer: other OR presets that are genuinely active AND contribute something
-    // the untoggled preset does not subsume (so distinct presets like All Accessories stay, while
-    // a subset preset incidentally lit by the untoggled one is dropped along with it).
+    const view = presetPayloadView(preset)
+    if (!view) return
+    // Drop survivors whose payload is fully contained in the untoggled preset's payload — they were
+    // only "active" as a side effect (e.g. "Show only Sell" satisfied purely because "Scoped Sell"
+    // set the sell flag), so they should disappear alongside it rather than be re-layered.
+    const subsumedByUntoggled = (inner: FilterPreset): boolean => {
+      const innerView = presetPayloadView(inner)
+      if (!innerView) return true
+      return rulesFilterStateContains(view.state, innerView.state)
+    }
+    // Other OR presets genuinely active on this panel and not subsumed by the untoggled one.
     const otherActive = presets.filter((p) => (
       p.id !== presetId && !p.exclusive && orPresetActive(p) && !subsumedByUntoggled(p)
     ))
-    for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const view = preset.snapshot.views?.[mode]
-      if (!view) continue
-      const base = rulesFilterByMode[mode] ?? cloneDefaultRulesFilterState()
-      // Remove the clicked preset, then layer the survivors back on for this mode.
-      let next = subtractRulesFilterState(base, view.state)
+    // Remove the clicked preset from the current panel, then re-layer the survivors so shared
+    // scalars/flags they still rely on are restored. Sync-aware setter fans out when synced.
+    setRulesFilter((prev) => {
+      let next = subtractRulesFilterState(prev, view.state)
       for (const other of otherActive) {
-        const otherView = other.snapshot.views?.[mode]
-        if (!otherView) continue
-        next = mergeRulesFilterState(next, otherView.state)
+        const otherView = presetPayloadView(other)
+        if (otherView) next = mergeRulesFilterState(next, otherView.state)
       }
-      setRulesFilterStateForMode(mode, next)
-    }
-  }, [filterPresets, rulesFilterByMode, orPresetActive, clearFilters])
+      return next
+    })
+  }, [filterPresets, orPresetActive, clearFilters, setRulesFilter])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customRecipes.length)
   useLayoutEffect(() => { hoverCountRef.current = customRecipes.length })
@@ -8768,6 +8773,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	          onSaveFilterPreset={handleSaveFilterPreset}
           onApplyFilterPreset={handleApplyFilterPreset}
           onUnapplyFilterPreset={handleUnapplyFilterPreset}
+          isFilterPresetApplicable={isFilterPresetApplicable}
           onDeleteFilterPreset={handleDeleteFilterPreset}
           onMoveFilterPreset={handleMoveFilterPreset}
           onHideFilterPreset={handleHideFilterPreset}

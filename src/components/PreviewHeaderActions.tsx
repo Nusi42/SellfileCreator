@@ -204,6 +204,9 @@ export default function PreviewHeaderActions(props: {
   onTogglePinFilterPreset?: (presetId: string, pinned: boolean) => void
   // True when the preset's snapshot matches the live filter state (drives the pinned button Apply ⇄ Clear).
   isFilterPresetActive?: (preset: FilterPreset) => boolean
+  // False when the preset has no effect on the current panel (e.g. a Gear-Inspector-only preset
+  // while the Sellfile preview is active) — such pinned buttons render disabled.
+  isFilterPresetApplicable?: (preset: FilterPreset) => boolean
   sortPresets?: readonly SortPreset[]
   onSaveSortPreset?: (name: string, includeFilter: boolean, color: string | undefined, iconId: MetasetIconId | undefined, pinned: boolean) => void
   onApplySortPreset?: (presetId: string) => void
@@ -301,6 +304,7 @@ export default function PreviewHeaderActions(props: {
     onHideFilterPreset,
     onTogglePinFilterPreset,
     isFilterPresetActive,
+    isFilterPresetApplicable,
     sortPresets = [],
     onSaveSortPreset,
     onApplySortPreset,
@@ -584,9 +588,11 @@ export default function PreviewHeaderActions(props: {
         const name = filterPresetDisplayName(p)
         // exactOptionalPropertyTypes: include color only when set so the descriptor stays field-absent.
         const colorField = p.color ? { color: p.color } : {}
-        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isFilterPresetActive?.(p) ?? false, ...colorField }
+        // Disable when the preset has no effect on the current panel (Gear-Inspector-only preset in Sellfile preview).
+        const disabled = !(isFilterPresetApplicable?.(p) ?? true)
+        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isFilterPresetActive?.(p) ?? false, disabled, ...colorField }
       }),
-    [filterPresets, filterPresetDisplayName, presetButtonGlyph, isFilterPresetActive],
+    [filterPresets, filterPresetDisplayName, presetButtonGlyph, isFilterPresetActive, isFilterPresetApplicable],
   )
   // Same for sort presets — these sit next to the Sort button and only act in Gear Inspector mode.
   const pinnedSortButtons = React.useMemo<PinnedPresetButtonDescriptor[]>(

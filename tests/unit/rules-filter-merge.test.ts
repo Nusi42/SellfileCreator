@@ -10,6 +10,7 @@ import {
   subtractRulesFilterState,
   rulesFilterStateContains,
   rulesFilterStateHasContribution,
+  rulesFilterStateAppliesToRulesMode,
 } from '../../src/lib/rulesFilterMerge.js'
 
 // Helper: a default state with the given mutation applied (deep, independent copy).
@@ -136,6 +137,25 @@ test('a subset preset is subsumed by a superset preset (drives the untoggle drop
   const next = subtractRulesFilterState(current, scopedSell)
   assert.equal(next.gearInspectorResult?.sell, false)
   assert.equal(next.gearInspectorResult?.matched, false)
+})
+
+test('appliesToRulesMode is true only when a non-gear-inspector-only field contributes', () => {
+  // Slot selection is meaningful in both panels → applies to the Sellfile preview.
+  const slots = withState((s) => { s.slots = { selected: [1, 2] as RulesFilterState['slots']['selected'], anyMode: 'include' } })
+  assert.equal(rulesFilterStateAppliesToRulesMode(slots), true)
+  // Gear-Inspector-only payloads (result flags / sources) do not apply to the rules preview.
+  const resultOnly = withState((s) => { s.gearInspectorResult = { keep: false, sell: true, matched: true, unmatched: false } })
+  assert.equal(rulesFilterStateAppliesToRulesMode(resultOnly), false)
+  const sourcesOnly = withState((s) => { s.gearInspectorSources = { selected: ['inventory'] } })
+  assert.equal(rulesFilterStateAppliesToRulesMode(sourcesOnly), false)
+  // Mixed payload (slots + gear-inspector result) still applies because slots are rules-relevant.
+  const mixed = withState((s) => {
+    s.slots = { selected: [1] as RulesFilterState['slots']['selected'], anyMode: 'include' }
+    s.gearInspectorResult = { keep: false, sell: true, matched: false, unmatched: false }
+  })
+  assert.equal(rulesFilterStateAppliesToRulesMode(mixed), true)
+  // The default (empty) state contributes nothing, so it does not "apply".
+  assert.equal(rulesFilterStateAppliesToRulesMode(cloneDefaultRulesFilterState()), false)
 })
 
 test('hasContribution reflects whether the state deviates from default', () => {
