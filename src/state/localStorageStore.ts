@@ -18,6 +18,10 @@ type LocalStorageStoreOptions<T> = {
   key: string
   fallback: T
   parse: (raw: string | null) => T
+  /** Return a string representation of value, or null to remove the key from storage.
+   *  The store also calls removeItem automatically when value equals the fallback (via
+   *  the equals function), so returning null is only needed for non-default "empty" states
+   *  (e.g. an empty presets array whose fallback equality isn't captured by Object.is). */
   serialize: (value: T) => string | null
   equals?: EqualityFn<T>
 }
@@ -101,13 +105,20 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     current = next
     if (isWindowDefined()) {
       try {
-        const serialized = serialize(next)
-        if (serialized === null) {
+        if (equality(next, fallback)) {
+          // Value matches the factory default — remove rather than write so localStorage
+          // only holds keys the user has actually customized away from defaults.
           window.localStorage.removeItem(key)
+          currentSerialized = null
         } else {
-          window.localStorage.setItem(key, serialized)
+          const serialized = serialize(next)
+          if (serialized === null) {
+            window.localStorage.removeItem(key)
+          } else {
+            window.localStorage.setItem(key, serialized)
+          }
+          currentSerialized = serialized
         }
-        currentSerialized = serialized
       } catch {
         currentSerialized = previousSerialized
       }

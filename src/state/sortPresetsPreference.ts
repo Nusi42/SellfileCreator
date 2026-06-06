@@ -185,9 +185,10 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
   },
   {
     id: 'builtin:group-top-level',
-    name: 'Top-Level',
+    name: 'By category',
     savedAt: '',
     builtin: true,
+    pinned: true,
     // Banner glyph evokes the faction banners the accessories bucket splits by.
     iconId: 'glyph.banner',
     // Grouping-only preset: artifacts ungrouped, accessories grouped by faction (top-level buckets).

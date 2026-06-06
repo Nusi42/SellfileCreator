@@ -300,6 +300,7 @@ export const BUILTIN_FILTER_PRESETS: readonly FilterPreset[] = [
     name: 'Show only Sell',
     savedAt: '',
     builtin: true,
+    pinned: true,
     // Monochrome recycle glyph evokes selling/discarding gear.
     iconId: 'glyph.recycle',
     snapshot: makeBuiltinFilterSnapshot(SELL_ONLY_RESULT),

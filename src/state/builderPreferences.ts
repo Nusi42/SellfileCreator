@@ -50,10 +50,8 @@ const parseBuilderPanelCollapsed = (raw: string | null): BuilderPanelCollapsedSe
   }
 }
 
-const serializeBuilderPanelCollapsed = (value: BuilderPanelCollapsedSections): string | null => {
-  const anyCollapsed = BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS.some((k) => Boolean(value?.[k]))
-  return anyCollapsed ? JSON.stringify(value) : null
-}
+const serializeBuilderPanelCollapsed = (value: BuilderPanelCollapsedSections): string =>
+  JSON.stringify(value)
 
 const builderRecipeCollapsedStore = createLocalStorageStore<BuilderPanelCollapsedSections>({
   key: BUILDER_RECIPE_COLLAPSED_KEY,

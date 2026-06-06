@@ -2,15 +2,14 @@
  * preferencesState.tsx
  *
  * Centralizes preview/display preferences so every surface reads the same
- * values. Each preference persists to localStorage under the existing keys.
+ * values. Each persisted preference is backed by a createLocalStorageStore so
+ * factory defaults are never written to localStorage (the store deletes the key
+ * when the value equals the fallback). The SSOT for each default is the fallback
+ * field of its store — TypeScript enforces that new stores must declare one.
  */
 import React, { createContext, use, useMemo, useState } from 'react'
 import { RULES_TABLE_SHOW_FACTION_ICONS_KEY, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, STAT_BUTTON_BORDERS_KEY } from '../lib/constants'
-
-type BooleanPreferenceKey = typeof RULES_TABLE_SHOW_SLOT_ICONS_KEY
-  | typeof RULES_TABLE_SHOW_SET_ICONS_KEY
-  | typeof RULES_TABLE_SHOW_FACTION_ICONS_KEY
-  | typeof STAT_BUTTON_BORDERS_KEY
+import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 export type DisplayPreferencesState = {
   showSlotIcons: boolean
@@ -29,72 +28,72 @@ export type DisplayPreferenceDispatchers = {
   setPsychedelic: (next: boolean) => void
 }
 
-const DEFAULT_PREFERENCES: DisplayPreferencesState = {
-  showSlotIcons: true,
-  showSetIcons: true,
-  showFactionIcons: true,
-  statButtonBorders: true,
-  psychedelic: false,
+// Shared boolean parse/serialize helpers for all four preference stores below.
+const parseBooleanPref = (fallback: boolean) => (raw: string | null): boolean => {
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return fallback
 }
+const serializeBooleanPref = (value: boolean): string => String(value)
+
+const showSlotIconsStore = createLocalStorageStore<boolean>({
+  key: RULES_TABLE_SHOW_SLOT_ICONS_KEY,
+  fallback: true,
+  parse: parseBooleanPref(true),
+  serialize: serializeBooleanPref,
+})
+
+const showSetIconsStore = createLocalStorageStore<boolean>({
+  key: RULES_TABLE_SHOW_SET_ICONS_KEY,
+  fallback: true,
+  parse: parseBooleanPref(true),
+  serialize: serializeBooleanPref,
+})
+
+const showFactionIconsStore = createLocalStorageStore<boolean>({
+  key: RULES_TABLE_SHOW_FACTION_ICONS_KEY,
+  fallback: true,
+  parse: parseBooleanPref(true),
+  serialize: serializeBooleanPref,
+})
+
+const statButtonBordersStore = createLocalStorageStore<boolean>({
+  key: STAT_BUTTON_BORDERS_KEY,
+  fallback: true,
+  parse: parseBooleanPref(true),
+  serialize: serializeBooleanPref,
+})
+
+// Convenience hooks following the project's createLocalStorageStateHook pattern.
+export const useShowSlotIconsPreference = createLocalStorageStateHook(showSlotIconsStore)
+export const useShowSetIconsPreference = createLocalStorageStateHook(showSetIconsStore)
+export const useShowFactionIconsPreference = createLocalStorageStateHook(showFactionIconsStore)
+export const useStatButtonBordersPreference = createLocalStorageStateHook(statButtonBordersStore)
 
 const PreferencesStateContext = createContext<DisplayPreferencesState | null>(null)
 const PreferencesDispatchContext = createContext<DisplayPreferenceDispatchers | null>(null)
 
-function writeBooleanPref(key: BooleanPreferenceKey, value: boolean): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(key, String(value))
-  } catch {
-    // ignore — localStorage persistence is best-effort
-  }
-}
-
-function readBooleanPref(key: BooleanPreferenceKey, fallback: boolean): boolean {
-  if (typeof window === 'undefined') return fallback
-  try {
-    const raw = window.localStorage.getItem(key)
-    if (raw === 'true') return true
-    if (raw === 'false') return false
-  } catch {
-    // ignore – fall through to fallback
-  }
-  return fallback
-}
-
 export function DisplayPreferencesProvider({ children }: { children: React.ReactNode }) {
-  const [prefs, setPrefs] = useState<DisplayPreferencesState>(() => ({
-    showSlotIcons: readBooleanPref(RULES_TABLE_SHOW_SLOT_ICONS_KEY, DEFAULT_PREFERENCES.showSlotIcons),
-    showSetIcons: readBooleanPref(RULES_TABLE_SHOW_SET_ICONS_KEY, DEFAULT_PREFERENCES.showSetIcons),
-    showFactionIcons: readBooleanPref(RULES_TABLE_SHOW_FACTION_ICONS_KEY, DEFAULT_PREFERENCES.showFactionIcons),
-    statButtonBorders: readBooleanPref(STAT_BUTTON_BORDERS_KEY, DEFAULT_PREFERENCES.statButtonBorders),
-    psychedelic: false,
-  }))
+  // Each store drives its own subscription via useSyncExternalStore. The individual
+  // values are memoized into a single prefs object so context consumers only re-render
+  // when a value they care about actually changes.
+  const showSlotIcons = showSlotIconsStore.useValue()
+  const showSetIcons = showSetIconsStore.useValue()
+  const showFactionIcons = showFactionIconsStore.useValue()
+  const statButtonBorders = statButtonBordersStore.useValue()
+  const [psychedelic, setPsychedelic] = useState(false)
 
-  const actions: DisplayPreferenceDispatchers = useMemo(() => ({
-    // Each dispatcher persists to localStorage before updating React state so the write
-    // is never inside a state-updater function. React Strict Mode double-invokes updaters,
-    // which would cause double writes if the side effect were placed there. Writing before
-    // setPrefs is safe: if the state update turns out to be a no-op (prev === next), the
-    // write is a benign duplicate that does not corrupt data.
-    setShowSlotIcons: (next: boolean) => {
-      writeBooleanPref(RULES_TABLE_SHOW_SLOT_ICONS_KEY, next)
-      setPrefs((prev) => prev.showSlotIcons === next ? prev : { ...prev, showSlotIcons: next })
-    },
-    setShowSetIcons: (next: boolean) => {
-      writeBooleanPref(RULES_TABLE_SHOW_SET_ICONS_KEY, next)
-      setPrefs((prev) => prev.showSetIcons === next ? prev : { ...prev, showSetIcons: next })
-    },
-    setShowFactionIcons: (next: boolean) => {
-      writeBooleanPref(RULES_TABLE_SHOW_FACTION_ICONS_KEY, next)
-      setPrefs((prev) => prev.showFactionIcons === next ? prev : { ...prev, showFactionIcons: next })
-    },
-    setStatButtonBorders: (next: boolean) => {
-      writeBooleanPref(STAT_BUTTON_BORDERS_KEY, next)
-      setPrefs((prev) => prev.statButtonBorders === next ? prev : { ...prev, statButtonBorders: next })
-    },
-    setPsychedelic: (next: boolean) => {
-      setPrefs((prev) => prev.psychedelic === next ? prev : { ...prev, psychedelic: next })
-    },
+  const prefs = useMemo<DisplayPreferencesState>(
+    () => ({ showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, psychedelic }),
+    [showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, psychedelic],
+  )
+
+  const actions = useMemo<DisplayPreferenceDispatchers>(() => ({
+    setShowSlotIcons: (next) => { showSlotIconsStore.set(next) },
+    setShowSetIcons: (next) => { showSetIconsStore.set(next) },
+    setShowFactionIcons: (next) => { showFactionIconsStore.set(next) },
+    setStatButtonBorders: (next) => { statButtonBordersStore.set(next) },
+    setPsychedelic: (next) => { setPsychedelic((prev) => prev === next ? prev : next) },
   }), [])
 
   return (
