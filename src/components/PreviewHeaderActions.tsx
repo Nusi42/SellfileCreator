@@ -202,8 +202,10 @@ export default function PreviewHeaderActions(props: {
   onHideFilterPreset?: (presetId: string, hidden: boolean) => void
   // Toggles the pinned (quick-toggle button) state; called with the new desired value.
   onTogglePinFilterPreset?: (presetId: string, pinned: boolean) => void
-  // True when the preset's snapshot matches the live filter state (drives the pinned button Apply ⇄ Clear).
-  isFilterPresetActive?: (preset: FilterPreset) => boolean
+  // True when the preset's conditions are present in the live filter (containment for OR; exact snapshot for exclusive).
+  isFilterPresetApplied?: (preset: FilterPreset) => boolean
+  // True when the live filter state equals exactly what applying this preset from default produces (no extra conditions).
+  isFilterPresetExactMatch?: (preset: FilterPreset) => boolean
   // False when the preset has no effect on the current panel (e.g. a Gear-Inspector-only preset
   // while the Sellfile preview is active) — such pinned buttons render disabled.
   isFilterPresetApplicable?: (preset: FilterPreset) => boolean
@@ -217,8 +219,8 @@ export default function PreviewHeaderActions(props: {
   onHideSortPreset?: (presetId: string, hidden: boolean) => void
   // Toggles the pinned (quick-toggle button) state; called with the new desired value.
   onTogglePinSortPreset?: (presetId: string, pinned: boolean) => void
-  // True when the preset's sort snapshot matches the live sort state.
-  isSortPresetActive?: (preset: SortPreset) => boolean
+  // True when the preset's sort conditions are present in the live sort state.
+  isSortPresetApplied?: (preset: SortPreset) => boolean
   // Gear-diff mode (sell/keep before-vs-after). Only meaningful in Gear Inspector mode.
   // True when the diff split-view is currently shown in the preview area.
   diffModeActive?: boolean
@@ -305,7 +307,8 @@ export default function PreviewHeaderActions(props: {
     onMoveFilterPreset,
     onHideFilterPreset,
     onTogglePinFilterPreset,
-    isFilterPresetActive,
+    isFilterPresetApplied,
+    isFilterPresetExactMatch,
     isFilterPresetApplicable,
     sortPresets = [],
     onSaveSortPreset,
@@ -315,7 +318,7 @@ export default function PreviewHeaderActions(props: {
     onMoveSortPreset,
     onHideSortPreset,
     onTogglePinSortPreset,
-    isSortPresetActive,
+    isSortPresetApplied,
     diffModeActive = false,
     diffAutoMode = false,
     onToggleDiffMode,
@@ -589,9 +592,9 @@ export default function PreviewHeaderActions(props: {
         const colorField = p.color ? { color: p.color } : {}
         // Disable when the preset has no effect on the current panel (Gear-Inspector-only preset in Sellfile preview).
         const disabled = !(isFilterPresetApplicable?.(p) ?? true)
-        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isFilterPresetActive?.(p) ?? false, disabled, ...colorField }
+        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isFilterPresetApplied?.(p) ?? false, disabled, ...colorField }
       }),
-    [filterPresets, filterPresetDisplayName, presetButtonGlyph, isFilterPresetActive, isFilterPresetApplicable],
+    [filterPresets, filterPresetDisplayName, presetButtonGlyph, isFilterPresetApplied, isFilterPresetApplicable],
   )
   // Same for sort presets — these sit next to the Sort button and only act in Gear Inspector mode.
   const pinnedSortButtons = React.useMemo<PinnedPresetButtonDescriptor[]>(
@@ -600,12 +603,15 @@ export default function PreviewHeaderActions(props: {
       .map((p) => {
         const name = sortPresetDisplayName(p)
         const colorField = p.color ? { color: p.color } : {}
-        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isSortPresetActive?.(p) ?? false, ...colorField }
+        return { id: p.id, name, glyph: presetButtonGlyph(p.iconId, name), active: isSortPresetApplied?.(p) ?? false, ...colorField }
       }),
-    [sortPresets, sortPresetDisplayName, presetButtonGlyph, isSortPresetActive],
+    [sortPresets, sortPresetDisplayName, presetButtonGlyph, isSortPresetApplied],
   )
-  // When a pinned preset is active, its button already clears the state — so the redundant ✕ is hidden.
-  const anyPinnedFilterActive = React.useMemo(() => pinnedFilterButtons.some((b) => b.active), [pinnedFilterButtons])
+  // Show ✕ only when filters are dirty and the state doesn't exactly match exactly one pinned preset.
+  const exactlyMatchedPinnedFilterCount = React.useMemo(
+    () => (filterPresets ?? []).filter((p) => p.pinned && !p.hidden && (isFilterPresetExactMatch?.(p) ?? false)).length,
+    [filterPresets, isFilterPresetExactMatch],
+  )
   const anyPinnedSortActive = React.useMemo(() => pinnedSortButtons.some((b) => b.active), [pinnedSortButtons])
 
   const [savePresetOpen, setSavePresetOpen] = React.useState(false)
@@ -1226,8 +1232,8 @@ export default function PreviewHeaderActions(props: {
                 ariaLabel={(name) => name}
                 tooltip={(name) => name}
               />
-              {/* Hide the clear ✕ when a pinned preset is active — clicking that active button already clears. */}
-              {filtersDirty && onClearFilters && !anyPinnedFilterActive ? (
+              {/* Show the clear ✕ when dirty and the state doesn't match exactly one pinned preset. */}
+              {filtersDirty && onClearFilters && exactlyMatchedPinnedFilterCount !== 1 ? (
                 <ClearIconButton
                   size="small"
                   aria-label={t('filterReset')}

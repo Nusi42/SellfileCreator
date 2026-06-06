@@ -3433,19 +3433,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Capture with matching includeSort so a sort-agnostic preset (sort omitted) ignores the live sort.
   // An OR preset is "satisfied" when the CURRENT panel's filter already contains its payload AND
   // the payload actually contributes something (never an always-on button). Shared by the pinned
-  // active state and the untoggle re-merge so both agree on "currently on" for this panel.
-  const orPresetActive = useCallback((preset: FilterPreset): boolean => {
+  // applied state and the untoggle re-merge so both agree on "currently on" for this panel.
+  const orPresetApplied = useCallback((preset: FilterPreset): boolean => {
     const payload = presetPayloadForMode(preset, previewMode)
     if (!payload || !rulesFilterStateHasContribution(payload)) return false
     return rulesFilterStateContains(rulesFilter, payload)
   }, [rulesFilter, previewMode])
 
-  const isFilterPresetActive = useCallback((preset: FilterPreset): boolean => {
-    // OR presets (the default) toggle on containment; exclusive presets on exact snapshot match.
-    if (!preset.exclusive) return orPresetActive(preset)
+  // OR presets: button is applied when the current filter contains the preset's payload (containment).
+  // Exclusive presets: button is applied when the live snapshot exactly equals the preset's snapshot.
+  const isFilterPresetApplied = useCallback((preset: FilterPreset): boolean => {
+    if (!preset.exclusive) return orPresetApplied(preset)
     const includeSort = preset.snapshot.gearInspectorSubstatSort !== undefined
     return filterPresetSnapshotsEqual(buildFilterPresetSnapshot(includeSort), preset.snapshot)
-  }, [buildFilterPresetSnapshot, orPresetActive])
+  }, [buildFilterPresetSnapshot, orPresetApplied])
+  // Exact match: the current filter equals exactly what applying this preset from default would produce.
+  // Uniform for OR and exclusive — both are checked via payload containment + no residual after subtracting.
+  const isFilterPresetExactMatch = useCallback((preset: FilterPreset): boolean => {
+    const payload = presetPayloadForMode(preset, previewMode)
+    if (!payload || !rulesFilterStateHasContribution(payload)) return false
+    return rulesFilterStateContains(rulesFilter, payload)
+      && !rulesFilterStateHasContribution(subtractRulesFilterState(rulesFilter, payload))
+  }, [rulesFilter, previewMode])
   // A preset is "applicable" in the current panel when its cross-panel-projected payload still
   // contributes something there. Thanks to Keep/Sell mapping, Sell presets apply to the Sellfile
   // preview too; only presets whose payload is purely Gear-Inspector-specific (e.g. matched/sources
@@ -3454,9 +3463,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const payload = presetPayloadForMode(preset, previewMode)
     return payload ? rulesFilterStateHasContribution(payload) : true
   }, [previewMode])
-  // A pinned sort preset is "active" when the live sort state equals its captured snapshot.
-  const isSortPresetActive = useCallback((preset: SortPreset): boolean => {
-    // OR presets are active when the current sort already contains their stacked levels; exclusive
+  // A pinned sort preset is "applied" when the live sort state satisfies its snapshot.
+  const isSortPresetApplied = useCallback((preset: SortPreset): boolean => {
+    // OR presets are applied when the current sort already contains their stacked levels; exclusive
     // presets require an exact snapshot match (legacy behavior).
     if (!preset.exclusive) {
       return sortStateHasContribution(preset.snapshot)
@@ -6078,7 +6087,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const payload = presetPayloadForMode(preset, previewMode)
     if (!payload) return
     // Other OR presets currently active on this panel — their shared modes must survive.
-    const survivors = presets.filter((p) => p.id !== presetId && !p.exclusive && orPresetActive(p))
+    const survivors = presets.filter((p) => p.id !== presetId && !p.exclusive && orPresetApplied(p))
     // Sync-aware setter fans out to both panels when "sync views" is on.
     setRulesFilter((prev) => {
       let next = subtractRulesFilterState(prev, payload)
@@ -6088,7 +6097,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       return next
     })
-  }, [filterPresets, previewMode, orPresetActive, clearFilters, setRulesFilter])
+  }, [filterPresets, previewMode, orPresetApplied, clearFilters, setRulesFilter])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customRecipes.length)
   useLayoutEffect(() => { hoverCountRef.current = customRecipes.length })
@@ -8825,7 +8834,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onMoveFilterPreset={handleMoveFilterPreset}
           onHideFilterPreset={handleHideFilterPreset}
           onTogglePinFilterPreset={handleTogglePinFilterPreset}
-          isFilterPresetActive={isFilterPresetActive}
+          isFilterPresetApplied={isFilterPresetApplied}
+          isFilterPresetExactMatch={isFilterPresetExactMatch}
           sortPresets={sortPresets}
           onSaveSortPreset={handleSaveSortPreset}
           onApplySortPreset={handleApplySortPreset}
@@ -8834,7 +8844,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onMoveSortPreset={handleMoveSortPreset}
           onHideSortPreset={handleHideSortPreset}
           onTogglePinSortPreset={handleTogglePinSortPreset}
-          isSortPresetActive={isSortPresetActive}
+          isSortPresetApplied={isSortPresetApplied}
 	        gearInspectorCount={gearInspectorItems.length}
         gearInspectorFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
