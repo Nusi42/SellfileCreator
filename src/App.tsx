@@ -2465,13 +2465,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // SafeguardChipsPanel uses selectedRuleIndices (not selectedRuleIdx) when onRuleSelect is
     // provided, so the single-select scalar alone is not enough.
     setSelectedSafeguardRuleIndices([ruleIdx], { suppressWillChange: true })
-    // Use display rules so the builder reflects active session overrides with metaset names intact.
-    const rule = displaySafeguardRules[ruleIdx]
+    // Load the STORED rule (metaset names already intact on safeguardRules — only
+    // resolvedSafeguardRules expands them) so the builder reflects pre-override values and the
+    // per-control override badges render. Mirrors handleSafeguardRuleSelect, the direct chip-click
+    // path, which also loads from safeguardRules; loading the override-applied displaySafeguardRules
+    // here would make the draft equal its own effective form and suppress every override badge.
+    const rule = safeguardRules[ruleIdx]
     if (rule) setSafeguardBuilder(cloneSafeguardRule(rule))
     // Scroll the HSF preview to the first row of this safeguard — mirrors recipe chip scroll.
     const ordinal = ruleIdx + 1
     if (ordinal > 0) requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, ordinal)
-  }, [displaySafeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
+  }, [safeguardRules, setSafeguardBuilder, setSelectedSafeguardRuleIndices, requestSelectionScroll])
 
   // Shared helper: build a scaffolded SafeguardRule from a recipe without touching state.
   // Uses safeguardBuilderRef.current as the base so id/countMode/etc. are preserved.
