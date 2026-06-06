@@ -459,8 +459,12 @@ export function compareGearInspectorPreviewRowsBySubstats(
     if (left === right) continue
     return (left - right) * perKeyMultiplier
   }
-  // Final tie-breaker intentionally uses the natural Gear Inspector ordering so "Sort" feels additive, not destructive.
-  return compareGearInspectorPreviewRows(a, b)
+  // Fall through to the natural Gear Inspector ordering. With active criteria (priorities present)
+  // this is a stable tie-breaker kept in natural order so sorting stays additive. With NO criteria
+  // (direction-only sort, e.g. the "Ascending" preset) the global direction flips that natural order
+  // so it reverses the default arrangement instead of being a no-op.
+  const natural = compareGearInspectorPreviewRows(a, b)
+  return spec.priorities.length > 0 ? natural : natural * (direction === 'asc' ? -1 : 1)
 }
 
 export function sortGearInspectorRowsBySubstats(

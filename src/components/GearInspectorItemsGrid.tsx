@@ -3432,8 +3432,10 @@ function groupRowsBySet(
   const grouping = options.grouping ?? GEAR_INSPECTOR_GROUPING_DEFAULT_STATE
   const substatSort = options.substatSort
   // Sorting stays orthogonal to grouping; grouping only controls section boundaries.
+  // A non-default direction ('asc') counts as active ordering even with no priorities/normalized,
+  // so a direction-only sort (e.g. the "Ascending" preset) reverses the default arrangement.
   const hasSubstatOrdering = Boolean(
-    substatSort && (substatSort.priorities.length > 0 || substatSort.normalized === true),
+    substatSort && (substatSort.priorities.length > 0 || substatSort.normalized === true || substatSort.direction === 'asc'),
   )
   // Non-default grouping uses a global sort order instead of per-section sorting.
   const useGlobalSort = hasSubstatOrdering && !isDefaultGearInspectorGroupingState(grouping)

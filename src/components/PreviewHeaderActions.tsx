@@ -861,7 +861,9 @@ export default function PreviewHeaderActions(props: {
 	    gearInspectorSubstatSort.normalizedSourcePresetIds,
 	    gearInspectorSubstatSort.normalizedUseActiveOverlay,
 	  ])
-	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective)
+	  // A non-default direction ('asc') counts as an active sort even with no priorities, since it
+	  // reverses the natural order (so the Sort button reflects it and the clear ✕ is offered).
+	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective || gearInspectorSubstatSort.direction === 'asc')
 	  // Direction + glyph toggles stay enabled throughout Gear Inspector (even with no priorities) so a
 	  // direction-only / glyphs-only sort preset can be configured and saved; only Rules mode disables them.
 	  // Grouping is independent of sorting, but still irrelevant in Rules mode.
@@ -1282,6 +1284,7 @@ export default function PreviewHeaderActions(props: {
               {!isRulesMode && !anyPinnedSortActive && (
                 sortPriorities.length > 0
                 || Boolean(gearInspectorSubstatSort.normalized)
+                || gearInspectorSubstatSort.direction === 'asc'
                 || !groupingIsDefault
               ) ? (
                 <ClearIconButton

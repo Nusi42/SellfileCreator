@@ -3003,8 +3003,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	    const normalizedAllowed = normalizedScoreSpecs.length > 0
 	    const normalizedEffective = gearInspectorSubstatSortPrefs.state.normalized && normalizedAllowed
 
-	    // Sorting can be active via priorities (classic mode) or via normalized specs (preset-only mode).
-	    const hasAnySort = priorities.length > 0 || normalizedEffective
+	    // Sorting can be active via priorities (classic mode), normalized specs (preset-only mode), or
+	    // a non-default direction alone ('asc') — the latter reverses the natural order with no priorities.
+	    const directionActive = gearInspectorSubstatSortPrefs.state.direction === 'asc'
+	    const hasAnySort = priorities.length > 0 || normalizedEffective || directionActive
 	    if (!hasAnySort) return null
 
 	    return {

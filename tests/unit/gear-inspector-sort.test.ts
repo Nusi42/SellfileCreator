@@ -304,6 +304,19 @@ test('sortGearInspectorRowsBySubstats supports per-key flipped direction', () =>
   assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2, 3])
 })
 
+test('sortGearInspectorRowsBySubstats with direction-only (no priorities) reverses the natural order', () => {
+  // Otherwise-identical rows fall to the natural artifact-id tie-breaker (ascending).
+  const a = makeGearInspectorRow({ id: 1 })
+  const b = makeGearInspectorRow({ id: 2 })
+  const c = makeGearInspectorRow({ id: 3 })
+  const base = { priorities: [], flipped: [], excludeGlyphs: true } as const
+  // Default desc keeps the natural order; a direction-only 'asc' reverses it (e.g. the Ascending preset).
+  const desc = sortGearInspectorRowsBySubstats([c, a, b], { ...base, direction: 'desc' })
+  assert.deepEqual(desc.map((row) => row.artifact.id), [1, 2, 3])
+  const asc = sortGearInspectorRowsBySubstats([c, a, b], { ...base, direction: 'asc' })
+  assert.deepEqual(asc.map((row) => row.artifact.id), [3, 2, 1])
+})
+
 test('sortGearInspectorRowsBySubstats sorts by newest artifact id first', () => {
   const older = makeGearInspectorRow({ id: 101 })
   const newer = makeGearInspectorRow({ id: 202 })
