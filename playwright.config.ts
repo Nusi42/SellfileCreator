@@ -27,7 +27,11 @@ const PERF_SPECS = [
   '**/sfc-load-perf.spec.ts',
   '**/binary-endpoint-memory.spec.ts',
   '**/endpoint-replay.spec.ts',
-  // Heavy 68 MB DB loaders — crash chromium under parallel workers, not timing-sensitive.
+  // Large-DB pipeline specs. Their fixtures used to be tens of MB and crashed Chromium
+  // under parallel workers; the fixtures now ship in RSL Helper's slim format (~1 MB),
+  // so the memory pressure is gone. Kept serialized for now because each still drives a
+  // full multi-thousand-item match pipeline — revisit moving them to the parallel
+  // projects if suite wall-clock becomes a concern.
   '**/midgame-progression.spec.ts',
   '**/large-db-duplication.spec.ts',
 ];

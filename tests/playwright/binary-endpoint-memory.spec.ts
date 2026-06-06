@@ -1,7 +1,5 @@
 /* eslint import/no-unused-modules: off */
 import fs from 'node:fs'
-import path from 'node:path'
-import initSqlJs from 'sql.js'
 import type { WebSocketRoute } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
@@ -22,6 +20,12 @@ const TOTAL_ROUNDS = 2
 // Set to 4 × db-file-size so normal peak usage is tolerated but sustained
 // accumulation (each round adding another full copy) causes a failure.
 const MAX_GROWTH_MB_PER_DB_SIZE_FACTOR = 4
+// Floor for the growth budget: now that the fixture ships in RSL Helper's slimmed
+// format (no ChampOverviewImage blobs, ~1.4 MB), 4 × file-size would be an
+// unrealistically tight ~6 MB — below the WASM pipeline's fixed per-burst overhead,
+// which is dominated by the rule engine / sql.js working set, not the file size.
+// 16 MB keeps the leak detector meaningful while tolerating that fixed cost.
+const MIN_GROWTH_FLOOR_MB = 16
 
 /**
  * Returns the V8 heap used (MB) as reported by performance.memory.
@@ -53,18 +57,10 @@ test.describe('binary-endpoint-memory', () => {
     // Budget: 8 rounds × 4 bursts × ~30 s per settle + startup.
     test.setTimeout(600_000)
 
-    // Read and trim in memory: DELETE AccRecords (85 MB of blobs never read by
-    // importGearDatabaseFromArrayBuffer) so the base64-encoded WebSocket frame
-    // stays well under Chrome's ~120 MB CDP message threshold.
-    const SQL = await initSqlJs({
-      wasmBinary: fs.readFileSync(path.resolve(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm')),
-    })
-    const rawBuffer = fs.readFileSync(LARGE_ACCOUNT_DB_PATH)
-    const db = new SQL.Database(rawBuffer)
-    db.run('DELETE FROM AccRecords')
-    db.run('VACUUM')
-    const dbBuffer = Buffer.from(db.export())
-    db.close()
+    // The fixture already ships in RSL Helper's slimmed format (~1.4 MB, no
+    // ChampOverviewImage blobs), so the base64-encoded WebSocket frame stays well
+    // under Chrome's ~120 MB CDP message threshold without any in-memory trimming.
+    const dbBuffer = fs.readFileSync(LARGE_ACCOUNT_DB_PATH)
     const dbSizeMB = Math.ceil(dbBuffer.length / 1024 / 1024)
 
     // Accumulate diagnostics so they appear together in the test report.
@@ -157,26 +153,30 @@ test.describe('binary-endpoint-memory', () => {
       )
     }
 
+    // Effective budget: N × file-size, floored so the slim fixture doesn't drive
+    // the threshold below the pipeline's fixed per-burst overhead.
+    const growthLimitMB = Math.max(dbSizeMB * MAX_GROWTH_MB_PER_DB_SIZE_FACTOR, MIN_GROWTH_FLOOR_MB)
+
     // Final summary.
     console.log(`[memory-test] heap series (MB): ${roundHeaps.join(' → ')}`)
     const peakGrowthMB = Math.max(...roundHeaps.filter((v) => v >= 0)) - baselineHeapMB
     console.log(
       `[memory-test] peak growth=${peakGrowthMB}MB db=${dbSizeMB}MB`
-      + ` limit=${dbSizeMB * MAX_GROWTH_MB_PER_DB_SIZE_FACTOR}MB`,
+      + ` limit=${growthLimitMB}MB`,
     )
 
     expect(crashed, 'page crashed during binary replay').toBe(false)
     expect(pageErrors, 'uncaught page errors').toHaveLength(0)
 
-    // Fail if heap grew by more than N× the database file size — that implies each
-    // round is leaving a full copy in memory instead of releasing it.
+    // Fail if heap grew by more than the budget — that implies each round is
+    // leaving a full copy in memory instead of releasing it.
     if (baselineHeapMB > 0) {
       expect(
         peakGrowthMB,
         `heap grew by ${peakGrowthMB}MB over ${TOTAL_ROUNDS} rounds × ${RAPID_BURST_COUNT} bursts`
-        + ` (db=${dbSizeMB}MB, limit=${dbSizeMB * MAX_GROWTH_MB_PER_DB_SIZE_FACTOR}MB)`
+        + ` (db=${dbSizeMB}MB, limit=${growthLimitMB}MB)`
         + ` — each round should release its allocations`,
-      ).toBeLessThanOrEqual(dbSizeMB * MAX_GROWTH_MB_PER_DB_SIZE_FACTOR)
+      ).toBeLessThanOrEqual(growthLimitMB)
     }
   })
 })

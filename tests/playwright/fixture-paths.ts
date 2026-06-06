@@ -21,6 +21,7 @@ export const SAMPLE_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample.db')
 export const SAMPLE_SMALL_DB_PATH = path.resolve(TEST_DATA_DIR, 'sample-small.db')
 // Shipped lategame preset — the comprehensive SFC bundled with releases.
 export const PRESET_LATEGAME_SFC_PATH = path.resolve(PRESETS_DIR, 'lategame.sfc')
-// Full RSLHelper DB — used by file-input tests (setInputFiles).
-// binary-endpoint-memory.spec.ts trims AccRecords in memory before sending over WebSocket.
+// Real RSLHelper DB capture in the slimmed export format (no ChampOverviewImage
+// blobs, ~1.4 MB) — used by file-input tests (setInputFiles) and the WebSocket
+// binary-endpoint memory test, which now sends it untrimmed.
 export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db')

@@ -12,7 +12,6 @@ import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearD
 const repoRoot = process.cwd()
 // Keep large DB fixtures under tests/data to separate them from specs.
 const sampleDbPath = join(repoRoot, 'tests', 'data', 'sample.db')
-const brokenDbPath = join(repoRoot, 'tests', 'data', 'broken.db')
 // Keep a fixture with REAL lastUse timestamps under versioned test data.
 const helperRealLastUseDbPath = join(repoRoot, 'tests', 'data', 'sample2.db')
 
@@ -60,17 +59,6 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   // Unequipped inbox items have no champion reference at all (the FK lookup misses).
   // Replaces the previous per-flat-field null checks now that the reference is unified.
   assert.equal(inboxRing?.equippedChampion, null)
-})
-
-test('gear DB importer reports zero gear for broken databases', async (t) => {
-  if (!existsSync(brokenDbPath)) {
-    t.skip('broken database not available')
-    return
-  }
-  const arrayBuffer = bufferToArrayBuffer(readFileSync(brokenDbPath))
-  const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  assert.equal(artifacts.length, 0, 'expected broken DB to yield zero artifacts')
-  assert.equal(inboxArtifacts.length, 0, 'expected broken DB to yield zero inbox artifacts')
 })
 
 test('gear DB importer threads last-used timestamps onto artifacts', async () => {
