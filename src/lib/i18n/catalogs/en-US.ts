@@ -89,7 +89,6 @@ const enUS: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "Safeguards are disabled; turn them on to scan your gear.",
   gearInspectorTableEmptySafeguardsNoMatches: "No gear matches the current safeguards filters.",
   gearInspectorTableEmptyFilter: "No gear matches the current filters.",
-  gearInspectorGridCompactGroup: "Compact Current Group",
   gearInspectorGridNormalizedLabel: "Show Substat Rating",
   gearInspectorGridShowSafeguardImprovementChance: "Show improvement chance",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Show improvement chance**\n\nOverlays each piece with how often it lands in its safeguard's top N across all possible roll paths to +16.\n\nThe simulation models **roll variance** (low/high outcomes per roll) and includes **glyph potential** — higher-rank gear benefits from stronger available glyphs.\n\nNote: the top-N by current substat value is always kept regardless of this score — a piece can show 0% and still be fully protected.",

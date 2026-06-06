@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "„Schutzmaßnahmen“ sind deaktiviert; aktiviere sie, um deine Ausrüstung zu scannen.",
   gearInspectorTableEmptySafeguardsNoMatches: "Keine Ausrüstung passt zu den aktuellen Keep-Uniques-Filtern.",
   gearInspectorTableEmptyFilter: "Keine Einträge passen zu den aktuellen Test-Filtern.",
-  gearInspectorGridCompactGroup: "Aktuelle Gruppe komprimieren",
   gearInspectorGridNormalizedLabel: "Substat-Bewertung anzeigen",
   gearInspectorGridShowSafeguardImprovementChance: "Verbesserungschance anzeigen",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Verbesserungschance anzeigen**\n\nÜberlagert jedes Teil mit der Häufigkeit, mit der es bei allen möglichen Aufwertungspfaden auf +16 im Top-N seines Sicherheitsnetzes landet.\n\nDie Simulation berücksichtigt **Würfelvarianz** (niedrige/hohe Ergebnisse pro Wurf) und **Glyphenpotenzial** — höherrangige Ausrüstung profitiert von stärkeren verfügbaren Glyphen.\n\nHinweis: Das Top-N nach aktuellem Substat-Wert wird immer behalten, unabhängig von diesem Score — ein Teil mit 0 % kann trotzdem vollständig geschützt sein.",

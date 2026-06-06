@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "“Safeguards” kapalı; ekipmanınızı taramak için açın.",
   gearInspectorTableEmptySafeguardsNoMatches: "Mevcut “Safeguards” filtreleriyle eşleşen ekipman yok.",
   gearInspectorTableEmptyFilter: "Hiçbir Ekipman Denetçisi kaydı geçerli filtrelere uymuyor.",
-  gearInspectorGridCompactGroup: "Geçerli grubu sıkıştır",
   gearInspectorGridNormalizedLabel: "Alt Stat Puanını Göster",
   gearInspectorGridShowSafeguardImprovementChance: "İyileştirme şansını göster",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**İyileştirme şansını göster**\n\nHer parçayı, +16'ya kadar tüm olası atış yollarında koruyucusunun top N'ine kaç kez girdiğiyle üst üste getirir.\n\nSimülasyon **atış varyansını** (her atışta düşük/yüksek sonuçlar) ve **glif potansiyelini** modeller — daha yüksek rütbeli ekipman, daha güçlü mevcut gliflerden faydalanır.\n\nNot: mevcut alt stat değerine göre top-N, bu puandan bağımsız olarak her zaman korunur — bir parça %0 gösterse de tamamen koruma altında olabilir.",

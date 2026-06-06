@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "«Safeguards» выключено; включите его, чтобы просканировать экипировку.",
   gearInspectorTableEmptySafeguardsNoMatches: "Ни одно снаряжение не соответствует текущим фильтрам «Safeguards».",
   gearInspectorTableEmptyFilter: "Нет записей, подходящих текущим фильтрам тестера.",
-  gearInspectorGridCompactGroup: "Сжать текущую группу",
   gearInspectorGridNormalizedLabel: "Показывать рейтинг подстатов",
   gearInspectorGridShowSafeguardImprovementChance: "Показать шанс улучшения",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Показать шанс улучшения**\n\nНакладывает на каждый предмет частоту попадания в топ-N своей защиты при всех возможных путях бросков до +16.\n\nСимуляция учитывает **дисперсию бросков** (низкие/высокие результаты за бросок) и **потенциал глифов** — снаряжение более высокого ранга получает доступ к более сильным глифам.\n\nПримечание: топ-N по текущему значению подстата всегда сохраняется независимо от этого показателя — предмет с 0 % может оставаться полностью под защитой.",

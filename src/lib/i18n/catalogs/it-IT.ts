@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "«Salvaguardie» è disattivato; attivalo per scansionare la tua attrezzatura.",
   gearInspectorTableEmptySafeguardsNoMatches: "Nessun equipaggiamento corrisponde ai filtri Salvaguardie correnti.",
   gearInspectorTableEmptyFilter: "Nessuna riga dell'Ispettore Equipaggiamento corrisponde ai filtri attuali.",
-  gearInspectorGridCompactGroup: "Compatta il gruppo corrente",
   gearInspectorGridNormalizedLabel: "Mostra valutazione substat",
   gearInspectorGridShowSafeguardImprovementChance: "Mostra probabilità di miglioramento",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Mostra probabilità di miglioramento**\n\nSovraimpone su ogni pezzo la frequenza con cui si classifica nel top N della sua salvaguardia su tutti i percorsi di tiro possibili fino a +16.\n\nLa simulazione modella la **varianza dei tiri** (risultati bassi/alti per tiro) e include il **potenziale glifi** — l'equipaggiamento di rango superiore beneficia di glifi più forti disponibili.\n\nNota: il top-N per valore di sotto-stat corrente è sempre conservato indipendentemente da questo punteggio — un pezzo può mostrare 0% ed essere comunque completamente protetto.",

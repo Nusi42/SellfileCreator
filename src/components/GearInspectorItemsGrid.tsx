@@ -62,7 +62,6 @@ import {
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
-  SMALL_BUTTON_HEIGHT_PX,
   type ColorBlindMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
@@ -932,8 +931,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     targetOffset: number
     attemptedMount?: boolean
   } | null>(null)
-  // After compacting a group, scroll its header back into view smoothly.
-  const pendingCompactScrollGroupKeyRef = useRef<string | null>(null)
   const recordScrollAnchor = useCallback((groupKey: string, node?: Element | null) => {
     const container = containerRef.current
     if (!container) return
@@ -1524,18 +1521,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     pendingScrollRestoreRef.current = null
   }, [flattenedItems])
-  // After a compact, nudge the group header smoothly into view if it drifted off-screen.
-  useLayoutEffect(() => {
-    const compactKey = pendingCompactScrollGroupKeyRef.current
-    if (!compactKey) return
-    pendingCompactScrollGroupKeyRef.current = null
-    const idx = flattenedItems.findIndex(
-      (item) => item.kind === 'groupHeader' && item.group.key === compactKey,
-    )
-    if (idx >= 0) {
-      rowVirtualizer.scrollToIndex(idx, { align: 'auto', behavior: 'smooth' })
-    }
-  }, [flattenedItems, rowVirtualizer])
   const rowLookup = useMemo(() => {
     const map = new Map<number, GearInspectorPreviewRow>()
     rows.forEach((row) => {
@@ -1872,7 +1857,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     return null
   }, [rows])
   // Context menu state tracks the pointer anchor plus the owning group so actions stay scoped.
-  const [gridMenuGroupKey, setGridMenuGroupKey] = useState<string | null>(null)
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const gridMenuOpen = Boolean(gridMenuPosition)
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -1887,40 +1871,16 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     enabled: !gridMenuOpen,
     text: t('contextMenuHint'),
   })
-  const resolveGridContextGroupKey = useCallback((target: EventTarget | null): string | null => {
-    // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
-    const element = target as Element | null
-    if (!element || typeof element.closest !== 'function') return null
-    const headerNode = element.closest<HTMLElement>('[data-gear-inspector-grid-header="true"]')
-    const headerKey = headerNode?.getAttribute('data-header-key')
-    if (headerKey && groupLookup.has(headerKey)) {
-      // Clicking inside a header keeps the lookup cheap by reading the exported data attribute.
-      return headerKey
-    }
-    const cardNode = element.closest<HTMLElement>('[data-gear-inspector-grid-card="true"]')
-    const rowIdAttr = cardNode?.getAttribute('data-row-id')
-    if (rowIdAttr) {
-      const rowId = Number(rowIdAttr)
-      if (Number.isFinite(rowId)) {
-        // Cards only know their artifact id, so pivot through the lookup we built above.
-        return rowGroupKeyLookup.get(rowId) ?? null
-      }
-    }
-    return null
-  }, [groupLookup, rowGroupKeyLookup])
   const handleGridContextMenu = useCallback((event: React.MouseEvent<Element>) => {
     event.preventDefault()
     event.stopPropagation()
-    // Track the pointer target so the menu actions know which group to mutate.
-    setGridMenuGroupKey(resolveGridContextGroupKey(event.target))
     setGridMenuPosition({ x: event.clientX, y: event.clientY })
     gridHintOnOpen()
-  }, [gridHintOnOpen, resolveGridContextGroupKey])
+  }, [gridHintOnOpen])
   const closeGridMenu = useCallback(() => {
     // Closing the parent menu should never leave the nested preset editor orphaned.
     setNormalizedPresetEditor(null)
     setGridMenuPosition(null)
-    setGridMenuGroupKey(null)
   }, [])
   const closeGridMenuOrPresetEditor = useCallback(() => {
     // UX: when the preset editor is open, a dismiss click should close the editor first,
@@ -1955,19 +1915,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const canToggleColumns = keepOverrideVariant
     ? typeof onKeepOverrideColumnModeChange === 'function'
     : true
-  const handleCompactCurrentGroup = useCallback(() => {
-    if (!gridMenuGroupKey) return
-    // Record before state update so the layout effect can scroll the header into view after re-render.
-    pendingCompactScrollGroupKeyRef.current = gridMenuGroupKey
-    setCollapsedGroups((prev) => {
-      if (prev.has(gridMenuGroupKey)) return prev
-      const next = new Set(prev)
-      // Collapsing is just a set insert; keep the mutation scoped to the resolved group key.
-      next.add(gridMenuGroupKey)
-      return next
-    })
-    closeGridMenu()
-  }, [closeGridMenu, gridMenuGroupKey, setCollapsedGroups])
   // Guard the grid context menu so outside clicks cannot leave a stuck overlay.
   const { contextMenuGuard: gridMenuGuard } = useContextMenuPaperGuard({
     open: gridMenuOpen,
@@ -2498,12 +2445,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     return null
   }
-  // Disable group-compaction when we cannot resolve the group or it is already collapsed.
-  const canCompactCurrentGroup = Boolean(
-    gridMenuGroupKey
-    && groupLookup.has(gridMenuGroupKey)
-    && !collapsedGroups.has(gridMenuGroupKey),
-  )
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
       <Box
@@ -2662,33 +2603,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           }), ref: gridMenuPaperRef },
         }}
       >
-        {/* Place "Compact Current Group" first so it remains easily reachable (it is a frequent action). */}
-        <MenuItem
-          disableRipple
-          disabled={!canCompactCurrentGroup}
-          sx={{ justifyContent: 'center', py: 0.5 }}
-        >
-          <Button
-            // Mirror the RulesFilterPanel close button styling so this action reads as a centered primary control.
-            size="small"
-            variant="contained"
-            color="primary"
-            disabled={!canCompactCurrentGroup}
-            onClick={(event) => {
-              event.stopPropagation()
-              handleCompactCurrentGroup()
-            }}
-            sx={{
-              px: 1.25,
-              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
-              height: SMALL_BUTTON_HEIGHT_PX,
-              minHeight: SMALL_BUTTON_HEIGHT_PX,
-            }}
-          >
-            {t('gearInspectorGridCompactGroup')}
-          </Button>
-        </MenuItem>
-        <Divider sx={{ my: 0.5 }} />
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
           onClick={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)}

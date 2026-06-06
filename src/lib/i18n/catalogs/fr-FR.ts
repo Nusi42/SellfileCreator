@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "« Protections » est désactivé ; activez-le pour analyser votre équipement.",
   gearInspectorTableEmptySafeguardsNoMatches: "Aucun équipement ne correspond aux filtres « Protections » actuels.",
   gearInspectorTableEmptyFilter: "Aucune entrée du testeur ne correspond aux filtres actuels.",
-  gearInspectorGridCompactGroup: "Compacter le groupe actuel",
   gearInspectorGridNormalizedLabel: "Afficher la note des sous-stats",
   gearInspectorGridShowSafeguardImprovementChance: "Afficher la chance d’amélioration",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Afficher la chance d'amélioration**\n\nSuperpose chaque pièce avec la fréquence à laquelle elle se classe dans le top N de sa sauvegarde sur tous les chemins de roll possibles jusqu'à +16.\n\nLa simulation modélise la **variance des jets** (résultats bas/hauts par jet) et inclut le **potentiel de glyphes** — l'équipement de rang supérieur bénéficie de glyphes plus puissants disponibles.\n\nRemarque : le top-N par valeur de sous-stat actuelle est toujours conservé quelle que soit cette valeur — une pièce peut afficher 0 % et rester entièrement protégée.",

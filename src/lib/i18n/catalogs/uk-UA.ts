@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "«Safeguards» вимкнено; увімкніть його, щоб повторно просканувати спорядження.",
   gearInspectorTableEmptySafeguardsNoMatches: "Жодне спорядження не відповідає поточним фільтрам «Safeguards».",
   gearInspectorTableEmptyFilter: "Жоден запис тестера не відповідає поточним фільтрам.",
-  gearInspectorGridCompactGroup: "Стиснути поточну групу",
   gearInspectorGridNormalizedLabel: "Показувати рейтинг підстатів",
   gearInspectorGridShowSafeguardImprovementChance: "Показати шанс покращення",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Показати шанс покращення**\n\nНакладає на кожен предмет частоту потрапляння в топ-N свого захисту при всіх можливих шляхах кидів до +16.\n\nСимуляція моделює **варіацію кидів** (низькі/високі результати за кид) та включає **потенціал гліфів** — спорядження вищого рангу отримує доступ до сильніших доступних гліфів.\n\nПримітка: топ-N за поточним значенням підстату завжди зберігається незалежно від цього показника — предмет із 0 % може залишатися повністю під захистом.",

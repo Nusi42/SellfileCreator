@@ -88,7 +88,6 @@ const overrides: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "«Salvaguardas» está desactivado; actívalo para escanear tu equipo.",
   gearInspectorTableEmptySafeguardsNoMatches: "Ningún equipo coincide con los filtros actuales de Salvaguardas.",
   gearInspectorTableEmptyFilter: "Ningún elemento del Inspector de Equipo coincide con los filtros actuales.",
-  gearInspectorGridCompactGroup: "Comprimir grupo actual",
   gearInspectorGridNormalizedLabel: "Mostrar valoración de substats",
   gearInspectorGridShowSafeguardImprovementChance: "Mostrar probabilidad de mejora",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Mostrar probabilidad de mejora**\n\nSuperpone cada pieza con la frecuencia con la que se clasifica en el top N de su salvaguarda en todos los caminos de tirada posibles hasta +16.\n\nLa simulación modela la **varianza de tiradas** (resultados bajos/altos por tirada) e incluye el **potencial de glifos** — el equipo de mayor rango se beneficia de glifos más fuertes disponibles.\n\nNota: el top-N por valor de substat actual siempre se conserva independientemente de este valor — una pieza puede mostrar un 0 % y seguir estando completamente protegida.",

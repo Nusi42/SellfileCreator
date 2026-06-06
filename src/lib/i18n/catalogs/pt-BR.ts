@@ -88,7 +88,6 @@ const catalog: Catalog = {
   gearInspectorTableEmptySafeguardsDisabled: "Salvaguardas está desativado; ative-o para escanear seu equipamento.",
   gearInspectorTableEmptySafeguardsNoMatches: "Nenhum equipamento corresponde aos filtros atuais de Salvaguardas.",
   gearInspectorTableEmptyFilter: "Nenhuma entrada do Inspetor de Equipamento corresponde aos filtros atuais.",
-  gearInspectorGridCompactGroup: "Compactar grupo atual",
   gearInspectorGridNormalizedLabel: "Mostrar nota de substats",
   gearInspectorGridShowSafeguardImprovementChance: "Mostrar chance de melhoria",
   gearInspectorGridShowSafeguardImprovementChanceTooltip: "**Mostrar chance de melhoria**\n\nSobrepõe cada peça com a frequência com que ela se classifica no top N de sua salvaguarda em todos os caminhos de rolagem possíveis até +16.\n\nA simulação modela a **variância de rolagens** (resultados baixos/altos por rolagem) e inclui o **potencial de glifos** — equipamentos de ranque mais alto se beneficiam de glifos mais fortes disponíveis.\n\nNota: o top-N por valor de substat atual é sempre mantido independentemente desta pontuação — uma peça pode mostrar 0% e ainda estar completamente protegida.",
