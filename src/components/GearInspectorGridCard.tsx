@@ -2426,13 +2426,16 @@ export function useGearInspectorGridLayoutMetrics({
       } else {
         // Static fallback: neither width is available; use the reference column count for the mode.
         // In a half-width diff pane, halve the reference so the transient isn't over-columned.
+        // Floor (not round) so odd reference counts (medium=5) give 2 columns, not 3.
         const fallback = GEAR_INSPECTOR_CARD_FALLBACK_COLUMN_COUNT[cardSizeMode]
-        return halfPaneColumns ? Math.max(1, Math.round(fallback / 2)) : fallback
+        return halfPaneColumns ? Math.max(1, Math.floor(fallback / 2)) : fallback
       }
-      // Half-width diff panes round so the count stays at half the full-grid columns with
-      // identical card width; the normal grid floors to keep cards at least target-wide.
-      const ratio = rowContentWidth / targetWidth
-      return Math.max(1, halfPaneColumns ? Math.round(ratio) : Math.floor(ratio))
+      // Derive column count from the full-panel row content width. For half-pane diff panes,
+      // halve the column count so each pane mirrors the full-grid density at the same card width.
+      // Floor keeps cards at least target-wide; halving floors again so odd full counts (e.g. 3)
+      // give 1 rather than rounding up to 2 compressed columns.
+      const fullColumns = Math.floor(rowContentWidth / targetWidth)
+      return Math.max(1, halfPaneColumns ? Math.floor(fullColumns / 2) : fullColumns)
     }
     // Keep-override path: preferredColumnCount is 1 or 2, used verbatim.
     return Math.max(1, preferredColumnCount)

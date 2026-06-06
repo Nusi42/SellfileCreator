@@ -8514,8 +8514,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedGearItemIds={selectedGearItemIds}
       onGearItemsSelect={handleGearItemsSelect}
       hasGearInspectorData
+      // Full right-panel width so the metrics hook can derive the half-pane column count
+      // from the same source as the normal gear inspector (halved when halfPaneColumns=true).
+      {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
     />
-  ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect])
+  ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect, isSideBySide, liveRightWidthPx, splitterRightPx])
 
   return (
     <Container maxWidth={false} disableGutters sx={{
