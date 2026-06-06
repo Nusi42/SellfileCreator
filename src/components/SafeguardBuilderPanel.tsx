@@ -173,7 +173,7 @@ import {
   type SafeguardOverridesInstruction,
 } from '../lib/noteSafeguardOverrides'
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuToggleRow } from './MenuToggleRow'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -1978,10 +1978,7 @@ export default function SafeguardBuilderPanel({
             onClose={closeTagsContextMenu}
             slotProps={{ paper: { ref: tagsContextPaperRef } }}
           >
-            <MenuItem onClick={() => setShowTagsChips(!showTagsChips)} sx={{ gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuShowTags')}</Typography>
-              <MenuCheckButton checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
-            </MenuItem>
+            <MenuToggleRow label={t('builderMenuShowTags')} checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
           </Menu>
           {/* Context menu hint overlay matches the rest of the builder controls. */}
           {tagsHintOverlay}
@@ -2993,10 +2990,7 @@ export default function SafeguardBuilderPanel({
           onClose={closeInsertMenu}
           slotProps={{ paper: { ref: insertMenuPaperRef } }}
         >
-          <MenuItem onClick={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }} sx={{ gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoResetAfterInsert')}</Typography>
-            <MenuCheckButton checked={autoResetAfterInsert} onChange={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }} />
-          </MenuItem>
+          <MenuToggleRow label={t('builderMenuAutoResetAfterInsert')} checked={autoResetAfterInsert} onChange={() => { setAutoResetExclusive(!autoResetAfterInsert); closeInsertMenu() }} />
         </Menu>
 
         {/* Apply context menu — auto apply to selected */}
@@ -3006,10 +3000,7 @@ export default function SafeguardBuilderPanel({
           onClose={closeApplyMenu}
           slotProps={{ paper: { ref: applyMenuPaperRef } }}
         >
-          <MenuItem onClick={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }} sx={{ gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ flex: 1 }}>{t('safeguardsBuilderMenuAutoApplySelected')}</Typography>
-            <MenuCheckButton checked={autoApplySelectedRecipe} onChange={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }} />
-          </MenuItem>
+          <MenuToggleRow label={t('safeguardsBuilderMenuAutoApplySelected')} checked={autoApplySelectedRecipe} onChange={() => { setAutoApplyExclusive(!autoApplySelectedRecipe); closeApplyMenu() }} />
         </Menu>
 
         {/* Reset context menu — save user defaults or revert to factory, mirrors recipe builder */}

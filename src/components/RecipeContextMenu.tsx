@@ -1,6 +1,6 @@
 import React from 'react'
-import { Divider, Menu, MenuItem, Typography } from '@mui/material'
-import { MenuCheckButton } from './MenuCheckButton'
+import { Divider, Menu, MenuItem } from '@mui/material'
+import { MenuToggleRow } from './MenuToggleRow'
 import { useI18n } from '../lib/i18n'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaperGuardToken } from './ContextMenuPaper'
 
@@ -272,14 +272,7 @@ export function RecipeContextMenu({
     const toggleAction = actions.toggleShowTagsInChips
     secondaryItems.push(
       // Does not close the menu on click so the user can see the effect immediately.
-      <MenuItem
-        key="toggleShowTagsInChips"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleAction.handler() }}
-        sx={{ gap: 1, alignItems: 'center' }}
-      >
-        <Typography variant="body2" sx={{ flex: 1 }}>{t('chipsMenuShowTagsInChips')}</Typography>
-        <MenuCheckButton checked={toggleAction.checked} onChange={toggleAction.handler} />
-      </MenuItem>,
+      <MenuToggleRow key="toggleShowTagsInChips" label={t('chipsMenuShowTagsInChips')} checked={toggleAction.checked} onChange={toggleAction.handler} />,
     )
   }
   if (actions.deleteAll) {

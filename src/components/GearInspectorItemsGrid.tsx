@@ -97,8 +97,8 @@ import {
   useGearInspectorGridNormalizedOverlayPreferences,
 } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
-import { CycleButton } from './CycleButton'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuCycleRow } from './MenuCycleRow'
+import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
@@ -2603,28 +2603,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           }), ref: gridMenuPaperRef },
         }}
       >
-        <MenuItem
-          sx={{ gap: 1, alignItems: 'center' }}
-          onClick={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)}
-        >
-          <MarkdownTooltip markdown={t('gearInspectorGridShowSafeguardImprovementChanceTooltip')} placement="top-start">
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-              {t('gearInspectorGridShowSafeguardImprovementChance')}
-            </Typography>
-          </MarkdownTooltip>
-          <MenuCheckButton checked={showSafeguardImprovementChance} onChange={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)} />
-        </MenuItem>
-        <MenuItem
-          sx={{ gap: 1, alignItems: 'center' }}
-          onClick={() => setShowSafeguardRank(!showSafeguardRank)}
-        >
-          <MarkdownTooltip markdown={t('gearInspectorGridShowSafeguardRankTooltip')} placement="top-start">
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-              {t('gearInspectorGridShowSafeguardRank')}
-            </Typography>
-          </MarkdownTooltip>
-          <MenuCheckButton checked={showSafeguardRank} onChange={() => setShowSafeguardRank(!showSafeguardRank)} />
-        </MenuItem>
+        <MenuToggleRow label={t('gearInspectorGridShowSafeguardImprovementChance')} checked={showSafeguardImprovementChance} onChange={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)} tooltip={t('gearInspectorGridShowSafeguardImprovementChanceTooltip')} />
+        <MenuToggleRow label={t('gearInspectorGridShowSafeguardRank')} checked={showSafeguardRank} onChange={() => setShowSafeguardRank(!showSafeguardRank)} tooltip={t('gearInspectorGridShowSafeguardRankTooltip')} />
         <MenuItem
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}
@@ -2827,76 +2807,40 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} disabled={!canToggleColumns}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuGridColumns')}</Typography>
-          <CycleButton
-            options={[
-              { value: 'large',  label: t('rulesMenuGridColumnsLarge')  },
-              { value: 'medium', label: t('rulesMenuGridColumnsMedium') },
-              { value: 'small',  label: t('rulesMenuGridColumnsSmall')  },
-            ]}
-            value={storedColumnPreference}
-            onChange={(v) => {
-              if (keepOverrideVariant) {
-                // Keep-override mode uses a numeric 2-state column count; re-use existing handler.
-                handleColumnToggle()
-                return
-              }
-              setColumns(v as GearInspectorGridColumnMode)
-            }}
-            disabled={!canToggleColumns}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-          />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFirstMatch(!showFirstMatch)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowFirstMatch')}</Typography>
-          <MenuCheckButton checked={showFirstMatch} onChange={() => setShowFirstMatch(!showFirstMatch)} />
-        </MenuItem>
-        <MenuItem
-          sx={{ gap: 1, alignItems: 'center' }}
-          disabled={!showFirstMatch}
-          onClick={() => { if (!showFirstMatch) return; setShowMatchRecipeIndex(!showMatchRecipeIndex) }}
-        >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchIndex')}</Typography>
-          <MenuCheckButton checked={showMatchRecipeIndex} disabled={!showFirstMatch} onChange={() => { if (!showFirstMatch) return; setShowMatchRecipeIndex(!showMatchRecipeIndex) }} />
-        </MenuItem>
-        <MenuItem
-          sx={{ gap: 1, alignItems: 'center' }}
-          disabled={!showFirstMatch}
-          onClick={() => { if (!showFirstMatch) return; setShowMatchLine(!showMatchLineNumber) }}
-        >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchLine')}</Typography>
-          <MenuCheckButton checked={showMatchLineNumber} disabled={!showFirstMatch} onChange={() => { if (!showFirstMatch) return; setShowMatchLine(!showMatchLineNumber) }} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowOtherMatches(!showOtherMatches)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowOtherMatches')}</Typography>
-          <MenuCheckButton checked={showOtherMatches} onChange={() => setShowOtherMatches(!showOtherMatches)} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowChampionIcons(!showChampionIcons)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowChampionIcons')}</Typography>
-          <MenuCheckButton checked={showChampionIcons} onChange={() => setShowChampionIcons(!showChampionIcons)} />
-        </MenuItem>
+        <MenuCycleRow
+          label={t('rulesMenuGridColumns')}
+          options={[
+            { value: 'large',  label: t('rulesMenuGridColumnsLarge')  },
+            { value: 'medium', label: t('rulesMenuGridColumnsMedium') },
+            { value: 'small',  label: t('rulesMenuGridColumnsSmall')  },
+          ]}
+          value={storedColumnPreference}
+          onChange={(v) => {
+            if (keepOverrideVariant) {
+              handleColumnToggle()
+              return
+            }
+            setColumns(v as GearInspectorGridColumnMode)
+          }}
+          disabled={!canToggleColumns}
+        />
+        <MenuToggleRow label={t('rulesMenuShowFirstMatch')} checked={showFirstMatch} onChange={() => setShowFirstMatch(!showFirstMatch)} />
+        <MenuToggleRow label={t('rulesMenuShowMatchIndex')} checked={showMatchRecipeIndex} disabled={!showFirstMatch} onChange={() => setShowMatchRecipeIndex(!showMatchRecipeIndex)} />
+        <MenuToggleRow label={t('rulesMenuShowMatchLine')} checked={showMatchLineNumber} disabled={!showFirstMatch} onChange={() => setShowMatchLine(!showMatchLineNumber)} />
+        <MenuToggleRow label={t('rulesMenuShowOtherMatches')} checked={showOtherMatches} onChange={() => setShowOtherMatches(!showOtherMatches)} />
+        <MenuToggleRow label={t('rulesMenuShowChampionIcons')} checked={showChampionIcons} onChange={() => setShowChampionIcons(!showChampionIcons)} />
         {/* Rule template button is opt-in so we surface it only for the main Gear Inspector grid. */}
         {variant === 'gearInspector' ? (
-          <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowRuleTemplates(!showRuleTemplates)}>
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('gearInspectorGridShowRuleTemplates')}</Typography>
-            <MenuCheckButton checked={showRuleTemplates} onChange={() => setShowRuleTemplates(!showRuleTemplates)} />
-          </MenuItem>
+          <MenuToggleRow label={t('gearInspectorGridShowRuleTemplates')} checked={showRuleTemplates} onChange={() => setShowRuleTemplates(!showRuleTemplates)} />
         ) : null}
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setHighlightKeepSell(!highlightKeepSell)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuHighlightKeepSell')}</Typography>
-          <MenuCheckButton checked={highlightKeepSell} onChange={() => setHighlightKeepSell(!highlightKeepSell)} />
-        </MenuItem>
+        <MenuToggleRow label={t('rulesMenuHighlightKeepSell')} checked={highlightKeepSell} onChange={() => setHighlightKeepSell(!highlightKeepSell)} />
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-            onClick={(event) => { event.stopPropagation() }}
-          >
-            <MenuCheckButton checked={useStatButtonColors} onChange={() => onToggleStatColors(!useStatButtonColors)} />
-            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
+        <MenuToggleRow
+          label={t('rulesMenuColorStatTexts')}
+          checked={useStatButtonColors}
+          onChange={() => onToggleStatColors(!useStatButtonColors)}
+          trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
@@ -2904,30 +2848,23 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   variant="outlined"
                   color="info"
                   disabled={!useStatButtonColors}
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (!useStatButtonColors) return
-                    onOpenManageColors()
-                  }}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
+                  onClick={(event) => { event.stopPropagation(); if (!useStatButtonColors) return; onOpenManageColors() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
                 </Button>
               </span>
             </MarkdownTooltip>
-          </Box>
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <CycleButton
-            options={makeColorBlindCycleOptions(t)}
-            value={colorBlindMode}
-            variant={colorBlindCycleVariant(colorBlindMode)}
-            onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-          />
-        </MenuItem>
+          }
+        />
+        <MenuCycleRow
+          label={t('rulesMenuColorBlindPalette')}
+          options={makeColorBlindCycleOptions(t)}
+          value={colorBlindMode}
+          variant={colorBlindCycleVariant(colorBlindMode)}
+          onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
+        />
       </Menu>
       {normalizedPresetEditor ? (
         <GearInspectorNormalizedPresetEditorMenu

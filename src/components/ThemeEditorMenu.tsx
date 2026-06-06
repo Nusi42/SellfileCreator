@@ -22,8 +22,8 @@ import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/pre
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ColorField from './ColorField'
-import { CycleButton } from './CycleButton'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuCycleRow } from './MenuCycleRow'
+import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { makeManageColorsIcon } from '../lib/icons'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -243,25 +243,20 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         </MenuItem>
         <Divider />
         {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <CycleButton
-            options={makeColorBlindCycleOptions(t)}
-            value={colorBlindMode ?? 'normal'}
-            variant={colorBlindCycleVariant(colorBlindMode)}
-            onChange={(v) => setColorBlindMode?.(v as ColorBlindMode)}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-          />
-        </MenuItem>
+        <MenuCycleRow
+          label={t('rulesMenuColorBlindPalette')}
+          options={makeColorBlindCycleOptions(t)}
+          value={colorBlindMode ?? 'normal'}
+          variant={colorBlindCycleVariant(colorBlindMode)}
+          onChange={(v) => setColorBlindMode?.(v as ColorBlindMode)}
+        />
         <Divider />
         {/* Substat chip colorization — same On/Off + manage-colors pattern as gear inspector */}
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MenuCheckButton checked={statButtonBorders} onChange={() => setStatButtonBorders(!statButtonBorders)} />
+        <MenuToggleRow
+          label={t('rulesMenuColorStatTexts')}
+          checked={statButtonBorders}
+          onChange={() => setStatButtonBorders(!statButtonBorders)}
+          trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
@@ -269,7 +264,7 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
                   variant="outlined"
                   color="info"
                   disabled={!statButtonBorders}
-                  sx={{ minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, px: 0.25 }}
+                  sx={{ minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
                   onClick={(e) => { e.stopPropagation(); if (statButtonBorders) onOpenManageColors?.() }}
                   aria-label={t('manageColorsAria')}
                 >
@@ -277,8 +272,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
                 </Button>
               </span>
             </MarkdownTooltip>
-          </Box>
-        </MenuItem>
+          }
+        />
         <Divider />
         {/* Psychedelic cycle — purely cosmetic fun feature; lives at the bottom so it stays out of the way. */}
         <MenuItem disableRipple sx={{ gap: 0, alignItems: 'center', p: 0 }} onClick={() => setPsychedelic(!psychedelic)}>

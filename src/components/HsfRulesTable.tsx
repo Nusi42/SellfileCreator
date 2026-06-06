@@ -40,7 +40,8 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { CycleButton } from './CycleButton'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuCycleRow } from './MenuCycleRow'
+import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
@@ -162,11 +163,6 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   const disabledOpacity = resolveDisabledOpacity(theme)
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
-  const applyNextColorBlindMode = React.useCallback(() => {
-    const nextMode: 'normal' | 'okabeIto' | 'tritan' =
-      colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-    onChangeColorBlindMode(nextMode)
-  }, [colorBlindMode, onChangeColorBlindMode])
   // Track which rule rows are newly added so they can play an enter animation.
   // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe
   // shifts all subsequent keys making them look "new".  Suppress enter animation on
@@ -1900,29 +1896,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           }), ref: headerMenuPaperRef },
         }}
       >
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuWrapRows')}</Typography>
-          <MenuCheckButton checked={wrapRows} onChange={() => setWrapRows(!wrapRows)} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSlotIcons(!showSlotIcons)}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSlotsAsIcons')}</Typography>
-          <MenuCheckButton checked={showSlotIcons} onChange={() => setShowSlotIcons(!showSlotIcons)} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFactionIcons(!showFactionIcons)}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuFactionsAsIcons')}</Typography>
-          <MenuCheckButton checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSetsAsIcons')}</Typography>
-          <MenuCheckButton checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} />
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-            onClick={(e) => { e.stopPropagation() }}
-          >
-            <MenuCheckButton checked={statButtonBorders} onChange={() => setStatButtonBorders(!statButtonBorders)} />
+        <MenuToggleRow label={t('rulesMenuWrapRows')} checked={wrapRows} onChange={() => setWrapRows(!wrapRows)} labelSx={HEADER_MENU_LABEL_SX} />
+        <MenuToggleRow label={t('rulesMenuSlotsAsIcons')} checked={showSlotIcons} onChange={() => setShowSlotIcons(!showSlotIcons)} labelSx={HEADER_MENU_LABEL_SX} />
+        <MenuToggleRow label={t('rulesMenuFactionsAsIcons')} checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} labelSx={HEADER_MENU_LABEL_SX} />
+        <MenuToggleRow label={t('rulesMenuSetsAsIcons')} checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} labelSx={HEADER_MENU_LABEL_SX} />
+        <MenuToggleRow
+          label={t('rulesMenuColorStatTexts')}
+          checked={statButtonBorders}
+          onChange={() => setStatButtonBorders(!statButtonBorders)}
+          labelSx={HEADER_MENU_LABEL_SX}
+          trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
@@ -1930,30 +1913,24 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                   variant="outlined"
                   color="info"
                   disabled={!statButtonBorders}
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (!statButtonBorders) return
-                    onOpenManageColors()
-                  }}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
+                  onClick={(e) => { e.stopPropagation(); if (!statButtonBorders) return; onOpenManageColors() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
                 </Button>
               </span>
             </MarkdownTooltip>
-          </Box>
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); applyNextColorBlindMode() }}>
-          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <CycleButton
-            options={makeColorBlindCycleOptions(t)}
-            value={colorBlindMode}
-            variant={colorBlindCycleVariant(colorBlindMode)}
-            onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-          />
-        </MenuItem>
+          }
+        />
+        <MenuCycleRow
+          label={t('rulesMenuColorBlindPalette')}
+          options={makeColorBlindCycleOptions(t)}
+          value={colorBlindMode}
+          variant={colorBlindCycleVariant(colorBlindMode)}
+          onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
+          labelSx={HEADER_MENU_LABEL_SX}
+        />
         <Divider />
         {/* Reset should sit above the column labels list */}
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>

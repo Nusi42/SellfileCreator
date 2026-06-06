@@ -154,7 +154,7 @@ import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
 import { useRuleCountBadge } from './builderPanel/useRuleCountBadge'
 import { useMultiEditSummary } from './builderPanel/useRecipeMultiEditSummary'
 import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuToggleRow } from './MenuToggleRow'
 import {
   computeRollBudgetForRecipe,
   EMPTY_SELECTION,
@@ -6291,10 +6291,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 onClose={closeTagsContextMenu}
                 slotProps={{ paper: { ref: tagsContextPaperRef } }}
               >
-                <MenuItem onClick={() => setShowTagsChips(!showTagsChips)} sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuShowTags')}</Typography>
-                  <MenuCheckButton checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
-                </MenuItem>
+                <MenuToggleRow label={t('builderMenuShowTags')} checked={showTagsChips} onChange={() => setShowTagsChips(!showTagsChips)} />
               </Menu>
               {/* Context menu hint overlay matches the rest of the builder controls. */}
               {tagsHint.overlay}
@@ -7287,10 +7284,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onClose={closeInsertMenu}
           slotProps={{ paper: { ref: insertMenuPaperRef } }}
         >
-          <MenuItem onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)} sx={{ gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoResetAfterInsert')}</Typography>
-            <MenuCheckButton checked={autoResetAfterInsert} onChange={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)} />
-          </MenuItem>
+          <MenuToggleRow label={t('builderMenuAutoResetAfterInsert')} checked={autoResetAfterInsert} onChange={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)} />
         </Menu>
         <Menu
           anchorEl={applyMenuAnchor}
@@ -7298,10 +7292,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onClose={closeApplyMenu}
           slotProps={{ paper: { ref: applyMenuPaperRef } }}
         >
-          <MenuItem onClick={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)} sx={{ gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ flex: 1 }}>{t('builderMenuAutoApplySelected')}</Typography>
-            <MenuCheckButton checked={autoApplySelectedRecipe} onChange={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)} />
-          </MenuItem>
+          <MenuToggleRow label={t('builderMenuAutoApplySelected')} checked={autoApplySelectedRecipe} onChange={() => setAutoApplySelectedRecipeExclusive(!autoApplySelectedRecipe)} />
         </Menu>
         <Menu
           anchorEl={resetMenuAnchor}

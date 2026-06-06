@@ -39,8 +39,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
-import { CycleButton } from './CycleButton'
-import { MenuCheckButton } from './MenuCheckButton'
+import { MenuCycleRow } from './MenuCycleRow'
+import { MenuToggleRow } from './MenuToggleRow'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -1389,40 +1389,20 @@ export default function PreviewHeaderActions(props: {
                   {t('gearDiffSetReference')}
                 </MenuItem>
                 {/* Auto: re-pin the baseline against the last undo checkpoint automatically. */}
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => { onToggleDiffAuto?.() }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffAutoMode')}</Typography>
-                  <MenuCheckButton checked={diffAutoMode} onChange={() => { onToggleDiffAuto?.() }} />
-                </MenuItem>
+                <MenuToggleRow label={t('gearDiffAutoMode')} checked={diffAutoMode} onChange={() => { onToggleDiffAuto?.() }} />
                 {/* Diff chip visibility: 'auto' shows the delta chip when non-zero; 'off' hides it. */}
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffChipLabel')}</Typography>
-                  <MenuCheckButton checked={diffChipMode !== 'off'} onChange={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }} />
-                </MenuItem>
-                {/* Diff filter mode: which verdict side the active Gear Inspector filter tests.
-                    CycleButton suits this because it is a 3-state option, not a simple toggle. */}
-                <MenuItem
-                  sx={{ gap: 1, alignItems: 'center' }}
-                  onClick={() => {
-                    const next = diffFilterMode === 'any' ? 'before' : diffFilterMode === 'before' ? 'after' : 'any'
-                    onChangeDiffFilterMode?.(next)
-                  }}
-                >
-                  <Typography variant="body2" sx={{ flex: 1 }}>{t('gearDiffFilterLabel')}</Typography>
-                  <Box component="span" onClick={(e) => e.stopPropagation()}>
-                    <CycleButton
-                      options={[
-                        { value: 'any', label: t('gearDiffFilterAny') },
-                        { value: 'before', label: t('gearDiffFilterBefore') },
-                        { value: 'after', label: t('gearDiffFilterAfter') },
-                      ]}
-                      value={diffFilterMode}
-                      variant="contained"
-                      color="success"
-                      onChange={(v) => { onChangeDiffFilterMode?.(v as 'any' | 'before' | 'after') }}
-                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
-                    />
-                  </Box>
-                </MenuItem>
+                <MenuToggleRow label={t('gearDiffChipLabel')} checked={diffChipMode !== 'off'} onChange={() => { onChangeDiffChipMode?.(diffChipMode === 'off' ? 'auto' : 'off') }} />
+                {/* Diff filter mode: which verdict side the active Gear Inspector filter tests. */}
+                <MenuCycleRow
+                  label={t('gearDiffFilterLabel')}
+                  options={[
+                    { value: 'any', label: t('gearDiffFilterAny') },
+                    { value: 'before', label: t('gearDiffFilterBefore') },
+                    { value: 'after', label: t('gearDiffFilterAfter') },
+                  ]}
+                  value={diffFilterMode}
+                  onChange={(v) => { onChangeDiffFilterMode?.(v as 'any' | 'before' | 'after') }}
+                />
               </Menu>
             ) : null}
             {filterHint.overlay}
@@ -1556,13 +1536,7 @@ export default function PreviewHeaderActions(props: {
                   </MenuItem>
                 )}
                 {onToggleFiltersSynced ? (
-                  <MenuItem
-                    onClick={() => onToggleFiltersSynced(!filtersSynced)}
-                    sx={{ mt: 0.5, gap: 1, alignItems: 'center' }}
-                  >
-                    <Typography variant="body2" sx={{ flex: 1 }}>{t('filterSyncViews')}</Typography>
-                    <MenuCheckButton checked={Boolean(filtersSynced)} onChange={() => onToggleFiltersSynced(!filtersSynced)} />
-                  </MenuItem>
+                  <MenuToggleRow label={t('filterSyncViews')} checked={Boolean(filtersSynced)} onChange={() => onToggleFiltersSynced(!filtersSynced)} menuItemSx={{ mt: 0.5 }} />
                 ) : null}
                 {/* Save-as row: always last and non-reorderable. Show-hidden toggle lives at the right edge. */}
                 {onSaveFilterPreset ? (
@@ -2811,21 +2785,9 @@ export default function PreviewHeaderActions(props: {
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               >
                 {/* Toggles whether endpoint success toasts appear. */}
-                <MenuItem
-                  onClick={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)}
-                  sx={{ gap: 1, alignItems: 'center' }}
-                >
-                  <Typography variant="body2" sx={{ flex: 1 }}>{gearDbHistoryHideToastLabel}</Typography>
-                  <MenuCheckButton checked={hideGearDbUpdateToast} onChange={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)} />
-                </MenuItem>
+                <MenuToggleRow label={gearDbHistoryHideToastLabel} checked={hideGearDbUpdateToast} onChange={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)} />
                 {/* Pauses endpoint pushes; arriving commands are dropped, not queued. */}
-                <MenuItem
-                  onClick={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)}
-                  sx={{ gap: 1, alignItems: 'center' }}
-                >
-                  <Typography variant="body2" sx={{ flex: 1 }}>{gearDbHistoryPauseUpdatesLabel}</Typography>
-                  <MenuCheckButton checked={pauseEndpointUpdates} onChange={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)} />
-                </MenuItem>
+                <MenuToggleRow label={gearDbHistoryPauseUpdatesLabel} checked={pauseEndpointUpdates} onChange={() => onTogglePauseEndpointUpdates(!pauseEndpointUpdates)} />
               </Menu>
             </>
           ) : null}
@@ -2979,19 +2941,10 @@ export default function PreviewHeaderActions(props: {
               ) : null}
               {/* Auto-push only makes sense when a push endpoint is configured. */}
               {pushActive ? (
-                <MenuItem onClick={() => onToggleAutoPush(!autoPushEnabled)} sx={{ gap: 1, alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileAutoPush')}</Typography>
-                  <MenuCheckButton checked={autoPushEnabled} onChange={() => onToggleAutoPush(!autoPushEnabled)} />
-                </MenuItem>
+                <MenuToggleRow label={t('exportSellfileAutoPush')} checked={autoPushEnabled} onChange={() => onToggleAutoPush(!autoPushEnabled)} />
               ) : null}
-              <MenuItem onClick={() => onToggleOmitDisabled(!omitDisabledForExport)} sx={{ gap: 1, alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileOmitDisabled')}</Typography>
-                <MenuCheckButton checked={omitDisabledForExport} onChange={() => onToggleOmitDisabled(!omitDisabledForExport)} />
-              </MenuItem>
-              <MenuItem onClick={() => onToggleDedupeDefault(!dedupeDefault)} sx={{ gap: 1, alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ flex: 1 }}>{t('exportSellfileDedupDefault')}</Typography>
-                <MenuCheckButton checked={dedupeDefault} onChange={() => onToggleDedupeDefault(!dedupeDefault)} />
-              </MenuItem>
+              <MenuToggleRow label={t('exportSellfileOmitDisabled')} checked={omitDisabledForExport} onChange={() => onToggleOmitDisabled(!omitDisabledForExport)} />
+              <MenuToggleRow label={t('exportSellfileDedupDefault')} checked={dedupeDefault} onChange={() => onToggleDedupeDefault(!dedupeDefault)} />
             </Menu>
           ) : null}
         </Stack>
