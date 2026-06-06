@@ -37,7 +37,7 @@ export function MenuToggleRow({
   trailing,
 }: MenuToggleRowProps) {
   const labelEl = (
-    <Typography variant="body2" sx={labelSx ?? { flex: 1, minWidth: 0 }}>
+    <Typography variant="body2" sx={{ flex: 1, minWidth: 0, ...labelSx }}>
       {label}
     </Typography>
   )

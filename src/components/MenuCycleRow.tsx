@@ -44,7 +44,7 @@ export function MenuCycleRow({
     onChange(options[nextIdx]!.value)
   }
   const labelEl = (
-    <Typography variant="body2" sx={labelSx ?? { flex: 1, minWidth: 0 }}>
+    <Typography variant="body2" sx={{ flex: 1, minWidth: 0, ...labelSx }}>
       {label}
     </Typography>
   )
