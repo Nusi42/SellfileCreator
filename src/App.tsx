@@ -141,7 +141,7 @@ import {
 } from './lib/gearDbDiffToast'
 import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
-import { buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
+import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
@@ -281,7 +281,7 @@ import type {
   NormalizedGearArtifact,
 } from './lib/importers/gearDbNormalizer'
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
-import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
+import type { GearInspectorOutcomeSummary, GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import { buildVerdictMapFromRows, type DiffRow } from './lib/gearDiff/verdictDiff'
 import { useGearDiffCompare, type GearDiffDelta, type GearDiffRows } from './hooks/useGearDiffCompare'
 import { useChangePulse } from './hooks/useChangePulse'
@@ -5558,6 +5558,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
     return buildGearInspectorOutcomeSummaryPair(gearInspectorPreviewRows, scopedIds)
   }, [gearInspectorPreviewRows, gearEntriesForTable, gearInspectorContextGroupById])
+  // When the diff view is open it acts as a filter narrowing the grid to changed rows; the header
+  // chip must mirror that scope instead of the full Gear Inspector count. Project each changed row
+  // to its current (after) verdict so the summary reflects the live outcome of the changed items.
+  const gearInspectorOutcomeSummaryForDiff = useMemo<GearInspectorOutcomeSummary | null>(() => {
+    if (!gearDiffSplitOpen || !gearDiffFilteredRows) return null
+    return buildGearInspectorOutcomeSummary(gearDiffFilteredRows.map((r) => ({ ...r, match: r.afterMatch })))
+  }, [gearDiffSplitOpen, gearDiffFilteredRows])
   // Deferred filter-based selection reconciliation: fires after the full filter pipeline settles
   // following an endpoint push. Drops selections for items hidden by the active filter; in context
   // mode additionally drops companions and "other" items (only primary stays selected).
@@ -8625,7 +8632,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         gearInspectorBuilding={gearInspectorBuilding}
         workloadProgressRatio={workloadProgressRatio}
         limitHit={totalLimitHit}
-        gearInspectorOutcomeSummary={gearInspectorOutcomeSummaryForPreview}
+        gearInspectorOutcomeSummary={gearInspectorOutcomeSummaryForDiff ?? gearInspectorOutcomeSummaryForPreview}
         gearInspectorOutcomeSummaryTotal={gearInspectorOutcomeSummary}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onClearFilters={clearFilters}

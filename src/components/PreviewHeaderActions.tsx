@@ -396,8 +396,9 @@ export default function PreviewHeaderActions(props: {
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, isRulesMode, limitHit, t])
-  // Filtered totals only apply to the Gear Inspector header chip.
-  const showGearInspectorFilteredTotals = !isRulesMode && Boolean(filterActive)
+  // Filtered totals only apply to the Gear Inspector header chip. The diff view is itself a filter
+  // (it narrows the grid to changed rows), so render the scoped/total pair when it is active too.
+  const showGearInspectorFilteredTotals = !isRulesMode && (Boolean(filterActive) || diffModeActive)
   // Build the rules-mode chip once so limit warnings can wrap it cleanly.
   const rulesModeChip = (
     <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
