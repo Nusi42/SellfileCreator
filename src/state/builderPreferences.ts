@@ -128,10 +128,11 @@ const autoApplyStore = createLocalStorageStore<boolean>({
 export const useAutoApplyBuilderPreference = createLocalStorageStateHook(autoApplyStore)
 
 // Builder-only: control whether tag chips render beside the Tags button in the form header.
+// parse returns true for null (absent key) so new users start with tags visible.
 const showTagsStore = createLocalStorageStore<boolean>({
   key: BUILDER_SHOW_TAG_CHIPS_KEY,
   fallback: true,
-  parse: (raw) => raw === 'true',
+  parse: (raw) => raw === null ? true : raw === 'true',
   serialize: (value) => String(value),
 })
 
