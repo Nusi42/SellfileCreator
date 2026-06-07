@@ -494,7 +494,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
 
 const ZERO_RESULTS_PULSE = keyframes`
   0%, 100% { background-color: transparent; }
-  60% { background-color: ${TINT.error28}; }
+  60% { background-color: ${TINT.dangerFlashPeak}; }
 `
 
 const EMPTY_ROLL_ROWS: readonly GearInspectorRollFilterRow[] = []
@@ -512,8 +512,8 @@ const ROLL_COUNT_TOGGLE_SIZE_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCA
 const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
   const highlight = (theme.vars?.palette.success.main ?? theme.palette.success.main)
   const selectedText = (theme.vars?.palette.common.white ?? theme.palette.common.white)
-  const baseBorder = TINT.textPrimary45
-  const hoverGlow = TINT.textPrimary22
+  const baseBorder = TINT.neutralBorderStrong
+  const hoverGlow = TINT.neutralHoverGlow
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${GEAR_INSPECTOR_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
@@ -1379,7 +1379,7 @@ function RulesFilterPanel({
     ...(championZeroResults
       ? {
         '& .MuiIconButton-root': {
-          backgroundColor: TINT.error18,
+          backgroundColor: TINT.dangerFlashBg,
           animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
         },
       }
@@ -1391,7 +1391,7 @@ function RulesFilterPanel({
     transition: 'opacity 120ms ease',
     ...(championZeroResults
       ? {
-        backgroundColor: TINT.error18,
+        backgroundColor: TINT.dangerFlashBg,
         animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
       }
       : {}),
@@ -2750,7 +2750,7 @@ function RulesFilterPanel({
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  bgcolor: championIconSrc ? 'transparent' : TINT.textPrimary08,
+                                  bgcolor: championIconSrc ? 'transparent' : TINT.neutralDisabledChipBg,
                                   color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                                   fontWeight: 700,
                                   fontSize: theme.typography.pxToRem(13),

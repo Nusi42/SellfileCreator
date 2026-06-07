@@ -158,7 +158,7 @@ function ArcIconLabel(props: {
 
   // Bitmap image icon (e.g. gear set icons): circular background keeps the icon legible on any arc.
   if ('url' in asset) {
-    const bgFill  = TINT.paper82
+    const bgFill  = TINT.chartIconChipBg
     const bgRadius = (size + 2) / 2
     return (
       <g transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
@@ -578,7 +578,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
             // Highlight hovered slices with a subtle ring.
             // x-charts v9 uses MuiPieChart-arc (from pieClasses utility) instead of MuiPieArc-root.
             '& .MuiPieChart-arc:hover': {
-              filter: `drop-shadow(0 0 4px ${TINT.primary60})`,
+              filter: `drop-shadow(0 0 4px ${TINT.primaryGlow})`,
             },
             // Dark slice separators in both schemes (overrides MUI's near-white light-theme default).
             '& .MuiPieChart-arc': { cursor: 'pointer', stroke: arcStrokeColor },

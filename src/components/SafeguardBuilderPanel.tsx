@@ -1633,9 +1633,9 @@ export default function SafeguardBuilderPanel({
                 '&.Mui-selected': { borderColor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main },
                 ...muiTheme.applyStyles('light', {
                   '&.Mui-selected': {
-                    bgcolor: TINT.success12,
+                    bgcolor: TINT.successSelectedBg,
                     color: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
-                    '&:hover': { bgcolor: TINT.success20 },
+                    '&:hover': { bgcolor: TINT.successSelectedHover },
                   },
                 }),
                 ...muiTheme.applyStyles('dark', {

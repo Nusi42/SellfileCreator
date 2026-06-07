@@ -1203,15 +1203,15 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         border: `1px solid ${selected ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
         // Selection adds a subtle primary tint to the background.
         bgcolor: selected
-          ? TINT.primary08
+          ? TINT.primaryFocusBg
           : (outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper)),
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
         '--gear-inspector-focus-border-base': cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider),
         '--gear-inspector-focus-border-peak': (theme.vars?.palette.info.main ?? theme.palette.info.main),
         '--gear-inspector-focus-bg-base': outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
-        '--gear-inspector-focus-bg-peak': TINT.info07,
-        '--gear-inspector-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${TINT.info30}` : 'none',
-        '--gear-inspector-focus-shadow-peak': `0 0 0 2px ${TINT.info26}, 0 8px 18px ${TINT.info20}`,
+        '--gear-inspector-focus-bg-peak': TINT.focusBgPeak,
+        '--gear-inspector-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${TINT.focusRing}` : 'none',
+        '--gear-inspector-focus-shadow-peak': `0 0 0 2px ${TINT.focusShadowInner}, 0 8px 18px ${TINT.focusShadowOuter}`,
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -1224,8 +1224,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         alignContent: 'start',
         // Selection: inner ring + outer glow in primary color; highlight: info glow; default: none.
         boxShadow: selected
-          ? `inset 0 0 0 1px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}, 0 0 0 2px ${TINT.primary25}`
-          : cardHighlighted ? `0 0 0 1px ${TINT.info30}` : 'none',
+          ? `inset 0 0 0 1px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}, 0 0 0 2px ${TINT.primarySelectedShadow}`
+          : cardHighlighted ? `0 0 0 1px ${TINT.focusRing}` : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
@@ -1323,7 +1323,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   justifyContent: 'center',
                   // Missing champion images reuse the rarity border to keep the UI consistent.
                   // rarityAccentColor is a real hex — alpha() is safe. Without a rarity, fall back to a neutral channel tint.
-                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, ALPHA.a14) : TINT.textSecondary10),
+                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, ALPHA.a14) : TINT.neutralIconBgFallback),
                 }}
               >
                 {shouldShowChampionIcon ? (
@@ -1381,7 +1381,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: TINT.paper65,
+                    bgcolor: TINT.cardScrim,
                     borderRadius: '3px',
                     color: 'text.secondary',
                     fontSize: '0.85rem',

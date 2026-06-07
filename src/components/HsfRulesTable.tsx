@@ -1323,7 +1323,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                 ...(isNewRow ? {
                   animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
                 } : isChangedRow ? {
-                  '--rule-row-change-bg': TINT.warning18,
+                  '--rule-row-change-bg': TINT.warningFlashBg,
                   animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
                 } : {}),
               })}

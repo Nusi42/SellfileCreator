@@ -28,17 +28,17 @@ export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
   // Webkit: explicit track + thumb colours with a slim width.
   // Default (light mode): black-alpha via common.blackChannel; dark mode: white-alpha via common.whiteChannel.
   '&::-webkit-scrollbar': { width: 9 },
-  '&::-webkit-scrollbar-track': { background: TINT.black04, borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb': { background: TINT.black15, borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb:hover': { background: TINT.black25 },
+  '&::-webkit-scrollbar-track': { background: TINT.scrollTrackLight, borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb': { background: TINT.scrollThumbLight, borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb:hover': { background: TINT.scrollThumbHoverLight },
   // Firefox: shorthand thumb/track colour + thin width
-  scrollbarColor: `${TINT.black15} ${TINT.black04}`,
+  scrollbarColor: `${TINT.scrollThumbLight} ${TINT.scrollTrackLight}`,
   scrollbarWidth: 'thin',
   '[data-mui-color-scheme="dark"] &': {
-    '&::-webkit-scrollbar-track': { background: TINT.white06 },
-    '&::-webkit-scrollbar-thumb': { background: TINT.white22 },
-    '&::-webkit-scrollbar-thumb:hover': { background: TINT.white38 },
-    scrollbarColor: `${TINT.white22} ${TINT.white06}`,
+    '&::-webkit-scrollbar-track': { background: TINT.scrollTrackDark },
+    '&::-webkit-scrollbar-thumb': { background: TINT.scrollThumbDark },
+    '&::-webkit-scrollbar-thumb:hover': { background: TINT.scrollThumbHoverDark },
+    scrollbarColor: `${TINT.scrollThumbDark} ${TINT.scrollTrackDark}`,
   },
 })
 

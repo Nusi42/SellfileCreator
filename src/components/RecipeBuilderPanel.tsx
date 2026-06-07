@@ -3909,7 +3909,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         : (themeInner.vars?.palette.error.main ?? themeInner.palette.error.main)
       const selectedText = themeInner.vars?.palette.common.white ?? themeInner.palette.common.white
       const baseBorder = themeInner.vars?.palette.text.secondary ?? themeInner.palette.text.secondary
-      const hoverGlow = TINT.textPrimary22
+      const hoverGlow = TINT.neutralHoverGlow
       const base: SystemStyleObject<Theme> = {
         display: 'grid',
         gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
@@ -4646,7 +4646,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       }}
                       sx={(theme) => {
                         // CSS channel token adapts per scheme; 0.18 gives a legible hover ring in both dark and light.
-                        const glow = TINT.textPrimary18
+                        const glow = TINT.neutralGlowSoft
                         return {
                           position: 'absolute',
                           top: -13,
@@ -6000,7 +6000,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     const successLight = muiTheme.vars?.palette.success.light ?? muiTheme.palette.success.light
                     const baseBorder = selected
                       ? successMain
-                      : TINT.textPrimary12
+                      : TINT.neutralActiveBg
                     return {
                       borderColor: baseBorder,
                       // Default (light) outer color when selected; dark overrides below.
@@ -6009,9 +6009,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       // Light: tinted bg + success.main text, matching the blue toggle style.
                       ...muiTheme.applyStyles('light', {
                         '&.Mui-selected': {
-                          bgcolor: TINT.success12,
+                          bgcolor: TINT.successSelectedBg,
                           color: successMain,
-                          '&:hover': { bgcolor: TINT.success20 },
+                          '&:hover': { bgcolor: TINT.successSelectedHover },
                         },
                       }),
                       // Dark: filled solid green + black text; also override outer color.
@@ -6035,9 +6035,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     '&.Mui-selected': { borderColor: theme.vars?.palette.error.main ?? theme.palette.error.main },
                     ...theme.applyStyles('light', {
                       '&.Mui-selected': {
-                        bgcolor: TINT.error12,
+                        bgcolor: TINT.errorActiveBg,
                         color: theme.vars?.palette.error.main ?? theme.palette.error.main,
-                        '&:hover': { bgcolor: TINT.error20 },
+                        '&:hover': { bgcolor: TINT.errorActiveHover },
                       },
                     }),
                     ...theme.applyStyles('dark', {
@@ -6104,9 +6104,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     '&.Mui-selected': { borderColor: theme.vars?.palette.success.main ?? theme.palette.success.main },
                     ...theme.applyStyles('light', {
                       '&.Mui-selected': {
-                        bgcolor: TINT.success12,
+                        bgcolor: TINT.successSelectedBg,
                         color: theme.vars?.palette.success.main ?? theme.palette.success.main,
-                        '&:hover': { bgcolor: TINT.success20 },
+                        '&:hover': { bgcolor: TINT.successSelectedHover },
                       },
                     }),
                     ...theme.applyStyles('dark', {
@@ -6143,7 +6143,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       color: (theme.vars?.palette.success.main ?? theme.palette.success.main),
                       bgcolor: 'transparent',
                       borderColor: (theme.vars?.palette.success.main ?? theme.palette.success.main),
-                      '&:hover': { bgcolor: TINT.success12 },
+                      '&:hover': { bgcolor: TINT.successSelectedBg },
                     },
                   })}
                 >

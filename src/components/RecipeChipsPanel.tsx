@@ -354,7 +354,7 @@ function RecipeChipsPanel(props: {
               backgroundColor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
               borderRadius: dropGuide.height <= 4 ? 2 : 1,
               pointerEvents: 'none',
-              boxShadow: `0 0 8px ${TINT.primary60}`,
+              boxShadow: `0 0 8px ${TINT.primaryGlow}`,
               zIndex: 5,
             })}
           />

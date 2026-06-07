@@ -472,7 +472,7 @@ function CandidateRow({
           ? (isFiltered ? 0.55 : 1.0)
           : (isFiltered ? 0.4 : 0.75),
         cursor: onSelectCandidate ? 'pointer' : 'default',
-        '&:hover': { bgcolor: TINT.textPrimary04 },
+        '&:hover': { bgcolor: TINT.neutralRowZebra },
       }}
     >
       {/* Rank number */}

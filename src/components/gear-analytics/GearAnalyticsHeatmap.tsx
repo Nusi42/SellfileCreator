@@ -144,7 +144,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                 // Zero-count cells use the neutral divider tone; non-zero cells use the heat scale.
                 const bgColor = intensity > 0
                   ? heatColor(intensity)
-                  : TINT.textPrimary06
+                  : TINT.neutralHeaderBg
 
                 return (
                   <Tooltip

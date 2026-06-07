@@ -883,7 +883,7 @@ function renderMetasetPlaceholder(params: { key: string }): React.ReactNode {
       sx={{
         minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
         borderRadius: 1,
-        border: `1px dashed ${TINT.textPrimary20}`,
+        border: `1px dashed ${TINT.neutralBorderDashed}`,
       }}
     />
   )
@@ -1141,7 +1141,7 @@ function renderDiffGrid(params: {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {left}
         </Box>
-        <Typography variant="body2" sx={{ color: TINT.white70 }}>→</Typography>
+        <Typography variant="body2" sx={{ color: TINT.onDarkSecondaryText }}>→</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {right}
         </Box>
@@ -1456,7 +1456,7 @@ function renderPlaceholderCell(key: number | string): React.ReactNode {
       sx={{
         minHeight: 22,
         borderRadius: 1,
-        border: `1px dashed ${TINT.textPrimary15}`,
+        border: `1px dashed ${TINT.neutralBorderFaint}`,
       }}
     />
   )
@@ -1488,7 +1488,7 @@ function renderStatChipCell(params: {
   } = params
   const colorEntry = colors[variant] ?? null
   const fg = shouldColorize && colorEntry ? colorEntry.fg : (theme.vars?.palette.text.primary ?? theme.palette.text.primary)
-  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : TINT.textPrimary08
+  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : TINT.neutralDisabledChipBg
   const label = t(statVariantI18nKey(variant as StatVariantLike))
   const min = bounds?.min
   const max = bounds?.max

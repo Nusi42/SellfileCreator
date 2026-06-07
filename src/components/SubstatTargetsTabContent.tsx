@@ -273,7 +273,7 @@ export function SubstatTargetsTabContent({
         backgroundColor: alpha(theme.palette.text.primary, ((theme.vars?.palette.action.hoverOpacity ?? theme.palette.action.hoverOpacity) ?? 0.08) * 1.5),
       },
       '&.Mui-focusVisible': {
-        outline: `2px solid ${TINT.textPrimary40}`,
+        outline: `2px solid ${TINT.neutralOutlineStrong}`,
         outlineOffset: 2,
       },
     }

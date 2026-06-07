@@ -223,7 +223,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
     >
       {left}
       {/* Use the shared arrow glyph so diff previews stay consistent. */}
-      <Typography variant="body2" sx={{ color: TINT.white70, fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ color: TINT.onDarkSecondaryText, fontWeight: 600 }}>
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
@@ -331,9 +331,9 @@ function ScaledGearInspectorGridCard({
   const theme = useTheme()
   // Single-sided add/remove grids tint borders so direction is obvious at a glance.
   const accentBorderColor = tone === 'added'
-    ? TINT.success55
+    ? TINT.successAddedBorderStrong
     : tone === 'removed'
-      ? TINT.error55
+      ? TINT.errorRemovedBorderStrong
       : null
   // Fixed size wrapper keeps the scaled card aligned with its sibling.
   return (
@@ -399,15 +399,15 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
   const theme = useTheme()
   // Tint the border when the diff implies add/remove intent.
   const borderColor = tone === 'added'
-    ? TINT.success40
+    ? TINT.successAddedBorder
     : tone === 'removed'
-      ? TINT.error40
+      ? TINT.errorRemovedBorder
       : theme.palette.divider
   // Use a subtle background wash to match the border cue.
   const background = tone === 'added'
-    ? TINT.success08
+    ? TINT.successAddedBgFaint
     : tone === 'removed'
-      ? TINT.error08
+      ? TINT.errorRemovedBgFaint
       : (theme.vars?.palette.background.paper ?? theme.palette.background.paper)
   return (
     <Box

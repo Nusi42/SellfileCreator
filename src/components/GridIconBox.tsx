@@ -410,7 +410,7 @@ export default function GridIconBox({
     borderRadius: 6,
     border: '1px solid',
     borderColor: color ?? alpha(theme.palette.text.primary, isStacked ? 0.5 : 0.55),
-    backgroundColor: TINT.paper90,
+    backgroundColor: TINT.overlayScrim,
     color: color ?? theme.palette.text.primary,
     fontWeight: 800,
     fontVariantNumeric: 'tabular-nums' as const,

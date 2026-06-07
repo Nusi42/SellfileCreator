@@ -428,7 +428,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           ...(referenceActive && refDisplayCounts ? [{
             data: refDisplayCounts,
             label: '',
-            color: TINT.primary18,
+            color: TINT.primaryTintFaint,
             fillArea: false,
             valueFormatter: (v: number) => String(Math.round((v ?? 0) ** 2)),
           }] : []),

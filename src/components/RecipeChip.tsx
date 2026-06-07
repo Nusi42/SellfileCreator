@@ -267,7 +267,7 @@ function RecipeChip({
         const selectedHoverBg = theme.custom.selectedHoverBg
         const isStatic = backgroundMode === 'static'
         const staticBg = isStatic
-          ? TINT.textPrimary08
+          ? TINT.neutralDisabledChipBg
           : null
         const baseBackground = isStatic
           ? staticBg

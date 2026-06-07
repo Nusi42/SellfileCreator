@@ -386,9 +386,9 @@ function savePanelSnap(data: PanelSnapData): void {
 }
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
-  0%   { box-shadow: 0 0 0 0 ${TINT.success70}; }
-  50%  { box-shadow: 0 0 0 8px ${TINT.success0}; transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 ${TINT.success0}; }
+  0%   { box-shadow: 0 0 0 0 ${TINT.successPulse}; }
+  50%  { box-shadow: 0 0 0 8px ${TINT.successFadeOut}; transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 ${TINT.successFadeOut}; }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 // Duration for all express↔expert mode transitions (ms).
@@ -2143,9 +2143,9 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
     borderRadius: 1,
     border: '1px solid',
     // Active styling uses the primary palette; inactive stays neutral.
-    borderColor: active ? TINT.primary60 : 'divider',
+    borderColor: active ? TINT.primaryGlow : 'divider',
     bgcolor: active
-      ? TINT.primary20
+      ? TINT.primaryActiveBg
       : 'transparent',
     color: active ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : 'text.secondary',
   } satisfies Record<string, unknown>
@@ -4223,9 +4223,9 @@ export default function NoteDialog({
                   // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
                   '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
                   '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
-                  '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.textPrimary04} !important` },
+                  '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.neutralRowZebra} !important` },
                   '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
-                  '& .wmde-markdown table th': { backgroundColor: TINT.textPrimary06 },
+                  '& .wmde-markdown table th': { backgroundColor: TINT.neutralHeaderBg },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
               >
@@ -4998,9 +4998,9 @@ function NoteEditorContent({
             // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
             '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
             '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
-            '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.textPrimary04} !important` },
+            '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.neutralRowZebra} !important` },
             '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
-            '& .wmde-markdown table th': { backgroundColor: TINT.textPrimary06 },
+            '& .wmde-markdown table th': { backgroundColor: TINT.neutralHeaderBg },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
             '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {

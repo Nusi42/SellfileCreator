@@ -74,11 +74,11 @@ const bannerSx = (theme: Theme, visible: boolean) => ({
   alignItems: 'center',
   justifyContent: 'center',
   // Light-mode base; dark mode uses slightly stronger warning tints.
-  backgroundColor: TINT.warning18,
-  border: `1px solid ${TINT.warning50}`,
+  backgroundColor: TINT.warningFlashBg,
+  border: `1px solid ${TINT.warningBorderSoft}`,
   ...theme.applyStyles('dark', {
-    backgroundColor: TINT.warning24,
-    borderColor: TINT.warning60,
+    backgroundColor: TINT.warningBgStrong,
+    borderColor: TINT.warningGlow,
   }),
   boxShadow: theme.shadows[3],
   transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(0, -10px, 0) scale(0.98)',
@@ -102,11 +102,11 @@ const microConfirmBubbleSx = (theme: Theme, visible: boolean, anchor: { x: numbe
   py: 0.75,
   borderRadius: 12,
   // Light-mode base; dark mode allows more transparency for the bubble background.
-  backgroundColor: TINT.paper98,
-  border: `1px solid ${TINT.error50}`,
+  backgroundColor: TINT.floatingPanelBgOpaque,
+  border: `1px solid ${TINT.errorBorderSoft}`,
   ...theme.applyStyles('dark', {
-    backgroundColor: TINT.paper92,
-    borderColor: TINT.error60,
+    backgroundColor: TINT.floatingPanelBg,
+    borderColor: TINT.errorBorderStrong,
   }),
   boxShadow: theme.shadows[6],
 } as const)

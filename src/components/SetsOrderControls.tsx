@@ -40,7 +40,7 @@ export default function SetsOrderControls({
   // Gentle pulse to draw attention when search matches zero sets.
   const pulseRed = keyframes`
     0%, 100% { background-color: transparent; }
-    60% { background-color: ${TINT.error28}; }
+    60% { background-color: ${TINT.dangerFlashPeak}; }
   `
   return (
     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', minWidth: 0, width: '100%' }}>
@@ -98,7 +98,7 @@ export default function SetsOrderControls({
                 ...(zeroResults ? {
                   // Also animate at the adornment level to ensure visibility.
                   '& .MuiIconButton-root': {
-                    backgroundColor: TINT.error18,
+                    backgroundColor: TINT.dangerFlashBg,
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   },
                 } : {}),
@@ -112,7 +112,7 @@ export default function SetsOrderControls({
                 sx={{
                   ...(zeroResults ? {
                     // IconButton is already circular; animate its background color.
-                    backgroundColor: TINT.error18,
+                    backgroundColor: TINT.dangerFlashBg,
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   } : {}),
                 }}

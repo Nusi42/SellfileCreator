@@ -259,9 +259,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
           '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
           '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
-          '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.textPrimary04} !important` },
+          '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.neutralRowZebra} !important` },
           '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
-          '& .wmde-markdown table th': { backgroundColor: TINT.textPrimary06 },
+          '& .wmde-markdown table th': { backgroundColor: TINT.neutralHeaderBg },
         }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
