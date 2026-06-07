@@ -67,6 +67,8 @@ All custom CSS variable names, per-scheme alpha values, and pre-built colour exp
 
 `TINT` names describe **role**, not channel/alpha (e.g. `neutralDisabledChipBg`, `nearOpaquePaperBg`, `dangerFlashBg`). Add a token only for a genuinely new role — first check whether an existing role already fits (DRY). When two tokens have drifted to near-identical values for the **same** role, merge them: pick the value used more often in the **main UI (builder panels + gear inspector)**, or the average. Cross-channel pairs (success vs error at the same alpha) stay as two named tokens but **share one `PAIR_ALPHA` knob** — the hue differs, the opacity is one concept.
 
+**Gimmicks defer to features.** Easter eggs, psychedelic mode, and chart "dance" animations get no vote in choosing a merged value — their exact alpha is unimportant. Whenever a value would be shared between a gimmick and a regular feature/control, the **regular** one wins and the value is chosen for *its* UX/contrast. (In practice easter-egg colours are theme-agnostic and local — see the exceptions below — so they don't enter the SSOT at all; this rule applies to any other gimmick.)
+
 ### User/preset colours rendered as TEXT must be contrast-adapted
 
 Any user- or preset-chosen colour (substat fg, recipe/safeguard appearance fg, rarity accent) rendered as **text/glyph** must pass through the WCAG adapter so it stays legible on the active surface in **both** schemes:
