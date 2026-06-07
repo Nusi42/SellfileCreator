@@ -804,19 +804,22 @@ export function summaryParts(
 
         // Indicator: show only one state. Prefer cap; ¬ (not) shown in red like cap.
         // Border color signals intent (red = cap/not, green = min); text stays white.
+          // Caption context is ~12 px; target the original 15 px circle / 10 px font.
+          // fontSize sets digit size; width/height (em relative to that) set circle outer.
+          // 0.83 × 12 ≈ 10 px digit; 1.5 × 10 = 15 px circle.
+          // Digit color matches border color so it stays readable in both light and dark themes
+          // (white text on a transparent badge is invisible against a light chip background).
+          const indicatorColor = (showCap || showNot) ? 'error.main' : 'success.main'
           const indicator = (showCap || showMin || showNot) ? (
           <CircledDigitBadge
             value={showNot ? '¬' : showCap ? max! : min!}
             sx={{
-              // Caption context is ~12 px; target the original 15 px circle / 10 px font.
-              // fontSize sets digit size; width/height (em relative to that) set circle outer.
-              // 0.83 × 12 ≈ 10 px digit; 1.5 × 10 = 15 px circle.
               fontSize: '0.83em',
               width: '1.5em',
               height: '1.5em',
               minWidth: '1.5em',
-              borderColor: (showCap || showNot) ? 'error.main' : 'success.main',
-              color: 'common.white',
+              borderColor: indicatorColor,
+              color: indicatorColor,
             }}
           />
         ) : null
