@@ -94,6 +94,7 @@ import {
 } from '../lib/noteSafeguardOverrides'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -301,7 +302,7 @@ function DslErrorPanel({ diags }: { diags: DiagnosticSpan[] }) {
         py: 0.5,
         maxHeight: '5.5em',
         overflowY: 'auto',
-        bgcolor: (t) => alpha(t.palette.warning.main, 0.08),
+        bgcolor: (t) => alpha(t.palette.warning.main, ALPHA.a08),
         backdropFilter: 'blur(4px)',
       }}
     >
@@ -385,9 +386,9 @@ function savePanelSnap(data: PanelSnapData): void {
 }
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
-  0%   { box-shadow: 0 0 0 0 rgba(var(--mui-palette-success-mainChannel) / 0.7); }
-  50%  { box-shadow: 0 0 0 8px rgba(var(--mui-palette-success-mainChannel) / 0); transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 rgba(var(--mui-palette-success-mainChannel) / 0); }
+  0%   { box-shadow: 0 0 0 0 ${TINT.success70}; }
+  50%  { box-shadow: 0 0 0 8px ${TINT.success0}; transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 ${TINT.success0}; }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 // Duration for all express↔expert mode transitions (ms).
@@ -2142,9 +2143,9 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
     borderRadius: 1,
     border: '1px solid',
     // Active styling uses the primary palette; inactive stays neutral.
-    borderColor: active ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.6)' : 'divider',
+    borderColor: active ? TINT.primary60 : 'divider',
     bgcolor: active
-      ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.2)'
+      ? TINT.primary20
       : 'transparent',
     color: active ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : 'text.secondary',
   } satisfies Record<string, unknown>
@@ -4222,9 +4223,9 @@ export default function NoteDialog({
                   // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
                   '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
                   '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
-                  '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04) !important' },
+                  '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.textPrimary04} !important` },
                   '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
-                  '& .wmde-markdown table th': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)' },
+                  '& .wmde-markdown table th': { backgroundColor: TINT.textPrimary06 },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
               >
@@ -4997,9 +4998,9 @@ function NoteEditorContent({
             // Override WMDE hardcoded table colors with MUI CSS vars so custom themes apply.
             '& .wmde-markdown table': { borderColor: 'var(--mui-palette-divider)' },
             '& .wmde-markdown table tr': { backgroundColor: 'var(--mui-palette-background-paper) !important', borderTopColor: 'var(--mui-palette-divider)' },
-            '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04) !important' },
+            '& .wmde-markdown table tr:nth-of-type(2n)': { backgroundColor: `${TINT.textPrimary04} !important` },
             '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
-            '& .wmde-markdown table th': { backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)' },
+            '& .wmde-markdown table th': { backgroundColor: TINT.textPrimary06 },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
             '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {

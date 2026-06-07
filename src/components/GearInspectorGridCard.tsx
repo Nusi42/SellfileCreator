@@ -75,6 +75,7 @@ import {
 import type { GearInspectorGridColumnMode } from '../state/gearInspectorGridPreferences'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import { useChangePulse } from '../hooks/useChangePulse'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 // TranslateFn is a locally-defined alias; both files define it identically without duplicating a domain literal.
 type TranslateFn = ReturnType<typeof useI18n>['t']
@@ -1202,15 +1203,15 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         border: `1px solid ${selected ? (theme.vars?.palette.primary.main ?? theme.palette.primary.main) : cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
         // Selection adds a subtle primary tint to the background.
         bgcolor: selected
-          ? 'rgba(var(--mui-palette-primary-mainChannel) / 0.08)'
+          ? TINT.primary08
           : (outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper)),
         // Expose baseline/peak palette values so the pulse animation can resolve to theme-safe colors.
         '--gear-inspector-focus-border-base': cardHighlighted ? (theme.vars?.palette.info.light ?? theme.palette.info.light) : (theme.vars?.palette.divider ?? theme.palette.divider),
         '--gear-inspector-focus-border-peak': (theme.vars?.palette.info.main ?? theme.palette.info.main),
         '--gear-inspector-focus-bg-base': outcomeTintBg ?? (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
-        '--gear-inspector-focus-bg-peak': 'rgba(var(--mui-palette-info-mainChannel) / 0.07)',
-        '--gear-inspector-focus-shadow-base': cardHighlighted ? '0 0 0 1px rgba(var(--mui-palette-info-mainChannel) / 0.3)' : 'none',
-        '--gear-inspector-focus-shadow-peak': '0 0 0 2px rgba(var(--mui-palette-info-mainChannel) / 0.26), 0 8px 18px rgba(var(--mui-palette-info-mainChannel) / 0.2)',
+        '--gear-inspector-focus-bg-peak': TINT.info07,
+        '--gear-inspector-focus-shadow-base': cardHighlighted ? `0 0 0 1px ${TINT.info30}` : 'none',
+        '--gear-inspector-focus-shadow-peak': `0 0 0 2px ${TINT.info26}, 0 8px 18px ${TINT.info20}`,
         // Relative positioning anchors the overlay button to the card frame.
         position: 'relative',
         minHeight: cardHeightStyle,
@@ -1223,8 +1224,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         alignContent: 'start',
         // Selection: inner ring + outer glow in primary color; highlight: info glow; default: none.
         boxShadow: selected
-          ? `inset 0 0 0 1px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}, 0 0 0 2px rgba(var(--mui-palette-primary-mainChannel) / 0.25)`
-          : cardHighlighted ? '0 0 0 1px rgba(var(--mui-palette-info-mainChannel) / 0.3)' : 'none',
+          ? `inset 0 0 0 1px ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}, 0 0 0 2px ${TINT.primary25}`
+          : cardHighlighted ? `0 0 0 1px ${TINT.info30}` : 'none',
         // Card content must stay readable even inside colored containers (for example success toasts).
         color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         // Context mode opacity takes precedence; falls back to safeguards dim or full opacity.
@@ -1322,7 +1323,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   justifyContent: 'center',
                   // Missing champion images reuse the rarity border to keep the UI consistent.
                   // rarityAccentColor is a real hex — alpha() is safe. Without a rarity, fall back to a neutral channel tint.
-                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, 0.14) : 'rgba(var(--mui-palette-text-secondaryChannel) / 0.1)'),
+                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, ALPHA.a14) : TINT.textSecondary10),
                 }}
               >
                 {shouldShowChampionIcon ? (
@@ -1380,7 +1381,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.65)',
+                    bgcolor: TINT.paper65,
                     borderRadius: '3px',
                     color: 'text.secondary',
                     fontSize: '0.85rem',

@@ -11,6 +11,7 @@ import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from 
 import { artifactTypeIconList } from './artifactTypeIcons'
 import { SetIcon, gearSetIconSrc } from './SetIcon'
 import { compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
+import { TINT } from '../lib/colorTints'
 
 export interface BuilderTooltipContentProps {
   text: string
@@ -882,7 +883,7 @@ function renderMetasetPlaceholder(params: { key: string }): React.ReactNode {
       sx={{
         minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
         borderRadius: 1,
-        border: `1px dashed ${'rgba(var(--mui-palette-text-primaryChannel) / 0.2)'}`,
+        border: `1px dashed ${TINT.textPrimary20}`,
       }}
     />
   )
@@ -1140,7 +1141,7 @@ function renderDiffGrid(params: {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {left}
         </Box>
-        <Typography variant="body2" sx={{ color: 'rgba(var(--mui-palette-common-whiteChannel) / 0.70)' }}>→</Typography>
+        <Typography variant="body2" sx={{ color: TINT.white70 }}>→</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {right}
         </Box>
@@ -1455,7 +1456,7 @@ function renderPlaceholderCell(key: number | string): React.ReactNode {
       sx={{
         minHeight: 22,
         borderRadius: 1,
-        border: `1px dashed ${'rgba(var(--mui-palette-text-primaryChannel) / 0.15)'}`,
+        border: `1px dashed ${TINT.textPrimary15}`,
       }}
     />
   )
@@ -1487,7 +1488,7 @@ function renderStatChipCell(params: {
   } = params
   const colorEntry = colors[variant] ?? null
   const fg = shouldColorize && colorEntry ? colorEntry.fg : (theme.vars?.palette.text.primary ?? theme.palette.text.primary)
-  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)'
+  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : TINT.textPrimary08
   const label = t(statVariantI18nKey(variant as StatVariantLike))
   const min = bounds?.min
   const max = bounds?.max

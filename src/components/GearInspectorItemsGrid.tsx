@@ -123,6 +123,7 @@ import {
   formatGearInspectorRarityLabel,
 } from './GearInspectorGridCard'
 import { parseCssColorToRgb, rgbToCss, mixRgb } from '../lib/colorUtils'
+import { TINT } from '../lib/colorTints'
 
 // Stable sentinel passed to already-revealed cards so scroll events do not trigger re-renders.
 // Revealed cards ignore priorityBase/priorityOrder in their content-ready hook, so this is safe.
@@ -2560,7 +2561,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             px: 1.25,
             py: 0.5,
             borderRadius: `${Math.max(2, Math.round(Number(theme.shape.borderRadius) / 2))}px`,
-            backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)',
+            backgroundColor: TINT.paper90,
             boxShadow: theme.shadows[3],
             color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
             transition: theme.transitions.create(['opacity', 'transform', 'top'], { duration: theme.transitions.duration.shorter }),

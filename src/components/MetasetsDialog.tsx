@@ -39,6 +39,7 @@ import {
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfcHistory'
+import { TINT } from '../lib/colorTints'
 
 // Coalesce rapid per-click metaset edits into fewer App-level commits so the
 // dialog remains responsive while previews rebuild in the background.
@@ -117,8 +118,8 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
               width: 4,
               height: 4,
               borderRadius: '50%',
-              background: 'rgba(var(--mui-palette-warning-lightChannel) / 0.9)',
-              boxShadow: '0 0 6px 2px rgba(var(--mui-palette-warning-mainChannel) / 0.6)',
+              background: TINT.warningLight90,
+              boxShadow: `0 0 6px 2px ${TINT.warning60}`,
               pointerEvents: 'none',
               animation: `${sparkleRise} 900ms ease-out`,
               animationDelay: `${80 * i}ms`,

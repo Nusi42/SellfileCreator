@@ -3,6 +3,7 @@ import { Box, type SxProps } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { factionNames, type FactionId } from '../lib/types'
 import { FACTION_ICON_MAP, factionIconUrl } from '../lib/iconMaps/factionIconMap'
+import { ALPHA } from '../lib/colorTints'
 
 /** Default inline size for faction icons (menus/select labels). */
 export const FACTION_ICON_PX = 25 as const
@@ -47,9 +48,9 @@ export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: 
           height: haloSize,
           transform: 'translate(-50%, -50%)',
           borderRadius: '50%',
-          backgroundColor: theme => alpha(theme.palette.common.white, 0.12),
-          border: theme => `1px solid ${alpha(theme.palette.common.white, 0.24)}`,
-          boxShadow: theme => `0 1px 2px ${alpha(theme.palette.common.black, 0.6)}`,
+          backgroundColor: theme => alpha(theme.palette.common.white, ALPHA.a12),
+          border: theme => `1px solid ${alpha(theme.palette.common.white, ALPHA.a24)}`,
+          boxShadow: theme => `0 1px 2px ${alpha(theme.palette.common.black, ALPHA.a60)}`,
           pointerEvents: 'none',
         }}
       />

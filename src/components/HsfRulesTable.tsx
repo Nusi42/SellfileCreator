@@ -49,6 +49,7 @@ import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { TINT } from '../lib/colorTints'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -1322,7 +1323,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                 ...(isNewRow ? {
                   animation: `${RULE_ROW_ENTER_KEYFRAMES} ${RULE_ROW_ENTER_ANIMATION_MS}ms ease-out 1`,
                 } : isChangedRow ? {
-                  '--rule-row-change-bg': 'rgba(var(--mui-palette-warning-mainChannel) / 0.18)',
+                  '--rule-row-change-bg': TINT.warning18,
                   animation: `${RULE_ROW_CHANGE_PULSE_KEYFRAMES} ${RULE_ROW_CHANGE_PULSE_MS}ms ease-out 1`,
                 } : {}),
               })}

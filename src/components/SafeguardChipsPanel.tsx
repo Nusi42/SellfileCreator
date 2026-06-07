@@ -61,6 +61,7 @@ import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 import { safeguardActivationColor, safeguardSummaryParts } from './safeguardSummaryParts'
+import { ALPHA } from '../lib/colorTints'
 
 
 export type SafeguardChipsPanelProps = {
@@ -1043,7 +1044,7 @@ export default function SafeguardChipsPanel({
             backgroundColor: themeInner.palette.primary.main,
             borderRadius: dndDropGuide.height <= 4 ? 2 : 1,
             pointerEvents: 'none',
-            boxShadow: `0 0 8px ${alpha(themeInner.palette.primary.main, 0.6)}`,
+            boxShadow: `0 0 8px ${alpha(themeInner.palette.primary.main, ALPHA.a60)}`,
             zIndex: 5,
           })} />
         ) : null}

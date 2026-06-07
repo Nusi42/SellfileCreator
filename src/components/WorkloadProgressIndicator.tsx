@@ -1,6 +1,7 @@
 import { Box } from '@mui/material'
 import { alpha, keyframes } from '@mui/material/styles'
 import InlineProgressSpinner from './InlineProgressSpinner'
+import { ALPHA } from '../lib/colorTints'
 
 // Pulse mirrors the chip overlay so every caller gets the same pending animation.
 const pendingPulse = keyframes`
@@ -42,7 +43,7 @@ export default function WorkloadProgressIndicator({ progressRatio, ariaLabel, si
           flexShrink: 0,
           borderRadius: '50%',
           border: `${PENDING_RING_THICKNESS_PX}px solid`,
-          borderColor: alpha(theme.palette.info.dark, 0.9),
+          borderColor: alpha(theme.palette.info.dark, ALPHA.a90),
           animation: `${pendingPulse} 1s ease-in-out infinite`,
         })}
       />

@@ -13,6 +13,7 @@ import { ArtifactSet } from '../lib/types'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 // MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
 import MarkdownTooltip from './MarkdownTooltip'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
@@ -283,9 +284,9 @@ export default function GridIconBox({
           width: 28,
           height: 28,
           borderRadius: '50%',
-          bgcolor: alpha('#000', 0.60),
+          bgcolor: alpha('#000', ALPHA.a60),
           border: '2px solid',
-          borderColor: alpha(theme.palette.common.white, 0.55),
+          borderColor: alpha(theme.palette.common.white, ALPHA.a55),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -409,7 +410,7 @@ export default function GridIconBox({
     borderRadius: 6,
     border: '1px solid',
     borderColor: color ?? alpha(theme.palette.text.primary, isStacked ? 0.5 : 0.55),
-    backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)',
+    backgroundColor: TINT.paper90,
     color: color ?? theme.palette.text.primary,
     fontWeight: 800,
     fontVariantNumeric: 'tabular-nums' as const,

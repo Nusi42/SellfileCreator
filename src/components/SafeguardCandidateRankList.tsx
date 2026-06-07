@@ -47,6 +47,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
+import { TINT } from '../lib/colorTints'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -471,7 +472,7 @@ function CandidateRow({
           ? (isFiltered ? 0.55 : 1.0)
           : (isFiltered ? 0.4 : 0.75),
         cursor: onSelectCandidate ? 'pointer' : 'default',
-        '&:hover': { bgcolor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04)' },
+        '&:hover': { bgcolor: TINT.textPrimary04 },
       }}
     >
       {/* Rank number */}

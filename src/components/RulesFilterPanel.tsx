@@ -92,6 +92,7 @@ import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { TINT } from '../lib/colorTints'
 
 // Filter options bundle metadata for consistent champion icons + rarity borders.
 type GearInspectorChampionOption = {
@@ -493,7 +494,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
 
 const ZERO_RESULTS_PULSE = keyframes`
   0%, 100% { background-color: transparent; }
-  60% { background-color: rgba(var(--mui-palette-error-mainChannel) / 0.28); }
+  60% { background-color: ${TINT.error28}; }
 `
 
 const EMPTY_ROLL_ROWS: readonly GearInspectorRollFilterRow[] = []
@@ -511,8 +512,8 @@ const ROLL_COUNT_TOGGLE_SIZE_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCA
 const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
   const highlight = (theme.vars?.palette.success.main ?? theme.palette.success.main)
   const selectedText = (theme.vars?.palette.common.white ?? theme.palette.common.white)
-  const baseBorder = 'rgba(var(--mui-palette-text-primaryChannel) / 0.45)'
-  const hoverGlow = 'rgba(var(--mui-palette-text-primaryChannel) / 0.22)'
+  const baseBorder = TINT.textPrimary45
+  const hoverGlow = TINT.textPrimary22
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${GEAR_INSPECTOR_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
@@ -1378,7 +1379,7 @@ function RulesFilterPanel({
     ...(championZeroResults
       ? {
         '& .MuiIconButton-root': {
-          backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
+          backgroundColor: TINT.error18,
           animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
         },
       }
@@ -1390,7 +1391,7 @@ function RulesFilterPanel({
     transition: 'opacity 120ms ease',
     ...(championZeroResults
       ? {
-        backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
+        backgroundColor: TINT.error18,
         animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
       }
       : {}),
@@ -2749,7 +2750,7 @@ function RulesFilterPanel({
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  bgcolor: championIconSrc ? 'transparent' : 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)',
+                                  bgcolor: championIconSrc ? 'transparent' : TINT.textPrimary08,
                                   color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                                   fontWeight: 700,
                                   fontSize: theme.typography.pxToRem(13),

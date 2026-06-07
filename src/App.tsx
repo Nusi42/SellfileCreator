@@ -194,6 +194,7 @@ import {
 } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
+import { TINT } from './lib/colorTints'
 const GEAR_INSPECTOR_MATCH_RESET_TIMEOUT_MS = 1500
 // Endpoint push processing polls until worker + preview pipelines settle.
 const ENDPOINT_PUSH_SETTLE_POLL_MS = 16
@@ -7759,9 +7760,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : null
     if (!btn) return
     const anim = btn.animate([
-      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(var(--mui-palette-primary-mainChannel) / 0.7)' },
-      { transform: 'scale(1.12)', boxShadow: '0 0 0 10px rgba(var(--mui-palette-primary-mainChannel) / 0)' },
-      { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(var(--mui-palette-primary-mainChannel) / 0)' },
+      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.primary70}` },
+      { transform: 'scale(1.12)', boxShadow: `0 0 0 10px ${TINT.primary0}` },
+      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.primary0}` },
     ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
     return () => { anim.cancel() }
   }, [simpleMode, isSimpleViewAtStart, restoreDlgOpen])
@@ -7939,7 +7940,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               },
               '&:hover': {
                 borderColor: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
-                backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',
+                backgroundColor: TINT.warning10,
               },
             })}
           >
@@ -7968,7 +7969,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               color: (theme.vars?.palette.warning.main ?? theme.palette.warning.main),
               '&:hover': {
                 borderColor: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
-                backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',
+                backgroundColor: TINT.warning10,
                 color: (theme.vars?.palette.warning.dark ?? theme.palette.warning.dark),
               },
             })}

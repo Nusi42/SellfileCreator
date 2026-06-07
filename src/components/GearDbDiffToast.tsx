@@ -12,6 +12,7 @@ import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload
 // into a dedicated module to keep both files under the 1,500-line cap.
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
+import { TINT } from '../lib/colorTints'
 
 // Use a tight gap so five entries can still fit in the toast window.
 const TOAST_ENTRY_GAP_UNITS = 1
@@ -222,7 +223,7 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
     >
       {left}
       {/* Use the shared arrow glyph so diff previews stay consistent. */}
-      <Typography variant="body2" sx={{ color: 'rgba(var(--mui-palette-common-whiteChannel) / 0.70)', fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ color: TINT.white70, fontWeight: 600 }}>
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
@@ -330,9 +331,9 @@ function ScaledGearInspectorGridCard({
   const theme = useTheme()
   // Single-sided add/remove grids tint borders so direction is obvious at a glance.
   const accentBorderColor = tone === 'added'
-    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.55)'
+    ? TINT.success55
     : tone === 'removed'
-      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.55)'
+      ? TINT.error55
       : null
   // Fixed size wrapper keeps the scaled card aligned with its sibling.
   return (
@@ -398,15 +399,15 @@ function EmptyDiffCard({ tone, size }: EmptyDiffCardProps) {
   const theme = useTheme()
   // Tint the border when the diff implies add/remove intent.
   const borderColor = tone === 'added'
-    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.4)'
+    ? TINT.success40
     : tone === 'removed'
-      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.4)'
+      ? TINT.error40
       : theme.palette.divider
   // Use a subtle background wash to match the border cue.
   const background = tone === 'added'
-    ? 'rgba(var(--mui-palette-success-mainChannel) / 0.08)'
+    ? TINT.success08
     : tone === 'removed'
-      ? 'rgba(var(--mui-palette-error-mainChannel) / 0.08)'
+      ? TINT.error08
       : (theme.vars?.palette.background.paper ?? theme.palette.background.paper)
   return (
     <Box

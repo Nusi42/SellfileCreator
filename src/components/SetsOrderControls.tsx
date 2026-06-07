@@ -16,6 +16,7 @@ import { SETS_ORDER_TOGGLE_SIZE_PX, FONT_SIZE_SECONDARY_PX } from '../lib/consta
 import { useI18n } from '../lib/i18n'
 // MarkdownTooltip keeps the view-mode hints synced with the rest of the tooltip refactor.
 import MarkdownTooltip from './MarkdownTooltip'
+import { TINT } from '../lib/colorTints'
 
 export type SetsOrder = 'game' | 'az' | 'icons'
 
@@ -39,7 +40,7 @@ export default function SetsOrderControls({
   // Gentle pulse to draw attention when search matches zero sets.
   const pulseRed = keyframes`
     0%, 100% { background-color: transparent; }
-    60% { background-color: rgba(var(--mui-palette-error-mainChannel) / 0.28); }
+    60% { background-color: ${TINT.error28}; }
   `
   return (
     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', minWidth: 0, width: '100%' }}>
@@ -97,7 +98,7 @@ export default function SetsOrderControls({
                 ...(zeroResults ? {
                   // Also animate at the adornment level to ensure visibility.
                   '& .MuiIconButton-root': {
-                    backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
+                    backgroundColor: TINT.error18,
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   },
                 } : {}),
@@ -111,7 +112,7 @@ export default function SetsOrderControls({
                 sx={{
                   ...(zeroResults ? {
                     // IconButton is already circular; animate its background color.
-                    backgroundColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.18)',
+                    backgroundColor: TINT.error18,
                     animation: `${pulseRed} 2000ms ease-in-out infinite`,
                   } : {}),
                 }}

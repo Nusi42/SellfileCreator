@@ -1,6 +1,7 @@
 import { Box } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { TINT } from '../lib/colorTints'
 
 type Props = {
   text: string
@@ -82,7 +83,7 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
         whiteSpace: 'nowrap',
         transform: 'translate3d(0, 0, 0)',
         pointerEvents: 'none',
-        backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.92)',
+        backgroundColor: TINT.paper92,
         color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         borderRadius: 999,
         padding: '2px 10px',

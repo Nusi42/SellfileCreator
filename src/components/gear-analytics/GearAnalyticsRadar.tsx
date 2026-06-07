@@ -27,6 +27,7 @@ import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import type { BarEntry } from './GearAnalyticsBar'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
+import { TINT } from '../../lib/colorTints'
 
 type Props = {
   title: string
@@ -427,7 +428,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
           ...(referenceActive && refDisplayCounts ? [{
             data: refDisplayCounts,
             label: '',
-            color: 'rgba(var(--mui-palette-primary-mainChannel) / 0.18)',
+            color: TINT.primary18,
             fillArea: false,
             valueFormatter: (v: number) => String(Math.round((v ?? 0) ** 2)),
           }] : []),

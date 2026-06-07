@@ -20,6 +20,7 @@ import {
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import type { GearInspectorGridNormalizedPreset, GearInspectorGridNormalizedPresetId } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
+import { TINT } from '../lib/colorTints'
 
 export type GearInspectorNormalizedPresetEditorMenuProps = {
   open: boolean
@@ -224,8 +225,8 @@ export function GearInspectorNormalizedPresetEditorMenu({
                     px: 0.75,
                     borderRadius: '999px',
                     boxSizing: 'border-box',
-                    border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.14)`,
-                    ...theme.applyStyles('dark', { border: `1px solid rgba(var(--mui-palette-text-secondaryChannel) / 0.22)` }),
+                    border: `1px solid ${TINT.textSecondary14}`,
+                    ...theme.applyStyles('dark', { border: `1px solid ${TINT.textSecondary22}` }),
                     backgroundColor: 'transparent',
                     color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     fontSize: theme.typography.pxToRem(13),

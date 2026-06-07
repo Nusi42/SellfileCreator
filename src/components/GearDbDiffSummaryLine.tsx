@@ -12,6 +12,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutl
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import type { GearDbDiffHistoryLineSpec, GearDbDiffHistoryLineTranslator } from '../lib/gearDbDiffToast'
 import { formatGearDbDiffHistoryLineText } from '../lib/gearDbDiffToast'
+import { ALPHA } from '../lib/colorTints'
 
 export type GearDbDiffSummaryLineProps = {
   // Localized prefix label (ex: "Gear updated:") shown before the counts.
@@ -50,7 +51,7 @@ export function GearDbDiffSummaryLine({
   const addedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
   const removedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
   const updatedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.info.main ?? theme.palette.info.main)
-  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, 0.7) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
+  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, ALPHA.a70) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
   // Normalize the label to avoid accidental whitespace in tight layouts.
   const trimmedLabel = label.trim()
   // Use a darker overlay so the pill reads against a green success toast.
@@ -62,8 +63,8 @@ export function GearDbDiffSummaryLine({
     ...(useCountPill
       ? {
         // Darken + outline so counts remain legible on the success fill.
-        bgcolor: alpha(theme.palette.common.black, 0.4),
-        border: `1px solid ${alpha(theme.palette.common.white, 0.4)}`,
+        bgcolor: alpha(theme.palette.common.black, ALPHA.a40),
+        border: `1px solid ${alpha(theme.palette.common.white, ALPHA.a40)}`,
         borderRadius: '999px',
         color: (theme.vars?.palette.common.white ?? theme.palette.common.white),
         px: 0.6,

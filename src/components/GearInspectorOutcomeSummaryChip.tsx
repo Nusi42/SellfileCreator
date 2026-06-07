@@ -9,6 +9,7 @@ import StarsIcon from '@mui/icons-material/Stars'
 import { useI18n } from '../lib/i18n'
 import MarkdownTooltip from './MarkdownTooltip'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
+import { TINT } from '../lib/colorTints'
 
 // Tone tokens keep summary metric colors consistent across the chip.
 type GearInspectorOutcomeSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
@@ -42,8 +43,8 @@ const GEAR_INSPECTOR_SUMMARY_CHIP_SX = (theme: Theme) => ({
   // String bypasses MUI's sx borderRadius multiplier so this always renders as a pill regardless of theme.shape.borderRadius.
   borderRadius: `${GEAR_INSPECTOR_SUMMARY_CHIP_RADIUS_PX}px`,
   // CSS channel tokens adapt per scheme without JS mode checks.
-  backgroundColor: 'rgba(var(--mui-palette-info-mainChannel) / 0.12)',
-  border: '1px solid rgba(var(--mui-palette-info-mainChannel) / 0.3)',
+  backgroundColor: TINT.info12,
+  border: `1px solid ${TINT.info30}`,
   // Subtle elevation lifts the chip above the header surface.
   boxShadow: theme.shadows[1],
 })
@@ -196,7 +197,7 @@ export default function GearInspectorOutcomeSummaryChip({
         sx={(theme) => ({
           ...GEAR_INSPECTOR_SUMMARY_CHIP_SX(theme),
           // CSS variable supplies the brightened background used by the pulse keyframe.
-          '--gi-chip-pulse-bg': 'rgba(var(--mui-palette-info-mainChannel) / 0.28)',
+          '--gi-chip-pulse-bg': TINT.info28,
           // Apply pulse animation when counts changed and the chip is not already showing the dimmed state.
           animation: shouldPulse
             ? `${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_KEYFRAMES} ${GEAR_INSPECTOR_SUMMARY_CHIP_PULSE_MS}ms ease-out 1`

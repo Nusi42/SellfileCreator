@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { GearInspectorSortPopoutEasterEggOverlayState } from '../hooks/useGearInspectorSortPopoutEasterEgg'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 /**
  * Sort popout easter-egg overlays.
@@ -41,9 +42,9 @@ const stopSignSx = (theme: Theme, visible: boolean) => ({
   justifyContent: 'center',
   pointerEvents: visible ? 'auto' : 'none',
   // Light-mode base; dark mode uses a slightly more opaque scrim.
-  backgroundColor: alpha(theme.palette.common.black, 0.22),
+  backgroundColor: alpha(theme.palette.common.black, ALPHA.a22),
   ...theme.applyStyles('dark', {
-    backgroundColor: alpha(theme.palette.common.black, 0.35),
+    backgroundColor: alpha(theme.palette.common.black, ALPHA.a35),
   }),
   ...overlayFadeSx(visible),
 } as const)
@@ -73,11 +74,11 @@ const bannerSx = (theme: Theme, visible: boolean) => ({
   alignItems: 'center',
   justifyContent: 'center',
   // Light-mode base; dark mode uses slightly stronger warning tints.
-  backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.18)',
-  border: `1px solid ${'rgba(var(--mui-palette-warning-mainChannel) / 0.5)'}`,
+  backgroundColor: TINT.warning18,
+  border: `1px solid ${TINT.warning50}`,
   ...theme.applyStyles('dark', {
-    backgroundColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.24)',
-    borderColor: 'rgba(var(--mui-palette-warning-mainChannel) / 0.6)',
+    backgroundColor: TINT.warning24,
+    borderColor: TINT.warning60,
   }),
   boxShadow: theme.shadows[3],
   transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(0, -10px, 0) scale(0.98)',
@@ -101,11 +102,11 @@ const microConfirmBubbleSx = (theme: Theme, visible: boolean, anchor: { x: numbe
   py: 0.75,
   borderRadius: 12,
   // Light-mode base; dark mode allows more transparency for the bubble background.
-  backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.98)',
-  border: `1px solid ${'rgba(var(--mui-palette-error-mainChannel) / 0.5)'}`,
+  backgroundColor: TINT.paper98,
+  border: `1px solid ${TINT.error50}`,
   ...theme.applyStyles('dark', {
-    backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.92)',
-    borderColor: 'rgba(var(--mui-palette-error-mainChannel) / 0.6)',
+    backgroundColor: TINT.paper92,
+    borderColor: TINT.error60,
   }),
   boxShadow: theme.shadows[6],
 } as const)

@@ -22,6 +22,7 @@ import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { TINT } from '../lib/colorTints'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
 type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
@@ -272,7 +273,7 @@ export function SubstatTargetsTabContent({
         backgroundColor: alpha(theme.palette.text.primary, ((theme.vars?.palette.action.hoverOpacity ?? theme.palette.action.hoverOpacity) ?? 0.08) * 1.5),
       },
       '&.Mui-focusVisible': {
-        outline: `2px solid ${'rgba(var(--mui-palette-text-primaryChannel) / 0.4)'}`,
+        outline: `2px solid ${TINT.textPrimary40}`,
         outlineOffset: 2,
       },
     }

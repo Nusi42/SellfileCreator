@@ -40,6 +40,7 @@ import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
+import { TINT } from '../lib/colorTints'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const RECIPE_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -266,7 +267,7 @@ function RecipeChip({
         const selectedHoverBg = theme.custom.selectedHoverBg
         const isStatic = backgroundMode === 'static'
         const staticBg = isStatic
-          ? 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)'
+          ? TINT.textPrimary08
           : null
         const baseBackground = isStatic
           ? staticBg

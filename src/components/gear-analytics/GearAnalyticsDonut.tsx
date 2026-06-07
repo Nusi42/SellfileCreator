@@ -25,6 +25,7 @@ import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/e
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 import { resolveSchemePaper, CHART_DESELECTED_DIM_ALPHA, CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
+import { TINT } from '../../lib/colorTints'
 
 export type DonutSlice = {
   /** Domain ID used to track selection (slot ID, rarity RankValue, set ID, outcome string, etc.). */
@@ -157,7 +158,7 @@ function ArcIconLabel(props: {
 
   // Bitmap image icon (e.g. gear set icons): circular background keeps the icon legible on any arc.
   if ('url' in asset) {
-    const bgFill  = 'rgba(var(--mui-palette-background-paperChannel) / 0.82)'
+    const bgFill  = TINT.paper82
     const bgRadius = (size + 2) / 2
     return (
       <g transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
@@ -577,7 +578,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
             // Highlight hovered slices with a subtle ring.
             // x-charts v9 uses MuiPieChart-arc (from pieClasses utility) instead of MuiPieArc-root.
             '& .MuiPieChart-arc:hover': {
-              filter: `drop-shadow(0 0 4px ${'rgba(var(--mui-palette-primary-mainChannel) / 0.6)'})`,
+              filter: `drop-shadow(0 0 4px ${TINT.primary60})`,
             },
             // Dark slice separators in both schemes (overrides MUI's near-white light-theme default).
             '& .MuiPieChart-arc': { cursor: 'pointer', stroke: arcStrokeColor },

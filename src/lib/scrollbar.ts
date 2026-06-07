@@ -1,5 +1,6 @@
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
+import { TINT } from '../lib/colorTints'
 
 /**
  * Firefox ignores `scrollbar-gutter`, so we fake the reserved inline space via
@@ -27,17 +28,17 @@ export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
   // Webkit: explicit track + thumb colours with a slim width.
   // Default (light mode): black-alpha via common.blackChannel; dark mode: white-alpha via common.whiteChannel.
   '&::-webkit-scrollbar': { width: 9 },
-  '&::-webkit-scrollbar-track': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.04)', borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.15)', borderRadius: 5 },
-  '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(var(--mui-palette-common-blackChannel) / 0.25)' },
+  '&::-webkit-scrollbar-track': { background: TINT.black04, borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb': { background: TINT.black15, borderRadius: 5 },
+  '&::-webkit-scrollbar-thumb:hover': { background: TINT.black25 },
   // Firefox: shorthand thumb/track colour + thin width
-  scrollbarColor: 'rgba(var(--mui-palette-common-blackChannel) / 0.15) rgba(var(--mui-palette-common-blackChannel) / 0.04)',
+  scrollbarColor: `${TINT.black15} ${TINT.black04}`,
   scrollbarWidth: 'thin',
   '[data-mui-color-scheme="dark"] &': {
-    '&::-webkit-scrollbar-track': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.06)' },
-    '&::-webkit-scrollbar-thumb': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.22)' },
-    '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(var(--mui-palette-common-whiteChannel) / 0.38)' },
-    scrollbarColor: 'rgba(var(--mui-palette-common-whiteChannel) / 0.22) rgba(var(--mui-palette-common-whiteChannel) / 0.06)',
+    '&::-webkit-scrollbar-track': { background: TINT.white06 },
+    '&::-webkit-scrollbar-thumb': { background: TINT.white22 },
+    '&::-webkit-scrollbar-thumb:hover': { background: TINT.white38 },
+    scrollbarColor: `${TINT.white22} ${TINT.white06}`,
   },
 })
 

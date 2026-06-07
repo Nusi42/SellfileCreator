@@ -16,6 +16,7 @@ import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { highlightElementKeyframes } from '../lib/attentionCatalog'
 import beginnerSfcRaw from '../../presets/beginner.sfc?raw'
 import lategameSfcRaw from '../../presets/lategame.sfc?raw'
+import { TINT } from '../lib/colorTints'
 
 // Glow-pulse keyframe: soft drop-shadow that fades in and out.
 const sfcNudgeKf = keyframes`
@@ -247,7 +248,7 @@ export default function HeaderActions(props: {
                 transform: 'translateX(-50%)',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
-                backgroundColor: 'rgba(var(--mui-palette-background-paperChannel) / 0.94)',
+                backgroundColor: TINT.paper94,
                 color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
                 borderRadius: 999,
                 padding: '8px 22px',

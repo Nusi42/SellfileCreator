@@ -16,6 +16,7 @@ import { useDisplayPreferences } from '../../state/preferencesState'
 import { slotIconSvgAsset } from '../artifactTypeIcons'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
+import { TINT } from '../../lib/colorTints'
 
 type Props = {
   matrix: SlotMainMatrix
@@ -143,7 +144,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                 // Zero-count cells use the neutral divider tone; non-zero cells use the heat scale.
                 const bgColor = intensity > 0
                   ? heatColor(intensity)
-                  : 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)'
+                  : TINT.textPrimary06
 
                 return (
                   <Tooltip

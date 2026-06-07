@@ -17,6 +17,7 @@ import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useShowTagsInChipsPreference } from '../state/builderPreferences'
+import { TINT } from '../lib/colorTints'
 
 // Recipe chips and individual chip right-clicks share the same hint ID so right-clicking
 // anywhere in the list dismisses the hint — not just on empty space or just on a chip.
@@ -353,7 +354,7 @@ function RecipeChipsPanel(props: {
               backgroundColor: (theme.vars?.palette.primary.main ?? theme.palette.primary.main),
               borderRadius: dropGuide.height <= 4 ? 2 : 1,
               pointerEvents: 'none',
-              boxShadow: `0 0 8px ${'rgba(var(--mui-palette-primary-mainChannel) / 0.6)'}`,
+              boxShadow: `0 0 8px ${TINT.primary60}`,
               zIndex: 5,
             })}
           />

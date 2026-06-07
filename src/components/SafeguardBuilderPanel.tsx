@@ -174,6 +174,7 @@ import {
 } from '../lib/noteSafeguardOverrides'
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { MenuToggleRow } from './MenuToggleRow'
+import { TINT } from '../lib/colorTints'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -1632,9 +1633,9 @@ export default function SafeguardBuilderPanel({
                 '&.Mui-selected': { borderColor: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main },
                 ...muiTheme.applyStyles('light', {
                   '&.Mui-selected': {
-                    bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.12)',
+                    bgcolor: TINT.success12,
                     color: muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main,
-                    '&:hover': { bgcolor: 'rgba(var(--mui-palette-success-mainChannel) / 0.20)' },
+                    '&:hover': { bgcolor: TINT.success20 },
                   },
                 }),
                 ...muiTheme.applyStyles('dark', {

@@ -26,6 +26,7 @@ import type { Metaset } from '../../lib/metasets'
 import GearSetsSelect from '../gear/GearSetsSelect'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
 import { CHART_DESELECTED_DIM_ALPHA, CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
+import { TINT } from '../../lib/colorTints'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -588,7 +589,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   // Selection ring via outline; hover reveals primary-light border.
                   outline: isSelected
                     ? `2px solid ${(theme.vars?.palette.primary.main ?? theme.palette.primary.main)}`
-                    : `1px solid rgba(var(--mui-palette-background-paperChannel) / 0.25)`,
+                    : `1px solid ${TINT.paper25}`,
                   outlineOffset: isSelected ? -2 : -1,
                   '&:hover': {
                     opacity: 1,
@@ -623,7 +624,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   >
                     {/* Icon disc — shown when icons are on (or as fallback when tile is too small for a label). */}
                     {showIcon && (
-                      <Box sx={{ bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.82)', borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
+                      <Box sx={{ bgcolor: TINT.paper82, borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
                         <Box
                           component="img"
                           src={icon!.url}
@@ -656,7 +657,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                       * overflow: hidden hides content that doesn't fit; the chip itself is not rendered at all
                       * when the tile is too narrow (showNumbers gate). */}
                     {showNumbers && (
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: 'rgba(var(--mui-palette-background-paperChannel) / 0.8)', borderRadius: 999, px: '5px', py: 0.125, gap: 0.4, flexShrink: 0 }}>
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: TINT.paper80, borderRadius: 999, px: '5px', py: 0.125, gap: 0.4, flexShrink: 0 }}>
                         <Typography sx={{ fontSize: 9, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>{entry.total}</Typography>
                         {COUNT_ORDER.map(band => entry[band] > 0 && (
                           <Box key={band} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4 }}>
@@ -678,12 +679,12 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
       <Box sx={{ display: 'flex', gap: 1.5, mt: 0.75, flexWrap: 'wrap' }}>
         {/* Total swatch — matches the leading count in each tile's chip (text.secondary color). */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), border: '1px solid rgba(var(--mui-palette-dividerChannel) / 0.5)' }} />
+          <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), border: `1px solid ${TINT.divider50}` }} />
           <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{t('gearAnalyticsTotal')}</Typography>
         </Box>
         {visibleBands.map(band => (
           <Box key={band} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: '1px solid rgba(var(--mui-palette-dividerChannel) / 0.5)' }} />
+            <Box sx={{ width: 8, height: 8, borderRadius: 0.5, flexShrink: 0, bgcolor: bandColor[band], border: `1px solid ${TINT.divider50}` }} />
             <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
               {t(({ sell: 'gearAnalyticsOutcomeSell', safe: 'gearAnalyticsOutcomeSafe', keep: 'gearAnalyticsOutcomeKeep', none: 'gearAnalyticsOutcomeNone' } as const)[band])}
             </Typography>
