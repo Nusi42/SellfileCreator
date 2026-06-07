@@ -45,7 +45,50 @@ All custom CSS variable names, per-scheme alpha values, and pre-built colour exp
 3. Add a pre-built expression to `CUSTOM_TOKENS` (e.g. `myFooBg: 'rgba(var(--mui-palette-…Channel) / var(--app-my-foo-bg))'`).
 4. Use it in components as `theme.custom.myFooBg`.
 
-**The rule:** every colour value that changes with the colour scheme must be a `theme.palette.*` / `theme.vars?.palette.*` semantic token or a `CUSTOM_TOKENS` / `APP_CSS_VAR` reference. Literal hex codes and inline rgba percentages outside `themeCustomTokens.ts` are violations.
+**The rule:** every colour value that changes with the colour scheme must be a `theme.palette.*` / `theme.vars?.palette.*` semantic token or a `CUSTOM_TOKENS` / `APP_CSS_VAR` reference. Literal hex codes and inline rgba percentages outside the colour SSOT modules are violations.
+
+---
+
+## Color SSOT — tints, alphas, and contrast adaptation
+
+**SSOT + DRY apply to the whole theme, colour most of all.** There are no inline `rgba(...)` strings or `alpha(x, 0.n)` magic numbers in components — every colour-bearing value resolves to one of the modules below. See **The mandate** at the end of this section.
+
+### Modules
+
+| Module | Holds | Use for |
+|--------|-------|---------|
+| `src/lib/colorTints.ts` | `TINT` — fixed-alpha, role-named CSS-var strings (theme-independent, usable in `sx`, template literals, and module constants). `ALPHA` — a generic numeric opacity ladder for JS `alpha()` on **runtime** colours. Internal `PAIR_ALPHA` + `pairTint()` keep keep(success)/sell(error) pairs in lockstep. | Any fixed-alpha tint of a palette channel; any JS `alpha()` call on a runtime hex. |
+| `src/lib/themeCustomTokens.ts` | `APP_CSS_VAR` + `APP_SCHEME_ALPHAS` + `CUSTOM_TOKENS` (used via `theme.custom.*`); scheme-resolution helpers; substat/rarity adapters. | A tint whose **alpha itself differs by scheme** (→ CUSTOM_TOKEN/APP_SCHEME_ALPHAS). A fixed alpha where only the channel adapts → `TINT`. |
+| `src/lib/colorUtils.ts` | Pure colour math (no theme): `ensureContrastOnBg` (LCH-lightness WCAG pass), `blendAlpha`, `compositeOnBase`, and all conversions (`parseCssColorToRgb`, `mixRgb`, `rgbToCss`, `parseHexWithAlpha`, `formatHexWithAlpha`, `hexToHSL`, `hexToChannelTriplet`, `hslDegToHex`). | All ad-hoc hex/rgb parsing and contrast math. Never re-implement these inline. |
+| `src/lib/rarityColors.ts` | `RARITY_ACCENT_COLORS` + `resolveRarityAccentColor` (raw) + `resolveRarityTextColor` (contrast-adapted). | Rarity accents — raw for borders/chart fills, adapted for text/glyphs. |
+| `src/lib/themeContrastHooks.ts` | `useSchemePaper()`, `useSubstatFgAdapter()`. | One-line access to the active scheme's paper / a substat-fg text adapter inside components. |
+
+### TINT naming, adding, and merging
+
+`TINT` names describe **role**, not channel/alpha (e.g. `neutralDisabledChipBg`, `nearOpaquePaperBg`, `dangerFlashBg`). Add a token only for a genuinely new role — first check whether an existing role already fits (DRY). When two tokens have drifted to near-identical values for the **same** role, merge them: pick the value used more often in the **main UI (builder panels + gear inspector)**, or the average. Cross-channel pairs (success vs error at the same alpha) stay as two named tokens but **share one `PAIR_ALPHA` knob** — the hue differs, the opacity is one concept.
+
+### User/preset colours rendered as TEXT must be contrast-adapted
+
+Any user- or preset-chosen colour (substat fg, recipe/safeguard appearance fg, rarity accent) rendered as **text/glyph** must pass through the WCAG adapter so it stays legible on the active surface in **both** schemes:
+
+- substat / appearance text → `adaptSubstatFgOnSurface(fg, surface)` / `adaptSubstatFgForScheme(fg, theme, colorScheme)` or the `useSubstatFgAdapter()` hook.
+- rarity-as-text/glyph → `resolveRarityTextColor(rarity, surface)`.
+- chips that layer tints over a tinted card → composite the surface first (`resolveCardChipBaseBg`) then `ensureContrastOnBg` against it.
+
+The surface comes from the **runtime** scheme, never the frozen palette — `resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))` (see the gotcha below). `schemeModeFromColorScheme(undefined) === 'dark'` to match `defaultMode="dark"`.
+
+### Valid exceptions — where a RAW colour is correct (do NOT adapt/consolidate)
+
+- **Colour pickers / swatches** (`ManageColorsDialog`) — the swatch shows the literal value being edited.
+- **Tooltips with an inverted dark surface** (`renderColoredStatText` via `BuilderTooltipContent`, gear-inspector grid tooltips) — colours read on the dark tooltip bg, not paper.
+- **Chart DATA fills** (donut slices, bars, rarity/stat series in Gear Analytics) — the colour *is* the datum; adapting would break legend↔slice correspondence.
+- **Data sources / defaults** (`useSubstatColors`, `DEFAULT_SUBSTAT_COLORS_*`).
+- **`src/theme.ts` build-time palette derivations** — per-scheme `darken`/`lighten` building the two palettes (this is the one place `darken`/`lighten` and per-scheme `isDark` branching belong).
+- **Easter eggs** — intentionally **theme-agnostic**: fixed local colours, *not* sourced from the palette or `colorTints`, so the gag looks identical in both schemes.
+
+### The mandate
+
+When you see anything that does not match this system — an inline rgba/`alpha()` magic number, a raw user colour used as text, a theme colour inside an easter egg, a duplicated literal, or near-duplicate values for one role — **consolidate it** into the appropriate module above, unless it is one of the valid exceptions. This is the SSOT/One-Definition-Rule hard gate applied to colour.
 
 ---
 
@@ -74,8 +117,14 @@ border: `1px solid ${theme.palette.divider}`
 ```
 
 **Dark-scheme-specific overrides:**
+
+When the alpha itself differs per scheme (light 0.18 vs dark 0.28 below), that is an
+`APP_SCHEME_ALPHAS`/`CUSTOM_TOKENS` case — define one `theme.custom.*` token whose `--app-*`
+alpha var resolves differently per scheme, rather than hand-writing two rgba literals. Reserve
+`applyStyles('dark', …)` for genuinely non-token, scheme-specific CSS (e.g. swapping to a fixed
+grey, as `ContextMenuPaper` does). The two-rgba form is shown only to illustrate the mechanism:
 ```ts
-// Use applyStyles for CSS-only overrides
+// Mechanism illustration only — prefer theme.custom.<token> for per-scheme alphas.
 sx={(theme) => ({
   backgroundColor: 'rgba(var(--mui-palette-success-mainChannel) / 0.18)',
   ...theme.applyStyles('dark', {
@@ -179,7 +228,7 @@ Access via `useDisplayPreferences()` (state) and `useDisplayPreferenceActions()`
 `createBuilderStatusChipSx(theme)` returns a function `(enabled, opts?) => SxProps` used by both the builder panels and cheat-sheet chips. Keeps all status-chip sizing, colour, hover, focus, and disabled styles in one place.
 
 Key implementation notes:
-- Uses `rgba(var(--mui-palette-success-mainChannel) / 0.18)` (CSS channel token) for the active background — no hardcoded hex.
+- Uses `TINT.successStatusChipBg` (success channel at a fixed alpha, from `colorTints`) for the active background — no inline rgba.
 - Disabled background uses `theme.vars?.palette.action.disabledBackground` — a defined MUI token. The `--mui-palette-text-disabledChannel` token **does not exist** in MUI v9; use `--mui-palette-text-primaryChannel` with low alpha instead.
 - Active text uses `theme.vars?.palette.success.light` for readable tint on dark surfaces.
 - `dimDisabled` option reduces the chip's visual weight when it represents a truly inactive state (e.g. no gear match) — uses a blended opacity via `resolveDisabledOpacity`.
@@ -199,24 +248,28 @@ Add these inside the markdown container's `sx` in both `NoteDialog.tsx` and `Hel
   borderTopColor: 'var(--mui-palette-divider)',
 },
 '& .wmde-markdown table tr:nth-of-type(2n)': {
-  backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.04) !important',
+  backgroundColor: `${TINT.neutralRowZebra} !important`,
 },
 '& .wmde-markdown table th, & .wmde-markdown table td': {
   borderColor: 'var(--mui-palette-divider)',
   color: 'var(--mui-palette-text-primary)',
 },
 '& .wmde-markdown table th': {
-  backgroundColor: 'rgba(var(--mui-palette-text-primaryChannel) / 0.06)',
+  backgroundColor: TINT.neutralHeaderBg,
 },
 ```
+
+(`TINT.neutralRowZebra` / `TINT.neutralHeaderBg` are the role-named tints from `colorTints` — the zebra-row and table-header neutral overlays. Don't re-inline the rgba.)
 
 ---
 
 ## Checklist — Adding a Theme-Aware Component
 
-1. **Colour values** — Use `theme.custom.*` for custom tokens, `theme.vars?.palette.*` for MUI semantic tokens. No bare `theme.palette.*` except inside `alpha()`/`darken()` JS math — and even there, prefer `theme.colorSchemes.dark?.palette.*` for dark-mode-specific math.
-2. **Scheme branching** — Use `theme.applyStyles('dark', {...})` for CSS overrides; use `useColorScheme()` for runtime scheme checks in component logic.
-3. **Third-party markdown** — Always set `data-color-mode={colorScheme ?? 'dark'}` on the WMDE container; add table overrides (see above).
-4. **CSS variable properties** — If a MUI component uses an internal CSS variable (like `--Alert-color`), override that variable rather than the derived `color` property, so the override wins regardless of MUI's injection order.
-5. **JS colour utilities** — When passing values to `parseCssColorToRgb`, `alpha()`, or `darken()`, resolve CSS var strings to hex first using `getComputedStyle`.
-6. **Test both schemes** — Toggle dark/light in the app to confirm the component adapts. Pay particular attention to borders, text, and background on elements that are not standard MUI Paper/Typography.
+1. **Colour values** — Use `theme.custom.*` / `TINT.*` for tints, `theme.vars?.palette.*` for MUI semantic tokens. **No inline `rgba(...)` or `alpha(x, 0.n)` magic numbers** — fixed-alpha tints come from `TINT`, JS alphas from `ALPHA`, per-scheme alphas from `theme.custom.*`. No bare `theme.palette.*` except inside `alpha()`/`darken()` JS math — and even there prefer `theme.colorSchemes.dark?.palette.*`.
+2. **User/preset colours as text** — Contrast-adapt them (`useSubstatFgAdapter()` / `adaptSubstatFgForScheme` / `resolveRarityTextColor`) against the **runtime** scheme surface (`resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))`). Raw colours are only correct for the valid exceptions (pickers, tooltips, chart fills, data sources, easter eggs).
+3. **Scheme branching** — Use `theme.applyStyles('dark', {...})` for non-token CSS overrides; use `useColorScheme()` for runtime scheme checks in component logic.
+4. **Third-party markdown** — Always set `data-color-mode={colorScheme ?? 'dark'}` on the WMDE container; add table overrides (see above).
+5. **CSS variable properties** — If a MUI component uses an internal CSS variable (like `--Alert-color`), override that variable rather than the derived `color` property, so the override wins regardless of MUI's injection order.
+6. **JS colour utilities** — Conversions/parsing/contrast all live in `colorUtils` (`parseCssColorToRgb`, `ensureContrastOnBg`, …) — never re-implement them inline. When passing CSS var strings to them, resolve to hex first via `getComputedStyle`.
+7. **Test both schemes** — Toggle dark/light in the app to confirm the component adapts. Pay particular attention to borders, text, and background on elements that are not standard MUI Paper/Typography.
+8. **Consolidate mismatches** — If you touch code with an inline alpha/hex, a raw user colour used as text, or a duplicated/near-duplicate value, fold it into the colour SSOT (see *Color SSOT → The mandate*).
