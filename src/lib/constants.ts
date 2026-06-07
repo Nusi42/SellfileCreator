@@ -141,11 +141,6 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 // circle via CSS transform so labels remain unaffected.
 export const ROLL_BADGE_SCALE = 1.35
 
-// Recipe chip substat roll indicator sizing (hollow circle)
-// Why: Keep the chip indicator legible and consistently sized; centralized to
-// make future tuning safe without hunting for magic numbers.
-export const CHIP_ROLL_BADGE_SIZE_PX = 15
-export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
 export const RECIPE_CHIP_BORDER_RADIUS_PX = 8
 export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3
 export const RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX = 26

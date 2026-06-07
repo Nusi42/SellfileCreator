@@ -36,11 +36,11 @@ import {
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import {
-  formatCircledDigit,
   formatStatNumber,
   formatStatPreGlyph,
   getItemSourceDescriptor,
 } from '../lib/gearInspectorPreviewFormatting'
+import { CircledDigitBadge } from './CircledDigitBadge'
 import type { GearInspectorContextGroup, GearInspectorSourceFilter } from '../lib/rulesFilter'
 import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
@@ -121,7 +121,7 @@ const SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS = 0.25
 // Compact-mode substats align like a fixed-width table.
 const COMPACT_SUBSTAT_NAME_COL_PX = 50
 const COMPACT_SUBSTAT_VALUE_COL_PX = 34
-const COMPACT_SUBSTAT_ROLL_COL_PX = 16
+const COMPACT_SUBSTAT_ROLL_COL_PX = 18
 const COMPACT_SUBSTAT_GLYPH_COL_PX = 38
 const CARD_SUMMARY_FONT_SIZE_REM = 0.9375
 const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
@@ -817,11 +817,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         : null
       const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
       const hasMythBonus = mythMagnitude >= 0.01
-      const rollGlyph = (typeof stat.rolls === 'number' && stat.rolls > 0)
-        ? formatCircledDigit(stat.rolls)
-        : null
-      const rollAriaLabel = (typeof stat.rolls === 'number' && stat.rolls > 0)
-        ? t('gearInspectorRollsLabel', { rolls: stat.rolls })
+      const rollCount = (typeof stat.rolls === 'number' && stat.rolls > 0) ? stat.rolls : null
+      const rollAriaLabel = rollCount != null
+        ? t('gearInspectorRollsLabel', { rolls: rollCount })
         : null
       return {
         variant: stat.variant,
@@ -829,11 +827,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
         statLabel,
         statValue,
         statColor,
-        rollGlyph,
+        rollCount,
         rollAriaLabel,
         glyphDelta,
         hasValue: statValue.trim().length > 0,
-        hasRoll: Boolean(rollGlyph),
+        hasRoll: rollCount != null,
         hasGlyph: Boolean(glyphDelta),
         content: (
           <>
@@ -841,7 +839,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
               {/* In ultra-dense 8-col mode, omit the numeric value to save horizontal space. */}
               {statLabel}{isUltraDense ? null : <> {statValue}</>}
             </Box>
-            {rollGlyph ? (
+            {rollCount != null ? (
               <Box
                 component="span"
                 sx={{
@@ -850,12 +848,10 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   lineHeight: 1,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  position: 'relative',
-                  top: '0.06em',
                 }}
                 aria-label={rollAriaLabel ?? undefined}
               >
-                {rollGlyph}
+                <CircledDigitBadge value={rollCount} />
               </Box>
             ) : null}
             {/* Glyph delta (green delta value) is omitted in 8-col ultra-dense mode. */}
@@ -1706,7 +1702,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                                 zIndex: 1,
                               }}
                             >
-                              {entry.rollGlyph ? (
+                              {entry.rollCount != null ? (
                                 <Box
                                   component="span"
                                   sx={{
@@ -1715,11 +1711,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    position: 'relative',
-                                    top: '0.06em',
                                   }}
                                 >
-                                  {entry.rollGlyph}
+                                  <CircledDigitBadge value={entry.rollCount} />
                                 </Box>
                               ) : null}
                             </Box>
@@ -1771,13 +1765,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                                 lineHeight: 1,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                position: 'relative',
-                                top: '0.06em',
                                 ml: 0.5,
                               }}
                               aria-label={entry.rollAriaLabel ?? undefined}
                             >
-                              {entry.rollGlyph}
+                              {entry.rollCount != null && <CircledDigitBadge value={entry.rollCount} />}
                             </Box>
                           </>
                         ) : entry.content}

@@ -35,7 +35,7 @@ import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
-import { formatCircledDigit } from '../lib/gearInspectorPreviewFormatting'
+import { CircledDigitBadge } from './CircledDigitBadge'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
@@ -76,15 +76,15 @@ export function measureStatCellWidths(
     return { mainstatCellWidthPx: Math.ceil(fontSizePx * 4), substatCellWidthPx: Math.ceil(fontSizePx * 7) }
   }
   ctx.font = `${fontSizePx}px ${theme.typography.fontFamily ?? 'sans-serif'}`
-  // ④ is the widest circled-digit glyph; appended to every substat sample so the cell
-  // always has room for the label + roll count without clipping.
-  const rollGlyph = formatCircledDigit(4) ?? ''
+  // CSS badge outer size ≈ 1× the context em square; add it to the label measurement
+  // to reserve space for the roll-count badge without measuring a Unicode glyph.
+  const badgeWidthPx = fontSizePx
   let maxMainstat = 0
   let maxSubstat = 0
   for (const variant of STAT_VARIANTS_PRIORITY) {
     const label = t(statVariantI18nKey(variant))
     maxMainstat = Math.max(maxMainstat, ctx.measureText(label).width)
-    maxSubstat = Math.max(maxSubstat, ctx.measureText(label + rollGlyph).width)
+    maxSubstat = Math.max(maxSubstat, ctx.measureText(label).width + badgeWidthPx)
   }
   const buffer = 4  // px safety buffer for subpixel rounding
   return {
@@ -434,12 +434,12 @@ function CandidateRow({
       // Impact drives the sort order; higher impact substats appear first.
       const impact = weight * normalizeSubstatByMax6(variant, artSubValue)
       const rolls = previewSubstatRollsByVariant.get(variant) ?? null
-      const rollGlyph = rolls !== null && rolls > 0 ? formatCircledDigit(rolls) : null
+      const rollCount = (rolls !== null && rolls > 0) ? rolls : null
       // Apply stat button color when enabled; fall back to muted secondary color.
       const color = (useStatButtonColors && substatColors[variant]?.fg) ? substatColors[variant].fg : null
       // Mythic bonus is only detectable from NormalizedStat (previewRow); detection-only path has no mythValue.
       const isMythic = (previewArtSub?.mythValue ?? 0) >= MYTHIC_BONUS_MIN
-      return [{ variant, label: t(statVariantI18nKey(variant)), rollGlyph, color, impact, isMythic }]
+      return [{ variant, label: t(statVariantI18nKey(variant)), rollCount, color, impact, isMythic }]
     })
     .sort((a, b) => b.impact - a.impact)
 
@@ -576,9 +576,11 @@ function CandidateRow({
                 } : undefined}
               >
                 {cell.label}
-                {/* Roll count glyph uses white to match gear inspector card chip rendering. */}
-                {cell.rollGlyph && (
-                  <Box component="span" sx={{ color: 'common.white' }}>{cell.rollGlyph}</Box>
+                {/* Roll count badge uses white to match gear inspector card chip rendering. */}
+                {cell.rollCount != null && (
+                  <Box component="span" sx={{ color: 'common.white' }}>
+                    <CircledDigitBadge value={cell.rollCount} />
+                  </Box>
                 )}
               </Box>
             </Typography>

@@ -22,7 +22,8 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { CircledDigitBadge } from './CircledDigitBadge'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -802,32 +803,22 @@ export function summaryParts(
         const hasTargets = Boolean(targetSummary)
 
         // Indicator: show only one state. Prefer cap; ¬ (not) shown in red like cap.
+        // Border color signals intent (red = cap/not, green = min); text stays white.
           const indicator = (showCap || showMin || showNot) ? (
-          <Box
-            key={`ri-${vk}`}
-            component="span"
+          <CircledDigitBadge
+            value={showNot ? '¬' : showCap ? max! : min!}
             sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: CHIP_ROLL_BADGE_SIZE_PX,
-              height: CHIP_ROLL_BADGE_SIZE_PX,
-              borderRadius: '50%',
-              border: '1.2px solid',
-              lineHeight: 1,
-              fontSize: CHIP_ROLL_BADGE_FONT_SIZE_PX,
-              // No fill per request; ring color indicates intent
-              bgcolor: 'transparent',
+              // Caption context is ~12 px; target the original 15 px circle / 10 px font.
+              // fontSize sets digit size; width/height (em relative to that) set circle outer.
+              // 0.83 × 12 ≈ 10 px digit; 1.5 × 10 = 15 px circle.
+              fontSize: '0.83em',
+              width: '1.5em',
+              height: '1.5em',
+              minWidth: '1.5em',
+              borderColor: (showCap || showNot) ? 'error.main' : 'success.main',
               color: 'common.white',
-              borderColor: (showCap || showNot) ? 'error.main' : (showMin ? 'success.main' : 'text.secondary'),
-              // Subtle baseline alignment
-              position: 'relative',
-              top: '0px',
-              userSelect: 'none',
             }}
-          >
-            {showNot ? '¬' : showCap ? String(max) : (showMin ? String(min) : '')}
-          </Box>
+          />
         ) : null
 
         const tooltipSections: string[] = []
