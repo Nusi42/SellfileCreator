@@ -3762,11 +3762,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteAutoOpenedFromSfc(false)
     // Explicitly opening the Note dialog means "I'm about to tune overrides" — pin a fresh
     // reference now so override changes in the dialog diff against the state at open time.
+    // Only when auto-tracking is on, though: with auto off the user owns the reference and we
+    // must not create one automatically (the explicit Set reference action stays available).
     // (Auto-opens from loading an SFC/preset go through openNoteViewer directly and keep the
     // pre-load reference instead.)
-    gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
+    if (gearDiffAutoMode) gearDiffPinBaselineRef.current(t('gearDiffPinBaseline'))
     openNoteViewer()
-  }, [openNoteViewer, setNoteAutoOpenedFromSfc, t])
+  }, [openNoteViewer, setNoteAutoOpenedFromSfc, gearDiffAutoMode, t])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
   useLayoutEffect(() => { requestDeleteSingleRef.current = requestDeleteSingle })
