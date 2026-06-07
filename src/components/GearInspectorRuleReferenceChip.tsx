@@ -1,6 +1,6 @@
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
-import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
+import { useTheme, useColorScheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
@@ -11,7 +11,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
-import { APP_SCHEME_ALPHAS } from '../lib/themeCustomTokens'
+import { resolveContrastSurfaceScheme, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 
 type GearInspectorRuleReferenceChipProps = {
   match: GearInspectorPreviewMatch | null
@@ -59,6 +59,9 @@ export function GearInspectorRuleReferenceChip({
 }: GearInspectorRuleReferenceChipProps) {
   const { t } = useI18n()
   const theme = useTheme()
+  // Runtime scheme — theme.palette.* is frozen to the default (light) scheme with
+  // cssVariables, so contrast math must read the active scheme explicitly.
+  const { colorScheme } = useColorScheme()
   if (!match) return null
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
@@ -103,16 +106,16 @@ export function GearInspectorRuleReferenceChip({
   // Compute the actual blended chip surface so contrast is checked against the real rendered color.
   // Safeguard source chips use a strong tint (sourceChipSurfaceAlpha ≈ 0.35 dark / 0.12 light);
   // regular match chips use a thinner tint (matchSurfaceAlpha ≈ 0.05 dark / 0.01 light).
-  const schemeAlphas = APP_SCHEME_ALPHAS[theme.palette.mode]
-  const paper = theme.palette.background.paper
+  // Resolve the ACTUAL runtime-scheme surface colors + alphas (not the frozen light palette).
+  const scheme = resolveContrastSurfaceScheme(theme, schemeModeFromColorScheme(colorScheme))
   // Use the caller-provided underlay (e.g. a card outcome tint) as the base so that the
   // chip tint is composited over the already-tinted surface, not over raw paper.
-  const base = underlayBg ?? paper
+  const base = underlayBg ?? scheme.paper
   const chipEffectiveBg = isSafeguardSource
-    ? blendAlpha(base, theme.palette.success.main, schemeAlphas.sourceChipSurfaceAlpha)
+    ? blendAlpha(base, scheme.successMain, scheme.alphas.sourceChipSurfaceAlpha)
     : match.keep
-      ? blendAlpha(base, theme.palette.success.main, schemeAlphas.matchSurfaceAlpha)
-      : blendAlpha(base, theme.palette.error.main, schemeAlphas.matchSurfaceAlpha)
+      ? blendAlpha(base, scheme.successMain, scheme.alphas.matchSurfaceAlpha)
+      : blendAlpha(base, scheme.errorMain, scheme.alphas.matchSurfaceAlpha)
   const textColor = rawTextColor ? ensureContrastOnBg(rawTextColor, chipEffectiveBg) : null
   // Number segment is intentionally lightweight: recipe/safeguard index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.

@@ -24,7 +24,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
 import StarsIcon from '@mui/icons-material/Stars'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM } from '../lib/constants'
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
 import { createElement, useEffect, useMemo, useRef } from 'react'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
@@ -46,6 +46,7 @@ import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '..
 import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
 import { ensureContrastOnBg } from '../lib/colorUtils'
+import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -354,6 +355,9 @@ function CandidateRow({
   t: ReturnType<typeof useI18n>['t']
   theme: Theme
 }) {
+  // Runtime scheme paper for contrast math — theme.palette.* is frozen to light with cssVariables.
+  const { colorScheme } = useColorScheme()
+  const rowSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Determine the actual outcome for this candidate.
   // When previewRow is available its match field is ground truth — use it to drive the icon.
   // Fall back to isWithinQuota only when no preview data exists (e.g. popover opened before
@@ -394,7 +398,7 @@ function CandidateRow({
     ? (ruleAppearance?.fgColor ?? theme.palette.common.white)
     : (previewRow?.match?.recipeFgColor ?? previewRow?.match?.ruleLabelFgColor ?? theme.palette.common.white)
   // Ensure user-authored colors meet WCAG AA contrast against the actual surface background.
-  const matchSourceColor = ensureContrastOnBg(rawMatchSourceColor, theme.palette.background.paper)
+  const matchSourceColor = ensureContrastOnBg(rawMatchSourceColor, rowSurfacePaper)
   const matchSourceDecoration = { displayName: matchSourceRaw ?? '', resolvedColor: matchSourceColor }
   // Slot: icon replaces text when showSlotIcons is on.
   const slotIconType = (showSlotIcons && artifact) ? artifactTypeIconFor(artifact.slot) : null

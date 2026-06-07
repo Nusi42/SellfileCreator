@@ -35,7 +35,7 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
+import { lightAdaptedSubstatFg, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
@@ -178,16 +178,22 @@ function RecipeChip({
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
   // Derive display name and color directly from the first-class appearance field.
-  const bgPaper = theme.palette.background.paper
-  // Composite action.selected (rgba string) over paper for selected chips; transparent → paper.
-  const chipEffBg = compositeOnBase(bgPaper, selected ? theme.palette.action.selected : 'transparent')
-  const nameDecoration = useMemo(() => ({
-    displayName: recipe.appearance?.name ?? '',
-    resolvedColor: recipe.appearance?.fgColor
-      ? ensureContrastOnBg(recipe.appearance.fgColor, chipEffBg)
-      : primaryColor,
-    hasExplicitColor: Boolean(recipe.appearance?.fgColor),
-  }), [recipe.appearance, primaryColor, chipEffBg])
+  // Resolve the ACTUAL runtime scheme palette — theme.palette.* is frozen to light with cssVariables.
+  const schemePalette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
+  // Pull primitive color strings so memo deps stay stable (React Compiler can't track object fields).
+  const bgPaper = schemePalette.background.paper
+  const actionSelected = schemePalette.action.selected
+  const nameDecoration = useMemo(() => {
+    // Composite action.selected (rgba string) over paper for selected chips; transparent → paper.
+    const chipEffBg = compositeOnBase(bgPaper, selected ? actionSelected : 'transparent')
+    return {
+      displayName: recipe.appearance?.name ?? '',
+      resolvedColor: recipe.appearance?.fgColor
+        ? ensureContrastOnBg(recipe.appearance.fgColor, chipEffBg)
+        : primaryColor,
+      hasExplicitColor: Boolean(recipe.appearance?.fgColor),
+    }
+  }, [recipe.appearance, primaryColor, bgPaper, actionSelected, selected])
   // Allow callers to override the export mode for recipe overrides previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? recipe.exportMode
   const isSeparator = exportMode === 'separator'
@@ -357,7 +363,7 @@ function RecipeChip({
                   overflowWrap: 'anywhere',
                   fontWeight: 600,
                   minWidth: 0,
-                  color: ensureContrastOnBg(separatorDecoration.textColor, theme.palette.background.paper),
+                  color: ensureContrastOnBg(separatorDecoration.textColor, bgPaper),
                 }}
               >
                 {separatorDecoration.displayName}

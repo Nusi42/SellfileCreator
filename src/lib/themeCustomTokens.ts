@@ -8,7 +8,8 @@
  * Alpha values live here so there is exactly one number per concept; they are injected
  * as CSS custom properties once via GlobalStyles in main.tsx.
  */
-import { ensureContrastOnBg } from './colorUtils'
+import type { Theme } from '@mui/material/styles'
+import { blendAlpha, ensureContrastOnBg } from './colorUtils'
 
 // ─── CSS variable names ───────────────────────────────────────────────────────
 export const APP_CSS_VAR = {
@@ -70,7 +71,7 @@ export const APP_CSS_VAR = {
 // AppAlphas is typed as a record of every APP_CSS_VAR key → number.
 // TypeScript enforces that both schemes have exactly the same keys as APP_CSS_VAR:
 // adding a CSS var without a corresponding alpha entry is a compile error.
-type AppAlphas = { [K in keyof typeof APP_CSS_VAR]: number }
+export type AppAlphas = { [K in keyof typeof APP_CSS_VAR]: number }
 
 export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppAlphas } = {
   dark: {
@@ -257,6 +258,66 @@ export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.20
 export function lightAdaptedSubstatFg(fg: string | undefined, isLight: boolean): string | undefined {
   if (!fg || !isLight) return fg
   return ensureContrastOnBg(fg, '#ffffff')
+}
+
+// ─── Runtime scheme resolution for JS-side contrast math ─────────────────────
+// CRITICAL: with cssVariables + colorSchemes, theme.palette.* is FROZEN to the
+// default scheme (light). Reading theme.palette.background.paper / success.main
+// in dark mode therefore yields LIGHT-scheme hex values — the wrong surface. Any
+// JS contrast computation (ensureContrastOnBg, blendAlpha) must resolve the actual
+// runtime scheme via these helpers instead. The visual rendering is unaffected
+// because it uses CSS-var tokens (theme.custom.*) that adapt at the CSS layer.
+
+export type SchemeMode = 'light' | 'dark'
+
+// SSOT for the colorScheme→mode convention: useColorScheme() may return undefined
+// during first render; the app's defaultMode is "dark", so undefined resolves to dark.
+export function schemeModeFromColorScheme(colorScheme: string | undefined): SchemeMode {
+  return colorScheme === 'light' ? 'light' : 'dark'
+}
+
+// MUI's CSS-vars theme carries the real per-scheme palettes under colorSchemes, but the
+// base Theme type returned by useTheme() does not surface it. Narrow to the shape we read.
+type ThemeWithColorSchemes = Theme & {
+  colorSchemes?: Partial<Record<SchemeMode, { palette: Theme['palette'] }>>
+}
+
+// Resolve the active scheme's full palette (real per-scheme hex values), falling
+// back to the static palette only if the colorSchemes map is unavailable.
+export function resolveSchemePalette(theme: Theme, mode: SchemeMode): Theme['palette'] {
+  return (theme as ThemeWithColorSchemes).colorSchemes?.[mode]?.palette ?? theme.palette
+}
+
+// Convenience: the active scheme's paper color for the common single-surface case.
+export function resolveSchemePaper(theme: Theme, mode: SchemeMode): string {
+  return resolveSchemePalette(theme, mode).background.paper
+}
+
+export type ContrastSurfaceScheme = {
+  paper: string
+  successMain: string
+  errorMain: string
+  alphas: AppAlphas
+}
+
+// Resolve every surface input needed to recreate a match/source chip background for
+// contrast checking: paper, success/error mains, and the per-scheme alpha set.
+export function resolveContrastSurfaceScheme(theme: Theme, mode: SchemeMode): ContrastSurfaceScheme {
+  const palette = resolveSchemePalette(theme, mode)
+  return {
+    paper: palette.background.paper,
+    successMain: palette.success.main,
+    errorMain: palette.error.main,
+    alphas: APP_SCHEME_ALPHAS[mode],
+  }
+}
+
+// Composite the Gear Inspector card outcome tint over paper for the active scheme.
+// match.keep === false → sell (error) tint, otherwise keep (success) tint, at
+// cardOutcomeTintAlpha. Chips inside the card sit on top of this surface.
+export function resolveCardChipBaseBg(scheme: ContrastSurfaceScheme, keep: boolean | undefined): string {
+  const tint = keep === false ? scheme.errorMain : scheme.successMain
+  return blendAlpha(scheme.paper, tint, scheme.alphas.cardOutcomeTintAlpha)
 }
 
 // ─── TypeScript augmentation ──────────────────────────────────────────────────

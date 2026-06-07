@@ -29,6 +29,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
+import { resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   GLYPH_IGNORE_COLLECTION,
@@ -188,11 +189,13 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
   // Apply contrast adjustment to user-chosen colors; fall back to inherit when unset.
   const rawFgColor = rule.appearance?.fgColor
+  // Resolve the ACTUAL runtime scheme palette — theme.palette.* is frozen to light with cssVariables.
   // Composite action.selected (an rgba string) over paper for selected chips so the
   // contrast check targets the actual rendered surface, not the underlying paper.
+  const schemePalette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
   const chipBg = compositeOnBase(
-    theme.palette.background.paper,
-    isSelected ? theme.palette.action.selected : 'transparent',
+    schemePalette.background.paper,
+    isSelected ? schemePalette.action.selected : 'transparent',
   )
   const resolvedNameColor = rawFgColor
     ? ensureContrastOnBg(rawFgColor, chipBg)

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, ButtonBase, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
-import { keyframes, useTheme } from '@mui/material/styles'
+import { keyframes, useTheme, useColorScheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
@@ -48,6 +48,7 @@ import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeInd
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg } from '../lib/colorUtils'
+import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -160,6 +161,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   'use no memo'
   const { t, lang } = useI18n()
   const theme = useTheme()
+  // Runtime scheme paper for contrast math — theme.palette.* is frozen to light with cssVariables.
+  const { colorScheme } = useColorScheme()
+  const previewSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Reuse the shared disabled opacity so rows dim consistently with chips.
   const disabledOpacity = resolveDisabledOpacity(theme)
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
@@ -1238,7 +1242,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           // Table-cell color is contrast-adjusted for the surface bg; tooltip color stays raw
           // (tooltip has an inverted dark bg in light theme where contrast is not the same concern).
           const tablePreviewRuleColor = previewRuleColor
-            ? ensureContrastOnBg(previewRuleColor, theme.palette.background.paper)
+            ? ensureContrastOnBg(previewRuleColor, previewSurfacePaper)
             : ''
           // Determine whether this row should play the enter or change-pulse animation.
           const ruleKey = computeRuleAnimKey(rule, idx)

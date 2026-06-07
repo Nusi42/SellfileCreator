@@ -46,7 +46,7 @@ import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
-import { APP_SCHEME_ALPHAS } from '../lib/themeCustomTokens'
+import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 // MarkdownTooltip unifies the Gear Inspector's tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -438,7 +438,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const { t, lang } = useI18n()
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
-  const schemeAlphas = APP_SCHEME_ALPHAS[theme.palette.mode]
+  // Resolve the ACTUAL runtime-scheme surface colors (theme.palette.* is frozen to light).
+  const scheme = resolveContrastSurfaceScheme(theme, schemeModeFromColorScheme(colorScheme))
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
@@ -471,12 +472,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Chips inside the card sit on top of this, so blending chip tints over cardChipBaseBg
   // (not raw paper) gives the actual rendered surface for contrast checks.
   const cardChipBaseBg = (highlightKeepSell && match)
-    ? blendAlpha(
-        theme.palette.background.paper,
-        match.keep === false ? theme.palette.error.main : theme.palette.success.main,
-        schemeAlphas.cardOutcomeTintAlpha,
-      )
-    : theme.palette.background.paper
+    ? resolveCardChipBaseBg(scheme, match.keep)
+    : scheme.paper
   // Stable string that changes whenever the match outcome flips (keep/sell/none, recipe index).
   // Used to trigger the match-change pulse animation so the user can see which cards updated.
   const matchFingerprint = match == null ? 'none' : `${match.keep ? 'k' : 's'}:${match.recipeIdx ?? -1}`
@@ -695,7 +692,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     const clickable = allowPrimaryMatchJump
     // Blend the chip tint over the card base (paper + card outcome tint) to get the actual surface.
     const chipBg = typeof entry.keep === 'boolean'
-      ? blendAlpha(cardChipBaseBg, entry.keep ? theme.palette.success.main : theme.palette.error.main, schemeAlphas.matchSurfaceAlpha)
+      ? blendAlpha(cardChipBaseBg, entry.keep ? scheme.successMain : scheme.errorMain, scheme.alphas.matchSurfaceAlpha)
       : cardChipBaseBg
     const textColor = entry.textColor
       ? ensureContrastOnBg(entry.textColor, chipBg)
