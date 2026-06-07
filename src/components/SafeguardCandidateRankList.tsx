@@ -46,7 +46,7 @@ import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '..
 import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
 import { ensureContrastOnBg } from '../lib/colorUtils'
-import { resolveSchemePaper, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
+import { resolveSchemePaper, schemeModeFromColorScheme, adaptSubstatFgOnSurface, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
 import { TINT } from '../lib/colorTints'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
@@ -415,7 +415,7 @@ function CandidateRow({
   // Mainstat: label + color (follows the same stat-button-color flag as substats).
   const mainStatLabel = artifact ? t(statVariantI18nKey(artifact.mainStat)) : null
   const mainStatColor = (useStatButtonColors && artifact)
-    ? (substatColors[artifact.mainStat]?.fg ?? null)
+    ? (adaptSubstatFgOnSurface(substatColors[artifact.mainStat]?.fg, rowSurfacePaper) ?? null)
     : null
 
   // Build cells for present rule substats only, sorted by weighted impact descending.
@@ -443,7 +443,9 @@ function CandidateRow({
       const rolls = previewSubstatRollsByVariant.get(variant) ?? null
       const rollCount = (rolls !== null && rolls > 0) ? rolls : null
       // Apply stat button color when enabled; fall back to muted secondary color.
-      const color = (useStatButtonColors && substatColors[variant]?.fg) ? substatColors[variant].fg : null
+      const color = (useStatButtonColors && substatColors[variant]?.fg)
+        ? (adaptSubstatFgOnSurface(substatColors[variant].fg, rowSurfacePaper) ?? null)
+        : null
       // Mythic bonus is only detectable from NormalizedStat (previewRow); detection-only path has no mythValue.
       const isMythic = (previewArtSub?.mythValue ?? 0) >= MYTHIC_BONUS_MIN
       return [{ variant, label: t(statVariantI18nKey(variant)), rollCount, color, impact, isMythic }]
