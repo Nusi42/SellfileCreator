@@ -127,6 +127,30 @@ export function rankCoverage(code?: number): Set<RankValue> {
   return new Set(values)
 }
 
+/**
+ * Collapse a set of discrete 1..6 values (ranks or rarities) to a single edge-anchored
+ * comparison operator, or null when the explicit list should be shown instead.
+ *
+ * Returns `≥ min` only when the values form a gap-free run reaching the max (6), and `≤ max`
+ * only when they reach the min (1). Lists with gaps, single values, or runs touching neither
+ * edge return null. A full 1..6 run touches both edges and also returns null (means "any").
+ * Shared SSOT for the safeguard chip summary's rank and rarity segments.
+ */
+export function collapseRankRunToOperator(
+  values: readonly number[],
+): { op: '≥' | '≤'; boundary: number } | null {
+  const uniq = [...new Set(values.map(Number))].sort((a, b) => a - b)
+  if (uniq.length < 2) return null
+  const min = uniq[0]!, max = uniq[uniq.length - 1]!
+  // Reject lists with gaps: a contiguous run spans exactly (length - 1).
+  if (max - min !== uniq.length - 1) return null
+  const top = Number(RANK_VALUES[RANK_VALUES.length - 1])  // 6
+  const bottom = Number(RANK_VALUES[0])                    // 1
+  if (max === top && min > bottom) return { op: '≥', boundary: min }
+  if (min === bottom && max < top) return { op: '≤', boundary: max }
+  return null  // full range (both edges) → leave explicit
+}
+
 /** Map a rarity code (0..16) to the set of discrete rarity values 1..6 (Common..Mythical). */
 export function rarityMask(code?: number): number {
   if (code === undefined || code === null) return RARITY_MASK_ALL

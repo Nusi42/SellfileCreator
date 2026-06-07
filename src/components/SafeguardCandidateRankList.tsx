@@ -47,7 +47,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme, adaptSubstatFgOnSurface, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
-import { TINT } from '../lib/colorTints'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -462,17 +462,24 @@ function CandidateRow({
         py: 0.2,
         px: 0.25,
         borderRadius: 0.5,
-        // Four-level opacity based on filter state and whether this row's first match is
-        // specifically this safeguard rule:
-        //   not filtered + this rule  → 1.0  (primary)
-        //   not filtered + other      → 0.75 (secondary, but still unfiltered)
-        //   filtered    + this rule   → 0.55 (filtered but notable)
-        //   filtered    + other       → 0.4  (most dimmed)
+        // Row opacity emphasises candidates whose first match is specifically this rule.
+        // That distinction only exists once preview data is present, so a row with no
+        // previewRow yet stays fully opaque — otherwise a freshly opened popover dims every
+        // row (which, with the now-muted text.secondary base colour, reads as "disabled").
+        // De-emphasis floors are lifted vs the old white-text era so dimmed rows stay legible.
+        // Opacity steps come from the ALPHA ladder (SSOT); full opacity stays the literal 1 (an
+        // extreme, like ALPHA's literal-0 fade-out), the fractional steps snap to ladder values:
+        //   no preview info          → 1     (don't pre-dim before we know the match)
+        //   not filtered + this rule → 1     (primary)
+        //   not filtered + other     → a82   (de-emphasised, still legible)
+        //   filtered    + this rule  → a60   (filtered but notable)
+        //   filtered    + other      → a45   (most dimmed)
         // Use ordinal for identity — safeguardRuleId is legacy and always null in new sessions.
-        // Four-level opacity: primary (1.0) / secondary (0.75) / filtered+match (0.55) / filtered+other (0.4).
-        opacity: (previewRow?.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
-          ? (isFiltered ? 0.55 : 1.0)
-          : (isFiltered ? 0.4 : 0.75),
+        opacity: previewRow == null
+          ? 1
+          : (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
+            ? (isFiltered ? ALPHA.a60 : 1)
+            : (isFiltered ? ALPHA.a45 : ALPHA.a82),
         cursor: onSelectCandidate ? 'pointer' : 'default',
         '&:hover': { bgcolor: TINT.neutralRowZebra },
       }}

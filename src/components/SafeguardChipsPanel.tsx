@@ -60,7 +60,7 @@ import { useChipListDnd } from '../hooks/useChipListDnd'
 import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useShowTagsInChipsPreference } from '../state/builderPreferences'
-import { safeguardActivationColor, safeguardSummaryParts } from './safeguardSummaryParts'
+import { resolveSafeguardActivationTextColor, safeguardSummaryParts } from './safeguardSummaryParts'
 import { ALPHA } from '../lib/colorTints'
 
 
@@ -202,8 +202,9 @@ const SafeguardChip = React.memo(function SafeguardChip({
     ? ensureContrastOnBg(rawFgColor, chipBg)
     : 'inherit'
   const displayName = rawName || fallbackName
-  // Activation badge color and label text.
-  const actColor = safeguardActivationColor(rule.activation)
+  // Activation badge color and label text. Adapt Protect/Anticipate to the actual chip surface
+  // (chipBg already composites the selection tint over paper) so it stays legible in both schemes.
+  const actColor = resolveSafeguardActivationTextColor(rule.activation, schemePalette, chipBg)
   const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
     ? t('safeguardsRuleModeProtectShort')
     : rule.activation === SafeguardRuleActivation.AnticipateGaps

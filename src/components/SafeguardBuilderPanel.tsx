@@ -68,7 +68,7 @@ import type { ColorBlindMode } from '../lib/constants'
 import {
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
 } from '../lib/constants'
-import { APP_CSS_VAR } from '../lib/themeCustomTokens'
+import { APP_CSS_VAR, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 import {
   LEVEL_MILESTONES,
   STAT_VARIANTS_PRIORITY_ROW1,
@@ -143,7 +143,7 @@ import { ColorField } from './ColorField'
 import SafeguardCandidateRankList from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
-import { useTheme } from '@mui/material/styles'
+import { useTheme, useColorScheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
 import {
@@ -161,7 +161,7 @@ import {
 } from './builderPanel/safeguardMultiEditHelpers'
 import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
-import { safeguardActivationColor } from './safeguardSummaryParts'
+import { resolveSafeguardActivationTextColor } from './safeguardSummaryParts'
 import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
@@ -382,6 +382,9 @@ export default function SafeguardBuilderPanel({
     && !multiFactionsField?.dirty
     && Array.from(multiSummary.factionCounts.values()).some(c => c > 0 && c < multiSummary.total)
   const theme = useTheme()
+  // Runtime scheme palette for contrast math — theme.palette.* is frozen to light with cssVariables.
+  const { colorScheme } = useColorScheme()
+  const schemePalette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
@@ -584,9 +587,12 @@ export default function SafeguardBuilderPanel({
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
   // stored rule (empty instructions path above), so the guard lives in one place only.
   const displayActivation = effectiveRule.activation
-  // Mode label color: SSOT via safeguardActivationColor; only shown when collapsed.
-  // Uses displayActivation so the collapsed color reflects the override when one is active.
-  const modeLabelColor = builderCollapsed.action ? safeguardActivationColor(displayActivation) : undefined
+  // Mode label color: SSOT via resolveSafeguardActivationTextColor; only shown when collapsed.
+  // Uses displayActivation so the collapsed color reflects the override when one is active, and
+  // contrast-adapts Protect/Anticipate against the builder paper surface (parallel to the chip).
+  const modeLabelColor = builderCollapsed.action
+    ? resolveSafeguardActivationTextColor(displayActivation, schemePalette, schemePalette.background.paper)
+    : undefined
 
   const slotSelection = combination.slots
   // Section dirty flag: shared by the label color and the X-clear button (SSOT).

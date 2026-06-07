@@ -10,6 +10,12 @@ export const RARITY_ACCENT_COLORS: Readonly<Record<number, string>> = {
   6: '#8b0000',
 }
 
+// Rank/ascension star glyph accents (gear icon overlays). Ascension stars read purple, rank
+// stars/level read gold. Rendered as TEXT/glyphs, so call sites contrast-adapt them against the
+// runtime surface via ensureContrastOnBg (the raw gold is unreadable on light paper).
+export const ASCENSION_STAR_FG = '#a855f7'
+export const RANK_STAR_FG = '#fcd34d'
+
 export function resolveRarityAccentColor(rarity: number | null | undefined): string | undefined {
   if (rarity === null || rarity === undefined) return undefined
   const numeric = Number(rarity)

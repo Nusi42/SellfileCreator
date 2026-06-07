@@ -31,6 +31,9 @@ import {
 import {
   NBSP,
 } from '../lib/constants'
+import { collapseRankRunToOperator } from '../lib/hsfTypes'
+import { ensureContrastOnBg } from '../lib/colorUtils'
+import type { Theme } from '@mui/material/styles'
 import { adaptSubstatFgOnSurface } from '../lib/themeCustomTokens'
 
 const METASET_ICON_BOX_PX = 16
@@ -64,6 +67,25 @@ export function safeguardActivationColor(activation: SafeguardRule['activation']
   if (activation === SafeguardRuleActivation.ProtectExisting) return 'success.main'
   if (activation === SafeguardRuleActivation.AnticipateGaps) return 'warning.main'
   return 'text.disabled'
+}
+
+/**
+ * Contrast-adapted activation text color for a concrete rendered surface.
+ *
+ * Protect/Anticipate resolve the active scheme's success/warning hex and run it through the
+ * WCAG adapter against `surface` so the "Protect ≥ N" / "Anticipate ≥ N" badge stays legible
+ * on tinted (selected) chips in both schemes. "Off" keeps the muted disabled token unchanged —
+ * its low contrast is intentional. SSOT for the adapted badge color in SafeguardChipsPanel and
+ * the collapsed builder mode label in SafeguardBuilderPanel.
+ */
+export function resolveSafeguardActivationTextColor(
+  activation: SafeguardRule['activation'],
+  schemePalette: Theme['palette'],
+  surface: string,
+): string {
+  if (activation === SafeguardRuleActivation.ProtectExisting) return ensureContrastOnBg(schemePalette.success.main, surface)
+  if (activation === SafeguardRuleActivation.AnticipateGaps) return ensureContrastOnBg(schemePalette.warning.main, surface)
+  return schemePalette.text.disabled
 }
 
 export type SafeguardSummaryOpts = {
@@ -153,38 +175,47 @@ export function safeguardSummaryParts(
   // Both rendered in one pipe segment, separated by NBSP, matching the
   // RecipeChip rank+rarity layout. Either half is omitted when not set.
   {
-    const rankLabel = (n: number): string => {
-      const star = (s: number): string => {
-        const tr = opts.t
-        if (!tr) return `${s}★`
-        switch (s) {
-          case 1: return tr('star1')
-          case 2: return tr('star2')
-          case 3: return tr('star3')
-          case 4: return tr('star4')
-          case 5: return tr('star5')
-          case 6: return tr('star6')
-          default: return `${s}★`
-        }
+    // Localized star name for a 1–6 rank value (shared by the explicit list and the collapse path).
+    const star = (s: number): string => {
+      const tr = opts.t
+      if (!tr) return `${s}★`
+      switch (s) {
+        case 1: return tr('star1')
+        case 2: return tr('star2')
+        case 3: return tr('star3')
+        case 4: return tr('star4')
+        case 5: return tr('star5')
+        case 6: return tr('star6')
+        default: return `${s}★`
       }
+    }
+    const rankLabel = (n: number): string => {
       if (n >= 1 && n <= 6) return star(n)
       if (n >= 7 && n <= 11) return `≥${NBSP}${star(n - 6)}`
       if (n >= 12 && n <= 16) return `≤${NBSP}${star(n - 10)}`
       return String(n)
     }
+    // Localized rarity name for a 1–6 rarity value (stored as rank values; 6 = Mythical).
+    // rarityRankValueI18nKey avoids a collision with RarityCode.GTE_Common (also 6).
+    const rarityLabel = (v: number): string => {
+      const rv = Number(v) as RankValue
+      if (opts.t) return opts.t(rarityRankValueI18nKey(rv))
+      return rarityCodeToName(rarityCodeFromRankValue(rv)) || String(rv)
+    }
     const segmentParts: string[] = []
     if (c.ranks && c.ranks.length > 0) {
-      segmentParts.push(c.ranks.map((r) => rankLabel(Number(r))).join('/'))
+      // Collapse a gap-free run reaching an edge (e.g. 4/5/6 → "≥ 4★"); else list explicitly.
+      const collapsed = collapseRankRunToOperator(c.ranks.map(Number))
+      segmentParts.push(collapsed
+        ? `${collapsed.op}${NBSP}${star(collapsed.boundary)}`
+        : c.ranks.map((r) => rankLabel(Number(r))).join('/'))
     }
     if (c.rarities && c.rarities.length > 0) {
-      // Rarities are stored as rank values 1–6 (where 6 = Mythical). Using
-      // rarityRankValueI18nKey avoids a collision: RarityCode.GTE_Common also = 6,
-      // which caused Mythical to render as ">= Common" via the old switch.
-      segmentParts.push(c.rarities.map((r) => {
-        const v = Number(r) as RankValue
-        if (opts.t) return opts.t(rarityRankValueI18nKey(v))
-        return rarityCodeToName(rarityCodeFromRankValue(v)) || String(v)
-      }).join('/'))
+      // Same edge-anchored collapse for rarities (e.g. Epic/Legendary/Mythical → "≥ Epic").
+      const collapsed = collapseRankRunToOperator(c.rarities.map(Number))
+      segmentParts.push(collapsed
+        ? `${collapsed.op}${NBSP}${rarityLabel(collapsed.boundary)}`
+        : c.rarities.map((r) => rarityLabel(Number(r))).join('/'))
     }
     if (segmentParts.length > 0) {
       addText(segmentParts.join(NBSP))

@@ -46,7 +46,7 @@ import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
-import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA } from '../lib/themeCustomTokens'
+import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, resolveSchemePalette, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA } from '../lib/themeCustomTokens'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 // MarkdownTooltip unifies the Gear Inspector's tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -830,10 +830,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       {ascLabel}
     </Box>
   ) : null
+  // Adapt the secondary accent against the actual card surface so the ascension value stays
+  // legible in both schemes (mirrors how the ascension label is contrast-adapted above).
+  const ascValueColor = ensureContrastOnBg(resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme)).secondary.main, cardChipBaseBg)
   const ascValueNode = ascValue ? (
     <Box
       component="span"
-      sx={{ color: (theme.vars?.palette.secondary.main ?? theme.palette.secondary.main), fontWeight: 600, fontSize: ascInlineFontSize }}
+      sx={{ color: ascValueColor, fontWeight: 600, fontSize: ascInlineFontSize }}
     >
       {ascValue}
     </Box>

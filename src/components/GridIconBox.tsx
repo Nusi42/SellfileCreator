@@ -1,5 +1,5 @@
 import { Box } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import LockIcon from '@mui/icons-material/Lock'
 import { createElement, type MouseEvent, type ReactNode } from 'react'
@@ -10,7 +10,9 @@ import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue } from '../lib/types'
 import { ArtifactSet } from '../lib/types'
-import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { resolveRarityAccentColor, ASCENSION_STAR_FG, RANK_STAR_FG } from '../lib/rarityColors'
+import { ensureContrastOnBg } from '../lib/colorUtils'
+import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 // MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
 import MarkdownTooltip from './MarkdownTooltip'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -133,6 +135,14 @@ export default function GridIconBox({
   compactRankDisplay = false,
 }: GridIconBoxProps) {
   const theme = useTheme()
+  // Rank/ascension star glyphs keep their vivid game colours over bare icon art — the star-icon
+  // mode's black drop-shadow provides separation there (a rarity-border-style raw-accent case).
+  // They are only contrast-adapted when they sit on the flat compact-mode paper pill, the one
+  // well-defined surface; adapting against paper everywhere darkens the gold into mud on light art.
+  const { colorScheme } = useColorScheme()
+  const starPillSurface = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
+  const adaptStarFgOnPill = (fg: string): string =>
+    showRankStarsBackground ? ensureContrastOnBg(fg, starPillSurface) : fg
   const slotArtSrc = gearSetSlotIconUrl(
     setId,
     slotId,
@@ -523,12 +533,12 @@ export default function GridIconBox({
             {ascensionStars > 0 ? (
               // Ascended: show ascension count in purple, separator and rank in yellow.
               <>
-                <Box component="span" sx={{ color: '#a855f7' }}>{ascensionStars}</Box>
-                <Box component="span" sx={{ color: '#fcd34d' }}>/{numericRank}</Box>
+                <Box component="span" sx={{ color: adaptStarFgOnPill(ASCENSION_STAR_FG) }}>{ascensionStars}</Box>
+                <Box component="span" sx={{ color: adaptStarFgOnPill(RANK_STAR_FG) }}>/{numericRank}</Box>
               </>
             ) : (
               // Not ascended: rank number followed by a star glyph, both in yellow.
-              <Box component="span" sx={{ color: '#fcd34d' }}>{numericRank}★</Box>
+              <Box component="span" sx={{ color: adaptStarFgOnPill(RANK_STAR_FG) }}>{numericRank}★</Box>
             )}
           </Box>
         ) : (
@@ -549,9 +559,12 @@ export default function GridIconBox({
                 key={`rank-star-${starPos}`}
                 sx={{
                   fontSize: '0.95rem',
-                  color: starPos < ascensionStars ? '#a855f7' : '#fcd34d',
+                  // Raw vivid accents — the drop-shadow below provides separation over icon art.
+                  color: starPos < ascensionStars ? ASCENSION_STAR_FG : RANK_STAR_FG,
                   ml: starPos === 0 ? 0 : '-6px',
-                  filter: 'drop-shadow(0 0 1.5px rgba(0,0,0,0.85))',
+                  // Black separation shadow so the star reads over any icon art; alpha from the SSOT
+                  // ladder (snapped to the nearest a82 step — a standalone shadow, not a gradient stop).
+                  filter: `drop-shadow(0 0 1.5px ${alpha(theme.palette.common.black, ALPHA.a82)})`,
                 }}
               />
             ))}
