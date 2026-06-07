@@ -27,6 +27,7 @@ import {
   type ChampAnalyticsLocation,
 } from '../../lib/champAnalytics'
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
+import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
@@ -398,7 +399,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
       </Box>
 
       {substatStats.length === 0 ? (
-        <Box sx={{ py: 2, opacity: 0.4 }}>
+        <Box sx={{ py: 2, opacity: CHART_EMPTY_PLACEHOLDER_OPACITY }}>
           <Typography variant="caption" color="text.secondary">—</Typography>
         </Box>
       ) : (

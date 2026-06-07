@@ -24,6 +24,7 @@ import {
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
+import { resolveSchemePaper, CHART_DESELECTED_DIM_ALPHA, CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 
 export type DonutSlice = {
   /** Domain ID used to track selection (slot ID, rarity RankValue, set ID, outcome string, etc.). */
@@ -419,6 +420,11 @@ function triggerDonutDance(el: HTMLElement): void {
 }
 
 export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleClickItem, height = 220, colorBySliceId, slotIconById, arcLabel, arcLabelMinAngleDeg = 15, iconSize = 14, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
+  const theme = useTheme()
+  // Slice separators: MUI X defaults the arc stroke to the active paper, which is near-white in
+  // light theme and shows as white gaps between slices. Use the dark-scheme paper as a consistent
+  // DARK separator in both modes (matches the dark-theme look; fixes white gaps in light theme).
+  const arcStrokeColor = resolveSchemePaper(theme, 'dark')
   // Pre-build icon map: String(domainId) → SlotIconAsset.
   // Null when no icon function is provided or when none of the slices have icons.
   // Used by both ArcIconLabel (arc centroid icons) and PieIconTooltip (hover tooltip icons).
@@ -474,7 +480,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
   // No data: render a placeholder so the layout stays stable.
   if (data.length === 0) {
     return (
-      <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.4 }}>
+      <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: CHART_EMPTY_PLACEHOLDER_OPACITY }}>
         <GearAnalyticsChartHeader title={title} collapsed={collapsed} onToggleCollapse={onToggleCollapse} boxSx={{ gap: 0.25 }} />
         <Collapse in={!collapsed} timeout="auto">
           <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -493,7 +499,7 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
     // Prefer the supplied color function; fall back to the generic palette.
     const baseColor = colorBySliceId?.(item.id) ?? SLICE_COLORS[i % SLICE_COLORS.length]!
     // Dim unselected slices when a filter is active.
-    const color = hasSelection && !isSelected ? alpha(baseColor, 0.3) : baseColor
+    const color = hasSelection && !isSelected ? alpha(baseColor, CHART_DESELECTED_DIM_ALPHA) : baseColor
     return { id: item.id, value: item.count, label: item.label, color }
   })
 
@@ -573,7 +579,8 @@ export function GearAnalyticsDonut({ title, data, selected, onToggle, onDoubleCl
             '& .MuiPieChart-arc:hover': {
               filter: `drop-shadow(0 0 4px ${'rgba(var(--mui-palette-primary-mainChannel) / 0.6)'})`,
             },
-            '& .MuiPieChart-arc': { cursor: 'pointer' },
+            // Dark slice separators in both schemes (overrides MUI's near-white light-theme default).
+            '& .MuiPieChart-arc': { cursor: 'pointer', stroke: arcStrokeColor },
           }}
         />
         </Collapse>

@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { alpha, Box, Collapse, Typography, useTheme } from '@mui/material'
+import { CHART_DESELECTED_DIM_ALPHA, CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { easingSnappy, easingSlam, type GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { useEasterEggTrigger } from '../../hooks/useEasterEggTrigger'
@@ -254,7 +255,7 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
   const theme = useTheme()
   const primary = accentColor ?? (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   // alpha() crashes on CSS var strings; use channel token for the default case.
-  const fadedBase = baseColor != null ? alpha(baseColor, 0.35) : 'rgba(var(--mui-palette-primary-lightChannel) / 0.35)'
+  const fadedBase = baseColor != null ? alpha(baseColor, CHART_DESELECTED_DIM_ALPHA) : `rgba(var(--mui-palette-primary-lightChannel) / ${CHART_DESELECTED_DIM_ALPHA})`
   const hasSelection = selected.size > 0
   // Normalise bar widths against the tallest bar in the current data.
   const maxCount = data.reduce((m, e) => Math.max(m, e.count), 0)
@@ -272,7 +273,7 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
 
   if (data.length === 0) {
     return (
-      <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+      <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: CHART_EMPTY_PLACEHOLDER_OPACITY }}>
         <Typography variant="caption" color="text.secondary">{title}: —</Typography>
       </Box>
     )

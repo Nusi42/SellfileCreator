@@ -25,6 +25,7 @@ import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import type { Metaset } from '../../lib/metasets'
 import GearSetsSelect from '../gear/GearSetsSelect'
 import { GearAnalyticsChartHeader } from './GearAnalyticsChartHeader'
+import { CHART_DESELECTED_DIM_ALPHA, CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -476,7 +477,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
 
   if (data.length === 0) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', height: TREEMAP_H, opacity: 0.4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', height: TREEMAP_H, opacity: CHART_EMPTY_PLACEHOLDER_OPACITY }}>
         <Typography variant="caption" color="text.secondary">{title}: —</Typography>
       </Box>
     )
@@ -580,7 +581,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   overflow: 'hidden',
                   borderRadius: '3px',
                   cursor: 'pointer',
-                  opacity: dimmed ? 0.25 : 1,
+                  opacity: dimmed ? CHART_DESELECTED_DIM_ALPHA : 1,
                   transition: 'opacity 0.15s',
                   transform: danceTransform,
                   transformOrigin: 'center center',

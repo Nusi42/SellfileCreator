@@ -253,6 +253,15 @@ export type ThemeCustomTokens = typeof CUSTOM_TOKENS
 export const SUBSTAT_LIGHT_CHIP_BG_ALPHA = 0.11
 export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.20
 
+// Gear-analytics charts: dim level applied to elements NOT in the active cross-filter
+// selection (Bar fill, Donut arc fill, Treemap tile opacity). SSOT so all three charts
+// dim consistently — they previously drifted to 0.35 / 0.30 / 0.25 for the same concept.
+export const CHART_DESELECTED_DIM_ALPHA = 0.3
+
+// Gear-analytics charts: opacity of the "no data" placeholder shown in place of an empty
+// chart. SSOT across Bar/Donut/Treemap/Radar/ChampStats so empty states look uniform.
+export const CHART_EMPTY_PLACEHOLDER_OPACITY = 0.4
+
 // Mythic substat highlight alphas — shared by GearInspectorGridCard and
 // SafeguardCandidateRankList so the mythic chip tint + paper text-shadow stay identical
 // across both surfaces (previously duplicated as local consts in each file).

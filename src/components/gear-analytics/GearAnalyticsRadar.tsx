@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
 import { RadarChart } from '@mui/x-charts/RadarChart'
 import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
+import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useI18n } from '../../lib/i18n'
@@ -396,7 +397,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
 
   if (data.length === 0) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, opacity: 0.4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, opacity: CHART_EMPTY_PLACEHOLDER_OPACITY }}>
         <Typography variant="caption" color="text.secondary">{title}: —</Typography>
       </Box>
     )
