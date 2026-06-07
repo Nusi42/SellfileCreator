@@ -11699,9 +11699,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -11750,9 +11750,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -11805,9 +11805,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -11865,9 +11865,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -11934,9 +11934,9 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -11992,9 +11992,9 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12062,9 +12062,9 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12136,9 +12136,9 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12196,9 +12196,9 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12253,9 +12253,9 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12325,9 +12325,9 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12400,9 +12400,9 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12456,9 +12456,9 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12515,9 +12515,9 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12569,9 +12569,9 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12620,9 +12620,9 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12691,9 +12691,9 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12757,9 +12757,9 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12819,9 +12819,9 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12873,9 +12873,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12924,9 +12924,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -12976,9 +12976,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13026,9 +13026,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13078,9 +13078,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13130,9 +13130,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13182,9 +13182,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13239,9 +13239,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13296,9 +13296,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13353,9 +13353,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13410,9 +13410,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13463,9 +13463,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13518,9 +13518,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13571,9 +13571,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13626,9 +13626,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13679,9 +13679,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13733,9 +13733,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13784,9 +13784,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13839,9 +13839,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13894,9 +13894,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -13951,9 +13951,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14006,9 +14006,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14063,9 +14063,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14118,9 +14118,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14173,9 +14173,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14224,9 +14224,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14279,9 +14279,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14342,9 +14342,9 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14420,9 +14420,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14487,9 +14487,9 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14557,9 +14557,9 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14628,9 +14628,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14695,9 +14695,9 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14763,9 +14763,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14841,9 +14841,9 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14907,9 +14907,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -14979,9 +14979,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15047,9 +15047,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15115,9 +15115,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15183,9 +15183,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15251,9 +15251,9 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15316,9 +15316,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15382,9 +15382,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15448,9 +15448,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15514,9 +15514,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15575,9 +15575,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15636,9 +15636,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15699,9 +15699,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15766,9 +15766,9 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15826,9 +15826,9 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15887,9 +15887,9 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -15956,9 +15956,9 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16023,9 +16023,9 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16087,9 +16087,9 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16155,9 +16155,9 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16225,9 +16225,9 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16288,9 +16288,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16352,9 +16352,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16419,9 +16419,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16492,9 +16492,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16564,9 +16564,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16639,9 +16639,9 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16704,9 +16704,9 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16761,9 +16761,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16818,9 +16818,9 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16887,9 +16887,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -16948,9 +16948,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17009,9 +17009,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17073,9 +17073,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17131,9 +17131,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17189,9 +17189,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17247,9 +17247,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17305,9 +17305,9 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17363,9 +17363,9 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17426,9 +17426,9 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17487,9 +17487,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17539,9 +17539,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17593,9 +17593,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17650,9 +17650,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17707,9 +17707,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17762,9 +17762,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17817,9 +17817,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17873,9 +17873,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17930,9 +17930,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -17987,9 +17987,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -18044,9 +18044,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -18102,9 +18102,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -18161,9 +18161,9 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -18400,9 +18400,9 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
@@ -18478,9 +18478,9 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3.1,
-        "atLevel4": 6.2,
-        "atLevel8": 12.5,
+        "atLevel0": 3,
+        "atLevel4": 6,
+        "atLevel8": 12,
         "atLevel12": 25
       },
       "substats": [
