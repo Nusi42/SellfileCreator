@@ -386,7 +386,7 @@ function savePanelSnap(data: PanelSnapData): void {
 }
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
-  0%   { box-shadow: 0 0 0 0 ${TINT.successPulse}; }
+  0%   { box-shadow: 0 0 0 0 ${TINT.successGlow}; }
   50%  { box-shadow: 0 0 0 8px ${TINT.pulseFadeOut}; transform: scale(1.08); }
   100% { box-shadow: 0 0 0 0 ${TINT.pulseFadeOut}; }
 `

@@ -4645,8 +4645,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         }
                       }}
                       sx={(theme) => {
-                        // CSS channel token adapts per scheme; 0.18 gives a legible hover ring in both dark and light.
-                        const glow = TINT.neutralGlowSoft
+                        // Shared neutral hover-glow tint — adapts per scheme, legible in both dark and light.
+                        const glow = TINT.neutralHoverGlow
                         return {
                           position: 'absolute',
                           top: -13,

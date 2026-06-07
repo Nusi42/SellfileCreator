@@ -33,9 +33,8 @@ export const TINT = {
   neutralDisabledChipBg: 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)', // disabled/neutral chip + icon-less fallback (builderStatusChipStyles, RecipeChip, RulesFilterPanel, BuilderTooltipContent)
   neutralActiveBg:       'rgba(var(--mui-palette-text-primaryChannel) / 0.12)', // neutral active surface (RecipeBuilderPanel)
   neutralBorderFaint:    'rgba(var(--mui-palette-text-primaryChannel) / 0.15)', // faint dashed tooltip border (BuilderTooltipContent)
-  neutralGlowSoft:       'rgba(var(--mui-palette-text-primaryChannel) / 0.18)', // soft hover glow (RecipeBuilderPanel)
   neutralBorderDashed:   'rgba(var(--mui-palette-text-primaryChannel) / 0.2)',  // dashed tooltip border (BuilderTooltipContent)
-  neutralHoverGlow:      'rgba(var(--mui-palette-text-primaryChannel) / 0.22)', // hover glow (RulesFilterPanel, RecipeBuilderPanel)
+  neutralHoverGlow:      'rgba(var(--mui-palette-text-primaryChannel) / 0.22)', // neutral hover glow/ring (RulesFilterPanel roll toggles, RecipeBuilderPanel substat-menu toggles + locked-min-rolls badge)
   neutralOutlineStrong:  'rgba(var(--mui-palette-text-primaryChannel) / 0.4)',  // 2px focus outline (SubstatTargetsTabContent)
   neutralBorderStrong:   'rgba(var(--mui-palette-text-primaryChannel) / 0.45)', // base border (RulesFilterPanel)
   // Neutral borders keyed off text.secondary (slightly softer than text.primary).
@@ -52,7 +51,7 @@ export const TINT = {
   successAddedBorder:      pairTint('success-main', PAIR_ALPHA.diffRowBorder),      // db-diff "added" border — pairs with errorRemovedBorder (GearDbDiffToast)
   successFocusOutline:     'rgba(var(--mui-palette-success-mainChannel) / 0.5)',    // status icon-chip focus outline (builderStatusChipStyles)
   successAddedBorderStrong:pairTint('success-main', PAIR_ALPHA.diffRowBorderStrong),// db-diff "added" border, strong — pairs with errorRemovedBorderStrong (GearDbDiffToast)
-  successPulse:            'rgba(var(--mui-palette-success-mainChannel) / 0.7)',    // start of keep pulse keyframe (NoteDialog)
+  successGlow:             'rgba(var(--mui-palette-success-mainChannel) / 0.6)',    // success accent halo at the shared 0.6 glow strength — keep-pulse keyframe start (NoteDialog)
 
   // ── Error / sell / danger / "removed" state ──────────────────────────────────
   errorRemovedBgFaint:     pairTint('error-main', PAIR_ALPHA.diffRowBg),          // db-diff "removed" row bg — pairs with successAddedBgFaint (GearDbDiffToast)
@@ -74,8 +73,7 @@ export const TINT = {
   primaryTintFaint:      'rgba(var(--mui-palette-primary-mainChannel) / 0.18)', // radar series fill (GearAnalyticsRadar)
   primaryActiveBg:       'rgba(var(--mui-palette-primary-mainChannel) / 0.2)',  // active border bg (NoteDialog)
   primarySelectedShadow: 'rgba(var(--mui-palette-primary-mainChannel) / 0.25)', // selected-card inset shadow (GearInspectorGridCard)
-  primaryGlow:           'rgba(var(--mui-palette-primary-mainChannel) / 0.6)',  // hover/selection glow (GearAnalyticsDonut, RecipeChipsPanel)
-  primaryPulse:          'rgba(var(--mui-palette-primary-mainChannel) / 0.7)',  // start of focus pulse keyframe (App.tsx)
+  primaryGlow:           'rgba(var(--mui-palette-primary-mainChannel) / 0.6)',  // primary halo: hover/selection glow (GearAnalyticsDonut, RecipeChipsPanel, NoteDialog) + focus-pulse keyframe start (App.tsx)
   // Transparent end of any expanding pulse keyframe. Alpha 0 → channel is irrelevant (fully
   // transparent), so a single token serves both the keep (success) and focus (primary) pulses.
   pulseFadeOut:          'rgba(var(--mui-palette-primary-mainChannel) / 0)',    // NoteDialog keep pulse + App.tsx focus pulse fade-out

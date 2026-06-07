@@ -7760,7 +7760,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : null
     if (!btn) return
     const anim = btn.animate([
-      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.primaryPulse}` },
+      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.primaryGlow}` },
       { transform: 'scale(1.12)', boxShadow: `0 0 0 10px ${TINT.pulseFadeOut}` },
       { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.pulseFadeOut}` },
     ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
