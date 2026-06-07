@@ -133,5 +133,5 @@ const hsf = buildHsfFileFromMerged(mergedRules, {
   recipeNames: modifiedRecipes.map((r) => r.appearance?.name ?? null),
 })
 
-writeFileSync(outputPath, JSON.stringify(hsf, null, 2), 'utf8')
+writeFileSync(outputPath, JSON.stringify(hsf), 'utf8')
 console.log(`[gen-release-hsf] '${presetToken}' → ${outputPath}`)
