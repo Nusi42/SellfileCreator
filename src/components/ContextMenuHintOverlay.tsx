@@ -83,7 +83,7 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
         whiteSpace: 'nowrap',
         transform: 'translate3d(0, 0, 0)',
         pointerEvents: 'none',
-        backgroundColor: TINT.floatingPanelBg,
+        backgroundColor: TINT.nearOpaquePaperBg,
         color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
         borderRadius: 999,
         padding: '2px 10px',

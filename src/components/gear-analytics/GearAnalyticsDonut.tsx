@@ -158,7 +158,7 @@ function ArcIconLabel(props: {
 
   // Bitmap image icon (e.g. gear set icons): circular background keeps the icon legible on any arc.
   if ('url' in asset) {
-    const bgFill  = TINT.chartIconChipBg
+    const bgFill  = TINT.chartChipBg
     const bgRadius = (size + 2) / 2
     return (
       <g transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>

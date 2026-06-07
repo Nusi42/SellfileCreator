@@ -2561,7 +2561,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             px: 1.25,
             py: 0.5,
             borderRadius: `${Math.max(2, Math.round(Number(theme.shape.borderRadius) / 2))}px`,
-            backgroundColor: TINT.overlayScrim,
+            backgroundColor: TINT.nearOpaquePaperBg,
             boxShadow: theme.shadows[3],
             color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
             transition: theme.transitions.create(['opacity', 'transform', 'top'], { duration: theme.transitions.duration.shorter }),

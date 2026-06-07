@@ -248,7 +248,7 @@ export default function HeaderActions(props: {
                 transform: 'translateX(-50%)',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
-                backgroundColor: TINT.headerScrim,
+                backgroundColor: TINT.nearOpaquePaperBg,
                 color: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
                 borderRadius: 999,
                 padding: '8px 22px',

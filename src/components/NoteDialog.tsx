@@ -387,8 +387,8 @@ function savePanelSnap(data: PanelSnapData): void {
 // Brief glow pulse played on the auto-push button after each successful push.
 const autoPushBlink = keyframes`
   0%   { box-shadow: 0 0 0 0 ${TINT.successPulse}; }
-  50%  { box-shadow: 0 0 0 8px ${TINT.successFadeOut}; transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 ${TINT.successFadeOut}; }
+  50%  { box-shadow: 0 0 0 8px ${TINT.pulseFadeOut}; transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 ${TINT.pulseFadeOut}; }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 // Duration for all express↔expert mode transitions (ms).

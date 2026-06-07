@@ -30,7 +30,6 @@ export const TINT = {
   neutralBorderDark:     'rgba(var(--mui-palette-text-secondaryChannel) / 0.22)', // preset-editor border, dark scheme (GearInspectorNormalizedPresetEditorMenu)
 
   // ── Success / keep / "added" state ───────────────────────────────────────────
-  successFadeOut:          'rgba(var(--mui-palette-success-mainChannel) / 0)',    // transparent end of keep pulse keyframe (NoteDialog)
   successAddedBgFaint:     'rgba(var(--mui-palette-success-mainChannel) / 0.08)', // db-diff "added" row bg (GearDbDiffToast)
   successSelectedBg:       'rgba(var(--mui-palette-success-mainChannel) / 0.12)', // selected/active chip bg (SafeguardBuilderPanel, RecipeBuilderPanel)
   successStatusChipBg:     'rgba(var(--mui-palette-success-mainChannel) / 0.18)', // status icon-chip active bg (builderStatusChipStyles)
@@ -57,13 +56,15 @@ export const TINT = {
   warningHighlightBg: 'rgba(var(--mui-palette-warning-lightChannel) / 0.9)', // metaset highlight bg (MetasetsDialog)
 
   // ── Primary accent (focus, selection, glow, pulse) ───────────────────────────
-  primaryFadeOut:        'rgba(var(--mui-palette-primary-mainChannel) / 0)',    // transparent end of focus pulse keyframe (App.tsx)
   primaryFocusBg:        'rgba(var(--mui-palette-primary-mainChannel) / 0.08)', // card focus bg, base (GearInspectorGridCard)
   primaryTintFaint:      'rgba(var(--mui-palette-primary-mainChannel) / 0.18)', // radar series fill (GearAnalyticsRadar)
   primaryActiveBg:       'rgba(var(--mui-palette-primary-mainChannel) / 0.2)',  // active border bg (NoteDialog)
   primarySelectedShadow: 'rgba(var(--mui-palette-primary-mainChannel) / 0.25)', // selected-card inset shadow (GearInspectorGridCard)
   primaryGlow:           'rgba(var(--mui-palette-primary-mainChannel) / 0.6)',  // hover/selection glow (GearAnalyticsDonut, RecipeChipsPanel)
   primaryPulse:          'rgba(var(--mui-palette-primary-mainChannel) / 0.7)',  // start of focus pulse keyframe (App.tsx)
+  // Transparent end of any expanding pulse keyframe. Alpha 0 → channel is irrelevant (fully
+  // transparent), so a single token serves both the keep (success) and focus (primary) pulses.
+  pulseFadeOut:          'rgba(var(--mui-palette-primary-mainChannel) / 0)',    // NoteDialog keep pulse + App.tsx focus pulse fade-out
 
   // ── Info accent (card focus ring / highlight chip) ───────────────────────────
   focusBgPeak:      'rgba(var(--mui-palette-info-mainChannel) / 0.07)', // card focus bg, animated peak (GearInspectorGridCard)
@@ -74,13 +75,10 @@ export const TINT = {
   focusRing:        'rgba(var(--mui-palette-info-mainChannel) / 0.3)',  // card focus ring + info chip border (GearInspectorGridCard, GearInspectorOutcomeSummaryChip)
 
   // ── Paper scrims / floating surfaces (paper tint over content) ───────────────
-  tileSeparator:         'rgba(var(--mui-palette-background-paperChannel) / 0.25)', // treemap tile separator border (GearAnalyticsTreemap)
-  cardScrim:             'rgba(var(--mui-palette-background-paperChannel) / 0.65)', // card stats scrim (GearInspectorGridCard)
-  chartChipBg:           'rgba(var(--mui-palette-background-paperChannel) / 0.8)',  // treemap counts chip bg (GearAnalyticsTreemap)
-  chartIconChipBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.82)', // chart icon chip bg (GearAnalyticsDonut, GearAnalyticsTreemap)
-  overlayScrim:          'rgba(var(--mui-palette-background-paperChannel) / 0.9)',  // icon/grid overlay scrim (GridIconBox, GearInspectorItemsGrid)
-  floatingPanelBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.92)', // floating panel bg (ContextMenuHintOverlay)
-  headerScrim:           'rgba(var(--mui-palette-background-paperChannel) / 0.94)', // sticky header scrim (HeaderActions)
+  tileSeparator:     'rgba(var(--mui-palette-background-paperChannel) / 0.25)', // treemap tile separator border (GearAnalyticsTreemap)
+  cardScrim:         'rgba(var(--mui-palette-background-paperChannel) / 0.65)', // card stats scrim (GearInspectorGridCard)
+  chartChipBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.82)', // chip bg on a chart slice/tile — counts chip + icon chip (GearAnalyticsDonut, GearAnalyticsTreemap)
+  nearOpaquePaperBg: 'rgba(var(--mui-palette-background-paperChannel) / 0.92)', // near-opaque paper surface — grid/icon overlay scrim, context-hint panel, sticky header (GridIconBox, GearInspectorItemsGrid, ContextMenuHintOverlay, HeaderActions)
 
   // ── Scrollbar (black/white so it reads on any custom paper) ──────────────────
   scrollTrackLight:      'rgba(var(--mui-palette-common-blackChannel) / 0.04)', // light-scheme scrollbar track (scrollbar.ts)

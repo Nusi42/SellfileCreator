@@ -624,7 +624,7 @@ export function GearAnalyticsTreemap({ title, data, selected, onToggle, iconById
                   >
                     {/* Icon disc — shown when icons are on (or as fallback when tile is too small for a label). */}
                     {showIcon && (
-                      <Box sx={{ bgcolor: TINT.chartIconChipBg, borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
+                      <Box sx={{ bgcolor: TINT.chartChipBg, borderRadius: '50%', p: '2px', lineHeight: 0, display: 'flex' }}>
                         <Box
                           component="img"
                           src={icon!.url}
