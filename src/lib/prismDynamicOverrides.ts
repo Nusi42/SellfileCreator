@@ -229,13 +229,17 @@ function recipeOverrides(Prism: Refractor): void {
         // Constraint keywords optionally followed by one or more ID token arguments (SSOT).
         // The nested grammar gives the keyword its own color while each space-separated
         // bare-word argument is colored as an id-ref (used ID), distinct from id-assign.
+        // `needs` additionally accepts an optional `=on|off` disabled-state suffix.
         'constraint-block': {
             pattern: new RegExp(
-                `\\b(?:${NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS.join('|')})\\b(?:\\s+\\w[\\w-]*)*`
+                `\\b(?:${NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS.join('|')})\\b(?:\\s*=\\s*\\w+)?(?:\\s+\\w[\\w-]*)*`
             ),
             inside: {
                 // The constraint keyword itself.
                 'constraint-kw': wordAlt(NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS),
+                // Optional `=on|off` disabled-state (e.g. `needs=off …`).
+                'boolean-val': { pattern: /(=\s*)(?:on|off|true|false)\b/, lookbehind: true },
+                'operator': /=/,
                 // Each following bare-word is a referenced (used) ID token.
                 'id-ref': /\w[\w-]*/,
             },

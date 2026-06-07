@@ -250,6 +250,36 @@ export const parseGroupType = (raw: string): NoteQuestionGroupType | null => (
   NOTE_OVERRIDES_GROUP_TYPE_MAP[raw.toLowerCase()] ?? null
 )
 
+/**
+ * True if a bare word is a reserved keyword that terminates a token list (constraint
+ * keywords, group types, and the question/fallback keywords). Such a word can be parsed
+ * as `id=<word>`, but it becomes unreferenceable — a later `set <word>` / `needs <word>`
+ * etc. stops the list at the keyword instead of treating it as the id. Mirrors the
+ * terminator checks in `readTokenList`. Used to surface a diagnostic at the `id=` site.
+ */
+export const isReservedOptionIdWord = (word: string): boolean => {
+  const lower = word.toLowerCase()
+  return (NOTE_OVERRIDES_CONSTRAINT_KEYWORDS as readonly string[]).includes(lower)
+    || (NOTE_OVERRIDES_QUESTION_KEYWORDS as readonly string[]).includes(lower)
+    || (NOTE_OVERRIDES_FALLBACK_KEYWORDS as readonly string[]).includes(lower)
+    || parseGroupType(lower) !== null
+}
+
+/** Emit a diagnostic when an `id=` value (bare word) is a reserved keyword. No-op otherwise. */
+const reportReservedIdToken = (
+  valueToken: Token,
+  diags: DiagnosticSpan[] | undefined,
+  blockOffset: number,
+): void => {
+  // Only bare words collide; a quoted `id="set"` stays referenceable via `set "set"`.
+  if (!diags || valueToken.kind !== 'word' || !isReservedOptionIdWord(valueToken.value)) return
+  diags.push({
+    from: blockOffset + valueToken.index,
+    to: blockOffset + valueToken.index + valueToken.value.length,
+    message: `'${valueToken.value}' is a reserved keyword and cannot be used as an id — a constraint like 'set ${valueToken.value}' would not reference it (quote it as id="${valueToken.value}", or rename the id)`,
+  })
+}
+
 // ── Marker options parser ─────────────────────────────────────────────────────
 
 /** Parse the optional [key=value, …] marker options block that follows the marker keyword. */
@@ -485,6 +515,9 @@ export type ParsedOverridesOption<S, O> = {
   // `needs` ids: this option is rendered disabled in the UI until at least one
   // referenced option is selected (purely a UI gate; does not alter selection).
   needsTokens: string[]
+  // Optional `needs=on|off`: the checkbox is shown in this state while the gate is
+  // unmet (display only; the stored value is untouched). null = keep current state.
+  needsDisabledState: 'on' | 'off' | null
   groupType: NoteQuestionGroupType
   // Only populated when groupType === 'slider'.
   sliderParams?: SliderParams
@@ -712,6 +745,7 @@ export function parseOverridesOptionBlock<S, O>(
   const excludedTokens: string[] = []
   const onlyTokens: string[] = []
   const needsTokens: string[] = []
+  let needsDisabledState: 'on' | 'off' | null = null
   let sliderParams: SliderParams | undefined
   // Track header parsing order so constraints stay before the selector block.
   let headerPhase: 'id' | 'default' | 'constraints' = 'id'
@@ -737,6 +771,7 @@ export function parseOverridesOptionBlock<S, O>(
         const valueToken = cursor.peek()
         if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
         cursor.next()
+        reportReservedIdToken(valueToken, diags, blockOffset)
         const candidate = normalizeQuestionToken(valueToken.value)
         if (candidate) explicitToken = candidate
         continue
@@ -760,7 +795,7 @@ export function parseOverridesOptionBlock<S, O>(
     return {
       id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
       isDefault, explicitToken, implicitToken: null,
-      setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens,
+      setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
       groupType, sliderParams,
     }
   }
@@ -784,6 +819,7 @@ export function parseOverridesOptionBlock<S, O>(
       const valueToken = cursor.peek()
       if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
       cursor.next()
+      reportReservedIdToken(valueToken, diags, blockOffset)
       const candidate = normalizeQuestionToken(valueToken.value)
       if (candidate) explicitToken = candidate
       continue
@@ -810,6 +846,15 @@ export function parseOverridesOptionBlock<S, O>(
     }
     if (token.kind === 'word' && token.value.toLowerCase() === 'needs') {
       headerPhase = 'constraints'; cursor.next()
+      // Optional `=on|off`: the displayed checkbox state while the gate is unmet.
+      if (cursor.consumeSymbol('=')) {
+        const stateToken = cursor.peek()
+        if (stateToken && stateToken.kind === 'word') {
+          const value = stateToken.value.toLowerCase()
+          if (value === 'on' || value === 'true') { needsDisabledState = 'on'; cursor.next() }
+          else if (value === 'off' || value === 'false') { needsDisabledState = 'off'; cursor.next() }
+        }
+      }
       readTokenList(cursor, needsTokens); continue
     }
     if (token.kind === 'symbol' && token.value === '+') {
@@ -836,7 +881,7 @@ export function parseOverridesOptionBlock<S, O>(
   return {
     id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
     isDefault, explicitToken, implicitToken,
-    setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens,
+    setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
     groupType,
   }
 }

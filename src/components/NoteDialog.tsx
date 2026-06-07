@@ -1615,7 +1615,7 @@ elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   /
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
-             | "needs" tokenList   // option is disabled in the UI until one referenced id is selected
+             | "needs" ["=" ("on" | "off")] tokenList   // disabled in the UI until a referenced id is selected; =on/off sets the shown state while disabled
 tokenList     := token ("," token)*
 field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
              | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
@@ -2342,14 +2342,17 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
             return (
               <FormGroup key={group.id} sx={optionGroupSx}>
                 {group.options.map((option) => {
-                  // Compute the checked state once per option.
-                  const checked = selectedSet.has(option.id)
                   // `needs` gate: keep this option disabled until at least one of its
                   // required options is selected (e.g. the level-cap / ignore-slots boxes
                   // only matter once a rarity is being kept). Empty list = always enabled.
                   const needsUnmet = option.requiresOptionIds.length > 0
                     && !option.requiresOptionIds.some((id) => selectedSet.has(id))
                   const optionDisabled = !recipeOverridesEditable || needsUnmet
+                  // While the gate is unmet, an optional `needs=on|off` forces the displayed
+                  // state (display only — the stored value is untouched and returns on enable).
+                  const checked = (needsUnmet && option.requiresDisabledState)
+                    ? option.requiresDisabledState === 'on'
+                    : selectedSet.has(option.id)
                   // Keep row spacing consistent across all non-horizontal options.
                   const rowSx = buildOptionRowSx()
                   return (

@@ -5,6 +5,7 @@ import {
   resolveRecipeOverridesEffectiveRecipe,
   applyRecipeOverridesAnswerChange,
   applyQuestionSelectionRules,
+  collectRecipeOverridesDiagnostics,
   applyAllRecipeOverrides,
   NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
   type RecipeOverridesOperation,
@@ -430,6 +431,47 @@ test('needs constraint resolves to requiresOptionIds (UI enable-gate)', () => {
   assert.equal(leg.requiresOptionIds.length, 0)
   // `needs` is a UI gate only — it must NOT alter selection or emit instructions.
   assert.equal(cap.blocks.length, 1)
+  // Without `=state`, the disabled display state is unspecified (keep current).
+  assert.equal(cap.requiresDisabledState, null)
+})
+
+test('id=<reserved keyword> is flagged as a diagnostic', () => {
+  const diag = (line: string) => {
+    const block = `<!-- recipe-overrides\nq "Q"\n${line}\n-->`
+    const diags: { from: number; to: number; message: string }[] = []
+    collectRecipeOverridesDiagnostics(block, 0, diags)
+    return diags
+  }
+  // Bare reserved words (constraint keyword + group-type keyword) are flagged.
+  for (const kw of ['set', 'unset', 'only', 'excl', 'needs', 'cb', 'q']) {
+    const diags = diag(`cb "X" id=${kw} { @all { export=active } }`)
+    assert.equal(diags.length, 1, `id=${kw} should be flagged`)
+    assert.match(diags[0]!.message, /reserved keyword/)
+  }
+  // A quoted reserved id stays referenceable (via quotes) → not flagged.
+  assert.equal(diag('cb "X" id="set" { @all { export=active } }').length, 0)
+  // An ordinary id is fine.
+  assert.equal(diag('cb "X" id=keep_epic { @all { export=active } }').length, 0)
+})
+
+test('needs=on|off captures the displayed-while-disabled state', () => {
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Chaos Ore"',
+    'cb "Keep Epic" id=epic { @all { export=active } }',
+    'cb "Level cap" id=cap needs=off epic { @all { lvl=12-16 } }',
+    'cb "Slots" id=slots needs=on epic { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  const q = resolveRecipeOverridesTags(note).questions[0]!
+  const cap = q.options.find((o) => o.token === 'cap')!
+  const slots = q.options.find((o) => o.token === 'slots')!
+  const epic = q.options.find((o) => o.token === 'epic')!
+  assert.equal(cap.requiresDisabledState, 'off')
+  assert.equal(slots.requiresDisabledState, 'on')
+  // The `=state` does not consume the id list that follows it.
+  assert.deepEqual(new Set(cap.requiresOptionIds), new Set([epic.id]))
+  assert.deepEqual(new Set(slots.requiresOptionIds), new Set([epic.id]))
 })
 
 test('unchecking a tier-forced box keeps the tier\'s other options (no cascade)', () => {

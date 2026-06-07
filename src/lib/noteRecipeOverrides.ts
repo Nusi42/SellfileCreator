@@ -205,6 +205,9 @@ export type NoteQuestionOption = {
   // `needs` ids: the UI renders this option disabled until at least one of these
   // is selected. Empty = always enabled. Purely a UI gate (selection unaffected).
   requiresOptionIds: string[]
+  // Optional `needs=on|off`: displayed checkbox state while the gate is unmet
+  // (display only; stored value untouched). null = keep the current state.
+  requiresDisabledState: 'on' | 'off' | null
   groupType: NoteQuestionGroupType
 }
 
@@ -1570,6 +1573,7 @@ const buildResolvedQuestion = (
       unsetOptionIds,
       excludedOptionIds,
       requiresOptionIds,
+      requiresDisabledState: option.needsDisabledState,
       groupType: option.groupType,
     }
   })
