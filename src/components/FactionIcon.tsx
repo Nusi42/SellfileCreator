@@ -49,7 +49,7 @@ export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: 
           transform: 'translate(-50%, -50%)',
           borderRadius: '50%',
           backgroundColor: theme => alpha(theme.palette.common.white, ALPHA.a12),
-          border: theme => `1px solid ${alpha(theme.palette.common.white, ALPHA.a24)}`,
+          border: theme => `1px solid ${alpha(theme.palette.common.white, ALPHA.a25)}`,
           boxShadow: theme => `0 1px 2px ${alpha(theme.palette.common.black, ALPHA.a60)}`,
           pointerEvents: 'none',
         }}

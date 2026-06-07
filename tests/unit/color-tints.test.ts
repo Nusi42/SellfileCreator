@@ -15,7 +15,7 @@ test('TINT values are well-formed channel-var rgba strings', () => {
 // A couple of stable anchors so accidental edits to the SSOT are caught.
 test('TINT exposes the expected canonical tints', () => {
   assert.equal(TINT.neutralDisabledChipBg, 'rgba(var(--mui-palette-text-primaryChannel) / 0.08)')
-  assert.equal(TINT.nearOpaquePaperBg, 'rgba(var(--mui-palette-background-paperChannel) / 0.92)')
+  assert.equal(TINT.nearOpaquePaperBg, 'rgba(var(--mui-palette-background-paperChannel) / 0.9)')
 })
 
 // ALPHA is a numeric scale in (0,1]; names follow a<NN> and match their value.

@@ -1323,7 +1323,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
                   justifyContent: 'center',
                   // Missing champion images reuse the rarity border to keep the UI consistent.
                   // rarityAccentColor is a real hex — alpha() is safe. Without a rarity, fall back to a neutral channel tint.
-                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, ALPHA.a14) : TINT.neutralIconBgFallback),
+                  bgcolor: shouldShowChampionIcon ? 'transparent' : (rarityAccentColor ? alpha(rarityAccentColor, ALPHA.a15) : TINT.neutralIconBgFallback),
                 }}
               >
                 {shouldShowChampionIcon ? (
