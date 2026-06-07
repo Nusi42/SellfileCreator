@@ -804,7 +804,8 @@ export function summaryParts(
 
         // Indicator: show only one state. Prefer cap; ¬ (not) shown in red like cap.
         // Border color signals intent (red = cap/not, green = min); text stays white.
-          // Caption context is ~12 px; 0.95 × 12 ≈ 11.4 px digit, 1.32 × 11.4 ≈ 15 px circle.
+          // Caption context is ~12 px; 1em digit matches adjacent substat text exactly.
+          // 1.25em circle × 12 px ≈ 15 px — same physical size as before.
           // Digit color matches border color so it stays readable in both light and dark themes
           // (white text on a transparent badge is invisible against a light chip background).
           const indicatorColor = (showCap || showNot) ? 'error.main' : 'success.main'
@@ -812,12 +813,13 @@ export function summaryParts(
           <CircledDigitBadge
             value={showNot ? '¬' : showCap ? max! : min!}
             sx={{
-              fontSize: '0.95em',
-              width: '1.32em',
-              height: '1.32em',
-              minWidth: '1.32em',
+              fontSize: '1em',
+              width: '1.25em',
+              height: '1.25em',
+              minWidth: '1.25em',
               borderColor: indicatorColor,
-              color: indicatorColor,
+              // Pin to text.primary so the digit doesn't inherit the per-stat fg color.
+              color: 'text.primary',
             }}
           />
         ) : null
