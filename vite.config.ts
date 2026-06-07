@@ -8,6 +8,7 @@ import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
 import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
 import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin'
 import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin'
+import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -86,6 +87,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // certain environments when bundling the Vite config for production builds.
   plugins: [
     assetsPlugin(),
+    sfcMinifyPlugin(),
     wasmInlinePlugin(),
     // Suppresses the URL-based WASM auto-load in rule_engine.js so the binary is
     // not double-embedded (main bundle + worker IIFE). See suppressWasmUrlPlugin.ts.
