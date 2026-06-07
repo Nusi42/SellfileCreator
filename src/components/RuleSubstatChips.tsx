@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
 import { alpha, useColorScheme, useTheme } from '@mui/material/styles'
-import { SUBSTAT_LIGHT_CHIP_BG_ALPHA, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA } from '../lib/themeCustomTokens'
+import { SUBSTAT_LIGHT_CHIP_BG_ALPHA, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA, resolveSchemePaper } from '../lib/themeCustomTokens'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
@@ -10,10 +10,8 @@ import {
   statVariantI18nKey,
 } from '../lib/types'
 import { useI18n } from '../lib/i18n'
-import { compositeOnBase, ensureContrastOnBg } from '../lib/colorUtils'
+import { compositeOnBase, ensureContrastOnBg, parseHexWithAlpha } from '../lib/colorUtils'
 import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant, type RuleSubstatDetail } from '../lib/substatDisplay'
-
-const HEX_WITH_OPTIONAL_ALPHA = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
 
 export const SUBSTAT_CHIP_BORDER_RADIUS_PX = 8
 
@@ -32,6 +30,8 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
   // CSS variable token used for the fallback label when no caller-supplied color is given.
   const fallbackLabelColor = params.fallbackLabelColor ?? theme.vars?.palette.text.primary ?? theme.palette.text.primary
   const isLight = params.isLight ?? false
+  // Active-scheme paper for contrast math (theme.palette.* is frozen to light with cssVariables).
+  const schemePaper = resolveSchemePaper(theme, isLight ? 'light' : 'dark')
 
   // Light mode: the dark BG colors (#1E2E14, #2F1A14 etc.) at 25% alpha on white look muddy.
   // Instead derive chip appearance from the vibrant FG color at low opacity for clean tinted chips.
@@ -42,7 +42,7 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
     if (fgColor) {
       const chipBgCss = alpha(fgColor, SUBSTAT_LIGHT_CHIP_BG_ALPHA)
       // Resolve the semi-transparent chip bg to opaque hex so ensureContrastOnBg can check it.
-      const chipBgHex = compositeOnBase(theme.palette.background.paper, chipBgCss)
+      const chipBgHex = compositeOnBase(schemePaper, chipBgCss)
       return {
         chipBg: chipBgCss,
         chipBorder: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA),
@@ -53,27 +53,21 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
 
   const statBgRaw = colorize ? (substatColors[variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variant]) : undefined
   const parsedBg = parseHexWithAlpha(statBgRaw)
-  const labelColor = colorize
+  const rawLabelColor = colorize
     ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? fallbackLabelColor)
     : fallbackLabelColor
   if (parsedBg) {
     // User-configured hex bg: alpha is already encoded in the parsed value.
     const chipBg = alpha(parsedBg.base, parsedBg.alpha)
-    return { labelColor, chipBg, chipBorder: chipBg }
+    // True rendered surface = the semi-transparent chip bg composited over scheme paper.
+    // ensureContrastOnBg returns the label unchanged when it is a CSS-var token (non-colorize).
+    const surface = compositeOnBase(schemePaper, chipBg)
+    return { labelColor: ensureContrastOnBg(rawLabelColor, surface), chipBg, chipBorder: chipBg }
   }
-  // No user color: use CSS channel token so the chip surface adapts per scheme without a JS mode check.
+  // No user bg: use CSS channel token so the chip surface adapts per scheme without a JS mode check.
+  // The fallback tint is a low-alpha neutral over paper, so approximate its surface as scheme paper.
   const chipFallback = theme.custom.substatFallbackBg
-  return { labelColor, chipBg: chipFallback, chipBorder: chipFallback }
-}
-
-function parseHexWithAlpha(value: string | undefined): { base: string; alpha: number } | null {
-  if (typeof value !== 'string') return null
-  const match = HEX_WITH_OPTIONAL_ALPHA.exec(value.trim())
-  if (!match) return null
-  const base = `#${match[1]!.toUpperCase()}`
-  const alphaByte = match[2] ? parseInt(match[2], 16) : 255
-  const alpha = Number.isNaN(alphaByte) ? 1 : Math.max(0, Math.min(1, alphaByte / 255))
-  return { base, alpha }
+  return { labelColor: ensureContrastOnBg(rawLabelColor, schemePaper), chipBg: chipFallback, chipBorder: chipFallback }
 }
 
 /**

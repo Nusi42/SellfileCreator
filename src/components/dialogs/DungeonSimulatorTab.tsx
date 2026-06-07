@@ -8,6 +8,7 @@ import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { useI18n } from '../../lib/i18n'
 import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import type { HsfRuleWithRecipe } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
@@ -270,6 +271,8 @@ export type DungeonSimulatorTabProps = {
 export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const { rules, substatTargets, substatColors, useStatButtonColors, resetKey, isActive } = props
   const { t, lang } = useI18n()
+  // Contrast-correct user/preset stat colors for legible text on the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   // Persisted mode/stage/spotlight selections keep the simulator stable across sessions.
   const [prefs, setPrefs] = useDungeonSimulatorPreferences()
   // Reset all preferences to defaults when the parent increments resetKey.
@@ -1408,7 +1411,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                               const label = t(statVariantI18nKey(entry.main))
                               const value = detailTotalDrops > 0 ? (entry.kept / detailTotalDrops) * 100 : 0
                               const statColor = useStatButtonColors
-                                ? (substatColors[Number(entry.main)]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[Number(entry.main)])
+                                ? adaptStatFg(substatColors[Number(entry.main)]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[Number(entry.main)])
                                 : undefined
                               const genericQuery: DungeonSimGenericQuery | null = detailTarget
                                 ? {

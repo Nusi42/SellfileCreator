@@ -13,6 +13,7 @@ import { useI18n } from '../lib/i18n'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
 import { GlyphPicker } from './GlyphPicker'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import {
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
 } from '../lib/gearInspectorSort'
@@ -68,6 +69,8 @@ export function GearInspectorNormalizedPresetEditorMenu({
   paperRef: paperRefProp,
 }: GearInspectorNormalizedPresetEditorMenuProps) {
   const { t } = useI18n()
+  // Contrast-correct colored MenuItem labels for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   // Reuse a parent-provided ref when nesting under another context menu.
   const localPaperRef = React.useRef<HTMLDivElement | null>(null)
   const paperRef = paperRefProp ?? localPaperRef
@@ -143,7 +146,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
         const weightControlsEnabled = selected
         const statLabel = t(statVariantI18nKey(variant))
         const fg = useStatButtonColors
-          ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant])
+          ? adaptStatFg(substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant])
           : undefined
 
         return (

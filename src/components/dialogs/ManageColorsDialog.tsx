@@ -4,29 +4,12 @@ import { alpha } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
 import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../../lib/types'
 import ColorField from '../ColorField'
+import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
 
-const HEX_ALPHA_PATTERN = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
-
-function parseHexWithAlpha(color: string, fallback: string): { base: string; alpha: number } {
-  const source = typeof color === 'string' && HEX_ALPHA_PATTERN.test(color) ? color : fallback
-  const match = HEX_ALPHA_PATTERN.exec(source)
-  if (!match) {
-    const normalized = HEX_ALPHA_PATTERN.exec(fallback) || null
-    const baseFallback = normalized ? `#${normalized[1]!.toUpperCase()}` : '#E3F2FD'
-    const alphaFallback = normalized && normalized[2] ? Math.max(0, Math.min(1, parseInt(normalized[2], 16) / 255)) : 1
-    return { base: baseFallback, alpha: alphaFallback }
-  }
-  const base = `#${match[1]!.toUpperCase()}`
-  const alpha = match[2] ? Math.max(0, Math.min(1, parseInt(match[2], 16) / 255)) : 1
-  return { base, alpha }
-}
-
-function formatHexWithAlpha(base: string, alpha: number): string {
-  const normalized = Math.max(0, Math.min(1, alpha))
-  const upperBase = base.toUpperCase()
-  if (normalized >= 0.999) return upperBase
-  const alphaHex = Math.round(normalized * 255).toString(16).padStart(2, '0').toUpperCase()
-  return `${upperBase}${alphaHex}`
+// Parse with a fallback color, then a hardcoded light-blue default — wraps the SSOT
+// parseHexWithAlpha (which returns null on bad input) with this dialog's fallback policy.
+function parseHexWithAlphaOr(color: string, fallback: string): { base: string; alpha: number } {
+  return parseHexWithAlpha(color) ?? parseHexWithAlpha(fallback) ?? { base: '#E3F2FD', alpha: 1 }
 }
 
 export default function ManageColorsDialog(props: {
@@ -76,7 +59,7 @@ export default function ManageColorsDialog(props: {
 
             // Live bg from color picker drag (full hex); falls back to committed value.
             const liveBgHex = draftColors[vk]?.bg ?? bg
-            const { base: baseBg, alpha: alphaValue } = parseHexWithAlpha(liveBgHex, defaultBg)
+            const { base: baseBg, alpha: alphaValue } = parseHexWithAlphaOr(liveBgHex, defaultBg)
             const storedPct = Math.round(alphaValue * 100)
             const sliderPct = draftAlphas[vk] ?? storedPct
             const clampedPct = Math.max(0, Math.min(100, sliderPct))
@@ -104,7 +87,7 @@ export default function ManageColorsDialog(props: {
               setDraftColors(prev => ({ ...prev, [vk]: { ...prev[vk], bg: nextColor } }))
             }
             const handleBgColorCommit = (nextColor: string) => {
-              const parsed = parseHexWithAlpha(nextColor, displayHex)
+              const parsed = parseHexWithAlphaOr(nextColor, displayHex)
               const hasExplicitAlpha = nextColor.length === 9
               const nextPct = hasExplicitAlpha ? Math.round(parsed.alpha * 100) : clampedPct
               const normalizedPct = Math.max(0, Math.min(100, nextPct))

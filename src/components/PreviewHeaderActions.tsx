@@ -69,6 +69,7 @@ import {
   type GearInspectorNormalizedPresetId,
 } from '../lib/gearInspectorNormalizedPresets'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -962,10 +963,12 @@ export default function PreviewHeaderActions(props: {
 	    excludeGlyphs: gearInspectorSubstatSort.excludeGlyphs,
 	    normalized: sortNormalizedEffective,
 	  }), [sortFlipped, sortNormalizedEffective, sortPriorities, gearInspectorSubstatSort.direction, gearInspectorSubstatSort.excludeGlyphs])
+  const adaptStatFg = useSubstatFgAdapter()
   const sortStatFg = React.useCallback((variant: StatVariant) => {
     if (!useStatButtonColors) return undefined
-    return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
-  }, [substatColors, useStatButtonColors])
+    // Contrast-correct the user/preset color for legible text on the active scheme's surface.
+    return adaptStatFg(substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant])
+  }, [substatColors, useStatButtonColors, adaptStatFg])
 
 	  const [sortMenuAnchor, setSortMenuAnchor] = React.useState<HTMLElement | null>(null)
 	  const sortMenuOpen = Boolean(sortMenuAnchor)

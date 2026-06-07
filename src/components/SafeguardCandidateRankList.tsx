@@ -36,7 +36,7 @@ import { FactionIcon } from './FactionIcon'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { CircledDigitBadge } from './CircledDigitBadge'
-import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { resolveRarityTextColor } from '../lib/rarityColors'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
@@ -46,7 +46,7 @@ import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '..
 import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
 import { ensureContrastOnBg } from '../lib/colorUtils'
-import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { resolveSchemePaper, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -102,7 +102,6 @@ const CARD_PRIORITY_BASE = 0
 // Mythic substat highlight mirrors GearInspectorGridCard constants.
 const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
 const MYTHIC_SUBSTAT_SHADOW_SPREAD_PX = 1
-const MYTHIC_SUBSTAT_BG_ALPHA = 0.12
 const MYTHIC_SUBSTAT_RADIUS_PX = 4
 // A substat has a mythic bonus when its mythValue component is at least this threshold.
 const MYTHIC_BONUS_MIN = 0.01
@@ -497,7 +496,7 @@ function CandidateRow({
         {showSlotIcons && (
           <Box
             sx={{
-              color: resolveRarityAccentColor(artifact?.rarity) ?? 'text.secondary',
+              color: resolveRarityTextColor(artifact?.rarity, rowSurfacePaper) ?? 'text.secondary',
               lineHeight: 0,
               width: 16,
               height: 16,

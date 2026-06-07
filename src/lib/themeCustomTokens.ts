@@ -253,11 +253,29 @@ export type ThemeCustomTokens = typeof CUSTOM_TOKENS
 export const SUBSTAT_LIGHT_CHIP_BG_ALPHA = 0.11
 export const SUBSTAT_LIGHT_CHIP_BORDER_ALPHA = 0.20
 
-// Adapts a substat fg color for plain text labels on a light-theme surface (no chip bg).
-// Adjusts LCH lightness to the minimum needed for 3:1 contrast against white paper.
-export function lightAdaptedSubstatFg(fg: string | undefined, isLight: boolean): string | undefined {
-  if (!fg || !isLight) return fg
-  return ensureContrastOnBg(fg, '#ffffff')
+// Mythic substat highlight alphas — shared by GearInspectorGridCard and
+// SafeguardCandidateRankList so the mythic chip tint + paper text-shadow stay identical
+// across both surfaces (previously duplicated as local consts in each file).
+export const MYTHIC_SUBSTAT_BG_ALPHA = 0.12
+export const MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA = 0.6
+
+// Adapt a user/preset substat fg color for legible TEXT on an opaque surface, using the
+// SAME WCAG contrast pass as recipe/safeguard name colors. Works in BOTH schemes — the
+// prior light-only helper left dark-mode substat text unadjusted, so colors authored for
+// the opposite scheme could be unreadable. Returns fg unchanged when already sufficient.
+export function adaptSubstatFgOnSurface(fg: string | undefined, surface: string): string | undefined {
+  if (!fg) return fg
+  return ensureContrastOnBg(fg, surface)
+}
+
+// Scheme-resolving convenience: adapt a substat fg against the active scheme's paper.
+// For text rendered directly on the card/paper surface (the common case).
+export function adaptSubstatFgForScheme(
+  fg: string | undefined,
+  theme: Theme,
+  colorScheme: string | undefined,
+): string | undefined {
+  return adaptSubstatFgOnSurface(fg, resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme)))
 }
 
 // ─── Runtime scheme resolution for JS-side contrast math ─────────────────────

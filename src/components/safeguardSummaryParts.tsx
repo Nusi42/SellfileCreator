@@ -31,7 +31,7 @@ import {
 import {
   NBSP,
 } from '../lib/constants'
-import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
+import { adaptSubstatFgOnSurface } from '../lib/themeCustomTokens'
 
 const METASET_ICON_BOX_PX = 16
 import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay } from '../lib/safeguards'
@@ -72,7 +72,8 @@ export type SafeguardSummaryOpts = {
   showFactionIcons: boolean
   showSetIcons: boolean
   showSlotIcons: boolean
-  isLight?: boolean
+  // Active-scheme paper surface for substat text contrast adjustment (both schemes).
+  surfacePaper?: string
   t?: (key: string, params?: Record<string, string | number>) => string
   lang: string
   // When true, suppresses hover tooltips (e.g. substat weight values).
@@ -236,7 +237,7 @@ export function safeguardSummaryParts(
     const sorted = [...c.mainStats].sort(compareVariants)
     const nodes = sorted.map((vk) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-      const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
+      const fg = adaptSubstatFgOnSurface((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.surfacePaper ?? '#ffffff')
       return (
         <Box key={`m-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
           {name}
@@ -269,7 +270,7 @@ export function safeguardSummaryParts(
     const weights = rule.substatWeights ?? {}
     const nodes = sorted.map((vk) => {
       const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-      const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
+      const fg = adaptSubstatFgOnSurface((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.surfacePaper ?? '#ffffff')
       const weight = weights[vk]
       // Show dotted underline when a non-default (≠1) weight is explicitly set.
       const hasCustomWeight = weight !== undefined && weight !== 1

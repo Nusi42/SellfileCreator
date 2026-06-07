@@ -14,6 +14,7 @@ import { useI18n } from '../lib/i18n'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
@@ -47,6 +48,8 @@ export function SubstatTargetsTabContent({
   const theme = useTheme()
   // colorStatTexts drives whether ACC/SPD tokens in help text render in stat colors.
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
+  // Contrast-correct stat token colors for legible text on the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
 
   const substatTargetGridRef = useRef<HTMLDivElement | null>(null)
   // The stored fallback is which star column's values apply when a recipe uses "Any Rank".
@@ -221,7 +224,7 @@ export function SubstatTargetsTabContent({
       const variant = match[1] === 'ACC' ? StatVariant.ACC : StatVariant.SPD
       if (colorStatTexts) {
         // Resolve the foreground color from user's custom map, falling back to palette defaults.
-        const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary
+        const color = adaptStatFg(substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) ?? theme.palette.text.primary
         tokens.push(
           <Box
             key={`${match.index}-${match[1]}`}

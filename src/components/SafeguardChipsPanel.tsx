@@ -224,9 +224,9 @@ const SafeguardChip = React.memo(function SafeguardChip({
       showSlotIcons,
       t,
       lang,
-      isLight: colorScheme === 'light',
+      surfacePaper: schemePalette.background.paper,
     }),
-    [rule, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, colorScheme],
+    [rule, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper],
   )
 
   return (

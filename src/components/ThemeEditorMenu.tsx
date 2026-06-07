@@ -25,7 +25,7 @@ import ColorField from './ColorField'
 import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
-import { hslToHex as hslToHexNorm } from '../lib/colorUtils'
+import { hslDegToHex, hexToHSL, hexToChannelTriplet } from '../lib/colorUtils'
 import { makeManageColorsIcon } from '../lib/icons'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
@@ -33,35 +33,8 @@ import { useI18n } from '../lib/i18n'
 // Composites semi-transparent rgba(255,255,255,alpha) onto a #RRGGBB background
 // to get a solid hex approximation — used for toggle-button swatch fallbacks in dark mode.
 
-// Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
-// Delegates to the shared hslToHex (which uses 0–1 s/l) with scale conversion.
-const hslToHex = (h: number, s: number, l: number): string =>
-  hslToHexNorm(((h % 360) + 360) % 360, s / 100, l / 100)
-
-// Extracts H (0–360), S (0–100), L (0–100) from a #rrggbb hex string. Returns null for invalid input.
-function hexToHSL(hex: string): { h: number; s: number; l: number } | null {
-  if (hex.length < 7) return null
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
-  const l = (max + min) / 2
-  if (d === 0) return { h: 0, s: 0, l: l * 100 }
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-  let h: number
-  if (max === r) h = ((g - b) / d + 6) % 6
-  else if (max === g) h = (b - r) / d + 2
-  else h = (r - g) / d + 4
-  return { h: h * 60, s: s * 100, l: l * 100 }
-}
-
 // Seconds over which the animation blends from the current theme colors into psychedelic targets.
 const WARMUP_SECS = 6
-
-// Converts a #rrggbb hex to the space-separated "R G B" channel string MUI uses.
-function hexToChannel(hex: string): string {
-  return `${parseInt(hex.slice(1, 3), 16)} ${parseInt(hex.slice(3, 5), 16)} ${parseInt(hex.slice(5, 7), 16)}`
-}
 
 // CSS variables written/removed by the psychedelic animation — stable module-level constant
 // so the effect dependency array does not need to list this array.
@@ -376,30 +349,30 @@ export function PsychedelicEffect() {
       const aL = blend * targetAL + (1 - blend) * s.initL
       s.h += speed * dt
       s.t += dt
-      const primary   = hslToHex(s.h,       aS, aL)
-      const success   = hslToHex(s.h + 130, aS, aL)
-      const warning   = hslToHex(s.h + 175, aS, aL)
-      const error     = hslToHex(s.h + 215, aS, aL)
-      const bgDefault = hslToHex(s.h + 260, bgS, bgL)
-      const bgPaper   = hslToHex(s.h + 280, bgS + 5, dark ? bgL + 5 : bgL - 5)
-      const divider   = hslToHex(s.h + 320, 28, dark ? 22 : 70)
-      const selHex    = hslToHex(s.h + 80, aS, aL)
+      const primary   = hslDegToHex(s.h,       aS, aL)
+      const success   = hslDegToHex(s.h + 130, aS, aL)
+      const warning   = hslDegToHex(s.h + 175, aS, aL)
+      const error     = hslDegToHex(s.h + 215, aS, aL)
+      const bgDefault = hslDegToHex(s.h + 260, bgS, bgL)
+      const bgPaper   = hslDegToHex(s.h + 280, bgS + 5, dark ? bgL + 5 : bgL - 5)
+      const divider   = hslDegToHex(s.h + 320, 28, dark ? 22 : 70)
+      const selHex    = hslDegToHex(s.h + 80, aS, aL)
       const selOpacity = dark ? 0.08 : 0.12
       const sr = parseInt(selHex.slice(1, 3), 16)
       const sg = parseInt(selHex.slice(3, 5), 16)
       const sb = parseInt(selHex.slice(5, 7), 16)
       root.style.setProperty('--mui-palette-primary-main',              primary)
-      root.style.setProperty('--mui-palette-primary-mainChannel',       hexToChannel(primary))
+      root.style.setProperty('--mui-palette-primary-mainChannel',       hexToChannelTriplet(primary))
       root.style.setProperty('--mui-palette-success-main',              success)
-      root.style.setProperty('--mui-palette-success-mainChannel',       hexToChannel(success))
+      root.style.setProperty('--mui-palette-success-mainChannel',       hexToChannelTriplet(success))
       root.style.setProperty('--mui-palette-warning-main',              warning)
-      root.style.setProperty('--mui-palette-warning-mainChannel',       hexToChannel(warning))
+      root.style.setProperty('--mui-palette-warning-mainChannel',       hexToChannelTriplet(warning))
       root.style.setProperty('--mui-palette-error-main',                error)
-      root.style.setProperty('--mui-palette-error-mainChannel',         hexToChannel(error))
+      root.style.setProperty('--mui-palette-error-mainChannel',         hexToChannelTriplet(error))
       root.style.setProperty('--mui-palette-background-default',        bgDefault)
-      root.style.setProperty('--mui-palette-background-defaultChannel', hexToChannel(bgDefault))
+      root.style.setProperty('--mui-palette-background-defaultChannel', hexToChannelTriplet(bgDefault))
       root.style.setProperty('--mui-palette-background-paper',          bgPaper)
-      root.style.setProperty('--mui-palette-background-paperChannel',   hexToChannel(bgPaper))
+      root.style.setProperty('--mui-palette-background-paperChannel',   hexToChannelTriplet(bgPaper))
       root.style.setProperty('--mui-palette-divider',                   divider)
       root.style.setProperty('--mui-palette-action-selected',           `rgba(${sr},${sg},${sb},${selOpacity})`)
     }, 40)

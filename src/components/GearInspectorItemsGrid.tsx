@@ -121,10 +121,8 @@ import {
   useGearInspectorGridLayoutMetrics,
   formatGearInspectorRankLabel,
   formatGearInspectorRarityLabel,
-  parseCssColorToRgb,
-  rgbToCss,
-  mixRgb,
 } from './GearInspectorGridCard'
+import { parseCssColorToRgb, rgbToCss, mixRgb } from '../lib/colorUtils'
 
 // Stable sentinel passed to already-revealed cards so scroll events do not trigger re-renders.
 // Revealed cards ignore priorityBase/priorityOrder in their content-ready hook, so this is safe.

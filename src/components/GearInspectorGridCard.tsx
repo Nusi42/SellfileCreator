@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import SellIcon from '@mui/icons-material/Sell'
 import { alpha, keyframes, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
-import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
+import { adaptSubstatFgForScheme } from '../lib/themeCustomTokens'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined'
@@ -33,7 +33,7 @@ import {
   type FactionId,
   StatVariant,
 } from '../lib/types'
-import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { resolveRarityAccentColor, resolveRarityTextColor } from '../lib/rarityColors'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import {
   formatStatNumber,
@@ -46,7 +46,7 @@ import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
 import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
-import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA } from '../lib/themeCustomTokens'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
 // MarkdownTooltip unifies the Gear Inspector's tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -110,12 +110,9 @@ const SKELETON_SUBSTAT_WIDTHS = Array.from(
 const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
 // Shadow spread gives the glow a crisp edge without padding.
 const MYTHIC_SUBSTAT_SHADOW_SPREAD_PX = 1
-// Soft tint keeps mythic bonuses visible against any card tint.
-const MYTHIC_SUBSTAT_BG_ALPHA = 0.12
 // Halo blur radius keeps red-on-red combos legible without overriding text colors.
 const MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX = 2
-// Alpha keeps the halo subtle so the text color remains primary.
-const MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA = 0.6
+// MYTHIC_SUBSTAT_BG_ALPHA + MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA are imported from themeCustomTokens (SSOT).
 // Rounded corners stop the mythic highlight from feeling harsh.
 const MYTHIC_SUBSTAT_RADIUS_PX = 4
 // Shared padding keeps substat text readable against the mythic glow.
@@ -155,69 +152,6 @@ export const GRID_CARD_MATCH_CHANGE_PULSE_MS = 700
 // Exported so GearInspectorItemsGrid can clear the entering-ID set after this window.
 export const GRID_CARD_ENTER_ANIMATION_MS = 220
 
-type Rgb = { r: number; g: number; b: number }
-
-const clamp01 = (value: number): number => (
-  // Clamp ratios so invalid min/max inputs cannot generate invalid CSS colors.
-  Math.max(0, Math.min(1, value))
-)
-
-const parseHexChannel = (value: string): number => {
-  // Hex parsing is tolerant of invalid inputs; callers treat NaN as "parse failed".
-  const parsed = Number.parseInt(value, 16)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
-}
-
-export const parseCssColorToRgb = (color: string): Rgb | null => {
-  // Theme palette values are usually hex, but may be rgb()/rgba(); normalize both.
-  const raw = String(color).trim()
-  if (!raw) return null
-  if (raw.startsWith('#')) {
-    const hex = raw.slice(1)
-    if (hex.length === 3) {
-      // `charAt` returns '' for out-of-range, so we never build "undefinedundefined" strings.
-      const rNibble = hex.charAt(0)
-      const gNibble = hex.charAt(1)
-      const bNibble = hex.charAt(2)
-      const r = parseHexChannel(rNibble + rNibble)
-      const g = parseHexChannel(gNibble + gNibble)
-      const b = parseHexChannel(bNibble + bNibble)
-      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
-      return { r, g, b }
-    }
-    if (hex.length === 6) {
-      const r = parseHexChannel(hex.slice(0, 2))
-      const g = parseHexChannel(hex.slice(2, 4))
-      const b = parseHexChannel(hex.slice(4, 6))
-      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
-      return { r, g, b }
-    }
-    return null
-  }
-  const rgbMatch = raw.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i)
-  if (!rgbMatch) return null
-  const r = Number(rgbMatch[1])
-  const g = Number(rgbMatch[2])
-  const b = Number(rgbMatch[3])
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
-  return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) }
-}
-
-// Exported so the main grid can mix gradient colors for normalized overlays without duplicating the formula.
-export const mixRgb = (low: Rgb, high: Rgb, ratio: number): Rgb => {
-  // Linear interpolation keeps the red→green gradient predictable and cheap to compute.
-  const t = clamp01(ratio)
-  const lerp = (a: number, b: number) => a + ((b - a) * t)
-  return { r: lerp(low.r, high.r), g: lerp(low.g, high.g), b: lerp(low.b, high.b) }
-}
-
-export const rgbToCss = (rgb: Rgb): string => {
-  // Round to integers so the output stays stable between renders.
-  const r = Math.round(Math.max(0, Math.min(255, rgb.r)))
-  const g = Math.round(Math.max(0, Math.min(255, rgb.g)))
-  const b = Math.round(Math.max(0, Math.min(255, rgb.b)))
-  return `rgb(${r}, ${g}, ${b})`
-}
 // Keep the reveal queue short by pruning rows that are multiple viewports away; scrolling back to them re-enqueues a fresh task.
 const GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX = 4_000
 const GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD = 50
@@ -802,7 +736,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const mainInline = mainValue ? t('gearInspectorMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
   const mainVariant = artifact.mainStat?.variant
   const mainColor = useStatButtonColors && typeof mainVariant === 'number'
-    ? lightAdaptedSubstatFg(substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant], colorScheme === 'light')
+    ? adaptSubstatFgForScheme(substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant], theme, colorScheme)
     : undefined
   const glyphDeltaColor = (theme.vars?.palette.success.main ?? theme.palette.success.main)
   // Compact (<=4 columns) cards need explicit per-field alignment for substats.
@@ -825,7 +759,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       const statLabel = t(statVariantI18nKey(stat.variant))
       const statValue = formatStatPreGlyph(stat) || t('gearInspectorValueUnknown')
       const statColor = useStatButtonColors
-        ? lightAdaptedSubstatFg(substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant], colorScheme === 'light')
+        ? adaptSubstatFgForScheme(substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant], theme, colorScheme)
         : undefined
       const glyphMagnitude = Math.abs(Number(stat.glyphValue) || 0)
       const glyphDelta = glyphMagnitude >= 0.01
@@ -887,7 +821,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
   const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
   const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
-    ? lightAdaptedSubstatFg(substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant], colorScheme === 'light')
+    ? adaptSubstatFgForScheme(substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant], theme, colorScheme)
     : undefined
   const ascInlineFontSize = 'calc(100% - 1.5px)'
   const ascLabelNode = ascLabel ? (
@@ -998,7 +932,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
   const championBorderColor = rarityAccentColor ?? (theme.vars?.palette.divider ?? theme.palette.divider)
   // Glyph-only source icons use the accent when available so missing champ icons are easier to spot.
-  const championGlyphColor = rarityAccentColor ?? (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
+  // Contrast-correct it for text legibility (dark-red/purple accents on a dark card otherwise vanish).
+  const championGlyphColor = resolveRarityTextColor(artifact.equippedChampion?.rarity, scheme.paper)
+    ?? (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
   // Mirror the champion dropdown fallback: render the first initial when an avatar image is missing.
   const missingChampionFallbackInitial = (() => {
     const name = artifact.equippedChampion?.name?.trim() ?? ''

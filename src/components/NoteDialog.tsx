@@ -49,6 +49,7 @@ import {
   labelOfVariant,
   STAT_VARIANTS_PRIORITY
 } from '../lib/types'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import RecipeChip from './RecipeChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
@@ -2827,6 +2828,8 @@ function SafeguardSummaryCard({
   substatColors: Record<number, { fg: string; bg: string }>
 }): JSX.Element {
   const theme = useTheme()
+  // Contrast-correct colored stat labels for legible text on the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
   const countMode = sanitizeSafeguardCountMode(rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   // Suppress per-X flags that are redundant given the selected combination filters.
@@ -2893,7 +2896,7 @@ function SafeguardSummaryCard({
       const key = statVariantI18nKey(variant)
       const translated = t(key)
       const label = translated || String(variant)
-      const color = useStatButtonColors ? substatColors[variant]?.fg : undefined
+      const color = useStatButtonColors ? adaptStatFg(substatColors[variant]?.fg) : undefined
       return { label, color, key: String(variant) }
     })
   })()
@@ -2911,7 +2914,7 @@ function SafeguardSummaryCard({
       const key = statVariantI18nKey(variant)
       const translated = t(key)
       const label = translated || String(variant)
-      const color = useStatButtonColors ? substatColors[variant]?.fg : undefined
+      const color = useStatButtonColors ? adaptStatFg(substatColors[variant]?.fg) : undefined
       return { label, color, key: `sub-${variant}` }
     })
   })()

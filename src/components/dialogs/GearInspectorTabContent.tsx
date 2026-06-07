@@ -37,8 +37,8 @@ import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX, GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID, GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SUBSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX, GEAR_INSPECTOR_SET_SELECT_WIDTH_PX, GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX, GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX, GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX, GEAR_INSPECTOR_LEVEL_SELECT_WIDTH_PX, GEAR_INSPECTOR_SELECT_HEIGHT_PX, GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX, GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX, GEAR_INSPECTOR_VIRTUAL_OVERSCAN_PX, GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX, GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX, GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useDisplayPreferences } from '../../state/preferencesState'
-import { useColorScheme, type Theme } from '@mui/material/styles'
-import { lightAdaptedSubstatFg } from '../../lib/themeCustomTokens'
+import { useColorScheme, useTheme, type Theme } from '@mui/material/styles'
+import { adaptSubstatFgOnSurface, resolveSchemePaper, schemeModeFromColorScheme } from '../../lib/themeCustomTokens'
 import type { SystemStyleObject } from '@mui/system'
 import {
   createGearInspectorMath,
@@ -219,6 +219,9 @@ export function GearInspectorTabContent({
 }: GearInspectorTabContentProps) {
   const { t, lang } = useI18n()
   const { colorScheme } = useColorScheme()
+  const theme = useTheme()
+  // Active-scheme paper for substat text contrast (theme.palette.* is frozen to light).
+  const substatSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
@@ -763,7 +766,7 @@ export function GearInspectorTabContent({
     const mainValue = Number(it.main ?? -1)
     const mainOptions = mainOptionsForSlot(it.slot, mainValue)
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
-    const mainColor = mainValue >= 0 ? lightAdaptedSubstatFg(substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue], colorScheme === 'light') : undefined
+    const mainColor = mainValue >= 0 ? adaptSubstatFgOnSurface(substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue], substatSurfacePaper) : undefined
     const levelChipLabel = levelLabel
       ? (manualItem ? levelLabel : t('gearDialogLevelLabel', { level: levelLabel }))
       : t('any')
@@ -788,7 +791,7 @@ export function GearInspectorTabContent({
     )
     const substatSummaries = subEntries.map(([variant, rawValue]) => {
       const numericValue = Number(rawValue) || 0
-      const color = lightAdaptedSubstatFg(substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant], colorScheme === 'light')
+      const color = adaptSubstatFgOnSurface(substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant], substatSurfacePaper)
       return {
         variant,
         label: `${t(statVariantI18nKey(variant))} ${numericValue}`.trim(),
@@ -1561,12 +1564,12 @@ export function GearInspectorTabContent({
                       alignItems: 'center',
                       '& .MuiSelect-select': {
                         ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
-                        color: statButtonBorders ? lightAdaptedSubstatFg(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], colorScheme === 'light') : undefined,
+                        color: statButtonBorders ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
                       },
                     }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                      <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? lightAdaptedSubstatFg(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], colorScheme === 'light') : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                      <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
                   <Stack direction="row" spacing={0.25} sx={{ flex: 1, alignItems: 'center' }}>

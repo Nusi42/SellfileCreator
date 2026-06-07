@@ -35,7 +35,7 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { splitArtifactSetSelections } from '../lib/gearSets/selection'
-import { lightAdaptedSubstatFg, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { adaptSubstatFgOnSurface, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
@@ -225,9 +225,9 @@ function RecipeChip({
       recipeIndex: index,
       tooltipsDisabled: tooltipSuppressed,
       catalogVersion: gearSetCatalogVersion,
-      isLight: colorScheme === 'light',
+      surfacePaper: bgPaper,
     }),
-    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, colorScheme],
+    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper],
   )
   const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -600,7 +600,8 @@ export function summaryParts(
     recipeIndex?: number
     tooltipsDisabled?: boolean
     catalogVersion?: number
-    isLight?: boolean
+    // Active-scheme paper surface for substat text contrast adjustment (both schemes).
+    surfacePaper?: string
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
@@ -755,7 +756,7 @@ export function summaryParts(
     if (v.length > 0) {
       const nodes = v.map((vk) => {
         const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-        const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
+        const fg = adaptSubstatFgOnSurface((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.surfacePaper ?? '#ffffff')
         return (
           <Box key={`m-${vk}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
         )
@@ -779,7 +780,7 @@ export function summaryParts(
       try {
         nodes = sv.map((vk) => {
           const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-          const fg = lightAdaptedSubstatFg((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.isLight ?? false)
+          const fg = adaptSubstatFgOnSurface((opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined, opts.surfacePaper ?? '#ffffff')
         // Render per-substat roll bounds using a compact, readable indicator circle
         // like the Builder’s roll badge, but without fill: a red (cap/not) or green (min/any)
         // outlined circle with the symbol inside.

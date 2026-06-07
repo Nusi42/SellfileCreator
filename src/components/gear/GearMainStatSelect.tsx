@@ -4,6 +4,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, compareVariants, statVariantI18nKey, type StatVariant } from '../../lib/types'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 
 const ANY_SENTINEL = '__main_any'
 
@@ -48,6 +49,8 @@ export function GearMainStatSelect({
   const { t } = useI18n()
   const anyText = anyLabel ?? t('any')
   const isMulti = Boolean(multiple)
+  // Contrast-correct the colored MenuItem labels for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   const normalizedOptions = useMemo(() => {
     const filtered = options.filter((variant) => Number(variant) !== Number(anyValue))
     return filtered.slice().sort(compareVariants)
@@ -71,8 +74,8 @@ export function GearMainStatSelect({
     if (!showBorderColors || isMulti) return undefined
     if (Number(singleValue) === Number(anyValue)) return undefined
     const numeric = Number(singleValue)
-    return colorOverrides?.[numeric]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[numeric]
-  }, [anyValue, colorOverrides, isMulti, showBorderColors, singleValue])
+    return adaptStatFg(colorOverrides?.[numeric]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[numeric])
+  }, [anyValue, colorOverrides, isMulti, showBorderColors, singleValue, adaptStatFg])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -144,7 +147,7 @@ export function GearMainStatSelect({
         <MenuItem
           key={variant}
           value={String(variant)}
-          sx={{ color: showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
+          sx={{ color: showBorderColors ? adaptStatFg(colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
         >
           {t(statVariantI18nKey(variant))}
         </MenuItem>
