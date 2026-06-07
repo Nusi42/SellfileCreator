@@ -10,6 +10,20 @@
  * have the context in one place. `MERGE?` flags distinct values that may be the same concept;
  * `COLLISION` flags equal-looking values that are deliberately different concepts.
  */
+// Keep(success) / sell(error) state PAIRS share one opacity — only the outcome HUE differs, so a
+// single alpha knob keeps each pair in lockstep. The paired tint strings below are built from these
+// (cannot be one TINT token: a token can't be both green and red — but the opacity IS one concept).
+const PAIR_ALPHA = {
+  activeChip: 0.12,          // selected/active condition-chip surface (keep vs sell)
+  activeChipHover: 0.2,      // …its hover
+  diffRowBg: 0.08,           // db-diff added/removed row background
+  diffRowBorder: 0.4,        // db-diff added/removed border
+  diffRowBorderStrong: 0.55, // …strong border variant
+} as const
+// Build a CHANNEL-var rgba string for an outcome channel at one of the shared pair alphas.
+const pairTint = (channel: 'success-main' | 'error-main', a: number): string =>
+  `rgba(var(--mui-palette-${channel}Channel) / ${a})`
+
 export const TINT = {
   // ── Neutral surface overlays (text.primary tint over the page/paper) ─────────
   // A subtle→strong ladder of scheme-neutral tints. MERGE? rowZebra(.04)/headerBg(.06)/
@@ -30,24 +44,24 @@ export const TINT = {
   neutralBorderDark:     'rgba(var(--mui-palette-text-secondaryChannel) / 0.22)', // preset-editor border, dark scheme (GearInspectorNormalizedPresetEditorMenu)
 
   // ── Success / keep / "added" state ───────────────────────────────────────────
-  successAddedBgFaint:     'rgba(var(--mui-palette-success-mainChannel) / 0.08)', // db-diff "added" row bg (GearDbDiffToast)
-  successSelectedBg:       'rgba(var(--mui-palette-success-mainChannel) / 0.12)', // selected/active chip bg (SafeguardBuilderPanel, RecipeBuilderPanel)
-  successStatusChipBg:     'rgba(var(--mui-palette-success-mainChannel) / 0.18)', // status icon-chip active bg (builderStatusChipStyles)
-  successSelectedHover:    'rgba(var(--mui-palette-success-mainChannel) / 0.2)',  // hover for successSelectedBg (SafeguardBuilderPanel, RecipeBuilderPanel)
-  successStatusChipHover:  'rgba(var(--mui-palette-success-mainChannel) / 0.24)', // status icon-chip active hover (builderStatusChipStyles)
-  successAddedBorder:      'rgba(var(--mui-palette-success-mainChannel) / 0.4)',  // db-diff "added" border (GearDbDiffToast)
-  successFocusOutline:     'rgba(var(--mui-palette-success-mainChannel) / 0.5)',  // status icon-chip focus outline (builderStatusChipStyles)
-  successAddedBorderStrong:'rgba(var(--mui-palette-success-mainChannel) / 0.55)', // db-diff "added" border, strong (GearDbDiffToast)
-  successPulse:            'rgba(var(--mui-palette-success-mainChannel) / 0.7)',  // start of keep pulse keyframe (NoteDialog)
+  successAddedBgFaint:     pairTint('success-main', PAIR_ALPHA.diffRowBg),          // db-diff "added" row bg — pairs with errorRemovedBgFaint (GearDbDiffToast)
+  successSelectedBg:       pairTint('success-main', PAIR_ALPHA.activeChip),         // selected/active chip bg — pairs with errorActiveBg (SafeguardBuilderPanel, RecipeBuilderPanel)
+  successStatusChipBg:     'rgba(var(--mui-palette-success-mainChannel) / 0.18)',   // status icon-chip active bg (builderStatusChipStyles)
+  successSelectedHover:    pairTint('success-main', PAIR_ALPHA.activeChipHover),    // hover for successSelectedBg — pairs with errorActiveHover (SafeguardBuilderPanel, RecipeBuilderPanel)
+  successStatusChipHover:  'rgba(var(--mui-palette-success-mainChannel) / 0.24)',   // status icon-chip active hover (builderStatusChipStyles)
+  successAddedBorder:      pairTint('success-main', PAIR_ALPHA.diffRowBorder),      // db-diff "added" border — pairs with errorRemovedBorder (GearDbDiffToast)
+  successFocusOutline:     'rgba(var(--mui-palette-success-mainChannel) / 0.5)',    // status icon-chip focus outline (builderStatusChipStyles)
+  successAddedBorderStrong:pairTint('success-main', PAIR_ALPHA.diffRowBorderStrong),// db-diff "added" border, strong — pairs with errorRemovedBorderStrong (GearDbDiffToast)
+  successPulse:            'rgba(var(--mui-palette-success-mainChannel) / 0.7)',    // start of keep pulse keyframe (NoteDialog)
 
   // ── Error / sell / danger / "removed" state ──────────────────────────────────
-  errorRemovedBgFaint:     'rgba(var(--mui-palette-error-mainChannel) / 0.08)', // db-diff "removed" row bg (GearDbDiffToast)
-  errorActiveBg:           'rgba(var(--mui-palette-error-mainChannel) / 0.12)', // max/sell active chip bg (RecipeBuilderPanel)
-  dangerFlashBg:           'rgba(var(--mui-palette-error-mainChannel) / 0.18)', // delete-all hover + row-change danger bg (RulesFilterPanel, SetsOrderControls)
-  errorActiveHover:        'rgba(var(--mui-palette-error-mainChannel) / 0.2)',  // hover for errorActiveBg (RecipeBuilderPanel)
-  dangerFlashPeak:         'rgba(var(--mui-palette-error-mainChannel) / 0.28)', // peak of delete flash keyframe (RulesFilterPanel, SetsOrderControls)
-  errorRemovedBorder:      'rgba(var(--mui-palette-error-mainChannel) / 0.4)',  // db-diff "removed" border (GearDbDiffToast)
-  errorRemovedBorderStrong:'rgba(var(--mui-palette-error-mainChannel) / 0.55)', // db-diff "removed" border, strong (GearDbDiffToast)
+  errorRemovedBgFaint:     pairTint('error-main', PAIR_ALPHA.diffRowBg),          // db-diff "removed" row bg — pairs with successAddedBgFaint (GearDbDiffToast)
+  errorActiveBg:           pairTint('error-main', PAIR_ALPHA.activeChip),         // max/sell active chip bg — pairs with successSelectedBg (RecipeBuilderPanel)
+  dangerFlashBg:           'rgba(var(--mui-palette-error-mainChannel) / 0.18)',   // delete-all hover + row-change danger bg (RulesFilterPanel, SetsOrderControls)
+  errorActiveHover:        pairTint('error-main', PAIR_ALPHA.activeChipHover),    // hover for errorActiveBg — pairs with successSelectedHover (RecipeBuilderPanel)
+  dangerFlashPeak:         'rgba(var(--mui-palette-error-mainChannel) / 0.28)',   // peak of delete flash keyframe (RulesFilterPanel, SetsOrderControls)
+  errorRemovedBorder:      pairTint('error-main', PAIR_ALPHA.diffRowBorder),      // db-diff "removed" border — pairs with successAddedBorder (GearDbDiffToast)
+  errorRemovedBorderStrong:pairTint('error-main', PAIR_ALPHA.diffRowBorderStrong),// db-diff "removed" border, strong — pairs with successAddedBorderStrong (GearDbDiffToast)
 
   // ── Warning state ─────────────────────────────────────────────────────────────
   warningBgFaint:     'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',  // warning surface (App.tsx)
