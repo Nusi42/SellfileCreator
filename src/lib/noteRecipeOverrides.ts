@@ -1757,6 +1757,11 @@ export const applyQuestionDirectives = (
   preferredId?: string,
   // Option the user explicitly turned OFF this interaction (e.g. a checkbox uncheck).
   removedId?: string,
+  // Option IDs that were explicitly stored by the user (not just derived from defaults or
+  // directives). A foreign `unset` directive may not evict a stored option unless the
+  // directive source is the currently-preferred selection — this lets the user override a
+  // `-token` directive without it silently re-applying on every render.
+  storedOptionIds: Set<string> = new Set(),
 ): string[] => {
   const next = new Set(selection)
   const optionById = new Map(options.map((option) => [option.id, option]))
@@ -1792,6 +1797,12 @@ export const applyQuestionDirectives = (
     })
     option.unsetOptionIds.forEach((id) => {
       if (id === preferredId) return
+      // Do not evict a multi-select option the user explicitly stored unless the
+      // directive source is the very option the user is actively selecting right now
+      // (i.e. option.id === preferredId). This allows a `-token` directive to fire
+      // when the user picks that preset, but not to silently win on subsequent renders
+      // against an answer the user has already pinned.
+      if (storedOptionIds.has(id) && option.id !== preferredId) return
       next.delete(id)
     })
   })
@@ -1840,12 +1851,13 @@ const resolveSelectionWithOptionRules = (
   options: NoteQuestionOption[],
   preferredId?: string,
   removedId?: string,
+  storedOptionIds: Set<string> = new Set(),
 ): string[] => {
   let current = normalizeSelectionOrder(selection, options)
   // Cap iterations so malformed cycles cannot stall parsing.
   const maxPasses = Math.max(8, options.length + groups.length + 2)
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const withDirectives = applyQuestionDirectives(current, options, preferredId, removedId)
+    const withDirectives = applyQuestionDirectives(current, options, preferredId, removedId, storedOptionIds)
     const withExclusions = applyQuestionExclusions(withDirectives, options, preferredId)
     const withFallbacks = applySingleGroupFallbackSelections(withExclusions, groups, options, preferredId)
     const next = normalizeSelectionOrder(withFallbacks, options)
@@ -1860,14 +1872,25 @@ const applyGlobalOptionExclusions = (
   questions: NoteQuestionDefinition[],
   preferredId?: string,
   removedId?: string,
+  // Raw persisted answers used to build the stored-option shield — see applyQuestionDirectives.
+  answers?: NoteRecipeOverridesAnswers | null,
 ): NoteQuestionDefinition[] => {
   // Flatten option/group ordering so conflicts resolve deterministically.
   const allOptions = questions.flatMap((question) => question.options)
   const allGroups = questions.flatMap((question) => question.groups)
   // Collect the currently selected option IDs.
   const selected = questions.flatMap((question) => question.answer)
+  // Build the set of option IDs the user explicitly stored. Cross-question `unset`
+  // directives may not evict these unless the directive source is actively preferred.
+  const storedOptionIds = new Set<string>()
+  if (answers) {
+    questions.forEach((question) => {
+      const stored = answers[question.id]
+      if (Array.isArray(stored)) stored.forEach((id) => storedOptionIds.add(id))
+    })
+  }
   // Resolve directives/exclusions/fallbacks using global option ordering.
-  const resolved = resolveSelectionWithOptionRules(selected, allGroups, allOptions, preferredId, removedId)
+  const resolved = resolveSelectionWithOptionRules(selected, allGroups, allOptions, preferredId, removedId, storedOptionIds)
   // Cache the resolved selection for cheap lookups.
   const resolvedSet = new Set(resolved)
   // Update each question with the globally-resolved selection.
@@ -1996,6 +2019,7 @@ export const parseNoteRecipeOverrides = (
     [...resolved, ...spacerQuestions].sort((a, b) => a.index - b.index),
     preferredId,
     removedId,
+    answers,
   )
 }
 
