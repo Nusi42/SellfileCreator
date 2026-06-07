@@ -93,6 +93,7 @@ import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { TINT } from '../lib/colorTints'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 
 // Filter options bundle metadata for consistent champion icons + rarity borders.
 type GearInspectorChampionOption = {
@@ -608,6 +609,8 @@ function RulesFilterPanel({
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const theme = useTheme()
+  // Contrast-correct colored roll-filter stat labels for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   const gearInspectorRollsState: GearInspectorRollFilterState = state.gearInspectorRolls ?? DEFAULT_RULES_FILTER_STATE.gearInspectorRolls ?? createDefaultGearInspectorRollsState()
   const gearInspectorRollsActive = isGearInspectorRollFilterActive(state.gearInspectorRolls)
   const [gearInspectorRollsAnchorEl, setGearInspectorRollsAnchorEl] = React.useState<HTMLElement | null>(null)
@@ -3738,7 +3741,7 @@ function RulesFilterPanel({
                     const counts = getPerStatCounts(variant)
                     const label = t(statVariantI18nKey(variant))
                     const displayColor = useStatButtonColors
-                      ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
+                      ? (adaptStatFg(substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) ?? theme.palette.text.primary)
                       : undefined
                     const isActive = counts.length > 0
                     return (

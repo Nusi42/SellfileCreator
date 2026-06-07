@@ -27,6 +27,7 @@ import {
   type ChampAnalyticsLocation,
 } from '../../lib/champAnalytics'
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
 import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
@@ -307,6 +308,8 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   const { statButtonBorders } = useDisplayPreferences()
+  // Contrast-correct stat range-row labels for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
 
   // Filter/display state: persisted to localStorage so the user's preference survives reloads.
   const [location, setLocation] = useState<ChampAnalyticsLocation>(readLocation)
@@ -408,7 +411,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
               so that different stat magnitudes (e.g. SPD vs HP flat) are
               independently readable. */}
           {substatStats.map((entry) => (
-            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={statButtonBorders ? substatColors[entry.variant]?.fg : undefined} />
+            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={statButtonBorders ? adaptStatFg(substatColors[entry.variant]?.fg) : undefined} />
           ))}
         </Box>
       )}

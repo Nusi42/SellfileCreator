@@ -10,6 +10,7 @@ import {
   statVariantI18nKey,
   type StatVariant,
 } from '../../lib/types'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 
 // Sentinel option to clear multi-selects back to "Any".
 const ANY_SENTINEL = '__substat_any'
@@ -63,6 +64,8 @@ export function GearSubstatSelect({
   multiple = false,
 }: SubstatSelectProps) {
   const { t } = useI18n()
+  // Contrast-correct colored MenuItem / select-button labels for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   // Localize the placeholder label to match other selectors.
   const anyText = anyLabel ?? t('any')
   // Multi-select toggles a distinct value path + render hook.
@@ -114,8 +117,8 @@ export function GearSubstatSelect({
   const selectedColor = useMemo(() => {
     if (!showBorderColors || isMulti) return undefined
     const numeric = Number(singleValue)
-    return colorOverrides?.[numeric]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[numeric]
-  }, [colorOverrides, isMulti, showBorderColors, singleValue])
+    return adaptStatFg(colorOverrides?.[numeric]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[numeric])
+  }, [colorOverrides, isMulti, showBorderColors, singleValue, adaptStatFg])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -277,7 +280,7 @@ export function GearSubstatSelect({
       {normalizedOptions.map((variant) => {
         const label = t(statVariantI18nKey(variant))
         const selected = isMulti && multiValues.some((value) => Number(value) === Number(variant))
-        const color = showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
+        const color = showBorderColors ? adaptStatFg(colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
         const customControl = renderNormalizedMenuControl?.({ variant, label, selected }) ?? null
         const normalizedControl = customControl ?? renderSelectionBadge(selected)
         return (

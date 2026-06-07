@@ -9,6 +9,7 @@
 import React from 'react'
 import { Box, Collapse, Tooltip, useTheme } from '@mui/material'
 import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearAnalytics'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import type { GearAnalyticsDim } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { useI18n } from '../../lib/i18n'
@@ -47,6 +48,8 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
   const theme = useTheme()
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
+  // Contrast-correct stat axis-label colors for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
   const [substatColors] = useSubstatColors()
 
   return (
@@ -126,7 +129,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                     fontSize: 10,
                     // Use the user-configured stat color; fall back to theme secondary.
                     // Respect the global "color stat texts" preference.
-                    color: statButtonBorders ? (substatColors[variant]?.fg ?? theme.palette.text.secondary) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
+                    color: statButtonBorders ? (adaptStatFg(substatColors[variant]?.fg) ?? theme.palette.text.secondary) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',

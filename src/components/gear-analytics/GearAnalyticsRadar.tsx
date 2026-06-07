@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
 import { RadarChart } from '@mui/x-charts/RadarChart'
 import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
+import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
@@ -172,12 +173,14 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   const { t } = useI18n()
   const { statButtonBorders } = useDisplayPreferences()
   const [substatColors] = useSubstatColors()
+  // Contrast-correct stat axis-label colors for the active scheme's surface.
+  const adaptStatFg = useSubstatFgAdapter()
 
   // Translated label text → configured fg color; rebuilt when substat palette or language changes.
   // Keys match the text rendered by labelFormatter so the MutationObserver can color SVG text nodes.
   const labelColorMap = useMemo(
-    () => new Map(HEATMAP_VARIANTS.map((v) => [t(statVariantI18nKey(v)), substatColors[v]?.fg])),
-    [substatColors, t],
+    () => new Map(HEATMAP_VARIANTS.map((v) => [t(statVariantI18nKey(v)), adaptStatFg(substatColors[v]?.fg)])),
+    [substatColors, t, adaptStatFg],
   )
 
   const chartRef = useRef<HTMLDivElement>(null)
