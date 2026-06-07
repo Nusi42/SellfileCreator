@@ -186,7 +186,7 @@ export const NOTE_OVERRIDES_GROUP_TYPE_MAP: Record<string, NoteQuestionGroupType
 }
 
 /** Word-form constraint keywords (symbolic forms ! + - ^ are handled separately). */
-export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl'] as const
+export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl', 'needs'] as const
 
 /** Boolean logic connectors for compound selector expressions. */
 export const NOTE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
@@ -482,6 +482,9 @@ export type ParsedOverridesOption<S, O> = {
   unsetTokens: string[]
   excludedTokens: string[]
   onlyTokens: string[]
+  // `needs` ids: this option is rendered disabled in the UI until at least one
+  // referenced option is selected (purely a UI gate; does not alter selection).
+  needsTokens: string[]
   groupType: NoteQuestionGroupType
   // Only populated when groupType === 'slider'.
   sliderParams?: SliderParams
@@ -530,7 +533,7 @@ export function readTokenList(cursor: TokenCursor, sink: string[]): void {
     if (token.kind === 'word' && parseGroupType(token.value)) break
     // Stop at the start of a new directive so chained constraints (e.g. `^a -b unset c`)
     // are not swallowed into the current list: a leading '-' marks an unset token, and
-    // the set/unset/excl/only keywords each open their own list.
+    // the set/unset/excl/only/needs keywords each open their own list.
     if (token.kind === 'word' && token.value.startsWith('-')) break
     if (token.kind === 'word'
         && (NOTE_OVERRIDES_CONSTRAINT_KEYWORDS as readonly string[]).includes(token.value.toLowerCase())) break
@@ -708,6 +711,7 @@ export function parseOverridesOptionBlock<S, O>(
   const unsetTokens: string[] = []
   const excludedTokens: string[] = []
   const onlyTokens: string[] = []
+  const needsTokens: string[] = []
   let sliderParams: SliderParams | undefined
   // Track header parsing order so constraints stay before the selector block.
   let headerPhase: 'id' | 'default' | 'constraints' = 'id'
@@ -756,7 +760,7 @@ export function parseOverridesOptionBlock<S, O>(
     return {
       id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
       isDefault, explicitToken, implicitToken: null,
-      setTokens, unsetTokens, excludedTokens, onlyTokens,
+      setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens,
       groupType, sliderParams,
     }
   }
@@ -804,6 +808,10 @@ export function parseOverridesOptionBlock<S, O>(
       headerPhase = 'constraints'; cursor.next()
       readTokenList(cursor, onlyTokens); continue
     }
+    if (token.kind === 'word' && token.value.toLowerCase() === 'needs') {
+      headerPhase = 'constraints'; cursor.next()
+      readTokenList(cursor, needsTokens); continue
+    }
     if (token.kind === 'symbol' && token.value === '+') {
       headerPhase = 'constraints'; cursor.next()
       readTokenList(cursor, setTokens); continue
@@ -828,7 +836,7 @@ export function parseOverridesOptionBlock<S, O>(
   return {
     id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
     isDefault, explicitToken, implicitToken,
-    setTokens, unsetTokens, excludedTokens, onlyTokens,
+    setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens,
     groupType,
   }
 }

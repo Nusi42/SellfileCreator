@@ -202,6 +202,9 @@ export type NoteQuestionOption = {
   setOptionIds: string[]
   unsetOptionIds: string[]
   excludedOptionIds: string[]
+  // `needs` ids: the UI renders this option disabled until at least one of these
+  // is selected. Empty = always enabled. Purely a UI gate (selection unaffected).
+  requiresOptionIds: string[]
   groupType: NoteQuestionGroupType
 }
 
@@ -1547,6 +1550,12 @@ const buildResolvedQuestion = (
       explicitExclusions,
       onlyExclusionsById.get(option.id) ?? [],
     )
+    // Resolve `needs` tokens (UI enable-gate) using the same global/local id maps.
+    const requiresOptionIds = resolveOptionIdsFromTokens(
+      option.needsTokens,
+      globalExplicitTokenMap,
+      implicitTokenMap,
+    )
     return {
       id: option.id,
       label: option.label,
@@ -1560,6 +1569,7 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
+      requiresOptionIds,
       groupType: option.groupType,
     }
   })
@@ -2139,6 +2149,63 @@ export const resolveRecipeOverridesTags = (
     }
   }
   return { questions, instructions, safeguardInstructions }
+}
+
+/**
+ * Merge a single answer change into the stored recipe-overrides answers, mirroring the
+ * dialog's persist + normalize flow (store only non-default answers).
+ *
+ * Fix for the "uncheck cascades unrelated boxes off" bug: on a removal (uncheck), an
+ * option that an account-tier preset force-set via `+`/`set` triggers the resolver's
+ * release-the-forcing-preset path (so the box stays off instead of snapping back). But
+ * releasing the tier also un-forces every OTHER option it set, and those (living in other
+ * questions and not yet stored) would fall back to off. To prevent that, on a removal we
+ * first seed the resolve with the current full resolved selection of every question, so
+ * the released preset's other options are already explicit and survive. Checks
+ * (preferredId, no removal) never release a preset, so they keep the lean prev as-is.
+ */
+export const applyRecipeOverridesAnswerChange = (
+  note: string,
+  prev: NoteRecipeOverridesAnswers,
+  question: NoteQuestionDefinition,
+  nextSelection: readonly string[],
+  preferredId?: string,
+  removedId?: string,
+): NoteRecipeOverridesAnswers => {
+  // Compare the changed question's new selection against its default.
+  const defaultSet = new Set(question.defaultAnswer)
+  const nextSet = new Set(nextSelection)
+  const matchesDefault = defaultSet.size === nextSet.size
+    && Array.from(defaultSet).every((id) => nextSet.has(id))
+  // Keep the stored answer ordered by option definition.
+  const orderedSelection = question.options
+    .filter((option) => nextSet.has(option.id))
+    .map((option) => option.id)
+  const next: NoteRecipeOverridesAnswers = { ...prev }
+  // Uncheck path only: snapshot the current full state so releasing a forcing preset
+  // does not drop unrelated options it set (radios used `preferred`, never `removed`).
+  if (removedId) {
+    const current = resolveRecipeOverridesTags(note, prev)
+    current.questions.forEach((resolved) => { next[resolved.id] = resolved.answer.slice() })
+  }
+  // Default selections are omitted from storage; non-default (incl. empty) are persisted.
+  if (matchesDefault) delete next[question.id]
+  else next[question.id] = orderedSelection
+  // Re-resolve to enforce cross-question directives/exclusions with preferred/removed.
+  const { questions } = resolveRecipeOverridesTags(note, next, preferredId, removedId)
+  // Normalize back to lean storage: keep only answers that differ from their default.
+  const normalized: NoteRecipeOverridesAnswers = {}
+  questions.forEach((resolved) => {
+    const resolvedDefaultSet = new Set(resolved.defaultAnswer)
+    const resolvedSet = new Set(resolved.answer)
+    const resolvedMatchesDefault = resolvedDefaultSet.size === resolvedSet.size
+      && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
+    if (resolvedMatchesDefault) return
+    normalized[resolved.id] = resolved.options
+      .filter((option) => resolvedSet.has(option.id))
+      .map((option) => option.id)
+  })
+  return normalized
 }
 
 const matchesRankSelector = (recipe: BuilderRecipe, selector: RecipeOverridesSelector & { kind: 'rank' }): boolean => {

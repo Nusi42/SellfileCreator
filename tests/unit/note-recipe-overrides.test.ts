@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   resolveRecipeOverridesTags,
   resolveRecipeOverridesEffectiveRecipe,
+  applyRecipeOverridesAnswerChange,
+  applyQuestionSelectionRules,
   applyAllRecipeOverrides,
   NOTE_RECIPE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
   type RecipeOverridesOperation,
@@ -405,6 +407,69 @@ test('explicit checkbox uncheck releases presets that force it on', () => {
   assert.equal(stableChaos?.answer.includes(keepNbrId), false)
   assert.equal(stableAccount?.answer.includes(endgameId), false)
   assert.equal(stableAccount?.answer.includes(lategameId), false)
+})
+
+test('needs constraint resolves to requiresOptionIds (UI enable-gate)', () => {
+  // A "level cap" checkbox depends on at least one rarity being kept.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Chaos Ore"',
+    'cb "Keep Epic" id=epic { @all { export=active } }',
+    'cb "Keep Legendary" id=leg { @all { export=active } }',
+    'cb "Level cap" id=cap needs epic leg { @all { lvl=12-16 } }',
+    '-->',
+  ].join('\n')
+  const res = resolveRecipeOverridesTags(note)
+  const q = res.questions[0]!
+  const epic = q.options.find((o) => o.token === 'epic')!
+  const leg = q.options.find((o) => o.token === 'leg')!
+  const cap = q.options.find((o) => o.token === 'cap')!
+  // The gated option records both referenced ids; the rarities have no gate.
+  assert.deepEqual(new Set(cap.requiresOptionIds), new Set([epic.id, leg.id]))
+  assert.equal(epic.requiresOptionIds.length, 0)
+  assert.equal(leg.requiresOptionIds.length, 0)
+  // `needs` is a UI gate only — it must NOT alter selection or emit instructions.
+  assert.equal(cap.blocks.length, 1)
+})
+
+test('unchecking a tier-forced box keeps the tier\'s other options (no cascade)', () => {
+  // A tier force-sets three options in another question. Unchecking ONE must release the
+  // tier (so the box stays off) WITHOUT dropping the tier's other forced options.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Tier"',
+    'cb "TierA" * id=tiera +ox +oy +oz {}',
+    'cb "TierB" id=tierb {}',
+    '-->',
+    '<!-- recipe-overrides',
+    'q "Options"',
+    'cb "X" id=ox { @all { export=active } }',
+    'cb "Y" id=oy { @all { export=active } }',
+    'cb "Z" id=oz { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  const base = resolveRecipeOverridesTags(note)
+  const tierQ = base.questions[0]!
+  const optsQ = base.questions[1]!
+  const tierA = tierQ.options.find((o) => o.token === 'tiera')!
+  const ox = optsQ.options.find((o) => o.token === 'ox')!
+  const oy = optsQ.options.find((o) => o.token === 'oy')!
+  const oz = optsQ.options.find((o) => o.token === 'oz')!
+  // Default: TierA selected forces ox/oy/oz on.
+  assert.deepEqual(new Set(optsQ.answer), new Set([ox.id, oy.id, oz.id]))
+  // User unchecks X (the dialog runs the within-question rules first, then persists).
+  const ordered = applyQuestionSelectionRules(
+    optsQ.answer.filter((id) => id !== ox.id), optsQ, undefined, ox.id,
+  )
+  const stored = applyRecipeOverridesAnswerChange(note, {}, optsQ, ordered, undefined, ox.id)
+  const after = resolveRecipeOverridesTags(note, stored)
+  const afterOpts = new Set(after.questions[1]!.answer)
+  const afterTier = new Set(after.questions[0]!.answer)
+  // X stays off; Y and Z are preserved (the bug dropped them); the tier is released.
+  assert.equal(afterOpts.has(ox.id), false, 'X stays off')
+  assert.ok(afterOpts.has(oy.id), 'Y preserved')
+  assert.ok(afterOpts.has(oz.id), 'Z preserved')
+  assert.equal(afterTier.has(tierA.id), false, 'tier released so X does not snap back')
 })
 
 test('full lategame/endgame/endgame+ block releases lategame on conflicting yes selections', () => {

@@ -73,6 +73,7 @@ import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } 
 import {
   buildNoteRecipeOverridesSignature,
   applyQuestionSelectionRules,
+  applyRecipeOverridesAnswerChange,
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
@@ -1614,6 +1615,7 @@ elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   /
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+             | "needs" tokenList   // option is disabled in the UI until one referenced id is selected
 tokenList     := token ("," token)*
 field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
              | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
@@ -2342,6 +2344,12 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                 {group.options.map((option) => {
                   // Compute the checked state once per option.
                   const checked = selectedSet.has(option.id)
+                  // `needs` gate: keep this option disabled until at least one of its
+                  // required options is selected (e.g. the level-cap / ignore-slots boxes
+                  // only matter once a rarity is being kept). Empty list = always enabled.
+                  const needsUnmet = option.requiresOptionIds.length > 0
+                    && !option.requiresOptionIds.some((id) => selectedSet.has(id))
+                  const optionDisabled = !recipeOverridesEditable || needsUnmet
                   // Keep row spacing consistent across all non-horizontal options.
                   const rowSx = buildOptionRowSx()
                   return (
@@ -2351,10 +2359,10 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         <Checkbox
                           size="small"
                           checked={checked}
-                          disabled={!recipeOverridesEditable}
+                          disabled={optionDisabled}
                           onChange={(event) => {
-                            // Ignore changes when the question is read-only.
-                            if (!recipeOverridesEditable) return
+                            // Ignore changes when read-only or the needs-gate is unmet.
+                            if (optionDisabled) return
                             // Toggle the option in a new Set instance.
                             const next = new Set(selectedSet)
                             if (event.target.checked) next.add(option.id)
@@ -2380,7 +2388,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         labelColumnCh,
                         layout: isHorizontal ? 'rows' : 'columns',
                       })}
-                      disabled={!recipeOverridesEditable}
+                      disabled={optionDisabled}
                       sx={rowSx}
                     />
                   )
@@ -3518,43 +3526,11 @@ export default function NoteDialog({
     preferredId?: string,
     removedId?: string,
   ) => {
-    // Normalize to sets for default comparisons.
-    const defaultSet = new Set(question.defaultAnswer)
-    const nextSet = new Set(nextSelection)
-    const sameSize = defaultSet.size === nextSet.size
-    const matchesDefault = sameSize && Array.from(defaultSet).every((id) => nextSet.has(id))
-    // Keep answers ordered by option definition.
-    const orderedSelection = question.options
-      .filter((option) => nextSet.has(option.id))
-      .map((option) => option.id)
-    onRecipeOverridesAnswersChange((prev) => {
-      const next = { ...prev }
-      // Default selections are omitted from storage.
-      if (matchesDefault) {
-        delete next[question.id]
-      } else {
-        // Persist non-default answers, including explicit empties.
-        next[question.id] = orderedSelection
-      }
-      // Re-resolve to enforce global exclusions with the preferred/removed option.
-      const { questions } = resolveRecipeOverridesTags(renderNote ?? '', next, preferredId, removedId)
-      const normalized: NoteRecipeOverridesAnswers = {}
-      questions.forEach((resolved) => {
-        // Compare resolved answers against defaults to keep storage lean.
-        const resolvedDefaultSet = new Set(resolved.defaultAnswer)
-        const resolvedSet = new Set(resolved.answer)
-        const resolvedSameSize = resolvedDefaultSet.size === resolvedSet.size
-        const resolvedMatchesDefault = resolvedSameSize
-          && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
-        if (resolvedMatchesDefault) return
-        // Keep storage order aligned with the option definition.
-        const resolvedOrdered = resolved.options
-          .filter((option) => resolvedSet.has(option.id))
-          .map((option) => option.id)
-        normalized[resolved.id] = resolvedOrdered
-      })
-      return normalized
-    })
+    // Delegate the persist + normalize flow (incl. the seed-on-uncheck fix that keeps a
+    // released account tier from cascading unrelated boxes off) to the shared helper.
+    onRecipeOverridesAnswersChange((prev) => applyRecipeOverridesAnswerChange(
+      renderNote ?? '', prev, question, nextSelection, preferredId, removedId,
+    ))
   }, [onRecipeOverridesAnswersChange, renderNote])
   // Resolve safeguard overrides markers — produces both question definitions (for rendering)
   // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange).

@@ -57,7 +57,7 @@ export const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'selector-field':    '#61afef',
   'field':             '#56b6c2',
   'id-assign':         '#f0a757',
-  'constraint-kw':     '#e5c07b',  // word-form: set / unset / only / excl
+  'constraint-kw':     '#e5c07b',  // word-form: set / unset / only / excl / needs
   'constraint-op':     '#e87c3e',  // symbolic-form: ! + - ^ (operator sigil, distinct from keyword)
   'id-ref':            '#c8a96e',
   'logic-kw':          '#61afef',
