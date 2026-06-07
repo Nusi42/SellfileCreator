@@ -481,7 +481,7 @@ function CandidateRow({
         sx={{
           fontFamily: 'monospace',
           fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
-          color: 'common.white',
+          color: 'text.secondary',
           minWidth: 42,  // "#1000" = 5 chars at monospace 0.75rem ≈ 38px
           textAlign: 'right',
           flexShrink: 0,
@@ -583,9 +583,10 @@ function CandidateRow({
                 } : undefined}
               >
                 {cell.label}
-                {/* Roll count badge uses white to match gear inspector card chip rendering. */}
+                {/* Roll-count badge inherits the substat cell color (matches GearInspectorGridCard,
+                    which also lets the digit inherit) so it stays legible in both schemes. */}
                 {cell.rollCount != null && (
-                  <Box component="span" sx={{ color: 'common.white' }}>
+                  <Box component="span">
                     <CircledDigitBadge value={cell.rollCount} />
                   </Box>
                 )}
@@ -604,7 +605,7 @@ function CandidateRow({
           Always rendered (empty when unranked) so badge/match don't shift. */}
       <Typography
         variant="caption"
-        sx={{ fontFamily: 'monospace', fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'common.white', flexShrink: 0, width: 48, textAlign: 'right' }}
+        sx={{ fontFamily: 'monospace', fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.primary', flexShrink: 0, width: 48, textAlign: 'right' }}
       >
         {candidate.candidateRank > 0 ? candidate.score.toFixed(2) : ''}
       </Typography>

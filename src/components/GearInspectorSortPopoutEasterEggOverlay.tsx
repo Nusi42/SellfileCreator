@@ -1,10 +1,21 @@
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { GearInspectorSortPopoutEasterEggOverlayState } from '../hooks/useGearInspectorSortPopoutEasterEgg'
-import { TINT, ALPHA } from '../lib/colorTints'
+
+// THEME-AGNOSTIC gag palette: fixed colors so the easter egg looks identical in light and dark.
+// Intentionally NOT sourced from the MUI palette or the global colorTints SSOT — these gags are a
+// constant joke, not part of the themable surface system. (Only theme.shadows are reused, for
+// elevation.)
+const EGG_SCRIM = 'rgba(0, 0, 0, 0.3)'        // darkens the popout behind the STOP sign
+const EGG_STOP_RED = '#d32f2f'                // STOP-sign octagon fill
+const EGG_STOP_BORDER = '#ffffff'             // STOP-sign white rim
+const EGG_AMBER_BG = 'rgba(237, 108, 2, 0.2)' // "CHILL." banner bg (amber)
+const EGG_AMBER_BORDER = 'rgba(237, 108, 2, 0.55)'
+const EGG_BUBBLE_BG = 'rgba(24, 26, 32, 0.97)'// micro-confirm bubble (fixed dark)
+const EGG_BUBBLE_BORDER = 'rgba(211, 47, 47, 0.6)'
+const EGG_TEXT_LIGHT = '#ffffff'              // text on the red sign / dark bubble
 
 /**
  * Sort popout easter-egg overlays.
@@ -34,18 +45,15 @@ const overlayFadeSx = (visible: boolean) => ({
   transition: 'opacity 220ms cubic-bezier(0.2, 0.9, 0.2, 1)',
 } as const)
 
-const stopSignSx = (theme: Theme, visible: boolean) => ({
+const stopSignSx = (visible: boolean) => ({
   position: 'absolute',
   inset: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   pointerEvents: visible ? 'auto' : 'none',
-  // Light-mode base; dark mode uses a slightly more opaque scrim.
-  backgroundColor: alpha(theme.palette.common.black, ALPHA.a22),
-  ...theme.applyStyles('dark', {
-    backgroundColor: alpha(theme.palette.common.black, ALPHA.a35),
-  }),
+  // Fixed scrim — same darkening in both schemes.
+  backgroundColor: EGG_SCRIM,
   ...overlayFadeSx(visible),
 } as const)
 
@@ -53,8 +61,8 @@ const stopSignOctagonSx = (theme: Theme, phase: 'enter' | 'latched' | 'exit' | '
   width: 140,
   height: 140,
   clipPath: octagonClipPath,
-  backgroundColor: (theme.vars?.palette.error.main ?? theme.palette.error.main),
-  border: `10px solid ${(theme.vars?.palette.common.white ?? theme.palette.common.white)}`,
+  backgroundColor: EGG_STOP_RED,
+  border: `10px solid ${EGG_STOP_BORDER}`,
   boxShadow: theme.shadows[8],
   display: 'flex',
   alignItems: 'center',
@@ -73,13 +81,9 @@ const bannerSx = (theme: Theme, visible: boolean) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  // Light-mode base; dark mode uses slightly stronger warning tints.
-  backgroundColor: TINT.warningFlashBg,
-  border: `1px solid ${TINT.warningBorderSoft}`,
-  ...theme.applyStyles('dark', {
-    backgroundColor: TINT.warningBgStrong,
-    borderColor: TINT.warningGlow,
-  }),
+  // Fixed amber banner — same in both schemes.
+  backgroundColor: EGG_AMBER_BG,
+  border: `1px solid ${EGG_AMBER_BORDER}`,
   boxShadow: theme.shadows[3],
   transform: visible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(0, -10px, 0) scale(0.98)',
   opacity: visible ? 1 : 0,
@@ -101,13 +105,9 @@ const microConfirmBubbleSx = (theme: Theme, visible: boolean, anchor: { x: numbe
   px: 1,
   py: 0.75,
   borderRadius: 12,
-  // Light-mode base; dark mode allows more transparency for the bubble background.
-  backgroundColor: TINT.floatingPanelBgOpaque,
-  border: `1px solid ${TINT.errorBorderSoft}`,
-  ...theme.applyStyles('dark', {
-    backgroundColor: TINT.floatingPanelBg,
-    borderColor: TINT.errorBorderStrong,
-  }),
+  // Fixed dark bubble — same in both schemes.
+  backgroundColor: EGG_BUBBLE_BG,
+  border: `1px solid ${EGG_BUBBLE_BORDER}`,
   boxShadow: theme.shadows[6],
 } as const)
 
@@ -120,7 +120,7 @@ export default function GearInspectorSortPopoutEasterEggOverlay({ state, onMicro
   return (
     <Box sx={overlayRootSx}>
       <Box
-        sx={(theme) => stopSignSx(theme, showStopSign && state.stopSign.blocksClicks)}
+        sx={stopSignSx(showStopSign && state.stopSign.blocksClicks)}
         onClick={(event) => {
           // Eat clicks without closing the menu; this is intentionally rude.
           event.preventDefault()
@@ -137,7 +137,7 @@ export default function GearInspectorSortPopoutEasterEggOverlay({ state, onMicro
             sx={{
               fontWeight: 900,
               letterSpacing: 1,
-              color: 'common.white',
+              color: EGG_TEXT_LIGHT,
               lineHeight: 1,
               userSelect: 'none',
             }}
@@ -165,7 +165,7 @@ export default function GearInspectorSortPopoutEasterEggOverlay({ state, onMicro
           variant="caption"
           sx={{
             fontWeight: 800,
-            color: 'text.primary',
+            color: EGG_TEXT_LIGHT,
             userSelect: 'none',
             whiteSpace: 'nowrap',
           }}

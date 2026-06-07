@@ -48,16 +48,12 @@ export const TINT = {
   errorActiveHover:        'rgba(var(--mui-palette-error-mainChannel) / 0.2)',  // hover for errorActiveBg (RecipeBuilderPanel)
   dangerFlashPeak:         'rgba(var(--mui-palette-error-mainChannel) / 0.28)', // peak of delete flash keyframe (RulesFilterPanel, SetsOrderControls)
   errorRemovedBorder:      'rgba(var(--mui-palette-error-mainChannel) / 0.4)',  // db-diff "removed" border (GearDbDiffToast)
-  errorBorderSoft:         'rgba(var(--mui-palette-error-mainChannel) / 0.5)',  // easter-egg rage border, soft (GearInspectorSortPopoutEasterEggOverlay)
   errorRemovedBorderStrong:'rgba(var(--mui-palette-error-mainChannel) / 0.55)', // db-diff "removed" border, strong (GearDbDiffToast)
-  errorBorderStrong:       'rgba(var(--mui-palette-error-mainChannel) / 0.6)',  // easter-egg rage border, strong (GearInspectorSortPopoutEasterEggOverlay)
 
   // ── Warning state ─────────────────────────────────────────────────────────────
   warningBgFaint:     'rgba(var(--mui-palette-warning-mainChannel) / 0.1)',  // warning surface (App.tsx)
-  warningFlashBg:     'rgba(var(--mui-palette-warning-mainChannel) / 0.18)', // row-change pulse bg (HsfRulesTable) + easter-egg bg (overlay)
-  warningBgStrong:    'rgba(var(--mui-palette-warning-mainChannel) / 0.24)', // easter-egg bg, strong (overlay)
-  warningBorderSoft:  'rgba(var(--mui-palette-warning-mainChannel) / 0.5)',  // easter-egg border, soft (overlay)
-  warningGlow:        'rgba(var(--mui-palette-warning-mainChannel) / 0.6)',  // metaset highlight glow (MetasetsDialog) + easter-egg border (overlay)
+  warningFlashBg:     'rgba(var(--mui-palette-warning-mainChannel) / 0.18)', // row-change pulse bg (HsfRulesTable)
+  warningGlow:        'rgba(var(--mui-palette-warning-mainChannel) / 0.6)',  // metaset highlight glow (MetasetsDialog)
   warningHighlightBg: 'rgba(var(--mui-palette-warning-lightChannel) / 0.9)', // metaset highlight bg (MetasetsDialog)
 
   // ── Primary accent (focus, selection, glow, pulse) ───────────────────────────
@@ -83,9 +79,8 @@ export const TINT = {
   chartChipBg:           'rgba(var(--mui-palette-background-paperChannel) / 0.8)',  // treemap counts chip bg (GearAnalyticsTreemap)
   chartIconChipBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.82)', // chart icon chip bg (GearAnalyticsDonut, GearAnalyticsTreemap)
   overlayScrim:          'rgba(var(--mui-palette-background-paperChannel) / 0.9)',  // icon/grid overlay scrim (GridIconBox, GearInspectorItemsGrid)
-  floatingPanelBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.92)', // floating panel bg (ContextMenuHintOverlay, easter-egg overlay)
+  floatingPanelBg:       'rgba(var(--mui-palette-background-paperChannel) / 0.92)', // floating panel bg (ContextMenuHintOverlay)
   headerScrim:           'rgba(var(--mui-palette-background-paperChannel) / 0.94)', // sticky header scrim (HeaderActions)
-  floatingPanelBgOpaque: 'rgba(var(--mui-palette-background-paperChannel) / 0.98)', // floating panel bg, near-opaque (easter-egg overlay)
 
   // ── Scrollbar (black/white so it reads on any custom paper) ──────────────────
   scrollTrackLight:      'rgba(var(--mui-palette-common-blackChannel) / 0.04)', // light-scheme scrollbar track (scrollbar.ts)
@@ -104,15 +99,13 @@ export const TINT = {
 // used because the base is a palette hex resolved in JS, not a CSS channel var). Applied to varied
 // colors for varied purposes, so a generic opacity ladder is the right model. a<NN> == NN/100.
 // Usage: a08 NoteDialog warning bg · a12/a24 FactionIcon white frame · a14 rarity champion-icon bg ·
-// a22/a35 easter-egg black scrim · a40 db-diff black scrim/white border · a55 GridIconBox white
-// border · a60 glows + black scrim + FactionIcon shadow · a70 db-diff separator · a90 workload border.
+// a40 db-diff black scrim/white border · a55 GridIconBox white border · a60 glows + black scrim +
+// FactionIcon shadow · a70 db-diff separator · a90 workload-indicator info border.
 export const ALPHA = {
   a08: 0.08,
   a12: 0.12,
   a14: 0.14,
-  a22: 0.22,
   a24: 0.24,
-  a35: 0.35,
   a40: 0.4,
   a55: 0.55,
   a60: 0.6,
