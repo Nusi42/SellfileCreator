@@ -592,10 +592,11 @@ function CandidateRow({
                 } : undefined}
               >
                 {cell.label}
-                {/* Roll-count badge inherits the substat cell color (matches GearInspectorGridCard,
-                    which also lets the digit inherit) so it stays legible in both schemes. */}
+                {/* Roll-count badge: circle + digit use the ambient text.primary, NOT the substat
+                    cell color — matching GearInspectorGridCard, where the badge sits outside the
+                    stat-color span and inherits the card's default text color. */}
                 {cell.rollCount != null && (
-                  <Box component="span">
+                  <Box component="span" sx={{ color: 'text.primary' }}>
                     <CircledDigitBadge value={cell.rollCount} />
                   </Box>
                 )}
