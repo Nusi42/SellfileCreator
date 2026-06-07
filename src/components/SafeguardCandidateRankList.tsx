@@ -45,6 +45,7 @@ import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearIns
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
+import { ensureContrastOnBg } from '../lib/colorUtils'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
@@ -389,9 +390,11 @@ function CandidateRow({
         : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null))
     : (isRuleNameSource ? (ruleAppearance?.name ?? null) : null)
   // Color priority: rule appearance when no preview; recipe color then safeguard rule color when preview present.
-  const matchSourceColor = isRuleNameSource
+  const rawMatchSourceColor = isRuleNameSource
     ? (ruleAppearance?.fgColor ?? theme.palette.common.white)
     : (previewRow?.match?.recipeFgColor ?? previewRow?.match?.ruleLabelFgColor ?? theme.palette.common.white)
+  // Ensure user-authored colors meet WCAG AA contrast against the actual surface background.
+  const matchSourceColor = ensureContrastOnBg(rawMatchSourceColor, theme.palette.background.paper)
   const matchSourceDecoration = { displayName: matchSourceRaw ?? '', resolvedColor: matchSourceColor }
   // Slot: icon replaces text when showSlotIcons is on.
   const slotIconType = (showSlotIcons && artifact) ? artifactTypeIconFor(artifact.slot) : null

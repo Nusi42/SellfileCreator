@@ -25,6 +25,7 @@ import ColorField from './ColorField'
 import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
+import { hslToHex as hslToHexNorm } from '../lib/colorUtils'
 import { makeManageColorsIcon } from '../lib/icons'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
@@ -33,16 +34,9 @@ import { useI18n } from '../lib/i18n'
 // to get a solid hex approximation — used for toggle-button swatch fallbacks in dark mode.
 
 // Converts HSL to a #rrggbb hex string. Hue wraps automatically; s and l are 0–100.
-function hslToHex(h: number, s: number, l: number): string {
-  h = ((h % 360) + 360) % 360
-  s /= 100; l /= 100
-  const a = s * Math.min(l, 1 - l)
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12
-    return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0')
-  }
-  return `#${f(0)}${f(8)}${f(4)}`
-}
+// Delegates to the shared hslToHex (which uses 0–1 s/l) with scale conversion.
+const hslToHex = (h: number, s: number, l: number): string =>
+  hslToHexNorm(((h % 360) + 360) % 360, s / 100, l / 100)
 
 // Extracts H (0–360), S (0–100), L (0–100) from a #rrggbb hex string. Returns null for invalid input.
 function hexToHSL(hex: string): { h: number; s: number; l: number } | null {

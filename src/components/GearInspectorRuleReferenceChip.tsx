@@ -10,6 +10,8 @@ import { MATCHING_RECIPE_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip from './EllipsisTooltip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
+import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
+import { APP_SCHEME_ALPHAS } from '../lib/themeCustomTokens'
 
 type GearInspectorRuleReferenceChipProps = {
   match: GearInspectorPreviewMatch | null
@@ -20,6 +22,9 @@ type GearInspectorRuleReferenceChipProps = {
   icon?: ChipProps['icon']
   showRecipeIndex?: boolean
   showLineNumber?: boolean
+  /** Card or parent surface already composited over paper. Contrast is checked against the
+   *  chip tint on top of this base. Defaults to paper when omitted. */
+  underlayBg?: string
 }
 
 const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
@@ -50,6 +55,7 @@ export function GearInspectorRuleReferenceChip({
   icon,
   showRecipeIndex = true,
   showLineNumber = false,
+  underlayBg,
 }: GearInspectorRuleReferenceChipProps) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -91,9 +97,23 @@ export function GearInspectorRuleReferenceChip({
   // Use recipeFgColor when a recipe name is shown; fall back to the safeguard rule's own
   // fgColor when no recipe color exists (covers both recipe-less safeguard matches and
   // safeguard-over-recipe matches where the recipe itself has no explicit color).
-  const textColor = (match.recipeFgColor && trimmedDecoratedName.length > 0)
+  const rawTextColor = (match.recipeFgColor && trimmedDecoratedName.length > 0)
     ? match.recipeFgColor
     : (isSafeguardSource ? (match.ruleLabelFgColor ?? null) : null)
+  // Compute the actual blended chip surface so contrast is checked against the real rendered color.
+  // Safeguard source chips use a strong tint (sourceChipSurfaceAlpha ≈ 0.35 dark / 0.12 light);
+  // regular match chips use a thinner tint (matchSurfaceAlpha ≈ 0.05 dark / 0.01 light).
+  const schemeAlphas = APP_SCHEME_ALPHAS[theme.palette.mode]
+  const paper = theme.palette.background.paper
+  // Use the caller-provided underlay (e.g. a card outcome tint) as the base so that the
+  // chip tint is composited over the already-tinted surface, not over raw paper.
+  const base = underlayBg ?? paper
+  const chipEffectiveBg = isSafeguardSource
+    ? blendAlpha(base, theme.palette.success.main, schemeAlphas.sourceChipSurfaceAlpha)
+    : match.keep
+      ? blendAlpha(base, theme.palette.success.main, schemeAlphas.matchSurfaceAlpha)
+      : blendAlpha(base, theme.palette.error.main, schemeAlphas.matchSurfaceAlpha)
+  const textColor = rawTextColor ? ensureContrastOnBg(rawTextColor, chipEffectiveBg) : null
   // Number segment is intentionally lightweight: recipe/safeguard index + line number sans labels,
   // joined with a mid-dot so the trailing recipe name stays readable on narrow cards.
   // For safeguard matches with no recipe index, fall back to the 1-based safeguard ordinal.

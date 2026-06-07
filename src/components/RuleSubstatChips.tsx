@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
-import { alpha, darken, useColorScheme, useTheme } from '@mui/material/styles'
+import { alpha, useColorScheme, useTheme } from '@mui/material/styles'
 import { SUBSTAT_LIGHT_CHIP_BG_ALPHA, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA } from '../lib/themeCustomTokens'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
@@ -10,6 +10,7 @@ import {
   statVariantI18nKey,
 } from '../lib/types'
 import { useI18n } from '../lib/i18n'
+import { compositeOnBase, ensureContrastOnBg } from '../lib/colorUtils'
 import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant, type RuleSubstatDetail } from '../lib/substatDisplay'
 
 const HEX_WITH_OPTIONAL_ALPHA = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
@@ -35,14 +36,17 @@ export function resolveSubstatChipPalette(theme: Theme, params: {
   // Light mode: the dark BG colors (#1E2E14, #2F1A14 etc.) at 25% alpha on white look muddy.
   // Instead derive chip appearance from the vibrant FG color at low opacity for clean tinted chips.
   // Only enter this branch when a real hex fg color is available; CSS var strings cannot be
-  // passed to darken().
+  // parsed for contrast calculation.
   if (isLight && colorize) {
     const fgColor = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
     if (fgColor) {
+      const chipBgCss = alpha(fgColor, SUBSTAT_LIGHT_CHIP_BG_ALPHA)
+      // Resolve the semi-transparent chip bg to opaque hex so ensureContrastOnBg can check it.
+      const chipBgHex = compositeOnBase(theme.palette.background.paper, chipBgCss)
       return {
-        chipBg: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BG_ALPHA),
+        chipBg: chipBgCss,
         chipBorder: alpha(fgColor, SUBSTAT_LIGHT_CHIP_BORDER_ALPHA),
-        labelColor: darken(fgColor, 0.55),
+        labelColor: ensureContrastOnBg(fgColor, chipBgHex),
       }
     }
   }

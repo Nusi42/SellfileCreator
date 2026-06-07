@@ -27,7 +27,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { alpha, useColorScheme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
+import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
 import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   GLYPH_IGNORE_COLLECTION,
@@ -182,10 +183,20 @@ const SafeguardChip = React.memo(function SafeguardChip({
 }: SafeguardChipProps) {
   // Derive display values from the rule; recomputed only when this chip's props change.
   const { colorScheme } = useColorScheme()
+  const theme = useTheme()
   const rawName = (pendingName ?? rule.appearance?.name ?? '').trim()
   const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
-  // Color comes from fgColor; fall back to inherit when unset.
-  const resolvedNameColor = rule.appearance?.fgColor ?? 'inherit'
+  // Apply contrast adjustment to user-chosen colors; fall back to inherit when unset.
+  const rawFgColor = rule.appearance?.fgColor
+  // Composite action.selected (an rgba string) over paper for selected chips so the
+  // contrast check targets the actual rendered surface, not the underlying paper.
+  const chipBg = compositeOnBase(
+    theme.palette.background.paper,
+    isSelected ? theme.palette.action.selected : 'transparent',
+  )
+  const resolvedNameColor = rawFgColor
+    ? ensureContrastOnBg(rawFgColor, chipBg)
+    : 'inherit'
   const displayName = rawName || fallbackName
   // Activation badge color and label text.
   const actColor = safeguardActivationColor(rule.activation)

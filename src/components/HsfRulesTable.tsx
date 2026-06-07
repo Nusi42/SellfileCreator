@@ -47,6 +47,7 @@ import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
+import { ensureContrastOnBg } from '../lib/colorUtils'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -1234,6 +1235,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
           // Color comes from the recipe's appearance.fgColor; empty string when absent.
           const previewRuleColor = resolvePreviewRuleFgColor(rule, isKeepOverrideSource)
+          // Table-cell color is contrast-adjusted for the surface bg; tooltip color stays raw
+          // (tooltip has an inverted dark bg in light theme where contrast is not the same concern).
+          const tablePreviewRuleColor = previewRuleColor
+            ? ensureContrastOnBg(previewRuleColor, theme.palette.background.paper)
+            : ''
           // Determine whether this row should play the enter or change-pulse animation.
           const ruleKey = computeRuleAnimKey(rule, idx)
           const isNewRow = enteringRuleKeys.has(ruleKey)
@@ -1613,9 +1619,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                     opacity: rowOpacity,
                     color: isIdx
                       ? (keep ? 'success.main' : 'error.main')
-                      // Apply the [rrggbb] directive color to the recipe name column only (not the index).
-                      : (previewRuleColor && c.key === 'RuleName')
-                        ? previewRuleColor
+                      // Apply the contrast-adjusted color to the recipe name column only (not the index).
+                      : (tablePreviewRuleColor && c.key === 'RuleName')
+                        ? tablePreviewRuleColor
                         : undefined,
                     // HSF-embedded recipe indices use italic + default cursor to signal they are non-interactive foreign references.
                     fontStyle: isHsfRecipeIdx ? 'italic' : undefined,

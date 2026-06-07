@@ -39,6 +39,7 @@ import { lightAdaptedSubstatFg } from '../lib/themeCustomTokens'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
+import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const RECIPE_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -177,11 +178,16 @@ function RecipeChip({
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
   // Derive display name and color directly from the first-class appearance field.
+  const bgPaper = theme.palette.background.paper
+  // Composite action.selected (rgba string) over paper for selected chips; transparent → paper.
+  const chipEffBg = compositeOnBase(bgPaper, selected ? theme.palette.action.selected : 'transparent')
   const nameDecoration = useMemo(() => ({
     displayName: recipe.appearance?.name ?? '',
-    resolvedColor: recipe.appearance?.fgColor ?? primaryColor,
+    resolvedColor: recipe.appearance?.fgColor
+      ? ensureContrastOnBg(recipe.appearance.fgColor, chipEffBg)
+      : primaryColor,
     hasExplicitColor: Boolean(recipe.appearance?.fgColor),
-  }), [recipe.appearance, primaryColor])
+  }), [recipe.appearance, primaryColor, chipEffBg])
   // Allow callers to override the export mode for recipe overrides previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? recipe.exportMode
   const isSeparator = exportMode === 'separator'
@@ -351,7 +357,7 @@ function RecipeChip({
                   overflowWrap: 'anywhere',
                   fontWeight: 600,
                   minWidth: 0,
-                  color: separatorDecoration.textColor,
+                  color: ensureContrastOnBg(separatorDecoration.textColor, theme.palette.background.paper),
                 }}
               >
                 {separatorDecoration.displayName}
