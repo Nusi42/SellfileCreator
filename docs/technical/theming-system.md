@@ -62,6 +62,7 @@ All custom CSS variable names, per-scheme alpha values, and pre-built colour exp
 | `src/lib/colorUtils.ts` | Pure colour math (no theme): `ensureContrastOnBg` (LCH-lightness WCAG pass), `blendAlpha`, `compositeOnBase`, and all conversions (`parseCssColorToRgb`, `mixRgb`, `rgbToCss`, `parseHexWithAlpha`, `formatHexWithAlpha`, `hexToHSL`, `hexToChannelTriplet`, `hslDegToHex`). | All ad-hoc hex/rgb parsing and contrast math. Never re-implement these inline. |
 | `src/lib/rarityColors.ts` | `RARITY_ACCENT_COLORS` + `resolveRarityAccentColor` (raw) + `resolveRarityTextColor` (contrast-adapted). | Rarity accents — raw for borders/chart fills, adapted for text/glyphs. |
 | `src/lib/themeContrastHooks.ts` | `useSchemePaper()`, `useSubstatFgAdapter()`. | One-line access to the active scheme's paper / a substat-fg text adapter inside components. |
+| `src/lib/noteColorVars.ts` | The Note dialog's two colour maps (`RECIPE_OVERRIDES_TOKEN_COLORS` syntax hues, `NOTE_COLOR_HEX` user note colours) + `buildNoteColorSchemeStyles(theme)` which publishes them as contrast-adapted per-scheme `--note-tok-*` / `--note-color-*` CSS vars, plus `noteTokVar`/`noteColorVar`/`NOTE_COLOR_SX_SELECTORS`. | Colouring Markdown/syntax painted on the note editor & preview surface. The CSS backdrop (`styles.css`) and the inline tooltip renderer both reference the vars, so there is one definition per hue and the two paths can't drift. |
 
 ### TINT naming, adding, and merging
 
@@ -76,12 +77,13 @@ Any user- or preset-chosen colour (substat fg, recipe/safeguard appearance fg, r
 - substat / appearance text → `adaptSubstatFgOnSurface(fg, surface)` / `adaptSubstatFgForScheme(fg, theme, colorScheme)` or the `useSubstatFgAdapter()` hook.
 - rarity-as-text/glyph → `resolveRarityTextColor(rarity, surface)`.
 - chips that layer tints over a tinted card → composite the surface first (`resolveCardChipBaseBg`) then `ensureContrastOnBg` against it.
+- note DSL syntax highlighting + user `data-color` note colours → published as per-scheme CSS vars by `buildNoteColorSchemeStyles` (each hue run through `ensureContrastOnBg` against the scheme's `background.default`, the surface the note editor/preview sits on); CSS and the tooltip renderer reference `var(--note-tok-*)` / `var(--note-color-*)`.
 
 The surface comes from the **runtime** scheme, never the frozen palette — `resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))` (see the gotcha below). `schemeModeFromColorScheme(undefined) === 'dark'` to match `defaultMode="dark"`.
 
 ### Valid exceptions — where a RAW colour is correct (do NOT adapt/consolidate)
 
-- **Colour pickers / swatches** (`ManageColorsDialog`) — the swatch shows the literal value being edited.
+- **Colour pickers / swatches** (`ManageColorsDialog`, the NoteDialog colour-picker swatches via raw `NOTE_COLOR_HEX`) — the swatch shows the literal value being chosen, not how the text will render.
 - **Tooltips with an inverted dark surface** (`renderColoredStatText` via `BuilderTooltipContent`, gear-inspector grid tooltips) — colours read on the dark tooltip bg, not paper.
 - **Chart DATA fills** (donut slices, bars, rarity/stat series in Gear Analytics) — the colour *is* the datum; adapting would break legend↔slice correspondence.
 - **Data sources / defaults** (`useSubstatColors`, `DEFAULT_SUBSTAT_COLORS_*`).

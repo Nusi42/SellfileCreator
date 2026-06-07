@@ -25,73 +25,77 @@ body.restrict-ui [data-allow-select="1"] {
 }
 
 /* ── Recipe-overrides DSL syntax coloring in the note editor ──────────── */
-/* Scoped to .w-md-editor-text-pre, the Prism backdrop element in MDEditor. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.comment-delimiter          { color: #5c8baf; }
+/* Scoped to .w-md-editor-text-pre, the Prism backdrop element in MDEditor.
+   Colours come from the per-scheme `--note-tok-*` vars published by NoteDialog
+   (src/lib/noteColorVars.ts) so the backdrop stays legible in both schemes; the
+   raw hex after each comma is the fallback when the dialog isn't mounted. The var
+   names and fallbacks are the single source of truth in RECIPE_OVERRIDES_TOKEN_COLORS. */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.comment-delimiter          { color: var(--note-tok-comment-delimiter, #5c8baf); }
 /* Directive keyword (recipe-overrides / config-options) matches note-markers hue. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.comment-delimiter .token.directive-kw { color: #c678dd; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.comment-delimiter .token.directive-kw { color: var(--note-tok-directive-kw, #c678dd); }
 /* Line comments (// …) and block comments share the muted delimiter color. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.line-comment            { color: #5c6370; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.block-comment           { color: #5c6370; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.line-comment            { color: var(--note-tok-line-comment, #5c6370); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.block-comment           { color: var(--note-tok-block-comment, #5c6370); }
 /* Strings default to green; nested spans override for inline markup. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.string                     { color: #98c379; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-bold  { color: #c3e88d; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-chip  { color: #7ec8e3; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.string                     { color: var(--note-tok-string, #98c379); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-bold  { color: var(--note-tok-string-bold, #c3e88d); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-chip  { color: var(--note-tok-string-chip, #7ec8e3); }
 /* marker-option [columns=N]: inner tokens carry colors; no flat outer color.
    marker-option-kw (columns) – teal, same family as field names.
    operator (=) and number (N) pick up the general operator/number rules below. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.marker-option .token.marker-option-kw { color: #56b6c2; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.marker-option .token.marker-option-kw { color: var(--note-tok-marker-option-kw, #56b6c2); }
 /* Default-option marker (* or default keyword) – same red as @ so both read as sigil-level markers. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.default-kw                 { color: #e06c75; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.default-kw                 { color: var(--note-tok-default-kw, #e06c75); }
 /* question-kw / group-type shifted to steel-blue shades so they no longer clash */
 /* with the purple directive-kw / marker-kw family.                               */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.question-kw                { color: #7ab3d4; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.group-type                 { color: #4a8aad; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.fallback-kw                { color: #e06c75; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-builtin           { color: #61afef; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-field             { color: #61afef; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.field                      { color: #56b6c2; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.question-kw                { color: var(--note-tok-question-kw, #7ab3d4); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.group-type                 { color: var(--note-tok-group-type, #4a8aad); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.fallback-kw                { color: var(--note-tok-fallback-kw, #e06c75); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-builtin           { color: var(--note-tok-selector-builtin, #61afef); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-field             { color: var(--note-tok-selector-field, #61afef); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.field                      { color: var(--note-tok-field, #56b6c2); }
 /* Slider group param keywords (min / max / step) — same teal as field names. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.slider-param-kw             { color: #56b6c2; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.slider-param-kw             { color: var(--note-tok-slider-param-kw, #56b6c2); }
 /* Safeguard-overrides enum values — warm amber matching boolean-val. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-activation-val           { color: #d19a66; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-match-val               { color: #d19a66; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-improvementchance-val   { color: #d19a66; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-activation-val           { color: var(--note-tok-sg-activation-val, #d19a66); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-match-val               { color: var(--note-tok-sg-match-val, #d19a66); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-improvementchance-val   { color: var(--note-tok-sg-improvementchance-val, #d19a66); }
 /* $value / $count / $count.TOKEN — bright green to distinguish slider refs from plain numbers. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-value-ref               { color: #98c379; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-value-ref               { color: var(--note-tok-sg-value-ref, #98c379); }
 /* id=TOKEN: `id` keyword shares the blue structural-keyword family; defined name is bright amber. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign                                { color: #f0a757; } /* fallback */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign .token.id-kw                   { color: #7ab3d4; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign .token.id-name                 { color: #f0a757; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign                                { color: var(--note-tok-id-assign, #f0a757); } /* fallback */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign .token.id-kw                   { color: var(--note-tok-id-kw, #7ab3d4); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.id-assign .token.id-name                 { color: var(--note-tok-id-name, #f0a757); }
 /* tag=VALUE: tag keyword stays blue; user-supplied tag name gets muted amber (referenced value). */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.tag-comparison .token.id-ref             { color: #c8a96e; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.tag-comparison .token.id-ref             { color: var(--note-tok-id-ref, #c8a96e); }
 /* Keyword constraints (set/unset/only/excl + id-refs). */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.constraint-kw    { color: #e5c07b; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.id-ref           { color: #c8a96e; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.constraint-kw    { color: var(--note-tok-constraint-kw, #e5c07b); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.id-ref           { color: var(--note-tok-id-ref, #c8a96e); }
 /* Symbolic constraints (!/+/-/^ + id-refs) – operator gets its own orange so it reads as a sigil,
    not a keyword; id-refs stay muted amber. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.shorthand-constraint .token.constraint-op { color: #e87c3e; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.shorthand-constraint .token.id-ref        { color: #c8a96e; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.shorthand-constraint .token.constraint-op { color: var(--note-tok-constraint-op, #e87c3e); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.shorthand-constraint .token.id-ref        { color: var(--note-tok-id-ref, #c8a96e); }
 /* Excluded-add prefix `+-Name` – same colors as shorthand-constraint since it carries the same sigil semantics. */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.list-excluded-add .token.constraint-op   { color: #e87c3e; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.list-excluded-add .token.id-ref          { color: #c8a96e; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.logic-kw                   { color: #61afef; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.rarity-name                { color: #e5c07b; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.boolean-val                { color: #d19a66; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.list-excluded-add .token.constraint-op   { color: var(--note-tok-constraint-op, #e87c3e); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.list-excluded-add .token.id-ref          { color: var(--note-tok-id-ref, #c8a96e); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.logic-kw                   { color: var(--note-tok-logic-kw, #61afef); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.rarity-name                { color: var(--note-tok-rarity-name, #e5c07b); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.boolean-val                { color: var(--note-tok-boolean-val, #d19a66); }
 /* Slot names in `slots=` assignments — same warm amber as boolean-val (enumerable values). */
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.slot-name                  { color: #d19a66; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.stat-key                   { color: #56b6c2; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.number                     { color: #d19a66; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.cross-domain-kw             { color: #c678dd; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-at                { color: #e06c75; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.operator                   { color: #abb2bf; }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.punctuation                { color: #abb2bf; }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.slot-name                  { color: var(--note-tok-slot-name, #d19a66); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.stat-key                   { color: var(--note-tok-stat-key, #56b6c2); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.number                     { color: var(--note-tok-number, #d19a66); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.cross-domain-kw             { color: var(--note-tok-cross-domain-kw, #c678dd); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.selector-at                { color: var(--note-tok-selector-at, #e06c75); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.operator                   { color: var(--note-tok-operator, #abb2bf); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.punctuation                { color: var(--note-tok-punctuation, #abb2bf); }
 
 /* ── Inline note markers (recipes / safeguards) ───────────────────────── */
-.w-md-editor-text-pre .token.note-markers-block .token.comment-delimiter { color: #5c8baf; }
-.w-md-editor-text-pre .token.note-markers-block .token.marker-kw         { color: #c678dd; }
-.w-md-editor-text-pre .token.note-markers-block .token.string            { color: #98c379; }
-.w-md-editor-text-pre .token.note-markers-block .token.number            { color: #d19a66; }
-.w-md-editor-text-pre .token.note-markers-block .token.punctuation       { color: #abb2bf; }
+.w-md-editor-text-pre .token.note-markers-block .token.comment-delimiter { color: var(--note-tok-comment-delimiter, #5c8baf); }
+.w-md-editor-text-pre .token.note-markers-block .token.marker-kw         { color: var(--note-tok-marker-kw, #c678dd); }
+.w-md-editor-text-pre .token.note-markers-block .token.string            { color: var(--note-tok-string, #98c379); }
+.w-md-editor-text-pre .token.note-markers-block .token.number            { color: var(--note-tok-number, #d19a66); }
+.w-md-editor-text-pre .token.note-markers-block .token.punctuation       { color: var(--note-tok-punctuation, #abb2bf); }
 
 /* Animatable angle for the Gear Diff button's rotating border-chase highlight (see
    PreviewHeaderActions). Registering it via @property lets the conic-gradient angle

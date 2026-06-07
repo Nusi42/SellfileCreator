@@ -1,7 +1,7 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, GlobalStyles, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
@@ -95,88 +95,29 @@ import {
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
-
-// Limited color palette for Note highlighting rendered from Markdown via
-//   <span data-color="{name}">…</span>
-// Kept intentionally small and named. Sanitizer below permits only the data-color attribute on span.
-const NOTE_COLOR_HEX: Record<'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'gray', string> = {
-  red: '#ef5350',
-  orange: '#ffa726',
-  yellow: '#ffeb3b',
-  green: '#66bb6a',
-  teal: '#26a69a',
-  blue: '#42a5f5',
-  purple: '#ab47bc',
-  gray: '#90a4ae',
-}
-const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEntries(
-  (Object.entries(NOTE_COLOR_HEX) as Array<[keyof typeof NOTE_COLOR_HEX, string]>).map(([name, hex]) => [
-    `& [data-color="${name}"]`,
-    { color: hex },
-  ]),
-)
-// Maps each dynamic-overrides Prism token class to its display color.
-// Mirrors styles.css so the same palette is applied both in the editor backdrop
-// and in tooltip <pre> blocks (where the .w-md-editor-text-pre scope doesn't apply).
-const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
-  'comment-delimiter': '#5c8baf',
-  'directive-kw':      '#c678dd',
-  'line-comment':      '#5c6370',
-  'block-comment':     '#5c6370',
-  'regex':             '#5c6370',  // /…/ informal description in EBNF
-  // id=TOKEN split: `id` keyword (blue keyword family) + defined name (bright amber)
-  'id-kw':             '#7ab3d4',
-  'id-name':           '#f0a757',
-  'string':            '#98c379',
-  'string-bold':       '#c3e88d',
-  'string-chip':       '#7ec8e3',
-  // marker-option outer span intentionally has no color; inner tokens are colored individually.
-  'marker-option-kw':  '#56b6c2',  // columns – teal, same family as field names
-  'default-kw':        '#e06c75',  // same as selector-at (@) – both are sigil-level markers
-  'question-kw':       '#7ab3d4',
-  'group-type':        '#4a8aad',
-  'fallback-kw':       '#e06c75',
-  'selector-builtin':  '#61afef',
-  'selector-field':    '#61afef',
-  'field':             '#56b6c2',
-  'id-assign':         '#f0a757',
-  'constraint-kw':     '#e5c07b',  // word-form: set / unset / only / excl
-  'constraint-op':     '#e87c3e',  // symbolic-form: ! + - ^ (operator sigil, distinct from keyword)
-  'id-ref':            '#c8a96e',
-  'logic-kw':          '#61afef',
-  'rarity-name':       '#e5c07b',
-  'boolean-val':       '#d19a66',
-  'slot-name':         '#d19a66',  // same warm amber as boolean-val (enumerable value)
-  'stat-key':          '#56b6c2',
-  'number':            '#d19a66',
-  'selector-at':       '#e06c75',
-  'operator':          '#abb2bf',
-  'punctuation':       '#abb2bf',
-  // note-markers sub-tokens
-  'marker-kw':         '#c678dd',
-  'slider-param-kw':   '#56b6c2',  // min / max / step — same family as field names
-  // safeguard-overrides specific tokens — reuse existing palette hues for consistency.
-  'sg-activation-val':          '#d19a66',  // same as boolean-val (warm amber)
-  'sg-match-val':               '#d19a66',  // same as boolean-val (warm amber)
-  'sg-improvementchance-val':   '#d19a66',  // same as boolean-val (warm amber)
-  'sg-value-ref':               '#e06c75',  // same as default-kw (bright sigil marker)
-  // cross-domain block prefix (`safeguard @…` / `recipe @…`) — purple, distinct from field names
-  'cross-domain-kw':   '#c678dd',
-  // ebnf grammar tokens — used only in EBNF tooltip blocks, not in DSL editor.
-  'paren-comment':     '#5c6370',  // same muted gray as line-comment — informal annotations
-  'regex-literal':     '#c8a96e',  // muted amber, distinct from line-comment gray
-}
+import {
+  NOTE_COLOR_HEX,
+  NOTE_COLOR_SX_SELECTORS,
+  RECIPE_OVERRIDES_TOKEN_COLORS,
+  noteTokVar,
+  buildNoteColorSchemeStyles,
+} from '../lib/noteColorVars'
 
 // Recursively converts a refractor (HAST) node to React elements.
-// Inline colors come from RECIPE_OVERRIDES_TOKEN_COLORS so the tooltip
-// inherits the same palette as the editor backdrop without extra CSS scope.
+// Inline colors reference the per-scheme `--note-tok-*` vars (with the raw hex as
+// fallback), so the tooltip inherits the same contrast-adapted palette as the
+// editor backdrop without extra CSS scope. See src/lib/noteColorVars.ts.
 function renderPrismNode(node: RootContent, key: number): React.ReactNode {
   if (node.type === 'text') return node.value
   if (node.type === 'element') {
     const classes = (node.properties?.className as string[]) ?? []
     // Pick the first token class that has a mapped color; skip the generic 'token' wrapper.
     const tokenClass = classes.find((c) => c !== 'token' && Boolean(RECIPE_OVERRIDES_TOKEN_COLORS[c]))
-    const color = tokenClass ? RECIPE_OVERRIDES_TOKEN_COLORS[tokenClass] : undefined
+    // Resolve via the per-scheme var so light mode stays legible; fall back to the
+    // base hex when the GlobalStyles vars aren't mounted.
+    const color = tokenClass
+      ? `var(${noteTokVar(tokenClass)}, ${RECIPE_OVERRIDES_TOKEN_COLORS[tokenClass]})`
+      : undefined
     return (
       <span key={key} style={color ? { color } : undefined}>
         {node.children.map((child, i) => renderPrismNode(child as RootContent, i))}
@@ -3347,8 +3288,11 @@ export default function NoteDialog({
   const { t, lang, setLang } = useI18n()
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
-  // Editor background adapts to the active theme mode; Prism tooltip blocks stay dark (token colors need it).
+  // Editor background adapts to the active theme mode; the syntax/note colours
+  // painted on top adapt with it via the per-scheme `--note-tok-*` / `--note-color-*`
+  // vars published below (legible in both schemes, recomputed when the theme changes).
   const editorBg = (theme.vars?.palette.background.default ?? theme.palette.background.default)
+  const noteColorSchemeStyles = useMemo(() => buildNoteColorSchemeStyles(theme), [theme])
   const languageOptions = useLanguageOptions()
   const langSelectValue = useMemo(() => (
     languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
@@ -4337,6 +4281,10 @@ export default function NoteDialog({
 
   return (
     <NoteRenderContext value={contextValue}>
+      {/* Publish the contrast-adapted syntax/note colour vars for the active scheme.
+          GlobalStyles is global, so the vars reach the editor backdrop, view-mode
+          markdown, and the EBNF popover regardless of where this mounts. */}
+      <GlobalStyles styles={noteColorSchemeStyles} />
       {useFloatingPanel ? (
         // Floating fixed-position panel: no Modal backdrop, pointer events pass through to
         // elements outside the panel so the gear inspector stays fully interactive.
