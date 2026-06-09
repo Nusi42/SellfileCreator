@@ -720,6 +720,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
     }
   )
+  // True once any gear-DB endpoint push has been applied this session.
+  // Why: RSL Helper data is authoritative and always newer than the localStorage
+  // autosave draft. Once fresh gear has landed (even before the restore dialog is
+  // shown — e.g. the user Connected from the README dialog first), the restore
+  // prompt must NOT offer to restore the stale Gear Inspector draft, or it would
+  // overwrite sane new data with old data. Set at the single ingestion sink
+  // (applyEndpointPushCommand); consumed when deriving the restore offer.
+  const [endpointGearDataApplied, setEndpointGearDataApplied] = useState(false)
   // Gear Inspector champion filters reuse the same metadata as the Gear Inspector grid to keep icons/borders in sync.
   type GearInspectorChampionOption = {
     id: number
@@ -4454,7 +4462,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // The SFC autosave (restoreDialogPending) is simply dismissed — the preset SFC takes priority.
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
   const handleSilentGearRestore = useCallback(() => {
-    if (gearInspectorRestoreDraft) {
+    // Same invariant as the dialog path: authoritative endpoint gear must never be
+    // clobbered by the stale autosave draft (see endpointGearDataApplied).
+    if (gearInspectorRestoreDraft && !endpointGearDataApplied) {
       beginGearInspectorMatchReset('restore')
       setGearInspectorItemsTransition(gearInspectorRestoreDraft.items)
       const maxItemId = gearInspectorRestoreDraft.items.reduce((max, item) => (
@@ -4479,6 +4489,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }, 0)
   }, [
     gearInspectorRestoreDraft,
+    endpointGearDataApplied,
     beginGearInspectorMatchReset,
     setGearInspectorItemsTransition,
     markNextSnapshotAsSaved,
@@ -6485,9 +6496,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const endpointPushDrainInFlightRef = useRef(false)
   // Cleanup flag prevents post-unmount queue work.
   const endpointPushQueueClosedRef = useRef(false)
-  // Set when a gear-DB push is dropped because the restore dialog is open.
-  // Cleared after re-requesting a fresh sync once the dialog closes.
-  const droppedPushDuringRestoreDlgRef = useRef(false)
   // Timestamp (ms) when the last apply+settle cycle completed; 0 = never.
   const lastEndpointAppliedAtRef = useRef(0)
   // Animation-frame helper allows waiting for paint/commit boundaries.
@@ -6547,6 +6555,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // `bytes` (and thus bytes.buffer) drop here — before the settle wait.
       })()
       if (!importSucceeded) return
+      // Mark that authoritative gear data has landed so the restore prompt drops its
+      // stale Gear Inspector offer (see endpointGearDataApplied).
+      setEndpointGearDataApplied(true)
       await waitForEndpointPushSettle()
     }
     // Per-type partial messages — each one immediately synthesizes a snapshot from the
@@ -6558,6 +6569,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || cmd.kind === 'gearDbLastUsed'
     ) {
       handleGearDbRawPart(cmd)
+      // Same as the snapshot path: fresh gear is now authoritative.
+      setEndpointGearDataApplied(true)
       await waitForEndpointPushSettle()
     }
   }, [
@@ -6691,12 +6704,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
     // selectRule (above) is left through since it only affects scroll position.
     if (tutorialOpen || pauseEndpointUpdates) return
-    // Block while the restore dialog is open, but remember that a push arrived so we can
-    // re-request a fresh sync from RSL Helper once the dialog closes.
-    if (restoreDlgOpen) {
-      droppedPushDuringRestoreDlgRef.current = true
-      return
-    }
+    // Endpoint gear data is always wanted — it is newer and authoritative. We do NOT
+    // block it while the restore dialog is open; instead, once any gear push lands we
+    // drop the restore prompt's stale Gear Inspector offer (endpointGearDataApplied),
+    // so fresh data is never overwritten by the localStorage autosave draft.
 
     if (cmd.kind === 'gearDbFileBinary') {
       enqueueEndpointPush(cmd)
@@ -6726,11 +6737,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     focusRuleByIndex,
     pauseEndpointUpdates,
     requestSelectionScroll,
-    restoreDlgOpen,
     tutorialOpen,
   ])
 
-  const { sendRequest: sendExternalRequest, requestSfcSync } = useExternalCommands({
+  const { sendRequest: sendExternalRequest } = useExternalCommands({
     pushEndpoint,
     onCommand: handleExternalCommand,
     onReachabilityChange: updatePushEndpointReachable,
@@ -9256,7 +9266,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <RestoreAutosaveDialog
           open={restoreDlgOpen}
           draft={restoreDraft}
-          gearInspectorDraft={gearInspectorRestoreDraft ? { count: gearInspectorRestoreDraft.count, savedAt: gearInspectorRestoreDraft.savedAt } : null}
+          gearInspectorDraft={(gearInspectorRestoreDraft && !endpointGearDataApplied) ? { count: gearInspectorRestoreDraft.count, savedAt: gearInspectorRestoreDraft.savedAt } : null}
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
@@ -9264,11 +9274,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onDismiss={() => {
             dismissRestore()
             setGearInspectorRestoreDraft(null)
-            // Re-request fresh data if RSL Helper pushed while the dialog was blocking it.
-            if (droppedPushDuringRestoreDlgRef.current) {
-              droppedPushDuringRestoreDlgRef.current = false
-              requestSfcSync()
-            }
           }}
           onRestore={(selection) => {
             flushTransientUi()
@@ -9418,7 +9423,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
               }
             }
-            if (selection.gearInspector && gearInspectorRestoreDraft) {
+            // Defense in depth: never overwrite authoritative endpoint gear with the
+            // stale draft, even if a selection somehow still carried gearInspector.
+            // The dialog already hides the offer once endpointGearDataApplied is set.
+            if (selection.gearInspector && gearInspectorRestoreDraft && !endpointGearDataApplied) {
               const restoredItems = gearInspectorRestoreDraft.items
               // Restores can include large Gear Inspector payloads; commit non-urgently like imports.
               setGearInspectorItemsTransition(restoredItems)
@@ -9482,11 +9490,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               restoringAutosaveRef.current = false
               flushTransientUi()
             }, 0)
-            // Re-request fresh data if RSL Helper pushed while the dialog was blocking it.
-            if (droppedPushDuringRestoreDlgRef.current) {
-              droppedPushDuringRestoreDlgRef.current = false
-              requestSfcSync()
-            }
           }}
         />
       ) : null}
