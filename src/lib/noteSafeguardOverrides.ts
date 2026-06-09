@@ -140,8 +140,11 @@ export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['k
   activation: 'activation',
   count: 'count',
   ignPrev: 'ignprev',
-  ignEquippedCollection: 'ignequippedcollection',
-  ignEquippedVault: 'ignequippedvault',
+  // Use the real DSL surface tokens (the parser accepts igncoll/ignvault, rank/rarity/faction),
+  // not the internal op-kind spellings — otherwise the tooltip reconstructs invalid DSL and the
+  // highlighter (which derives from NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS) won't colour them.
+  ignEquippedCollection: 'igncoll',
+  ignEquippedVault: 'ignvault',
   perFaction: 'perfaction',
   perMainStat: 'permainstat',
   perSlot: 'perslot',
@@ -151,9 +154,9 @@ export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['k
   substatMatch: 'substatmatch',
   substatWeight: 'weight',
   improvementChance: 'improvchance',
-  ranks: 'ranks',
-  rarities: 'rarities',
-  factions: 'factions',
+  ranks: 'rank',
+  rarities: 'rarity',
+  factions: 'faction',
 }
 
 /** A resolved selector + operations pair, ready for application. */
