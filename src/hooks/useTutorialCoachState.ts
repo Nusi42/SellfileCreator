@@ -300,6 +300,10 @@ export type UseTutorialCoachStateParams = {
   setBuilderMode: (mode: 'recipe' | 'safeguard') => void
   // Suppress history snapshots during tutorial-driven resets and restores.
   suppressHistorySnapshot: () => void
+  // Ref to requestSfcSync (owned by useExternalCommands, which is declared after this
+  // hook in App). Called on tutorial close to re-fetch gear pushed and dropped during
+  // the walkthrough — otherwise the restored pre-tutorial snapshot would stay stale.
+  requestSfcSyncRef: MutableRefObject<(() => void) | null>
   t: Translate
   // When true, the first-run help dialog is NOT auto-opened on mount. The caller
   // is responsible for opening it later (e.g. when the user leaves simple mode).
@@ -371,6 +375,7 @@ export function useTutorialCoachState({
   setLogicHubOpen,
   setBuilderMode,
   suppressHistorySnapshot,
+  requestSfcSyncRef,
   t,
   suppressInitialHelpOpen = false,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
@@ -623,8 +628,13 @@ export function useTutorialCoachState({
         setLogicHubOpen(snap.logicHubOpen)
         setLogicHubDialogTab(snap.logicHubDialogTab)
       })
+      // Endpoint pushes were dropped while the tutorial ran; the snapshot we just
+      // restored predates them. Ask RSL Helper to re-push so live gear overwrites the
+      // stale snapshot. Fire-and-forget — no-op if not connected / unsupported.
+      requestSfcSyncRef.current?.()
     } catch {}
   }, [
+    requestSfcSyncRef,
     setBuilder,
     setCustomRecipes,
     setFinalSellRemainder,

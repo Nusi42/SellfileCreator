@@ -3948,6 +3948,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return aggregateDescriptor ?? descriptor
   }, [describeNextChange, sfcNote, noteMode, noteOpen, setSfcNote, setNoteRecipeOverridesAnswers, setNoteSafeguardOverridesAnswers])
 
+  // Bridges requestSfcSync (from useExternalCommands, declared later) back into the
+  // tutorial hook so it can re-request a fresh sync when the tutorial closes.
+  const requestSfcSyncRef = useRef<(() => void) | null>(null)
 
   const tutorial = useTutorialCoachState({
     hsf,
@@ -3986,6 +3989,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLogicHubOpen,
     setBuilderMode,
     suppressHistorySnapshot: suppressNextSnapshot,
+    // Re-request a fresh sync on tutorial close so gear pushed (and dropped) during
+    // the walkthrough is re-delivered instead of leaving the restored snapshot stale.
+    requestSfcSyncRef,
     t,
     // In simple mode the full UI is hidden on first run; defer the first-run
     // help dialog until the user explicitly switches to expert mode.
@@ -6740,11 +6746,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tutorialOpen,
   ])
 
-  const { sendRequest: sendExternalRequest } = useExternalCommands({
+  const { sendRequest: sendExternalRequest, requestSfcSync } = useExternalCommands({
     pushEndpoint,
     onCommand: handleExternalCommand,
     onReachabilityChange: updatePushEndpointReachable,
   })
+  // Keep the tutorial hook (declared earlier) able to re-request a fresh sync on close.
+  // Why: endpoint pushes are dropped while the tutorial runs (it manages its own gear);
+  // on close the pre-tutorial snapshot is restored, so any gear RSL Helper pushed during
+  // the walkthrough must be re-fetched or the user is left looking at stale data.
+  // A ref bridges the hook-order gap — useExternalCommands runs after useTutorialCoachState.
+  useEffect(() => {
+    requestSfcSyncRef.current = requestSfcSync
+  }, [requestSfcSync])
   // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
   // Selection is the source of truth in the app — the endpoint can push a correction
   // event if it needs to override, but we do not revert on a bare error response
