@@ -49,7 +49,10 @@ import {
   RarityCode as RarityCodeEnum,
   type StatVariant,
   artifactSetNames,
+  artifactTypeNames,
   isLevelMilestone,
+  labelOfVariant,
+  rarityCodeToName,
   variantFromLabel,
 } from './types'
 import { retainAllowedMainStats, retainAllowedSubstats } from './statCompatibility'
@@ -180,6 +183,165 @@ export type RecipeOverridesOperation =
   | { kind: 'artifactMetaSets'; mode: 'replace'; names: string[] }
   | { kind: 'artifactMetaSets'; mode: 'mutate'; add: string[]; remove: string[] }
 
+/**
+ * Operation kind → DSL assignment-field token (the left-hand side that produced it).
+ * SSOT for any consumer that needs to render an operation back as DSL (e.g. the
+ * note-editor option-info tooltip). Typed as an exhaustive Record over the operation
+ * union, so adding a new `RecipeOverridesOperation` kind fails to compile until its
+ * field token is registered here — keeping this in lock-step with the parser branches
+ * and the `NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS` grammar list.
+ */
+export const RECIPE_OVERRIDES_OP_FIELD: Record<RecipeOverridesOperation['kind'], string> = {
+  exportMode: 'export',
+  rank: 'rank',
+  rarity: 'rarity',
+  level: 'lvl',
+  keep: 'keep',
+  autoLate: 'autolate',
+  minRequiredRolls: 'minrolls',
+  lockedMinRequiredRolls: 'lockedminrolls',
+  minSubstats: 'minsubstats',
+  flex: 'flex',
+  substatMinAll: 'substatmin',
+  substatMinVariant: 'substatmin',
+  minimaAnyRank: 'minima',
+  minimaTarget: 'minima',
+  rollTarget: 'rolltarget',
+  artifactTypes: 'slots',
+  substats: 'substats',
+  mainStats: 'mainstats',
+  artifactSets: 'gearsets',
+  artifactMetaSets: 'metasets',
+}
+
+/**
+ * Selector kind → DSL selector token, for the same DSL-reconstruction consumers.
+ * Exhaustive over the selector union so new selector kinds must be registered here.
+ * Logical combinators (not/and/or) map to their keyword; callers that need the full
+ * nested expression should recurse, but the bare keyword suffices for summaries.
+ */
+export const RECIPE_OVERRIDES_SELECTOR_TOKEN: Record<RecipeOverridesSelector['kind'], string> = {
+  all: 'all',
+  tagged: 'tagged',
+  untagged: 'untagged',
+  tag: 'tag',
+  rank: 'rank',
+  rarity: 'rarity',
+  minRolls: 'minrolls',
+  lockedMinRolls: 'lockedminrolls',
+  minSubstats: 'minsubstats',
+  flex: 'flex',
+  substatMin: 'substatmin',
+  substatMinField: 'substatmin',
+  minimaAny: 'minima',
+  minimaField: 'minima',
+  not: 'not',
+  and: 'and',
+  or: 'or',
+}
+
+// Rank-code → compact display value (`3`, `≥3`, `≤4`, `any`). No existing helper covers
+// the note GTE/LTE rank codes, so this inverts the parser's parseRankOverride mapping.
+const RECIPE_RANK_CODE_DISPLAY: Record<number, string> = {
+  [RankCodeEnum.Any]: 'any',
+  [RankCodeEnum.One]: '1', [RankCodeEnum.Two]: '2', [RankCodeEnum.Three]: '3',
+  [RankCodeEnum.Four]: '4', [RankCodeEnum.Five]: '5', [RankCodeEnum.Six]: '6',
+  [RankCodeEnum.GTE_One]: '≥1', [RankCodeEnum.GTE_Two]: '≥2', [RankCodeEnum.GTE_Three]: '≥3',
+  [RankCodeEnum.GTE_Four]: '≥4', [RankCodeEnum.GTE_Five]: '≥5',
+  [RankCodeEnum.LTE_Two]: '≤2', [RankCodeEnum.LTE_Three]: '≤3', [RankCodeEnum.LTE_Four]: '≤4',
+  [RankCodeEnum.LTE_Five]: '≤5', [RankCodeEnum.LTE_Six]: '≤6',
+}
+
+// Render a comma list of stat variants as note stat-keys (SPD, CR%, …), reusing the
+// SSOT labelOfVariant. Empty/Any variants are dropped.
+const formatVariantList = (variants: StatVariant[]): string =>
+  variants.map((v) => labelOfVariant(v)).filter(Boolean).join(',')
+
+// Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax.
+const formatMutateList = (add: string[], remove: string[]): string =>
+  [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
+
+/**
+ * Format a recipe-overrides operation's VALUE as compact display text (the right-hand
+ * side of its `field=…` assignment). SSOT for DSL-reconstruction consumers (note-editor
+ * option-info tooltip). Exhaustive `switch` over the operation union — a new op kind
+ * fails to compile until handled here. Values are readable, not byte-identical DSL
+ * (e.g. `≥3` rather than `rank>=3`); the field token comes from RECIPE_OVERRIDES_OP_FIELD.
+ * Returns null when the op has no meaningful scalar value (slider-AST blocks).
+ */
+export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): string | null {
+  switch (op.kind) {
+    case 'exportMode': return op.action
+    case 'rank': return op.value != null ? (RECIPE_RANK_CODE_DISPLAY[op.value] ?? String(op.value)) : '$count'
+    case 'rarity': return op.mode === 'auto' ? 'auto' : rarityCodeToName(op.code).replace(/\s/g, '') || 'any'
+    case 'level': return `${op.min}..${op.max}`
+    case 'keep': return op.mode
+    case 'autoLate': return op.threshold
+    case 'minRequiredRolls':
+    case 'lockedMinRequiredRolls':
+    case 'minSubstats': return op.value != null ? String(op.value) : '$count'
+    case 'flex': return String(op.value)
+    case 'substatMinAll': return String(op.value)
+    case 'substatMinVariant': return `${labelOfVariant(op.variant)}=${op.value}`
+    case 'minimaAnyRank': return String(op.value)
+    case 'minimaTarget': return `${op.star}★ ${labelOfVariant(op.variant)}=${op.value}`
+    case 'rollTarget': {
+      const incs = op.increments.map((n) => (n == null ? '·' : String(n))).join(',')
+      return `${labelOfVariant(op.variant)} ${op.base}${incs ? ` +[${incs}]` : ''}`
+    }
+    case 'artifactTypes': return op.mode === 'replace'
+      ? op.values.map((id) => artifactTypeNames[id] ?? String(id)).join(',')
+      : formatMutateList(op.add.map((id) => artifactTypeNames[id] ?? String(id)), op.remove.map((id) => artifactTypeNames[id] ?? String(id)))
+    case 'substats':
+    case 'mainStats': return op.mode === 'replace'
+      ? formatVariantList(op.variants)
+      : formatMutateList(op.add.map((v) => labelOfVariant(v)).filter(Boolean), op.remove.map((v) => labelOfVariant(v)).filter(Boolean))
+    case 'artifactSets': return op.mode === 'replace'
+      ? op.ids.map((id) => artifactSetNames[id] ?? String(id)).join(',')
+      : formatMutateList(op.add.map((e) => artifactSetNames[e.id] ?? String(e.id)), op.remove.map((id) => artifactSetNames[id] ?? String(id)))
+    case 'artifactMetaSets': return op.mode === 'replace'
+      ? op.names.join(',')
+      : formatMutateList(op.add, op.remove)
+  }
+}
+
+// Comparison-op → DSL symbol for selector conditions (rank>=3, minrolls=4, …).
+const SELECTOR_OP_SYMBOL: Record<'eq' | 'gte' | 'lte', string> = { eq: '=', gte: '≥', lte: '≤' }
+
+/**
+ * Format a recipe-overrides SELECTOR as its DSL condition text (e.g. `lockedminrolls=4`,
+ * `rank≥3`, `rarity=epic`, `all`). SSOT for DSL-reconstruction consumers (note-editor
+ * option-info tooltip). Exhaustive `switch` over the selector union — a new selector kind
+ * fails to compile until handled here. Logical combinators recurse.
+ */
+export function formatRecipeOverridesSelector(sel: RecipeOverridesSelector): string {
+  switch (sel.kind) {
+    case 'all':       return 'all'
+    case 'tagged':    return 'tagged'
+    case 'untagged':  return 'untagged'
+    case 'tag': {
+      const values = sel.values ?? []
+      if (sel.mode === 'any')  return 'tag any'
+      if (sel.mode === 'none') return 'tag none'
+      if (sel.mode === 'in')   return `tag in ${values.join(',')}`
+      return values.length ? `tag=${values.join(',')}` : 'tag'
+    }
+    case 'rank':            return `rank${SELECTOR_OP_SYMBOL[sel.op]}${RECIPE_RANK_CODE_DISPLAY[sel.value] ?? sel.value}`
+    case 'rarity':          return `rarity${SELECTOR_OP_SYMBOL[sel.op]}${sel.mode === 'auto' ? 'auto' : (rarityCodeToName(sel.code).replace(/\s/g, '') || 'any')}`
+    case 'minRolls':        return `minrolls${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'lockedMinRolls':  return `lockedminrolls${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'minSubstats':     return `minsubstats${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'flex':            return `flex=${sel.value}`
+    case 'substatMin':      return `substatmin${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'substatMinField': return `substatmin.${labelOfVariant(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'minimaAny':       return `minima${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'minimaField':     return `minima.${sel.star}★.${labelOfVariant(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'not':             return `not ${formatRecipeOverridesSelector(sel.inner)}`
+    case 'and':             return `${formatRecipeOverridesSelector(sel.left)} and ${formatRecipeOverridesSelector(sel.right)}`
+    case 'or':              return `${formatRecipeOverridesSelector(sel.left)} or ${formatRecipeOverridesSelector(sel.right)}`
+  }
+}
+
 export type RecipeOverridesSelectorBlock = {
   selector: RecipeOverridesSelector
   operations: RecipeOverridesOperation[]
@@ -209,6 +371,14 @@ export type NoteQuestionOption = {
   // (display only; stored value untouched). null = keep the current state.
   requiresDisabledState: 'on' | 'off' | null
   groupType: NoteQuestionGroupType
+  // 1-based positional index within the question (the implicit DSL reference token
+  // usable when no explicit `id=` is set). Always present so the UI can show a stable
+  // way to reference the option.
+  positionalIndex: number
+  // Absolute source span of the whole option block in the note text (for click-to-select
+  // in the editor preview). Absent when the parser could not determine it.
+  sourceFrom?: number
+  sourceTo?: number
 }
 
 // Selector blocks that apply when no options are selected.
@@ -1347,12 +1517,16 @@ export function collectRecipeOverridesDiagnostics(
 // Parse a question marker body using the shared infrastructure with the recipe selector block parser.
 // parseSafeguardSelectorBlock is from a circular import; safe because it's only called inside this
 // function body, never at module initialization time.
-const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => (
+const parseQuestionMarker = (inner: string, markerOffset = 0): ParsedQuestionDefinition | null => (
   parseOverridesMarkerBody<RecipeOverridesSelector, RecipeOverridesOperation>(
     inner,
     NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS,
     parseSelectorBlock,
     (cursor) => parseSafeguardSelectorBlock(cursor),
+    // No diagnostics collected on the UI path; pass the absolute marker offset so
+    // each option's sourceFrom/sourceTo are absolute positions in the full note.
+    undefined,
+    markerOffset,
   )
 )
 
@@ -1527,7 +1701,7 @@ const buildResolvedQuestion = (
   // Build the implicit numeric token map for this question.
   const implicitTokenMap = buildQuestionImplicitTokenMap(question.options)
   // Resolve the options with globally-scoped exclusions.
-  const options = question.options.map((option) => {
+  const options = question.options.map((option, optionIndex) => {
     // Prefer explicit tokens for display, else fall back to the implicit index.
     const token = option.explicitToken ?? option.implicitToken ?? ''
     // Resolve set tokens using global explicit IDs.
@@ -1575,6 +1749,11 @@ const buildResolvedQuestion = (
       requiresOptionIds,
       requiresDisabledState: option.needsDisabledState,
       groupType: option.groupType,
+      // 1-based positional index for the implicit DSL reference.
+      positionalIndex: optionIndex + 1,
+      // Spread the source span only when present (exactOptionalPropertyTypes).
+      ...(option.sourceFrom != null ? { sourceFrom: option.sourceFrom } : {}),
+      ...(option.sourceTo != null ? { sourceTo: option.sourceTo } : {}),
     }
   })
   // Index options by id for group assembly.
@@ -1995,7 +2174,9 @@ export const parseNoteRecipeOverrides = (
     }
     // Strip the HTML comment wrapper to parse the payload.
     const inner = stripCommentWrapper(raw)
-    const parsed = parseQuestionMarker(inner)
+    // Absolute offset of `inner` within the full note, so option source spans are absolute.
+    const innerOffset = (match.index ?? 0) + raw.indexOf(inner)
+    const parsed = parseQuestionMarker(inner, innerOffset)
     if (!parsed) {
       // No question body — check for a spacer marker (bare marker with optional [columns=N]).
       const spacerColumns = parseOverridesMarkerSpacerColumns(inner, NOTE_RECIPE_OVERRIDES_MARKER_KEYWORDS)

@@ -22,7 +22,7 @@ import type { RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeO
 // parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
 // clampRankCode is the SSOT for [1,6] integer rank clamping used at AST resolve time.
 import { parseRecipeSelectorBlockCross, clampRankCode } from './noteRecipeOverrides'
-import { variantFromLabel } from './types'
+import { variantFromLabel, labelOfVariant, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
 import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
 import {
   SafeguardRuleActivation,
@@ -130,7 +130,79 @@ export type SafeguardOverridesOperation =
   | { kind: 'factions'; mode: 'replace'; values: FactionId[] }
   | { kind: 'factions'; mode: 'mutate';  add: FactionId[];  remove: FactionId[] }
 
+/**
+ * Operation kind → DSL assignment-field token. SSOT for DSL-reconstruction consumers
+ * (note-editor option-info tooltip). Exhaustive over the operation union so a new
+ * `SafeguardOverridesOperation` kind fails to compile until registered here — keeping
+ * it in lock-step with the parser and `NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS`.
+ */
+export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['kind'], string> = {
+  activation: 'activation',
+  count: 'count',
+  ignPrev: 'ignprev',
+  ignEquippedCollection: 'ignequippedcollection',
+  ignEquippedVault: 'ignequippedvault',
+  perFaction: 'perfaction',
+  perMainStat: 'permainstat',
+  perSlot: 'perslot',
+  perSet: 'perset',
+  perRule: 'perrule',
+  substats: 'substats',
+  substatMatch: 'substatmatch',
+  substatWeight: 'weight',
+  improvementChance: 'improvchance',
+  ranks: 'ranks',
+  rarities: 'rarities',
+  factions: 'factions',
+}
+
 /** A resolved selector + operations pair, ready for application. */
+// Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax.
+const formatSgMutateList = (add: string[], remove: string[]): string =>
+  [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
+
+// RankValue (1-6) → rarity name for the `rarities` field display.
+const rankValueRarityName = (rv: RankValue): string =>
+  rarityCodeToName(rarityCodeFromRankValue(rv)).replace(/\s/g, '') || String(rv)
+
+/**
+ * Format a safeguard-overrides operation's VALUE as compact display text (the right-hand
+ * side of its `field=…` assignment). SSOT for DSL-reconstruction consumers (note-editor
+ * option-info tooltip). Exhaustive `switch` over the operation union — a new op kind fails
+ * to compile until handled here. The field token comes from SAFEGUARD_OVERRIDES_OP_FIELD.
+ * Returns null when the op carries no meaningful scalar (slider-AST count blocks).
+ */
+export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation): string | null {
+  switch (op.kind) {
+    // Activation/substat-match enum values are already display strings (Off, 1-4, persubstat).
+    case 'activation': return String(op.value)
+    case 'count': return op.value != null ? String(op.value) : '$count'
+    case 'ignPrev':
+    case 'ignEquippedCollection':
+    case 'ignEquippedVault':
+    case 'perFaction':
+    case 'perMainStat':
+    case 'perSlot':
+    case 'perSet':
+    case 'perRule': return String(op.value)
+    case 'substatMatch': return String(op.value)
+    case 'substatWeight': return `${labelOfVariant(op.stat)}=${op.value}`
+    case 'improvementChance': return op.value == null ? 'off' : 'on'
+    case 'substats': return op.mode === 'replace'
+      ? op.stats.map((v) => labelOfVariant(v)).filter(Boolean).join(',')
+      : formatSgMutateList(op.add.map((v) => labelOfVariant(v)).filter(Boolean), op.remove.map((v) => labelOfVariant(v)).filter(Boolean))
+    case 'ranks': return op.mode === 'replace'
+      ? op.values.map(String).join(',')
+      : formatSgMutateList(op.add.map(String), op.remove.map(String))
+    case 'rarities': return op.mode === 'replace'
+      ? op.values.map(rankValueRarityName).join(',')
+      : formatSgMutateList(op.add.map(rankValueRarityName), op.remove.map(rankValueRarityName))
+    case 'factions': return op.mode === 'replace'
+      ? op.values.map((f) => factionCodeToName(f)).join(',')
+      : formatSgMutateList(op.add.map((f) => factionCodeToName(f)), op.remove.map((f) => factionCodeToName(f)))
+  }
+}
+
 export type SafeguardOverridesSelectorBlock = {
   selector: NoteTagSelector
   operations: SafeguardOverridesOperation[]
@@ -586,6 +658,11 @@ export type SafeguardNoteQuestionOption = {
   sliderMax?: number
   sliderStep?: number
   sliderDefault?: number
+  /** 1-based positional index within the question (implicit DSL reference token). */
+  positionalIndex: number
+  /** Absolute source span of the whole option block (for editor-preview click-to-select). */
+  sourceFrom?: number
+  sourceTo?: number
 }
 
 /** A group within a rendered question (single / multi / slider). */
@@ -876,7 +953,7 @@ const buildResolvedQuestion = (
   const { question, index } = entry
   const implicitTokenMap = buildQuestionImplicitTokenMap(question.options)
   // Resolve options to the public option type.
-  const options: SafeguardNoteQuestionOption[] = question.options.map((option) => {
+  const options: SafeguardNoteQuestionOption[] = question.options.map((option, optionIndex) => {
     const token = option.explicitToken ?? option.implicitToken ?? ''
     // Resolve constraint tokens to option IDs so the cascade engine can enforce them.
     const resolveTokens = (tokens: string[]) => resolveOptionIdsFromTokens(tokens, globalExplicitTokenMap, implicitTokenMap)
@@ -897,7 +974,12 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
+      // 1-based positional index for the implicit DSL reference.
+      positionalIndex: optionIndex + 1,
     }
+    // Spread the source span only when present (exactOptionalPropertyTypes).
+    if (option.sourceFrom != null) result.sourceFrom = option.sourceFrom
+    if (option.sourceTo != null) result.sourceTo = option.sourceTo
     // Propagate slider params for slider group options.
     if (option.groupType === 'slider' && option.sliderParams) {
       result.sliderMin     = option.sliderParams.min
@@ -1005,6 +1087,8 @@ export const parseNoteSafeguardOverrides = (
     const raw = match?.[0] ?? ''
     if (!raw) { markerIndex += 1; continue }
     const inner = stripCommentWrapper(raw)
+    // Absolute offset of `inner` within the full note, so option source spans are absolute.
+    const innerOffset = (match.index ?? 0) + raw.indexOf(inner)
     const parsed = parseOverridesMarkerBody<NoteTagSelector, SafeguardOverridesOperation>(
       inner,
       [NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD],
@@ -1013,6 +1097,9 @@ export const parseNoteSafeguardOverrides = (
       // parseRecipeSelectorBlockCross circular import is safe — called inside a function body only.
       // Uses the cross-domain variant so $count/$value expressions work inside slider questions.
       (cursor) => parseRecipeSelectorBlockCross(cursor),
+      // No diagnostics on the UI path; pass the absolute marker offset for source spans.
+      undefined,
+      innerOffset,
     )
     if (!parsed) {
       // No question body — check for a spacer marker (bare marker with optional [columns=N]).

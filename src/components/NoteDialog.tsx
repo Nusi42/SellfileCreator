@@ -77,7 +77,12 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
+  RECIPE_OVERRIDES_OP_FIELD,
+  formatRecipeOverridesOpValue,
+  formatRecipeOverridesSelector,
   type RecipeOverridesInstructions,
+  type RecipeOverridesOperation,
+  type RecipeOverridesSelector,
   type NoteQuestionDefinition,
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
@@ -89,10 +94,14 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
+  SAFEGUARD_OVERRIDES_OP_FIELD,
+  formatSafeguardOverridesOpValue,
+  type SafeguardOverridesOperation,
   type NoteSafeguardOverridesAnswers,
   type SafeguardNoteQuestionDefinition,
   type SafeguardOverridesResolution,
 } from '../lib/noteSafeguardOverrides'
+import { formatNoteTagSelector, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -331,6 +340,14 @@ const autoPushBlink = keyframes`
   0%   { box-shadow: 0 0 0 0 ${TINT.successGlow}; }
   50%  { box-shadow: 0 0 0 8px ${TINT.pulseFadeOut}; transform: scale(1.08); }
   100% { box-shadow: 0 0 0 0 ${TINT.pulseFadeOut}; }
+`
+// One-shot highlight pulse for the overlay box flashed over an option's DSL when its preview
+// control is clicked. Fades a primary-tinted background + ring from visible to transparent so
+// the eye is drawn to JUST that range (not the whole editor) after it scrolls into view.
+const noteDslPulse = keyframes`
+  0%   { background-color: ${TINT.primaryActiveBg}; box-shadow: 0 0 0 1px ${TINT.primaryGlow}; }
+  70%  { background-color: ${TINT.primaryActiveBg}; box-shadow: 0 0 0 1px ${TINT.primaryGlow}; }
+  100% { background-color: ${TINT.pulseFadeOut}; box-shadow: 0 0 0 1px ${TINT.pulseFadeOut}; }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 // Duration for all express↔expert mode transitions (ms).
@@ -814,6 +831,16 @@ type NoteRenderContextValue = {
   substatTargets: SubstatTargetTable
   // True while the rule cache pipeline is still running; gates dungeon sim start.
   pipelineRunning: boolean
+  // True only when this context is powering the MDEditor split-pane preview (edit mode).
+  // Used to gate option-info hover tooltips that are only useful in the read-only preview.
+  isEditorPreview: boolean
+  // Editor-preview only: scroll the given source character range into view in the MDEditor
+  // textarea and pulse its background once (used to locate an option's DSL when its control
+  // is clicked). No-op in view mode.
+  onRevealOptionSource?: (from: number, to: number) => void
+  // Editor-preview only: global optionId → {token,label} map, so a tooltip can resolve a
+  // forces-reference (id of an option in another question) to its unique token + answer label.
+  optionLookup?: Map<string, { token: string; label: string }>
 }
 
 // Exported so DungeonSimulatorNoteBlock can consume it without a prop-drilling chain.
@@ -2094,9 +2121,456 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
   } satisfies Record<string, unknown>
 }
 
+// ── Option info tooltip (editor preview only) ────────────────────────────────
+// Layout (all gated on isEditorPreview — the end-user note view is never affected):
+//   Header     plainLabel  [default]  (slider)
+//   sub-line   id=token  ·  multi      (muted)
+//   CHANGES    <pre> Prism panel: `selector: field=value …` (real values, B1)
+//              range: min–max (default N)        ← slider options only
+//   FORCES     on / off / excl / needs rows of `#idx label…` short refs
+//
+// The CHANGES <pre> renders through the `dynamic-overrides` Prism grammar (same as the
+// EBNF example tooltips) on a background.default surface — that is the surface the
+// --note-tok-* vars were contrast-adapted against, so colours are correct there. The
+// FORCES section renders on the tooltip's background.paper, so its token colours run
+// through useSubstatFgAdapter() to stay legible on that lighter surface.
+
+// Selector → full DSL condition text via the parser-side SSOT formatters. Recipe selectors
+// can carry op+value conditions (e.g. `lockedminrolls=4`, `rank≥3`); safeguard selectors are the
+// tag-only subset. Dispatch by the block's domain so the value-bearing recipe conditions render
+// in full (the bare token map dropped the `=value` part).
+function noteOverrideSelectorToDsl(selector: { kind: string; [k: string]: unknown }, domain: NoteOverrideDomain): string {
+  return domain === 'recipe'
+    ? formatRecipeOverridesSelector(selector as unknown as RecipeOverridesSelector)
+    : formatNoteTagSelector(selector as unknown as NoteTagSelector)
+}
+
+// Operation kind → DSL assignment-field token, merged from the two parser-side SSOT maps.
+const NOTE_OVERRIDE_OP_FIELD_MAP: Record<string, string> = {
+  ...RECIPE_OVERRIDES_OP_FIELD,
+  ...SAFEGUARD_OVERRIDES_OP_FIELD,
+}
+
+// Domain of an option's blocks — picks the right SSOT value formatter.
+type NoteOverrideDomain = 'recipe' | 'safeguard'
+
+// When the block's operations apply: while the option is selected ('on'), while it is
+// NOT selected ('off', i.e. an `else` block), or as a cross-domain effect.
+type NoteOverridePhase = 'on' | 'off'
+
+// Structural block type compatible with RecipeOverridesSelectorBlock and SafeguardOverridesSelectorBlock.
+// Operations are kept as the real union (cast at the call boundary) so value formatters apply.
+// `phase` distinguishes when-selected vs when-unselected (else) blocks; `domain` says which
+// formatter/keyword applies (a recipe option's safeguard blocks are cross-domain → 'safeguard').
+type NoteOverrideInfoBlock = {
+  selector: { kind: string; [k: string]: unknown }
+  operations: Array<RecipeOverridesOperation | SafeguardOverridesOperation>
+  phase: NoteOverridePhase
+  domain: NoteOverrideDomain
+  cross: boolean
+}
+
+// Format one operation as `field=value` (or bare `field` when the op has no scalar value),
+// dispatching to the domain's exhaustive SSOT formatter. Field token comes from the merged
+// SSOT field map — the component holds no DSL vocabulary of its own.
+function formatOverrideOp(op: RecipeOverridesOperation | SafeguardOverridesOperation, domain: NoteOverrideDomain): string {
+  const field = NOTE_OVERRIDE_OP_FIELD_MAP[op.kind] ?? op.kind
+  const value = domain === 'recipe'
+    ? formatRecipeOverridesOpValue(op as RecipeOverridesOperation)
+    : formatSafeguardOverridesOpValue(op as SafeguardOverridesOperation)
+  return value != null && value !== '' ? `${field}=${value}` : field
+}
+
+const NOTE_OPTION_INFO_TOOLTIP_MAX_WIDTH_PX = Math.round(MARKDOWN_TOOLTIP_MAX_WIDTH_PX * 1.6)
+// Truncation cap for a forces-reference answer label (kept short so the list stays tidy).
+const NOTE_OPTION_REF_LABEL_MAX_CH = 16
+
+// Derive the tooltip slider-range info from a safeguard option's slider params.
+// Returns null for non-slider options (no min/max present). `step` is intentionally
+// omitted from the display per the agreed design.
+function buildOptionSliderInfo(
+  option: { sliderMin?: number; sliderMax?: number; sliderDefault?: number },
+): { min: number; max: number; default: number } | null {
+  if (option.sliderMin == null || option.sliderMax == null) return null
+  return { min: option.sliderMin, max: option.sliderMax, default: option.sliderDefault ?? option.sliderMin }
+}
+
+// Strip chip backticks and **bold** emphasis from a label and collapse whitespace,
+// so a constraint reference reads as plain prose rather than raw markup.
+function cleanOptionRefLabel(raw: string): string {
+  return raw
+    .replace(/`([^`]*)`/g, '$1')        // chip backticks → bare text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bare text
+    .replace(/\\n|\r?\n|\r/g, ' ')        // literal/real newlines → space
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Resolve a forces-reference (an option id in another question) to the target's unique token
+// and a SHORTENED answer label. Reused labels (Yes/No/Strict across many questions) make the
+// token the only disambiguating identifier, so we lead with it. Falls back to parsing the id's
+// own embedded label when the global lookup misses (e.g. an unresolved/dangling reference).
+function resolveOptionRef(
+  id: string,
+  lookup: Map<string, { token: string; label: string }> | undefined,
+): { token: string | null; answer: string } {
+  const hit = lookup?.get(id)
+  if (hit) {
+    const token = hit.token && !/^\d+$/.test(hit.token) ? hit.token : null
+    return { token, answer: cleanOptionRefLabel(hit.label) }
+  }
+  // Fallback: the id embeds `<questionId>:<label>#<index>`.
+  const withoutIndex = id.replace(/#\d+$/, '')
+  const colonIdx = withoutIndex.indexOf(':')
+  return { token: null, answer: cleanOptionRefLabel(colonIdx >= 0 ? withoutIndex.slice(colonIdx + 1) : withoutIndex) }
+}
+
+// Render one forces reference as `token: short-answer`. The token (DSL-unique) is the primary
+// identifier; the shortened answer gives quick human context. `tokenColor` is contrast-adapted.
+function NoteOptionRefChip(
+  { id, tokenColor, lookup }:
+  { id: string; tokenColor: string; lookup: Map<string, { token: string; label: string }> | undefined },
+): JSX.Element {
+  const { token, answer } = resolveOptionRef(id, lookup)
+  const shortAnswer = answer.length > NOTE_OPTION_REF_LABEL_MAX_CH
+    ? `${answer.slice(0, NOTE_OPTION_REF_LABEL_MAX_CH - 1)}…`
+    : answer
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4, whiteSpace: 'nowrap', mr: 1.25 }}>
+      {token && (
+        <Box component="span" sx={{ color: tokenColor, fontFamily: 'var(--font-code, monospace)', fontSize: '0.8rem', fontWeight: 600 }}>
+          {token}{shortAnswer ? ':' : ''}
+        </Box>
+      )}
+      {shortAnswer && (
+        <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{shortAnswer}</Box>
+      )}
+      {/* When neither token nor answer resolved, fall back to the raw id so nothing renders blank. */}
+      {!token && !shortAnswer && (
+        <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{id}</Box>
+      )}
+    </Box>
+  )
+}
+
+// Build the CHANGES DSL snippet: header (id/index + optional `*`) then one
+// `[prefix ]selector: field=value …` line per block. The id/default header is NOT included
+// here — it lives in the tooltip's dedicated id section. Values are the real B1 reconstruction.
+function buildOptionInfoDsl(opts: { blocks: NoteOverrideInfoBlock[] }): string {
+  const lines: string[] = []
+  // One `[prefix ]selector: field=value …` line per non-empty block.
+  // Prefixes mark when/where the block applies: `else` = while UNSELECTED; a domain word
+  // (`safeguard`/`recipe`) = a cross-domain effect on the other rule type.
+  for (const block of opts.blocks) {
+    if (block.operations.length === 0) continue
+    const parts = block.operations.map((op) => formatOverrideOp(op, block.domain))
+    const prefixes: string[] = []
+    if (block.phase === 'off') prefixes.push('else')
+    if (block.cross) prefixes.push(block.domain)
+    const prefix = prefixes.length > 0 ? `${prefixes.join(' ')} ` : ''
+    lines.push(`${prefix}${noteOverrideSelectorToDsl(block.selector, block.domain)}: ${parts.join(' ')}`)
+  }
+  return lines.join('\n')
+}
+
+// Shared dark "code surface" panel that wraps BOTH the CHANGES and FORCES section bodies
+// (background.default = the surface the --note-tok-* vars are contrast-adapted against).
+const NOTE_OPTION_INFO_PANEL_SX = {
+  backgroundColor: 'var(--mui-palette-background-default)',
+  borderRadius: '4px',
+  p: '8px 10px',
+  color: 'var(--mui-palette-text-primary)',
+} satisfies Record<string, unknown>
+// The CHANGES DSL <pre> itself — transparent (the panel above provides the surface).
+const NOTE_OPTION_INFO_PRE_SX = {
+  fontFamily: 'var(--font-code, "JetBrains Mono", monospace)',
+  fontSize: '0.85rem',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  lineHeight: 1.55,
+  m: 0,
+  backgroundColor: 'transparent',
+  color: 'inherit',
+} satisfies Record<string, unknown>
+
+// Small inline `default` chip shown on the default option row in the editor preview
+// (edit-preview only — never in the end-user note view). Colour is contrast-adapted
+// against the card/paper surface via useSubstatFgAdapter.
+function NoteOptionDefaultChip(): JSX.Element {
+  const adaptFg = useSubstatFgAdapter()
+  const color = adaptFg(RECIPE_OVERRIDES_TOKEN_COLORS['default-kw']) ?? 'inherit'
+  return (
+    <Box
+      component="span"
+      sx={{
+        ml: 0.5,
+        fontSize: '0.62rem',
+        lineHeight: 1.5,
+        color,
+        border: '1px solid',
+        borderColor: color,
+        borderRadius: 0.5,
+        px: 0.4,
+        verticalAlign: 'middle',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      default
+    </Box>
+  )
+}
+
+// Uppercase section heading (ID / FORCES / CHANGES). Colour matches the DSL palette
+// (the same selector-builtin accent the CHANGES code panel uses), contrast-adapted by caller.
+function NoteTooltipSectionHeading({ children, color }: { children: React.ReactNode; color: string }): JSX.Element {
+  return (
+    <Typography
+      component="div"
+      sx={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color, mb: 0.5, fontFamily: 'var(--font-code, monospace)' }}
+    >
+      {children}
+    </Typography>
+  )
+}
+
+// One labelled FORCES row: keyword gutter (on/off/excl/needs) + the `token: answer` refs.
+// `kwColor`/`tokenColor` are contrast-adapted by the caller for the tooltip paper surface.
+function NoteOptionConstraintRow(
+  { label, ids, kwColor, tokenColor, lookup, suffix }:
+  { label: string; ids: string[]; kwColor: string; tokenColor: string; lookup: Map<string, { token: string; label: string }> | undefined; suffix?: string | undefined },
+): JSX.Element | null {
+  if (ids.length === 0) return null
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
+      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: 'var(--font-code, monospace)' }}>
+        {label}
+      </Typography>
+      <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 0.25, minWidth: 0 }}>
+        {ids.map((id) => <NoteOptionRefChip key={id} id={id} tokenColor={tokenColor} lookup={lookup} />)}
+        {suffix && (
+          <Typography component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary', fontStyle: 'italic' }}>{suffix}</Typography>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+// Tooltip body. See the layout comment above the section. All sections are render-time
+// derived from the structured option; nothing here mutates note state.
+function NoteOptionInfoTooltipContent({
+  token,
+  label,
+  isDefault,
+  setOptionIds,
+  unsetOptionIds,
+  excludedOptionIds,
+  requiresOptionIds,
+  requiresDisabledState,
+  slider,
+  positionalIndex,
+  blocks,
+}: {
+  token: string
+  label: string
+  isDefault: boolean
+  setOptionIds: string[]
+  unsetOptionIds: string[]
+  excludedOptionIds: string[]
+  requiresOptionIds: string[]
+  requiresDisabledState?: 'on' | 'off' | null | undefined
+  slider?: { min: number; max: number; default: number } | null | undefined
+  positionalIndex: number
+  blocks: NoteOverrideInfoBlock[]
+}): JSX.Element {
+  // Global option lookup so FORCES refs resolve to the target's unique token + answer.
+  const { optionLookup } = useNoteRenderContext()
+  // Contrast-adapt DSL-palette token colours against the tooltip paper surface. Section
+  // headings reuse the same selector-builtin accent as the CHANGES code panel.
+  const adaptFg = useSubstatFgAdapter()
+  const headingColor = adaptFg(RECIPE_OVERRIDES_TOKEN_COLORS['selector-builtin']) ?? 'inherit'
+  const constraintKwColor = adaptFg(RECIPE_OVERRIDES_TOKEN_COLORS['constraint-kw']) ?? 'inherit'
+  const tokenColor = adaptFg(RECIPE_OVERRIDES_TOKEN_COLORS['id-name']) ?? 'inherit'
+  const defaultColor = adaptFg(RECIPE_OVERRIDES_TOKEN_COLORS['default-kw']) ?? 'inherit'
+  // Strip emphasis/chip markers from the label so the header reads as plain text.
+  const plainLabel = cleanOptionRefLabel(label)
+  // Does this option change any fields of its own (when selected, when unselected, or
+  // cross-domain)? A pure preset only forces other options and has no field operations.
+  const hasOwnFields = blocks.some((b) => b.operations.length > 0)
+  // Reconstruct the CHANGES DSL ([prefix ]selector→field=value — no id header line).
+  const dsl = buildOptionInfoDsl({ blocks })
+  const hasConstraints = setOptionIds.length + unsetOptionIds.length + excludedOptionIds.length + requiresOptionIds.length > 0
+  // needs-gate display state suffix (`shown off until met`), display-only.
+  const needsSuffix = requiresDisabledState ? `shown ${requiresDisabledState} until met` : undefined
+  // ID reference: explicit `id=token` verbatim; otherwise the 1-based position (the DSL
+  // fallback when no `id=` is set), shown as `#index (by position)`.
+  const hasExplicitId = token !== '' && !/^\d+$/.test(token)
+  const idText = hasExplicitId ? `id=${token}` : `#${positionalIndex}`
+  const idHint = hasExplicitId ? '' : ' (by position)'
+  return (
+    <Box sx={{ maxWidth: NOTE_OPTION_INFO_TOOLTIP_MAX_WIDTH_PX, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      {/* Header: plain label + default chip + preset hint. */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, flexWrap: 'wrap' }}>
+          <Typography component="span" sx={{ fontSize: '0.95rem', fontWeight: 600, color: 'text.primary' }}>
+            {plainLabel || token}
+          </Typography>
+          {isDefault && (
+            <Box component="span" sx={{ fontSize: '0.7rem', color: defaultColor, border: '1px solid', borderColor: defaultColor, borderRadius: 0.5, px: 0.5, lineHeight: 1.6 }}>
+              default
+            </Box>
+          )}
+        </Box>
+        {/* ID section: how to address this option in the DSL. */}
+        <Typography component="div" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: 'var(--font-code, monospace)', mt: 0.25 }}>
+          {idText}<Box component="span" sx={{ fontFamily: 'inherit', color: 'text.disabled' }}>{idHint}</Box>
+        </Typography>
+      </Box>
+      {/* FORCES: other options this one toggles, as `token: answer` refs. Always shown — on the
+          same dark code surface as CHANGES; `nothing` (italic) when this option forces nothing. */}
+      <Box>
+        <NoteTooltipSectionHeading color={headingColor}>forces</NoteTooltipSectionHeading>
+        <Box sx={NOTE_OPTION_INFO_PANEL_SX}>
+          {hasConstraints ? (
+            <>
+              <NoteOptionConstraintRow label="on" ids={setOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
+              <NoteOptionConstraintRow label="off" ids={unsetOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
+              <NoteOptionConstraintRow label="excl" ids={excludedOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
+              <NoteOptionConstraintRow label="needs" ids={requiresOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} suffix={needsSuffix} />
+            </>
+          ) : (
+            <NoteTooltipNothing />
+          )}
+        </Box>
+      </Box>
+      {/* CHANGES: the option's own field changes as highlighted DSL + slider range. Always shown;
+          `nothing` (italic) when this option changes no fields of its own (a pure preset switch). */}
+      <Box>
+        <NoteTooltipSectionHeading color={headingColor}>changes</NoteTooltipSectionHeading>
+        {hasOwnFields || slider ? (
+          <Box sx={NOTE_OPTION_INFO_PANEL_SX}>
+            {hasOwnFields && renderPrismHighlighted(dsl, 'dynamic-overrides', NOTE_OPTION_INFO_PRE_SX)}
+            {slider && (
+              <Typography component="div" sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: hasOwnFields ? 0.5 : 0, fontFamily: 'var(--font-code, monospace)' }}>
+                range: {slider.min}–{slider.max} (default {slider.default})
+              </Typography>
+            )}
+          </Box>
+        ) : (
+          <Box sx={NOTE_OPTION_INFO_PANEL_SX}><NoteTooltipNothing /></Box>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+// Italic muted "nothing" shown in an empty FORCES/CHANGES panel.
+function NoteTooltipNothing(): JSX.Element {
+  return <Typography component="span" sx={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'text.disabled' }}>nothing</Typography>
+}
+
+// A raw selector block (recipe or safeguard) as carried on a parsed option.
+type RawOverrideBlock = { selector: { kind: string; [k: string]: unknown }; operations: Array<RecipeOverridesOperation | SafeguardOverridesOperation> }
+
+// Minimal structural shape an option must satisfy to drive the info tooltip. Recipe
+// and safeguard options both provide these (requiresOptionIds/State are recipe-only).
+// The four block buckets cover when-selected, when-unselected (else), and the two
+// cross-domain variants; field names differ per domain, so both naming sets are optional.
+type NoteInfoTooltipOption = {
+  token: string
+  label: string
+  isDefault: boolean
+  groupType: string
+  setOptionIds: string[]
+  unsetOptionIds: string[]
+  excludedOptionIds: string[]
+  requiresOptionIds?: string[]
+  requiresDisabledState?: 'on' | 'off' | null
+  sliderMin?: number
+  sliderMax?: number
+  sliderDefault?: number
+  positionalIndex: number
+  sourceFrom?: number
+  sourceTo?: number
+  // when-selected, same-domain blocks (both domains call this `blocks`).
+  blocks: RawOverrideBlock[]
+  // recipe option: when-unselected same-domain (`else`).
+  elseBlocks?: RawOverrideBlock[]
+  // recipe option: cross-domain (safeguard) blocks, on / off.
+  safeguardBlocks?: RawOverrideBlock[]
+  safeguardElseBlocks?: RawOverrideBlock[]
+  // safeguard option: when-unselected same-domain (`fallback`).
+  fallbackBlocks?: RawOverrideBlock[]
+  // safeguard option: cross-domain (recipe) blocks, on / off.
+  recipeBlocks?: RawOverrideBlock[]
+  recipeFallbackBlocks?: RawOverrideBlock[]
+}
+
+// Assemble the tagged block list the tooltip renders, from an option's raw block buckets.
+// Each entry records when it applies (phase), which formatter/keyword to use (domain), and
+// whether it is a cross-domain effect (so the DSL gets the `safeguard`/`recipe` prefix).
+function assembleOptionInfoBlocks(option: NoteInfoTooltipOption, domain: NoteOverrideDomain): NoteOverrideInfoBlock[] {
+  const crossDomain: NoteOverrideDomain = domain === 'recipe' ? 'safeguard' : 'recipe'
+  const tag = (raw: RawOverrideBlock[] | undefined, phase: NoteOverridePhase, d: NoteOverrideDomain, cross: boolean): NoteOverrideInfoBlock[] =>
+    (raw ?? []).map((b) => ({ selector: b.selector, operations: b.operations, phase, domain: d, cross }))
+  return [
+    ...tag(option.blocks, 'on', domain, false),
+    ...tag(option.elseBlocks ?? option.fallbackBlocks, 'off', domain, false),
+    ...tag(option.safeguardBlocks ?? option.recipeBlocks, 'on', crossDomain, true),
+    ...tag(option.safeguardElseBlocks ?? option.recipeFallbackBlocks, 'off', crossDomain, true),
+  ]
+}
+
+// Wrap any control (FormControlLabel, slider Box, …) so hovering ANYWHERE on it shows
+// the option-info tooltip, and clicking it selects the option's DSL in the editor.
+// Used in the editor preview only — callers gate on isEditorPreview. Centralizes the
+// option→tooltip prop mapping so the 5 control sites (recipe radio/checkbox, safeguard
+// radio/checkbox/slider) stay in lock-step.
+function NoteOptionInfoTooltipWrap(
+  { option, domain, children }:
+  { option: NoteInfoTooltipOption; domain: NoteOverrideDomain; children: React.ReactElement },
+): JSX.Element {
+  const { onRevealOptionSource } = useNoteRenderContext()
+  // Clicking the control scrolls the option's DSL into view in the editor and pulses it.
+  // Rather than a per-control React onClick (unreliable: the disabled control swallows clicks and
+  // the tooltip clones the child), we stamp the source span as DOM data-attrs and let a single
+  // delegated listener on the preview container (installed by useEditorPreviewScrollSync) handle
+  // the click. The wrapper still gives a pointer cursor as the affordance.
+  const canReveal = onRevealOptionSource != null && option.sourceFrom != null && option.sourceTo != null
+  const clickable = canReveal
+    ? (
+      <Box data-reveal-from={option.sourceFrom} data-reveal-to={option.sourceTo} sx={{ cursor: 'pointer' }}>
+        {children}
+      </Box>
+    )
+    : children
+  return (
+    <MarkdownTooltip
+      render={(
+        <NoteOptionInfoTooltipContent
+          token={option.token}
+          label={option.label}
+          isDefault={option.isDefault}
+          setOptionIds={option.setOptionIds}
+          unsetOptionIds={option.unsetOptionIds}
+          excludedOptionIds={option.excludedOptionIds}
+          requiresOptionIds={option.requiresOptionIds ?? []}
+          requiresDisabledState={option.requiresDisabledState ?? null}
+          slider={buildOptionSliderInfo(option)}
+          positionalIndex={option.positionalIndex}
+          blocks={assembleOptionInfoBlocks(option, domain)}
+        />
+      )}
+      hoverIntent="informational"
+      placement="right"
+    >
+      {clickable}
+    </MarkdownTooltip>
+  )
+}
+
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull recipe overrides wiring from context.
-  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange } = useNoteRenderContext()
+  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange, isEditorPreview } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -2236,6 +2710,9 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   return (
     <Box
+      // Stamp the marker index onto the DOM so the editor↔preview scroll sync can pair this
+      // rendered card with its source marker. (Read off node.properties above; not auto-forwarded.)
+      data-question-index={markerIndex ?? undefined}
       sx={{
         // Match Safeguard card styling for tighter, consistent layout.
         // Width limits mirror Safeguard cards so multiple can fit on a line.
@@ -2318,22 +2795,35 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     {group.options.map((option) => {
                       // Keep row spacing consistent across all non-horizontal options.
                       const rowSx = buildOptionRowSx()
-                      return (
+                      const labelNode = renderTwoColumnOptionLabel({
+                        option,
+                        chipSx: promptChipSx,
+                        labelSx: promptLabelSx,
+                        labelColumnCh,
+                        layout: isHorizontal ? 'rows' : 'columns',
+                      })
+                      // In the editor preview, show the default chip after the label.
+                      const label = isEditorPreview ? (
+                        <Box component="span" sx={{ display: 'inline-block', width: '100%' }}>
+                          {labelNode}
+                          {option.isDefault && <NoteOptionDefaultChip />}
+                        </Box>
+                      ) : labelNode
+                      const row = (
                         <FormControlLabel
                           key={option.id}
                           value={option.id}
                           control={<Radio size="small" disabled={!recipeOverridesEditable} />}
-                          label={renderTwoColumnOptionLabel({
-                            option,
-                            chipSx: promptChipSx,
-                            labelSx: promptLabelSx,
-                            labelColumnCh,
-                            layout: isHorizontal ? 'rows' : 'columns',
-                          })}
+                          label={label}
                           disabled={!recipeOverridesEditable}
                           sx={rowSx}
                         />
                       )
+                      // In the editor preview, hovering anywhere on the row (control + label)
+                      // surfaces the option-info tooltip.
+                      return isEditorPreview
+                        ? <NoteOptionInfoTooltipWrap key={option.id} option={option} domain="recipe">{row}</NoteOptionInfoTooltipWrap>
+                        : row
                     })}
                   </RadioGroup>
                 </FormControl>
@@ -2355,7 +2845,20 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     : selectedSet.has(option.id)
                   // Keep row spacing consistent across all non-horizontal options.
                   const rowSx = buildOptionRowSx()
-                  return (
+                  const checkboxLabelNode = renderTwoColumnOptionLabel({
+                    option,
+                    chipSx: promptChipSx,
+                    labelSx: promptLabelSx,
+                    labelColumnCh,
+                    layout: isHorizontal ? 'rows' : 'columns',
+                  })
+                  const checkboxLabel = isEditorPreview ? (
+                    <Box component="span" sx={{ display: 'inline-block', width: '100%' }}>
+                      {checkboxLabelNode}
+                      {option.isDefault && <NoteOptionDefaultChip />}
+                    </Box>
+                  ) : checkboxLabelNode
+                  const row = (
                     <FormControlLabel
                       key={option.id}
                       control={(
@@ -2384,17 +2887,15 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                           }}
                         />
                       )}
-                      label={renderTwoColumnOptionLabel({
-                        option,
-                        chipSx: promptChipSx,
-                        labelSx: promptLabelSx,
-                        labelColumnCh,
-                        layout: isHorizontal ? 'rows' : 'columns',
-                      })}
+                      label={checkboxLabel}
                       disabled={optionDisabled}
                       sx={rowSx}
                     />
                   )
+                  // Hover anywhere on the row → option-info tooltip (editor preview only).
+                  return isEditorPreview
+                    ? <NoteOptionInfoTooltipWrap key={option.id} option={option} domain="recipe">{row}</NoteOptionInfoTooltipWrap>
+                    : row
                 })}
               </FormGroup>
             )
@@ -2465,7 +2966,7 @@ function NoteOverridesSlider({
 type NoteSafeguardOverridesBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps): JSX.Element | null {
-  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange } = useNoteRenderContext()
+  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange, isEditorPreview } = useNoteRenderContext()
   const theme = useTheme()
   const rawIndexAttr = coerceFirstString(node?.properties?.[SG_QUESTION_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
@@ -2532,6 +3033,8 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   const cardOpacity = noteOverridesDisabled ? 0.55 : 1
   return (
     <Box
+      // Stamp the marker index for the editor↔preview scroll sync (see NoteQuestionBlock).
+      data-sg-question-index={markerIndex ?? undefined}
       sx={{
         ...cardWidthSx,
         borderRadius: 1,
@@ -2583,12 +3086,13 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
               const min = sliderOpt.sliderMin ?? 1
               const max = sliderOpt.sliderMax ?? 5
               const step = sliderOpt.sliderStep ?? 1
-              return (
+              const sliderBox = (
                 <Box key={group.id} sx={{ px: 0.5, pt: 0.5 }}>
                   {/* Slider prompt label mirrors the group header label when present */}
                   {sliderOpt.label ? (
                     <Typography variant="caption" sx={{ ...NOTE_QUESTION_SUBTEXT_SX, display: 'block', mb: 0.5 }}>
                       {renderQuestionTextTokens({ tokens: buildQuestionPromptTokens(sliderOpt.label, questionOptions as unknown as LabelOption[], false), chipSx: promptChipSx, labelSx: promptLabelSx })}
+                      {sliderOpt.isDefault && isEditorPreview && <NoteOptionDefaultChip />}
                     </Typography>
                   ) : null}
                   <NoteOverridesSlider
@@ -2603,6 +3107,11 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                   />
                 </Box>
               )
+              // Hover anywhere on the slider box → option-info tooltip (editor preview only).
+              // This is the main fix for sliders, which have no text label to hover.
+              return isEditorPreview
+                ? <NoteOptionInfoTooltipWrap key={group.id} option={sliderOpt} domain="safeguard">{sliderBox}</NoteOptionInfoTooltipWrap>
+                : sliderBox
             }
             // ── Single (radio) group ──────────────────────────────────────
             if (group.type === 'single') {
@@ -2620,16 +3129,28 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                     }}
                     sx={optionGroupSx}
                   >
-                    {group.options.map((option) => (
-                      <FormControlLabel
-                        key={option.id}
-                        value={option.id}
-                        control={<Radio size="small" disabled={!safeguardOverridesEditable} />}
-                        label={renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })}
-                        disabled={!safeguardOverridesEditable}
-                        sx={NOTE_QUESTION_OPTION_SX}
-                      />
-                    ))}
+                    {group.options.map((option) => {
+                      const sgRadioLabelNode = renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })
+                      const sgRadioLabel = isEditorPreview ? (
+                        <Box component="span" sx={{ display: 'inline-block', width: '100%' }}>
+                          {sgRadioLabelNode}
+                          {option.isDefault && <NoteOptionDefaultChip />}
+                        </Box>
+                      ) : sgRadioLabelNode
+                      const row = (
+                        <FormControlLabel
+                          key={option.id}
+                          value={option.id}
+                          control={<Radio size="small" disabled={!safeguardOverridesEditable} />}
+                          label={sgRadioLabel}
+                          disabled={!safeguardOverridesEditable}
+                          sx={NOTE_QUESTION_OPTION_SX}
+                        />
+                      )
+                      return isEditorPreview
+                        ? <NoteOptionInfoTooltipWrap key={option.id} option={option} domain="safeguard">{row}</NoteOptionInfoTooltipWrap>
+                        : row
+                    })}
                   </RadioGroup>
                 </FormControl>
               )
@@ -2639,7 +3160,14 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
               <FormGroup key={group.id} sx={optionGroupSx}>
                 {group.options.map((option) => {
                   const checked = selectedSet.has(option.id)
-                  return (
+                  const sgCheckboxLabelNode = renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })
+                  const sgCheckboxLabel = isEditorPreview ? (
+                    <Box component="span" sx={{ display: 'inline-block', width: '100%' }}>
+                      {sgCheckboxLabelNode}
+                      {option.isDefault && <NoteOptionDefaultChip />}
+                    </Box>
+                  ) : sgCheckboxLabelNode
+                  const row = (
                     <FormControlLabel
                       key={option.id}
                       control={
@@ -2658,11 +3186,14 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                           }}
                         />
                       }
-                      label={renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })}
+                      label={sgCheckboxLabel}
                       disabled={!safeguardOverridesEditable}
                       sx={NOTE_QUESTION_OPTION_SX}
                     />
                   )
+                  return isEditorPreview
+                    ? <NoteOptionInfoTooltipWrap key={option.id} option={option} domain="safeguard">{row}</NoteOptionInfoTooltipWrap>
+                    : row
                 })}
               </FormGroup>
             )
@@ -3655,6 +4186,7 @@ export default function NoteDialog({
       rules,
       substatTargets,
       pipelineRunning,
+      isEditorPreview: false,
     }),
     [
       recipes,
@@ -4345,6 +4877,165 @@ export default function NoteDialog({
   )
 }
 
+// Per-domain global marker regexes (with `g`) for scanning marker char offsets in the draft.
+// Order of matches === the `data-question-index` / `data-sg-question-index` the cards carry.
+const RECIPE_MARKER_OFFSET_REGEX = new RegExp(`<!--\\s*(?:${QUESTION_MARKER_KEYWORD_PATTERN})\\b[\\s\\S]*?-->`, 'gi')
+const SG_MARKER_OFFSET_REGEX = new RegExp(`<!--\\s*${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}\\b[\\s\\S]*?-->`, 'gi')
+
+// Compute [markerIndex] → source char offset for one domain's markers in the draft.
+function markerCharOffsets(draft: string, re: RegExp): number[] {
+  const offsets: number[] = []
+  re.lastIndex = 0
+  for (const m of draft.matchAll(re)) offsets.push(m.index ?? 0)
+  return offsets
+}
+
+// Find the pixel Y of a character offset inside the highlighted mirror `<pre>` (.w-md-editor-text-pre
+// > code), which wraps identically to the textarea. Walks the code's text nodes to place a DOM
+// Range at the offset and measures its top relative to the pre's scroll origin. Returns null if
+// the offset can't be located (e.g. pre not yet rendered).
+function charOffsetEditorY(codeEl: HTMLElement, offset: number): number | null {
+  const walker = document.createTreeWalker(codeEl, NodeFilter.SHOW_TEXT)
+  let acc = 0
+  let node = walker.nextNode() as Text | null
+  while (node) {
+    const len = node.data.length
+    // Use `>` (not `>=`) so an offset landing exactly at a node boundary is measured on the
+    // NEXT node where it has a following character (a 1-char range needs a char to its right).
+    if (acc + len > offset || (node === null)) {
+      const range = document.createRange()
+      const local = Math.max(0, Math.min(offset - acc, len))
+      // Select ONE character starting at the offset. A collapsed range returns an empty
+      // getClientRects(), which previously made every marker measure as a constant — select a
+      // real character so the rect has a height/top. Clamp so we never exceed the node length.
+      const endLocal = Math.min(local + 1, len)
+      range.setStart(node, Math.min(local, endLocal))
+      range.setEnd(node, endLocal)
+      const rect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+      const preRect = codeEl.getBoundingClientRect()
+      // rect.top is viewport-relative; subtract the code's viewport top to get the offset
+      // from the content origin (which scrolls with the textarea), so the result is scroll-invariant.
+      return rect.top - preRect.top
+    }
+    acc += len
+    node = walker.nextNode() as Text | null
+  }
+  return null
+}
+
+// Anchor pair: scrollTop of each pane at which a given marker's top reaches the pane top.
+type ScrollAnchor = { editorY: number; previewY: number }
+
+// Custom editor↔preview scroll sync keyed on marker positions (replaces MDEditor's broken
+// height-ratio sync, which the tall interactive cards defeat). Rebuilds anchors when `draft`
+// changes and on resize; interpolates one pane's scrollTop from the other across anchors.
+function useEditorPreviewScrollSync(
+  editWrapRef: React.RefObject<HTMLDivElement | null>,
+  draft: string,
+  // External suppression: while .current is true, sync is paused. The reveal-on-click uses this
+  // so its programmatic editor scroll isn't immediately overridden by the click's preview scroll.
+  suppressRef: React.RefObject<boolean>,
+): void {
+  // Guard against the feedback loop: when we set one pane programmatically, skip the scroll
+  // event it triggers on the other.
+  const syncingRef = useRef(false)
+  // Latest anchors, sorted by editorY ascending. Recomputed lazily and on triggers.
+  const anchorsRef = useRef<ScrollAnchor[]>([])
+
+  useEffect(() => {
+    const root = editWrapRef.current
+    if (!root) return undefined
+    // The editor's scroll container is `.w-md-editor-area` (overflow:auto); `.w-md-editor-text`
+    // itself only grows (min-height:100%) and the textarea is overflow:hidden — so listening on
+    // those never sees a scroll. The preview scrolls on `.w-md-editor-preview`.
+    const textScroller = root.querySelector<HTMLElement>('.w-md-editor-area')
+    const preview = root.querySelector<HTMLElement>('.w-md-editor-preview')
+    if (!textScroller || !preview) return undefined
+
+    // (Re)build anchor pairs from current DOM + draft offsets.
+    const rebuild = () => {
+      const code = textScroller.querySelector<HTMLElement>('.w-md-editor-text-pre code')
+      if (!code) { anchorsRef.current = []; return }
+      const recipeOffsets = markerCharOffsets(draft, RECIPE_MARKER_OFFSET_REGEX)
+      const sgOffsets = markerCharOffsets(draft, SG_MARKER_OFFSET_REGEX)
+      const anchors: ScrollAnchor[] = []
+      // previewY is measured relative to the preview's content origin via bounding rects, so it
+      // is robust to intermediate positioned wrappers (offsetTop would be relative to those).
+      const previewRect = preview.getBoundingClientRect()
+      // Each preview card maps to a marker; pair by domain + marker index.
+      const cards = preview.querySelectorAll<HTMLElement>('[data-question-index],[data-sg-question-index]')
+      cards.forEach((card) => {
+        const recipeIdx = card.getAttribute('data-question-index')
+        const sgIdx = card.getAttribute('data-sg-question-index')
+        const offset = recipeIdx != null
+          ? recipeOffsets[Number(recipeIdx)]
+          : sgIdx != null ? sgOffsets[Number(sgIdx)] : undefined
+        if (offset == null) return
+        const editorY = charOffsetEditorY(code, offset)
+        if (editorY == null) return
+        // Card top relative to preview content origin = (card viewport top − preview viewport top) + current preview scroll.
+        const previewY = card.getBoundingClientRect().top - previewRect.top + preview.scrollTop
+        anchors.push({ editorY, previewY })
+      })
+      anchors.sort((a, b) => a.editorY - b.editorY)
+      anchorsRef.current = anchors
+    }
+
+    // Piecewise-linear map a value from one axis to the other across sorted anchors.
+    const interpolate = (value: number, from: 'editorY' | 'previewY', to: 'editorY' | 'previewY'): number | null => {
+      const anchors = anchorsRef.current
+      if (anchors.length === 0) return null
+      // Single anchor → constant offset shift.
+      if (anchors.length === 1) return value - anchors[0]![from] + anchors[0]![to]
+      // Below the first / above the last anchor → extrapolate from the nearest segment.
+      let lo = 0
+      for (let i = 0; i < anchors.length - 1; i++) {
+        if (value >= anchors[i]![from]) lo = i
+      }
+      const a = anchors[lo]!
+      const b = anchors[lo + 1]!
+      const span = b[from] - a[from]
+      const t = span === 0 ? 0 : (value - a[from]) / span
+      return a[to] + t * (b[to] - a[to])
+    }
+
+    const clamp = (v: number, el: HTMLElement) => Math.max(0, Math.min(v, el.scrollHeight - el.clientHeight))
+
+    // Drive the other pane from the scrolled one; guard the resulting echo event.
+    const sync = (source: 'editor' | 'preview') => {
+      if (syncingRef.current || suppressRef.current) return
+      if (anchorsRef.current.length === 0) rebuild()
+      const target = source === 'editor'
+        ? interpolate(textScroller.scrollTop, 'editorY', 'previewY')
+        : interpolate(preview.scrollTop, 'previewY', 'editorY')
+      if (target == null) return
+      syncingRef.current = true
+      if (source === 'editor') preview.scrollTop = clamp(target, preview)
+      else textScroller.scrollTop = clamp(target, textScroller)
+      // Release the guard after the echo scroll event has fired.
+      requestAnimationFrame(() => { syncingRef.current = false })
+    }
+
+    const onEditorScroll = () => sync('editor')
+    const onPreviewScroll = () => sync('preview')
+    textScroller.addEventListener('scroll', onEditorScroll, { passive: true })
+    preview.addEventListener('scroll', onPreviewScroll, { passive: true })
+    // Rebuild anchors when either pane resizes (font, wrap, fullscreen, window).
+    const ro = new ResizeObserver(() => { anchorsRef.current = [] })
+    ro.observe(textScroller)
+    ro.observe(preview)
+    // Initial build on next frame (preview cards render async).
+    const raf = requestAnimationFrame(rebuild)
+
+    return () => {
+      textScroller.removeEventListener('scroll', onEditorScroll)
+      preview.removeEventListener('scroll', onPreviewScroll)
+      ro.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [editWrapRef, draft, suppressRef])
+}
+
 function NoteEditorContent({
   note,
   t,
@@ -4400,6 +5091,10 @@ function NoteEditorContent({
   // Target element for the DSL error overlay portal — the `.w-md-editor-text`
   // container, which has position:relative and the correct padding context.
   const [editorTextEl, setEditorTextEl] = useState<HTMLElement | null>(null)
+  // Transient highlight rect (in `.w-md-editor-text` content coords) flashed over an option's
+  // DSL when its preview control is clicked. null when no pulse is active. Bumping `key`
+  // restarts the fade animation on repeat clicks.
+  const [revealPulse, setRevealPulse] = useState<{ top: number; height: number; scrollTo: number; key: number } | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
@@ -4439,6 +5134,13 @@ function NoteEditorContent({
     closeEditRecipeOverridesMenu()
   }, [closeEditRecipeOverridesMenu])
   const [draft, setDraft] = useState<string>(note ?? '')
+
+  // While true, the scroll-sync is paused — the reveal-on-click sets this so its programmatic
+  // editor scroll isn't immediately overridden by the preview scroll the click itself causes.
+  const revealSuppressRef = useRef(false)
+  // Keep the editor and preview panes scroll-synced by marker position (MDEditor's built-in
+  // height-ratio sync is disabled below via enableScroll={false}, since the tall cards defeat it).
+  useEditorPreviewScrollSync(editWrapRef, draft, revealSuppressRef)
 
   // Collect DSL diagnostics (error squiggles) once per draft change.
   const dslDiags = useMemo(() => collectOverridesDiagnostics(draft), [draft])
@@ -4563,6 +5265,114 @@ function NoteEditorContent({
     editorSafeguardOverridesResolution.questions.forEach((q) => map.set(q.index, q))
     return map
   }, [editorSafeguardOverridesResolution])
+  // Global optionId → {token,label} lookup across ALL recipe + safeguard questions, so the
+  // option-info tooltip can resolve a FORCES reference (an option id in another question)
+  // to that target's unique token and answer label. Reused labels (Yes/No/Strict across many
+  // questions) make the token the only disambiguating identifier.
+  const editorOptionLookup = useMemo(() => {
+    const map = new Map<string, { token: string; label: string }>()
+    editorRecipeOverridesResolutions.forEach((q) => q.options?.forEach((o) => map.set(o.id, { token: o.token, label: o.label })))
+    editorSafeguardOverridesResolutions.forEach((q) => q.options?.forEach((o) => map.set(o.id, { token: o.token, label: o.label })))
+    return map
+  }, [editorRecipeOverridesResolutions, editorSafeguardOverridesResolutions])
+  // Scroll an option's DSL into view in the editor and flash a highlight over JUST that range.
+  // Used when a preview control is clicked. We measure the range's pixel rect from the
+  // highlighted mirror `<pre>` (which wraps identically to the textarea), scroll the editor's
+  // scroll container so the range is comfortably visible, then render a transient highlight
+  // box positioned over the range (textareas can't style a sub-range, so we overlay one).
+  const revealOptionSource = React.useCallback((from: number, to: number) => {
+    const root = editWrapRef.current
+    if (!root) return
+    const area = root.querySelector<HTMLElement>('.w-md-editor-area')
+    const textEl = root.querySelector<HTMLElement>('.w-md-editor-text')
+    const code = root.querySelector<HTMLElement>('.w-md-editor-text-pre code')
+    if (!area || !textEl || !code) return
+    // NOTE: we deliberately do NOT touch the textarea selection/focus here. Moving the caret (or
+    // letting the click focus the textarea) makes the browser scroll the editor to the caret, which
+    // both jumps the editor unexpectedly and (via sync) jumps the preview. The click's mousedown is
+    // preventDefault-ed in the delegated listener below so focus never moves; we just scroll.
+    // Measure top of the range start and bottom of the range end, in content coords relative
+    // to the `.w-md-editor-text` element (which is position:relative and hosts the overlay).
+    const topY = charOffsetEditorY(code, from)
+    const endY = charOffsetEditorY(code, to)
+    if (topY == null) return
+    // charOffsetEditorY returns the offset from the pre/code content origin. The text element
+    // adds its 10px padding; the pre sits at that padded origin, so the overlay (also inside
+    // the padded text element) shares the same coordinate space — no padding adjustment needed.
+    const lineH = code.getBoundingClientRect().height > 0
+      ? parseFloat(getComputedStyle(code).lineHeight) || 18
+      : 18
+    const height = endY != null && endY > topY ? endY - topY + lineH : lineH
+    // Scroll the range into view within the editor's scroll container, centring it a bit.
+    const target = Math.max(0, topY - area.clientHeight / 3)
+    const clamped = Math.min(target, area.scrollHeight - area.clientHeight)
+    // Suppress sync, then hand the scroll + overlay to a layout effect. We do NOT scroll here:
+    // setRevealPulse re-renders, and MDEditor's TextArea resets `.w-md-editor-area` scrollTop to
+    // its (0) context value on every render — so a scroll set here is immediately wiped. Applying
+    // it in useLayoutEffect AFTER the commit wins the race.
+    revealSuppressRef.current = true
+    setRevealPulse((prev) => ({ top: topY, height, scrollTo: clamped, key: (prev?.key ?? 0) + 1 }))
+  }, [])
+  // Apply the reveal scroll + manage the suppress window AFTER the pulse render commits, so
+  // MDEditor's per-render scrollTop reset (to 0) doesn't wipe it. Re-assert once more on the next
+  // frame in case a late reset lands, then release the sync suppression.
+  React.useLayoutEffect(() => {
+    if (!revealPulse) return undefined
+    const area = editWrapRef.current?.querySelector<HTMLElement>('.w-md-editor-area')
+    if (!area) return undefined
+    // Re-assert the target scroll over several frames and keep sync suppressed throughout. The
+    // textarea may (programmatically) gain focus shortly after the click and the browser then
+    // scrolls the editor to its caret — re-pinning scrollTop for a few frames overrides that, and
+    // the suppression prevents the transient from syncing the preview ("both sides jump"). 6 frames
+    // (~100ms) comfortably covers the focus-scroll without a perceptible hold.
+    let frame = 0
+    let raf = 0
+    const pin = () => {
+      area.scrollTop = revealPulse.scrollTo
+      if (++frame < 6) { raf = requestAnimationFrame(pin) }
+      else { revealSuppressRef.current = false }
+    }
+    pin()
+    return () => cancelAnimationFrame(raf)
+  }, [revealPulse])
+  // Clear the pulse overlay once its fade animation has run.
+  useEffect(() => {
+    if (!revealPulse) return undefined
+    const id = window.setTimeout(() => setRevealPulse(null), 1100)
+    return () => window.clearTimeout(id)
+  }, [revealPulse])
+  // Delegated click handler on the preview: clicking any override control reveals its DSL.
+  // Delegation (vs a per-control onClick) is reliable here — disabled controls swallow their own
+  // click events and the tooltip clones the wrapper, both of which defeat a React onClick. We read
+  // the source span off the nearest `[data-reveal-from]` ancestor stamped on each control wrapper.
+  useEffect(() => {
+    const root = editWrapRef.current
+    if (!root) return undefined
+    // mousedown.preventDefault() is what actually stops focus from moving to the textarea — a
+    // click-phase preventDefault is too late (focus already shifted). Without this, clicking a
+    // control focuses the editor textarea, the browser scrolls it to the caret, and that scroll
+    // syncs the preview — i.e. "clicking jumps both sides". Capture phase so it runs first.
+    const onMouseDown = (e: MouseEvent) => {
+      const hit = (e.target as HTMLElement | null)?.closest('[data-reveal-from]')
+      if (hit) e.preventDefault()
+    }
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const hit = target?.closest<HTMLElement>('[data-reveal-from]')
+      if (!hit) return
+      const from = Number(hit.getAttribute('data-reveal-from'))
+      const to = Number(hit.getAttribute('data-reveal-to'))
+      if (!Number.isFinite(from) || !Number.isFinite(to)) return
+      revealOptionSource(from, to)
+    }
+    root.addEventListener('mousedown', onMouseDown, true)
+    root.addEventListener('click', onClick)
+    return () => {
+      root.removeEventListener('mousedown', onMouseDown, true)
+      root.removeEventListener('click', onClick)
+    }
+  }, [revealOptionSource])
+
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
       ...baseContext,
@@ -4576,6 +5386,9 @@ function NoteEditorContent({
       safeguardOverridesResolutions: editorSafeguardOverridesResolutions,
       safeguardOverridesEditable: false,
       onSafeguardOverridesAnswerChange: ignoreSafeguardOverridesAnswerChange,
+      isEditorPreview: true,
+      onRevealOptionSource: revealOptionSource,
+      optionLookup: editorOptionLookup,
     }),
     [
       baseContext,
@@ -4586,6 +5399,8 @@ function NoteEditorContent({
       ignoreRecipeOverridesAnswerChange,
       editorSafeguardOverridesResolutions,
       ignoreSafeguardOverridesAnswerChange,
+      revealOptionSource,
+      editorOptionLookup,
     ],
   )
 
@@ -4992,6 +5807,10 @@ function NoteEditorContent({
                 onChange={(v) => setDraft(v ?? '')}
                 // Force the editor to fill the dialog body, avoiding the 200px default.
                 height="100%"
+                // Disable MDEditor's built-in height-ratio scroll sync; the tall interactive
+                // cards make that mapping wrong. useEditorPreviewScrollSync replaces it with
+                // marker-anchored sync.
+                enableScroll={false}
                 // Disable the dragbar so the fixed dialog height remains authoritative.
                 visibleDragbar={false}
                 // Still set style height as a safety net for inline layout.
@@ -5072,6 +5891,26 @@ function NoteEditorContent({
             token colors; only the .dsl-err underline marks are visible. */}
         {editorTextEl && createPortal(
           <DslErrorOverlay text={draft} diags={dslDiags} />,
+          editorTextEl,
+        )}
+        {/* Transient highlight flashed over an option's DSL when its preview control is clicked.
+            Positioned in `.w-md-editor-text` content coords; fades out via the noteDslPulse keyframe. */}
+        {editorTextEl && revealPulse && createPortal(
+          <Box
+            key={revealPulse.key}
+            aria-hidden
+            sx={{
+              position: 'absolute',
+              left: DSL_OVERLAY_PADDING_PX,
+              right: DSL_OVERLAY_PADDING_PX,
+              top: revealPulse.top + DSL_OVERLAY_PADDING_PX,
+              height: revealPulse.height,
+              borderRadius: '3px',
+              pointerEvents: 'none',
+              zIndex: 2,
+              animation: `${noteDslPulse} 1s ease-out`,
+            }}
+          />,
           editorTextEl,
         )}
         {/* Error panel portaled into .w-md-editor so it is visible in both

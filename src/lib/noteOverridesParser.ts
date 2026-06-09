@@ -116,6 +116,12 @@ export class TokenCursor {
     return this.tokens[this.index + offset] ?? null
   }
 
+  /** End offset (index + length) of the most recently consumed token, or 0 if none. */
+  prevEnd(): number {
+    const prev = this.tokens[this.index - 1]
+    return prev ? prev.index + prev.value.length : 0
+  }
+
   next(): Token | null {
     const token = this.tokens[this.index]
     this.index += 1
@@ -329,6 +335,28 @@ export type NoteTagSelector =
   | { kind: 'or'; left: NoteTagSelector; right: NoteTagSelector }
 
 /**
+ * Format a NoteTagSelector back to DSL condition text (all / tagged / tag=foo / not … etc).
+ * SSOT for DSL-reconstruction consumers; exhaustive over the union. Combinators recurse.
+ */
+export function formatNoteTagSelector(sel: NoteTagSelector): string {
+  switch (sel.kind) {
+    case 'all':      return 'all'
+    case 'tagged':   return 'tagged'
+    case 'untagged': return 'untagged'
+    case 'tag': {
+      const values = sel.values ?? []
+      if (sel.mode === 'any')  return 'tag any'
+      if (sel.mode === 'none') return 'tag none'
+      if (sel.mode === 'in')   return `tag in ${values.join(',')}`
+      return values.length ? `tag=${values.join(',')}` : 'tag'
+    }
+    case 'not': return `not ${formatNoteTagSelector(sel.inner)}`
+    case 'and': return `${formatNoteTagSelector(sel.left)} and ${formatNoteTagSelector(sel.right)}`
+    case 'or':  return `${formatNoteTagSelector(sel.left)} or ${formatNoteTagSelector(sel.right)}`
+  }
+}
+
+/**
  * Parse a tag-based selector expression. Handles: all, tagged, untagged,
  * tag=…, tag in […], tag any, tag none, not/!, and/&&, or/||.
  * Recipe-specific terms (rank, rarity, minrolls, flex) are NOT included here.
@@ -521,6 +549,11 @@ export type ParsedOverridesOption<S, O> = {
   groupType: NoteQuestionGroupType
   // Only populated when groupType === 'slider'.
   sliderParams?: SliderParams
+  // Absolute character span of the WHOLE option block in the source note text (from the
+  // opening label string through the closing `}` of its selector block). Used by the
+  // editor preview to select the option's DSL on click. Absent if the span is unknown.
+  sourceFrom?: number
+  sourceTo?: number
 }
 
 /** A parsed question body, parameterized over selector and operation types. */
@@ -733,6 +766,9 @@ export function parseOverridesOptionBlock<S, O>(
   const labelToken = cursor.consumeString()
   if (!labelToken) return null
   const label = labelToken.value
+  // Source span starts at the opening label string; the end is captured after the
+  // block's closing `}` is consumed (cursor.prevEnd at the return site).
+  const sourceFrom = blockOffset + labelToken.index
   // Optional second string for label/value two-column layouts.
   const detailToken = cursor.peek()
   const detail = detailToken && detailToken.kind === 'string' ? detailToken.value : null
@@ -797,6 +833,7 @@ export function parseOverridesOptionBlock<S, O>(
       isDefault, explicitToken, implicitToken: null,
       setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
       groupType, sliderParams,
+      sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
     }
   }
 
@@ -883,6 +920,7 @@ export function parseOverridesOptionBlock<S, O>(
     isDefault, explicitToken, implicitToken,
     setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
     groupType,
+    sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
   }
 }
 
