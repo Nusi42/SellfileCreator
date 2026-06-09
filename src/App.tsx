@@ -4873,9 +4873,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => {
       if (!equippedBy || equippedBy.size === 0) return rows
       return rows.map(row => {
-        // Respect an explicit cID already present on the row (full-snapshot import).
-        if (row.cID != null) return row
         const championId = equippedBy.get(row.ID)
+        // Apply whenever the map gives us a valid champion. Do NOT short-circuit on a
+        // pre-existing cID: RSL Helper artifact rows always carry cID=0 (the equip link
+        // lives only in the champion `artifacts` slot map), so a `cID != null` guard
+        // would skip every artifact and wipe equip associations → blank champ icons.
+        // The map only contains real equips, so a hit is always authoritative.
         return championId ? { ...row, cID: championId } : row
       })
     }

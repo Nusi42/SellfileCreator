@@ -43,6 +43,10 @@ export type PacketCaptureRecord = {
 let active: boolean | null = null
 let sessionId = ''
 let frameIndex = 0
+// Tail of the POST queue. Each capture chains onto this so writes happen strictly in
+// receive order and never run concurrently — concurrent fetches were silently racing
+// and dropping frames (observed gaps in captured indices). Resolves once drained.
+let postChain: Promise<void> = Promise.resolve()
 
 // Zero-pad a number to a fixed width for stable, sortable filenames.
 const pad = (value: number, width: number): string => String(value).padStart(width, '0')
@@ -103,27 +107,48 @@ const resolveMethodLabel = (frame: unknown): string => {
  */
 export const capturePacket = (frame: unknown, methodOverride?: string): void => {
   if (!ensureSession()) return
+  // Assign the index synchronously so it always reflects true receive order, even
+  // though the POST is async. A gap in written files vs. logged indices therefore
+  // unambiguously means "write failed", never "frame never arrived".
+  frameIndex += 1
+  const index = frameIndex
+  let record: PacketCaptureRecord
   try {
-    frameIndex += 1
     const method = methodOverride ?? resolveMethodLabel(frame)
-    const record: PacketCaptureRecord = {
-      index: frameIndex,
+    record = {
+      index,
       method,
       timestamp: formatTimestamp(new Date()),
       // Pretty-print with 2-space indent to match the committed sample files.
       body: JSON.stringify(frame, null, 2),
       session: sessionId,
     }
-    // Fire-and-forget POST; keepalive lets late frames flush during teardown.
-    void fetch(PACKET_CAPTURE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(record),
-      keepalive: true,
-    }).catch(() => {})
   } catch {
-    // Capture must never throw into the live message handler.
+    // Serialization failed — log the gap so it is explained, then bail.
+    console.warn(`[packet-capture] frame #${index} skipped: could not serialize`)
+    return
   }
+  // Chain the POST onto the queue so writes are sequential (no concurrent fetches)
+  // and ordered. NOT keepalive: keepalive caps the request body at ~64 KB, which
+  // silently dropped multi-MB artifacts/champions packets — the exact frames we most
+  // need. Sequential plain fetches have no such cap. Failures are logged, not thrown.
+  postChain = postChain.then(async () => {
+    try {
+      const res = await fetch(PACKET_CAPTURE_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(record),
+      })
+      if (!res.ok) {
+        console.warn(`[packet-capture] frame #${index} (${record.method}) write failed: HTTP ${res.status}`)
+      } else {
+        console.log(`[packet-capture] frame #${index} ${record.method} captured`)
+      }
+    } catch (err) {
+      // Surface the loss so a gap in captured indices is never silent.
+      console.warn(`[packet-capture] frame #${index} (${record.method}) POST error: ${String(err)}`)
+    }
+  })
 }
 
 // True when capture is active — lets callers skip building override labels otherwise.

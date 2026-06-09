@@ -61,4 +61,52 @@ test('inboxArtifacts event with ArtifactLog rows produces gearDbInboxArtifacts c
   assert.equal(row.type, 5)
 })
 
+// ─── null / undefined / root-array param handling (resolveEventCollection) ──────
+// Regression for a captured session where RSL Helper sent { champions: null } etc. at
+// startup. The old `record[key] ?? payload` idiom fell through to the whole payload
+// object on null; these assert null/empty all normalize to empty commands, and that a
+// bare root array still works.
+
+test('artifacts event with null param yields empty command (not the payload object)', () => {
+  const command = normalizeExternalEvent('artifacts', { artifacts: null })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbArtifacts')
+  if (command.kind !== 'gearDbArtifacts') return
+  assert.equal(command.artifacts.length, 0, 'null param must produce zero rows')
+})
+
+test('champions event with null param yields empty command', () => {
+  const command = normalizeExternalEvent('champions', { champions: null })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbChampions')
+  if (command.kind !== 'gearDbChampions') return
+  assert.equal(command.champions.length, 0, 'null champions must produce zero rows')
+  assert.equal(command.equippedByArtifact.size, 0, 'null champions must produce empty equip map')
+})
+
+test('lastUsed event with null param yields empty command', () => {
+  const command = normalizeExternalEvent('lastUsed', { lastUsed: null })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbLastUsed')
+  if (command.kind !== 'gearDbLastUsed') return
+  assert.equal(command.lastUsed.length, 0, 'null lastUsed must produce zero rows')
+})
+
+test('inboxArtifacts event with missing key falls back to root array', () => {
+  // No named key present at all — a bare array at the payload root is still accepted.
+  const command = normalizeExternalEvent('inboxArtifacts', [baseArtifactLogRow])
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbInboxArtifacts')
+  if (command.kind !== 'gearDbInboxArtifacts') return
+  assert.equal(command.inboxArtifacts.length, 1, 'root array fallback should parse the row')
+})
+
+test('artifacts event with empty array yields empty command', () => {
+  const command = normalizeExternalEvent('artifacts', { artifacts: [] })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbArtifacts')
+  if (command.kind !== 'gearDbArtifacts') return
+  assert.equal(command.artifacts.length, 0)
+})
+
 export {}

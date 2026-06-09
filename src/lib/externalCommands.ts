@@ -108,6 +108,37 @@ const toNumber = (value: unknown): number | null => {
   return Number.isFinite(num) ? num : null
 }
 
+/**
+ * Resolve the collection a per-type gear event carries. The collection normally lives
+ * under a named key (`{ champions: [...] }`) but some senders publish the bare array at
+ * the payload root, so the root is used as a fallback **only when the key is genuinely
+ * absent** (`undefined`).
+ *
+ * An explicit `null` value (e.g. `{ champions: null }`, observed from RSL Helper at
+ * startup before game data is loaded) is treated as an empty collection — NOT a signal
+ * to fall back to the whole payload object. The old `record[key] ?? payload` idiom did
+ * the latter, leaking `{ champions: null }` into the row parsers; harmless because they
+ * reject non-arrays, but a footgun the moment a parser tolerates objects.
+ *
+ * SSOT: every per-type branch routes its collection lookup through here.
+ */
+const resolveEventCollection = (
+  record: UnknownRecord,
+  payload: unknown,
+  ...keys: readonly string[]
+): unknown => {
+  for (const key of keys) {
+    // `in` distinguishes "key present (even if null)" from "key absent".
+    if (key in record) {
+      const value = record[key]
+      // Explicit null → empty collection; do not fall through to the payload root.
+      return value === null ? [] : value
+    }
+  }
+  // No named key present at all — the bare array may be the payload itself.
+  return payload
+}
+
 const extractString = (value: unknown): string | null => {
   if (typeof value === 'string') return value
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
@@ -148,7 +179,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Params carry ArtifactLog-style rows: { artifacts: ArtifactLog[] }.
     // The endpoint switched to the ArtifactLog shape (kindId/rankId/rarityId),
     // so we delegate to the ArtifactLog parser instead of the raw DB row parser.
-    const rows = parseArtifactLogArray(payloadRecord.artifacts ?? payload, null)
+    const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'artifacts'), null)
     const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows }
     return command
   }
@@ -156,7 +187,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Params key matches the method name: { champions: GearDbChampionRow[] }.
     // Read the raw array once — champion rows carry an `artifacts` slot map that
     // must be inverted before parseChampionRow strips those extra fields.
-    const rawArray = payloadRecord.champions ?? payload
+    const rawArray = resolveEventCollection(payloadRecord, payload, 'champions')
     const equippedByArtifact = buildEquippedByArtifactMap(rawArray)
     const rows = parseChampionArray(rawArray)
     const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows, equippedByArtifact }
@@ -166,13 +197,13 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Params carry ArtifactLog-style rows: { inboxArtifacts: ArtifactLog[] }.
     // Mirrors the artifacts branch — same schema change applies to inbox items.
     // Also check lowercase variant for protocol flexibility.
-    const rows = parseArtifactLogArray(payloadRecord.inboxArtifacts ?? payloadRecord.inboxartifacts ?? payload, null)
+    const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'inboxArtifacts', 'inboxartifacts'), null)
     const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows }
     return command
   }
   if (normalized === 'lastused') {
     // Params key matches the method name: { lastUsed: GearDbLastUsedRow[] }.
-    const rows = parseLastUsedArray(payloadRecord.lastUsed ?? payloadRecord.lastused ?? payload)
+    const rows = parseLastUsedArray(resolveEventCollection(payloadRecord, payload, 'lastUsed', 'lastused'))
     const command: GearDbLastUsedCommand = { kind: 'gearDbLastUsed', lastUsed: rows }
     return command
   }

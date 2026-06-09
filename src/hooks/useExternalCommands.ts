@@ -236,7 +236,10 @@ export function useExternalCommands({
               if (!closedRef.current) {
                 // Dev-only: record a metadata stub for the binary gear-DB push so the
                 // capture sequence stays coherent (the raw SQLite bytes are not JSON and
-                // are not persisted as a fixture). No-op unless capture is active.
+                // are not persisted as a fixture). RSL Helper does not use this path —
+                // it is a secondary transport for direct binary DB loads — but capturing
+                // the stub keeps the index contiguous if it ever fires. No-op unless
+                // capture is active.
                 capturePacket(
                   { jsonrpc: '2.0', method: 'gearDbFileBinary', params: { name: meta.name, contentType: meta.contentType ?? null, byteLength: raw.byteLength } },
                   'gearDbFileBinary',
