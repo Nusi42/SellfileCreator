@@ -381,11 +381,14 @@ type CanonicalNormalizedStat = {
 type CanonicalPreviewExtras = {
   source: GearInspectorItemPreviewExtras['source'] | null
   rerollCount: number | null
-  // Champion identity captured by id only — full record lives in the ChampionLookup.
-  // The cache invariant cares about whether the equipped-champion link changed; the
-  // detailed fields (name, rarity, location, ...) ride along on the live lookup record
-  // and are not part of the canonical fingerprint.
+  // Champion identity captured by id — full record lives in the ChampionLookup.
+  // Most detail fields (name, rarity, ...) ride along on the live lookup record and are
+  // not fingerprinted, BUT the champion's location IS user-facing: the Gear Inspector
+  // filters artifacts by equipped-champion location (collection / vault / reserveVault),
+  // so a champion moving vault→collection must invalidate the artifact's fingerprint or
+  // the filtered view would go stale. See rulesFilter.ts (equippedChampion?.location).
   equippedChampionId: number | null
+  equippedChampionLocation: string | null
   mainStat: CanonicalNormalizedStat | null
   substats: CanonicalNormalizedStat[] | null
   ascension: CanonicalNormalizedStat | null
@@ -460,6 +463,9 @@ const canonicalizePreviewExtras = (extras?: GearInspectorItemPreviewExtras): Can
     source: extras.source ?? null,
     rerollCount: normalizeFiniteNumber(extras.rerollCount),
     equippedChampionId: normalizeFiniteNumber(extras.equippedChampion?.id),
+    // Fold the equipped champion's location so vault↔collection moves invalidate the
+    // fingerprint (the UI filters on it). null when unequipped or location unknown.
+    equippedChampionLocation: extras.equippedChampion?.location ?? null,
     mainStat: canonicalizeNormalizedStat(extras.mainStat),
     substats: canonicalizeStatArray(extras.substats),
     ascension: canonicalizeNormalizedStat(extras.ascension),
@@ -551,10 +557,10 @@ const hashFoldPreviewExtras = (hash: number, extras: CanonicalPreviewExtras | nu
   if (!extras) return hashFoldU32(hash, 0xfffffffb)
   let next = hashFoldNullableString(hash, extras.source ?? null)
   next = hashFoldNullableNumber(next, extras.rerollCount)
-  // Fold only the champion id — the live ChampionLookupRecord (name/rarity/location)
-  // is referenced through the lookup map, so structural identity by id is sufficient
-  // for cache fingerprinting.
+  // Fold the champion id plus its location — name/rarity ride on the live lookup, but
+  // location is filterable in the UI so it must perturb the fingerprint when it changes.
   next = hashFoldNullableNumber(next, extras.equippedChampionId)
+  next = hashFoldNullableString(next, extras.equippedChampionLocation)
   next = hashFoldCanonicalStat(next, extras.mainStat)
   next = hashFoldCanonicalStatArray(next, extras.substats)
   next = hashFoldCanonicalStat(next, extras.ascension)

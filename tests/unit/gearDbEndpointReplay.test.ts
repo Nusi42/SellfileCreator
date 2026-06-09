@@ -108,3 +108,89 @@ test('sample log: equipped artifacts resolve their equippedChampion reference', 
     assert(iconId != null && iconId > 0, `equipped champion ${champ.id} must have an icon id`)
   }
 })
+
+// RSL Helper sends lastUsed as a standalone packet AFTER a game round — with no change
+// to artifact revisions or cID. The first dataset has no timestamps; the second push
+// adds only lastUsed. This asserts the merge applies the fresh timestamps onto the
+// already-known artifacts (the revision short-circuit in App.tsx must let it through;
+// here we verify the dataset layer does the right thing when it is not short-circuited).
+test('standalone lastUsed push applies timestamps to existing artifacts', () => {
+  const base = buildMergedSnapshot()
+  const { dataset: first } = createDatasetFromSnapshot(base)
+  const before = Array.from(first.artifacts.values()).filter((a) => a.lastUseLocalTimestamp != null).length
+
+  // Pick two real artifact ids from the dataset and craft a lastUsed-only follow-up.
+  const ids = Array.from(first.artifacts.keys()).slice(0, 2)
+  assert(ids.length === 2, 'need at least two artifacts to test')
+  const lastUsedRows: GearDbLastUsedRow[] = ids.map((id) => ({ id, lastUse: '2026-06-09 19:00:31.232' }))
+  const followUp: GearDbRawSnapshotCommand = {
+    ...base,
+    // A real post-round packet carries ONLY lastUsed; other slots repeat unchanged.
+    lastUsed: lastUsedRows,
+  }
+  const { dataset: second } = createDatasetFromSnapshot(followUp, first)
+  for (const id of ids) {
+    assert.equal(
+      second.artifacts.get(id)?.lastUseLocalTimestamp,
+      '2026-06-09 19:00:31.232',
+      `artifact ${id} should carry the post-round lastUse timestamp`,
+    )
+  }
+  const after = Array.from(second.artifacts.values()).filter((a) => a.lastUseLocalTimestamp != null).length
+  assert(after >= before + 2, 'lastUsed push should add timestamps, not drop existing ones')
+})
+
+// Gear can be re-equipped onto a different champion: the artifact's cID changes (via the
+// champion `artifacts` slot map), with no stat/revision change. The dataset must reflect
+// the new equippedChampion so the UI re-renders.
+test('re-equipping gear to a different champion updates equippedChampion', () => {
+  const base = buildMergedSnapshot()
+  const { dataset: first } = createDatasetFromSnapshot(base)
+  // Find an equipped artifact and a different champion to move it to.
+  const equippedArtifact = Array.from(first.artifacts.values()).find((a) => a.equippedChampion != null)
+  assert(equippedArtifact, 'need an equipped artifact')
+  const fromChamp = equippedArtifact.equippedChampion?.id
+  const otherChamp = Array.from(first.champions.keys()).find((id) => id !== fromChamp)
+  assert(otherChamp != null && fromChamp != null, 'need a second champion')
+
+  // Re-equip: set the artifact row cID to the new champion.
+  const followUp: GearDbRawSnapshotCommand = {
+    ...base,
+    artifacts: base.artifacts.map((row) =>
+      row.ID === equippedArtifact.id ? { ...row, cID: otherChamp } : row,
+    ),
+  }
+  const { dataset: second } = createDatasetFromSnapshot(followUp, first)
+  assert.equal(
+    second.artifacts.get(equippedArtifact.id)?.equippedChampion?.id,
+    otherChamp,
+    'artifact should now reference the new champion',
+  )
+})
+
+// A champion moving vault→collection changes only the champion record's location. The
+// equipped artifact's signature must reflect it (the UI filters artifacts by equipped-
+// champion location), so the dataset must carry the new location through.
+test('champion vault→collection move propagates to equipped artifact location', () => {
+  const base = buildMergedSnapshot()
+  const { dataset: first } = createDatasetFromSnapshot(base)
+  const equippedArtifact = Array.from(first.artifacts.values()).find(
+    (a) => a.equippedChampion != null && a.equippedChampion.location === 'vault',
+  ) ?? Array.from(first.artifacts.values()).find((a) => a.equippedChampion != null)
+  assert(equippedArtifact?.equippedChampion, 'need an equipped artifact')
+  const champId = equippedArtifact.equippedChampion.id
+
+  // Move that champion to collection (Vault=0, RVault=0).
+  const followUp: GearDbRawSnapshotCommand = {
+    ...base,
+    champions: base.champions.map((c) =>
+      c.ID === champId ? { ...c, Vault: 0, RVault: 0 } : c,
+    ),
+  }
+  const { dataset: second } = createDatasetFromSnapshot(followUp, first)
+  assert.equal(
+    second.artifacts.get(equippedArtifact.id)?.equippedChampion?.location,
+    'collection',
+    'equipped artifact should reflect the champion’s new collection location',
+  )
+})

@@ -251,6 +251,54 @@ function computeArtifactCidFingerprint(
   return h
 }
 
+// Fingerprint of the lastUsed rows in a snapshot. RSL Helper pushes lastUsed as a
+// standalone packet after each game round, with NO change to artifact revisions or
+// cID — so the revision/cID short-circuit alone would discard it and the timestamps
+// would never reach the UI. Hashing (id, lastUse) lets the short-circuit detect a
+// lastUsed-only change and let it through. Mirrors computeArtifactCidFingerprint.
+function computeLastUsedFingerprint(lastUsed: readonly GearDbLastUsedRow[]): number {
+  let h = 0
+  for (const r of lastUsed) {
+    // Resolve id under either casing (helper occasionally capitalizes the column).
+    const id = Number(r.id ?? r.ID) | 0
+    // Fold the timestamp string in via a cheap rolling char hash so any value change
+    // (a fresh game-round timestamp) perturbs the fingerprint.
+    let tsHash = 0
+    const ts = r.lastUse
+    if (typeof ts === 'string') {
+      for (let i = 0; i < ts.length; i += 1) tsHash = (tsHash * 31 + ts.charCodeAt(i)) | 0
+    } else if (typeof ts === 'number') {
+      tsHash = ts | 0
+    }
+    h = (h * 1000003 + id + tsHash * 7919) | 0
+  }
+  return h
+}
+
+// Fingerprint of champion-intrinsic fields the UI filters/renders but that do NOT change
+// any artifact row (so revision/cID/lastUsed fingerprints all miss them). The driving
+// case: a champion moves vault↔collection — gear is untouched, yet the Gear Inspector
+// filters artifacts by equipped-champion location, so the view must refresh. We hash
+// (id, location, baseHeroId, name, rarity) — the fields consumed downstream — so any of
+// them changing lets the short-circuit through. Location is the primary trigger.
+function computeChampionFingerprint(champions: readonly GearDbChampionRow[]): number {
+  let h = 0
+  for (const c of champions) {
+    const id = Number(c.ID) | 0
+    // Location is encoded by the Vault/RVault flags; fold both so either flip registers.
+    const loc = ((Number(c.Vault) > 0 ? 1 : 0) * 2 + (Number(c.RVault) > 0 ? 1 : 0)) | 0
+    const base = Number(c.BaseHeroID) | 0
+    const rarity = Number(c.Rarity) | 0
+    // Cheap rolling hash of the name so renames register too.
+    let nameHash = 0
+    if (typeof c.Name === 'string') {
+      for (let i = 0; i < c.Name.length; i += 1) nameHash = (nameHash * 31 + c.Name.charCodeAt(i)) | 0
+    }
+    h = (h * 1000003 + id + loc * 31 + base * 131 + rarity * 17 + nameHash * 7919) | 0
+  }
+  return h
+}
+
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
@@ -632,6 +680,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Fingerprint of the last accepted snapshot's cID assignments; compared against
   // incoming fingerprints to short-circuit no-op pushes (see computeArtifactCidFingerprint).
   const gearDbCidFingerprintRef = useRef<number>(0)
+  // Fingerprint of the last accepted snapshot's lastUsed rows; lets the short-circuit
+  // detect a lastUsed-only push (sent after each game round, with no revision/cID
+  // change) and apply it instead of discarding it. See computeLastUsedFingerprint.
+  const gearDbLastUsedFingerprintRef = useRef<number>(0)
+  // Fingerprint of the last accepted snapshot's champion-intrinsic fields (location,
+  // baseHeroId, name, rarity). Catches champion-only changes — e.g. a champ moving
+  // vault↔collection — that leave every artifact row untouched. See
+  // computeChampionFingerprint.
+  const gearDbChampionFingerprintRef = useRef<number>(0)
   // Snapshot map produced at the end of the last successful binary (SQLite) command import.
   // Reused as the "before" baseline for the next push and compared against the new import
   // via isGearDbDatasetMatchingSnapshotCache to skip all stat cloning when only non-tracked
@@ -4648,14 +4705,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const changedIdsFilter = incomingRevisions.size > 0 ? changedIds : null
     // Capture the previous dataset so we can compute before/after diffs.
     const previousDataset = gearDbRawDatasetRef.current
-    // Short-circuit when artifact revisions and cID assignments are both unchanged.
-    // Revisions cover stat/level edits; the cID fingerprint catches equipment reassignments
-    // which do not bump artifact revisions in RSL Helper (e.g. packets 01 = 02 at session
-    // start, or duplicate champion pushes that produce identical slot mappings).
-    // Neither beginGearImport nor the worker settle cycle are needed.
+    // Short-circuit when artifact revisions, cID assignments AND lastUsed are all
+    // unchanged. Revisions cover stat/level edits; the cID fingerprint catches equipment
+    // reassignments that do not bump artifact revisions (e.g. packets 01 = 02 at session
+    // start, or duplicate champion pushes with identical slot mappings); the lastUsed
+    // fingerprint catches the standalone lastUsed packet RSL Helper sends after each game
+    // round — it changes neither revisions nor cID, so without this check it would be
+    // discarded and the "last used" timestamps would never reach the UI.
+    // When we do not short-circuit, none of beginGearImport / the worker settle cycle run.
     if (previousDataset !== null && changedIds.size === 0 && incomingRevisions.size > 0) {
       const cidFingerprint = computeArtifactCidFingerprint(command.artifacts, command.inboxArtifacts ?? [])
-      if (cidFingerprint === gearDbCidFingerprintRef.current) return
+      const lastUsedFingerprint = computeLastUsedFingerprint(command.lastUsed ?? [])
+      const championFingerprint = computeChampionFingerprint(command.champions)
+      if (
+        cidFingerprint === gearDbCidFingerprintRef.current
+        && lastUsedFingerprint === gearDbLastUsedFingerprintRef.current
+        && championFingerprint === gearDbChampionFingerprintRef.current
+      ) return
     }
     // Snapshot only the changed subset of previous artifacts — unchanged ones produce no diff entry.
     const previousSnapshots = previousDataset
@@ -4685,6 +4751,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearDbRevisionMapRef.current = incomingRevisions
       // Advance the cID fingerprint so the next duplicate push can be short-circuited.
       gearDbCidFingerprintRef.current = computeArtifactCidFingerprint(command.artifacts, command.inboxArtifacts ?? [])
+      // Advance the lastUsed fingerprint so the next identical lastUsed push short-circuits
+      // while a fresh post-game-round timestamp still gets through.
+      gearDbLastUsedFingerprintRef.current = computeLastUsedFingerprint(command.lastUsed ?? [])
+      // Advance the champion fingerprint so a later champion-only change (e.g. vault↔
+      // collection move) is not short-circuited away.
+      gearDbChampionFingerprintRef.current = computeChampionFingerprint(command.champions)
       // Invalidate the binary snapshot cache — the JSON path has its own baseline now.
       // A subsequent binary push must build its "before" snapshot from the JSON dataset.
       gearDbBinarySnapshotCacheRef.current = null
