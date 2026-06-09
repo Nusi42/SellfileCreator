@@ -2,6 +2,10 @@ export type RuntimeConfig = {
   pushEndpoint?: string
   // True when the app was opened from RSL Helper via ?simple param — activates streamlined UI.
   simple?: boolean
+  // Dev-only: true when ?capturePackets is present. Streams raw inbound endpoint
+  // packets to the dev server so they can be saved as sampleLog fixtures. Always
+  // false in production builds — the flag is gated on import.meta.env.DEV.
+  capturePackets?: boolean
 }
 
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
@@ -77,10 +81,35 @@ function readSimpleMode(): boolean {
   return false
 }
 
+// Dev-only packet-capture flag. Reads ?capturePackets (or #capturePackets) the same
+// way readSimpleMode does, but additionally requires import.meta.env.DEV so the
+// scaffolding can never activate in a production build even if the param is present.
+function readCapturePackets(): boolean {
+  if (!import.meta.env.DEV) return false
+  if (typeof window === 'undefined') return false
+  try {
+    const currentUrl = new URL(window.location.href)
+    // Accept ?capturePackets, ?capturePackets=1, ?capturePackets=true, or bare presence.
+    if (currentUrl.searchParams.has('capturePackets')) return true
+    if (currentUrl.hash && currentUrl.hash.length > 1) {
+      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
+      if (hashParams.has('capturePackets')) return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}
+
 function computeRuntimeConfig(): RuntimeConfig {
   const pushEndpoint = readPushEndpoint()
   const simple = readSimpleMode() || undefined
-  return { ...(pushEndpoint ? { pushEndpoint } : {}), ...(simple ? { simple } : {}) }
+  const capturePackets = readCapturePackets() || undefined
+  return {
+    ...(pushEndpoint ? { pushEndpoint } : {}),
+    ...(simple ? { simple } : {}),
+    ...(capturePackets ? { capturePackets } : {}),
+  }
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -97,4 +126,10 @@ export function getPushEndpoint(): string | undefined {
 // True when the ?simple URL param was present at startup.
 export function getSimpleMode(): boolean {
   return getRuntimeConfig().simple ?? false
+}
+
+// Dev-only: true when ?capturePackets was present at startup AND this is a dev build.
+// Drives the inbound-packet capture scaffolding (see lib/packetCapture.ts).
+export function getCapturePackets(): boolean {
+  return getRuntimeConfig().capturePackets ?? false
 }

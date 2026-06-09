@@ -31,6 +31,11 @@ SellfileCreator*.zip
 
 old_releases/*-dev.html
 
+# Dev-only inbound-endpoint packet captures (see scripts/vite/packetCapturePlugin.ts).
+# Live session recordings; promote a useful one out of captures/ by hand if it should
+# become a committed fixture.
+/docs/orig/sampleLog/captures/
+
 # Playwright
 /test-results/
 /playwright-report/

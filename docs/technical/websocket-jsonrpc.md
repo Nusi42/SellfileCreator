@@ -321,3 +321,38 @@ Use JSON-RPC standard codes where possible:
 - `-32603` Internal error
 
 Application-specific errors can use `-32000` to `-32099`.
+
+## Packet Capture (dev-only)
+
+To debug merge/restore behaviour against real, possibly out-of-order endpoint
+traffic, the dev build can record every inbound frame to disk as sampleLog-style
+fixtures.
+
+**How to enable**: run the dev server (`npm run dev`) and open the app with the
+`?capturePackets` query param alongside the usual `?endpoint=…`, e.g.
+`http://localhost:5173/?endpoint=ws://localhost:8080/&capturePackets`.
+
+**What happens**: each raw JSON-RPC frame received in `handleInboundMessage`
+([`src/hooks/useExternalCommands.ts`](../../src/hooks/useExternalCommands.ts)) is
+streamed via `capturePacket` ([`src/lib/packetCapture.ts`](../../src/lib/packetCapture.ts))
+to the dev-only Vite middleware
+([`scripts/vite/packetCapturePlugin.ts`](../../scripts/vite/packetCapturePlugin.ts)),
+which writes:
+
+```
+docs/orig/sampleLog/captures/<session>/packet_<NN>_<method>_<YYMMDD>_<HHMMSS.mmm>.json
+```
+
+Files are byte-compatible with the committed sample log (2-space pretty-printed
+JSON-RPC envelopes, send-order index, receive-time timestamp). The binary gear-DB
+push (`gearDbFileBinary`) is recorded as a metadata stub only — the raw SQLite bytes
+are not persisted.
+
+**Scope / safety**: the activation flag is gated on `import.meta.env.DEV`, and the
+plugin is `apply: 'serve'`, so capture can never run in a production build. With the
+param absent it is a complete no-op. The `captures/` directory is gitignored —
+promote a useful recording into `docs/orig/sampleLog/` (or feed it to the
+`endpoint-replay` harness) by hand if it should become a committed fixture.
+
+To turn it on/off at any time, just add or drop the `?capturePackets` param — no code
+change required.

@@ -14,6 +14,7 @@ import {
   type ExternalWsResponse,
 } from '../lib/externalWsProtocol'
 import { normalizeExternalEvent, type ExternalCommand } from '../lib/externalCommands'
+import { capturePacket } from '../lib/packetCapture'
 
 export type UseExternalCommandsOptions = {
   pushEndpoint: string | undefined
@@ -106,6 +107,10 @@ export function useExternalCommands({
 
   // Handle parsed inbound messages and route them to commands or responses.
   const handleInboundMessage = useCallback((message: unknown) => {
+    // Dev-only: record the raw frame (object form) before any parsing so the captured
+    // fixture matches exactly what RSL Helper sent, in true receive order. No-op unless
+    // ?capturePackets is active in a dev build. See lib/packetCapture.ts.
+    capturePacket(message)
     // Parse the inbound payload into a normalized envelope.
     const parsed = parseExternalWsMessage(message)
     if (!parsed) return
@@ -229,6 +234,13 @@ export function useExternalCommands({
             if (meta) {
               pendingBinaryMetaRef.current = null
               if (!closedRef.current) {
+                // Dev-only: record a metadata stub for the binary gear-DB push so the
+                // capture sequence stays coherent (the raw SQLite bytes are not JSON and
+                // are not persisted as a fixture). No-op unless capture is active.
+                capturePacket(
+                  { jsonrpc: '2.0', method: 'gearDbFileBinary', params: { name: meta.name, contentType: meta.contentType ?? null, byteLength: raw.byteLength } },
+                  'gearDbFileBinary',
+                )
                 // Wrap as a Uint8Array view over the frame's backing buffer.
                 // No copy is made here; the buffer stays alive until cmd.bytes
                 // is nulled in applyEndpointPushCommand after the import.

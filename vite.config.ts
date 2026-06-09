@@ -9,6 +9,7 @@ import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
 import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin'
 import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin'
 import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin'
+import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -88,6 +89,10 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   plugins: [
     assetsPlugin(),
     sfcMinifyPlugin(),
+    // Dev-only (apply: 'serve'): receives inbound endpoint packets from the browser
+    // when ?capturePackets is active and writes them as sampleLog fixtures. Inert in
+    // production builds and when the URL param is absent. See packetCapturePlugin.ts.
+    packetCapturePlugin(),
     wasmInlinePlugin(),
     // Suppresses the URL-based WASM auto-load in rule_engine.js so the binary is
     // not double-embedded (main bundle + worker IIFE). See suppressWasmUrlPlugin.ts.
