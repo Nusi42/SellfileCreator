@@ -4,10 +4,19 @@ import test from 'node:test'
 
 import {
   createLastUsedLookup,
+  mergeChampionRowFields,
   mergeLastUsedLookup,
+  mergeLastUsedRows,
 } from '../../src/lib/importers/gearDbLookups.js'
-import { createDatasetFromSnapshot } from '../../src/lib/importers/gearDbRawDataset.js'
-import type { GearDbLastUsedRow } from '../../src/lib/importers/gearDbNormalizer.js'
+import {
+  buildRestoredGearDbBaselines,
+  createDatasetFromSnapshot,
+} from '../../src/lib/importers/gearDbRawDataset.js'
+import type {
+  GearDbChampionRow,
+  GearDbLastUsedRow,
+} from '../../src/lib/importers/gearDbNormalizer.js'
+import type { TestItem } from '../../src/lib/ruleEval.js'
 import type { GearDbRawSnapshotCommand } from '../../src/lib/externalCommands.js'
 
 // Minimal but valid artifact rows — slot 5 = Weapon, set 19 = Speed, rank 6, rarity 4.
@@ -61,13 +70,14 @@ const makeSnapshot = (
   artifactIds: number[],
   lastUsedRows: GearDbLastUsedRow[] = [],
   overrides: Partial<Record<number, object>> = {},
+  champions: GearDbChampionRow[] = [],
 ): GearDbRawSnapshotCommand => ({
   kind: 'gearDbRawSnapshot',
   snapshotId: null,
   payloadVersion: null,
   artifacts: artifactIds.map(id => ({ ...baseRow, ID: id, ...overrides[id] })),
   inboxArtifacts: [],
-  champions: [],
+  champions,
   lastUsed: lastUsedRows,
 })
 
@@ -166,4 +176,99 @@ test('createDatasetFromSnapshot: isLocked=undefined with no previous defaults to
   const snap = makeSnapshot([600], [], { 600: { isLocked: undefined } })
   const { dataset } = createDatasetFromSnapshot(snap)
   assert.equal(dataset.artifacts.get(600)?.isLocked, false, 'without previous, undefined isLocked should default to false')
+})
+
+// ─── mergeChampionRowFields ─────────────────────────────────────────────────
+
+test('mergeChampionRowFields: omitted fields carry forward, explicit values win', () => {
+  // Prior row has full metadata; incoming "second burst" row omits everything but ID.
+  const prior: GearDbChampionRow = {
+    ID: 1, Name: 'Kael', BaseHeroID: 555, HeroID: 558, Rarity: 5, Affinity: 1, Vault: 0, RVault: 0,
+  }
+  const sparse: GearDbChampionRow = { ID: 1 }
+  const merged = mergeChampionRowFields(sparse, prior)
+  assert.equal(merged.Name, 'Kael', 'omitted Name carries forward')
+  assert.equal(merged.BaseHeroID, 555, 'omitted BaseHeroID (icon source) carries forward')
+  assert.equal(merged.Rarity, 5, 'omitted Rarity carries forward')
+  assert.equal(merged.Affinity, 1, 'omitted Affinity carries forward')
+
+  // Explicit value on incoming overrides prior.
+  const explicit: GearDbChampionRow = { ID: 1, Name: 'Athel' }
+  const merged2 = mergeChampionRowFields(explicit, prior)
+  assert.equal(merged2.Name, 'Athel', 'explicit Name overrides prior')
+  assert.equal(merged2.BaseHeroID, 555, 'still carries forward the omitted BaseHeroID')
+})
+
+// ─── createDatasetFromSnapshot — champion metadata protection ────────────────
+
+test('createDatasetFromSnapshot: sparse champion push preserves icon/metadata', () => {
+  // First push: full champion roster equipped on artifact 700 (cID=1).
+  const snap1 = makeSnapshot([700], [], { 700: { cID: 1 } }, [
+    { ID: 1, Name: 'Kael', BaseHeroID: 555, HeroID: 558, Rarity: 5, Affinity: 1 },
+  ])
+  const { dataset: prev } = createDatasetFromSnapshot(snap1)
+  assert.equal(prev.champions.get(1)?.baseHeroId, 555, 'sanity: baseHeroId established')
+
+  // Second push: champion row repeats without metadata (RSL Helper second burst).
+  const snap2 = makeSnapshot([700], [], { 700: { cID: 1 } }, [{ ID: 1 }])
+  const { dataset: next } = createDatasetFromSnapshot(snap2, prev)
+  assert.equal(next.champions.get(1)?.baseHeroId, 555, 'baseHeroId (icon) preserved across sparse push')
+  assert.equal(next.champions.get(1)?.name, 'Kael', 'name preserved across sparse push')
+  assert.equal(next.champions.get(1)?.affinity, 1, 'affinity preserved across sparse push')
+})
+
+test('createDatasetFromSnapshot: champion absent from new roster is retained', () => {
+  const snap1 = makeSnapshot([701], [], { 701: { cID: 2 } }, [
+    { ID: 2, Name: 'Athel', BaseHeroID: 600, HeroID: 600, Rarity: 4 },
+  ])
+  const { dataset: prev } = createDatasetFromSnapshot(snap1)
+  // New push omits champion 2 entirely (partial roster).
+  const snap2 = makeSnapshot([701], [], { 701: { cID: 2 } }, [])
+  const { dataset: next } = createDatasetFromSnapshot(snap2, prev)
+  assert.equal(next.champions.get(2)?.name, 'Athel', 'champion absent from new roster is carried forward')
+})
+
+// ─── mergeLastUsedRows ──────────────────────────────────────────────────────
+
+test('mergeLastUsedRows: incoming wins, prior fills gaps', () => {
+  const prior: GearDbLastUsedRow[] = [
+    { id: 1, lastUse: '2024-01-01 10:00:00' },
+    { id: 2, lastUse: '2024-01-02 10:00:00' },
+  ]
+  const incoming: GearDbLastUsedRow[] = [{ id: 1, lastUse: '2024-06-01 10:00:00' }]
+  const merged = mergeLastUsedRows(incoming, prior)
+  const byId = new Map(merged.map(r => [Number(r.id ?? r.ID), r.lastUse]))
+  assert.equal(byId.get(1), '2024-06-01 10:00:00', 'incoming wins for id 1')
+  assert.equal(byId.get(2), '2024-01-02 10:00:00', 'prior retained for id 2')
+})
+
+test('mergeLastUsedRows: empty incoming keeps all prior', () => {
+  const prior: GearDbLastUsedRow[] = [{ id: 5, lastUse: '2024-03-01 08:00:00' }]
+  const merged = mergeLastUsedRows([], prior)
+  assert.equal(merged.length, 1, 'prior row retained when incoming is empty')
+  assert.equal(merged[0]?.lastUse, '2024-03-01 08:00:00')
+})
+
+// ─── buildRestoredGearDbBaselines ───────────────────────────────────────────
+
+test('buildRestoredGearDbBaselines: reconstructs champions/lastUsed/equip map from items', () => {
+  const items: TestItem[] = [{
+    itemId: -1,
+    subValues: {},
+    previewExtras: {
+      id: 900,
+      source: 'artifacts',
+      lastUseLocalTimestamp: '2024-05-01 10:00:00',
+      equippedChampion: {
+        id: 3, name: 'Coldheart', location: 'collection', baseHeroId: 700, rarity: 5,
+        ascensionLevel: 2, empowermentLevel: null, affinity: 2, blessingGrade: null,
+        starGrade: null, experienceLevel: null,
+      },
+    },
+  } as unknown as TestItem]
+  const { champions, lastUsed, equippedByArtifact } = buildRestoredGearDbBaselines(items)
+  assert.equal(equippedByArtifact.get(900), 3, 'artifact→champion association reconstructed')
+  assert.equal(lastUsed[0]?.lastUse, '2024-05-01 10:00:00', 'lastUsed reconstructed')
+  assert.equal(champions[0]?.BaseHeroID, 700, 'champion baseHeroId reconstructed')
+  assert.equal(champions[0]?.HeroID, 702, 'HeroID = baseHeroId + ascensionLevel')
 })

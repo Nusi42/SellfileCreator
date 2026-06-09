@@ -80,6 +80,38 @@ const sanitizePositiveInt = (value: unknown): number | null => {
  * Convert a Champs row into the normalized lookup entry the Gear Inspector uses.
  * Returns `null` when the row lacks a usable ID so callers can skip it.
  */
+/**
+ * Field-level merge for two raw champion rows. When the incoming row omits a field
+ * (`undefined` — "the payload did not include this column"), the prior row's value is
+ * carried forward. An explicit `null`/`0` on the incoming row is respected as a real
+ * value and clears the field.
+ *
+ * SSOT: this is the single definition of "which champion columns survive a sparse
+ * update." Both the raw-parts accumulator (App.tsx) and the record-level
+ * {@link upsertChampionRow} delegate here so the protected-field set can never drift
+ * between the two layers.
+ */
+export const mergeChampionRowFields = (
+  incoming: GearDbChampionRow,
+  prior: GearDbChampionRow,
+): GearDbChampionRow => {
+  // Start from the incoming row so explicitly-set values always win.
+  const merged: GearDbChampionRow = { ...incoming }
+  // For each column absent on the incoming row, fall back to the prior value.
+  if (incoming.Name === undefined && prior.Name != null) merged.Name = prior.Name
+  if (incoming.HeroID === undefined && prior.HeroID != null) merged.HeroID = prior.HeroID
+  if (incoming.Vault === undefined && prior.Vault != null) merged.Vault = prior.Vault
+  if (incoming.RVault === undefined && prior.RVault != null) merged.RVault = prior.RVault
+  if (incoming.BaseHeroID === undefined && prior.BaseHeroID != null) merged.BaseHeroID = prior.BaseHeroID
+  if (incoming.Rarity === undefined && prior.Rarity != null) merged.Rarity = prior.Rarity
+  if (incoming.EmpLvl === undefined && prior.EmpLvl != null) merged.EmpLvl = prior.EmpLvl
+  if (incoming.Affinity === undefined && prior.Affinity != null) merged.Affinity = prior.Affinity
+  if (incoming.BGrade === undefined && prior.BGrade != null) merged.BGrade = prior.BGrade
+  if (incoming.Rang === undefined && prior.Rang != null) merged.Rang = prior.Rang
+  if (incoming.Lvl === undefined && prior.Lvl != null) merged.Lvl = prior.Lvl
+  return merged
+}
+
 export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLookupRecord | null => {
   const id = Number(row.ID)
   if (!Number.isFinite(id) || id <= 0) return null
@@ -116,14 +148,34 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
   }
 }
 
-export const createChampionLookup = (rows: Iterable<GearDbChampionRow>): ChampionLookup => {
-  const map: ChampionLookup = new Map()
+/**
+ * Build a champion lookup from raw rows.
+ *
+ * When `previous` is supplied, each incoming row is merged over the previously known
+ * record via {@link upsertChampionRow} so a sparse update (e.g. RSL Helper's
+ * metadata-free second burst, or an out-of-order push after a restart) cannot wipe
+ * fields the prior snapshot already established — name, baseHeroId (icon source),
+ * rarity, affinity, location, etc. Champions present only in `previous` are carried
+ * forward unchanged so a partial roster push never drops known champions.
+ */
+export const createChampionLookup = (
+  rows: Iterable<GearDbChampionRow>,
+  previous?: ReadonlyMap<number, ChampionLookupRecord>,
+): ChampionLookup => {
+  // Seed from the previous lookup so omitted/absent champions survive sparse pushes;
+  // upsertChampionRow then merges each incoming row's populated fields over the seed.
+  const map: ChampionLookup = previous ? new Map(previous) : new Map()
   for (const row of rows) {
     // Keep the lookups deterministic by skipping malformed rows quietly;
     // callers already log parse errors before this helper runs.
-    const record = championRowToLookupRecord(row)
-    if (!record) continue
-    map.set(record.id, record)
+    if (previous) {
+      // Field-level merge against the seeded baseline (see upsertChampionRow).
+      upsertChampionRow(map, row)
+    } else {
+      const record = championRowToLookupRecord(row)
+      if (!record) continue
+      map.set(record.id, record)
+    }
   }
   return map
 }
@@ -202,6 +254,32 @@ export const mergeLastUsedLookup = (
   // Overlay incoming entries — they represent fresher data and always take precedence.
   for (const [id, ts] of incoming) merged.set(id, ts)
   return merged
+}
+
+/**
+ * Merge two raw lastUsed row arrays. Incoming rows win per id; ids present only in
+ * `prior` are retained so a sparse/out-of-order lastUsed push (or a restored-session
+ * baseline) does not drop timestamps the new feed omitted. Rows with an unparseable
+ * id are skipped. Mirrors {@link mergeLastUsedLookup} one layer up (raw rows vs.
+ * normalized lookup) — kept in sync so both layers preserve the same data.
+ */
+export const mergeLastUsedRows = (
+  incoming: readonly GearDbLastUsedRow[],
+  prior: readonly GearDbLastUsedRow[],
+): GearDbLastUsedRow[] => {
+  // Key by id so incoming entries overwrite prior ones for the same artifact.
+  const byId = new Map<number, GearDbLastUsedRow>()
+  const keyOf = (row: GearDbLastUsedRow): number => Number(row.id ?? row.ID)
+  // Seed with prior rows first; incoming rows then overwrite matching ids.
+  for (const row of prior) {
+    const id = keyOf(row)
+    if (Number.isFinite(id) && id > 0) byId.set(id, row)
+  }
+  for (const row of incoming) {
+    const id = keyOf(row)
+    if (Number.isFinite(id) && id > 0) byId.set(id, row)
+  }
+  return Array.from(byId.values())
 }
 
 export const upsertLastUsedRow = (map: LastUsedLookup, row: GearDbLastUsedRow): string | null => {

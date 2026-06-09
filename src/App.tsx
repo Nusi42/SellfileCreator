@@ -274,9 +274,14 @@ import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   buildArtifactRevisionMap,
+  buildRestoredGearDbBaselines,
   createDatasetFromSnapshot,
   type GearDbRawDataset,
 } from './lib/importers/gearDbRawDataset'
+import {
+  mergeChampionRowFields,
+  mergeLastUsedRows,
+} from './lib/importers/gearDbLookups'
 import type {
   GearDbArtifactRow,
   GearDbChampionRow,
@@ -4800,9 +4805,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
-  // RSL Helper sends champions in two bursts: the first includes Name and Rarity; the second
-  // repeats the full roster without them. Merging preserves those fields from the prior message
-  // so subsequent updates never silently wipe display metadata.
+  // RSL Helper sends champions in two bursts: the first includes full metadata; the
+  // second repeats the roster without it. Merging preserves omitted fields from the
+  // prior message so subsequent updates never silently wipe display metadata.
+  // SSOT: the protected-field set lives in mergeChampionRowFields — do not inline a
+  // second field list here. Champions present only in `existing` are also carried
+  // forward so a partial roster push never drops known champions.
   const mergeChampionRows = (
     incoming: GearDbChampionRow[],
     existing: GearDbChampionRow[] | null,
@@ -4810,16 +4818,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!existing || existing.length === 0) return incoming
     // Index prior rows by champion ID for O(1) lookup during merge.
     const byId = new Map(existing.map((r) => [r.ID, r]))
-    return incoming.map((row) => {
+    const merged: GearDbChampionRow[] = incoming.map((row) => {
       const prior = byId.get(row.ID)
-      if (!prior) return row
-      // Carry forward Name and Rarity when the incoming row omits them.
-      if (row.Name != null && row.Rarity != null) return row
-      const merged: GearDbChampionRow = { ...row }
-      if (row.Name == null && prior.Name != null) merged.Name = prior.Name
-      if (row.Rarity == null && prior.Rarity != null) merged.Rarity = prior.Rarity
-      return merged
+      // Mark the prior row consumed so it is not re-appended as a carry-forward below.
+      if (prior) byId.delete(row.ID)
+      return prior ? mergeChampionRowFields(row, prior) : row
     })
+    // Any prior champion not present in the incoming burst is retained as-is so a
+    // sparse roster push cannot drop champions known from an earlier message.
+    for (const leftover of byId.values()) merged.push(leftover)
+    return merged
   }
 
   // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
@@ -4847,71 +4855,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Patch cID on artifact rows using the champion slot map when available.
     // The endpoint reverses the relationship — champions list their artifacts
     // instead of artifacts carrying their equipped-champion id (cID).
-    // When champions have not arrived yet (equippedByArtifact is null), reconstruct
-    // the map from the current queue so that a restored session's champion
-    // associations survive the first artifacts-only push until the real champions
-    // message lands and populates equippedByArtifact authoritatively.
+    //
+    // Reconstruct the equipped-champion + lastUsed baselines from the currently
+    // rendered queue (restored from autosave / file import). These are merged UNDER
+    // the incoming packet — the packet always wins per id, the baseline fills any id
+    // the packet omits. This must run even when a slot already holds a (possibly
+    // sparse or empty) array: RSL Helper's pushes arrive incomplete and out of order,
+    // so a non-null-but-sparse champions/lastUsed packet would otherwise wipe known
+    // metadata established by an earlier message or by the restored session.
+    const restored = buildRestoredGearDbBaselines(gearInspectorItemsRef.current)
+    // equippedByArtifact: prefer the authoritative champion-slot map from the packet;
+    // otherwise fall back to the artifact→champion map derived from restored items.
     let equippedBy = parts.equippedByArtifact
-    if (equippedBy == null) {
-      const fallback = new Map<number, number>()
-      for (const item of gearInspectorItemsRef.current) {
-        const aId = item.previewExtras?.id
-        const cId = item.previewExtras?.equippedChampion?.id
-        if (aId != null && cId != null) fallback.set(aId, cId)
-      }
-      if (fallback.size > 0) equippedBy = fallback
+    if ((equippedBy == null || equippedBy.size === 0) && restored.equippedByArtifact.size > 0) {
+      equippedBy = restored.equippedByArtifact
     }
     const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => {
       if (!equippedBy || equippedBy.size === 0) return rows
       return rows.map(row => {
+        // Respect an explicit cID already present on the row (full-snapshot import).
+        if (row.cID != null) return row
         const championId = equippedBy.get(row.ID)
-        // Only replace when the map gives us a valid champion — preserves any
-        // cID that was already set by an earlier full-snapshot import.
         return championId ? { ...row, cID: championId } : row
       })
     }
-    // When champions have not arrived yet, reconstruct their rows from the current
-    // queue so the synthetic snapshot carries the equippedChampion reference fields
-    // (baseHeroId / name / rarity / location) — all of which feed the item signature
-    // and the card UI.
-    let syntheticChampions = parts.champions
-    if (syntheticChampions === null) {
-      const seen = new Set<number>()
-      const rows: GearDbChampionRow[] = []
-      for (const item of gearInspectorItemsRef.current) {
-        const cId = item.previewExtras?.equippedChampion?.id
-        if (cId == null || seen.has(cId)) continue
-        seen.add(cId)
-        const loc = item.previewExtras?.equippedChampion?.location
-        const baseId = item.previewExtras?.equippedChampion?.baseHeroId
-        const asc = item.previewExtras?.equippedChampion?.ascensionLevel
-        rows.push({
-          ID: cId,
-          Name: item.previewExtras?.equippedChampion?.name ?? null,
-          BaseHeroID: baseId ?? null,
-          // HeroID = BaseHeroID + ascensionLevel; both are required for the ascension calc.
-          HeroID: baseId != null && asc != null ? baseId + asc : null,
-          Rarity: item.previewExtras?.equippedChampion?.rarity ?? null,
-          // Reverse-map ChampionLocation back to the integer flags createChampionLookup expects.
-          Vault: loc === 'vault' ? 1 : 0,
-          RVault: loc === 'reserveVault' ? 1 : 0,
-        })
-      }
-      syntheticChampions = rows
-    }
-    // When lastUsed has not arrived yet, reconstruct entries from the current queue.
-    // coerceLastUseValue passes strings through unchanged, so existing timestamps survive.
-    let syntheticLastUsed = parts.lastUsed
-    if (syntheticLastUsed === null) {
-      const rows: GearDbLastUsedRow[] = []
-      for (const item of gearInspectorItemsRef.current) {
-        const aId = item.previewExtras?.id
-        const ts = item.previewExtras?.lastUseLocalTimestamp
-        if (aId == null || ts == null) continue
-        rows.push({ id: aId, lastUse: ts })
-      }
-      syntheticLastUsed = rows
-    }
+    // Champions: overlay the packet rows on top of the restored baseline so the
+    // synthetic snapshot always carries the equippedChampion reference fields
+    // (baseHeroId / name / rarity / location) for ids the packet did not include.
+    const syntheticChampions = mergeChampionRows(parts.champions ?? [], restored.champions)
+    // LastUsed: overlay packet timestamps on the restored baseline. mergeLastUsedRows
+    // lets packet entries win per id while preserving timestamps the packet omits.
+    const syntheticLastUsed = mergeLastUsedRows(parts.lastUsed ?? [], restored.lastUsed)
     // Synthesize a snapshot immediately using whatever parts are available.
     // Null slots fall back to empty arrays so normalization always succeeds.
     const syntheticSnapshot: GearDbRawSnapshotCommand = {

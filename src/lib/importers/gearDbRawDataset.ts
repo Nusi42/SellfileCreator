@@ -11,6 +11,8 @@ import type { TestItem } from '../ruleEval'
 import {
   normalizeGearDbArtifact,
   type GearDbArtifactRow,
+  type GearDbChampionRow,
+  type GearDbLastUsedRow,
   type NormalizedGearArtifact,
 } from './gearDbNormalizer'
 import {
@@ -36,8 +38,12 @@ type ArtifactSource = 'artifacts' | 'inbox'
  * Build a full dataset from a JSON snapshot event so callers can diff it against
  * the currently rendered Gear Inspector queue.
  *
- * `previousDataset` is optional. When supplied, two protected fields are merged
+ * `previousDataset` is optional. When supplied, protected fields are merged
  * rather than blindly replaced:
+ * - champion metadata (name, baseHeroId/icon, rarity, affinity, location, …):
+ *   fields absent from a sparse champion push are carried forward, and champions
+ *   present only in the previous lookup survive a partial roster push (see
+ *   createChampionLookup → upsertChampionRow).
  * - `lastUseLocalTimestamp`: a non-null previous value is kept when the new feed
  *   omits the artifact from the lastUsed array (sparse payload protection).
  * - `isLocked`: when the incoming row did not include the field (`row.isLocked ===
@@ -50,7 +56,10 @@ export const createDatasetFromSnapshot = (
 ): { dataset: GearDbRawDataset; gearInspectorItems: TestItem[]; artifactCount: number; inboxCount: number } => {
   // Build champion/last-used lookups first so artifact normalization has all
   // of the metadata the SQL importer would have provided.
-  const championLookup = createChampionLookup(snapshot.champions)
+  // Merge over the previous champion lookup so fields absent from a sparse push
+  // (name, baseHeroId/icon, rarity, affinity, location) are preserved rather than
+  // wiped — mirrors the lastUsed sparse-payload protection below.
+  const championLookup = createChampionLookup(snapshot.champions, previousDataset?.champions)
   const incomingLastUsed = createLastUsedLookup(snapshot.lastUsed)
   // Merge over the previous lookup so timestamps absent from the new feed are
   // not dropped — endpoint lastUsed arrays can be sparse across pushes.
@@ -74,6 +83,57 @@ export const createDatasetFromSnapshot = (
   }
   const { gearInspectorItems, artifactCount, inboxCount } = collectGearInspectorItems(dataset)
   return { dataset, gearInspectorItems, artifactCount, inboxCount }
+}
+
+/**
+ * Reconstruct raw champion/lastUsed baselines (and the artifact→champion map) from the
+ * currently rendered Gear Inspector queue.
+ *
+ * On restart the rich champion metadata, lastUse timestamps and equip associations are
+ * restored into the rendered items but NOT into the endpoint merge refs. RSL Helper then
+ * streams per-type pushes that are frequently incomplete and out of order — a sparse or
+ * empty champions/lastUsed packet would wipe the restored data if it were used verbatim.
+ * Callers merge these baselines UNDER each incoming packet (packet wins per id, baseline
+ * fills the gaps) so no known data is lost while the burst is still in flight.
+ *
+ * The reverse-mapping is the single inverse of {@link cloneGearInspectorItem} /
+ * {@link createChampionLookup}'s location flags — keep them in sync.
+ */
+export const buildRestoredGearDbBaselines = (
+  items: readonly TestItem[],
+): { champions: GearDbChampionRow[]; lastUsed: GearDbLastUsedRow[]; equippedByArtifact: Map<number, number> } => {
+  const seenChampions = new Set<number>()
+  const champions: GearDbChampionRow[] = []
+  const lastUsed: GearDbLastUsedRow[] = []
+  const equippedByArtifact = new Map<number, number>()
+  for (const item of items) {
+    const extras = item.previewExtras
+    const aId = extras?.id
+    // Rebuild the artifact→champion association so patchCID can restore cID.
+    const champ = extras?.equippedChampion
+    const cId = champ?.id
+    if (aId != null && cId != null) equippedByArtifact.set(aId, cId)
+    // Rebuild lastUsed rows so timestamps survive an artifacts-only / sparse push.
+    const ts = extras?.lastUseLocalTimestamp
+    if (aId != null && ts != null) lastUsed.push({ id: aId, lastUse: ts })
+    // Rebuild one champion row per distinct equipped champion, reverse-mapping the
+    // location enum back to the integer Vault/RVault flags the lookup expects.
+    if (cId == null || champ == null || seenChampions.has(cId)) continue
+    seenChampions.add(cId)
+    const baseId = champ.baseHeroId
+    const asc = champ.ascensionLevel
+    champions.push({
+      ID: cId,
+      Name: champ.name ?? null,
+      BaseHeroID: baseId ?? null,
+      // HeroID = BaseHeroID + ascensionLevel; both required for the ascension calc.
+      HeroID: baseId != null && asc != null ? baseId + asc : null,
+      Rarity: champ.rarity ?? null,
+      Vault: champ.location === 'vault' ? 1 : 0,
+      RVault: champ.location === 'reserveVault' ? 1 : 0,
+    })
+  }
+  return { champions, lastUsed, equippedByArtifact }
 }
 
 /**
