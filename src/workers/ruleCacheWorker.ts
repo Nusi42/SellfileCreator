@@ -7,7 +7,7 @@ import {
   computeMergedRulesFromComponents,
   type MergedRulesComponents,
 } from '../lib/merge'
-import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
+import { recipesForRuleBuild, recipeNamesForExport } from '../lib/ruleCacheHelpers'
 import { computeExportedHsfFingerprint } from '../lib/hsfIO'
 import {
   buildIgnoreSafeguardRecipeIndices,
@@ -756,10 +756,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // The main thread's "export/push needed" indicator compares this against the fingerprint
     // captured at the last export, so it flags only when the EXPORTED file would actually
     // differ (not merely when some input or the detection snapshot churned). Computed here
-    // because the worker already holds mergedRulesFinal; recipe names are derived from the
-    // pipeline's recipes exactly as App does (recipe.appearance?.name ?? '') so worker and
-    // main agree on the serialization (asserted in dev builds). SSOT helper lives in hsfIO.
-    const exportRecipeNames = recipesForRules.map((recipe) => recipe?.appearance?.name ?? '')
+    // because the worker already holds mergedRulesFinal. The recipe names written into the
+    // export come from recipeNamesForExport over THIS pipeline's (override-applied) recipes —
+    // the same SSOT helper and the same override-applied list the main thread feeds to its
+    // own export payload, so the two crcs can never diverge. (computeExportedHsfFingerprint
+    // SSOT lives in hsfIO; the name-projection SSOT in ruleCacheHelpers.)
+    const exportRecipeNames = recipeNamesForExport(recipesForRules)
     const mergedRulesHash = computeExportedHsfFingerprint(mergedRulesFinal, { recipeNames: exportRecipeNames })
 
     // Use compact indices when neither dedup nor omitDisabled is active: in that case

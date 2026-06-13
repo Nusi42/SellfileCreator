@@ -317,7 +317,7 @@ import {
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
-import { recipesForRuleBuild } from './lib/ruleCacheHelpers'
+import { recipesForRuleBuild, recipeNamesForExport } from './lib/ruleCacheHelpers'
 import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
@@ -636,7 +636,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsOverridesActive = recipeOverridesSubstatTargetsResolution.overridesActive
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleRecipes = useMemo(() => recipesForRuleBuild(recipeOverridesRecipesForRules), [recipeOverridesRecipesForRules])
-  const recipeNames = useMemo(() => customRecipes.map((recipe) => recipe?.appearance?.name ?? ''), [customRecipes])
+  // Display/match labels reflect the recipes as the user sees them in the builder (raw customRecipes).
+  const recipeNames = useMemo(() => recipeNamesForExport(customRecipes), [customRecipes])
+  // Names written into an exported HSF must come from the SAME override-applied list the
+  // rule-cache worker fingerprints (ruleRecipes = recipesForRuleBuild(override-applied)), via the
+  // SAME recipeNamesForExport SSOT — so the worker's export crc and this export payload agree
+  // byte-for-byte even if an override ever renames a recipe. See ruleCacheHelpers.recipeNamesForExport.
+  const exportRecipeNames = useMemo(() => recipeNamesForExport(ruleRecipes), [ruleRecipes])
   const recipeFgColors = useMemo(() => customRecipes.map((recipe) => recipe?.appearance?.fgColor ?? null), [customRecipes])
   // Normalize tags once so every filter path uses the same tag tokens.
   const normalizeRecipeTags = useCallback((recipe: BuilderRecipe | null | undefined): string[] => {
@@ -4081,8 +4087,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { exportRulesCountRef.current = mergedRules.length }, [mergedRules.length])
   // Keep export payload creation lazy so large merged-rule snapshots do not run on every render.
   const buildExportPayload = useCallback(() => (
-    buildHsfFileFromMerged(mergedRules, { recipeNames })
-  ), [mergedRules, recipeNames])
+    // Use exportRecipeNames (override-applied, via the recipeNamesForExport SSOT) — NOT the raw
+    // display recipeNames — so these exported bytes match the worker's export-dirty fingerprint.
+    buildHsfFileFromMerged(mergedRules, { recipeNames: exportRecipeNames })
+  ), [mergedRules, exportRecipeNames])
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so

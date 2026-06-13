@@ -157,8 +157,11 @@ export function buildHsfFileFromMerged(rules: ExportableRule[], options?: Export
 // update that doesn't change the injected rules produces the same fingerprint (no false
 // "dirty"), and an add-then-remove inventory round-trip returns to the prior fingerprint
 // (correctly goes clean again). SSOT: the rule-cache worker computes this per pipeline commit
-// via this same helper; the main thread asserts parity in dev builds, so the two can never
-// drift on "what is exported".
+// via this same helper and returns it as mergedRulesHash; the main thread only compares that
+// string against the hash captured at the last export (it does not recompute the crc). The two
+// stay in lockstep because BOTH sides feed buildHsfFileFromMerged the recipe names produced by
+// recipeNamesForExport (ruleCacheHelpers) over the SAME override-applied recipe list — so the
+// bytes the worker fingerprints are exactly the bytes the main thread would export.
 export function computeExportedHsfFingerprint(
   rules: ExportableRule[],
   options?: ExportMetadataOptions,

@@ -6,6 +6,16 @@ export function recipesForRuleBuild(recipes: readonly BuilderRecipe[]): BuilderR
   return recipes.map((recipe) => ({ ...recipe }))
 }
 
+// SSOT for projecting a recipe list to the index-aligned name array that gets written into an
+// exported HSF (applyRecipeNamesForExport) and folded into the export-dirty fingerprint
+// (computeExportedHsfFingerprint). The export crc is computed in the rule-cache worker and
+// compared on the main thread, so BOTH sides MUST derive names with this exact expression from
+// the SAME (override-applied) recipe list — otherwise the two crcs diverge and the
+// "needs export/push" flag is stuck-dirty or false-clean. One definition, imported everywhere.
+export function recipeNamesForExport(recipes: readonly BuilderRecipe[]): string[] {
+  return recipes.map((recipe) => recipe?.appearance?.name ?? '')
+}
+
 export function countRulesForRecipeEntry(
   recipe: BuilderRecipe,
   substatTargets: SubstatTargetTable,
