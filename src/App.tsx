@@ -210,8 +210,17 @@ const PIPELINE_DEBOUNCE_MS = 200 as const
 // Minimum gap between end of one endpoint apply+settle cycle and start of the next.
 const ENDPOINT_PUSH_COOLDOWN_MS = 5000 as const
 // Pipeline result cache: maximum number of entries kept in memory at once.
+// Sized to the worst-case farming round-trip we want to keep fully cached: a player can farm at
+// most 2 items at once, each levelled to 16 in steps of 4 (4 level-up pushes per item → up to 8
+// distinct endpoint updates), then deleted (≈2 more updates). That tops out around 10 distinct
+// artifact-content states in one churn cycle, so 10 entries lets the whole cycle stay resident
+// and the return-to-prior state hit instead of recompute. Each entry is heavy (a full pipeline
+// result — merged rules + per-artifact rows/improvement-chance), so we deliberately do NOT grow
+// this; we rely on true-LRU renewal (below) to keep the *useful* states, not on a bigger cap.
 const PIPELINE_CACHE_MAX = 10 as const
-// Pipeline result cache: entries older than this are considered stale and evicted.
+// Pipeline result cache: entries idle longer than this are evicted. SLIDING — renewed on every
+// cache hit (see the lookup path), so a state you keep returning to during farming stays warm;
+// only states untouched for this long age out.
 const PIPELINE_CACHE_TTL_MS = 3 * 60 * 1000
 // Duration of the Diff-button border-chase when the diff reference changes (kept in sync
 // with the keyframe duration in PreviewHeaderActions).
@@ -318,6 +327,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
 import { recipesForRuleBuild, recipeNamesForExport } from './lib/ruleCacheHelpers'
+import { ALLOW_TEST_HOOKS } from './lib/testHooks'
 import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
@@ -1317,8 +1327,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Stores both the raw worker result and the pre-built UI state so cache hits can call
   // setState with the exact same object references, letting React.memo skip row re-renders.
   const pipelineCacheRef = useRef<Map<string, PipelineCacheEntry>>(new Map())
-  // Insertion order Set enables O(1) LRU eviction and O(1) key removal on TTL eviction.
+  // Recency-order Set: a Set iterates in insertion order, so the FIRST key is the least-recently
+  // USED. A hit re-inserts its key (delete + add) to move it to the back, and eviction drops the
+  // first key — making this a true LRU, not FIFO. Also enables O(1) key removal on TTL eviction.
   const pipelineCacheOrderRef = useRef<Set<string>>(new Set())
+  // Pipeline cache hit/miss tally for measuring real-world farming hit rate. Exposed on
+  // window (test hooks) and logged in dev so we can verify the round-trip cache actually fires
+  // on representative endpoint traffic instead of assuming it does.
+  const pipelineCacheStatsRef = useRef({ hits: 0, misses: 0 })
   // Ref-shadowed so launchPipeline can read the current signature without adding it to the
   // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
   // Initialized to null; the update effect below keeps it current after the first render.
@@ -1424,6 +1440,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (rawEntry !== null && cachedEntry === null) {
         pipelineCacheRef.current.delete(cacheKey!)
         pipelineCacheOrderRef.current.delete(cacheKey!)
+      }
+      // True-LRU + sliding-TTL renewal on a hit: slide the TTL forward (insertedAt = now) and
+      // move the key to the back of the recency order (delete + re-add) so a frequently revisited
+      // state survives eviction and ageing. Only on a real hit — a stale/missing entry is not
+      // renewed. Done before serving so the served entry already reflects its refreshed recency.
+      if (cachedEntry !== null && cacheKey !== null) {
+        cachedEntry.insertedAt = nowMs
+        pipelineCacheOrderRef.current.delete(cacheKey)
+        pipelineCacheOrderRef.current.add(cacheKey)
+      }
+      // Tally hit/miss for measurement. A null cacheKey (no history signature yet) is neither.
+      if (cacheKey !== null) {
+        const stats = pipelineCacheStatsRef.current
+        if (cachedEntry !== null) stats.hits += 1
+        else stats.misses += 1
+        // Test builds expose the live tally; dev logs each lookup outcome with the running rate.
+        if (ALLOW_TEST_HOOKS) {
+          ;(window as unknown as { __pipelineCacheStats?: { hits: number; misses: number } }).__pipelineCacheStats = stats
+        }
+        if (import.meta.env.DEV) {
+          const total = stats.hits + stats.misses
+          const rate = total > 0 ? Math.round((stats.hits / total) * 100) : 0
+          console.log(`[pipeline-cache] ${cachedEntry !== null ? 'HIT ' : 'MISS'} hits=${stats.hits} misses=${stats.misses} rate=${rate}%`)
+        }
       }
       // Build/progress toggles fan out through many memoized panels; transition them so
       // user input stays responsive while the worker spins up. Skip entirely on a cache
@@ -1746,8 +1786,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
           // Cache the processed outputs so the next revisit of this history state is instant.
           if (cacheKey !== null) {
+            // Drop any existing recency entry for this key FIRST so a re-insert (recompute of a
+            // key still present) moves it to the back rather than no-op'ing, and so the size
+            // check below doesn't evict when we're merely overwriting an existing key.
+            pipelineCacheOrderRef.current.delete(cacheKey)
             if (pipelineCacheOrderRef.current.size >= PIPELINE_CACHE_MAX) {
-              // Evict the least-recently-inserted entry (Set preserves insertion order).
+              // Evict the least-recently-USED entry — the first key in recency order (a hit
+              // re-adds its key to the back, so the front is genuinely the LRU, not FIFO).
               const oldest = pipelineCacheOrderRef.current.values().next().value!
               pipelineCacheRef.current.delete(oldest)
               pipelineCacheOrderRef.current.delete(oldest)
