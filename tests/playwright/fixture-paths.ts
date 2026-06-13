@@ -25,3 +25,15 @@ export const PRESET_LATEGAME_SFC_PATH = path.resolve(PRESETS_DIR, 'lategame.sfc'
 // blobs, ~1.4 MB) — used by file-input tests (setInputFiles) and the WebSocket
 // binary-endpoint memory test, which now sends it untrimmed.
 export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db')
+
+// All four real RSLHelper DB captures, in ascending size order (~708 KB → ~1.4 MB).
+// Cycling these through the WASM pipeline varies the artifact-row buffer sizes so
+// the talc allocator's free list accumulates mismatched holes — the memory
+// fragmentation the warmup pre-grow is designed to absorb. Re-importing a single
+// DB only exercises same-size alloc/free and never exposes that fragmentation.
+export const EXAMPLE_RSLHELPER_DB_PATHS = [
+  path.resolve(EXAMPLES_DIR, 'um27993749_RslHelper.db'),
+  path.resolve(EXAMPLES_DIR, 'um85268209_RSLHelper.db'),
+  path.resolve(EXAMPLES_DIR, 'um53210834_RSLHelper.db'),
+  path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db'),
+] as const

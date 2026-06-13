@@ -369,7 +369,7 @@ export const initWasmRuleEngineFromModule = (module: WebAssembly.Module): void =
   // Satisfy any caller that might await ensureWasmRuleEngineReady() in this JS context.
   wasmInitPromise = Promise.resolve()
   // Pre-commit WASM pages for the pipeline allocator (same as warmupWasmRuleEngine).
-  preGrowMemoryWasmBinding(PRE_GROW_TARGET_BYTES)
+  preGrowMemoryWasmBinding(preGrowTargetBytesForEngine())
 }
 
 // Pre-grow the WASM linear memory to a target size in 16 MiB chunks so
@@ -382,6 +382,33 @@ export const initWasmRuleEngineFromModule = (module: WebAssembly.Module): void =
 // that causes the worker to cycle after every single pipeline instead of every N.
 export const PRE_GROW_TARGET_BYTES = 256 * 1024 * 1024
 
+// Detect the Gecko (Firefox) engine. `navigator` exists in both window and
+// worker scopes, so this resolves correctly on the rule-cache worker too.
+// userAgentData is Chromium-only, so its absence + a "Gecko"/"Firefox" UA token
+// is a reliable Gecko signal; we keep it defensive for non-browser (Node test)
+// contexts where navigator may be undefined.
+const isGeckoEngine = (): boolean => {
+  // Guard for Node/test contexts that lack a navigator entirely.
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  // "Gecko" appears in the Firefox UA token (e.g. "...Gecko/20100101 Firefox/..").
+  // Chromium UAs contain "like Gecko" but also expose userAgentData, so exclude those.
+  const hasUserAgentData = 'userAgentData' in navigator && !!(navigator as { userAgentData?: unknown }).userAgentData
+  return !hasUserAgentData && /Firefox/.test(ua)
+}
+
+// Resolve the pre-grow target for the current engine.
+//
+// The 256 MiB up-front commit is a V8/Windows-specific workaround: V8 rejects the
+// small incremental memory.grow calls dlmalloc issues during the hot path, so we
+// front-load the whole reservation at warmup. Gecko/SpiderMonkey honors incremental
+// grows fine, so it gains nothing from the pre-grow — and the eager 256 MiB commit
+// is actively harmful there: multiplied across the worker + main-thread WASM
+// instances (and any transient sql.js import heap that peaks in the same window),
+// it pushes the Firefox content process past its memory ceiling and SIGSEGVs it.
+// On Gecko we return 0 (skip pre-grow) and let dlmalloc grow on demand.
+const preGrowTargetBytesForEngine = (): number => (isGeckoEngine() ? 0 : PRE_GROW_TARGET_BYTES)
+
 // Lightweight init for callers that need WASM ready but don't require the
 // pipeline-sized heap pre-growth (e.g., main-thread scoring in the weight popover).
 export const ensureWasmRuleEngineReady = (): Promise<void> => ensureWasmInitialized()
@@ -393,7 +420,8 @@ export const warmupWasmRuleEngine = async (): Promise<void> => {
   // Pre-commit WASM pages for the pipeline allocator.  The Rust side grows in
   // 16 MiB chunks (V8/Windows' safe per-call ceiling) so a single large request
   // won't be rejected outright.  Any pages V8 refuses are silently skipped.
-  preGrowMemoryWasmBinding(PRE_GROW_TARGET_BYTES)
+  // On Gecko the target resolves to 0 (skip) — see preGrowTargetBytesForEngine.
+  preGrowMemoryWasmBinding(preGrowTargetBytesForEngine())
 }
 
 // Build the minified JSON configure payload. Rules are minified via the wire

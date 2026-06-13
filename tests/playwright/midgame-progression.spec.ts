@@ -15,9 +15,8 @@ import path from 'node:path'
 import { type Browser, type Page } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
-import { NOTE_DIALOG_TITLES, NOTE_DIALOG_CLOSE_LABEL } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { getWorkloadIndicator } from './workload-indicator'
+import { closeNoteDialog, setNoteOverrideCheckbox, waitForWorkloadIdle } from './note-overrides-helpers'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
@@ -61,14 +60,6 @@ const waitForGearInspectorResults = async (page: Page): Promise<void> => {
     undefined,
     { timeout: PLAYWRIGHT_TIMEOUTS.testHeavy },
   )
-}
-
-/** Wait for the workload indicator to settle (appear then vanish, or never appear). */
-const waitForWorkloadIdle = async (page: Page): Promise<void> => {
-  const workload = getWorkloadIndicator(page)
-  // Catching is intentional: the indicator may never appear on a cache-hit fast path.
-  await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-  await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.workloadIdle }).catch(() => undefined)
 }
 
 /** Snapshot all gear inspector card outcomes in current DOM order. */
@@ -116,46 +107,10 @@ const collectOutcomesForMode = async (
     await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
 
-    // Use page.waitForFunction to find and click the mode checkbox in the note dialog.
-    // Scanning inputs directly inside [role="dialog"] avoids Playwright locator
-    // re-resolution, which times out when the DOM is in flux from 194-recipe SFC
-    // processing. The function polls the raw DOM every ~100 ms; each retry is a fresh
-    // synchronous scan that is immune to React element churn during active rendering.
-    await page.waitForFunction(
-      ({ modeLabel }: { modeLabel: string }) => {
-        // Scan all open dialogs for a mode checkbox by label text.
-        // Only the note dialog contains recipe-override checkboxes, so the first
-        // matching input is always the intended target.
-        const inputs = Array.from(
-          document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]'),
-        )
-        const target = inputs.find((input) => {
-          // FormControlLabel renders as <label>...<input>...</label>; textContent
-          // of the closest label or parent element includes the visible option text.
-          const labelEl = input.closest('label') ?? input.parentElement
-          return (labelEl?.textContent ?? '').toLowerCase().includes(modeLabel.toLowerCase())
-        })
-        if (!target) return false
-        // Click if unchecked; returning true stops polling.
-        if (!target.checked) target.click()
-        return true
-      },
-      { modeLabel: mode },
-      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
-    )
-
-    // Close the dialog — checkbox click is done; SFC processing is settled so locators are stable.
-    const noteDialog = page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[0] })
-      .or(page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[1] }))
-    const closeButton = noteDialog.getByRole('button', { name: NOTE_DIALOG_CLOSE_LABEL })
-    await expect(closeButton).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await closeButton.evaluate(
-      (el: HTMLElement) => el.click(),
-      undefined,
-      { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
-    )
-    // Firefox animates the dialog close; the animation itself can take several seconds.
-    await noteDialog.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    // Select the target account-level mode checkbox in the auto-opened note dialog,
+    // then close it. Both steps use the shared note-override helpers.
+    await setNoteOverrideCheckbox(page, mode, true)
+    await closeNoteDialog(page)
 
     // The checkbox click above triggers a SFC rebuild; wait for that workload to idle
     // before loading the DB so the next waitForWorkloadIdle sees only the DB WASM pass.

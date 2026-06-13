@@ -46,10 +46,15 @@ async function measureHeapMB(page: Parameters<typeof expect>[0] & { evaluate: (f
 
 test.describe('binary-endpoint-memory', () => {
   /**
-   * Sends the large RSLHelper.db binary file repeatedly via WebSocket, mimicking
-   * RSL Helper pushing database updates during active farming.  Measures JS heap
+   * Sends the RSLHelper.db binary file repeatedly via the secondary
+   * `gearDbFileBinary` WebSocket path, in rapid bursts.  Measures JS heap
    * (including WASM / ArrayBuffer memory) before and after each burst to confirm
    * that each import cycle does not leave a permanent residue.
+   *
+   * NOTE: this is NOT how RSL Helper pushes updates — it streams JSON-RPC parts
+   * (artifacts / champions / inboxArtifacts / lastUsed, see docs/orig/sampleLog/),
+   * never a complete binary DB.  The binary path is a separate direct-load ingest
+   * that still needs leak coverage; it drives the same downstream WASM pipeline.
    *
    * If Chrome crashes or heap grows without bound, the leak is confirmed.
    */
