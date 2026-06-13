@@ -12,6 +12,7 @@ import {
   buildIgnoreSafeguardRecipeIndices,
   evaluateAndCollectSafeguardProtection,
   hasActiveSafeguardRules,
+  safeguardRulesContentFingerprint,
   scoreSafeguardCandidates,
   storeArtifactRows,
   toWasmArtifactStoreRow,
@@ -129,50 +130,11 @@ const computeRecipeKey = (
   for (const idx of pipelineState.truncatedRecipeIndices) {
     truncatedHash = Math.imul(truncatedHash ^ idx, 0x9e3779b9) | 0
   }
-  // Hash safeguard rule contents to catch override-driven mutations: requiredCount, activation,
-  // countMode flags, ignore toggles, substats, substatMatch, substatWeights, improvementChance.
-  // Seeded with rule count so an empty list never collides with a single default-valued rule.
-  let safeguardsHash = safeguards.rules.length
-  for (const r of safeguards.rules) {
-    const cm = r.countMode
-    // Pack eight boolean fields into a single byte.
-    const flags = (r.ignorePreviousSafeguards ? 1 : 0)
-      | (r.ignoreEquippedInCollection ? 2 : 0)
-      | (r.ignoreEquippedInVault ? 4 : 0)
-      | (cm.perRule ? 8 : 0)
-      | (cm.perSet ? 16 : 0)
-      | (cm.perFaction ? 32 : 0)
-      | (cm.perMainStat ? 64 : 0)
-      | (cm.perSlot ? 128 : 0)
-    safeguardsHash = Math.imul(safeguardsHash ^ r.requiredCount, 0x9e3779b9) | 0
-    safeguardsHash = Math.imul(safeguardsHash ^ flags, 0x9e3779b9) | 0
-    // activation: short string constant — first char code | length shift.
-    safeguardsHash = Math.imul(safeguardsHash ^ (r.activation.charCodeAt(0) | (r.activation.length << 8)), 0x9e3779b9) | 0
-    // substats: StatVariant is a number — mix count then each value.
-    safeguardsHash = Math.imul(safeguardsHash ^ r.substats.length, 0x9e3779b9) | 0
-    for (const s of r.substats) {
-      safeguardsHash = Math.imul(safeguardsHash ^ s, 0x9e3779b9) | 0
-    }
-    // substatMatch: short string — first char | length shift.
-    safeguardsHash = Math.imul(safeguardsHash ^ (r.substatMatch.charCodeAt(0) | (r.substatMatch.length << 8)), 0x9e3779b9) | 0
-    // substatWeights: sort by numeric key for order independence.
-    const wEntries = Object.entries(r.substatWeights ?? {})
-    safeguardsHash = Math.imul(safeguardsHash ^ wEntries.length, 0x9e3779b9) | 0
-    for (const [k, v] of wEntries.sort()) {
-      safeguardsHash = Math.imul(safeguardsHash ^ (parseInt(k, 10) | 0), 0x9e3779b9) | 0
-      safeguardsHash = Math.imul(safeguardsHash ^ Math.round((v ?? 0) * 100), 0x9e3779b9) | 0
-    }
-    // improvementChanceThreshold: null = disabled; encode four per-level values (×10 for precision).
-    const ict = r.improvementChanceThreshold
-    safeguardsHash = Math.imul(safeguardsHash ^ (ict == null ? 0 : 1), 0x9e3779b9) | 0
-    if (ict != null) {
-      safeguardsHash = Math.imul(safeguardsHash ^ Math.round(ict.atLevel0 * 10), 0x9e3779b9) | 0
-      safeguardsHash = Math.imul(safeguardsHash ^ (ict.atLevel4 == null ? -1 : Math.round(ict.atLevel4 * 10)), 0x9e3779b9) | 0
-      safeguardsHash = Math.imul(safeguardsHash ^ (ict.atLevel8 == null ? -1 : Math.round(ict.atLevel8 * 10)), 0x9e3779b9) | 0
-      safeguardsHash = Math.imul(safeguardsHash ^ (ict.atLevel12 == null ? -1 : Math.round(ict.atLevel12 * 10)), 0x9e3779b9) | 0
-    }
-  }
-  return `${pipelineState.substatTargetsKey}|${pipelineState.totalLimitHit ? 1 : 0}|${truncatedHash}|${omit ? 1 : 0}${dedup ? 1 : 0}${safeguards.enabled ? 1 : 0}${safeguardsHash}${fsrKey}`
+  // Safeguard rule content fingerprint comes from the shared SSOT helper so this cache key
+  // and the export-dirty signature (App.hsfExportStateSig) always agree on which safeguard
+  // fields matter (previously they diverged — see safeguardRulesContentFingerprint).
+  const safeguardsFingerprint = safeguardRulesContentFingerprint(safeguards.enabled, safeguards.rules)
+  return `${pipelineState.substatTargetsKey}|${pipelineState.totalLimitHit ? 1 : 0}|${truncatedHash}|${omit ? 1 : 0}${dedup ? 1 : 0}|${safeguardsFingerprint}${fsrKey}`
 }
 
 // Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.

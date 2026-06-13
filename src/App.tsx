@@ -121,11 +121,11 @@ import {
   createSafeguardRuleContentSnapshot,
   normalizeSafeguardRule,
   normalizeSafeguardFactionSlotScope,
+  safeguardRulesContentFingerprint,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
 import { buildGearInspectorAutosavePayload, createGearInspectorMath, loadGearInspectorAutosaveDraft, type GearInspectorItem } from './lib/gearInspectorSession'
-import { stableSerialize } from './lib/stableSerialize'
 import {
   buildGearDbDiffSummary,
   encodeGearDbDiffToastEntries,
@@ -4058,18 +4058,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     buildHsfFileFromMerged(mergedRules, { recipeNames })
   ), [mergedRules, recipeNames])
   type ExportDirtyMetasetDigest = { id: string; sets: number[] }
-  type ExportDirtySafeguardRuleDigest = {
-    ordinal: number
-    activation: string
-    requiredCount: number
-    ignorePreviousSafeguards: boolean
-    ignoreEquippedInCollection: boolean
-    ignoreEquippedInVault: boolean
-    countModeBits: string
-    substats: number[]
-    weights: Array<[number, number]>
-    combination: string
-  }
   type ExportDirtyDetectionDigest = {
     ruleOrdinal: number
     ruleActivation: string
@@ -4099,7 +4087,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       levels: number[]
     } | null
     safeguardsEnabled: boolean
-    safeguardRules: ExportDirtySafeguardRuleDigest[]
+    // Canonical safeguard-rule-list fingerprint from safeguardRulesContentFingerprint (SSOT,
+    // shared with the rule-cache worker). Replaces the old per-field digest array, which
+    // omitted substatMatch + improvementChanceThreshold.
+    safeguardRulesFingerprint: string
     safeguardDetection: ExportDirtyDetectionDigest[] | null
     mergedRuleCount: number
   }
@@ -4124,34 +4115,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const b = right[idx]!
       if (a.id !== b.id) return false
       if (!numberArraysEqual(a.sets, b.sets)) return false
-    }
-    return true
-  }
-  const safeguardRuleDigestsEqual = (left: ExportDirtySafeguardRuleDigest[], right: ExportDirtySafeguardRuleDigest[]): boolean => {
-    if (left === right) return true
-    if (left.length !== right.length) return false
-    for (let idx = 0; idx < left.length; idx += 1) {
-      const a = left[idx]!
-      const b = right[idx]!
-      if (
-        a.ordinal !== b.ordinal
-        || a.activation !== b.activation
-        || a.requiredCount !== b.requiredCount
-        || a.ignorePreviousSafeguards !== b.ignorePreviousSafeguards
-        || a.ignoreEquippedInCollection !== b.ignoreEquippedInCollection
-        || a.ignoreEquippedInVault !== b.ignoreEquippedInVault
-        || a.countModeBits !== b.countModeBits
-        || a.combination !== b.combination
-      ) {
-        return false
-      }
-      if (!numberArraysEqual(a.substats, b.substats)) return false
-      if (a.weights.length !== b.weights.length) return false
-      for (let weightIdx = 0; weightIdx < a.weights.length; weightIdx += 1) {
-        const aw = a.weights[weightIdx]!
-        const bw = b.weights[weightIdx]!
-        if (aw[0] !== bw[0] || aw[1] !== bw[1]) return false
-      }
     }
     return true
   }
@@ -4209,7 +4172,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (!numberArraysEqual(left.finalSell.levels, right.finalSell.levels)) return false
     }
-    if (!safeguardRuleDigestsEqual(left.safeguardRules, right.safeguardRules)) return false
+    if (left.safeguardRulesFingerprint !== right.safeguardRulesFingerprint) return false
     if (!safeguardDetectionDigestsEqual(left.safeguardDetection, right.safeguardDetection)) return false
     return true
   }
@@ -4235,35 +4198,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           : [],
       }
       : null
-    const safeguardRuleDigests = resolvedSafeguardRules.map((rule, ruleOrdinal) => {
-      const countMode = rule.countMode
-      const countModeBits = [
-        countMode?.perRule ? 1 : 0,
-        countMode?.perSlot ? 1 : 0,
-        countMode?.perSet ? 1 : 0,
-        countMode?.perFaction ? 1 : 0,
-        countMode?.perMainStat ? 1 : 0,
-      ].join('')
-      const substats = Array.isArray(rule.substats)
-        ? [...rule.substats].map(Number).sort((a, b) => a - b)
-        : []
-      const weights = Object.entries(rule.substatWeights ?? {})
-        .map(([variant, value]) => [Number(variant), Number(value)] as [number, number])
-        .sort((a, b) => a[0] - b[0] || a[1] - b[1])
-      return {
-        // Use 1-based ordinal as stable digest key — rules no longer carry id fields.
-        ordinal: ruleOrdinal + 1,
-        activation: rule.activation ?? '',
-        requiredCount: Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
-        ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
-        ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
-        ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
-        countModeBits,
-        substats,
-        weights,
-        combination: stableSerialize(rule.combination ?? null),
-      }
-    })
+    // One canonical fingerprint of the safeguard rule list, from the shared SSOT helper.
+    // This is the SAME field set the rule-cache worker uses (safeguardRulesContentFingerprint),
+    // so the "needs export/push" badge and the pipeline cache agree on what counts as a rule
+    // change. It deliberately includes substatMatch + improvementChanceThreshold, which the
+    // old per-field digest here omitted — changing either alters the exported sell-file, so
+    // their absence previously left this signature falsely unchanged (stale-export bug).
+    const safeguardRulesFingerprint = safeguardRulesContentFingerprint(
+      safeguardsEnabled,
+      resolvedSafeguardRules,
+    )
     const safeguardDetectionDigests = safeguardDetection
       ? safeguardDetection.entries.map((entry) => ({
         ruleOrdinal: entry.ruleOrdinal ?? 0,
@@ -4290,7 +4234,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       baseHsfRuleCount,
       finalSell: finalSellDigest,
       safeguardsEnabled,
-      safeguardRules: safeguardRuleDigests,
+      safeguardRulesFingerprint,
       safeguardDetection: safeguardDetectionDigests,
       mergedRuleCount: mergedRules.length,
     }

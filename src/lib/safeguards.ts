@@ -1,3 +1,4 @@
+import { stableSerialize } from './stableSerialize'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
 import { normalizeSubstatByMax6, getGlyphAverageForVariant } from './substatRollNormalization'
@@ -493,6 +494,39 @@ export type SafeguardRule = {
   // null = feature disabled; use resolveImprovementChanceThresholds before passing to WASM.
   improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
+
+// SSOT for "which fields of a safeguard rule change the generated/exported rules".
+// Both the rule-cache invalidation key (ruleCacheWorker.computeRecipeKey) and the
+// export-dirty signature (App.hsfExportStateSig) must agree on this field set — they
+// previously diverged, and the export-dirty side was MISSING substatMatch and
+// improvementChanceThreshold, so changing either left the "needs export/push" badge
+// falsely clean and the user could ship a stale sell-file. Defining the set once here
+// makes both consumers track the same fields by construction.
+//
+// Every field that affects rule generation, safeguard detection, or candidate matching is
+// included. Excluded by design: `appearance` (display name/colour only) and `tags` (DSL
+// identification only) — neither changes the produced rules. Order-independent via
+// stableSerialize (sorts object keys; combination/weights maps serialize canonically).
+export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => stableSerialize({
+  combination: rule.combination,
+  requiredCount: rule.requiredCount,
+  activation: rule.activation,
+  countMode: rule.countMode,
+  ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
+  ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
+  ignoreEquippedInVault: rule.ignoreEquippedInVault,
+  substats: rule.substats,
+  substatMatch: rule.substatMatch,
+  substatWeights: rule.substatWeights,
+  improvementChanceThreshold: rule.improvementChanceThreshold,
+})
+
+// Fingerprint of a full safeguard rule list (enabled flag + each rule's content). Stable
+// across recomputes for identical content; the single string both consumers compare/hash.
+export const safeguardRulesContentFingerprint = (
+  enabled: boolean,
+  rules: readonly SafeguardRule[],
+): string => `${enabled ? 1 : 0}:${rules.length}:${rules.map(safeguardRuleContentFingerprint).join('|')}`
 
 /** Build the default Safeguard rule list for new sessions (empty by design). */
 export function buildDefaultSafeguardRules(): SafeguardRule[] {
