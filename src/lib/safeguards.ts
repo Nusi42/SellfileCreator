@@ -1457,6 +1457,63 @@ export const toWasmArtifactStoreRow = (artifact: NormalizedGearArtifact): WasmAr
   artifact: toWasmArtifactStoreInput(artifact),
 })
 
+// Content fingerprint of the artifact dataset for the pipeline result cache (App.tsx). Two
+// datasets with the same fingerprint produce byte-identical pipeline output (matches, merged
+// rules, detection), so a cache keyed on it lets an add-then-remove endpoint round-trip reuse
+// a prior result instead of recomputing (~3.9 s on large accounts).
+//
+// CRITICAL: it must fold EXACTLY the fields that cross to WASM and affect matching/merge/
+// detection — i.e. the projection in toWasmArtifactStoreInput / toWasmTestItem (the SSOT this
+// mirrors): id, slot, set, rank, rarity, level, exactLevel, faction, mainStat.variant, each
+// substat's (variant, isFlat, totalValue, rolls), and equippedChampion.location. It must NOT
+// fold fields that are display-only or never reach the engine — `lastUseLocalTimestamp`
+// (changes every game round → would defeat round-trip hits), `rerollCount`, `ascension`,
+// `source`, `isLocked`, and champion id/name/rarity — none of which are in the WASM projection.
+// Any output-affecting field omitted here = a stale cache hit; any display field included =
+// missed hits. Keep this in lockstep with toWasmArtifactStoreInput.
+//
+// Note on gearInspectorItem: toWasmArtifactStoreInput also forwards `gearInspectorItem`, but
+// toWasmTestItem reads only `previewExtras.id` from it — and that id is `row.ID`, the same value
+// as `artifact.id` (see gearDbNormalizer) — so folding `a.id` covers it. No separate term needed.
+//
+// 53-bit two-lane fold (combined into one decimal string) keeps the collision probability
+// negligible at ~8k artifacts, far better than a single 32-bit hash.
+export const computeArtifactSetContentHash = (artifacts: readonly NormalizedGearArtifact[]): string => {
+  // Two independent 32-bit FNV-ish lanes, combined → effectively ~53 bits of key space.
+  let h1 = 0x811c9dc5 | 0
+  let h2 = 0x1000193 | 0
+  const mix = (n: number): void => {
+    const v = n | 0
+    h1 = Math.imul(h1 ^ v, 0x01000193) | 0
+    h2 = Math.imul(h2 ^ v, 0x85ebca6b) | 0
+  }
+  // Order matters: the pipeline consumes artifacts in array order, so we fold in order (no sort).
+  for (const a of artifacts) {
+    mix(a.id)
+    mix(a.slot); mix(a.set); mix(a.rank); mix(a.rarity); mix(a.level)
+    mix(a.exactLevel ?? -1)
+    mix(a.faction)
+    mix(a.mainStat?.variant ?? -1)
+    mix(a.substats.length)
+    for (const s of a.substats) {
+      mix(s.variant)
+      mix(s.isFlat ? 1 : 0)
+      // totalValue can be fractional; scale + round so equal values fold identically.
+      mix(Math.round((s.totalValue ?? 0) * 1000))
+      mix(s.rolls ?? -1)
+    }
+    // equippedChampion.location (collection/vault) drives safeguard ignore-equipped logic; it is
+    // the only champion-derived field in the WASM projection. Fold its string deterministically.
+    const loc = a.equippedChampion?.location ?? ''
+    mix(loc.length)
+    for (let i = 0; i < loc.length; i += 1) mix(loc.charCodeAt(i))
+    // Per-artifact terminator so [A,B] and [AB] (boundary-ambiguous folds) can't collide.
+    mix(0x9e3779b9)
+  }
+  // Combine lanes into one unsigned-decimal string key.
+  return `${(h1 >>> 0).toString(36)}.${(h2 >>> 0).toString(36)}.${artifacts.length}`
+}
+
 // Project a SafeguardCandidate into the WASM wire shape declared by
 // SafeguardWasmCandidateFastIn. Drops the TS-side `row: GearInspectorPreviewRow`
 // reference (Rust does not read it) and projects the artifact down to only the

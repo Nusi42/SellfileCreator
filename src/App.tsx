@@ -121,6 +121,7 @@ import {
   createSafeguardRuleContentSnapshot,
   normalizeSafeguardRule,
   normalizeSafeguardFactionSlotScope,
+  computeArtifactSetContentHash,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -768,6 +769,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     return next
   }, [gearInspectorItems])
+  // Content fingerprint of the artifact dataset, used in the pipeline cache key so an
+  // add-then-remove endpoint round-trip (artifact set returns to a prior matching-identical
+  // state) reuses the cached result instead of recomputing. Folds only the WASM-projected,
+  // output-affecting fields (excludes lastUsed/display fields) — see computeArtifactSetContentHash.
+  // Recomputed only when the preview artifacts change.
+  const artifactContentHash = useMemo(
+    () => computeArtifactSetContentHash(gearInspectorPreviewArtifacts),
+    [gearInspectorPreviewArtifacts],
+  )
   const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
     // Share one resolver with worker/cache logic so key precedence cannot drift.
     return resolveArtifactItemIdWithFallback(artifact, fallbackIdx)
@@ -1303,10 +1313,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pipelineCacheRef = useRef<Map<string, PipelineCacheEntry>>(new Map())
   // Insertion order Set enables O(1) LRU eviction and O(1) key removal on TTL eviction.
   const pipelineCacheOrderRef = useRef<Set<string>>(new Set())
-  // Monotonically increasing version bumped every time gearInspectorPreviewArtifacts changes.
-  // Included in the cache key so a pipeline run completed before a DB swap cannot be served
-  // as a cache hit to the next run — even if the history CRC and flags are identical.
-  const artifactCacheVersionRef = useRef(0)
   // Ref-shadowed so launchPipeline can read the current signature without adding it to the
   // pipeline dep array (which would cause spurious re-runs on selection-only history steps).
   // Initialized to null; the update effect below keeps it current after the first render.
@@ -1330,17 +1336,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // True when the improvement-chance sort key appears in the active sort priority list.
   const safeguardChanceSortEnabled = (gearInspectorSubstatSortPrefs.state.priorities ?? [])
     .some((k) => Number(k) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE)
-  // Wipe the entire pipeline cache whenever the artifact set changes (DB refresh updates stats).
-  // All cached results were computed against the previous artifact data and are now invalid.
-  // Bump artifactCacheVersion so any result written to the cache by an in-flight pipeline run
-  // (whose .then() fires after this effect but before the next launchPipeline) cannot be
-  // served as a valid cache hit — the version in its key will no longer match.
-  // Declared before the pipeline effect so it runs first in the same React commit.
-  useEffect(() => {
-    artifactCacheVersionRef.current += 1
-    pipelineCacheRef.current.clear()
-    pipelineCacheOrderRef.current.clear()
-  }, [gearInspectorPreviewArtifacts])
+  // NOTE: the pipeline cache is NOT cleared on artifact changes anymore. Its key now embeds a
+  // CONTENT hash of the artifact dataset (artifactContentHash), so a changed artifact set simply
+  // yields a different key (miss) while a return to a prior matching-identical set yields the
+  // same key (hit — the add-then-remove farming round-trip). An in-flight run that completes
+  // after the artifacts changed writes its result under the hash of the artifacts it actually
+  // processed, so it can never be served as a stale hit for a different set. LRU + TTL bound the
+  // entry count (PIPELINE_CACHE_MAX / PIPELINE_CACHE_TTL_MS).
   // Wipe the pipeline cache whenever the base HSF changes.
   // The cache key is history-based (recipes/metasets CRC) and does not include HSF identity,
   // so any result cached against a different (or absent) HSF is now stale.
@@ -1394,8 +1396,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // — which hit the cache and never touch the worker — still flash the worker/progress
       // UI, reading as "the worker started again".
       const currentSig = currentEntrySignatureRef.current
-      // Snapshot at launch time so the key is stable for the lifetime of this pipeline call.
-      const artifactCacheVersion = artifactCacheVersionRef.current
+      // Artifact term of the cache key: a CONTENT hash of the dataset this pipeline will
+      // process (the same `gearInspectorPreviewArtifacts` used below), so an add-then-remove
+      // round-trip back to a matching-identical state reuses the cached result. This replaced
+      // a monotonic version counter that changed on every artifact edit and so never hit on a
+      // round-trip. Read from the memo (consistent with the artifacts in this render closure).
       const overridesKey = noteOverridesDisabledRef.current
         ? 'off'
         : JSON.stringify(noteRecipeOverridesAnswersRef.current)
@@ -1403,7 +1408,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ? 'off'
         : JSON.stringify(noteSafeguardOverridesAnswersRef.current)
       const cacheKey = currentSig
-        ? `${currentSig.crc}:${currentSig.size}:v${artifactCacheVersion}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
+        ? `${currentSig.crc}:${currentSig.size}:a${artifactContentHash}:${includeMatchesInPipeline ? 1 : 0}${omitDisabledForExport ? 1 : 0}${dedupeDefault ? 1 : 0}${showSafeguardImprovementChance ? 1 : 0}${safeguardChanceSortEnabled ? 1 : 0}:${overridesKey}:sg${sgOverridesKey}`
         : null
       const nowMs = Date.now()
       const rawEntry = cacheKey ? (pipelineCacheRef.current.get(cacheKey) ?? null) : null
@@ -1545,7 +1550,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setGearEntriesActiveBuildId(requestToken)
             }
             startTransition(() => {
-              setSafeguardDetection(cachedEntry.processedSafeguardDetection)
+              // Serve the cached detection but with a fresh scannedAt — the entries are
+              // content-identical (same artifacts), only the "last scanned" display time is
+              // current. Everything else in the snapshot is reused as-is.
+              const cachedDetection = cachedEntry.processedSafeguardDetection
+              setSafeguardDetection(
+                cachedDetection ? { ...cachedDetection, scannedAt: Date.now() } : null,
+              )
               setImprovementChanceByArtifactId(cachedEntry.processedImprovementChance)
               // The cache stored the full pipeline result, so the worker-computed export
               // fingerprint is recovered exactly (no recompute) — see PipelineCacheEntry.
@@ -1797,6 +1808,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipeModes,
     recipesEnabled,
     gearInspectorPreviewArtifacts,
+    // Content hash of the artifact set; gates the pipeline cache key. Derived from
+    // gearInspectorPreviewArtifacts (already a dep) but listed explicitly so the lint
+    // rule sees the read inside cacheKey — and so a content-identical array re-identity
+    // does not needlessly re-key the cache.
+    artifactContentHash,
     getArtifactItemId,
     showSafeguardImprovementChance,
     safeguardChanceSortEnabled,
