@@ -41,7 +41,8 @@ use ts_rs::TS;
 // Minified wire format for compute_merged_rules_value — lives in rule_engine_core
 // so the consistency test can run via `cargo test` on the host target.
 use rule_engine_core::wasm_merged_rules_wire_format::{
-    ComputeMergedRulesInWire, GeneratedRuleEntryInWire, RuleRawWire,
+    CacheGeneratedRulesInWire, ComputeMergedRulesCachedInWire,
+    GeneratedRuleEntryInWire, RuleRawWire,
 };
 
 // wasm-bindgen console.log binding for diagnostic output from Rust.
@@ -963,39 +964,66 @@ pub fn build_final_sell_rules_value(payload: &str) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules: {error}")))
 }
 
-// Merged-rule orchestration delegates to the postprocess module.
+// Merged-rule orchestration is split into a cache step (cache_generated_rules_value) and a
+// per-push step (compute_merged_rules_cached_value) below. The old single-shot
+// compute_merged_rules_value was removed: re-sending the full ~34 MiB payload on every
+// endpoint push churned talc into permanent ~85 MiB grow-steps that eventually crashed the
+// worker on a growing inventory. The cache split sends the invariant ~17 MiB rules once and
+// only the per-push detection snapshot thereafter. (The native crate still exercises the
+// shared compute_merged_rules_core composition directly for tests.)
 //
-// Takes/returns JSON strings instead of JsValue because the merge payload can be
-// huge (users with 190+ recipes generate ~45k rules × ~29 fields per rule). At
-// that scale, serde_wasm_bindgen's JsValue-by-JsValue deserializer hammers the
-// wasm externref table and triggers "table index is out of bounds" traps; a
-// single UTF-8 string + serde_json::from_str is dramatically faster and stays
-// in linear memory the whole time — no externref handles at all.
-//
-// The JSON uses a MINIFIED field format (see wasm_merged_rules_wire_format.rs for
-// the serde renames that ARE the SSOT). Short keys like "r_id" / "_spm" cut the
-// payload size by ~40% (from ~27 MiB → ~17 MiB on 45k-rule workloads),
-// relieving allocator pressure that manifested as talc deallocate OOB crashes
-// after a few pipeline runs. Long-form keys still deserialise via serde
-// aliases for forward/backward compatibility.
-//
-// Caller is responsible for JSON.stringify on the way in (with the TS-side
-// minify helpers from wireProjections.ts) and JSON.parse + expand on the
-// way out; both are cheap in V8 compared to the serde_wasm_bindgen cost.
+// Both steps take/return JSON strings (not JsValue): the merge payload can be huge (190+
+// recipes → ~45k rules × ~29 fields). serde_wasm_bindgen's JsValue deserializer hammers the
+// externref table and traps at that scale; a single UTF-8 string + serde_json::from_str is
+// far faster and stays in linear memory. JSON uses the MINIFIED field format (serde renames
+// in wasm_merged_rules_wire_format.rs are the SSOT); long-form keys still alias for compat.
+
+// Cache the INVARIANT HALF of the merge in ENGINE_STATE so the per-push merge does not
+// re-receive/re-parse it: the base+custom+final-sell rules (→ generated_rules) AND the
+// safeguard rule definitions (both session-stable).  Payload = CacheGeneratedRulesInWire
+// (br/cr/fsr/aksi/oms/dds/se/sr); nothing is returned to JS — the data stays resident.
+// Called by TS whenever the rules fingerprint changes (not every push). See the
+// incremental-update leak fix: re-sending ~17 MiB of invariant rules every push churns
+// talc into permanent ~85 MiB grow-steps.
 #[wasm_bindgen]
-pub fn compute_merged_rules_value(payload: &str) -> Result<String, JsValue> {
-    // Pre-warm the allocator so the first Vec growth during deserialization
-    // lands in a clean large block rather than fragmenting the free-list.
+pub fn cache_generated_rules_value(payload: &str) -> Result<(), JsValue> {
     prewarm_for_json_parse(payload.len());
-    let wire_input: ComputeMergedRulesInWire = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid compute-merged-rules payload: {error}")))?;
-    let input: ComputeMergedRulesIn = wire_input.into();
-    // Run the merge core on canonical types so the postprocess module stays
-    // unchanged and all other wasm exports keep their existing behaviour.
-    let result = compute_merged_rules_core(input);
-    // Wrap the canonical result in wire-form so the JSON output uses short
-    // keys too.  collect() moves each RuleRaw into a RuleRawWire without
-    // cloning the inner String/Vec allocations.
+    let wire: CacheGeneratedRulesInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid cache-generated-rules payload: {error}")))?;
+    // Convert the two rule vecs to canonical RuleRaw, then run the cacheable transform half.
+    let base_rules: Vec<RuleRaw> = wire.base_rules.into_iter().map(RuleRaw::from).collect();
+    let custom_rules: Vec<RuleRaw> = wire.custom_rules.into_iter().map(RuleRaw::from).collect();
+    let generated = build_generated_rules_core(
+        base_rules,
+        custom_rules,
+        wire.final_sell_remainder.as_ref(),
+        &wire.all_known_set_ids,
+        wire.omit_disabled_before_safeguards,
+        wire.dedupe_before_safeguards,
+    );
+    cache_generated_rules_engine(generated, wire.safeguard_rules, wire.safeguard_enabled);
+    Ok(())
+}
+
+// Finish the merge using the cached invariant inputs (generated rules + safeguard rules +
+// enabled flag) + the per-push detection snapshot (ComputeMergedRulesCachedInWire: sd/srb).
+// Output is byte-identical to compute_merged_rules_value for the same total inputs. On a
+// cache miss (engine not yet populated) returns an Err so the TS wrapper self-heals
+// (re-cache + retry) — never a silently-wrong result.
+#[wasm_bindgen]
+pub fn compute_merged_rules_cached_value(payload: &str) -> Result<String, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let wire: ComputeMergedRulesCachedInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid compute-merged-rules-cached payload: {error}")))?;
+    let (generated, safeguard_rules, safeguard_enabled) = cached_merge_inputs_engine()
+        .ok_or_else(|| JsValue::from_str("compute-merged-rules-cached: no cached merge inputs (cache miss)"))?;
+    let result = finish_merge_with_generated(
+        generated,
+        safeguard_enabled,
+        safeguard_rules,
+        wire.safeguard_detection,
+        wire.safeguard_recipe_id_base,
+    );
     let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
     let count = wire_result.len();
     serialize_json_prealloc(&wire_result, count)

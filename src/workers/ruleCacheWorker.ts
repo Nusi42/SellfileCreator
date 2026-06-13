@@ -26,7 +26,6 @@ import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCach
 import { resolveArtifactItemIdWithFallback } from '../lib/itemIdentity'
 import {
   clearStoredRowsWithLoadedWasm,
-  preWarmHeapWithLoadedWasm,
   computeImprovementChanceWithLoadedWasm,
   configureWasmRuleEngine,
   evaluateWasmRuleEngineItems,
@@ -89,6 +88,14 @@ let lastSentDetectionKey: string | null = null
 // A count change guarantees rule content changed regardless of fingerprint matches,
 // and catches any fingerprint gap not covered by the three keys above.
 let lastSentMergedCount = -1
+
+// Sentinel for the baseline rules currently configured into the WASM matcher engine.
+// configure_engine re-sends ~17 MiB of merged baseline rules; that per-push transient
+// churns talc the same way the merge did (the second half of the incremental-update
+// leak). The baseline merged rules are invariant while the rules-cache key + recipeModes
+// are unchanged, and the engine PRESERVES its BucketedRules across pushes, so we skip the
+// configure call entirely when this composite is unchanged. null = nothing configured yet.
+let lastConfiguredKey: string | null = null
 
 // O(N) element-wise comparison; no allocation.
 // V8 terminates at pointer equality for identical strings (common case for large fingerprints).
@@ -568,10 +575,20 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       prebuiltCustomRules,
     })
+    // Rules-cache key: the composite of every rules-PRODUCING input (substatTargets,
+    // truncation, omit/dedupe flags, finalSellRemainder, safeguard-rule content). When it
+    // is unchanged between pipeline runs the WASM-side generated-rules cache is reused, so
+    // the ~17 MiB of rules are not re-sent per endpoint push. computeRecipeKey is the same
+    // signal already used to gate re-sending merged rules to the main thread (below), so it
+    // can only over-invalidate (refresh when not strictly needed), never go stale.
+    // Both the baseline and final merge below share this key so the final call reuses the
+    // cache the baseline call populated.
+    const rulesCacheKey = computeRecipeKey(pipelineState, payload)
     const mergeParams = {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
       dedupeBeforeSafeguards: payload.dedupeBeforeSafeguards,
+      rulesCacheKey,
     }
 
     const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
@@ -587,11 +604,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Populated inside needsDetection branch when payload.computeImprovementChance is true.
     let improvementChanceEntries: ImprovementChanceWasmEntry[] | null = null
     if (needsDetection) {
-      // Configure baseline rules so the combined WASM evaluate+collect call uses them.
-      await configureWasmRuleEngine({
-        rules: mergedRulesBaseline,
-        recipeModes: Array.isArray(payload.recipeModes) ? payload.recipeModes : [],
-      })
+      // Configure baseline rules so the combined WASM evaluate+collect call uses them —
+      // but ONLY when the baseline rules or recipe modes actually changed. The engine
+      // preserves its BucketedRules across pushes, so on an artifact-only push (same
+      // rulesCacheKey + recipeModes) the previously-configured rules are still valid and
+      // re-sending ~17 MiB would just churn talc. computeRecipeKey is the rules signal;
+      // append the recipeModes so a mode flip still reconfigures.
+      const recipeModesForConfigure = Array.isArray(payload.recipeModes) ? payload.recipeModes : []
+      const configureKey = `${rulesCacheKey}|${recipeModesForConfigure.join(',')}`
+      if (configureKey !== lastConfiguredKey) {
+        await configureWasmRuleEngine({
+          rules: mergedRulesBaseline,
+          recipeModes: recipeModesForConfigure,
+        })
+        lastConfiguredKey = configureKey
+      }
       logTalcCounters(`after-configure(baseline) id=${id}`)
       if (!wasmVersionLogged) {
         await getWasmRuleEngineVersion()
@@ -622,18 +649,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       )
       const needsImprovementChance = hasThreshold || payload.computeImprovementChance
       if (needsImprovementChance) {
-        // Prewarm the talc heap before improvement-chance using the same artifact-count
-        // formula as eval-collect: ceil(n * 4096 / 16 MiB) × 16 MiB, minimum 16 MiB.
-        // Improvement-chance uses a large HashMap memo table; its growth path triggers
-        // memory.grow inside a WASM call where we have no control over the grow size.
-        // Pre-growing here (outside the critical path) forces any needed memory.grow now,
-        // leaving a fresh contiguous block ready for the first HashMap resize.
-        // If the block is already available the call is a no-op (Vec finds a free block,
-        // drop returns it — no grow, no net allocation change).
-        const PAGE_16MIB = 16 * 1024 * 1024
-        const improvChancePrewarmBytes =
-          Math.ceil((artifactEntries.length * 4096) / PAGE_16MIB) * PAGE_16MIB
-        preWarmHeapWithLoadedWasm(improvChancePrewarmBytes) // 32 MiB for ~7982 items
         const improvResult = computeImprovementChanceWithLoadedWasm({
           rules: payload.safeguards.rules,
           enabled: payload.safeguards.enabled,
@@ -649,15 +664,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const detectionOptions = hasActiveSafeguards
         ? { baselineExcludeSources: SAFEGUARD_OVERRIDE_RULE_SOURCES }
         : undefined
-      // Pre-grow the WASM heap before the most allocation-intensive call in the pipeline.
-      // evaluateAndCollectSafeguardProtection builds per-item result Vecs, a candidates
-      // Vec, and intermediate match buffers proportional to artifact count × rule count.
-      // On V8/Windows a memory.grow *during* the call causes STATUS_ACCESS_VIOLATION;
-      // growing here (before the call) forces that grow into a context where the OS is
-      // more likely to grant it.  ~4 KiB per artifact is a rough working-set estimate
-      // for the BucketedRules evaluate pass; round up to the nearest 16 MiB grow page.
-      const evalCollectPrewarmBytes = Math.ceil((artifactEntries.length * 4096) / (16 * 1024 * 1024)) * (16 * 1024 * 1024)
-      if (evalCollectPrewarmBytes > 0) preWarmHeapWithLoadedWasm(evalCollectPrewarmBytes)
       // Supply pre-computed entries so evaluateAndCollectSafeguardProtection skips its
       // internal improvement-chance fallback (prevents a second WASM call + allocation).
       const detectionResult = evaluateAndCollectSafeguardProtection({
@@ -763,7 +769,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity, merge flags) +
     // detection key (safeguard detection entries drive placeholder injection).
     const detectionKey = computeDetectionKey(safeguardDetectionSnapshot)
-    const recipeKey = computeRecipeKey(pipelineState, payload)
+    // Reuse the key computed for the rules cache above — same composite signal (SSOT).
+    const recipeKey = rulesCacheKey
     const rulesUnchanged =
       lastSentKeys !== null &&
       // Safety net: any change in rule count guarantees content changed, regardless of

@@ -14,7 +14,8 @@ import {
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import {
   buildFinalSellRulesWithLoadedWasm,
-  computeMergedRulesWithLoadedWasm,
+  cacheGeneratedRulesWithLoadedWasm,
+  computeMergedRulesCachedWithLoadedWasm,
   expandAutoFlexRarityBranchesWithLoadedWasm,
   flattenRuleBatchesWithTotalLimitWithLoadedWasm,
   finalizeGeneratedRulesWithLoadedWasm,
@@ -301,10 +302,29 @@ export function buildMergedRulesComponents(params: {
   return { base, customs, allKnownSetIds: getAllKnownArtifactSetIds().map((id) => Number(id)).filter((id) => id !== ACCESSORY_NO_SET_ID) }
 }
 
+// Tracks the rulesCacheKey of the generated-rules currently cached WASM-side (per JS
+// context — main thread and each worker have their own module instance + their own WASM
+// engine, so this single module-level value correctly mirrors that context's cache).
+// null = nothing cached yet (or last call used the always-refresh path).
+let lastCachedRulesKey: string | null = null
+
 /**
  * Compute merged rules from pre-built components to avoid redundant WASM flatten.
  * Callers that need both baseline and final rules should call buildMergedRulesComponents
  * once and call this function twice with different safeguards.detection values.
+ *
+ * Routes through the WASM-side rule cache: the base+custom+final-sell "generated rules"
+ * (the merge half invariant across endpoint pushes within a session) are cached in the
+ * engine and only re-sent when `rulesCacheKey` changes. Per push only the safeguard
+ * detection snapshot crosses the boundary. This is the fix for the incremental-update
+ * leak (re-sending ~17 MiB of rules every push churned talc into permanent grow-steps).
+ *
+ * `rulesCacheKey`: a cheap, caller-supplied signal of the rules-producing inputs (the
+ * worker passes its computeRecipeKey). Equal key across calls ⇒ rules unchanged ⇒ reuse
+ * the cache. Omitted ⇒ refresh the cache every call (safe; used by the occasional
+ * main-thread merge where per-push cost is irrelevant). The cached merge falls back
+ * internally to the full legacy merge on a WASM cache miss, so correctness never depends
+ * on the key being right — only performance does.
  */
 export function computeMergedRulesFromComponents(
   components: MergedRulesComponents,
@@ -313,12 +333,19 @@ export function computeMergedRulesFromComponents(
     safeguards?: SafeguardsMergeInput
     omitDisabledBeforeSafeguards?: boolean
     dedupeBeforeSafeguards?: boolean
+    rulesCacheKey?: string
   },
 ): HsfRuleWithRecipe[] {
   const { base, customs, allKnownSetIds } = components
-  const { finalSellRemainder, safeguards, omitDisabledBeforeSafeguards, dedupeBeforeSafeguards } = params
+  const { finalSellRemainder, safeguards, omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, rulesCacheKey } = params
   const safeguardsInput = hasActiveSafeguardRules(safeguards) ? safeguards : null
-  return computeMergedRulesWithLoadedWasm({
+  // Refresh the WASM-side rules cache when the key changed or no key was supplied.
+  // A supplied, matching key means the generated rules are already resident — skip the
+  // ~17 MiB rules payload entirely and send only the snapshot half below.
+  // The invariant half: recipe rules + transform flags + safeguard rule DEFINITIONS
+  // (everything that is constant across pushes within a session). The detection snapshot
+  // is the only per-push input and is NOT part of this.
+  const invariantHalf = {
     baseRules: base,
     customRules: customs,
     finalSellRemainder: finalSellRemainder ?? null,
@@ -327,6 +354,16 @@ export function computeMergedRulesFromComponents(
     dedupeBeforeSafeguards: dedupeBeforeSafeguards === true,
     safeguardEnabled: safeguardsInput != null,
     safeguardRules: safeguardsInput?.rules ?? [],
+  }
+  if (rulesCacheKey === undefined || rulesCacheKey !== lastCachedRulesKey) {
+    cacheGeneratedRulesWithLoadedWasm(invariantHalf)
+    // Record the key only when one was supplied; an absent key means "always refresh".
+    lastCachedRulesKey = rulesCacheKey ?? null
+  }
+  // Merge using the cached invariant inputs + this call's detection snapshot. Pass the full
+  // params so the wrapper can self-heal (re-cache + retry) on a cache miss.
+  return computeMergedRulesCachedWithLoadedWasm({
+    ...invariantHalf,
     safeguardDetection: safeguardsInput?.detection ?? null,
     safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
   })

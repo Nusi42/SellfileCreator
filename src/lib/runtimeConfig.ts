@@ -6,6 +6,14 @@ export type RuntimeConfig = {
   // packets to the dev server so they can be saved as sampleLog fixtures. Always
   // false in production builds — the flag is gated on import.meta.env.DEV.
   capturePackets?: boolean
+  // Diagnostic: true when ?logWasmHeap is present. Emits a per-pipeline
+  // `[rule-cache-worker] pipeline-done … wasmHeapMB=…` console line so the rule-cache
+  // worker's WASM linear-memory size can be observed across many updates (leak / growth
+  // diagnosis). Inert unless the param is set, so it is safe in production builds —
+  // it is a console.log only, with no effect on app behavior. Used by the
+  // endpoint-incremental-updates Playwright spec to measure the worker heap, which
+  // performance.memory (main thread) cannot see.
+  logWasmHeap?: boolean
 }
 
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
@@ -101,14 +109,34 @@ function readCapturePackets(): boolean {
   return false
 }
 
+// Reads ?logWasmHeap (or #logWasmHeap), bare presence or =1/=true. NOT gated on DEV:
+// it only enables a diagnostic console.log (no behavioral effect), so it is safe to honor
+// in production/preview builds, which is exactly where the Playwright leak spec runs.
+function readLogWasmHeap(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const currentUrl = new URL(window.location.href)
+    if (currentUrl.searchParams.has('logWasmHeap')) return true
+    if (currentUrl.hash && currentUrl.hash.length > 1) {
+      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
+      if (hashParams.has('logWasmHeap')) return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}
+
 function computeRuntimeConfig(): RuntimeConfig {
   const pushEndpoint = readPushEndpoint()
   const simple = readSimpleMode() || undefined
   const capturePackets = readCapturePackets() || undefined
+  const logWasmHeap = readLogWasmHeap() || undefined
   return {
     ...(pushEndpoint ? { pushEndpoint } : {}),
     ...(simple ? { simple } : {}),
     ...(capturePackets ? { capturePackets } : {}),
+    ...(logWasmHeap ? { logWasmHeap } : {}),
   }
 }
 
@@ -132,4 +160,10 @@ export function getSimpleMode(): boolean {
 // Drives the inbound-packet capture scaffolding (see lib/packetCapture.ts).
 export function getCapturePackets(): boolean {
   return getRuntimeConfig().capturePackets ?? false
+}
+
+// True when ?logWasmHeap was present at startup. Drives the per-pipeline worker
+// WASM-heap diagnostic log in useRuleCacheWorker. Diagnostic-only; no behavioral effect.
+export function getLogWasmHeap(): boolean {
+  return getRuntimeConfig().logWasmHeap ?? false
 }

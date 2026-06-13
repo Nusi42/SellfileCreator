@@ -19,7 +19,8 @@ import initRuleEngineWasm, {
   clear_stored_rows_value as clearStoredRowsWasmBinding,
   prewarm_heap_value as preWarmHeapWasmBinding,
   compute_improvement_chance_value as computeImprovementChanceWasmValueBinding,
-  compute_merged_rules_value as computeMergedRulesWasmValueBinding,
+  cache_generated_rules_value as cacheGeneratedRulesWasmValueBinding,
+  compute_merged_rules_cached_value as computeMergedRulesCachedWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
   expand_auto_flex_rarity_branches_value as expandAutoFlexRarityBranchesWasmValueBinding,
@@ -1068,14 +1069,60 @@ export const flattenRuleBatchesWithTotalLimitWithLoadedWasm = (params: {
   )
 }
 
-// Merge orchestration combines base/custom/final-sell/safeguard rows and
-// assigns stable __lineIdx ordering in one Rust pass.
-export const computeMergedRulesWithLoadedWasm = (params: {
+// Shared expansion of a merged-rules JSON result (minified wire array → canonical
+// HsfRuleWithRecipe[]). Used by both the legacy and cached merge wrappers (SSOT).
+const expandMergedRulesResult = (resultJson: unknown, context: string): HsfRuleWithRecipe[] => {
+  if (typeof resultJson !== 'string') {
+    throw new Error(`WASM ${context} returned an invalid payload.`)
+  }
+  const parsed = JSON.parse(resultJson)
+  if (!Array.isArray(parsed)) {
+    throw new Error(`WASM ${context} returned a non-array payload.`)
+  }
+  return (parsed as Array<Record<string, unknown>>).map((rule) =>
+    expandRuleRawFromWire(rule) as unknown as HsfRuleWithRecipe,
+  )
+}
+
+// Cache the RULES HALF (base+custom+final-sell + transform flags) WASM-side. Sent only
+// when the rules fingerprint changes (see merge.ts), NOT every endpoint push — re-sending
+// the ~17 MiB of invariant rules per push churns talc into the incremental-update leak.
+// Stores the invariant merge inputs in ENGINE_STATE; returns nothing.
+export const cacheGeneratedRulesWithLoadedWasm = (params: {
   baseRules: HsfRuleWithRecipe[]
   customRules: HsfRuleWithRecipe[]
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
   allKnownSetIds: number[]
-  // Transform generated HSF rows before safeguard evaluation/injection.
+  omitDisabledBeforeSafeguards: boolean
+  dedupeBeforeSafeguards: boolean
+  safeguardEnabled: boolean
+  safeguardRules: readonly SafeguardRule[]
+}): void => {
+  assertWasmInitializedSync()
+  // Invariant-half payload: the recipe rules AND the safeguard rule definitions — both
+  // session-stable. Same minify + short-key SSOT as the full merge payload.
+  const payloadJson = JSON.stringify({
+    br: params.baseRules.map(minifyRuleRawForWire),
+    cr: params.customRules.map(minifyRuleRawForWire),
+    fsr: params.finalSellRemainder ?? null,
+    aksi: params.allKnownSetIds,
+    oms: params.omitDisabledBeforeSafeguards === true,
+    dds: params.dedupeBeforeSafeguards === true,
+    se: params.safeguardEnabled === true,
+    sr: resolveRulesForWasm(params.safeguardRules),
+  })
+  cacheGeneratedRulesWasmValueBinding(payloadJson)
+}
+
+// Finish the merge using the WASM-cached invariant inputs + the per-push detection snapshot.
+// Takes the FULL param set so a cache miss can self-heal (re-cache the invariant half, then
+// retry) — never a silently-wrong result. The fast path sends only the detection snapshot,
+// not the ~34 MiB full payload.
+export const computeMergedRulesCachedWithLoadedWasm = (params: {
+  baseRules: HsfRuleWithRecipe[]
+  customRules: HsfRuleWithRecipe[]
+  finalSellRemainder: FinalSellRemainderConfig | null | undefined
+  allKnownSetIds: number[]
   omitDisabledBeforeSafeguards: boolean
   dedupeBeforeSafeguards: boolean
   safeguardEnabled: boolean
@@ -1084,45 +1131,25 @@ export const computeMergedRulesWithLoadedWasm = (params: {
   safeguardRecipeIdBase: number
 }): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
-  // Minify rule arrays to short wire-format keys (SSOT: serde renames in
-  // wasm_merged_rules_wire_format.rs + wireProjections.ts). At 45k-rule scale this cuts the JSON
-  // payload by ~40% (~27 MiB → ~17 MiB), which avoids talc deallocate OOB
-  // crashes triggered by allocator pressure from back-to-back large string
-  // passes through wasm-bindgen's passStringToWasm0 realloc sequence.
-  // Smaller supporting fields (finalSellRemainder, safeguards, etc) stay in
-  // their native shape — the dominant cost is the two rule vecs.
-  const payloadObject = {
-    br: params.baseRules.map(minifyRuleRawForWire),
-    cr: params.customRules.map(minifyRuleRawForWire),
-    fsr: params.finalSellRemainder ?? null,
-    aksi: params.allKnownSetIds,
-    oms: params.omitDisabledBeforeSafeguards === true,
-    dds: params.dedupeBeforeSafeguards === true,
-    // Rust uses canonical safeguard payload keys for merged-rule orchestration.
-    se: params.safeguardEnabled === true,
-    sr: resolveRulesForWasm(params.safeguardRules),
+  // Per-push payload: ONLY the detection snapshot (+ recipe-id base). Rules and safeguard
+  // definitions are already resident in ENGINE_STATE from the cache call.
+  const payloadJson = JSON.stringify({
     sd: params.safeguardDetection ? projectSafeguardSnapshotForWire(params.safeguardDetection) : null,
     srb: Math.floor(params.safeguardRecipeIdBase),
+  })
+  let resultJson: unknown
+  try {
+    resultJson = computeMergedRulesCachedWasmValueBinding(payloadJson)
+  } catch {
+    // Cache miss (engine has no cached generated rules yet — e.g. first merge after a
+    // worker respawn, before merge.ts's lastCachedRulesKey could know the WASM engine is
+    // fresh). Self-heal: populate the cache from this call's full params and retry once.
+    // This keeps the cached path the ONE merge path (no separate legacy merge) while
+    // guaranteeing correctness on the rare miss. A second failure is a real bug — rethrow.
+    cacheGeneratedRulesWithLoadedWasm(params)
+    resultJson = computeMergedRulesCachedWasmValueBinding(payloadJson)
   }
-  // JSON.stringify + serde_json::from_str stays in linear memory and avoids
-  // the externref path entirely. JSON.stringify is O(n) and fast in V8;
-  // serde_json is one of the fastest JSON parsers available.
-  const payloadJson = JSON.stringify(payloadObject)
-  const resultJson = computeMergedRulesWasmValueBinding(payloadJson)
-  if (typeof resultJson !== 'string') {
-    throw new Error('WASM merged-rule orchestrator returned an invalid payload.')
-  }
-  const parsed = JSON.parse(resultJson)
-  if (!Array.isArray(parsed)) {
-    throw new Error('WASM merged-rule orchestrator returned a non-array payload.')
-  }
-  // Expand minified keys (including nested Substats) back to canonical
-  // HsfRuleWithRecipe shape. Each rule has ~13 populated fields on average,
-  // so the rename pass is cheap.
-  const expanded = (parsed as Array<Record<string, unknown>>).map((rule) =>
-    expandRuleRawFromWire(rule) as unknown as HsfRuleWithRecipe,
-  )
-  return expanded
+  return expandMergedRulesResult(resultJson, 'cached merged-rule orchestrator')
 }
 
 // Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one

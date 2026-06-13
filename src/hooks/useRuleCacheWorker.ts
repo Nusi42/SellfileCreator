@@ -22,6 +22,7 @@ import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspecto
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { ensureWasmRuleEngineReady, getCompiledWasmRuleEngineModule } from '../lib/wasm/wasmRuleEngine'
+import { getLogWasmHeap } from '../lib/runtimeConfig'
 import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
 
 type PipelineParams = {
@@ -271,11 +272,19 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
-          if (import.meta.env.DEV) {
-            // Dev-only: log WASM heap after each pipeline to spot unexpected growth.
-            // Open Chrome DevTools → Console and look for [rule-cache-worker] lines.
+          // Surface the worker's WASM heap after each pipeline to spot unexpected growth.
+          // Active in dev (always) or in any build with ?logWasmHeap set — the latter lets
+          // the endpoint-incremental-updates Playwright spec observe the worker's WASM
+          // linear-memory size, which performance.memory (main thread) cannot see. Both the
+          // log and the window field are inert by default, so production is unchanged.
+          if (import.meta.env.DEV || getLogWasmHeap()) {
             const mainHeap = (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0
-            console.log(`[rule-cache-worker] pipeline-done id=${data.id} wasmHeapMB=${data.payload.wasmLinearBytes / 1024 / 1024 | 0} mainHeapMB=${mainHeap / 1024 / 1024 | 0}`)
+            const wasmMB = data.payload.wasmLinearBytes / 1024 / 1024 | 0
+            console.log(`[rule-cache-worker] pipeline-done id=${data.id} wasmHeapMB=${wasmMB} mainHeapMB=${mainHeap / 1024 / 1024 | 0}`)
+            // Worker console.log does NOT reliably reach Playwright's page console (inline
+            // blob worker), so also stash the latest value on window where the spec can read
+            // it via page.evaluate. Diagnostic-only; never read by app code.
+            try { (window as unknown as { __wasmHeapMB?: number }).__wasmHeapMB = wasmMB } catch { /* ignore */ }
           }
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).

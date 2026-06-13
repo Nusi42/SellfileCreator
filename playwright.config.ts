@@ -27,6 +27,7 @@ const PERF_SPECS = [
   '**/sfc-load-perf.spec.ts',
   '**/binary-endpoint-memory.spec.ts',
   '**/binary-endpoint-fragmentation.spec.ts',
+  '**/endpoint-incremental-updates.spec.ts',
   '**/endpoint-replay.spec.ts',
   // Large-DB pipeline specs. Their fixtures used to be tens of MB and crashed Chromium
   // under parallel workers; the fixtures now ship in RSL Helper's slim format (~1 MB),

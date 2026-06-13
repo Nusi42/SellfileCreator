@@ -270,6 +270,46 @@ impl From<ComputeMergedRulesInWire> for ComputeMergedRulesIn {
     }
 }
 
+// Wire form of the INVARIANT HALF of the merge payload — every input that is constant
+// across endpoint pushes within a session: the base+custom rules that produce the cacheable
+// `generated_rules`, PLUS the safeguard rule definitions (small, but equally session-stable;
+// paired per push with the changing detection snapshot to build candidate keep-rules). Sent
+// to WASM once per rules-change via cache_generated_rules_value, not on every push.
+// Field renames mirror ComputeMergedRulesInWire exactly (SSOT) for the shared subset.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CacheGeneratedRulesInWire {
+    #[serde(rename = "br", alias = "baseRules")]
+    pub base_rules: Vec<RuleRawWire>,
+    #[serde(rename = "cr", alias = "customRules")]
+    pub custom_rules: Vec<RuleRawWire>,
+    #[serde(rename = "fsr", alias = "finalSellRemainder")]
+    pub final_sell_remainder: Option<FinalSellRemainderIn>,
+    #[serde(rename = "aksi", alias = "allKnownSetIds")]
+    pub all_known_set_ids: Vec<i64>,
+    #[serde(rename = "oms", alias = "omitDisabledBeforeSafeguards")]
+    pub omit_disabled_before_safeguards: bool,
+    #[serde(rename = "dds", alias = "dedupeBeforeSafeguards")]
+    pub dedupe_before_safeguards: bool,
+    #[serde(rename = "se", alias = "safeguardEnabled")]
+    pub safeguard_enabled: bool,
+    #[serde(rename = "sr", alias = "safeguardRules")]
+    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
+}
+
+// Wire form of the PER-PUSH HALF of the merge payload — only the inputs that genuinely
+// change per endpoint push: the safeguard detection snapshot (matched artifacts). The
+// rules + safeguard definitions come from the cache. Sent on every push to
+// compute_merged_rules_cached_value. Field renames mirror ComputeMergedRulesInWire (SSOT).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ComputeMergedRulesCachedInWire {
+    #[serde(rename = "sd", alias = "safeguardDetection")]
+    pub safeguard_detection: Option<SafeguardWasmSnapshotOut>,
+    #[serde(rename = "srb", alias = "safeguardRecipeIdBase")]
+    pub safeguard_recipe_id_base: Option<i64>,
+}
+
 // Wire form of GeneratedRuleEntryIn — used by finalize_generated_rules_value.
 // The `rule` field uses RuleRawWire for compact JSON; metadata fields are small
 // enough to keep their original camelCase names.

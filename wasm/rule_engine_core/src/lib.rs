@@ -84,6 +84,8 @@ pub use rule_postprocess::{
     flatten_rule_batches_with_total_limit_core,
     build_final_sell_rules_core,
     compute_merged_rules_core,
+    build_generated_rules_core,
+    finish_merge_with_generated,
     merge_safeguard_injected_rules_core_fn,
     dedupe_hsf_rules_for_export_core,
     finalize_generated_rules_core,
@@ -595,6 +597,20 @@ pub struct EngineState {
     pub bucketed_rules: BucketedRules,
     pub recipe_modes: Vec<String>,
     pub stored_rows: Option<Vec<SafeguardCollectRowIn>>,
+    // Cached invariant merge inputs — everything that is constant across endpoint pushes
+    // within a session (derives from the fixed SFC; only the artifact/detection data
+    // changes per push).  Populated together by cache_generated_rules_engine; reused by the
+    // cached merge path so these are not re-sent/re-parsed on every push (the transient
+    // churn that fragments talc and crashes the worker on growing inventories).
+    //   - cached_generated_rules: base+custom+final-sell rules after source-defaulting and
+    //     the omit/dedupe transforms (the ~17 MiB recipe half).
+    //   - cached_safeguard_rules + cached_safeguard_enabled: the safeguard rule DEFINITIONS
+    //     (small, but equally invariant — paired per push with the changing detection
+    //     snapshot inside finish_merge_with_generated to build candidate keep-rules).
+    // None until the first cache_generated_rules_value call.
+    pub cached_generated_rules: Option<Vec<RuleRaw>>,
+    pub cached_safeguard_rules: Option<Vec<SafeguardWasmRuleIn>>,
+    pub cached_safeguard_enabled: bool,
 }
 
 // Normalize unknown rank/rarity values into supported 1..6 domain.
@@ -1019,9 +1035,15 @@ pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
     // new BucketedRules. This lets dlmalloc recycle the freed blocks immediately rather
     // than holding old + new simultaneously, which would force memory.grow and is the
     // primary cause of STATUS_ACCESS_VIOLATION in V8 on Windows near the commit limit.
-    let existing_rows = ENGINE_STATE.with(|state| {
-        state.borrow_mut().take().and_then(|s| s.stored_rows)
-    });
+    // Preserve stored_rows AND the cached merge inputs across the rebuild: all are keyed to
+    // data that configure does not invalidate (artifact rows; the cached rules/safeguards,
+    // whose freshness is governed by the TS-side cache fingerprint).  Dropping them here
+    // would force a re-store / re-cache on the very next call.
+    let (existing_rows, existing_generated, existing_sg_rules, existing_sg_enabled) =
+        ENGINE_STATE.with(|state| match state.borrow_mut().take() {
+            Some(s) => (s.stored_rows, s.cached_generated_rules, s.cached_safeguard_rules, s.cached_safeguard_enabled),
+            None => (None, None, None, false),
+        });
     // Old BucketedRules is now freed; allocate the new one into the recycled space.
     let prepared_rules = raw_rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     let bucketed_rules = BucketedRules::from_rules(prepared_rules);
@@ -1031,8 +1053,59 @@ pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
             recipe_modes,
             // Restore stored_rows so the next evaluate+collect call still has artifact data.
             stored_rows: existing_rows,
+            // Restore the cached merge inputs so the cached merge path survives a reconfigure.
+            cached_generated_rules: existing_generated,
+            cached_safeguard_rules: existing_sg_rules,
+            cached_safeguard_enabled: existing_sg_enabled,
         });
     });
+}
+
+// Store the cached invariant merge inputs (generated rules + safeguard rule definitions) in
+// ENGINE_STATE.  Called by the cache_generated_rules_value WASM export whenever the TS-side
+// rules fingerprint changes.  The engine may not exist yet on the very first call (configure
+// runs after this in some orderings), so create a minimal one if needed.
+pub fn cache_generated_rules_engine(
+    generated_rules: Vec<RuleRaw>,
+    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    safeguard_enabled: bool,
+) {
+    ENGINE_STATE.with(|state| {
+        let mut guard = state.borrow_mut();
+        match guard.as_mut() {
+            Some(engine) => {
+                engine.cached_generated_rules = Some(generated_rules);
+                engine.cached_safeguard_rules = Some(safeguard_rules);
+                engine.cached_safeguard_enabled = safeguard_enabled;
+            }
+            None => {
+                // No engine configured yet — stash the cache in a fresh, otherwise-empty state.
+                // configure_engine preserves these fields, so a later configure keeps them.
+                *guard = Some(EngineState {
+                    bucketed_rules: BucketedRules::from_rules(Vec::new()),
+                    recipe_modes: Vec::new(),
+                    stored_rows: None,
+                    cached_generated_rules: Some(generated_rules),
+                    cached_safeguard_rules: Some(safeguard_rules),
+                    cached_safeguard_enabled: safeguard_enabled,
+                });
+            }
+        }
+    });
+}
+
+// Take a clone of the cached merge inputs (generated rules + safeguard rules + enabled
+// flag), or None on a cache miss. The caller (compute_merged_rules_cached_value) self-heals
+// on miss. Clone (not move) so the cache survives for subsequent pushes.
+pub fn cached_merge_inputs_engine() -> Option<(Vec<RuleRaw>, Vec<SafeguardWasmRuleIn>, bool)> {
+    ENGINE_STATE.with(|state| {
+        state.borrow().as_ref().and_then(|e| {
+            match (&e.cached_generated_rules, &e.cached_safeguard_rules) {
+                (Some(g), Some(sr)) => Some((g.clone(), sr.clone(), e.cached_safeguard_enabled)),
+                _ => None,
+            }
+        })
+    })
 }
 
 // Store pre-parsed artifact rows in ENGINE_STATE so the combined evaluate+collect entry point

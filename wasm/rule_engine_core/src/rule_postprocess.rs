@@ -175,24 +175,25 @@ pub fn build_final_sell_rules_core(
     rules
 }
 
-// Merge pipeline core combines base/custom/final-sell/safeguard rows and
-// assigns stable preview line indices in one Rust-owned orchestration step.
-pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
-    // Destructure once so field ownership is explicit and borrow-checker-friendly.
-    let ComputeMergedRulesIn {
-        base_rules,
-        custom_rules,
-        final_sell_remainder,
-        all_known_set_ids,
-        omit_disabled_before_safeguards,
-        dedupe_before_safeguards,
-        safeguard_enabled,
-        safeguard_rules,
-        safeguard_detection,
-        safeguard_recipe_id_base,
-    } = input;
-    // Safeguard rows were already parsed defensively at payload deserialize time.
-    let parsed_safeguard_rules = safeguard_rules;
+// Build the "generated rules" — the base + custom + final-sell rows after source
+// defaulting and the optional omit-disabled / dedupe transforms — that is, every step
+// BEFORE safeguard injection.  This half depends ONLY on the rule inputs + transform
+// flags (NOT on the per-push safeguard detection snapshot), so it is invariant across
+// endpoint pushes within a session and can be cached WASM-side.  Splitting it out lets
+// `cache_generated_rules_value` compute it once and `compute_merged_rules_cached_value`
+// reuse it per push, avoiding re-sending/re-parsing ~17 MiB of rules every push — the
+// transient churn that fragments talc and crashes the worker on growing inventories.
+//
+// Extracted verbatim from the former body of `compute_merged_rules_core` (lines that
+// produced `generated_rules`); behaviour is byte-identical.
+pub fn build_generated_rules_core(
+    base_rules: Vec<RuleRaw>,
+    custom_rules: Vec<RuleRaw>,
+    final_sell_remainder: Option<&FinalSellRemainderIn>,
+    all_known_set_ids: &[i64],
+    omit_disabled_before_safeguards: bool,
+    dedupe_before_safeguards: bool,
+) -> Vec<RuleRaw> {
     // Base rows always carry the hsf source marker unless explicitly provided.
     let mut base_rules = base_rules;
     for rule in &mut base_rules {
@@ -209,10 +210,7 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
     }
 
     // Build final-sell rows from recipe payload (if enabled).
-    let final_sell_rules = build_final_sell_rules_core(
-        final_sell_remainder.as_ref(),
-        &all_known_set_ids,
-    );
+    let final_sell_rules = build_final_sell_rules_core(final_sell_remainder, all_known_set_ids);
 
     // Merge generated rows before safeguards so app-level transforms can run once.
     let mut generated_rules = Vec::<RuleRaw>::new();
@@ -227,7 +225,22 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
     if dedupe_before_safeguards {
         generated_rules = rule_dedupe::dedupe_hsf_rules_for_export_core(&generated_rules);
     }
+    generated_rules
+}
 
+// Finish the merge: take the (cacheable) `generated_rules` and apply the per-push
+// safeguard injection + stable line-index assignment.  This half depends on the
+// safeguard detection snapshot, so it must run on every push.  Extracted verbatim from
+// the former body of `compute_merged_rules_core` (the safeguard branch onward);
+// behaviour is byte-identical.
+pub fn finish_merge_with_generated(
+    generated_rules: Vec<RuleRaw>,
+    safeguard_enabled: bool,
+    safeguard_rules: Vec<SafeguardWasmRuleIn>,
+    safeguard_detection: Option<SafeguardWasmSnapshotOut>,
+    safeguard_recipe_id_base: Option<i64>,
+) -> Vec<RuleRaw> {
+    let parsed_safeguard_rules = safeguard_rules;
     // Safeguard merge prepends injected rows ahead of the transformed base set.
     let mut merged = if safeguard_enabled {
         let base_without_keep = generated_rules
@@ -266,6 +279,40 @@ pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
         rule.line_idx = Some(idx as i64);
     }
     merged
+}
+
+// Merge pipeline core combines base/custom/final-sell/safeguard rows and
+// assigns stable preview line indices in one Rust-owned orchestration step.
+// Now a thin composition of the two halves above so the cached path and this
+// legacy single-shot path share one definition (SSOT) and stay byte-identical.
+pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
+    let ComputeMergedRulesIn {
+        base_rules,
+        custom_rules,
+        final_sell_remainder,
+        all_known_set_ids,
+        omit_disabled_before_safeguards,
+        dedupe_before_safeguards,
+        safeguard_enabled,
+        safeguard_rules,
+        safeguard_detection,
+        safeguard_recipe_id_base,
+    } = input;
+    let generated_rules = build_generated_rules_core(
+        base_rules,
+        custom_rules,
+        final_sell_remainder.as_ref(),
+        &all_known_set_ids,
+        omit_disabled_before_safeguards,
+        dedupe_before_safeguards,
+    );
+    finish_merge_with_generated(
+        generated_rules,
+        safeguard_enabled,
+        safeguard_rules,
+        safeguard_detection,
+        safeguard_recipe_id_base,
+    )
 }
 
 // Safeguard merge helper mirrors merge.ts injected-rule filtering/sorting.
