@@ -8,6 +8,7 @@ import {
   type MergedRulesComponents,
 } from '../lib/merge'
 import { recipesForRuleBuild } from '../lib/ruleCacheHelpers'
+import { computeExportedHsfFingerprint } from '../lib/hsfIO'
 import {
   buildIgnoreSafeguardRecipeIndices,
   evaluateAndCollectSafeguardProtection,
@@ -751,6 +752,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentMergedCount = mergedRulesFinal.length
     }
 
+    // Fingerprint of the EXACT bytes an HSF export would produce from these merged rules.
+    // The main thread's "export/push needed" indicator compares this against the fingerprint
+    // captured at the last export, so it flags only when the EXPORTED file would actually
+    // differ (not merely when some input or the detection snapshot churned). Computed here
+    // because the worker already holds mergedRulesFinal; recipe names are derived from the
+    // pipeline's recipes exactly as App does (recipe.appearance?.name ?? '') so worker and
+    // main agree on the serialization (asserted in dev builds). SSOT helper lives in hsfIO.
+    const exportRecipeNames = recipesForRules.map((recipe) => recipe?.appearance?.name ?? '')
+    const mergedRulesHash = computeExportedHsfFingerprint(mergedRulesFinal, { recipeNames: exportRecipeNames })
+
     // Use compact indices when neither dedup nor omitDisabled is active: in that case
     // the same rule objects appear in both mergedRulesFinal and prebuiltCustomRules,
     // so structured clone produces one shared set instead of two independent copies.
@@ -765,6 +776,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         keys: rulesUnchanged ? null : pipelineState.keys.slice(),
         substatTargetsKey: pipelineState.substatTargetsKey,
         mergedRules: rulesUnchanged ? null : mergedRulesFinal,
+        // Export fingerprint of mergedRulesFinal — sent every pipeline (even when mergedRules
+        // is null for the unchanged-rules fast path) so the main thread always has the current
+        // export identity for its dirty check.
+        mergedRulesHash,
         truncatedRecipeIndices: pipelineState.truncatedRecipeIndices.slice(),
         totalLimitHit: pipelineState.totalLimitHit,
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),

@@ -91,6 +91,35 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
+### Build Variants (DEV / TEST / RELEASE)
+
+There are three build variants, distinguished by two **compile-time** flags so the gated code
+is genuinely tree-shaken out — not merely runtime-dead. (A flag routed through a runtime
+function is *not* statically foldable, so the minifier keeps it; verified by grepping the
+release bundle, which previously still contained `capturePackets`/`logWasmHeap` strings.)
+
+| Variant | How built | `import.meta.env.DEV` | `__ALLOW_TEST_HOOKS__` | Contains |
+|---|---|---|---|---|
+| **DEV** | `vite dev` / `npm run dev` | `true` | `false` | dev tools + dev logging; no test hooks |
+| **TEST** | e2e build (`VITE_TEST_HOOKS=1 npm run build`, set by the Playwright `webServer.env`) | `false` | `true` | prod-like + test hooks; no dev tools |
+| **RELEASE** | `npm run build` / `build:web` | `false` | `false` | neither — clean |
+
+- **DEV-only code** (dev logging, dev labels, the `?capturePackets` capture tool) is gated on
+  a **direct, foldable** `if (import.meta.env.DEV) { … }`. Vite replaces the literal with
+  `false` in non-dev builds and the branch (and any module it solely references) is eliminated.
+  Do NOT route a DEV gate through a runtime helper (e.g. `getCapturePackets()` returning a
+  computed value) — that defeats folding and ships the code. `?capturePackets` (see
+  `lib/packetCapture.ts`) is a DEV tool: its call sites are wrapped in `if (import.meta.env.DEV)`
+  so the whole module tree-shakes out of TEST and RELEASE.
+- **TEST hooks** (capabilities needed by e2e but never by users) are gated on
+  `ALLOW_TEST_HOOKS` from `src/lib/testHooks.ts`, backed by the `__ALLOW_TEST_HOOKS__` Vite
+  `define` (false unless `VITE_TEST_HOOKS=1`). The only current one is `?logWasmHeap`, which
+  stashes the rule-cache worker's WASM heap on `window.__wasmHeapMB` for the leak spec to read
+  (`performance.memory` on the main thread cannot see the worker heap). It is present only in
+  TEST builds and stripped from DEV and RELEASE.
+- Note `data-tour-id` / `data-gear-inspector-grid-card` style DOM hooks are plain attributes
+  and intentionally ship in all variants (used by both the in-app tour and tests).
+
 ### Runtime Launch Parameters
 
 - `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The `#endpoint=` hash alias also works as long as it points to a `ws://` or `wss://` URL.
@@ -196,6 +225,44 @@ WASM linear memory is a flat address space managed by `WasmDynamicTalc` (vendore
 
 Because skipping the pre-grow means dlmalloc now grows on demand on Gecko, the risk it must NOT reintroduce is allocator **fragmentation** — mismatched free-list holes that only appear when allocation *sizes* vary run-to-run. The `binary-endpoint-memory` spec re-imports a single DB with a fixed rule set, so it never produces that variance. `binary-endpoint-fragmentation.spec.ts` is the dedicated guard: it runs 32 cases crossing the four real RSLHelper DB captures (≈708 KB → 1.4 MB, varying artifact-row buffers) with lategame.sfc's account-level + keep-toggle recipe overrides (varying rule-set buffers), pushing each over the WebSocket endpoint and asserting the page never crashes. The crash signal (`page 'crash'` / `pageerror`) is engine-agnostic, so it catches the Firefox content-process SIGSEGV directly rather than relying on the Chromium-only `performance.memory` heap assertion. It is registered in `PERF_SPECS` (serialized, `<browser>-perf` project). The shared override-toggle helpers live in `tests/playwright/note-overrides-helpers.ts`.
 
+**Incremental-update leak — cache invariant rule inputs WASM-side.** During RSL Helper
+farming the gear DB updates repeatedly on a *growing* inventory; the app used to crash after
+a few dozen updates. Root cause: every artifact push re-ran the final rule-merge WASM call
+(`compute_merged_rules_value`) with a ~34 MiB JSON payload = ~17 MiB base+custom rules + ~17
+MiB safeguard detection snapshot. The rules are **invariant across pushes within a session**
+(they derive from the fixed SFC), so re-sending them churned talc with repeated large
+same-size transients; talc never shrinks, so it periodically grabbed another permanent ~85
+MiB slab and the worker WASM heap stepped up unbounded (525→614→700→785 MB…) until the content
+process crashed. Reproduced and measured with `tests/repro/repro-incremental-growth.ts`
+(`npm run repro:incremental-growth`, a Node leak-localizer that samples
+`getWasmLinearMemoryBytes()` per pipeline phase over a growing artifact set) and the browser
+spec `tests/playwright/endpoint-incremental-updates.spec.ts`.
+
+Fix — cache the invariant merge inputs in `ENGINE_STATE` and send only the per-push detection
+snapshot:
+- `compute_merged_rules_core` splits into `build_generated_rules_core` (cacheable:
+  base+custom+final-sell rules after the omit/dedupe transforms) and
+  `finish_merge_with_generated` (per-push: safeguard injection + `line_idx`). The composition
+  stays byte-identical, and `rule_engine_native` still calls the unified core.
+- `EngineState` caches `cached_generated_rules` + `cached_safeguard_rules` +
+  `cached_safeguard_enabled` (both rule sets are session-invariant), preserved across
+  `configure_engine`. New exports `cache_generated_rules_value` (stores the invariant half) +
+  `compute_merged_rules_cached_value` (per-push: detection snapshot only). The old monolithic
+  `compute_merged_rules_value` export was removed.
+- `computeMergedRulesFromComponents` (`merge.ts`) is the single merge path for both the worker
+  and the main thread, gated by a caller-supplied `rulesCacheKey` (the worker passes
+  `computeRecipeKey`, which already hashes safeguard content; the main thread always-refreshes).
+  The cached wrapper self-heals on a cache miss (re-cache + retry) — no legacy fallback path.
+- The worker also gates the `configure_engine` call on the same key (a second per-push churn
+  site); the engine preserves its `BucketedRules` across pushes.
+- The per-pipeline `preWarmHeapWithLoadedWasm` calls were **removed** — measured to have zero
+  effect on heap stability once per-push allocation pressure was gone. (The 256 MiB
+  Gecko-gated warmup pre-grow is unchanged; it guards a different, V8/Windows-specific path.)
+
+Result: the worker WASM heap stays flat across 60+ growing-inventory rounds (Node ~485 MB
+plateau, Chromium ~582 MB, Firefox ~310 MB with zero growth) versus the old unbounded
+stepping; cached output is byte-identical to the legacy merge.
+
 **talc 5.0.3 ABOVE_FREE bug and patch** — talc 5.0.3 has a bug where the `ABOVE_FREE` tag flag can become stale on an allocated chunk after the free gap above it is consumed. When that chunk is later freed, `deallocate()` reads `gap_base_to_size(chunk_end)` (now user data from the allocation that consumed the old gap), obtaining a huge garbage value; `chunk_end.add(garbage)` flies past WASM linear memory and traps with "memory access out of bounds". The bug manifests after repeated large serde_json serializations (each exponential `Vec<T>` doubling frees a block, leaving ~15 blocks of sizes 256→512→…→8 MiB in the free list for the next pipeline iteration to trigger the stale path). The fix is applied directly in the vendored copy (`wasm/vendor/talc/src/base/mod.rs`, grep `TALC-PATCH`): `talc_gap_looks_valid()` cross-checks the base-size word against the end-size word before trusting `ABOVE_FREE`. A real gap has both words equal; a stale flag produces a mismatch and the coalesce is silently skipped — no data loss, only a missed coalescing opportunity for that one free. The fix is confirmed by 10/10 harness passes with plain `WasmDynamicTalc` and no workaround shim.
 
 **Supporting fixes** that reduce the probability of triggering the bug:
@@ -238,7 +305,12 @@ The old code cloned the `HashMap<i64,i64>` substat state before each recursive c
 
 **Worker-side mitigations** (`ruleCacheWorker.ts`, `useRuleCacheWorker.ts`)
 
-- **Heap prewarm before improvement-chance**: `preWarmHeapWithLoadedWasm(N)` allocates and immediately frees an `N`-byte Vec, forcing any needed `memory.grow` calls to happen outside the critical path. `N = ceil(artifactCount × 4096 / 16 MiB) × 16 MiB` (32 MiB for ~7 982 items).
+- **Heap prewarm before improvement-chance / eval-collect — REMOVED.** The worker previously
+  called `preWarmHeapWithLoadedWasm(N)` before those phases to force `memory.grow` outside the
+  critical path. With the incremental-update leak fix (cached rules, no per-push rule churn)
+  these prewarms measured zero heap-stability effect and were removed to cut per-push work.
+  The `preWarmHeapWithLoadedWasm` export remains for the repro harnesses only. (The Rust-side
+  `prewarm_for_json_parse` inside the WASM JSON exports is separate and stays.)
 - **clearStoredRows after eval-collect**: drops the 7 970-item `stored_rows` Vec (~16–20 MiB) before `computeMergedRulesFromComponents`, giving talc headroom for the contiguous rules Vec.
 - **Fatal trap recovery**: a caught `RuntimeError` matching `unreachable` (WASM OOM abort) or `out of bounds` (allocator metadata corruption) is detected by `isWasmFatalTrap()` in the worker catch block and by the `case 'error'` handler in `useRuleCacheWorker.ts`. The worker resets its WASM init flags; the main thread calls `replaceWorkerAfterRuntimeError()` so the next pipeline starts with a fresh heap.
 - **Proactive worker cycling**: `useRuleCacheWorker` tracks `completedPipelineCountRef` and `lastWasmLinearBytesRef`. When `completedCount >= PIPELINE_RESTART_INTERVAL` (5) or `heapBytes >= WASM_HEAP_RESTART_BYTES` (150 MiB), `cycleWorkerProactively()` terminates the old worker and spawns a fresh one. The counter increments even for JS-side aborted pipelines (the worker still ran them), preventing dirty heaps from carrying over on rapid-fire requests.

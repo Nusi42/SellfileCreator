@@ -2,18 +2,22 @@
 /**
  * repro-incremental-growth
  *
- * Localizes the incremental-update WASM leak (project_incremental_update_wasm_leak):
- * the rule-cache worker's WASM linear memory grows ~5-6 MB per single added artifact
- * across a growing endpoint inventory, crashing after dozens of updates. The browser
- * repro (endpoint-incremental-updates.spec.ts) PROVES it; this Node harness PINPOINTS
- * which pipeline phase allocates without releasing, by sampling getWasmLinearMemoryBytes()
- * after every phase, every round, over a growing artifact set.
+ * Node leak-localizer / regression guard for the incremental-update WASM leak
+ * (project_incremental_update_wasm_leak): the rule-cache worker's WASM linear memory used to
+ * grow per added artifact across a growing endpoint inventory and crash after dozens of
+ * updates. Fixed by caching the invariant merge inputs WASM-side. This harness samples
+ * getWasmLinearMemoryBytes() after every pipeline phase, every round, over a GROWING artifact
+ * set, so the WASM heap should now stay flat (a regression would show as per-round growth and
+ * pinpoint the offending phase). The browser counterpart is endpoint-incremental-updates.spec.ts.
  *
- * Mirrors the worker's per-push pipeline (ruleCacheWorker.ts onmessage):
- *   configure(baseline) → storeArtifactRows → prewarm → improvementChance →
- *   prewarm → evaluateAndCollect → clearStoredRows → mergedRulesFinal → configure(final)
+ * Mirrors the rule-cache worker's per-push pipeline (ruleCacheWorker.ts onmessage), gated the
+ * same way: configure(baseline, only when rules change) → storeArtifactRows → improvementChance
+ * → evaluateAndCollect → clearStoredRows → mergedRulesFinal (cached).
  *
- * Run: npx tsx tests/repro/repro-incremental-growth.ts   (or via a package script)
+ * Run: npm run repro:incremental-growth
+ *   REPRO_WITHHELD=N   number of artifacts withheld then revealed one/round (default 60)
+ *   REPRO_PREWARM=1    re-enable the per-pipeline prewarms (removed from production) to
+ *                      compare heap behaviour with/without them
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -103,12 +107,13 @@ function runPipeline(round: number, count: number): void {
   storeArtifactRowsWithLoadedWasm({ rows: entries.map(([, a]) => toWasmArtifactStoreRow(a)) })
   phase.store = mb()
 
-  // REPRO_NO_PREWARM=1 disables both per-pipeline prewarms to measure whether they are
-  // still needed for heap stability (Linux can't exercise the V8/Windows memory.grow
-  // rejection they primarily guard, so a flat result here is necessary-but-not-sufficient).
-  const noPrewarm = process.env.REPRO_NO_PREWARM === '1'
+  // Production no longer prewarms the heap per pipeline (removed with the leak fix), so the
+  // default here matches that. REPRO_PREWARM=1 re-enables both prewarms to compare heap
+  // behaviour with/without them (Linux can't exercise the V8/Windows memory.grow rejection
+  // they once guarded, so any difference here is necessary-but-not-sufficient evidence).
+  const prewarm = process.env.REPRO_PREWARM === '1'
   const prewarmBytes = Math.ceil((entries.length * 4096) / PAGE_16MIB) * PAGE_16MIB
-  if (!noPrewarm) preWarmHeapWithLoadedWasm(prewarmBytes)
+  if (prewarm) preWarmHeapWithLoadedWasm(prewarmBytes)
   phase.prewarm1 = mb()
 
   const improvementChances = hasThreshold
@@ -116,7 +121,7 @@ function runPipeline(round: number, count: number): void {
     : []
   phase.imprChance = mb()
 
-  if (!noPrewarm) preWarmHeapWithLoadedWasm(prewarmBytes)
+  if (prewarm) preWarmHeapWithLoadedWasm(prewarmBytes)
   const detection = evaluateAndCollectSafeguardProtectionWithLoadedWasm({
     safeguardRules, improvementChances, enabled: parsed.safeguardsEnabled ?? false, now: 0,
   })

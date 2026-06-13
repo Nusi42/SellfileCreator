@@ -72,6 +72,12 @@ export type RuleCachePipelineResponse = {
     keys: string[] | null
     substatTargetsKey: string
     mergedRules: HsfRuleWithRecipe[] | null
+    // crc32 of the EXACT bytes an HSF export would produce from mergedRules (via the shared
+    // computeExportedHsfFingerprint). Sent EVERY pipeline (even when mergedRules is null on
+    // the unchanged-rules fast path) so the main thread always has the current export
+    // identity for its "export/push needed" dirty check. Compared against the fingerprint
+    // captured at the last export — dirty ⟺ the exported file would actually differ.
+    mergedRulesHash: string
     truncatedRecipeIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]

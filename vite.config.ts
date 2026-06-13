@@ -125,14 +125,27 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     ...(isWebBuild && isBuild ? [pruneOrphanedAssetsPlugin()] : []),
   ],
   define: (() => {
+    // Compile-time flag enabling test-only diagnostic hooks (e.g. the ?logWasmHeap /
+    // window.__wasmHeapMB worker-heap probe and ?capturePackets capture). FALSE in real
+    // release builds, so the gated code is replaced with `if (false)` and fully tree-shaken
+    // out — unlike an import.meta.env.DEV gate, which still ships the code as runtime-dead
+    // bytes (verified: capturePackets/logWasmHeap strings were present in the release bundle).
+    // The e2e build opts in via VITE_TEST_HOOKS=1 (see playwright.config webServer command).
+    const allowTestHooks = process.env.VITE_TEST_HOOKS === '1';
     // Read package.json version so we have a single source of truth
     try {
       const root = dirname(fileURLToPath(import.meta.url));
       const pkgPath = resolve(root, 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
-      return { __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0') };
+      return {
+        __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0'),
+        __ALLOW_TEST_HOOKS__: JSON.stringify(allowTestHooks),
+      };
     } catch {
-      return { __APP_VERSION__: JSON.stringify('0.0.0') };
+      return {
+        __APP_VERSION__: JSON.stringify('0.0.0'),
+        __ALLOW_TEST_HOOKS__: JSON.stringify(allowTestHooks),
+      };
     }
   })(),
   optimizeDeps: {

@@ -121,7 +121,6 @@ import {
   createSafeguardRuleContentSnapshot,
   normalizeSafeguardRule,
   normalizeSafeguardFactionSlotScope,
-  safeguardRulesContentFingerprint,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -828,6 +827,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Pre-computed improvement-chance map returned by the WASM worker; null when not computed.
   const [improvementChanceByArtifactId, setImprovementChanceByArtifactId] =
     useState<Map<number, ImprovementChanceWasmEntry> | null>(null)
+  // Current export fingerprint from the latest pipeline result (worker-computed crc of the
+  // exact bytes an HSF export would produce). Captured alongside safeguardDetection on every
+  // pipeline-commit path (fresh/cache-hit/retry); drives the HSF export/push dirty indicator.
+  // null until the first pipeline completes.
+  const [currentMergedRulesHash, setCurrentMergedRulesHash] = useState<string | null>(null)
   const resolvedSafeguardRules = useMemo(() => (
     resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
   ), [safeguardRules, metasets])
@@ -1543,6 +1547,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             startTransition(() => {
               setSafeguardDetection(cachedEntry.processedSafeguardDetection)
               setImprovementChanceByArtifactId(cachedEntry.processedImprovementChance)
+              // The cache stored the full pipeline result, so the worker-computed export
+              // fingerprint is recovered exactly (no recompute) — see PipelineCacheEntry.
+              setCurrentMergedRulesHash(cachedEntry.result.mergedRulesHash)
             })
             setLastRecipeNames(recipeNamesForBuild)
             setLastRecipeFgColors(recipeFgColorsForBuild)
@@ -1611,6 +1618,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           startTransition(() => {
             setSafeguardDetection(safeguardDetection ?? null)
             setImprovementChanceByArtifactId(improvementChanceResult ?? null)
+            // Capture the export fingerprint of the committed merged rules (drives hsfDirty).
+            setCurrentMergedRulesHash(result.mergedRulesHash)
           })
           setLastRecipeNames(recipeNamesForBuild)
           const totalCustomRules = Array.from(state.countsByRecipe.values()).reduce((acc, val) => (
@@ -1703,6 +1712,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 startTransition(() => {
                   setSafeguardDetection(retrySafeguardDetection ?? null)
                   setImprovementChanceByArtifactId(retryImprovementChanceResult ?? null)
+                  setCurrentMergedRulesHash(retryResult.mergedRulesHash)
                 })
                 setLastRecipeNames(recipeNamesForBuild)
             setLastRecipeFgColors(recipeFgColorsForBuild)
@@ -4057,202 +4067,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const buildExportPayload = useCallback(() => (
     buildHsfFileFromMerged(mergedRules, { recipeNames })
   ), [mergedRules, recipeNames])
-  type ExportDirtyMetasetDigest = { id: string; sets: number[] }
-  type ExportDirtyDetectionDigest = {
-    ruleOrdinal: number
-    ruleActivation: string
-    requiredCount: number
-    currentCount: number
-    projectedCount: number
-    deficit: number
-    groupsTracked: number
-    perGroupRequiredCount: number
-    coveredByExisting: boolean
-    itemKeys: number[]
-    placeholders: number
-  }
-  type ExportDirtyState = {
-    omitDisabledForExport: boolean
-    totalLimitHit: boolean
-    substatTargetsKey: string
-    recipeKeys: string[]
-    recipeNames: string[]
-    metasets: ExportDirtyMetasetDigest[]
-    baseHsfHash: string | null
-    baseHsfRuleCount: number
-    finalSell: {
-      setsMode: string
-      artifacts: boolean
-      accessories: boolean
-      levels: number[]
-    } | null
-    safeguardsEnabled: boolean
-    // Canonical safeguard-rule-list fingerprint from safeguardRulesContentFingerprint (SSOT,
-    // shared with the rule-cache worker). Replaces the old per-field digest array, which
-    // omitted substatMatch + improvementChanceThreshold.
-    safeguardRulesFingerprint: string
-    safeguardDetection: ExportDirtyDetectionDigest[] | null
-    mergedRuleCount: number
-  }
-
-  const numberArraysEqual = (left: number[], right: number[]): boolean => {
-    if (left === right) return true
-    if (left.length !== right.length) return false
-    for (let idx = 0; idx < left.length; idx += 1) if (left[idx] !== right[idx]) return false
-    return true
-  }
-  const stringArraysEqual = (left: string[], right: string[]): boolean => {
-    if (left === right) return true
-    if (left.length !== right.length) return false
-    for (let idx = 0; idx < left.length; idx += 1) if (left[idx] !== right[idx]) return false
-    return true
-  }
-  const metasetDigestsEqual = (left: ExportDirtyMetasetDigest[], right: ExportDirtyMetasetDigest[]): boolean => {
-    if (left === right) return true
-    if (left.length !== right.length) return false
-    for (let idx = 0; idx < left.length; idx += 1) {
-      const a = left[idx]!
-      const b = right[idx]!
-      if (a.id !== b.id) return false
-      if (!numberArraysEqual(a.sets, b.sets)) return false
-    }
-    return true
-  }
-  const safeguardDetectionDigestsEqual = (
-    left: ExportDirtyDetectionDigest[] | null,
-    right: ExportDirtyDetectionDigest[] | null,
-  ): boolean => {
-    if (left === right) return true
-    if (!left || !right) return false
-    if (left.length !== right.length) return false
-    for (let idx = 0; idx < left.length; idx += 1) {
-      const a = left[idx]!
-      const b = right[idx]!
-      if (
-        a.ruleOrdinal !== b.ruleOrdinal
-        || a.ruleActivation !== b.ruleActivation
-        || a.requiredCount !== b.requiredCount
-        || a.currentCount !== b.currentCount
-        || a.projectedCount !== b.projectedCount
-        || a.deficit !== b.deficit
-        || a.groupsTracked !== b.groupsTracked
-        || a.perGroupRequiredCount !== b.perGroupRequiredCount
-        || a.coveredByExisting !== b.coveredByExisting
-        || a.placeholders !== b.placeholders
-      ) {
-        return false
-      }
-      if (!numberArraysEqual(a.itemKeys, b.itemKeys)) return false
-    }
-    return true
-  }
-  const exportDirtyStatesEqual = (left: ExportDirtyState, right: ExportDirtyState): boolean => {
-    if (
-      left.omitDisabledForExport !== right.omitDisabledForExport
-      || left.totalLimitHit !== right.totalLimitHit
-      || left.substatTargetsKey !== right.substatTargetsKey
-      || left.baseHsfHash !== right.baseHsfHash
-      || left.baseHsfRuleCount !== right.baseHsfRuleCount
-      || left.safeguardsEnabled !== right.safeguardsEnabled
-      || left.mergedRuleCount !== right.mergedRuleCount
-    ) {
-      return false
-    }
-    if (!stringArraysEqual(left.recipeKeys, right.recipeKeys)) return false
-    if (!stringArraysEqual(left.recipeNames, right.recipeNames)) return false
-    if (!metasetDigestsEqual(left.metasets, right.metasets)) return false
-    if (Boolean(left.finalSell) !== Boolean(right.finalSell)) return false
-    if (left.finalSell && right.finalSell) {
-      if (
-        left.finalSell.setsMode !== right.finalSell.setsMode
-        || left.finalSell.artifacts !== right.finalSell.artifacts
-        || left.finalSell.accessories !== right.finalSell.accessories
-      ) {
-        return false
-      }
-      if (!numberArraysEqual(left.finalSell.levels, right.finalSell.levels)) return false
-    }
-    if (left.safeguardRulesFingerprint !== right.safeguardRulesFingerprint) return false
-    if (!safeguardDetectionDigestsEqual(left.safeguardDetection, right.safeguardDetection)) return false
-    return true
-  }
-
-  // Export dirty checks compare normalized structured state so we avoid one
-  // huge concatenated signature string on every recompute.
-  const hsfExportStateSig = useMemo<ExportDirtyState>(() => {
-    const metasetDigests = metasets
-      .map((meta) => ({
-        id: meta.name,
-        sets: (Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id))
-    const baseHsfHash = hsf ? ((hsf as { Hash?: string }).Hash ?? null) : null
-    const baseHsfRuleCount = hsf?.Rules?.length ?? 0
-    const finalSellDigest = finalSellRemainder
-      ? {
-        setsMode: finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE,
-        artifacts: finalSellRemainder.artifacts === true,
-        accessories: finalSellRemainder.accessories === true,
-        levels: Array.isArray(finalSellRemainder.levels)
-          ? [...finalSellRemainder.levels].map(Number).sort((a, b) => a - b)
-          : [],
-      }
-      : null
-    // One canonical fingerprint of the safeguard rule list, from the shared SSOT helper.
-    // This is the SAME field set the rule-cache worker uses (safeguardRulesContentFingerprint),
-    // so the "needs export/push" badge and the pipeline cache agree on what counts as a rule
-    // change. It deliberately includes substatMatch + improvementChanceThreshold, which the
-    // old per-field digest here omitted — changing either alters the exported sell-file, so
-    // their absence previously left this signature falsely unchanged (stale-export bug).
-    const safeguardRulesFingerprint = safeguardRulesContentFingerprint(
-      safeguardsEnabled,
-      resolvedSafeguardRules,
-    )
-    const safeguardDetectionDigests = safeguardDetection
-      ? safeguardDetection.entries.map((entry) => ({
-        ruleOrdinal: entry.ruleOrdinal ?? 0,
-        ruleActivation: entry.ruleActivation ?? '',
-        requiredCount: Number(entry.requiredCount),
-        currentCount: Number(entry.currentCount),
-        projectedCount: Number(entry.projectedCount),
-        deficit: Number(entry.deficit),
-        groupsTracked: Number(entry.groupsTracked),
-        perGroupRequiredCount: Number(entry.perGroupRequiredCount),
-        coveredByExisting: entry.coveredByExisting === true,
-        itemKeys: [...entry.itemKeys].map(Number),
-        placeholders: entry.placeholders.length,
-      }))
-      : null
-    return {
-      omitDisabledForExport,
-      totalLimitHit: recipeRulesState.totalLimitHit,
-      substatTargetsKey: recipeRulesState.substatTargetsKey,
-      recipeKeys: [...recipeRulesState.keys],
-      recipeNames: [...recipeNames],
-      metasets: metasetDigests,
-      baseHsfHash,
-      baseHsfRuleCount,
-      finalSell: finalSellDigest,
-      safeguardsEnabled,
-      safeguardRulesFingerprint,
-      safeguardDetection: safeguardDetectionDigests,
-      mergedRuleCount: mergedRules.length,
-    }
-  }, [
-    omitDisabledForExport,
-    recipeRulesState.totalLimitHit,
-    recipeRulesState.substatTargetsKey,
-    recipeRulesState.keys,
-    recipeNames,
-    metasets,
-    hsf,
-    finalSellRemainder,
-    safeguardsEnabled,
-    resolvedSafeguardRules,
-    safeguardDetection,
-    mergedRules.length,
-  ])
-  const [lastExportSig, setLastExportSig] = useState<ExportDirtyState | null>(null)
+  // Baseline = the export fingerprint captured at the last export/push (null until first
+  // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
+  // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so
+  // the pipeline-result handler above can set it.)
+  const [lastExportedHash, setLastExportedHash] = useState<string | null>(null)
   // Queue one export request while rule/Gear Inspector workers are still rebuilding state.
   // 'loud' = show success toast; 'silent' = suppress success toast (auto-push); false = no pending export.
   const [queuedSellfileExport, setQueuedSellfileExport] = useState<false | 'loud' | 'silent'>(false)
@@ -4272,12 +4091,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setQueuedSellfileExport(silent ? 'silent' : 'loud')
     return true
   }, [isSellfileExportBlockedByWorker])
-  // Establish the export signature baseline after resets or first render.
-  if (exportBaselineResetPending || lastExportSig === null) {
-    setLastExportSig(hsfExportStateSig)
+  // Establish the export-fingerprint baseline once the first pipeline result is available, or
+  // after a reset (SFC load/import/restore). Adopting the current fingerprint as baseline means
+  // a freshly-loaded file starts CLEAN; hsfDirty only flips once the fingerprint later diverges.
+  // The fingerprint is null until the first pipeline completes, so we wait for it.
+  if (currentMergedRulesHash !== null && (exportBaselineResetPending || lastExportedHash === null)) {
+    setLastExportedHash(currentMergedRulesHash)
     if (exportBaselineResetPending) setExportBaselineResetPending(false)
   }
-  const hsfDirty = lastExportSig !== null && !exportDirtyStatesEqual(hsfExportStateSig, lastExportSig)
+  // Dirty ⟺ the exported HSF would differ from what was last exported. Because the fingerprint
+  // is the crc of the actual export bytes (volatile detection fields stripped), gear-DB churn
+  // that doesn't change the rules keeps it equal (no false dirty), and an add-then-remove
+  // inventory round-trip returns it to the baseline (correctly clean again).
+  const hsfDirty = lastExportedHash !== null
+    && currentMergedRulesHash !== null
+    && currentMergedRulesHash !== lastExportedHash
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -4423,7 +4251,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       gearInspectorItemIdRef.current = Math.max(gearInspectorItemIdRef.current, (maxItemId || 0) + 1)
     }
     markNextSnapshotAsSaved()
-    setLastExportSig(null)
+    setLastExportedHash(null)
     setExportBaselineResetPending(true)
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => { markSavedNow() })
@@ -4443,7 +4271,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     beginGearInspectorMatchReset,
     setGearInspectorItemsTransition,
     markNextSnapshotAsSaved,
-    setLastExportSig,
+    setLastExportedHash,
     setExportBaselineResetPending,
     markSavedNow,
     acceptRestore,
@@ -7390,7 +7218,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
 
     markNextSnapshotAsSaved()
-    setLastExportSig(null)
+    setLastExportedHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
   }, [
@@ -7409,7 +7237,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setRecipesEnabled,
     setBuilder,
     setCustomRecipes,
-    setLastExportSig,
+    setLastExportedHash,
     setMetasets,
     setNoteRecipeOverridesAnswers,
     setNoteOverridesDisabled,
@@ -7585,7 +7413,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     markNextSnapshotAsSaved()
-    setLastExportSig(null)
+    setLastExportedHash(null)
     setExportBaselineResetPending(true)
     // markSavedNow in the rAF is a safety net: this function uses urgent (non-transition)
     // updates, so useEffect fires before the rAF and the rAF is truly a fallback.
@@ -7617,7 +7445,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCustomRecipes,
     setConflictIds,
     setImportIdMap,
-    setLastExportSig,
+    setLastExportedHash,
     setMetasetConflictOpen,
     setMetasets,
     setNoteAutoOpenedFromSfc,
@@ -8375,7 +8203,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // A successful request proves endpoint reachability for later pushes.
           updatePushEndpointReachable(true)
           pushToast = 'success'
-          setLastExportSig(hsfExportStateSig)
+          setLastExportedHash(currentMergedRulesHash)
           // Notify the express-mode button so it plays its blink animation.
           if (silent) setAutoPushFlashSeq((s) => s + 1)
         } else {
@@ -8401,11 +8229,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
-    setLastExportSig(hsfExportStateSig)
+    setLastExportedHash(currentMergedRulesHash)
     if (!silent) showToast(t('toastSellfileSaved'))
   }, [
     buildExportPayload,
-    hsfExportStateSig,
+    currentMergedRulesHash,
     pushExportEndpoint,
     sendExternalRequest,
     setAutoPushFlashSeq,
@@ -9429,11 +9257,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming
             // history snapshot as saved; rAF markSavedNow is a safety net for the edge case where
-            // the effect fires without a new entry. setLastExportSig(null) + setExportBaselineResetPending(true)
+            // the effect fires without a new entry. setLastExportedHash(null) + setExportBaselineResetPending(true)
             // reset the HSF export baseline. Do NOT call markSavedNow() synchronously — it clears
             // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
             markNextSnapshotAsSaved()
-            setLastExportSig(null)
+            setLastExportedHash(null)
             setExportBaselineResetPending(true)
             if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
               window.requestAnimationFrame(() => { markSavedNow() })

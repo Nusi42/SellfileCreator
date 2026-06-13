@@ -23,6 +23,7 @@ import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import { ensureWasmRuleEngineReady, getCompiledWasmRuleEngineModule } from '../lib/wasm/wasmRuleEngine'
 import { getLogWasmHeap } from '../lib/runtimeConfig'
+import { ALLOW_TEST_HOOKS } from '../lib/testHooks'
 import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
 
 type PipelineParams = {
@@ -61,6 +62,10 @@ export type PipelineResult = {
   safeguardDetection: SafeguardDetectionSnapshot | null
   // Null when computeImprovementChance was false or safeguards were inactive.
   improvementChanceByArtifactId: Map<number, ImprovementChanceWasmEntry> | null
+  // crc32 of the bytes an HSF export would produce from these merged rules (worker-computed).
+  // The HSF export/push "dirty" indicator compares it against the fingerprint captured at the
+  // last export. Always present (sent every pipeline, even on the unchanged-rules fast path).
+  mergedRulesHash: string
 }
 
 type CountRulesParams = {
@@ -272,19 +277,25 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
-          // Surface the worker's WASM heap after each pipeline to spot unexpected growth.
-          // Active in dev (always) or in any build with ?logWasmHeap set — the latter lets
-          // the endpoint-incremental-updates Playwright spec observe the worker's WASM
-          // linear-memory size, which performance.memory (main thread) cannot see. Both the
-          // log and the window field are inert by default, so production is unchanged.
-          if (import.meta.env.DEV || getLogWasmHeap()) {
+          // DEV build: log the worker's WASM heap after each pipeline to spot growth. The
+          // `import.meta.env.DEV` literal folds to false in non-dev builds, so this branch
+          // (and its string) is tree-shaken from release/test bundles.
+          if (import.meta.env.DEV) {
             const mainHeap = (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0
             const wasmMB = data.payload.wasmLinearBytes / 1024 / 1024 | 0
             console.log(`[rule-cache-worker] pipeline-done id=${data.id} wasmHeapMB=${wasmMB} mainHeapMB=${mainHeap / 1024 / 1024 | 0}`)
-            // Worker console.log does NOT reliably reach Playwright's page console (inline
-            // blob worker), so also stash the latest value on window where the spec can read
-            // it via page.evaluate. Diagnostic-only; never read by app code.
-            try { (window as unknown as { __wasmHeapMB?: number }).__wasmHeapMB = wasmMB } catch { /* ignore */ }
+          }
+          // TEST hook (?logWasmHeap): stash the worker's WASM heap on window so the
+          // endpoint-incremental-updates leak spec can read it (performance.memory on the
+          // main thread cannot see the worker heap; worker console.log doesn't reliably
+          // reach Playwright). ALLOW_TEST_HOOKS folds to false in DEV and release builds, so
+          // getLogWasmHeap() is provably false there and this whole branch tree-shakes out;
+          // only the e2e TEST build (VITE_TEST_HOOKS=1) keeps it.
+          if (ALLOW_TEST_HOOKS && getLogWasmHeap()) {
+            try {
+              (window as unknown as { __wasmHeapMB?: number }).__wasmHeapMB =
+                data.payload.wasmLinearBytes / 1024 / 1024 | 0
+            } catch { /* ignore */ }
           }
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
@@ -312,6 +323,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
             matches: data.payload.matches,
             safeguardDetection: data.payload.safeguardDetection,
             improvementChanceByArtifactId,
+            mergedRulesHash: data.payload.mergedRulesHash,
           })
           return
         }

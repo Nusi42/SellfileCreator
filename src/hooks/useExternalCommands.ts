@@ -108,9 +108,11 @@ export function useExternalCommands({
   // Handle parsed inbound messages and route them to commands or responses.
   const handleInboundMessage = useCallback((message: unknown) => {
     // Dev-only: record the raw frame (object form) before any parsing so the captured
-    // fixture matches exactly what RSL Helper sent, in true receive order. No-op unless
-    // ?capturePackets is active in a dev build. See lib/packetCapture.ts.
-    capturePacket(message)
+    // fixture matches exactly what RSL Helper sent, in true receive order. The
+    // import.meta.env.DEV literal folds to false in non-dev builds, so this call is dead and
+    // the whole packetCapture module tree-shakes out of release/test. ?capturePackets gates
+    // it at runtime within dev. See lib/packetCapture.ts.
+    if (import.meta.env.DEV) capturePacket(message)
     // Parse the inbound payload into a normalized envelope.
     const parsed = parseExternalWsMessage(message)
     if (!parsed) return
@@ -238,12 +240,14 @@ export function useExternalCommands({
                 // capture sequence stays coherent (the raw SQLite bytes are not JSON and
                 // are not persisted as a fixture). RSL Helper does not use this path —
                 // it is a secondary transport for direct binary DB loads — but capturing
-                // the stub keeps the index contiguous if it ever fires. No-op unless
-                // capture is active.
-                capturePacket(
-                  { jsonrpc: '2.0', method: 'gearDbFileBinary', params: { name: meta.name, contentType: meta.contentType ?? null, byteLength: raw.byteLength } },
-                  'gearDbFileBinary',
-                )
+                // the stub keeps the index contiguous if it ever fires. import.meta.env.DEV
+                // folds false in non-dev builds so this is tree-shaken from release/test.
+                if (import.meta.env.DEV) {
+                  capturePacket(
+                    { jsonrpc: '2.0', method: 'gearDbFileBinary', params: { name: meta.name, contentType: meta.contentType ?? null, byteLength: raw.byteLength } },
+                    'gearDbFileBinary',
+                  )
+                }
                 // Wrap as a Uint8Array view over the frame's backing buffer.
                 // No copy is made here; the buffer stays alive until cmd.bytes
                 // is nulled in applyEndpointPushCommand after the import.

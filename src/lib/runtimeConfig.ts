@@ -1,3 +1,5 @@
+import { ALLOW_TEST_HOOKS } from './testHooks'
+
 export type RuntimeConfig = {
   pushEndpoint?: string
   // True when the app was opened from RSL Helper via ?simple param — activates streamlined UI.
@@ -6,13 +8,11 @@ export type RuntimeConfig = {
   // packets to the dev server so they can be saved as sampleLog fixtures. Always
   // false in production builds — the flag is gated on import.meta.env.DEV.
   capturePackets?: boolean
-  // Diagnostic: true when ?logWasmHeap is present. Emits a per-pipeline
-  // `[rule-cache-worker] pipeline-done … wasmHeapMB=…` console line so the rule-cache
-  // worker's WASM linear-memory size can be observed across many updates (leak / growth
-  // diagnosis). Inert unless the param is set, so it is safe in production builds —
-  // it is a console.log only, with no effect on app behavior. Used by the
-  // endpoint-incremental-updates Playwright spec to measure the worker heap, which
-  // performance.memory (main thread) cannot see.
+  // TEST-only: true when ?logWasmHeap is present in a TEST build (ALLOW_TEST_HOOKS). Lets the
+  // endpoint-incremental-updates Playwright spec read the rule-cache worker's WASM
+  // linear-memory size via window.__wasmHeapMB (performance.memory on the main thread cannot
+  // see the worker heap). Gated on ALLOW_TEST_HOOKS, so it is tree-shaken out of DEV and
+  // release builds entirely — never ships.
   logWasmHeap?: boolean
 }
 
@@ -109,10 +109,13 @@ function readCapturePackets(): boolean {
   return false
 }
 
-// Reads ?logWasmHeap (or #logWasmHeap), bare presence or =1/=true. NOT gated on DEV:
-// it only enables a diagnostic console.log (no behavioral effect), so it is safe to honor
-// in production/preview builds, which is exactly where the Playwright leak spec runs.
+// Reads ?logWasmHeap (or #logWasmHeap), bare presence or =1/=true. This is a TEST-only
+// hook (the e2e leak spec reads window.__wasmHeapMB), so it is gated on ALLOW_TEST_HOOKS:
+// in real release builds that constant folds to `false`, making the whole reader provably
+// dead so it (and the worker probe it drives) is tree-shaken out — the diagnostic does NOT
+// ship. Only the TEST build (VITE_TEST_HOOKS=1) keeps it.
 function readLogWasmHeap(): boolean {
+  if (!ALLOW_TEST_HOOKS) return false
   if (typeof window === 'undefined') return false
   try {
     const currentUrl = new URL(window.location.href)
@@ -130,7 +133,11 @@ function readLogWasmHeap(): boolean {
 function computeRuntimeConfig(): RuntimeConfig {
   const pushEndpoint = readPushEndpoint()
   const simple = readSimpleMode() || undefined
-  const capturePackets = readCapturePackets() || undefined
+  // import.meta.env.DEV folds to a literal in builds, so in non-dev builds this is
+  // `false && …` → readCapturePackets() is provably unreachable and the whole packet-capture
+  // dev tool (lib/packetCapture.ts) tree-shakes out of the release/test bundle. (capturePackets
+  // is a DEV tool, not a test hook — hence the DEV gate, not ALLOW_TEST_HOOKS.)
+  const capturePackets = (import.meta.env.DEV && readCapturePackets()) || undefined
   const logWasmHeap = readLogWasmHeap() || undefined
   return {
     ...(pushEndpoint ? { pushEndpoint } : {}),
@@ -162,8 +169,9 @@ export function getCapturePackets(): boolean {
   return getRuntimeConfig().capturePackets ?? false
 }
 
-// True when ?logWasmHeap was present at startup. Drives the per-pipeline worker
-// WASM-heap diagnostic log in useRuleCacheWorker. Diagnostic-only; no behavioral effect.
+// TEST-only: true when ?logWasmHeap was present at startup AND this is a TEST build.
+// Drives the window.__wasmHeapMB stash in useRuleCacheWorker (read by the leak e2e spec).
+// Always false in DEV/release (ALLOW_TEST_HOOKS folds false → readLogWasmHeap short-circuits).
 export function getLogWasmHeap(): boolean {
   return getRuntimeConfig().logWasmHeap ?? false
 }

@@ -11,6 +11,7 @@
 import type { HsfFile, HsfRule } from './hsfTypes'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
 import { RULE_SOURCE_FINAL_SELL } from './ruleSources'
+import { computeCrc32 } from './autosave'
 
 type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
 
@@ -145,6 +146,24 @@ function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMeta
 export function buildHsfFileFromMerged(rules: ExportableRule[], options?: ExportMetadataOptions): HsfFile {
   const prepared = applyRecipeNamesForExport(rules, options)
   return cleanHsfForExport(prepared)
+}
+
+// Fingerprint of the EXACT bytes that buildHsfFileFromMerged would export. The HSF
+// export/push "dirty" indicator compares this against the fingerprint captured at the last
+// export, so dirty ⟺ the exported file would actually differ — not merely "some input
+// changed". It must hash precisely what gets serialized: cleanHsfForExport already strips
+// every volatile/UI field (__safeguardScanMs timestamp, projected/deficit/itemKey, detection
+// internals, __lineIdx, etc.), so the result is deterministic and content-pure — a gear-DB
+// update that doesn't change the injected rules produces the same fingerprint (no false
+// "dirty"), and an add-then-remove inventory round-trip returns to the prior fingerprint
+// (correctly goes clean again). SSOT: the rule-cache worker computes this per pipeline commit
+// via this same helper; the main thread asserts parity in dev builds, so the two can never
+// drift on "what is exported".
+export function computeExportedHsfFingerprint(
+  rules: ExportableRule[],
+  options?: ExportMetadataOptions,
+): string {
+  return computeCrc32(JSON.stringify(buildHsfFileFromMerged(rules, options)))
 }
 
 /** Convert an HSF file object to a Blob ready to download. */

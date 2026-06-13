@@ -218,6 +218,12 @@ export default defineConfig({
     // Why: a per-clone PREVIEW_PORT (PLAYWRIGHT_PORT env var) lets parallel clones coexist
     // on WSL + Windows without colliding on a fixed port.
     command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${PREVIEW_PORT}`,
+    // VITE_TEST_HOOKS=1 makes vite.config set the compile-time __ALLOW_TEST_HOOKS__ flag, so
+    // this prod-like e2e build INCLUDES the test-only diagnostics (e.g. the ?logWasmHeap /
+    // window.__wasmHeapMB worker-heap probe the leak spec reads). Real release builds omit
+    // this env var → the flag is false → the diagnostics are tree-shaken out. Passed via the
+    // env option (not an inline `VAR=… cmd` prefix) so it works on Windows shells too.
+    env: { VITE_TEST_HOOKS: '1' },
     url: `${PREVIEW_BASE_URL}/`,
     // Always start a fresh preview so we never silently inherit a stale bundle (the
     // exact failure mode that produced the README-dialog regression after bumping the
