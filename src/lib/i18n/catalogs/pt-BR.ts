@@ -1319,6 +1319,7 @@ const catalog: Catalog = {
   restoreAutosaveFiltersHelper: "Restaura estado aberto, seleção e seções recolhidas.",
   restoreAutosaveGearInspectorLabel: "Inspetor de Equipamento ({count})",
   restoreAutosaveGearInspectorHelper: "Carrega o equipamento auto-salvo.",
+  restoreAutosaveGearInspectorSupersededHelper: "Equipamento mais recente foi carregado dos dados ao vivo, então a cópia auto-salva não pode mais ser restaurada.",
   restoreAutosaveGearSetsLabel: "Conjuntos personalizados ({count})",
   restoreAutosaveGearSetsHelper: "Carrega os patches de conjuntos enviados pelos colaboradores.",
   restoreAutosaveRestoreSelected: "Restaurar seleção",

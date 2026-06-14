@@ -1318,6 +1318,7 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: "Відновлює стан відкриття, вибір та згортання секцій.",
   restoreAutosaveGearInspectorLabel: "Інспектор спорядження ({count})",
   restoreAutosaveGearInspectorHelper: "Завантажити автозбережене спорядження.",
+  restoreAutosaveGearInspectorSupersededHelper: "З актуальних даних завантажено новіше спорядження, тож автозбережену копію більше не можна відновити.",
   restoreAutosaveGearSetsLabel: "Користувацькі сети ({count})",
   restoreAutosaveGearSetsHelper: "Завантажити надані патчі сетів.",
   restoreAutosaveRestoreSelected: "Відновити вибране",

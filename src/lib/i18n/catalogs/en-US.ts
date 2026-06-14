@@ -1352,6 +1352,7 @@ const enUS: Catalog = {
   restoreAutosaveFiltersHelper: "Restores panel open state, selection, collapsed sections, and sort preferences.",
   restoreAutosaveGearInspectorLabel: "Gear Inspector ({count})",
   restoreAutosaveGearInspectorHelper: "Load autosaved gear.",
+  restoreAutosaveGearInspectorSupersededHelper: "Newer gear was loaded from the live data, so the autosaved copy can no longer be restored.",
   restoreAutosaveGearSetsLabel: "Runtime Gear Sets ({count})",
   restoreAutosaveGearSetsHelper: "Load contributor gear-set patches.",
   restoreAutosaveRestoreSelected: "Restore Selected",

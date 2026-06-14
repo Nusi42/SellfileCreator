@@ -9121,7 +9121,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <RestoreAutosaveDialog
           open={restoreDlgOpen}
           draft={restoreDraft}
-          gearInspectorDraft={(gearInspectorRestoreDraft && !endpointGearDataApplied) ? { count: gearInspectorRestoreDraft.count, savedAt: gearInspectorRestoreDraft.savedAt } : null}
+          gearInspectorDraft={gearInspectorRestoreDraft ? { count: gearInspectorRestoreDraft.count, savedAt: gearInspectorRestoreDraft.savedAt } : null}
+          // Once the background endpoint data lands the snapshot offer is superseded.
+          // Keep the row visible but disabled so the dialog doesn't resize and the
+          // user can't accidentally click through to dismiss it (see the prop docs).
+          gearInspectorDisabled={endpointGearDataApplied}
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}

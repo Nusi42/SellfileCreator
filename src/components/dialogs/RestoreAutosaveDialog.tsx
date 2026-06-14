@@ -22,6 +22,13 @@ type RestoreAutosaveDialogProps = {
   open: boolean
   draft: RestoreDraft | null
   gearInspectorDraft: GearInspectorRestoreDraftMeta | null
+  /**
+   * True once the background gear-endpoint data has been applied, superseding the
+   * autosave snapshot. The Gear Inspector row stays visible but is disabled and
+   * forced unchecked — removing it instead would resize the dialog mid-interaction
+   * and risk the user clicking through to a dismissed backdrop.
+   */
+  gearInspectorDisabled?: boolean
   storedGearSetsCount: number
   metasetsDiffer: boolean
   targetsDiffer: boolean
@@ -35,6 +42,8 @@ type RestoreOption = {
   key: RestoreOptionKey
   label: string
   helper?: string
+  /** When true the row renders but cannot be toggled and is treated as unchecked. */
+  disabled?: boolean
 }
 
 const formatSavedAt = (value?: string | null): string | null => formatLocalDateTime(value)
@@ -58,6 +67,7 @@ export default function RestoreAutosaveDialog({
   open,
   draft,
   gearInspectorDraft,
+  gearInspectorDisabled = false,
   storedGearSetsCount,
   metasetsDiffer,
   targetsDiffer,
@@ -96,10 +106,12 @@ export default function RestoreAutosaveDialog({
     // viewFilterDiffer covers both view/filter and sort; show the combined row when either differs.
     if (viewFilterDiffer) next.filters = true
     // Skip Gear Inspector if snapshot is empty — that equals the default state.
-    if (hasGearInspectorContent) next.gearInspector = true
+    // Also skip when disabled: the endpoint data has superseded the snapshot, so
+    // offering its restore would be a no-op (the row stays visible but unchecked).
+    if (hasGearInspectorContent && !gearInspectorDisabled) next.gearInspector = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent])
+  }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled])
 
   // Merge persisted and default selection during render when the dialog is open.
   // This replaces a useEffect to avoid an extra re-render cycle — the React-blessed
@@ -162,7 +174,12 @@ export default function RestoreAutosaveDialog({
       rows.push({
         key: 'gearInspector',
         label: t('restoreAutosaveGearInspectorLabel', { count: gearInspectorDraft!.count }),
-        helper: t('restoreAutosaveGearInspectorHelper'),
+        // Once the endpoint data is applied the row is shown disabled rather than
+        // removed, so its helper explains why it can no longer be restored.
+        helper: gearInspectorDisabled
+          ? t('restoreAutosaveGearInspectorSupersededHelper')
+          : t('restoreAutosaveGearInspectorHelper'),
+        disabled: gearInspectorDisabled,
       })
     }
     if (gearSetsCount > 0) {
@@ -173,7 +190,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.
@@ -231,7 +248,9 @@ export default function RestoreAutosaveDialog({
     })
   }
 
-  const selectableOptions = options
+  // Disabled rows (e.g. the superseded Gear Inspector offer) never count toward a
+  // valid restore, even if a stale persisted selection still has them checked.
+  const selectableOptions = options.filter(opt => !opt.disabled)
   const hasAtLeastOne = selectableOptions.some(opt => selection[opt.key])
   const canRestore = hasAtLeastOne && constraintMessages.length === 0
 
@@ -259,7 +278,10 @@ export default function RestoreAutosaveDialog({
                 <Box key={option.key} sx={{ p: 0.25 }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Checkbox
-                      checked={selection[option.key]}
+                      // Disabled rows always render unchecked regardless of any stale
+                      // persisted selection, so the user can't restore superseded data.
+                      checked={option.disabled ? false : selection[option.key]}
+                      disabled={option.disabled}
                       onChange={handleToggle(option.key)}
                       slotProps={{ input: { 'aria-label': option.label } }}
                       sx={{ mt: -0.5, ml: -0.5 }}

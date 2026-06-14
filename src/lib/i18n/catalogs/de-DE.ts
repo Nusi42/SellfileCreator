@@ -1314,6 +1314,7 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: "Stellt Öffnungsstatus, Auswahl und eingeklappte Bereiche wieder her.",
   restoreAutosaveGearInspectorLabel: "Ausrüstungsinspektor ({count})",
   restoreAutosaveGearInspectorHelper: "Autosave-Ausrüstung laden.",
+  restoreAutosaveGearInspectorSupersededHelper: "Aus den Live-Daten wurde neuere Ausrüstung geladen, daher kann die Autosave-Kopie nicht mehr wiederhergestellt werden.",
   restoreAutosaveGearSetsLabel: "Runtime-Gear-Sets ({count})",
   restoreAutosaveGearSetsHelper: "Lädt die bereitgestellten Gear-Set-Patches.",
   restoreAutosaveRestoreSelected: "Auswahl wiederherstellen",

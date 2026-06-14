@@ -1319,6 +1319,7 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: "Restaura el estado abierto, la selección y las secciones contraídas.",
   restoreAutosaveGearInspectorLabel: "Inspector de Equipo ({count})",
   restoreAutosaveGearInspectorHelper: "Carga el equipo autoguardado.",
+  restoreAutosaveGearInspectorSupersededHelper: "Se cargó equipo más reciente desde los datos en vivo, por lo que ya no se puede restaurar la copia autoguardada.",
   restoreAutosaveGearSetsLabel: "Conjuntos personalizados ({count})",
   restoreAutosaveGearSetsHelper: "Carga los parches de gear-set enviados por colaboradores.",
   restoreAutosaveRestoreSelected: "Restaurar selección",

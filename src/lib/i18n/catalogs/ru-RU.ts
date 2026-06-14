@@ -1317,6 +1317,7 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: "Восстанавливает состояние открытия, выбор и свёрнутые секции.",
   restoreAutosaveGearInspectorLabel: "Инспектор снаряжения ({count})",
   restoreAutosaveGearInspectorHelper: "Загрузить автосохранённое снаряжение.",
+  restoreAutosaveGearInspectorSupersededHelper: "Из актуальных данных загружено более новое снаряжение, поэтому автосохранённую копию больше нельзя восстановить.",
   restoreAutosaveGearSetsLabel: "Пользовательские сеты ({count})",
   restoreAutosaveGearSetsHelper: "Загрузить предоставленные патчи сетов.",
   restoreAutosaveRestoreSelected: "Восстановить выбранное",

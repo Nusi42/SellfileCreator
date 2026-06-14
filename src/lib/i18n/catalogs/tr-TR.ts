@@ -1317,6 +1317,7 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: "Açık durumu, seçimi ve daraltılmış bölüleri geri yükler.",
   restoreAutosaveGearInspectorLabel: "Ekipman Denetçisi ({count})",
   restoreAutosaveGearInspectorHelper: "Otomatik kaydedilen ekipmanı yükle.",
+  restoreAutosaveGearInspectorSupersededHelper: "Canlı verilerden daha yeni ekipman yüklendi, bu yüzden otomatik kaydedilen kopya artık geri yüklenemez.",
   restoreAutosaveGearSetsLabel: "Özel gear setleri ({count})",
   restoreAutosaveGearSetsHelper: "Katkıda bulunanlar tarafından sağlanan gear set yamalarını yükler.",
   restoreAutosaveRestoreSelected: "Seçilenleri geri yükle",
