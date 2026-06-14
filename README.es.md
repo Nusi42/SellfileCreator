@@ -13,7 +13,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Vista Sellfile** — previsualiza el archivo de venta de RSL Helper
   generado en la pestaña Vista previa antes de exportar.
 - **Metaconjuntos** — agrupa conjuntos de equipo (p. ej. Velocidad + Percepción) en
-  colecciones con nombre y reutilízalos en recetas y protecciones.
+  colecciones con nombre y reutilízalos en recetas y salvaguardas.
 - **Inspector de equipo** — conecta RSL Helper para sincronización en vivo o carga un archivo `.db` para previsualizar qué objetos coinciden con cada receta y cuántos se conservarían o venderían.
 - **Comparación de equipo** — activa una vista de antes/después para ver exactamente qué piezas cambian entre *conservar* y *vender* mientras ajustas recetas o pruebas las sustituciones dinámicas. Un chip muestra los totales actuales; una lista en paralelo muestra cada pieza que cambió.
 - **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
@@ -44,7 +44,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - Cargar/Guardar: usa «Cargar recetas» y «Guardar recetas» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
   - Haz clic derecho en **Cargar archivo SFC** para abrir el menú contextual: **Cargar desde archivo…** abre el selector de archivos del sistema como de costumbre; **Cargar preset: Principiante** o **Cargar preset: Midgame a Endgame** carga uno de los presets incluidos tras una confirmación (tu configuración actual será reemplazada).
 - Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as receta» o «Apply as receta» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una receta) o «Auto apply to selected receta» (envía los cambios a la receta seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
-- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas). Añade `<!-- dungeon-simulator -->` para mostrar una tabla en vivo de probabilidad de conservación para el Caballero de Fuego, el Dragón y el Gólem de Hielo en tres niveles de dificultad (N20/N25/H10) y dos modos de mejora, con las tasas de conservación en +0/+4/+8/+12/+16. Añade `<!-- recipe-overrides [columns=N] -->` para insertar tarjetas de preguntas interactivas (grupos de radio/casilla) que sobreescriben los modos de exportación y ajustes de recetas durante la sesión — las recetas almacenadas nunca se modifican. Añade `<!-- safeguard-overrides [columns=N] -->` para insertar tarjetas de controles deslizantes y opciones que sobreescriben propiedades de las salvaguardas (cantidad, activación, subestadísticas, oportunidad de mejora y más) durante la sesión — las reglas almacenadas nunca se modifican. Cuando alguno de estos marcadores está presente, el pie de la nota muestra un botón **Desactivar / Activar ajustes dinámicos** y un botón **Restablecer opciones**.
+- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas). Añade `<!-- dungeon-simulator -->` para mostrar una tabla en vivo de probabilidad de conservación para el Caballero de Fuego, el Dragón y el Gólem de Hielo en tres niveles de dificultad (N20/N25/H10) y dos modos de mejora, con las tasas de conservación en +0/+4/+8/+12/+16. Añade `<!-- recipe-overrides [columns=N] -->` para insertar tarjetas de preguntas interactivas (grupos de radio/casilla) que sobreescriben los modos de exportación y ajustes de recetas durante la sesión — las recetas almacenadas nunca se modifican. Añade `<!-- safeguard-overrides [columns=N] -->` para insertar tarjetas de controles deslizantes y opciones que sobreescriben propiedades de las salvaguardas (cantidad, activación, subestadísticas, oportunidad de mejora y más) durante la sesión — las reglas almacenadas nunca se modifican. Cuando alguno de estos marcadores está presente, el pie de la nota muestra un botón **Desactivar / Activar anulaciones dinámicas** y un botón **Restablecer opciones**.
 - Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Inspector de Equipo. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir el diálogo Herramientas refleja exactamente lo que exportaste la última vez.
 
 ### Diseño del constructor (de arriba hacia abajo)
@@ -115,19 +115,19 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - Sin `Venta final`, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con `Venta final` activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
-### Conservar únicos
-- Cambia el constructor al modo **Protecciones** con el botón de alternancia situado encima del panel del constructor para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
-- Las reglas de Conservar únicos no «consumen» objetos—cada regla evalúa el mismo conjunto de candidatos. Si una pieza coincide con varias reglas, cuenta para todas.
-- Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- El `Modo` decide cómo se emite la regla: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
+### Salvaguardas
+- Cambia el constructor al modo **Salvaguardas** con el botón de alternancia situado encima del panel del constructor para marcar las combinaciones que nunca quieres perder. Activa `Activar Salvaguardas` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
+- Las salvaguardas no «consumen» objetos—cada salvaguarda evalúa el mismo conjunto de candidatos. Si una pieza coincide con varias salvaguardas, cuenta para todas.
+- Cada salvaguarda te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
+- El `Modo` decide cómo se emite la salvaguarda: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
 - Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan esos substats. El chip de coincidencia (`Cualquier Substat` / `Todos los Substats` / `Por Substat`) decide si basta con uno, si deben estar todos o si cada substat tiene su propia cuota. Dejarlo vacío permite cualquier substat.
 - Las substats seleccionadas siempre se clasifican con la fórmula normalizada (glifos ignorados); los pesos aparecen con `Cualquier Substat` y `Todos los Substats`, `Por Substat` usa la ponderación estándar (los empates en el corte se mantienen).
-- `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
+- `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la salvaguarda vuelve automáticamente a `Por salvaguarda`.
 - El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por conjunto × ...`) y una línea simple de faltantes (`({missing} faltan)`).
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
-- **Conmutadores ignorar** (chips junto al interruptor de activación de la regla) afinan qué cuenta cada regla:
-  - `Ignorar salvaguardas anteriores` – cuando la regla clasifica candidatos por substats, descarta de su pool las piezas que las salvaguardas anteriores ya conservaron y escoge a cambio las siguientes mejores. Útil cuando apilas una segunda regla de SPD/CR tras una genérica y quieres que profundice en el ranking de puntuación en vez de proteger redundantemente las mismas piezas. Las reglas sin substats no se ven afectadas. Por defecto: desactivado.
-  - `Ignorar equipados (Colección)` – excluye las piezas equipadas actualmente en campeones de la colección del recuento de coincidencias de esta regla, para que no satisfagan su cuota. Por defecto: desactivado.
+- **Conmutadores ignorar** (chips junto al interruptor de activación de la salvaguarda) afinan qué cuenta cada salvaguarda:
+  - `Ignorar salvaguardas anteriores` – cuando la salvaguarda clasifica candidatos por substats, descarta de su pool las piezas que las salvaguardas anteriores ya conservaron y escoge a cambio las siguientes mejores. Útil cuando apilas una segunda salvaguarda de SPD/CR tras una genérica y quieres que profundice en el ranking de puntuación en vez de proteger redundantemente las mismas piezas. Las salvaguardas sin substats no se ven afectadas. Por defecto: desactivado.
+  - `Ignorar equipados (Colección)` – excluye las piezas equipadas actualmente en campeones de la colección del recuento de coincidencias de esta salvaguarda, para que no satisfagan su cuota. Por defecto: desactivado.
   - `Ignorar equipados (Bóveda)` – misma idea pero para campeones de la bóveda. Por defecto: desactivado.
 - **`Probabilidad de mejora ≥ N%`** (explorador de talento opcional): amplía la red de seguridad más allá del top-N estándar. El escáner siempre conserva primero las piezas del top-N por su valor de substat **actual** — esas nunca están en riesgo. Además, protege cualquier pieza *fuera* de ese top-N cuya probabilidad de mejora alcance el umbral. La idea es: «conservar los drops en bruto que tienen buenas posibilidades de ser competitivos una vez mejorados».
 
@@ -162,7 +162,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 
 | Botón de ámbito | Comportamiento de la cuota | Cuándo destaca |
 | --- | --- | --- |
-| `Por regla` | Un único cupo para toda la regla. | Conserva cinco botas SPD sin importar el set. |
+| `Por salvaguarda` | Un único cupo para toda la salvaguarda. | Conserva cinco botas SPD sin importar el set. |
 | `Por ranura` | Duplica la cuota por cada ranura. | Mantiene dos anillos, dos amuletos y dos estandartes por separado. |
 | `Por conjunto` | Duplica la cuota por cada set/metaset de la tarjeta. | Sigue por separado dos caídas de Stoneskin y dos de Protection. |
 | `Por facción` | Duplica la cuota por facción. | Garantiza tres anillos Merciless por facción. |
@@ -172,16 +172,16 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 
 | Escenario | Filtros | Cantidad necesaria | Chips de ámbito | Lo que garantiza el escáner |
 | --- | --- | --- | --- | --- |
-| Se acaban las botas de SPD | Ranura = Botas, Stat principal = SPD, Sets en blanco | `5` | `Por regla` | Sobreviven al menos cinco botas SPD, sin importar el set. |
-| Mezclar guantes Savage y Lethal | Ranura = Guantes, Sets = Savage + Lethal, Stat principal = CDMG% | `3` | `Por regla` | Conserva tres guantes de daño aunque cambie la mezcla de sets. |
-| Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `3` | `Por facción` | Cada facción guarda tres anillos propios antes de que la regla se dé por cumplida. |
+| Se acaban las botas de SPD | Ranura = Botas, Stat principal = SPD, Sets en blanco | `5` | `Por salvaguarda` | Sobreviven al menos cinco botas SPD, sin importar el set. |
+| Mezclar guantes Savage y Lethal | Ranura = Guantes, Sets = Savage + Lethal, Stat principal = CDMG% | `3` | `Por salvaguarda` | Conserva tres guantes de daño aunque cambie la mezcla de sets. |
+| Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `3` | `Por facción` | Cada facción guarda tres anillos propios antes de que la salvaguarda se dé por cumplida. |
 | Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `2` | `Por facción` | Se aseguran dos anillos de HP% por facción. |
 | Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `5` | `Por facción` | Cada facción conserva cinco anillos, amuletos y estandartes. |
 | Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por conjunto` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
-| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por regla` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
+| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
 | Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
-Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de activar el modo Protecciones para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
+Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de activar el modo Salvaguardas para que el escáner tenga objetos reales. Haz clic en una tarjeta de salvaguarda para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
 
 ### Botín de mazmorra (Simulador)
 Abre «Herramientas» y cambia a **Botín de mazmorra**. Simula el farmeo de mazmorras con tus reglas actuales del Sellfile para ver cuánto equipo conservarías por set y nivel de mejora.
@@ -194,7 +194,7 @@ Abre «Herramientas» y cambia a **Botín de mazmorra**. Simula el farmeo de maz
 - Haz clic en una celda para ver el desglose por slot + stat principal, luego abre **Probabilidades de substats específicas** para ver chances exactas y estimaciones de ejecuciones.
 
 Notas:
-- Usa tus reglas actuales de Conservar/Vender, incluyendo Venta final y Conservar únicos.
+- Usa tus reglas actuales de Conservar/Vender, incluyendo Venta final y Salvaguardas.
 - Corre unas 100.000 drops por etapa y se actualiza mientras corre.
 - Las tasas de drop y los rolls son simulados; toma los números como estimaciones.
 
@@ -233,7 +233,7 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 - Vínculo por hover: al pasar el cursor sobre un chip se iluminan las filas asociadas en la vista previa y viceversa.
 - Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la receta de origen (las filas de la HSF base no cambian tu selección).
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
-- Interruptor de recetas activado/desactivado: el interruptor del encabezado del constructor desactiva globalmente todas las recetas sin eliminarlas y detiene la canalización de vista previa — útil para revisar rápidamente una exportación solo con protecciones o comprobar qué produce la Venta final por sí sola.
+- Interruptor de recetas activado/desactivado: el interruptor del encabezado del constructor desactiva globalmente todas las recetas sin eliminarlas y detiene la canalización de vista previa — útil para revisar rápidamente una exportación solo con salvaguardas o comprobar qué produce la Venta final por sí sola.
 
 ### Vista Sellfile (Reglas e Inspector de Equipo)
 - El encabezado reúne el interruptor `Reglas`/`Inspector de Equipo`, el botón «Herramientas» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo».

@@ -13,7 +13,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - **Prévia Sellfile** — pré-visualize o arquivo de venda RSL Helper
   gerado na aba Pré-visualização antes de exportar.
 - **Metaconjuntos** — agrupe conjuntos de equipamentos (ex. Velocidade + Percepção) em
-  coleções nomeadas e reutilize-os em receitas e proteções.
+  coleções nomeadas e reutilize-os em receitas e salvaguardas.
 - **Inspetor de equipamentos** — conecte-se ao RSL Helper para sincronização ao vivo ou carregue um arquivo `.db` para pré-visualizar quais itens correspondem a cada receita e quantos seriam mantidos ou vendidos.
 - **Comparação de equipamento** — ative uma visão de antes/depois para ver exatamente quais peças mudam entre *manter* e *vender* enquanto você ajusta receitas ou testa as substituições dinâmicas. Um chip mostra os totais atuais; uma lista lado a lado mostra cada peça que mudou.
 - **Simulador de masmorras** — veja os percentuais de chance de manter para o Cavaleiro do
@@ -44,7 +44,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - Carregar/Salvar: use «Carregar receitas» e «Salvar receitas» para reutilizar as regras. Essas ações mantêm tudo o que é necessário para reconstruir a prévia.
   - Clique com o botão direito em **Carregar arquivo SFC** para o menu de contexto: **Carregar do arquivo…** abre o seletor de arquivos do sistema como de costume; **Carregar preset: Iniciante** ou **Carregar preset: Midgame ao Endgame** carrega um dos presets integrados após uma confirmação (sua configuração atual será substituída).
 - Menus de Reset/Insert/Apply: clique com o botão direito em «Reset», «Insert as receita» ou «Apply as receita» para abrir o menu compartilhado. Salve o estado atual do builder como modelo padrão, retorne aos padrões de fábrica, ative «Auto reset after Insert» (limpa o builder imediatamente após inserir uma receita) ou ative «Auto apply to selected receita» (envia as edições para a receita destacada automaticamente após ~400 ms de inatividade). Auto reset e Auto apply não podem ficar ativos ao mesmo tempo — ligar um desliga o outro — e ambas as preferências continuam válidas entre sessões.
-- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao arquivo de receitas. Ao carregar um arquivo que contenha nota, ela é exibida automaticamente. Use `<!-- recipes:1,0 -->` para inserir chips de receitas específicas (0 pega a próxima). Use `<!-- recipes-re:"speed" -->` para mostrar todas as receitas cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas). Adicione `<!-- dungeon-simulator -->` para exibir uma tabela em tempo real de probabilidade de retenção para o Cavaleiro do Fogo, o Dragão e o Golem de Gelo em três níveis de dificuldade (N20/N25/H10) e dois modos de boost, com as taxas de retenção em +0/+4/+8/+12/+16. Adicione `<!-- recipe-overrides [columns=N] -->` para incorporar cartões de perguntas interativas (grupos de rádio/caixa de seleção) que substituem os modos de exportação e configurações de receitas na sessão — as receitas armazenadas nunca são modificadas. Adicione `<!-- safeguard-overrides [columns=N] -->` para incorporar cartões de controles deslizantes e opções que substituem propriedades das salvaguardas (contagem, ativação, substats, chance de melhoria e mais) na sessão — as regras armazenadas nunca são modificadas. Quando algum desses marcadores estiver presente, o rodapé da nota exibe um botão **Desativar / Ativar opções dinâmicas** e um botão **Redefinir opções**.
+- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao arquivo de receitas. Ao carregar um arquivo que contenha nota, ela é exibida automaticamente. Use `<!-- recipes:1,0 -->` para inserir chips de receitas específicas (0 pega a próxima). Use `<!-- recipes-re:"speed" -->` para mostrar todas as receitas cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas). Adicione `<!-- dungeon-simulator -->` para exibir uma tabela em tempo real de probabilidade de retenção para o Cavaleiro do Fogo, o Dragão e o Golem de Gelo em três níveis de dificuldade (N20/N25/H10) e dois modos de boost, com as taxas de retenção em +0/+4/+8/+12/+16. Adicione `<!-- recipe-overrides [columns=N] -->` para incorporar cartões de perguntas interativas (grupos de rádio/caixa de seleção) que substituem os modos de exportação e configurações de receitas na sessão — as receitas armazenadas nunca são modificadas. Adicione `<!-- safeguard-overrides [columns=N] -->` para incorporar cartões de controles deslizantes e opções que substituem propriedades das salvaguardas (contagem, ativação, substats, chance de melhoria e mais) na sessão — as salvaguardas armazenadas nunca são modificadas. Quando algum desses marcadores estiver presente, o rodapé da nota exibe um botão **Desativar / Ativar substituições dinâmicas** e um botão **Redefinir opções**.
 - Restauração do Autosave: ao iniciar, o diálogo lista cada seção salva com a sua própria caixa de seleção. Restaure só o que precisar — receitas (incluindo o chip selecionado), meta-sets, Alvos de substats, restante da Venda final, nota fixada, painel de filtros (estado aberto/fechado, chips, seções recolhidas) e as importações do Inspetor de Equipamento. Deixe a caixa desmarcada para preservar o trabalho atual. O Autosave também lembra quais interruptores da Venda final (Artefatos, Acessórios e faixas de nível) estavam ativos, então reabrir Ferramentas reflete exatamente o que exportou da última vez.
 
 ### Estrutura do construtor (de cima para baixo)
@@ -116,17 +116,17 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o arquivo exportado lista os sets um a um.
 
 ### Manter únicos
-- Mude o construtor para o modo **Salvaguardas** usando o botão de alternância acima do painel do construtor para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
+- Mude o construtor para o modo **Salvaguardas** usando o botão de alternância acima do painel do construtor para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma salvaguarda também ativa automaticamente).
 - As regras de Manter únicos não “consomem” itens—cada regra avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias regras, conta para todas.
 - Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a regra é emitida: `Desativada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações que ainda faltam para proteger novos drops até a próxima atualização da BD.
 - Substats são opcionais: escolha um ou mais para contar somente itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam estar todos ou se cada substat tem sua própria quota. Deixar vazio permite qualquer substat.
 - As substats selecionadas sempre são ranqueadas pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todas as Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
-- `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por regra`.
+- `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por salvaguarda`.
 - O tooltip de `Quantidade necessária` mostra a divisão ativa de escopo (`X por slot × por conjunto × ...`) e uma linha simples de faltantes (`({missing} faltando)`).
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
 - **Opções ignorar** (chips ao lado do interruptor de ativação da regra) afinam o que cada regra conta:
-  - `Ignorar salvaguardas anteriores` – quando a regra classifica candidatos por substats, descarta do seu pool as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as próximas melhores por pontuação. Útil quando você empilha uma segunda regra de SPD/CR depois de uma genérica e quer que ela vá mais fundo no ranking em vez de proteger redundantemente as mesmas peças. Regras sem substats não são afetadas. Padrão: desligado.
+  - `Ignorar salvaguardas anteriores` – quando a salvaguarda classifica candidatos por substats, descarta do seu pool as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as próximas melhores por pontuação. Útil quando você empilha uma segunda salvaguarda de SPD/CR depois de uma genérica e quer que ela vá mais fundo no ranking em vez de proteger redundantemente as mesmas peças. Salvaguardas sem substats não são afetadas. Padrão: desligado.
   - `Ignorar equipados (Coleção)` – exclui peças atualmente equipadas em campeões da coleção do contador de correspondências desta regra, para que não satisfaçam a sua quota. Padrão: desligado.
   - `Ignorar equipados (Cofre)` – mesma ideia mas para campeões do cofre. Padrão: desligado.
 - **`Chance de Melhoria ≥ N%`** (explorador de talentos opcional): amplia a rede de segurança além do top-N padrão. O scanner sempre mantém primeiro as peças do top-N pelo seu valor de substat **atual** — essas nunca estão em risco. Além disso, protege qualquer peça *fora* desse top-N cuja chance de melhoria atinja o limite. A ideia é: «segurar os drops brutos que têm boas chances de ser competitivos após serem melhorados».
@@ -159,11 +159,11 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
   - Evite **100 %**: só coincide com peças completamente melhoradas já mantidas pelo top-N padrão, então não adiciona nada além do modo padrão.
 
 #### Escopos de quota em resumo
-Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regra» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.
+Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salvaguarda» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.
 
 | Botão de escopo | Comportamento da cota | Quando brilha |
 | --- | --- | --- |
-| `Por regra` | Um pool único para toda a regra. | Manter cinco botas SPD sem importar o set. |
+| `Por salvaguarda` | Um pool único para toda a salvaguarda. | Manter cinco botas SPD sem importar o set. |
 | `Por slot` | Duplica a cota por slot. | Trava dois anéis, dois amuletos e dois estandartes separadamente. |
 | `Por conjunto` | Duplica a cota por set/metaset. | Acompanha Stoneskin e Protection sem misturar os drops. |
 | `Por facção` | Duplica a cota por facção. | Garante três anéis Merciless para cada facção. |
@@ -172,16 +172,16 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regr
 #### Exemplos do mundo real
 | Cenário | Filtros | Quantidade necessária | Botões de escopo | O que o scanner garante |
 | --- | --- | --- | --- | --- |
-| Acabando as botas SPD | Slot = Botas, Atributo principal = SPD, Sets vazios | `5` | `Por regra` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
-| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Atributo principal = CDMG% | `3` | `Por regra` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
+| Acabando as botas SPD | Slot = Botas, Atributo principal = SPD, Sets vazios | `5` | `Por salvaguarda` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
+| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Atributo principal = CDMG% | `3` | `Por salvaguarda` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
 | Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `3` | `Por facção` | Cada facção mantém três anéis Merciless próprios. |
 | Anéis HP% por facção | Slot = Anel, Atributo principal = HP%, Sets vazios | `2` | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
 | Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Atributo principal vazios | `5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
 | Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Atributo principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda dois Stoneskin e dois Protection para cada slot de acessório. |
-| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por regra` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
+| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
 | Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
 
-Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de ativar o modo Salvaguardas para que o scanner veja equipamentos reais. Clique numa regra de salvaguarda para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
+Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de ativar o modo Salvaguardas para que o scanner veja equipamentos reais. Clique numa salvaguarda para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
 
 ### Drops de masmorra (Simulador)
 Abra «Ferramentas» e vá para **Drops de masmorra**. Ele simula o farm em masmorras com suas regras atuais do Sellfile para ver quanto equipamento você manteria por conjunto e nível de melhoria.
@@ -233,7 +233,7 @@ Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma vis�
 - Ligação por hover: passar o cursor sobre uma etiqueta destaca as linhas associadas na prévia e vice-versa.
 - Ligação por clique: clicar uma linha da tabela seleciona a receita de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, um diálogo é aberto com o texto já selecionado para copiar manualmente.
-- Ativar/desativar receitas: o botão no cabeçalho do builder desativa globalmente todas as receitas sem excluí-las, pausando a pipeline de prévia — útil para verificar rapidamente uma exportação apenas com proteções ou confirmar o que a Venda Final produz sozinha.
+- Ativar/desativar receitas: o botão no cabeçalho do builder desativa globalmente todas as receitas sem excluí-las, pausando a pipeline de prévia — útil para verificar rapidamente uma exportação apenas com salvaguardas ou confirmar o que a Venda Final produz sozinha.
 
 ### Prévia Sellfile (Rules e Inspetor de Equipamento)
 - O cabeçalho da prévia mantém o interruptor «Rules»/«Inspetor de Equipamento», o botão «Ferramentas» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento.

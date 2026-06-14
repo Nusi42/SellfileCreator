@@ -13,9 +13,9 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - **Anteprima Sellfile** — visualizza in anteprima il file di vendita RSL Helper
   generato nella scheda Anteprima prima di esportare.
 - **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
-  collezioni con nome e riutilizzali nelle ricette e nelle protezioni.
+  collezioni con nome e riutilizzali nelle ricette e nelle salvaguardie.
 - **Ispettore equipaggiamento** — connetti RSL Helper per la sincronizzazione in tempo reale o carica un file `.db` per vedere quali oggetti corrispondono a ogni ricetta e quanti verrebbero conservati o venduti.
-- **Confronto equipaggiamento** — attiva una vista prima/dopo per vedere esattamente quali pezzi passano tra *tieni* e *vendi* mentre regoli le ricette o provi gli override dinamici. Un chip mostra i totali correnti; un elenco affiancato mostra ogni pezzo cambiato.
+- **Confronto equipaggiamento** — attiva una vista prima/dopo per vedere esattamente quali pezzi passano tra *tieni* e *vendi* mentre regoli le ricette o provi le sostituzioni dinamiche. Un chip mostra i totali correnti; un elenco affiancato mostra ogni pezzo cambiato.
 - **Simulatore dungeon** — consulta le percentuali di probabilità di conservare per il
   Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
   potenziamento per confermare l'effetto del tuo file di vendita durante il farming o il
@@ -45,7 +45,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - Carica/Salva: usa "Carica ricette" e "Salva ricette" per riutilizzare le tue regole personalizzate. Queste azioni salvano tutto ciò che serve per ricostruire l'anteprima dentro un file di ricette.
   - Clic destro su **Carica file SFC** per il menu contestuale: **Carica da file…** apre il selettore file come di consueto; **Carica preset: Principiante** o **Carica preset: Midgame all'Endgame** carica uno dei preset integrati dopo una conferma (il setup attuale verrà sostituito).
 - Menu Reset/Inserisci/Applica: clic destro su Reset, "Inserisci come ricetta" o "Applica come ricetta" per aprire il menu condiviso. Salva lo stato corrente del builder come modello predefinito, torna ai valori di fabbrica, abilita "Reset automatico dopo Inserisci" (svuota il builder subito dopo aver inserito una ricetta) oppure abilita "Applica automaticamente alla ricetta selezionata" (invia le modifiche nella ricetta evidenziata dopo ~400 ms di inattività). I due interruttori sono mutuamente esclusivi: attivarne uno disattiva l'altro e le preferenze restano salvate tra le sessioni.
-- Nota: clicca "Aggiungi nota…" (o "Modifica nota…") per allegare una nota al tuo file di ricette. La nota viene mostrata automaticamente dopo aver caricato un file di ricette che la contiene. Usa `<!-- recipes:1,0 -->` per inserire i chip delle ricette desiderate (0 prende quella successiva). Usa `<!-- recipes-re:"speed" -->` per mostrare tutte le ricette con un nome che corrisponde al pattern (ignorando maiuscole/minuscole). Aggiungi `<!-- dungeon-simulator -->` per visualizzare una tabella in tempo reale delle probabilità di mantenimento per il Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su tre livelli di difficoltà (N20/N25/H10) e due modalità di potenziamento, con i tassi di mantenimento a +0/+4/+8/+12/+16. Aggiungi `<!-- recipe-overrides [columns=N] -->` per incorporare schede di domande interattive (gruppi radio/checkbox) che sovrascrivono le modalità di esportazione e le impostazioni delle ricette durante la sessione — le ricette memorizzate non vengono mai modificate. Aggiungi `<!-- safeguard-overrides [columns=N] -->` per incorporare schede con cursori e opzioni che sovrascrivono le proprietà delle salvaguardie (conteggio, attivazione, sottostati, probabilità di miglioramento e altro) durante la sessione — le regole memorizzate non vengono mai modificate. Quando è presente uno di questi marker, il piè di nota mostra un pulsante **Disattiva / Attiva le opzioni dinamiche** e un pulsante **Reimposta opzioni**.
+- Nota: clicca "Aggiungi nota…" (o "Modifica nota…") per allegare una nota al tuo file di ricette. La nota viene mostrata automaticamente dopo aver caricato un file di ricette che la contiene. Usa `<!-- recipes:1,0 -->` per inserire i chip delle ricette desiderate (0 prende quella successiva). Usa `<!-- recipes-re:"speed" -->` per mostrare tutte le ricette con un nome che corrisponde al pattern (ignorando maiuscole/minuscole). Aggiungi `<!-- dungeon-simulator -->` per visualizzare una tabella in tempo reale delle probabilità di mantenimento per il Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su tre livelli di difficoltà (N20/N25/H10) e due modalità di potenziamento, con i tassi di mantenimento a +0/+4/+8/+12/+16. Aggiungi `<!-- recipe-overrides [columns=N] -->` per incorporare schede di domande interattive (gruppi radio/checkbox) che sovrascrivono le modalità di esportazione e le impostazioni delle ricette durante la sessione — le ricette memorizzate non vengono mai modificate. Aggiungi `<!-- safeguard-overrides [columns=N] -->` per incorporare schede con cursori e opzioni che sovrascrivono le proprietà delle salvaguardie (conteggio, attivazione, sottostati, probabilità di miglioramento e altro) durante la sessione — le salvaguardie memorizzate non vengono mai modificate. Quando è presente uno di questi marker, il piè di nota mostra un pulsante **Disattiva / Attiva le sostituzioni dinamiche** e un pulsante **Reimposta opzioni**.
 - Ripristino Autosave: all'avvio il dialogo mostra ogni sezione salvata con la propria casella. Ripristina solo ciò che ti serve — ricette (incluso il chip selezionato), Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, pannello filtri (stato aperto, chip, sezioni collassate) e importazioni dell'Ispettore Equipaggiamento. Lascia deselezionata una casella per tenere intatto il lavoro corrente. Autosave ricorda anche quali interruttori di Vendita finale (Artefatti, Accessori e intervalli di livello) erano attivi, quindi riaprire Strumenti replica esattamente ciò che avevi esportato l'ultima volta.
 
 ### Struttura del builder (dall'alto verso il basso)
@@ -108,15 +108,15 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - Porta il builder in modalità **Salvaguardie** usando il pulsante di alternanza sopra il pannello builder per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
 - Le regole “Mantieni unici” non “consumano” gli oggetti—ogni regola valuta lo stesso pool di candidati. Se un pezzo corrisponde a più regole, conta per tutte.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
-- La `Modalità` decide come viene emessa la regola: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
+- La `Modalità` decide come viene emessa la salvaguardia: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
 - I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno quei substat. La chip di corrispondenza (`Qualsiasi Substat` / `Tutte le Substat` / `Per Substat`) decide se basta uno, se devono esserci tutti o se ogni substat ha la propria quota. Lasciare vuoto significa: nessun filtro substat.
 - I substat selezionati sono sempre classificati con il punteggio normalizzato (glifi ignorati); i pesi compaiono con `Qualsiasi Substat` e `Tutte le Substat`, `Per Substat` mantiene la ponderazione uguale (i pareggi al limite restano protetti).
-- `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per regola» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per regola»).
+- `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per salvaguardia» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per salvaguardia»).
 - Il tooltip di `Quantità richiesta` mostra la suddivisione attiva degli ambiti (`X per slot × per set × ...`) e una semplice riga dei mancanti (`({missing} mancanti)`).
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
 - Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
 - **Opzioni ignora** (chip accanto all’interruttore di abilitazione della regola) affinano cosa conta ogni regola:
-  - `Ignora salvaguardie precedenti` – quando la regola classifica i candidati per sotto-stat, scarta dal suo pool gli oggetti che salvaguardie precedenti hanno già mantenuto e sceglie invece i successivi migliori per punteggio. Utile quando impili una seconda regola SPD/CR dopo una generica e vuoi che scenda più in profondità nel ranking invece di proteggere ridondantemente gli stessi pezzi. Le regole senza sotto-stat non sono interessate. Predefinito: disattivato.
+  - `Ignora salvaguardie precedenti` – quando la salvaguardia classifica i candidati per sotto-stat, scarta dal suo pool gli oggetti che salvaguardie precedenti hanno già mantenuto e sceglie invece i successivi migliori per punteggio. Utile quando impili una seconda salvaguardia SPD/CR dopo una generica e vuoi che scenda più in profondità nel ranking invece di proteggere ridondantemente gli stessi pezzi. Le regole senza sotto-stat non sono interessate. Predefinito: disattivato.
   - `Ignora equipaggiati (Collezione)` – esclude i pezzi attualmente equipaggiati sui campioni della collezione dal conteggio delle corrispondenze di questa regola, così non soddisfano la sua quota. Predefinito: disattivato.
   - `Ignora equipaggiati (Deposito)` – stessa idea ma per i campioni del deposito. Predefinito: disattivato.
 - **`Probabilità di miglioramento ≥ N%`** (cercatore di talenti opzionale): allarga la rete di sicurezza oltre il top-N standard. Lo scanner mantiene sempre per prime le pezze del top-N in base al loro valore di sotto-stat **corrente** — quelle non sono mai a rischio. Poi protegge anche qualsiasi pezzo *fuori* da quel top-N la cui probabilità di miglioramento raggiunge la soglia. Il concetto è: «tieni i drop grezzi che hanno buone possibilità di essere competitivi una volta livellati».
@@ -152,7 +152,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 
 | Pulsante di ambito | Comportamento della quota | Quando è utile |
 | --- | --- | --- |
-| `Per regola` | Un unico pool condiviso per l’intera regola. | Mantiene cinque stivali SPD indipendentemente dal set. |
+| `Per salvaguardia` | Un unico pool condiviso per l’intera salvaguardia. | Mantiene cinque stivali SPD indipendentemente dal set. |
 | `Per slot` | Duplica la quota per ogni slot. | Mantiene due anelli, due amuleti e due vessilli separatamente. |
 | `Per set` | Duplica la quota per ogni set/metaset sulla scheda. | Tiene distinti due drop Stoneskin e due Protection. |
 | `Per fazione` | Duplica la quota per ogni fazione. | Garantisce tre anelli Merciless per ogni fazione. |
@@ -162,16 +162,16 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 
 | Scenario | Filtri | Quantità richiesta | Chip di ambito | Cosa garantisce lo scanner |
 | --- | --- | --- | --- | --- |
-| Scarpe SPD in esaurimento | Slot = Stivali, Stat principale = SPD, Set vuoti | `5` | `Per regola` | Sopravvivono almeno cinque stivali SPD indipendentemente dal set. |
-| Mischiare guanti Savage + Lethal | Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG% | `3` | `Per regola` | Conserva tre guanti ad alto danno anche se la miscela di set cambia. |
+| Scarpe SPD in esaurimento | Slot = Stivali, Stat principale = SPD, Set vuoti | `5` | `Per salvaguardia` | Sopravvivono almeno cinque stivali SPD indipendentemente dal set. |
+| Mischiare guanti Savage + Lethal | Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG% | `3` | `Per salvaguardia` | Conserva tre guanti ad alto danno anche se la miscela di set cambia. |
 | Anelli Merciless per fazione | Slot = Anello, Set = Merciless, Fazione vuota | `3` | `Per fazione` | Ogni fazione conserva tre dei propri anelli Merciless. |
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
-| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD | `5` | `Per regola` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
+| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD | `5` | `Per salvaguardia` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
 | Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
-Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di passare alla modalità Salvaguardie, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
+Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di passare alla modalità Salvaguardie, così lo scanner analizza oggetti reali. Clicca una salvaguardia per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
 
 ### Drop dei dungeon (Simulatore)
 Apri "Strumenti" e passa a **Drop dei dungeon**. Simula il farming dei dungeon con le tue regole Sellfile attuali per vedere quanto equipaggiamento manterresti per set e livello di potenziamento.
@@ -223,7 +223,7 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 - Collegamenti al clic: cliccando una riga dell'Anteprima Sellfile selezioni la ricetta salvata (e la carichi nel builder). Le righe provenienti dal `.hsf` di base non cambiano la selezione corrente.
 - Menu contestuali: sulle ricette salvate (Duplica/Sposta/Copia/Elimina) e sull'area delle ricette salvate (Copia tutto, Incolla).
 - Copia di backup: se l'accesso agli appunti è bloccato, si apre una finestra con il contenuto già selezionato — premi Ctrl/Cmd+C per copiarlo oppure incollalo nella finestra Incolla.
-- Interruttore Ricette on/off: il pulsante nell'intestazione del builder disabilita globalmente tutte le ricette senza eliminarle, mettendo in pausa la pipeline di anteprima — utile per controllare rapidamente un export con sole protezioni o verificare cosa produce la Vendita Finale da sola.
+- Interruttore Ricette on/off: il pulsante nell'intestazione del builder disabilita globalmente tutte le ricette senza eliminarle, mettendo in pausa la pipeline di anteprima — utile per controllare rapidamente un export con sole salvaguardie o verificare cosa produce la Vendita Finale da sola.
 
 ### Anteprima Sellfile (Regole e Ispettore Equipaggiamento)
 - L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Ispettore Equipaggiamento`, il pulsante “Strumenti” e il pulsante “Load RSL Helper Sellfile”, così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento.
@@ -252,14 +252,14 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 - Usa l'interruttore dell'anteprima per passare tra la tabella Regole e l'Ispettore Equipaggiamento senza riaprire Strumenti — perfetto per confrontare le righe generate con gli oggetti che le attivano.
 
 ### Confronto equipaggiamento (Prima / Dopo)
-- Il pulsante **Diff** nell'intestazione dell'Ispettore Equipaggiamento attiva un confronto che mostra quali pezzi passano tra **Tieni** e **Vendi** quando cambi qualcosa — utile per regolare le ricette o provare gli override dinamici nella finestra Nota.
+- Il pulsante **Diff** nell'intestazione dell'Ispettore Equipaggiamento attiva un confronto che mostra quali pezzi passano tra **Tieni** e **Vendi** quando cambi qualcosa — utile per regolare le ricette o provare le sostituzioni dinamiche nella finestra Nota.
 - Un piccolo chip accanto al pulsante mostra la variazione corrente rispetto al tuo punto di riferimento: quanti pezzi in più (o in meno) sono ora **Venduti**, **Tenuti** e protetti dalle **Salvaguardie**.
 - Clic sinistro su **Diff** apre una vista **affiancata prima/dopo** dei pezzi cambiati (sinistra = prima, destra = dopo) con scorrimento sincronizzato. Clicca di nuovo per chiudere.
 - Clic destro sul pulsante per le opzioni:
   - **Imposta riferimento** — fissa lo stato attuale come il «prima» con cui confronti.
   - **Segui riferimento automaticamente** (attivo per impostazione predefinita) — mantiene il «prima» sulla tua ultima modifica di ricetta/salvaguardia, così il confronto riflette sempre la tua modifica più recente.
 - Due cose da sapere:
-  - Attivare gli **override dinamici** nella finestra Nota **si somma** — più override mostrano il loro effetto combinato, non solo l'ultimo.
+  - Attivare le **sostituzioni dinamiche** nella finestra Nota **si somma** — più sostituzioni mostrano il loro effetto combinato, non solo l'ultima.
   - Modificare una ricetta o una salvaguardia nel builder sposta il riferimento a quella modifica (finché «Segui riferimento automaticamente» è attivo). Disattivalo (o usa «Imposta riferimento») per confrontare tutto rispetto a un punto fisso.
 - I tuoi filtri abituali dell'Ispettore Equipaggiamento continuano a valere: un pezzo appare se corrisponde al filtro prima o dopo la modifica.
 

@@ -13,14 +13,14 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - **Aperçu du Sellfile** — prévisualisez le fichier de vente RSL Helper généré
   dans l'onglet Aperçu avant d'exporter.
 - **Métasets** — regroupez des ensembles d'équipements (ex. Vitesse + Perception) en
-  collections nommées et réutilisez-les dans vos recettes et protections.
+  collections nommées et réutilisez-les dans vos recettes et garde-fous.
 - **Inspecteur d'équipement** — connectez RSL Helper pour une synchronisation en direct ou chargez un fichier `.db` pour prévisualiser les objets correspondant à chaque recette et combien seraient conservés ou vendus.
 - **Comparaison d'équipement** — activez une vue avant/après pour voir exactement quelles pièces basculent entre *garder* et *vendre* lorsque vous ajustez des recettes ou essayez les surcharges dynamiques. Une puce affiche les totaux en cours ; une liste côte à côte montre chaque pièce modifiée.
 - **Simulateur de donjon** — consultez les pourcentages de chance de conservation pour le
   Chevalier du Feu, le Dragon et le Golem de Glace selon les niveaux de difficulté et de
   mise à niveau pour confirmer l'effet de votre fichier de vente lors du farming ou de
   l'amélioration d'équipements.
-- **Protections** — définissez des combinaisons emplacement/ensemble/stat que vous ne
+- **Garde-fous** — définissez des combinaisons emplacement/ensemble/stat que vous ne
   voulez jamais perdre ; le scanner injecte automatiquement des règles de conservation dans
   le fichier de vente lorsque votre configuration risquerait d'épuiser une combinaison
   protégée en dessous de son quota.
@@ -49,7 +49,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - Charger/Enregistrer : utilisez « Charger des recettes » et « Enregistrer des recettes » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
   - Faites un clic droit sur **Charger fichier SFC** pour ouvrir le menu contextuel : **Charger depuis un fichier…** ouvre le sélecteur de fichiers habituel ; **Charger un préréglage : Débutant** ou **Charger un préréglage : Midgame à Endgame** charge l’un des préréglages intégrés après une confirmation (votre configuration actuelle sera remplacée).
 - Menus Réinitialiser/Insérer/Appliquer : clic droit sur Réinitialiser, Insérer comme recette ou Appliquer à la recette pour ouvrir le menu partagé. Sauvegardez l’état actuel du builder comme modèle par défaut, retournez aux réglages d’usine, activez Réinitialisation auto après insertion (vide immédiatement le builder après l’insertion d’une recette) ou activez Application auto à la recette sélectionnée (pousse les modifications vers la recette en surbrillance automatiquement après ~400 ms d’inactivité). Réinitialisation auto et Application auto ne peuvent pas coexister : activer l’une désactive l’autre, et ces préférences persistent entre les sessions.
-- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de recettes. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- recipes:1,0 -->` pour insérer des puces de recettes précises (0 prend la suivante). Utilisez `<!-- recipes-re:"speed" -->` pour afficher toutes les recettes dont le nom correspond au motif (insensible à la casse). Ajoutez `<!-- dungeon-simulator -->` pour afficher un tableau en direct des probabilités de conservation pour le Chevalier du Feu, le Dragon et le Golem de Glace sur trois niveaux de difficulté (N20/N25/H10) et deux modes de boost, avec les taux de conservation à +0/+4/+8/+12/+16. Ajoutez `<!-- recipe-overrides [columns=N] -->` pour intégrer des cartes de questions interactives (groupes radio/case à cocher) qui remplacent les modes d'exportation et les paramètres des recettes pour la session — les recettes stockées ne sont jamais modifiées. Ajoutez `<!-- safeguard-overrides [columns=N] -->` pour intégrer des cartes de curseurs et d'options qui remplacent les propriétés des protections (quantité, activation, sous-stats, probabilité d'amélioration, etc.) pour la session — les règles stockées ne sont jamais modifiées. Lorsque l'un ou l'autre de ces marqueurs est présent, le pied de la note affiche un bouton **Désactiver / Activer les options dynamiques** et un bouton **Réinitialiser les options**.
+- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de recettes. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- recipes:1,0 -->` pour insérer des puces de recettes précises (0 prend la suivante). Utilisez `<!-- recipes-re:"speed" -->` pour afficher toutes les recettes dont le nom correspond au motif (insensible à la casse). Ajoutez `<!-- dungeon-simulator -->` pour afficher un tableau en direct des probabilités de conservation pour le Chevalier du Feu, le Dragon et le Golem de Glace sur trois niveaux de difficulté (N20/N25/H10) et deux modes de boost, avec les taux de conservation à +0/+4/+8/+12/+16. Ajoutez `<!-- recipe-overrides [columns=N] -->` pour intégrer des cartes de questions interactives (groupes radio/case à cocher) qui remplacent les modes d'exportation et les paramètres des recettes pour la session — les recettes stockées ne sont jamais modifiées. Ajoutez `<!-- safeguard-overrides [columns=N] -->` pour intégrer des cartes de curseurs et d'options qui remplacent les propriétés des garde-fous (quantité, activation, sous-stats, probabilité d'amélioration, etc.) pour la session — les garde-fous stockés ne sont jamais modifiés. Lorsque l'un ou l'autre de ces marqueurs est présent, le pied de la note affiche un bouton **Désactiver / Activer les surcharges dynamiques** et un bouton **Réinitialiser les options**.
 - Restauration Autosave : au lancement, le dialogue liste chaque section sauvegardée avec sa propre case. Restaurez uniquement ce dont vous avez besoin — recettes (y compris la puce sélectionnée), méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, panneau de filtres (état ouvert, puces, sections repliées) et importations de l'Inspecteur d'équipement. Laissez une case décochée pour conserver votre travail. Autosave mémorise également quels interrupteurs de Vente finale (Artefacts, Accessoires et plages de niveau) étaient actifs, donc rouvrir le dialogue Outils reflète exactement ce que vous avez exporté la dernière fois.
 
 ### Structure du builder (du haut vers le bas)
@@ -120,26 +120,26 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - Sans `Vente finale`, RSL Helper conserve tout ce qui ne correspond à aucune règle. Une vente n’a lieu que si une règle explicite le demande.
 - Avec `Vente finale` active, les règles générées incluent tous les sets connus. L’aperçu indique « Tous les sets connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
 
-### Conserver les uniques
-- Basculez le builder en mode **Protections** à l’aide du bouton de basculement au-dessus du panneau builder pour marquer les combinaisons que vous refusez de vendre. Activez `Conserver les uniques` pour laisser le scanner ajouter des lignes de conservation (les modifications l’activent aussi automatiquement).
-- Les règles « Conserver les uniques » ne « consomment » pas les objets — chaque règle évalue le même pool de candidats. Si une pièce correspond à plusieurs règles, elle compte pour toutes.
-- Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
-- Le `Mode` décide comment la règle est émise : `Désactivée` la coupe, `Protéger l’existant` ajoute des lignes de conservation pour les correspondances qui seraient vendues jusqu’à atteindre la quota, et `Prévoir les manques` ajoute des règles fictives pour les combinaisons manquantes afin que les nouveaux drops restent protégés jusqu’à la prochaine mise à jour de la base.
+### Garde-fous
+- Basculez le builder en mode **Garde-fous** à l’aide du bouton de basculement au-dessus du panneau builder pour marquer les combinaisons que vous refusez de vendre. Activez `Garde-fous` pour laisser le scanner ajouter des lignes de conservation (les modifications l’activent aussi automatiquement).
+- Les garde-fous ne « consomment » pas les objets — chaque garde-fou évalue le même pool de candidats. Si une pièce correspond à plusieurs garde-fous, elle compte pour tous.
+- Chaque garde-fou vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
+- Le `Mode` décide comment le garde-fou est émis : `Désactivée` le coupe, `Protéger l’existant` ajoute des lignes de conservation pour les correspondances qui seraient vendues jusqu’à atteindre la quota, et `Prévoir les manques` ajoute des règles fictives pour les combinaisons manquantes afin que les nouveaux drops restent protégés jusqu’à la prochaine mise à jour de la base.
 - Les sous-stats sont optionnels : choisissez-en un ou plusieurs pour ne compter que les objets qui possèdent ces sous‑stats. La puce de correspondance (`N’importe quel sous-stat` / `Tous les sous-stats` / `Par sous-stat`) décide s’il en faut un, tous, ou si chaque sous‑stat a sa propre quota. Laisser vide signifie : aucun filtre de sous-stats.
 - Les sous-stats sélectionnés sont toujours classés avec le score normalisé (glyphes ignorés) ; les poids apparaissent avec `N’importe quel sous-stat` et `Tous les sous-stats`, `Par sous-stat` garde un poids égal (les égalités au seuil restent protégées).
-- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par règle »).
+- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par garde-fou » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par garde-fou »).
 - L’info-bulle de `Quantité requise` affiche la portée active (`X par emplacement × par ensemble × ...`) et une ligne simple des manquants (`({missing} manquants)`).
-- Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées à la règle Conserver les uniques actuellement surlignée ; tant qu’aucune règle n’est choisie, le mode reste aligné sur `Tous`.
+- Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées au garde-fou actuellement surligné ; tant qu’aucun garde-fou n’est choisi, le mode reste aligné sur `Tous`.
 - L’analyse n’ajoute des lignes de conservation que pour les correspondances qui seraient vendues, et seulement si le quota n’est pas atteint. En `Prévoir les manques`, des règles fictives couvrent aussi les combinaisons manquantes.
-- **Options d’ignorance** (chips à côté de l’interrupteur d’activation de la règle) affinent ce que chaque règle compte :
-  - `Ignorer les protections précédentes` – quand la règle classe les candidats par sous-stats, elle écarte de son pool les objets que des protections précédentes ont déjà conservés et choisit à la place les suivants par score. Utile lorsque vous empilez une seconde règle SPD/CR après une règle générique et voulez qu’elle pioche plus loin dans le classement plutôt que de protéger les mêmes pièces. Les règles sans sous-stats ne sont pas affectées. Par défaut : désactivé.
-  - `Ignorer les équipés (Collection)` – exclut les objets actuellement équipés sur les champions de la collection du compteur de correspondances de cette règle, pour qu’ils ne satisfassent pas son quota. Par défaut : désactivé.
+- **Options d’ignorance** (chips à côté de l’interrupteur d’activation du garde-fou) affinent ce que chaque garde-fou compte :
+  - `Ignorer les garde-fous précédents` – quand le garde-fou classe les candidats par sous-stats, il écarte de son pool les objets que des garde-fous précédents ont déjà conservés et choisit à la place les suivants par score. Utile lorsque vous empilez un second garde-fou SPD/CR après un garde-fou générique et voulez qu’il pioche plus loin dans le classement plutôt que de protéger les mêmes pièces. Les garde-fous sans sous-stats ne sont pas affectés. Par défaut : désactivé.
+  - `Ignorer les équipés (Collection)` – exclut les objets actuellement équipés sur les champions de la collection du compteur de correspondances de ce garde-fou, pour qu’ils ne satisfassent pas son quota. Par défaut : désactivé.
   - `Ignorer les équipés (Coffre)` – même idée mais pour les champions du coffre. Par défaut : désactivé.
 - **`Chance d’amélioration ≥ N%`** (éclaireur de talents optionnel) : élargit le filet de sécurité au-delà du top-N standard. Le scanner conserve toujours en priorité les pièces du top-N selon leur valeur de sous-stat **actuelle** — celles-là ne risquent jamais rien. Il protège ensuite toute pièce *hors* de ce top-N dont la chance d’amélioration atteint le seuil. L’idée : « garder les drops bruts qui ont de bonnes chances d’être compétitifs une fois nivelés. »
 
   **Qu’est-ce que la chance d’amélioration ?** L’app simule toutes les façons dont une pièce pourrait roller lors du passage à +16 — certains jets touchent le sous-stat voulu, d’autres non — et compte combien de fois la pièce finit dans votre top N sur l’ensemble de ces futuros. Une pièce avec 68 % de chance d’amélioration finit dans le top N dans environ deux chemins simulés sur trois.
 
-  **Règle essentielle : le seuil ne peut qu’ajouter à la protection, jamais en retirer.** Votre top-N actuel est toujours conservé, quelle que soit sa chance d’amélioration. Une pièce entièrement renforcée (+16) compte directement sa valeur actuelle figée — elle ne peut pas tomber hors de la protection parce qu’elle « n’a plus de potentiel d’amélioration ».
+  **Règle essentielle : le seuil ne peut qu’ajouter au garde-fou, jamais en retirer.** Votre top-N actuel est toujours conservé, quelle que soit sa chance d’amélioration. Une pièce entièrement renforcée (+16) compte directement sa valeur actuelle figée — elle ne peut pas tomber hors du garde-fou parce qu’elle « n’a plus de potentiel d’amélioration ».
 
   **Exemple — bannières SPD, Quantité requise = 2, Par faction (rang 6 légendaire) :**
 
@@ -165,11 +165,11 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   - Évitez **100 %** : cela ne correspond qu’aux pièces entièrement nivelées déjà conservées par le top-N standard, donc cela n’ajoute rien au mode standard.
 
 #### Portées de quota en un coup d’œil
-Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par règle » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.
+Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par garde-fou » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.
 
 | Bouton de portée | Comportement du quota | Quand l’utiliser |
 | --- | --- | --- |
-| `Par règle` | Un pool commun pour toute la règle. | Conserver cinq bottes SPD quels que soient les sets. |
+| `Par garde-fou` | Un pool commun pour tout le garde-fou. | Conserver cinq bottes SPD quels que soient les sets. |
 | `Par emplacement` | Duplique la quote-part pour chaque slot. | Protéger deux anneaux, deux amulettes et deux bannières indépendamment. |
 | `Par ensemble` | Duplique la quote-part pour chaque set/méta-set. | Suivre deux drops Stoneskin et deux Protection séparément. |
 | `Par faction` | Duplique la quote-part pour chaque faction. | Garantir trois anneaux Merciless pour chaque faction. |
@@ -179,16 +179,16 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 
 | Scénario | Filtres | Quantité requise | Puces de portée | Ce que garantit l’analyse |
 | --- | --- | --- | --- | --- |
-| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `5` | `Par règle` | Au moins cinq bottes SPD survivent, peu importe le set. |
-| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `3` | `Par règle` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
+| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `5` | `Par garde-fou` | Au moins cinq bottes SPD survivent, peu importe le set. |
+| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `3` | `Par garde-fou` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
 | Anneaux Merciless par faction | Slot = Anneau, Set = Merciless, Faction vide | `3` | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
 | Anneaux PV% par faction | Slot = Anneau, Stat principale = PV%, Sets vides | `2` | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
 | Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides | `5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
 | Séries Stoneskin/Protection par faction | Slot = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `2` | `Par ensemble` + `Par faction` + `Par emplacement` | Chaque faction garde deux Stoneskin et deux Protection par slot d’accessoire. |
-| Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par règle` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
+| Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par garde-fou` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
 | Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
 
-Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant de passer en mode Protections pour fournir de vrais items à l’analyse. Cliquez sur une règle de protection pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
+Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant de passer en mode Garde-fous pour fournir de vrais items à l’analyse. Cliquez sur un garde-fou pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
 
 ### Butin de donjon (Simulateur)
 Ouvrez « Outils » et passez sur **Butin de donjon**. Il simule le farm de donjon avec vos règles Sellfile actuelles pour voir combien d’équipement vous garderiez par set et par niveau d’amélioration.
@@ -201,7 +201,7 @@ Ouvrez « Outils » et passez sur **Butin de donjon**. Il simule le farm de donj
 - Cliquez sur une cellule pour le détail slot + stat principale, puis ouvrez **Chances de sous-statistiques spécifiques** pour les chances exactes et les estimations de passages.
 
 Notes :
-- Utilise vos règles actuelles Conserver/Vendre, y compris Vente finale et Conserver les uniques.
+- Utilise vos règles actuelles Conserver/Vendre, y compris Vente finale et Garde-fous.
 - Environ 100 000 drops par palier, avec mise à jour pendant l’exécution.
 - Les taux de drop et les rolls sont simulés : considérez les chiffres comme des estimations.
 
@@ -240,7 +240,7 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 - Survol lié : Survoler une puce surligne toutes les lignes correspondantes dans l’aperçu et inversement.
 - Clic lié : Cliquer une ligne de la table sélectionne la recette d’origine (les lignes provenant du HSF de base n’affectent pas la sélection).
 - Copie de secours : Si l’accès au presse-papiers échoue, un dialogue s’ouvre avec le texte présélectionné pour copie manuelle.
-- Bascule Recettes activées/désactivées : le bouton dans l’en-tête du builder désactive globalement toutes les recettes sans les supprimer, mettant en pause la pipeline d’aperçu — utile pour vérifier rapidement un export avec Protections seulement ou confirmer ce que la Vente finale produit seule.
+- Bascule Recettes activées/désactivées : le bouton dans l’en-tête du builder désactive globalement toutes les recettes sans les supprimer, mettant en pause la pipeline d’aperçu — utile pour vérifier rapidement un export avec Garde-fous seulement ou confirmer ce que la Vente finale produit seule.
 
 ### Aperçu du Sellfile (Règles & Inspecteur d’équipement)
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Inspecteur d’équipement`, le bouton « Outils » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement ».
@@ -270,14 +270,14 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 ### Comparaison d'équipement (Avant / Après)
 - Le bouton **Diff** dans l'en-tête de l'Inspecteur d'équipement active une comparaison qui montre quelles pièces basculent entre **Garder** et **Vendre** quand vous changez quelque chose — pratique pour ajuster les recettes ou essayer les surcharges dynamiques dans la boîte de dialogue Note.
-- Une petite puce à côté du bouton affiche le changement en cours par rapport à votre point de référence : combien de pièces sont désormais en plus (ou en moins) **Vendues**, **Gardées** et protégées par des **Protections**.
+- Une petite puce à côté du bouton affiche le changement en cours par rapport à votre point de référence : combien de pièces sont désormais en plus (ou en moins) **Vendues**, **Gardées** et protégées par des **Garde-fous**.
 - Clic gauche sur **Diff** pour ouvrir une vue **côte à côte avant/après** des pièces modifiées (gauche = avant, droite = après) avec défilement synchronisé. Cliquez à nouveau pour fermer.
 - Clic droit sur le bouton pour les options :
   - **Définir la référence** — fige l'état actuel comme l'« avant » auquel vous comparez.
-  - **Suivi auto de la référence** (activé par défaut) — garde l'« avant » sur votre dernière modification de recette/protection, afin que la comparaison reflète toujours votre changement le plus récent.
+  - **Suivi auto de la référence** (activé par défaut) — garde l'« avant » sur votre dernière modification de recette/garde-fou, afin que la comparaison reflète toujours votre changement le plus récent.
 - Deux choses à savoir :
   - Basculer les **surcharges dynamiques** dans la boîte de dialogue Note **s'additionne** — plusieurs surcharges montrent leur effet combiné, pas seulement la dernière.
-  - Modifier une recette ou une protection dans le constructeur déplace la référence vers cette modification (tant que « Suivi auto de la référence » est activé). Désactivez-le (ou utilisez « Définir la référence ») pour tout comparer à un point fixe.
+  - Modifier une recette ou un garde-fou dans le constructeur déplace la référence vers cette modification (tant que « Suivi auto de la référence » est activé). Désactivez-le (ou utilisez « Définir la référence ») pour tout comparer à un point fixe.
 - Vos filtres habituels de l'Inspecteur d'équipement s'appliquent toujours : une pièce apparaît si elle correspond au filtre avant ou après le changement.
 
 ### Export

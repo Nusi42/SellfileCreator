@@ -13,13 +13,13 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - **Sellfile-Vorschau** — sieh dir die generierte RSL-Helper-Verkaufsdatei im
   Vorschau-Tab an, bevor du exportierst.
 - **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
-  Sammlungen zusammen und verwende sie in Rezepten und Schutzmaßnahmen wieder.
+  Sammlungen zusammen und verwende sie in Rezepten und Schutzregeln wieder.
 - **Ausrüstungs-Inspektor** — verbinde RSL Helper für Live-Synchronisation oder lade eine `.db`-Datei, um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten oder verkauft würden.
-- **Ausrüstungs-Diff** — schalte eine Vorher/Nachher-Ansicht ein, um genau zu sehen, welche Ausrüstungsteile beim Anpassen von Rezepten oder beim Ausprobieren der dynamischen Overrides zwischen *Behalten* und *Verkaufen* wechseln. Ein Chip zeigt die laufenden Summen; eine Seite-an-Seite-Liste zeigt jedes geänderte Teil.
+- **Ausrüstungs-Diff** — schalte eine Vorher/Nachher-Ansicht ein, um genau zu sehen, welche Ausrüstungsteile beim Anpassen von Rezepten oder beim Ausprobieren der dynamischen Überbrückungen zwischen *Behalten* und *Verkaufen* wechseln. Ein Chip zeigt die laufenden Summen; eine Seite-an-Seite-Liste zeigt jedes geänderte Teil.
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
   und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
   Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
-- **Schutzmaßnahmen** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
+- **Schutzregeln** — definiere Slot/Set/Stat-Kombinationen, die du nie verlieren willst;
   der Scanner fügt automatisch Behalten-Regeln in die Verkaufsdatei ein, wenn deine
   Einstellung eine geschützte Kombination unter ihre Quote senken würde.
 - **Ausrüstungsanalyse** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
@@ -44,7 +44,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - Laden/Speichern: Nutze „Rezepte laden“ und „Rezepte speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
   - Rechtsklick auf **SFC-Datei laden** öffnet ein Kontextmenü: **Aus Datei laden…** öffnet wie gewohnt den Datei-Auswahldialog; **Voreinstellung laden: Anfänger** oder **Voreinstellung laden: Midgame bis Endgame** lädt eine der mitgelieferten Voreinstellungen nach einer Bestätigungsabfrage (das aktuelle Setup wird ersetzt).
 - Reset/Einfügen/Anwenden-Menüs: Rechtsklick auf „Reset“, „Als Rezept einfügen“ oder „Rezept anwenden“ öffnet ein gemeinsames Optionsmenü. Speichere den aktuellen Builder-Zustand als neue Standardvorlage, springe auf die Werkseinstellungen zurück, aktiviere „Auto nach Einfügen zurücksetzen“ (räumt den Builder direkt nach dem Einfügen) oder „Auto auf ausgewähltes Rezept anwenden“ (schiebt Änderungen nach ca. 400 ms Inaktivität in das markierte Rezept). Auto-Reset und Auto-Apply schließen sich gegenseitig aus – das Aktivieren des einen schaltet das andere aus – und beide Einstellungen bleiben zwischen Sitzungen erhalten.
-- Notiz: Über „Notiz hinzufügen…” (oder „Notiz bearbeiten…”) kannst du deiner Rezept-Datei eine Notiz anhängen. Beim Laden einer Rezept-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- recipes:1,0 -->`, um bestimmte Rezept-Chips einzufügen (0 nimmt das nächste Rezept). Mit `<!-- recipes-re:”speed” -->` erscheinen alle Rezepte, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert). Füge `<!-- dungeon-simulator -->` ein, um eine Live-Keep-Chance-Tabelle für Feuerritter, Drachen und Eisgolem über drei Schwierigkeitsstufen (N20/N25/H10) und zwei Boost-Modi anzuzeigen, mit Keep-Raten bei +0/+4/+8/+12/+16. Füge `<!-- recipe-overrides [columns=N] -->` ein, um interaktive Fragekarten (Radio-/Checkbox-Gruppen) einzubetten, die Rezept-Exportmodi und -Einstellungen zur Laufzeit überschreiben – gespeicherte Rezepte werden nie geändert. Füge `<!-- safeguard-overrides [columns=N] -->` ein, um interaktive Schieberegler- und Optionskarten einzubetten, die Schutzmechanismen-Eigenschaften (Anzahl, Aktivierung, Substats, Verbesserungschance u. v. m.) zur Laufzeit überschreiben – gespeicherte Schutzregeln werden nie geändert. Sobald einer dieser Marker vorhanden ist, erscheinen im Notiz-Footer ein **Dynamische Optionen deaktivieren / aktivieren**-Schalter und eine Schaltfläche **Optionen zurücksetzen**.
+- Notiz: Über „Notiz hinzufügen…” (oder „Notiz bearbeiten…”) kannst du deiner Rezept-Datei eine Notiz anhängen. Beim Laden einer Rezept-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- recipes:1,0 -->`, um bestimmte Rezept-Chips einzufügen (0 nimmt das nächste Rezept). Mit `<!-- recipes-re:”speed” -->` erscheinen alle Rezepte, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert). Füge `<!-- dungeon-simulator -->` ein, um eine Live-Keep-Chance-Tabelle für Feuerritter, Drachen und Eisgolem über drei Schwierigkeitsstufen (N20/N25/H10) und zwei Boost-Modi anzuzeigen, mit Keep-Raten bei +0/+4/+8/+12/+16. Füge `<!-- recipe-overrides [columns=N] -->` ein, um interaktive Fragekarten (Radio-/Checkbox-Gruppen) einzubetten, die Rezept-Exportmodi und -Einstellungen zur Laufzeit überschreiben – gespeicherte Rezepte werden nie geändert. Füge `<!-- safeguard-overrides [columns=N] -->` ein, um interaktive Schieberegler- und Optionskarten einzubetten, die Schutzregel-Eigenschaften (Anzahl, Aktivierung, Substats, Verbesserungschance u. v. m.) zur Laufzeit überschreiben – gespeicherte Schutzregeln werden nie geändert. Sobald einer dieser Marker vorhanden ist, erscheinen im Notiz-Footer ein **Dynamische Überbrückungen deaktivieren / aktivieren**-Schalter und eine Schaltfläche **Optionen auf Standardwerte zurücksetzen**.
 - Autosave-Wiederherstellung: Beim Start listet der Dialog jede gespeicherte Sektion mit eigener Checkbox auf. Lade nur, was du brauchst – Rezepte (inklusive gewähltem Chip), Metasets, Substat-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Offen/Zu, Chips, eingeklappte Bereiche) und Ausrüstungsinspektor-Importe. Alles, was du abwählst, bleibt unangetastet. Autosave merkt sich außerdem, welche Final-Sell-Schalter (Artefakte, Zubehör sowie die Levelbereiche) aktiv waren, damit der Tools-Dialog exakt den Exportzustand von zuletzt widerspiegelt.
 
 ### Aufbau des Builders (von oben nach unten)
@@ -115,21 +115,21 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - Ohne `Finaler Verkauf` behält RSL Helper alle Items, die keine Regel treffen. Verkauft wird nur, wenn eine Sell-Regel greift.
 - Bei aktivem `Finaler Verkauf` umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
-### Schutzmaßnahmen
-- Schalte den Builder über den Umschalter oben am Builder-Panel in den **Schutzmaßnahmen**-Modus, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Schutzmaßnahmen`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
-- Schutzmaßnahmen „verbrauchen“ keine Items – jede Regel bewertet denselben Kandidatenpool. Wenn ein Teil mehreren Schutzmaßnahmen entspricht, zählt es für alle.
+### Schutzregeln
+- Schalte den Builder über den Umschalter oben am Builder-Panel in den **Schutzregeln**-Modus, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Schutzregeln`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
+- Schutzregeln „verbrauchen“ keine Items – jede Schutzregel bewertet denselben Kandidatenpool. Wenn ein Teil mehreren Schutzregeln entspricht, zählt es für alle.
 - Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
 - `Modus` bestimmt, wie die Regel ausgegeben wird: `Aus` deaktiviert sie, `Bestehendes schützen` fügt Behalte-Zeilen für verkaufsgefährdete Treffer hinzu, bis die Quote erreicht ist, und `Lücken vorab sichern` ergänzt Platzhalter-Regeln für fehlende Kombinationen, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.
 - Substats sind optional: Wähle einen oder mehrere, damit nur Items zählen, die diese Substats haben. Der Match‑Chip (`Beliebige Substat` / `Alle Substats` / `Pro Substat`) bestimmt, ob mindestens eine, alle oder jede ausgewählte Substat ihre eigene Quote bekommt. Leer lassen bedeutet: kein Substat-Filter.
 - Ausgewählte Substats werden immer mit der normalisierten Substat-Wertung gerankt (Glyphen ignoriert); Gewichtungen erscheinen bei `Beliebige Substat` und `Alle Substats`, `Pro Substat` bleibt bei der Standardgewichtung (Gleichstände an der Grenze bleiben geschützt).
-- `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Regel` (ein gemeinsamer Pool).
+- `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Schutzregel` (ein gemeinsamer Pool).
 - Der Hinweis bei `Benötigte Anzahl` zeigt die aktive Bereichs-Aufteilung (`X je Slot × je Set × ...`) plus eine einfache Fehlmenge (`({missing} fehlen)`).
 - Der Scanner fügt nur Behalte-Zeilen für passende Items hinzu, die sonst verkauft würden, und nur wenn die Quote nicht erfüllt ist. Im Modus `Lücken vorab sichern` kommen Platzhalter-Regeln für fehlende Kombinationen dazu.
 - **Ignorier-Schalter** (Chips neben dem Aktivieren-Schalter der Regel) verfeinern, was die Regel zählt:
-  - `Vorherige Schutzmaßnahmen ignorieren` – wenn die Regel Kandidaten nach Substats sortiert, lässt sie Items, die frühere Schutzmaßnahmen bereits behalten haben, aus ihrem Pool fallen und wählt stattdessen die nächsten Top-Picks. Nützlich, wenn du nach einer allgemeinen Regel eine zweite SPD/CR-Regel stapelst und möchtest, dass sie tiefer in die Punkterangordnung greift, statt redundant dieselben Teile zu schützen. Regeln ohne Substats sind nicht betroffen. Standard: aus.
+  - `Vorherige Schutzregeln ignorieren` – wenn die Schutzregel Kandidaten nach Substats sortiert, lässt sie Items, die frühere Schutzregeln bereits behalten haben, aus ihrem Pool fallen und wählt stattdessen die nächsten Top-Picks. Nützlich, wenn du nach einer allgemeinen Schutzregel eine zweite SPD/CR-Schutzregel stapelst und möchtest, dass sie tiefer in die Punkterangordnung greift, statt redundant dieselben Teile zu schützen. Schutzregeln ohne Substats sind nicht betroffen. Standard: aus.
   - `Ausgerüstete ignorieren (Sammlung)` – schließt Items, die aktuell auf Sammlungs-Champions ausgerüstet sind, aus dem Trefferzähler dieser Regel aus, damit sie die Quote der Regel nicht erfüllen. Standard: aus.
   - `Ausgerüstete ignorieren (Höhle)` – dasselbe Prinzip, aber für Höhlen-Champions. Standard: aus.
-- **`Verbesserungschance ≥ N%`** (optionaler Talentspäher): erweitert das Sicherheitsnetz über das Standard-Top-N hinaus. Der Scanner behält zuerst immer die Top-N-Teile nach ihrem **aktuellen** Substat-Wert – diese sind nie gefährdet. Zusätzlich schützt er alle Teile *außerhalb* des Top-N, deren Verbesserungschance den Schwellenwert erreicht. Gedanke dahinter: „Halte die rohen Drops fest, die gute Chancen haben, nach dem Aufwerten konkurrenzfähig zu sein."
+- **`Verbesserungschance ≥ N%`** (optionaler Talentspäher): erweitert die Schutzregel über das Standard-Top-N hinaus. Der Scanner behält zuerst immer die Top-N-Teile nach ihrem **aktuellen** Substat-Wert – diese sind nie gefährdet. Zusätzlich schützt er alle Teile *außerhalb* des Top-N, deren Verbesserungschance den Schwellenwert erreicht. Gedanke dahinter: „Halte die rohen Drops fest, die gute Chancen haben, nach dem Aufwerten konkurrenzfähig zu sein."
 
   **Was ist die Verbesserungschance?** Die App simuliert alle möglichen Wege, wie ein Teil beim Aufwerten auf +16 würfeln könnte – manche Würfe treffen den gewünschten Substat, manche nicht – und zählt, wie oft das Teil dabei im Top-N landet. Ein Teil mit 68 % Verbesserungschance landet in etwa zwei von drei simulierten Aufwertungspfaden im Top-N.
 
@@ -159,11 +159,11 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
   - **100 % vermeiden**: trifft nur vollständig aufgewertete Teile, die bereits im Standard-Top-N gehalten werden – daher bringt es gegenüber dem Standardmodus nichts.
 
 #### Kontingentbereiche auf einen Blick
-Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wenn Slot × Set × Fraktion × Hauptstat getrennte Quoten erhalten sollen.
+Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wenn Slot × Set × Fraktion × Hauptstat getrennte Quoten erhalten sollen.
 
 | Bereichs-Schalter | Kontingent-Verhalten | Geeignet für |
 | --- | --- | --- |
-| `Pro Regel` | Ein gemeinsamer Pool für die komplette Regel. | Mindestens fünf SPD-Stiefel unabhängig vom Set sichern. |
+| `Pro Schutzregel` | Ein gemeinsamer Pool für die komplette Schutzregel. | Mindestens fünf SPD-Stiefel unabhängig vom Set sichern. |
 | `Pro Slot` | Dupliziert das Kontingent für jeden Slot. | Je zwei Ringe, Amulette und Banner getrennt behalten. |
 | `Pro Set` | Erstellt ein eigenes Kontingent pro Set/Metaset. | Zwei Stoneskin- und zwei Protection-Drops separat verfolgen. |
 | `Pro Fraktion` | Gibt jeder Fraktion ihr eigenes Budget. | Drei Merciless-Ringe pro Fraktion garantieren. |
@@ -173,16 +173,16 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen
 
 | Szenario | Filter | Benötigte Anzahl | Bereiche | Was der Scanner garantiert |
 | --- | --- | --- | --- | --- |
-| SPD-Stiefel gehen aus | Slot = Stiefel, Mainstat = SPD, Sets leer | `5` | `Pro Regel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
-| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG% | `3` | `Pro Regel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
+| SPD-Stiefel gehen aus | Slot = Stiefel, Mainstat = SPD, Sets leer | `5` | `Pro Schutzregel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
+| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG% | `3` | `Pro Schutzregel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
 | Merciless-Ringe pro Fraktion | Slot = Ring, Set = Merciless, Fraktion leer | `3` | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
 | HP%-Ringe pro Fraktion | Slot = Ring, Mainstat = HP%, Sets leer | `2` | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
 | Kernzubehör pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer | `5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
 | Stoneskin + Protection pro Fraktion | Slot = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Mainstat leer | `2` | `Pro Set` + `Pro Fraktion` + `Pro Slot` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Zubehör-Slot. |
-| Schnellste SPD-Zubehörteile | Slot = Ring/Amulett/Banner, Substats = SPD | `5` | `Pro Regel` | Behält die besten fünf SPD-Substat-Rolls über dein Zubehör hinweg (inkl. Gleichstände). |
+| Schnellste SPD-Zubehörteile | Slot = Ring/Amulett/Banner, Substats = SPD | `5` | `Pro Schutzregel` | Behält die besten fünf SPD-Substat-Rolls über dein Zubehör hinweg (inkl. Gleichstände). |
 | ACC-Banner mit SPD-Rolls | Slot = Banner, Mainstat = ACC, Substats = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
 
-Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du in den Schutzmaßnahmen-Modus wechselst, damit der Scanner echte Ausrüstung bewertet. Klicke eine Schutzmaßnahme an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
+Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du in den Schutzregeln-Modus wechselst, damit der Scanner echte Ausrüstung bewertet. Klicke eine Schutzregel an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
 
 ### Dungeon-Beute (Simulator)
 Öffne „Tools" und wechsle zu **Dungeon-Beute**. Es simuliert Dungeon-Drops mit deinen aktuellen Sellfile-Regeln, damit du siehst, wie viel Ausrüstung du pro Set und Aufwertungsstufe behalten würdest.
@@ -195,7 +195,7 @@ Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, b
 - Klicke auf eine Zelle für Slot- und Mainstat-Aufschlüsselungen, dann öffne **Spezifische Substat-Chancen** für genaue Substat-Wahrscheinlichkeiten und Schätzungen für Durchläufe.
 
 Hinweise:
-- Nutzt deine aktuellen Behalten/Verkaufen-Regeln inklusive Finaler Verkauf und Schutzmaßnahmen.
+- Nutzt deine aktuellen Behalten/Verkaufen-Regeln inklusive Finaler Verkauf und Schutzregeln.
 - Läuft mit etwa 100.000 Drops pro Stufe und aktualisiert sich währenddessen.
 - Drop-Raten und Rolls sind simuliert, die Zahlen sind Schätzungen.
 
@@ -233,7 +233,7 @@ Hinweise:
 - Hover-Verknüpfung: Über einer Rezept schweben markiert alle zugehörigen Zeilen in der Sellfile-Vorschau und umgekehrt.
 - Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Rezept aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
 - Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
-- Rezepte an/aus: Der Schalter im Builder-Header deaktiviert alle Rezepte global, ohne sie zu löschen, und pausiert die Vorschau-Pipeline – nützlich, um schnell einen Export nur mit Schutzmaßnahmen zu prüfen oder zu sehen, was der Finale Verkauf allein produziert.
+- Rezepte an/aus: Der Schalter im Builder-Header deaktiviert alle Rezepte global, ohne sie zu löschen, und pausiert die Vorschau-Pipeline – nützlich, um schnell einen Export nur mit Schutzregeln zu prüfen oder zu sehen, was der Finale Verkauf allein produziert.
 
 ### Sellfile-Vorschau (Regeln & Ausrüstungsinspektor)
 - Der Header bündelt den `Regeln`/`Ausrüstungsinspektor`-Schalter, den Button „Tools” und „RSL Helper Sellfile laden”, damit du sofort siehst, wo du die Tabelle wechselst oder den Dialog „Ausrüstung” öffnest.
@@ -262,15 +262,15 @@ Hinweise:
 - Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
 
 ### Ausrüstungs-Diff (Vorher / Nachher)
-- Der **Diff**-Schalter in der Kopfzeile des Ausrüstungsinspektors aktiviert einen Vergleich, der zeigt, welche Teile zwischen **Behalten** und **Verkaufen** wechseln, wenn du etwas änderst — praktisch beim Feinjustieren von Rezepten oder beim Ausprobieren der dynamischen Overrides im Notiz-Dialog.
-- Ein kleiner Chip neben dem Schalter zeigt die laufende Änderung gegenüber deinem Referenzpunkt: wie viele Teile jetzt mehr (oder weniger) **Verkauft**, **Behalten** und durch **Schutzmaßnahmen** geschützt sind.
+- Der **Diff**-Schalter in der Kopfzeile des Ausrüstungsinspektors aktiviert einen Vergleich, der zeigt, welche Teile zwischen **Behalten** und **Verkaufen** wechseln, wenn du etwas änderst — praktisch beim Feinjustieren von Rezepten oder beim Ausprobieren der dynamischen Überbrückungen im Notiz-Dialog.
+- Ein kleiner Chip neben dem Schalter zeigt die laufende Änderung gegenüber deinem Referenzpunkt: wie viele Teile jetzt mehr (oder weniger) **Verkauft**, **Behalten** und durch **Schutzregeln** geschützt sind.
 - Linksklick auf **Diff** öffnet eine **Seite-an-Seite-Vorher/Nachher-Ansicht** der geänderten Teile (links = vorher, rechts = nachher) mit synchronisiertem Scrollen. Erneut klicken zum Schließen.
 - Rechtsklick auf den Schalter für Optionen:
   - **Referenz setzen** — friert den aktuellen Stand als „Vorher" ein, mit dem du vergleichst.
-  - **Referenz automatisch folgen** (standardmäßig an) — hält das „Vorher" auf deiner letzten Rezept-/Schutzmaßnahmen-Änderung, sodass der Diff stets deine jüngste Änderung zeigt.
+  - **Referenz automatisch folgen** (standardmäßig an) — hält das „Vorher" auf deiner letzten Rezept-/Schutzregeln-Änderung, sodass der Diff stets deine jüngste Änderung zeigt.
 - Zwei Dinge, die du wissen solltest:
-  - Das Umschalten der **dynamischen Overrides** im Notiz-Dialog **summiert sich** — mehrere Overrides zeigen ihre kombinierte Wirkung, nicht nur die letzte.
-  - Das Bearbeiten eines Rezepts oder einer Schutzmaßnahme im Builder verschiebt die Referenz auf diese Änderung (solange „Referenz automatisch folgen" aktiv ist). Schalte es aus (oder nutze „Referenz setzen"), um alles gegen einen festen Punkt zu vergleichen.
+  - Das Umschalten der **dynamischen Überbrückungen** im Notiz-Dialog **summiert sich** — mehrere Überbrückungen zeigen ihre kombinierte Wirkung, nicht nur die letzte.
+  - Das Bearbeiten eines Rezepts oder einer Schutzregel im Builder verschiebt die Referenz auf diese Änderung (solange „Referenz automatisch folgen" aktiv ist). Schalte es aus (oder nutze „Referenz setzen"), um alles gegen einen festen Punkt zu vergleichen.
 - Deine üblichen Ausrüstungsinspektor-Filter gelten weiterhin: Ein Teil wird angezeigt, wenn es den Filter entweder vorher oder nachher erfüllt.
 
 ### Export

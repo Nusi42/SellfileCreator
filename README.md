@@ -128,7 +128,7 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 - `Mode` decides how the rule is emitted: `Off` disables it, `Protect existing` injects keep rows for sold matches until the quota is met, and `Anticipate gaps` also emits placeholder keep rules for missing combinations so new drops stay protected until the DB refreshes.
 - Substats are optional: pick one or more to only count items that actually have those substats. The match chip (`Any Substat` / `All Substats` / `Per Substat`) decides whether at least one, all, or each selected substat gets its own quota. Leave it empty to allow any substat.
 - Selected substats are ranked by their **current** substat value; weight controls appear for `Any Substat` and `All Substats`, while `Per Substat` keeps equal weighting (ties at the cutoff stay protected).
-- `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
+- `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per safeguard` pool.
 - The info tooltip behind `Required Count` shows the active scope split (`X per slot × per set × ...`) and a simple deficit line (`({missing} missing)`).
 - The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
 - **Ignore toggles** (chips next to the rule's enable switch) fine-tune what each rule counts:
@@ -165,11 +165,11 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
   - Avoid **100%**: it only ever matches fully-leveled pieces already held by the standard top-N, so it adds nothing beyond standard mode.
 
 #### Quota scopes at a glance
-Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.
+Stacking the scope chips changes who gets their own quota. Leave `Per safeguard` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.
 
 | Scope button | Quota behavior | When it shines |
 | --- | --- | --- |
-| `Per rule` | One shared pool for the entire rule. | Keep five SPD boots regardless of set. |
+| `Per safeguard` | One shared pool for the entire safeguard. | Keep five SPD boots regardless of set. |
 | `Per slot` | Duplicates the quota for each slot. | Keep two rings, two amulets, and two banners independently. |
 | `Per set` | Duplicates the quota for each set/metaset in the safeguard. | Track two Stoneskin and two Protection drops separately. |
 | `Per faction` | Duplicates the quota for each faction. | Guarantee three Merciless rings for every faction. |
@@ -178,13 +178,13 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 #### Real-world examples
 | Scenario | Filters | Required Count | Scope buttons | What the scanner guarantees |
 | --- | --- | --- | --- | --- |
-| Running out of SPD boots | Slot = Boots, Main Stat = SPD, Sets blank | `5` | `Per rule` | At least five SPD boots survive, no matter the set. |
-| Mixing Savage + Lethal gloves | Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG% | `3` | `Per rule` | Three high-damage gloves stay safe even if the set mix changes. |
+| Running out of SPD boots | Slot = Boots, Main Stat = SPD, Sets blank | `5` | `Per safeguard` | At least five SPD boots survive, no matter the set. |
+| Mixing Savage + Lethal gloves | Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG% | `3` | `Per safeguard` | Three high-damage gloves stay safe even if the set mix changes. |
 | Merciless rings per faction | Slot = Ring, Set = Merciless, Faction blank | `3` | `Per faction` | Every faction keeps three of its own Merciless rings. |
 | HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `2` | `Per faction` | Two HP% rings per faction stay in inventory. |
 | Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank | `5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
 | Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `2` | `Per set` + `Per faction` + `Per slot` | Each faction holds two Stoneskin and two Protection drops for each accessory slot. |
-| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD | `5` | `Per rule` | Keeps the top five SPD substat rolls across your accessories (ties included). |
+| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD | `5` | `Per safeguard` | Keeps the top five SPD substat rolls across your accessories (ties included). |
 | ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
 
 Tip: Import your `.db` or paste gear into the Gear dialog before switching to Safeguards mode so the scanner sees real items. Click a safeguard rule to highlight matching gear; switch `Filter` to `Selection` to view only those matches.
