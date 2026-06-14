@@ -382,13 +382,18 @@ type CanonicalPreviewExtras = {
   source: GearInspectorItemPreviewExtras['source'] | null
   rerollCount: number | null
   // Champion identity captured by id — full record lives in the ChampionLookup.
-  // Most detail fields (name, rarity, ...) ride along on the live lookup record and are
-  // not fingerprinted, BUT the champion's location IS user-facing: the Gear Inspector
-  // filters artifacts by equipped-champion location (collection / vault / reserveVault),
-  // so a champion moving vault→collection must invalidate the artifact's fingerprint or
-  // the filtered view would go stale. See rulesFilter.ts (equippedChampion?.location).
+  // The equippedChampion is a FROZEN reference baked onto each item at normalization
+  // time (gearDbNormalizer), NOT re-resolved from the live lookup at render. So every
+  // user-facing champion field the Gear Inspector card draws must be fingerprinted, or a
+  // metadata-only refresh (e.g. RSL Helper's sparse champions packet replaced by a later
+  // rich one carrying rarity/name) yields an identical signature → diffGearInspectorItems
+  // keeps the stale item → the card renders empty champion rarity/name forever.
+  // Fingerprinted fields: location (filterable), rarity + name (rendered on the card —
+  // see GearInspectorGridCard rarityAccentColor / championGlyphColor / champion name).
   equippedChampionId: number | null
   equippedChampionLocation: string | null
+  equippedChampionRarity: number | null
+  equippedChampionName: string | null
   mainStat: CanonicalNormalizedStat | null
   substats: CanonicalNormalizedStat[] | null
   ascension: CanonicalNormalizedStat | null
@@ -466,6 +471,11 @@ const canonicalizePreviewExtras = (extras?: GearInspectorItemPreviewExtras): Can
     // Fold the equipped champion's location so vault↔collection moves invalidate the
     // fingerprint (the UI filters on it). null when unequipped or location unknown.
     equippedChampionLocation: extras.equippedChampion?.location ?? null,
+    // Fold rarity + name too: both are rendered on the Gear Inspector card and the
+    // champion reference is frozen onto the item, so a sparse→rich champion refresh must
+    // perturb the fingerprint or the stale (rarity/name-less) item is never replaced.
+    equippedChampionRarity: normalizeFiniteNumber(extras.equippedChampion?.rarity),
+    equippedChampionName: extras.equippedChampion?.name ?? null,
     mainStat: canonicalizeNormalizedStat(extras.mainStat),
     substats: canonicalizeStatArray(extras.substats),
     ascension: canonicalizeNormalizedStat(extras.ascension),
@@ -557,10 +567,14 @@ const hashFoldPreviewExtras = (hash: number, extras: CanonicalPreviewExtras | nu
   if (!extras) return hashFoldU32(hash, 0xfffffffb)
   let next = hashFoldNullableString(hash, extras.source ?? null)
   next = hashFoldNullableNumber(next, extras.rerollCount)
-  // Fold the champion id plus its location — name/rarity ride on the live lookup, but
-  // location is filterable in the UI so it must perturb the fingerprint when it changes.
+  // Fold champion id, location, rarity AND name. The reference is frozen onto the item,
+  // so every card-rendered champion field must be folded — otherwise a metadata-only
+  // refresh (sparse→rich champions packet) leaves an identical signature and the stale
+  // rarity/name-less item survives the diff. See CanonicalPreviewExtras comment.
   next = hashFoldNullableNumber(next, extras.equippedChampionId)
   next = hashFoldNullableString(next, extras.equippedChampionLocation)
+  next = hashFoldNullableNumber(next, extras.equippedChampionRarity)
+  next = hashFoldNullableString(next, extras.equippedChampionName)
   next = hashFoldCanonicalStat(next, extras.mainStat)
   next = hashFoldCanonicalStatArray(next, extras.substats)
   next = hashFoldCanonicalStat(next, extras.ascension)

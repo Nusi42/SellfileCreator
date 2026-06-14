@@ -99,4 +99,57 @@ test('gear DB diff retains manually added gear when requested', () => {
   }
 })
 
+// Regression: RSL Helper streams a sparse champions packet (no Rarity/Name) and later a
+// rich one. The equipped-champion reference is frozen onto each artifact item, so the diff
+// must treat a sparse→rich champion refresh as a CHANGE — otherwise the stale rarity/name-
+// less item survives and the Gear Inspector card renders an empty champion forever.
+test('gear DB diff replaces an item when its equipped champion gains rarity/name', () => {
+  // Same artifact, identical in every field except the equipped champion's metadata.
+  const baseItem = (champion: { id: number; name: string | null; rarity: 3 | null }): GearInspectorItem => ({
+    itemId: 0,
+    slot: 1,
+    set: 0,
+    rank: 6,
+    rarity: 6,
+    level: 0,
+    faction: 0,
+    previewExtras: {
+      source: 'artifacts',
+      // location stays constant so only rarity/name differ between the two variants.
+      // Remaining ChampionLookupRecord fields are irrelevant to the diff but required by the type.
+      equippedChampion: {
+        id: champion.id,
+        name: champion.name,
+        rarity: champion.rarity,
+        location: 'collection',
+        baseHeroId: null,
+        ascensionLevel: null,
+        empowermentLevel: null,
+        affinity: null,
+        blessingGrade: null,
+        starGrade: null,
+        experienceLevel: null,
+      },
+    },
+  })
+
+  // Sparse: the first champions packet had no Rarity/Name (null) for this champion.
+  const sparse: GearInspectorItem = { ...baseItem({ id: 42, name: null, rarity: null }), itemId: 1 }
+  // Rich: the later packet carries the real rarity + name.
+  const rich: GearInspectorItem = baseItem({ id: 42, name: 'Warpriest', rarity: 3 })
+
+  // The two must NOT share a fingerprint — that is what makes the diff see the change.
+  assert.notEqual(
+    fingerprintGearInspectorItem(sparse),
+    fingerprintGearInspectorItem(rich),
+    'sparse vs rich equipped champion must produce different fingerprints',
+  )
+
+  // The diff must remove the stale sparse item and add the rich one.
+  const { removalItemIds, additions } = diffGearInspectorItems([sparse], [rich])
+  assert(removalItemIds.includes(sparse.itemId), 'stale sparse-champion item should be removed')
+  assert.equal(additions.length, 1, 'rich-champion item should be added')
+  assert.equal(additions[0]?.previewExtras?.equippedChampion?.rarity, 3, 'added item carries the rich rarity')
+})
+
 export {}
