@@ -3,9 +3,9 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   builderModeRecipe: "Construtor de receitas",
-  builderModeSafeguard: "Construtor de manutenção",
-  builderModeRecipeTooltip: "**Construtor de receitas** — Crie e gira as suas regras de venda/manutenção. Cada receita define os critérios de equipamento que o Raid irá manter; todo o restante é vendido.\n\nMude para o **Construtor de manutenção** para também proteger conjuntos específicos de equipamento de serem vendidos, independentemente das suas receitas.",
-  builderModeSafeguardTooltip: "**Construtor de manutenção** — Proteja conjuntos de equipamento de serem vendidos, independentemente das suas receitas de venda/manutenção.\n\nCada salvaguarda reserva um número de peças correspondentes para que nunca sejam incluídas na lista de venda, mesmo que nenhuma receita as contemple.\n\nMude para o **Construtor de receitas** para editar as suas regras de venda/manutenção.",
+  builderModeSafeguard: "Construtor de salvaguardas",
+  builderModeRecipeTooltip: "**Construtor de receitas** — Crie e gira as suas regras de venda/manutenção. Cada receita define os critérios de equipamento que o Raid irá manter; todo o restante é vendido.\n\nMude para o **Construtor de salvaguardas** para também proteger conjuntos específicos de equipamento de serem vendidos, independentemente das suas receitas.",
+  builderModeSafeguardTooltip: "**Construtor de salvaguardas** — Proteja conjuntos de equipamento de serem vendidos, independentemente das suas receitas de venda/manutenção.\n\nCada salvaguarda reserva um número de peças correspondentes para que nunca sejam incluídas na lista de venda, mesmo que nenhuma receita as contemple.\n\nMude para o **Construtor de receitas** para editar as suas regras de venda/manutenção.",
   loadRecipes: "Carregar ficheiro SFC",
   loadRecipesTooltip: "Carregue um ficheiro SFC para restaurar a sua configuração completa — receitas, manutenções, metasets, notas e mais.",
   loadSfcFromFile: "Carregar de ficheiro…",
@@ -1631,7 +1631,7 @@ const overrides: Catalog = {
   tutGearDialogPreviewTitle: "Pré-visualizar o Gear Inspector",
   tutGearDialogPreviewBody: "Feche o diálogo `Ferramentas` e altere a pré-visualização para o modo `Gear Inspector` para ver apenas a lista de equipamento. Os dois itens de exemplo são as únicas linhas por agora, por isso a grelha deixa claro quando as receitas, a Venda final ou Salvaguardas coincidem.",
   tutSafeguardsIntroTitle: "Visão geral de Salvaguardas",
-  tutSafeguardsIntroBody: "Mude para o `Construtor de manutenção` usando o seletor no topo da coluna do builder. Protege equipamento específico da `Venda final` — qualquer item que corresponda a uma salvaguarda recebe uma linha `Manter` antes de as regras de venda serem aplicadas.\n\nNota: esta vista só lista salvaguardas — as suas receitas não são mostradas aqui, mas continuam ativas.",
+  tutSafeguardsIntroBody: "Mude para o `Construtor de salvaguardas` usando o seletor no topo da coluna do builder. Protege equipamento específico da `Venda final` — qualquer item que corresponda a uma salvaguarda recebe uma linha `Manter` antes de as regras de venda serem aplicadas.\n\nNota: esta vista só lista salvaguardas — as suas receitas não são mostradas aqui, mas continuam ativas.",
   tutSafeguardsRuleTitle: "Proteger os acessórios Refresh",
   tutSafeguardsRuleBody: "Esta salvaguarda abrange peças `Refresh` `Estandarte` que são 5★ ou 6★, de raridade Rara ou superior, stat principal `RES`, e têm `HP%` ou `DEF%` como substat — sem restrição de facção. Com `Quantidade necessária` em 1, a app mantém a correspondência mais forte e deixa a `Venda final` tratar os extras. Adicione mais salvaguardas sempre que detetar outra lacuna de equipamento indispensável.",
   tutSafeguardsPayoffTitle: "Ver o pipeline completo",

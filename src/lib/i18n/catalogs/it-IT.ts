@@ -3,9 +3,9 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   builderModeRecipe: "Generatore di ricette",
-  builderModeSafeguard: "Generatore di mantenimento",
-  builderModeRecipeTooltip: "**Generatore di ricette** — Crea e gestisci le tue regole di vendita/mantenimento. Ogni ricetta definisce i criteri dell'equipaggiamento che Raid conserverà; tutto il resto viene venduto.\n\nPassate al **Generatore di mantenimento** per proteggere anche insiemi specifici di equipaggiamento dalla vendita, indipendentemente dalle vostre ricette.",
-  builderModeSafeguardTooltip: "**Generatore di mantenimento** — Proteggi insiemi di equipaggiamento dalla vendita, indipendentemente dalle ricette di vendita/mantenimento.\n\nOgni salvaguardia riserva un numero di pezzi corrispondenti affinché non vengano mai inclusi nell'elenco di vendita, anche se nessuna ricetta li corrisponde.\n\nPassate al **Generatore di ricette** per modificare le vostre regole di vendita/mantenimento.",
+  builderModeSafeguard: "Generatore di salvaguardie",
+  builderModeRecipeTooltip: "**Generatore di ricette** — Crea e gestisci le tue regole di vendita/mantenimento. Ogni ricetta definisce i criteri dell'equipaggiamento che Raid conserverà; tutto il resto viene venduto.\n\nPassate al **Generatore di salvaguardie** per proteggere anche insiemi specifici di equipaggiamento dalla vendita, indipendentemente dalle vostre ricette.",
+  builderModeSafeguardTooltip: "**Generatore di salvaguardie** — Proteggi insiemi di equipaggiamento dalla vendita, indipendentemente dalle ricette di vendita/mantenimento.\n\nOgni salvaguardia riserva un numero di pezzi corrispondenti affinché non vengano mai inclusi nell'elenco di vendita, anche se nessuna ricetta li corrisponde.\n\nPassate al **Generatore di ricette** per modificare le vostre regole di vendita/mantenimento.",
   loadRecipes: "Carica file SFC",
   loadRecipesTooltip: "Carica un file SFC per ripristinare la tua configurazione completa — ricette, mantenimenti, metaset, note e altro.",
   loadSfcFromFile: "Carica da file…",
@@ -1632,7 +1632,7 @@ const overrides: Catalog = {
   tutGearDialogPreviewTitle: "Anteprima del Gear Inspector",
   tutGearDialogPreviewBody: "Chiudi la finestra `Strumenti`, poi porta l'anteprima in modalità `Gear Inspector` per vedere solo la lista equipaggiamento. I due pezzi di esempio sono le uniche righe per ora, quindi la griglia mostra subito quando coincidono le ricette, la Vendita finale o Salvaguardie.",
   tutSafeguardsIntroTitle: "Panoramica di Salvaguardie",
-  tutSafeguardsIntroBody: "Passa al `Generatore di mantenimento` usando il selettore in cima alla colonna builder. Protegge specifico equipaggiamento dalla `Vendita finale` — ogni oggetto che corrisponde a una salvaguardia ottiene una riga `Mantieni` aggiunta prima che le regole di vendita vengano eseguite.\n\nNota: questa vista elenca solo le salvaguardie — le tue ricette non sono mostrate qui, ma sono ancora attive.",
+  tutSafeguardsIntroBody: "Passa al `Generatore di salvaguardie` usando il selettore in cima alla colonna builder. Protegge specifico equipaggiamento dalla `Vendita finale` — ogni oggetto che corrisponde a una salvaguardia ottiene una riga `Mantieni` aggiunta prima che le regole di vendita vengano eseguite.\n\nNota: questa vista elenca solo le salvaguardie — le tue ricette non sono mostrate qui, ma sono ancora attive.",
   tutSafeguardsRuleTitle: "Proteggi gli accessori Refresh",
   tutSafeguardsRuleBody: "Questa regola copre i pezzi `Ricarica` `Vessillo` che sono 5★ o 6★, Rara o rarità superiore, stat principale `RES`, e hanno `HP%` o `DEF%` come sotto-stat — nessuna restrizione di fazione. Con `Quantità richiesta` a 1, l'app mantiene la corrispondenza più forte e lascia che la `Vendita finale` gestisca gli extra. Aggiungi altre regole ogni volta che noti un altro vuoto da colmare.",
   tutSafeguardsPayoffTitle: "Guarda l'intera pipeline",
