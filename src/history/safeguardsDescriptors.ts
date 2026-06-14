@@ -250,8 +250,12 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
   const substats = sortSubstatsForHistory(rule.substats ?? [])
   const normalizedSubstatMatch = normalizeSafeguardSubstatMatch(rule.substatMatch)
   // Normalize weights so edits show up even if arrays re-order.
-  // Weights only affect the rule when Per Substat is not active.
-  const weightEntries = normalizedSubstatMatch !== SafeguardSubstatMatch.PerSubstat && substats.length > 0
+  // Include weights for every match mode — even when Per Substat makes them
+  // inert for matching, the value is persisted and rendered on the rule chip,
+  // so a weights-only edit is a real change history (and the apply gate) must
+  // see. Keeps this signature aligned with createSafeguardRuleContentSnapshot,
+  // whose dirty check drives the "apply as safeguard" button enabled state.
+  const weightEntries = substats.length > 0
     ? Object.entries(rule.substatWeights ?? {})
       .map(([key, raw]) => {
         const variant = Number(key)
