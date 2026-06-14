@@ -451,6 +451,27 @@ export const canonicalizeNoteRecipeOverridesMarkers = (note: string): string => 
 // Stored answers keyed by question ID.
 export type NoteRecipeOverridesAnswers = Record<string, string[]>
 
+// Split a question prompt into its title (first line) and optional subtext (remainder).
+// SSOT for the card header AND the saved-set tooltip so both show the same title-only text.
+export type QuestionPromptParts = { title: string; subtext: string | null }
+export const splitQuestionPrompt = (prompt: string): QuestionPromptParts => {
+  // Locate the first newline to split title/subtext.
+  const splitIndex = prompt.indexOf('\n')
+  // Treat single-line prompts as title-only.
+  if (splitIndex < 0) return { title: prompt, subtext: null }
+  // Preserve the leading line as the title.
+  const title = prompt.slice(0, splitIndex).trimEnd()
+  // Capture the remainder as optional subtext.
+  const remainder = prompt.slice(splitIndex + 1).trim()
+  // Drop empty subtext so layout stays compact.
+  return { title, subtext: remainder ? remainder : null }
+}
+
+// Collapse an option label to a single line (newlines → spaces) for inline display.
+export const normalizeOptionLabelText = (value: string): string => (
+  value.replace(/\r?\n|\r/g, ' ')
+)
+
 // Selector blocks applied in source order.
 export type RecipeOverridesInstructions = RecipeOverridesSelectorBlock[]
 
@@ -2378,14 +2399,15 @@ export const applyRecipeOverridesAnswerChange = (
   else next[question.id] = orderedSelection
   // Re-resolve to enforce cross-question directives/exclusions with preferred/removed.
   const { questions } = resolveRecipeOverridesTags(note, next, preferredId, removedId)
-  // Normalize back to lean storage: keep only answers that differ from their default.
+  // Persist the FULL resolved selection (every question, defaults included). The cascade
+  // release logic above runs entirely during resolution (driven by preferredId/removedId),
+  // so the resolved answers already reflect any released forcing-preset — we just record
+  // them verbatim. Storing defaults explicitly makes the saved state self-contained and
+  // identical in shape to a saved preset (one persistence format; no follow-the-note drift).
   const normalized: NoteRecipeOverridesAnswers = {}
   questions.forEach((resolved) => {
-    const resolvedDefaultSet = new Set(resolved.defaultAnswer)
     const resolvedSet = new Set(resolved.answer)
-    const resolvedMatchesDefault = resolvedDefaultSet.size === resolvedSet.size
-      && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
-    if (resolvedMatchesDefault) return
+    // Keep answers ordered by option definition for stable, diff-friendly storage.
     normalized[resolved.id] = resolved.options
       .filter((option) => resolvedSet.has(option.id))
       .map((option) => option.id)

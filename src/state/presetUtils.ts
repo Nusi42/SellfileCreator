@@ -7,6 +7,21 @@
  */
 import { normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 
+/**
+ * Generate a stable unique id for a newly-saved preset. Prefers crypto.randomUUID
+ * (available in all supported runtimes) and falls back to a time+random token when
+ * unavailable. SSOT for every named-preset store so callers never re-implement it.
+ */
+export const createPresetId = (): string => {
+  try {
+    const uuid = crypto?.randomUUID?.()
+    if (uuid && typeof uuid === 'string') return uuid
+  } catch {
+    // Fall through to the time+random fallback below.
+  }
+  return `preset_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
+
 /** Accepts only short, non-empty strings suitable for stable internal IDs. */
 export const sanitizePresetId = (raw: unknown): string | null => {
   if (typeof raw !== 'string') return null

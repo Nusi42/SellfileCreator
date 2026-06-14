@@ -80,6 +80,8 @@ import {
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
   formatRecipeOverridesSelector,
+  splitQuestionPrompt,
+  normalizeOptionLabelText,
   type RecipeOverridesInstructions,
   type RecipeOverridesOperation,
   type RecipeOverridesSelector,
@@ -101,6 +103,11 @@ import {
   type SafeguardNoteQuestionDefinition,
   type SafeguardOverridesResolution,
 } from '../lib/noteSafeguardOverrides'
+import {
+  useDynamicOverridesPresetController,
+  DynamicOverridesPresetMenuItems,
+  DynamicOverridesPresetDialogs,
+} from './NoteDynamicOverridesPresets'
 import { formatNoteTagSelector, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
@@ -454,7 +461,6 @@ type SafeguardMarkerEntry = { id: number; rule: SafeguardRule }
 type SafeguardMarkerMap = Map<number, SafeguardMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
 type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
-type QuestionPromptParts = { title: string; subtext: string | null }
 
 // Backticks mark chip-style emphasis within prompts.
 const QUESTION_PROMPT_CHIP_MARKER = '`'
@@ -472,10 +478,6 @@ const NOTE_CARD_LABEL_TEXT_SX = {
   lineHeight: 1.4,
 }
 const NOTE_OPTION_LINE_HEIGHT_COLUMNS = 1.2
-// Label text is single-line only, so newlines become spaces.
-const normalizeOptionLabelText = (value: string): string => (
-  value.replace(/\r?\n|\r/g, ' ')
-)
 // Shared label styling for two-column option rows.
 const NOTE_QUESTION_OPTION_TWO_COLUMN_LABEL_SX = {
   // Block layout avoids baseline quirks when values wrap.
@@ -542,19 +544,6 @@ const NOTE_QUESTION_SUBTEXT_SX = {
 }
 // Pad the label column so short bold labels don't wrap.
 const NOTE_QUESTION_LABEL_COLUMN_PAD_CH = 1
-
-function splitQuestionPrompt(prompt: string): QuestionPromptParts {
-  // Locate the first newline to split title/subtext.
-  const splitIndex = prompt.indexOf('\n')
-  // Treat single-line prompts as title-only.
-  if (splitIndex < 0) return { title: prompt, subtext: null }
-  // Preserve the leading line as the title.
-  const title = prompt.slice(0, splitIndex).trimEnd()
-  // Capture the remainder as optional subtext.
-  const remainder = prompt.slice(splitIndex + 1).trim()
-  // Drop empty subtext so layout stays compact.
-  return { title, subtext: remainder ? remainder : null }
-}
 
 function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefinition['options']): string {
   // Trim whitespace so numeric references are easy to parse.
@@ -3941,6 +3930,16 @@ export default function NoteDialog({
     // Closing the menu first prevents stuck backdrops.
     closeViewRecipeOverridesMenu()
   }, [closeViewRecipeOverridesMenu])
+  // Controller for the view-mode save/load/delete override-set feature.
+  const viewOverridesPresetController = useDynamicOverridesPresetController({
+    note: note ?? '',
+    recipeAnswers: recipeOverridesAnswers,
+    onRecipeAnswersChange: onRecipeOverridesAnswersChange,
+    safeguardAnswers: safeguardOverridesAnswers,
+    onSafeguardAnswersChange: onSafeguardOverridesAnswersChange,
+    onEnableOverrides: handleEnableRecipeOverrides,
+    onCloseMenu: closeViewRecipeOverridesMenu,
+  })
   // Hold the disable dialog context so view + edit can share one confirm flow.
   const [disableRecipeOverridesContext, setDisableRecipeOverridesContext] = useState<DisableRecipeOverridesContext | null>(null)
   // Open the disable confirm dialog with the latest note snapshot.
@@ -4102,14 +4101,11 @@ export default function NoteDialog({
       const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
       const numStr = nextSelection[0]
       const numVal = numStr !== undefined ? Number.parseFloat(numStr) : NaN
-      const isDefault = Number.isFinite(numVal) && numVal === defaultNum
       onSafeguardOverridesAnswersChange((prev) => {
         const next = { ...prev }
-        if (!numStr || !Number.isFinite(numVal) || isDefault) {
-          delete next[question.id]
-        } else {
-          next[question.id] = [numStr]
-        }
+        // Full storage: record the numeric value even when it equals the default; only an
+        // empty/invalid drag falls back to the default value string so the answer stays present.
+        next[question.id] = (numStr && Number.isFinite(numVal)) ? [numStr] : [String(defaultNum)]
         return next
       })
       return
@@ -4137,29 +4133,25 @@ export default function NoteDialog({
         preferredId,
         removedId,
       )
+      // Persist the FULL resolved selection for every question (defaults included), so the
+      // saved state is self-contained and identical in shape to a saved preset. The cascade
+      // already ran in resolveNoteSafeguardOverridesTags above, so we record its output verbatim.
       const normalized: NoteSafeguardOverridesAnswers = {}
       allResolved.forEach((resolved) => {
-        // Sliders: keep only non-default numeric answers.
+        // Sliders store a numeric value; record the resolved value (or the default when absent).
         const hasSlider = resolved.groups.some((g) => g.type === 'slider')
         if (hasSlider) {
           const sliderOpt = resolved.groups.find((g) => g.type === 'slider')?.options[0]
           const def = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
           const storedNum = resolved.answer.find((v) => Number.isFinite(Number.parseFloat(v)))
-          if (storedNum !== undefined && Number.parseFloat(storedNum) !== def) {
-            normalized[resolved.id] = [storedNum]
-          }
+          normalized[resolved.id] = [storedNum ?? String(def)]
           return
         }
-        // Non-slider: omit defaults to keep storage lean.
-        const resolvedDefaultSet = new Set(resolved.defaultAnswer)
+        // Non-slider: record every selected option id, ordered by option definition.
         const resolvedSet = new Set(resolved.answer)
-        const resolvedMatchesDefault = resolvedDefaultSet.size === resolvedSet.size
-          && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
-        if (resolvedMatchesDefault) return
-        const resolvedOrdered = resolved.options
+        normalized[resolved.id] = resolved.options
           .filter((option) => resolvedSet.has(option.id))
           .map((option) => option.id)
-        normalized[resolved.id] = resolvedOrdered
       })
       return normalized
     })
@@ -4750,7 +4742,11 @@ export default function NoteDialog({
                           >
                             {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
                           </MenuItem>
+                          {/* Save/load/delete the current selection as a reusable override set. */}
+                          <DynamicOverridesPresetMenuItems controller={viewOverridesPresetController} />
                         </Menu>
+                        {/* Dialogs live outside the menu so they survive the menu closing. */}
+                        <DynamicOverridesPresetDialogs controller={viewOverridesPresetController} />
                       </>
                     ) : null}
                   </Box>
@@ -4781,6 +4777,8 @@ export default function NoteDialog({
             safeguardRules={safeguardRules}
             recipeOverridesAnswers={recipeOverridesAnswers}
             safeguardOverridesAnswers={safeguardOverridesAnswers}
+            onRecipeOverridesAnswersChange={onRecipeOverridesAnswersChange}
+            onSafeguardOverridesAnswersChange={onSafeguardOverridesAnswersChange}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
             noteModeButtonMinWidth={noteModeButtonMinWidth}
@@ -5054,6 +5052,8 @@ function NoteEditorContent({
   safeguardRules,
   recipeOverridesAnswers,
   safeguardOverridesAnswers,
+  onRecipeOverridesAnswersChange,
+  onSafeguardOverridesAnswersChange,
   markdownComponents,
   allowElement,
   noteModeButtonMinWidth,
@@ -5079,6 +5079,9 @@ function NoteEditorContent({
   safeguardRules: SafeguardRule[]
   recipeOverridesAnswers: NoteRecipeOverridesAnswers
   safeguardOverridesAnswers: NoteSafeguardOverridesAnswers
+  // Setters for the save/load override-set feature (load writes the live answers).
+  onRecipeOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteRecipeOverridesAnswers>>
+  onSafeguardOverridesAnswersChange: React.Dispatch<React.SetStateAction<NoteSafeguardOverridesAnswers>>
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
   // Match the view/edit button widths to keep the action row stable.
@@ -5133,7 +5136,21 @@ function NoteEditorContent({
     // Closing the menu first prevents stuck backdrops.
     closeEditRecipeOverridesMenu()
   }, [closeEditRecipeOverridesMenu])
+  // Re-enable parsing when a saved override set is loaded from the edit-mode menu.
+  const handleEnableEditRecipeOverrides = React.useCallback(() => {
+    onNoteOverridesDisabledChange(false)
+  }, [onNoteOverridesDisabledChange])
   const [draft, setDraft] = useState<string>(note ?? '')
+  // Controller for the edit-mode save/load/delete override-set feature (acts on the live draft).
+  const editOverridesPresetController = useDynamicOverridesPresetController({
+    note: draft ?? '',
+    recipeAnswers: recipeOverridesAnswers,
+    onRecipeAnswersChange: onRecipeOverridesAnswersChange,
+    safeguardAnswers: safeguardOverridesAnswers,
+    onSafeguardAnswersChange: onSafeguardOverridesAnswersChange,
+    onEnableOverrides: handleEnableEditRecipeOverrides,
+    onCloseMenu: closeEditRecipeOverridesMenu,
+  })
 
   // While true, the scroll-sync is paused — the reveal-on-click sets this so its programmatic
   // editor scroll isn't immediately overridden by the preview scroll the click itself causes.
@@ -5987,7 +6004,11 @@ function NoteEditorContent({
                 >
                   {noteOverridesDisabled ? t('noteDynamicOverridesEnable') : t('noteDynamicOverridesDisable')}
                 </MenuItem>
+                {/* Save/load/delete override sets — operates on the live draft text. */}
+                <DynamicOverridesPresetMenuItems controller={editOverridesPresetController} />
               </Menu>
+              {/* Dialogs live outside the menu so they survive the menu closing. */}
+              <DynamicOverridesPresetDialogs controller={editOverridesPresetController} />
             </>
           ) : null}
           {/* Visually separate clear-note from the recipe actions. */}

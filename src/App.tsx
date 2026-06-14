@@ -148,6 +148,7 @@ import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearIn
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
 import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot, type FilterPresetView } from './state/filterPresetsPreference'
 import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
+import { createPresetId } from './state/presetUtils'
 import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -3239,14 +3240,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Saved sort presets — independent of filter presets so users manage sort configs separately.
   const [sortPresets, setSortPresets] = useSortPresetsPreference()
 
-  const createFilterPresetId = useCallback((): string => {
-    // Prefer UUIDs for low collision risk, but provide a stable fallback for older browsers.
-    try {
-      const uuid = crypto?.randomUUID?.()
-      if (uuid && typeof uuid === 'string') return uuid
-    } catch {}
-    return `preset_${Date.now()}_${Math.random().toString(16).slice(2)}`
-  }, [])
+  // Delegate to the shared SSOT id generator (presetUtils) so every preset store mints ids identically.
+  const createFilterPresetId = useCallback((): string => createPresetId(), [])
 
   const buildFilterPresetSnapshot = useCallback((includeSort: boolean): FilterPresetSnapshot => {
     // Presets capture both modes so toggling between Sellfile preview and Gear Inspector stays coherent.
