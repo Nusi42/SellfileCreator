@@ -42,6 +42,13 @@ type RestoreOption = {
   key: RestoreOptionKey
   label: string
   helper?: string
+  /**
+   * Optional second helper string rendered invisibly (visibility: hidden) so the
+   * row always reserves enough height for whichever of the two helpers is taller.
+   * Lets the visible helper swap (e.g. enabled → superseded) without resizing the
+   * dialog, and measures the real text so no hardcoded height is needed.
+   */
+  reservedHelper?: string
   /** When true the row renders but cannot be toggled and is treated as unchecked. */
   disabled?: boolean
 }
@@ -174,11 +181,15 @@ export default function RestoreAutosaveDialog({
       rows.push({
         key: 'gearInspector',
         label: t('restoreAutosaveGearInspectorLabel', { count: gearInspectorDraft!.count }),
-        // Once the endpoint data is applied the row is shown disabled rather than
-        // removed, so its helper explains why it can no longer be restored.
+        // Show the "superseded" explanation once endpoint data lands; otherwise the
+        // normal hint. reservedHelper carries the *other* string so the row reserves
+        // the taller of the two from the start and never resizes when they swap.
         helper: gearInspectorDisabled
           ? t('restoreAutosaveGearInspectorSupersededHelper')
           : t('restoreAutosaveGearInspectorHelper'),
+        reservedHelper: gearInspectorDisabled
+          ? t('restoreAutosaveGearInspectorHelper')
+          : t('restoreAutosaveGearInspectorSupersededHelper'),
         disabled: gearInspectorDisabled,
       })
     }
@@ -287,11 +298,40 @@ export default function RestoreAutosaveDialog({
                       sx={{ mt: -0.5, ml: -0.5 }}
                     />
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
-                      <Typography variant="body2">{option.label}</Typography>
+                      {/* Label dims to the disabled token so it matches the greyed checkbox. */}
+                      <Typography variant="body2" color={option.disabled ? 'text.disabled' : 'text.primary'}>
+                        {option.label}
+                      </Typography>
                       {option.helper && (
-                        <Typography variant="caption" color="text.secondary">
-                          {option.helper}
-                        </Typography>
+                        option.reservedHelper ? (
+                          // Stack both helpers in one grid cell so the row reserves the
+                          // taller string's height up front; only the active one is visible.
+                          // This avoids any dialog resize when the text swaps, with no
+                          // hardcoded height — the hidden text is measured for real.
+                          <Box sx={{ display: 'grid', minWidth: 0 }}>
+                            <Typography
+                              variant="caption"
+                              color={option.disabled ? 'text.disabled' : 'text.secondary'}
+                              sx={{ gridArea: '1 / 1' }}
+                            >
+                              {option.helper}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              aria-hidden
+                              sx={{ gridArea: '1 / 1', visibility: 'hidden' }}
+                            >
+                              {option.reservedHelper}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography
+                            variant="caption"
+                            color={option.disabled ? 'text.disabled' : 'text.secondary'}
+                          >
+                            {option.helper}
+                          </Typography>
+                        )
                       )}
                     </Box>
                   </Box>
