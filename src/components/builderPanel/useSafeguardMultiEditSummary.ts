@@ -30,6 +30,8 @@ export interface SafeguardMultiEditSummary {
   substatCounts: Map<number, number>
   // How many selected rules include each set id (inclusions only).
   setCounts: Map<number, number>
+  // How many selected rules EXCLUDE each set id (right-click "NOT").
+  excludedCounts: Map<number, number>
   // How many selected rules include each meta-set id.
   metaSetIdCounts: Map<string, number>
 }
@@ -49,6 +51,8 @@ export const useSafeguardMultiEditSummary = (
   let rulesWithFactionCount = 0
   const substatCounts = new Map<number, number>()
   const setCounts = new Map<number, number>()
+  // Excluded set ids tracked separately so right-click "NOT" can derive tri-state.
+  const excludedCounts = new Map<number, number>()
   const metaSetIdCounts = new Map<string, number>()
   for (const rule of multiSelectedRules) {
     const combo = rule.combination
@@ -78,11 +82,15 @@ export const useSafeguardMultiEditSummary = (
     for (const substat of (rule.substats ?? [])) {
       substatCounts.set(substat, (substatCounts.get(substat) ?? 0) + 1)
     }
-    // Count set inclusions only — exclusions don't count as "selected".
-    const { included } = splitArtifactSetSelections(combo.sets ?? [])
+    // Split so inclusions and exclusions tally into independent tri-state maps.
+    const { included, excluded } = splitArtifactSetSelections(combo.sets ?? [])
     for (const setId of included) {
       const n = Number(setId)
       setCounts.set(n, (setCounts.get(n) ?? 0) + 1)
+    }
+    for (const setId of excluded) {
+      const n = Number(setId)
+      excludedCounts.set(n, (excludedCounts.get(n) ?? 0) + 1)
     }
     // Count meta-set id presence.
     for (const metaId of (combo.metaSetNames ?? [])) {
@@ -99,6 +107,7 @@ export const useSafeguardMultiEditSummary = (
     factionCounts,
     substatCounts,
     setCounts,
+    excludedCounts,
     metaSetIdCounts,
   }
 }, [multiEditActive, multiSelectedRules])

@@ -58,9 +58,9 @@ import {
   type AggregateRollAction,
   type AggregateRollState,
 } from '../lib/aggregateRollState'
-import { type Metaset, metasetGlyph, orderMetasets, resolveMetasets } from '../lib/metasets'
+import { type Metaset, metasetGlyph, orderMetasets } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
-import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, pruneImplicitAnyExclusions, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
@@ -126,10 +126,15 @@ import {
   applyNumberPatchPreview,
   applyStringPatchPreview,
   computeArtifactSetPatchToggle,
+  computeArtifactSetExclusionToggle,
+  resolveSetTriState,
+  resolveSetExclusionTriState,
+  resolveMetasetTriState,
   computeNumberPatchToggle,
   computeStringPatchToggle,
   deriveBaseTriState,
   type TriStateBase,
+  type SetTriState,
   mergeRollPatchForVariant,
   mergeTargetPatchForVariant,
   toTriStateBase,
@@ -452,48 +457,6 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
   const resolveTokenPresence = React.useCallback((token: number, baseCount: number, patch: MultiEditArrayPatch<number> | null | undefined): number => {
     if (!multiSummary) return baseCount
     return applyArrayPatchCount(baseCount, multiSummary.total, patch, token)
-  }, [multiSummary])
-  const resolveSetPresence = React.useCallback((
-    token: number,
-    baseCount: number,
-    patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
-  ): number => {
-    if (!multiSummary) return baseCount
-    if (!patch) return baseCount
-    if (patch.clear) return 0
-    if (patch.replace && patch.replace.length >= 0) {
-      const normalized = normalizeArtifactSetSelections(patch.replace)
-      const split = splitArtifactSetSelections(normalized)
-      return split.included.map(Number).includes(token) ? multiSummary.total : 0
-    }
-    let next = baseCount
-    const removeEntries = normalizeArtifactSetSelections(patch.remove ?? [])
-    const addEntries = normalizeArtifactSetSelections(patch.add ?? [])
-    const removeIds = new Set(removeEntries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)))
-    const addIds = new Set(addEntries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)))
-    if (removeIds.has(token)) {
-      next = 0
-    }
-    if (addIds.has(token)) {
-      next = multiSummary.total
-    }
-    return Math.max(0, Math.min(multiSummary.total, next))
-  }, [multiSummary])
-  const resolveMetaPresence = React.useCallback((token: string, baseCount: number, patch: MultiEditArrayPatch<string> | null | undefined): number => {
-    if (!multiSummary) return baseCount
-    if (!patch) return baseCount
-    if (patch.clear) return 0
-    if (patch.replace && patch.replace.length >= 0) {
-      return patch.replace.map(String).includes(token) ? multiSummary.total : 0
-    }
-    let next = baseCount
-    if (patch.remove && patch.remove.map(String).includes(token)) {
-      next = 0
-    }
-    if (patch.add && patch.add.map(String).includes(token)) {
-      next = multiSummary.total
-    }
-    return Math.max(0, Math.min(multiSummary.total, next))
   }, [multiSummary])
   const mainStatsPatch = (multiMainStatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
   const resolveMainStatTriState = (variant: number): 'all' | 'none' | 'mixed' => {
@@ -1234,28 +1197,35 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   }
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
-  const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
-    if (!multiEditActive || !multiSummary) {
-      const selected = splitArtifactSetSelections(recipe.artifactSets).included.includes(id)
-      return selected ? 'all' : 'none'
-    }
-    const base = multiSummary.setCounts.get(id) ?? 0
-    const final = resolveSetPresence(id, base, setsPatch)
-    if (final === 0) return 'none'
-    if (final === multiSummary.total) return 'all'
-    return 'partial'
-  }, [recipe.artifactSets, multiEditActive, multiSummary, resolveSetPresence, setsPatch])
-const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
-  if (!multiEditActive || !multiSummary) {
-    const selected = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets.includes(id) : false
-    return selected ? 'all' : 'none'
-  }
-  const base = multiSummary.metaCounts.get(id) ?? 0
-  const final = resolveMetaPresence(id, base, metasetsPatch)
-  if (final === 0) return 'none'
-  if (final === multiSummary.total) return 'all'
-  return 'partial'
-}, [recipe.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
+  // All three tri-state resolvers delegate to the shared SSOT helpers; only the
+  // data sources (summary maps, staged patch, single-edit fallback) are panel-local.
+  const triActive = multiEditActive && !!multiSummary
+  const getSetState = React.useCallback((id: number): SetTriState => resolveSetTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.setCounts.get(id) ?? 0,
+    patch: setsPatch,
+    setId: id,
+    singleEditIncluded: splitArtifactSetSelections(recipe.artifactSets).included.includes(id),
+  }), [triActive, multiSummary, recipe.artifactSets, setsPatch])
+  // Exclusion tri-state mirrors getSetState but reads the excluded baseline so
+  // right-click "NOT" can toggle exclusion consistently across the selection.
+  const getSetExclusionState = React.useCallback((id: number): SetTriState => resolveSetExclusionTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.excludedCounts.get(id) ?? 0,
+    patch: setsPatch,
+    setId: id,
+    singleEditExcluded: splitArtifactSetSelections(recipe.artifactSets).excluded.includes(id),
+  }), [triActive, multiSummary, recipe.artifactSets, setsPatch])
+  const getMetasetState = React.useCallback((id: string): SetTriState => resolveMetasetTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.metaCounts.get(id) ?? 0,
+    patch: metasetsPatch,
+    name: id,
+    singleEditSelected: Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets.includes(id) : false,
+  }), [triActive, multiSummary, recipe.artifactMetaSets, metasetsPatch])
   const getSetStateForScroll = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (multiEditActive) return getSetState(id)
     return splitArtifactSetSelections(recipe.artifactSets).included.includes(id) ? 'all' : 'none'
@@ -5232,13 +5202,26 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       ...selectedMetaIds.map(tokenOf.meta),
       ...selectedSetIds.map(tokenOf.set),
     ]
-    // Track sets introduced by metasets so right-click exclusion is scoped.
-    const metaDerivedSetIds = new Set<number>(resolveMetasets(selectedMetaIds, metasets).map(Number))
     const handleExcludeSet = (id: number) => {
-      // Multi-edit exclusion UI is intentionally disabled.
-      if (multiEditActive) return
-      // Ignore items not introduced by metasets.
-      if (!metaDerivedSetIds.has(id)) return
+      // NOT is allowed on any set; the implicit-any guard (below / at apply time)
+      // drops a bare exclusion when nothing constrains the pool.
+      // Multi-edit: stage a tri-state exclusion patch across the whole selection,
+      // mirroring toggleSet so include/exclude behave identically in multi-edit.
+      if (multiEditActive && multiEdit) {
+        const state = getSetExclusionState(id)
+        const baseState = toTriStateBase(state)
+        // Tri-state: all excluded -> clear; otherwise -> exclude everywhere.
+        const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+        const nextPatch = computeArtifactSetExclusionToggle(setsPatch, id, baseState, target)
+        const baseArray = Array.isArray(recipe.artifactSets) ? recipe.artifactSets : []
+        const preview = applyArtifactSetPatchPreview(baseArray, nextPatch)
+        multiEdit.updateField('artifactSets', {
+          value: preview as BuilderRecipe['artifactSets'],
+          status: 'common',
+          patch: nextPatch ?? undefined,
+        })
+        return
+      }
       // Flip the exclude flag for this set id.
       const isExcluded = excludedSetIds.includes(id)
       // Exclusions should clear explicit includes for the same set.
@@ -5246,10 +5229,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       const nextExcluded = isExcluded
         ? excludedSetIds.filter((entry) => entry !== id)
         : [...excludedSetIds, id]
-      const nextSelections = normalizeArtifactSetSelections([
+      // Strip the exclusion when the result is implicit-any (no include + no metaset).
+      const hasMetaset = (recipe.artifactMetaSets?.length ?? 0) > 0
+      const nextSelections = pruneImplicitAnyExclusions([
         ...nextIncluded.map((entry) => ({ id: entry })),
         ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
-      ])
+      ], hasMetaset)
       onChange({ ...recipe, artifactSets: nextSelections })
     }
     // Evaluate "Any" state based on metasets, sets, and exclusions.

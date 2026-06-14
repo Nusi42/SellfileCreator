@@ -118,6 +118,32 @@ export const mergeArtifactSetSelections = (
   selections: readonly ArtifactSetSelectionEntry[] | null | undefined,
 ): ArtifactSetSelectionEntry[] => normalizeArtifactSetSelections(selections ?? [])
 
+/**
+ * pruneImplicitAnyExclusions — SSOT for the "can't NOT an implicit-any set" rule.
+ *
+ * When a recipe/safeguard lists no explicit set AND no metaset, it implicitly
+ * means "any gear-set" (the HSF format expresses this by listing nothing). HSF
+ * cannot represent "all gear-sets except Xyz", so a bare exclusion on an
+ * otherwise-empty selection is meaningless — we drop it rather than unroll
+ * implicit-any into "all minus the excluded one".
+ *
+ * An exclusion is only kept when something narrows the pool: at least one
+ * explicit included set, or at least one active metaset (`hasMetaset`). This is
+ * enforced centrally so it holds for right-click, import, and every other path.
+ */
+export const pruneImplicitAnyExclusions = (
+  selections: readonly ArtifactSetSelectionEntry[] | null | undefined,
+  hasMetaset: boolean,
+): ArtifactSetSelectionEntry[] => {
+  // Normalize first so exclusion-wins + ordering are already settled.
+  const normalized = normalizeArtifactSetSelections(selections ?? [])
+  const { included } = splitArtifactSetSelections(normalized)
+  // A metaset or any explicit include means the pool is constrained — keep excludes.
+  if (hasMetaset || included.length > 0) return normalized
+  // Implicit-any: strip every exclusion, leaving the empty (= any) selection.
+  return normalized.filter((entry) => !entry.excluded)
+}
+
 export type ArtifactSetResolution = {
   // Explicit include set IDs (ignores excluded entries).
   included: ArtifactSetId[]

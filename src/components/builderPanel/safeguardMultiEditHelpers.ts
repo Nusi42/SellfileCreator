@@ -17,11 +17,20 @@ import {
   applyArrayPatchCount,
   computeNumberPatchToggle,
   computeStringPatchToggle,
+  applyStringArrayPatchCount,
   computeArtifactSetPatchToggle,
+  computeArtifactSetExclusionToggle,
+  resolveExclusionPresence,
+  resolveInclusionPresence,
+  resolveSetTriState,
+  resolveSetExclusionTriState,
+  resolveMetasetTriState,
+  resolveExcludedSetUnion,
   applyNumberPatchPreview,
   applyStringPatchPreview,
   applyArtifactSetPatchPreview,
   type TriStateBase,
+  type SetTriState,
 } from './recipeMultiEditHelpers'
 import type { SafeguardMultiEditFieldState } from '../../lib/safeguardMultiEditDraft'
 import type { ArtifactTypeId, FactionId, RankValue, StatVariant } from '../../lib/types'
@@ -34,11 +43,20 @@ export {
   applyArrayPatchCount,
   computeNumberPatchToggle,
   computeStringPatchToggle,
+  applyStringArrayPatchCount,
   computeArtifactSetPatchToggle,
+  computeArtifactSetExclusionToggle,
+  resolveExclusionPresence,
+  resolveInclusionPresence,
+  resolveSetTriState,
+  resolveSetExclusionTriState,
+  resolveMetasetTriState,
+  resolveExcludedSetUnion,
   applyNumberPatchPreview,
   applyStringPatchPreview,
   applyArtifactSetPatchPreview,
   type TriStateBase,
+  type SetTriState,
 }
 
 // ── field-value extraction helpers ───────────────────────────────────────────

@@ -36,7 +36,7 @@ import {
   normalizeSafeguardFactionSlotScope,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
 import { isAccessorySlot, slotPatchIntroducesArmor } from './gearInspectorDomain'
 
 // ── editable field projection ─────────────────────────────────────────────────
@@ -661,7 +661,20 @@ export function applyMultiEditFieldsToSafeguardRule(
   // accessory ids so a multi-edit that picks a faction (or skips it via mutual-exclusivity)
   // can never leave a rule in an internally inconsistent state at save time.
   nextRule = normalizeSafeguardFactionSlotScope(nextRule)
+  // Drop bare exclusions on implicit-any selections (no include + no metaset);
+  // HSF cannot express "all sets except X" so the NOT is silently ignored.
+  nextRule = pruneRuleImplicitAnyExclusions(nextRule)
   return nextRule
+}
+
+// Per-rule wrapper around the shared implicit-any prune: an exclusion only
+// survives when an explicit set or a metaset constrains the pool.
+function pruneRuleImplicitAnyExclusions(rule: SafeguardRule): SafeguardRule {
+  const combo = rule.combination
+  const hasMetaset = (combo.metaSetNames?.length ?? 0) > 0
+  const next = pruneImplicitAnyExclusions(combo.sets ?? [], hasMetaset)
+  if (areSetSelectionsEqual(combo.sets ?? [], next)) return rule
+  return { ...rule, combination: { ...combo, sets: next } }
 }
 
 

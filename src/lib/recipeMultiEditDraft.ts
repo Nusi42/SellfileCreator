@@ -9,7 +9,7 @@ import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
 import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope } from './recipeNormalization'
 import { isAccessorySlot, slotPatchIntroducesArmor } from './gearInspectorDomain'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
 import type { NameAppearance } from './nameAppearance'
 
 // Virtual sub-keys for appearance — tracked independently so name and fgColor each have
@@ -880,7 +880,19 @@ export function applyMultiEditFieldsToRecipe(
   // only case this normalizer fires for is "faction set, slots empty" — fill in
   // all three accessories so the saved recipe is internally consistent.
   nextRecipe = normalizeFactionSlotScope(nextRecipe)
+  // Drop bare exclusions on implicit-any selections (no include + no metaset);
+  // HSF cannot express "all sets except X" so the NOT is silently ignored.
+  nextRecipe = pruneRecipeImplicitAnyExclusions(nextRecipe)
   return nextRecipe
+}
+
+// Per-recipe wrapper around the shared implicit-any prune: an exclusion only
+// survives when an explicit set or a metaset constrains the pool.
+function pruneRecipeImplicitAnyExclusions(recipe: BuilderRecipe): BuilderRecipe {
+  const hasMetaset = (recipe.artifactMetaSets?.length ?? 0) > 0
+  const next = pruneImplicitAnyExclusions(recipe.artifactSets, hasMetaset)
+  if (areArtifactSetSelectionsEqual(normalizeArtifactSetSelections(recipe.artifactSets), next)) return recipe
+  return { ...recipe, artifactSets: next }
 }
 
 function applyPatchForKey<K extends BuilderFieldKey>(

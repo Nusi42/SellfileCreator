@@ -53,6 +53,41 @@ type GearSetsSelectProps = {
   minWidthPx?: number
   /** When true, always show the "No Set" sentinel regardless of allowedSetIds. */
   showNoSet?: boolean
+  /**
+   * Optional right-click override. When provided, a context menu on a set
+   * delegates to the caller instead of the internal single-value exclusion
+   * handler — multi-edit panels use this to stage a tri-state exclusion patch.
+   */
+  onContextMenuSet?: (id: number) => void
+  /**
+   * Optional metaset-click override. When provided, clicking a metaset row
+   * delegates to the caller instead of the internal token toggle — multi-edit
+   * panels use this to stage a per-rule tri-state metaset patch.
+   */
+  onToggleMetaset?: (name: string) => void
+  /**
+   * Optional set-click override. When provided, clicking a set delegates to the
+   * caller instead of the internal single-value include toggle — multi-edit
+   * panels use this to stage a per-rule tri-state include patch (which also
+   * clears an existing exclusion for the same set).
+   */
+  onToggleSet?: (id: number) => void
+  /**
+   * Multi-edit tri-state for a set across the selection. When provided the menu
+   * renders partial (mixed) styling and the closed label gains a "– Mixed"
+   * suffix, matching the recipe builder. Omit for single-edit (binary) display.
+   */
+  triStateForSet?: (id: number) => 'none' | 'partial' | 'all'
+  /** Multi-edit tri-state for a metaset across the selection (parallel to triStateForSet). */
+  triStateForMetaset?: (id: string) => 'none' | 'partial' | 'all'
+  /** Localized "Mixed" suffix appended to partial entries in the closed label. */
+  mixedLabel?: string
+  /**
+   * Multi-edit excluded-set union (ids excluded on any selected rule). Overrides
+   * the single-value exclusion list so the red NOT ring reflects the whole
+   * selection. Omit for single-edit (derived from `value`).
+   */
+  excludedSetIds?: readonly number[]
 }
 
 export default function GearSetsSelect({
@@ -73,7 +108,16 @@ export default function GearSetsSelect({
   singleSelect = false,
   minWidthPx,
   showNoSet,
+  onContextMenuSet,
+  onToggleMetaset,
+  onToggleSet: onToggleSetOverride,
+  triStateForSet,
+  triStateForMetaset,
+  mixedLabel,
+  excludedSetIds: excludedSetIdsOverride,
 }: GearSetsSelectProps) {
+  // Multi-edit display is active when the caller supplies tri-state resolvers.
+  const triStateActive = Boolean(triStateForSet || triStateForMetaset)
   const { t, lang } = useI18n()
   // Keep the placeholder explicit when callers want "Any Set" instead of "Any".
   const anyText = anyLabel ?? t('any')
@@ -118,30 +162,79 @@ export default function GearSetsSelect({
     () => splitArtifactSetSelections(normalizedSelections),
     [normalizedSelections],
   )
+  // Excluded ids for the red NOT ring: the multi-edit union when supplied, else
+  // the focused value's exclusions (single-edit).
+  const effectiveExcludedSetIds = useMemo(
+    () => (excludedSetIdsOverride ? excludedSetIdsOverride.map(Number) : splitSelections.excluded.map(Number)),
+    [excludedSetIdsOverride, splitSelections.excluded],
+  )
   // Build the Select token list from metasets + explicit includes.
   const selectedTokens = useMemo(() => ([
     ...orderedMetaSelected.map((id) => `m:${id}`),
     ...splitSelections.included.map((id) => `s:${Number(id)}`),
   ]), [orderedMetaSelected, splitSelections.included])
 
+  // Sorted set entries (id + meta) for both the menu grid and tri-state labels.
+  const sortedSets = useMemo(() => {
+    void gearSetCatalogVersion
+    return filterAndSortSetEntries(setsSearch, setsOrder, {
+      translate: t,
+      // Include the accessory no-set sentinel when requested by caller.
+      includeNoSet,
+      noSetLabel: t('noSetAccessories'),
+    })
+  }, [gearSetCatalogVersion, includeNoSet, setsOrder, setsSearch, t])
+
+  // Helper: format a metaset name with its glyph prefix (shared by both label paths).
+  const formatMetasetLabel = useCallback((meta: Metaset): string => {
+    const { glyph, iconId } = metasetGlyph(meta)
+    if (glyph != null && iconId) {
+      const needsGap = iconId !== 'empty'
+      return `${glyph}${needsGap ? ` ${meta.name}` : meta.name}`
+    }
+    return meta.name
+  }, [])
+
+  // Append the localized "Mixed" suffix to a partial-state entry; mirrors the
+  // recipe builder's getSetsSelectionDisplay so both panels read identically.
+  const withMixed = useCallback((label: string, state: 'none' | 'partial' | 'all'): string => (
+    state === 'partial' && mixedLabel ? `${label} – ${mixedLabel}` : label
+  ), [mixedLabel])
+
   // Build the display labels once so render + badge math stay in sync.
   const selectionLabels = useMemo(() => {
     void gearSetCatalogVersion
     // Collect labels in the same order as the display tokens.
     const names: string[] = []
-    // Metasets stay in the token list; rebuild names from active metasets.
+    // Multi-edit: drive labels from the tri-state resolvers over the full display
+    // universe (every metaset / every set) so partial values surface with "– Mixed".
+    if (triStateActive) {
+      for (const meta of metasets) {
+        const state = triStateForMetaset ? triStateForMetaset(meta.name) : 'none'
+        if (state === 'none') continue
+        names.push(withMixed(formatMetasetLabel(meta), state))
+      }
+      for (const [id] of sortedSets) {
+        const setId = Number(id)
+        const state = triStateForSet ? triStateForSet(setId) : 'none'
+        if (state === 'none') continue
+        const localized = getLocalizedGearSetName(setId as ArtifactSetId, t, lang) || artifactSetName(setId)
+        names.push(withMixed(localized, state))
+      }
+      // Exclusions render with a "not" prefix; use the union when supplied.
+      for (const id of effectiveExcludedSetIds) {
+        const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
+        names.push(`not ${localized}`)
+      }
+      return names
+    }
+    // Single-edit: rebuild names from the active metasets in token order.
     for (const token of selectedTokens) {
       if (!token.startsWith('m:')) continue
       const id = token.slice(2)
       const meta = metasets.find((m) => m.name === id)
       if (!meta) continue
-      const { glyph, iconId } = metasetGlyph(meta)
-      if (glyph != null && iconId) {
-        const needsGap = iconId !== 'empty'
-        names.push(`${glyph}${needsGap ? ` ${meta.name}` : meta.name}`)
-      } else {
-        names.push(meta.name)
-      }
+      names.push(formatMetasetLabel(meta))
     }
     // Explicit includes render as plain set names.
     for (const id of splitSelections.included) {
@@ -154,12 +247,13 @@ export default function GearSetsSelect({
       names.push(`not ${localized}`)
     }
     return names
-  }, [gearSetCatalogVersion, lang, metasets, selectedTokens, splitSelections.excluded, splitSelections.included, t])
+  }, [gearSetCatalogVersion, lang, metasets, selectedTokens, splitSelections.excluded, splitSelections.included, t, triStateActive, triStateForMetaset, triStateForSet, sortedSets, withMixed, formatMetasetLabel, effectiveExcludedSetIds])
 
   const renderValue = useCallback((tokens: string[]) => {
     void gearSetCatalogVersion
-    // Treat excluded-only selections as active so they render in the label.
-    if (tokens.length === 0 && splitSelections.excluded.length === 0) {
+    // Single-edit fast path: treat excluded-only selections as active. In tri-state
+    // mode the union lives in selectionLabels, so skip this focused-rule shortcut.
+    if (!triStateActive && tokens.length === 0 && splitSelections.excluded.length === 0) {
       return (
         <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
           {anyText}
@@ -179,7 +273,7 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [anyText, gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length])
+  }, [anyText, gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length, triStateActive])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
     // Normalize the token list so arrays never contain non-strings.
@@ -251,16 +345,6 @@ export default function GearSetsSelect({
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
   }, [gearSetCatalogVersion, includeNoSet, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
-
-  const sortedSets = useMemo(() => {
-    void gearSetCatalogVersion
-    return filterAndSortSetEntries(setsSearch, setsOrder, {
-      translate: t,
-      // Include the accessory no-set sentinel when requested by caller.
-      includeNoSet,
-      noSetLabel: t('noSetAccessories'),
-    })
-  }, [gearSetCatalogVersion, includeNoSet, setsOrder, setsSearch, t])
 
   // When allowedSetIds is provided, disable sets outside the allowed pool instead of hiding them.
   // Merge with any explicit disabledSetIds passed by the caller.
@@ -646,7 +730,12 @@ export default function GearSetsSelect({
                     const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
                     const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
                     const isMetaDisabled = disabledMetasetIds.has(meta.name)
-                    const selected = (selectedMetasetIds ?? []).includes(meta.name)
+                    // Tri-state for multi-edit: 'all' selected, 'partial' mixed, else none.
+                    const metaState = triStateForMetaset ? triStateForMetaset(meta.name) : null
+                    const selected = metaState
+                      ? metaState === 'all'
+                      : (selectedMetasetIds ?? []).includes(meta.name)
+                    const isPartialMeta = metaState === 'partial'
                     const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                     const joined = setNames.join(', ')
                     return (
@@ -658,11 +747,23 @@ export default function GearSetsSelect({
                         data-metaset-id={meta.name}
                         onMouseEnter={() => setHoveredMetasetId(meta.name)}
                         onMouseLeave={() => setHoveredMetasetId((prev) => (prev === meta.name ? null : prev))}
+                        sx={isPartialMeta ? (theme) => ({
+                          borderStyle: 'dashed',
+                          borderWidth: 1,
+                          borderColor: theme.custom.multiEditMixedBorder,
+                          backgroundImage: `linear-gradient(135deg, ${theme.custom.multiEditMixedBg} 50%, transparent 50%)`,
+                          color: theme.custom.multiEditMixedText,
+                        }) : undefined}
                         onClick={(evt) => {
                           evt.preventDefault()
                           evt.stopPropagation()
-                          if (!onChangeMetasetIds) return
                           if (isMetaDisabled) return
+                          // Multi-edit panels inject a tri-state patch toggle here.
+                          if (onToggleMetaset) {
+                            onToggleMetaset(meta.name)
+                            return
+                          }
+                          if (!onChangeMetasetIds) return
                           const token = `m:${meta.name}`
                           const tokens = new Set(selectedTokens)
                           if (tokens.has(token)) tokens.delete(token); else tokens.add(token)
@@ -746,11 +847,12 @@ export default function GearSetsSelect({
                   hoveredMetasetId={hoveredMetasetId}
                   selectedMetasetIds={selectedMetasetIds}
                   selectedSetIds={splitSelections.included.map(Number)}
-                  excludedSetIds={splitSelections.excluded.map(Number)}
+                  excludedSetIds={effectiveExcludedSetIds}
                   disabledSetIds={effectiveDisabledSetIds}
                   singleSelect={singleSelect}
-                  onToggleSet={handleToggleSet}
-                  onContextMenuSet={handleContextMenuSet}
+                  onToggleSet={onToggleSetOverride ?? handleToggleSet}
+                  onContextMenuSet={onContextMenuSet ?? handleContextMenuSet}
+                  {...(triStateForSet ? { triStateForSet } : {})}
                 />
               </Box>
             </Box>,

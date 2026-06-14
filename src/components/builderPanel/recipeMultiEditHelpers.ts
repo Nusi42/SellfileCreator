@@ -6,7 +6,7 @@ import type {
 } from '../../lib/recipeMultiEditDraft'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
-import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../../lib/gearSets/selection'
 
 // Multi-edit tri-state helpers keep toggles deterministic when several recipes
 // are patched at once; the UI needs a canonical "all/mixed/none" baseline.
@@ -32,6 +32,23 @@ export const applyArrayPatchCount = (
   let count = baseCount
   if (patch.remove?.map(Number).includes(element)) count = 0
   else if (patch.add?.map(Number).includes(element)) count = total
+  return Math.max(0, Math.min(total, count))
+}
+
+// String-keyed analogue of applyArrayPatchCount (e.g. metaset-name presence).
+// SSOT for resolving how many rules carry a string token after a staged patch.
+export const applyStringArrayPatchCount = (
+  baseCount: number,
+  total: number,
+  patch: MultiEditArrayPatch<string> | null | undefined,
+  token: string,
+): number => {
+  if (!patch) return baseCount
+  if (patch.clear) return 0
+  if (patch.replace) return patch.replace.map(String).includes(token) ? total : 0
+  let count = baseCount
+  if (patch.remove?.map(String).includes(token)) count = 0
+  else if (patch.add?.map(String).includes(token)) count = total
   return Math.max(0, Math.min(total, count))
 }
 
@@ -140,18 +157,20 @@ export const computeArtifactSetPatchToggle = (
     }
     return { replace: next }
   }
-  // Add/remove arrays operate on explicit includes only.
+  // Strip any prior entry for this id from both arrays so the toggle is clean.
   const addEntries = normalizeArtifactSetSelections(draft?.add ?? [])
   const removeEntries = normalizeArtifactSetSelections(draft?.remove ?? [])
   const nextAdd = addEntries.filter((entry) => Number(entry.id) !== setId)
   const nextRemove = removeEntries.filter((entry) => Number(entry.id) !== setId)
   if (target === 'all') {
-    // Only add when the base state is not already "all".
-    if (baseState !== 'all') {
-      nextAdd.push({ id: setId })
-    }
+    // Toggling include ON: re-add the set, and also stage a remove so any
+    // existing exclusion is cleared first (apply removes by id, then adds).
+    // Without this the per-rule "exclusion wins" normalization would swallow the
+    // include and the set would stay NOT-ed — so left-click could never un-NOT.
+    nextAdd.push({ id: setId })
+    nextRemove.push({ id: setId })
   } else {
-    // Only remove when the base state is not already "none".
+    // Toggling include OFF: only remove when not already "none".
     if (baseState !== 'none') {
       nextRemove.push({ id: setId })
     }
@@ -161,6 +180,201 @@ export const computeArtifactSetPatchToggle = (
   if (nextAdd.length > 0) nextPatch.add = nextAdd
   if (nextRemove.length > 0) nextPatch.remove = nextRemove
   return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
+// Exclusion toggle mirrors computeArtifactSetPatchToggle but flips the *excluded*
+// flag instead of inclusion membership. Right-click "NOT a set" in multi-edit
+// stages {id, excluded:true} on add and a bare {id} on remove so every selected
+// recipe/safeguard converges on the same exclusion state — SSOT for both panels.
+export const computeArtifactSetExclusionToggle = (
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+  setId: number,
+  // Tri-state baseline of the *exclusion*: 'all' = every selected rule excludes id.
+  baseState: TriStateBase,
+  // 'all' = exclude on every rule; 'none' = clear the exclusion everywhere.
+  target: 'all' | 'none',
+): MultiEditArrayPatch<ArtifactSetSelectionEntry> | null => {
+  const draft = patch ?? null
+  if (draft?.clear) {
+    // Clear wipes everything; only restore the entry when toggling exclusion on.
+    if (target === 'all') {
+      return { replace: [{ id: setId, excluded: true }] }
+    }
+    return { clear: true }
+  }
+  if (draft?.replace) {
+    // Merge the exclusion toggle into the replace snapshot.
+    const normalized = normalizeArtifactSetSelections(draft.replace)
+    // Drop any prior entry (include or exclude) for this id so the toggle is clean.
+    const filtered = normalized.filter((entry) => Number(entry.id) !== setId)
+    if (target === 'all') {
+      filtered.push({ id: setId, excluded: true })
+    }
+    const next = normalizeArtifactSetSelections(filtered)
+    if (next.length === 0) {
+      return { clear: true }
+    }
+    return { replace: next }
+  }
+  // Add/remove branch. Strip ANY prior add/remove entry for this id (include or
+  // exclude) so a staged include never lingers alongside a fresh exclusion.
+  const addEntries = normalizeArtifactSetSelections(draft?.add ?? [])
+  const removeEntries = normalizeArtifactSetSelections(draft?.remove ?? [])
+  const nextAdd = addEntries.filter((entry) => Number(entry.id) !== setId)
+  const nextRemove = removeEntries.filter((entry) => Number(entry.id) !== setId)
+  if (target === 'all') {
+    // Stage the exclusion only when not already excluded everywhere.
+    if (baseState !== 'all') {
+      nextAdd.push({ id: setId, excluded: true })
+    }
+  } else {
+    // Stage a remove (keyed by id) only when there is an exclusion to clear.
+    if (baseState !== 'none') {
+      nextRemove.push({ id: setId })
+    }
+  }
+  const nextPatch: MultiEditArrayPatch<ArtifactSetSelectionEntry> = {}
+  if (nextAdd.length > 0) nextPatch.add = nextAdd
+  if (nextRemove.length > 0) nextPatch.remove = nextRemove
+  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
+// Resolve how many selected rules will INCLUDE setId after the staged patch
+// applies. Only non-excluded add/remove entries move inclusion presence (an
+// add of {id, excluded} is an exclusion, not an include). SSOT for both panels.
+export const resolveInclusionPresence = (
+  baseIncludedCount: number,
+  total: number,
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+  setId: number,
+): number => {
+  if (!patch) return baseIncludedCount
+  if (patch.clear) return 0
+  if (patch.replace) {
+    const split = splitArtifactSetSelections(normalizeArtifactSetSelections(patch.replace))
+    return split.included.map(Number).includes(setId) ? total : 0
+  }
+  let next = baseIncludedCount
+  // Only non-excluded entries move inclusion presence on either side.
+  const addIncluded = new Set(
+    normalizeArtifactSetSelections(patch.add ?? [])
+      .filter((entry) => !entry.excluded)
+      .map((entry) => Number(entry.id)),
+  )
+  const removeIncluded = new Set(
+    normalizeArtifactSetSelections(patch.remove ?? [])
+      .filter((entry) => !entry.excluded)
+      .map((entry) => Number(entry.id)),
+  )
+  if (removeIncluded.has(setId)) next = 0
+  if (addIncluded.has(setId)) next = total
+  return Math.max(0, Math.min(total, next))
+}
+
+// Resolve how many selected rules will EXCLUDE setId after the staged patch
+// applies. Mirrors the include-side resolveSetPresence pattern (remove-then-add)
+// so recipe + safeguard derive exclusion tri-state from one definition.
+export const resolveExclusionPresence = (
+  baseExcludedCount: number,
+  total: number,
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+  setId: number,
+): number => {
+  if (!patch) return baseExcludedCount
+  if (patch.clear) return 0
+  if (patch.replace) {
+    // Replace overrides the baseline; the set is excluded iff it is in the snapshot.
+    const split = splitArtifactSetSelections(normalizeArtifactSetSelections(patch.replace))
+    return split.excluded.map(Number).includes(setId) ? total : 0
+  }
+  let next = baseExcludedCount
+  // Only adds that carry the excluded flag count toward exclusion presence.
+  const addExcluded = new Set(
+    normalizeArtifactSetSelections(patch.add ?? [])
+      .filter((entry) => entry.excluded)
+      .map((entry) => Number(entry.id)),
+  )
+  const removeIds = new Set(
+    normalizeArtifactSetSelections(patch.remove ?? []).map((entry) => Number(entry.id)),
+  )
+  // Apply removes first (clears everywhere), then adds (excludes everywhere).
+  if (removeIds.has(setId)) next = 0
+  if (addExcluded.has(setId)) next = total
+  return Math.max(0, Math.min(total, next))
+}
+
+// ── Centralized multi-edit tri-state resolvers ───────────────────────────────
+// The recipe and safeguard panels share the SAME tri-state derivation; only the
+// data sources (their summary maps, staged patches, and single-edit fallback)
+// differ. These resolvers take those sources as plain inputs so each panel binds
+// them once instead of re-deriving 'none'/'partial'/'all' inline. SSOT.
+
+export type SetTriState = 'none' | 'partial' | 'all'
+
+// Collapse a post-patch presence count into a tri-state given the selection size.
+const presenceToTriState = (count: number, total: number): SetTriState => {
+  if (count <= 0) return 'none'
+  if (count >= total) return 'all'
+  return 'partial'
+}
+
+// Tri-state for an INCLUDED set across the selection (multi-edit) or a binary
+// include in single-edit (fallback drives the result when no summary is active).
+export const resolveSetTriState = (opts: {
+  active: boolean
+  total: number
+  baseCount: number
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined
+  setId: number
+  singleEditIncluded: boolean
+}): SetTriState => {
+  if (!opts.active) return opts.singleEditIncluded ? 'all' : 'none'
+  return presenceToTriState(resolveInclusionPresence(opts.baseCount, opts.total, opts.patch, opts.setId), opts.total)
+}
+
+// Tri-state for an EXCLUDED set across the selection (parallel to resolveSetTriState).
+export const resolveSetExclusionTriState = (opts: {
+  active: boolean
+  total: number
+  baseCount: number
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined
+  setId: number
+  singleEditExcluded: boolean
+}): SetTriState => {
+  if (!opts.active) return opts.singleEditExcluded ? 'all' : 'none'
+  return presenceToTriState(resolveExclusionPresence(opts.baseCount, opts.total, opts.patch, opts.setId), opts.total)
+}
+
+// Tri-state for a metaset across the selection (string-keyed presence).
+export const resolveMetasetTriState = (opts: {
+  active: boolean
+  total: number
+  baseCount: number
+  patch: MultiEditArrayPatch<string> | null | undefined
+  name: string
+  singleEditSelected: boolean
+}): SetTriState => {
+  if (!opts.active) return opts.singleEditSelected ? 'all' : 'none'
+  return presenceToTriState(applyStringArrayPatchCount(opts.baseCount, opts.total, opts.patch, opts.name), opts.total)
+}
+
+// Union of set ids excluded on ANY selected rule (or the staged patch). Drives
+// the menu's red NOT ring + the closed-label "not X" entries in multi-edit.
+export const resolveExcludedSetUnion = (opts: {
+  total: number
+  excludedCounts: ReadonlyMap<number, number>
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined
+}): number[] => {
+  const ids = new Set<number>()
+  // Any set a rule already excludes and the patch hasn't cleared.
+  for (const [id, count] of opts.excludedCounts) {
+    if (resolveExclusionPresence(count, opts.total, opts.patch, id) > 0) ids.add(id)
+  }
+  // Sets newly excluded by the staged patch (no prior rule excluded them).
+  for (const entry of normalizeArtifactSetSelections(opts.patch?.add ?? [])) {
+    if (entry.excluded) ids.add(Number(entry.id))
+  }
+  return Array.from(ids).sort((a, b) => a - b)
 }
 
 const cloneStringArrayPatch = (

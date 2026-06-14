@@ -16,6 +16,7 @@ export interface MultiEditSummary {
   rollSummary: Map<number, { any: number; notCount: number; minValues: Set<number>; maxValues: Set<number> }>
   slotCounts: Map<number, number>
   setCounts: Map<number, number>
+  excludedCounts: Map<number, number>
   metaCounts: Map<string, number>
 }
 
@@ -32,6 +33,8 @@ export const useMultiEditSummary = (
   const rollSummary = new Map<number, { any: number; notCount: number; minValues: Set<number>; maxValues: Set<number> }>()
   const slotCounts = new Map<number, number>()
   const setCounts = new Map<number, number>()
+  // Excluded set ids tracked separately so right-click "NOT" can derive tri-state.
+  const excludedCounts = new Map<number, number>()
   const metaCounts = new Map<string, number>()
   for (const recipe of multiSourceRecipes) {
     const main = Array.isArray(recipe.mainStatsV) ? recipe.mainStatsV : []
@@ -72,10 +75,13 @@ export const useMultiEditSummary = (
     for (const slot of slots) {
       slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1)
     }
-    // Only count explicit inclusions so exclusions don't register as selected.
-    const sets = splitArtifactSetSelections(recipe.artifactSets).included
+    // Split so inclusions and exclusions tally into independent tri-state maps.
+    const { included: sets, excluded } = splitArtifactSetSelections(recipe.artifactSets)
     for (const set of sets) {
       setCounts.set(Number(set), (setCounts.get(Number(set)) ?? 0) + 1)
+    }
+    for (const set of excluded) {
+      excludedCounts.set(Number(set), (excludedCounts.get(Number(set)) ?? 0) + 1)
     }
     const metas = Array.isArray(recipe.artifactMetaSets) ? recipe.artifactMetaSets : []
     for (const meta of metas) {
@@ -89,6 +95,7 @@ export const useMultiEditSummary = (
     rollSummary,
     slotCounts,
     setCounts,
+    excludedCounts,
     metaCounts,
   }
 }, [multiEditActive, multiSourceRecipes])

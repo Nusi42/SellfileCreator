@@ -133,7 +133,7 @@ import {
   type KeepOverrideScopeKey,
 } from '../lib/keepOverrideScope'
 import { KeepOverrideScopeChip } from './keepOverrides/KeepOverrideScopeChip'
-import { normalizeArtifactSetSelections } from '../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections, pruneImplicitAnyExclusions } from '../lib/gearSets/selection'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -157,9 +157,20 @@ import {
   computeMainStatPatchToggle,
   computeSubstatPatchToggle,
   computeStringPatchToggle,
+  computeArtifactSetPatchToggle,
+  computeArtifactSetExclusionToggle,
+  resolveSetTriState,
+  resolveSetExclusionTriState,
+  resolveMetasetTriState,
+  resolveExcludedSetUnion,
+  applyArtifactSetPatchPreview,
+  applyStringPatchPreview,
+  toTriStateBase,
   type TriStateBase,
+  type SetTriState,
 } from './builderPanel/safeguardMultiEditHelpers'
 import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
+import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
 import { resolveSafeguardActivationTextColor } from './safeguardSummaryParts'
 import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/tagHelpers'
@@ -337,6 +348,12 @@ export default function SafeguardBuilderPanel({
   const multiIgnoreCollectionField = multiFields?.ignoreEquippedInCollection ?? null
   const multiIgnoreVaultField = multiFields?.ignoreEquippedInVault ?? null
   const multiSlotsField = multiFields?.slots ?? null
+  // Sets field shortcut + staged patch — drives the tri-state right-click "NOT".
+  const multiSetsField = multiFields?.sets ?? null
+  const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
+  // Metaset-names field shortcut + staged patch — drives metaset tri-state display.
+  const multiMetaSetNamesField = multiFields?.metaSetNames ?? null
+  const metaSetNamesPatch = (multiMetaSetNamesField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   // Faction edits flow through the multi-edit draft so Apply activates on toggle
   // and the staged selection lands on every selected rule. Rank/rarity remain
   // summary-driven (mixed badge only) until they get the same treatment.
@@ -914,6 +931,145 @@ export default function SafeguardBuilderPanel({
       const nextCombination = sortSafeguardCombination(updater(prev.combination))
       return { ...prev, combination: nextCombination }
     })
+  }
+
+  // Multi-edit tri-state for an included set across the selection — mirrors the
+  // recipe builder's getSetState so the menu shows the blue ring / mixed styling.
+  // All three resolvers delegate to the shared SSOT tri-state helpers; only the
+  // data sources (summary maps, staged patch, single-edit fallback) are panel-local.
+  const triActive = multiEditActive && !!multiSummary
+  const getSetState = useCallback((id: number): SetTriState => resolveSetTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.setCounts.get(id) ?? 0,
+    patch: setsPatch,
+    setId: id,
+    singleEditIncluded: splitArtifactSetSelections(combination.sets).included.includes(id),
+  }), [triActive, multiSummary, combination.sets, setsPatch])
+
+  const getMetasetState = useCallback((name: string): SetTriState => resolveMetasetTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.metaSetIdCounts.get(name) ?? 0,
+    patch: metaSetNamesPatch,
+    name,
+    singleEditSelected: (combination.metaSetNames ?? []).includes(name),
+  }), [triActive, multiSummary, combination.metaSetNames, metaSetNamesPatch])
+
+  const getSetExclusionState = useCallback((id: number): SetTriState => resolveSetExclusionTriState({
+    active: triActive,
+    total: multiSummary?.total ?? 0,
+    baseCount: multiSummary?.excludedCounts.get(id) ?? 0,
+    patch: setsPatch,
+    setId: id,
+    singleEditExcluded: splitArtifactSetSelections(combination.sets).excluded.includes(id),
+  }), [triActive, multiSummary, combination.sets, setsPatch])
+
+  // Excluded-set union across the selection for the menu's red NOT ring + label.
+  const excludedSetUnion = useMemo(() => (
+    triActive
+      ? resolveExcludedSetUnion({ total: multiSummary!.total, excludedCounts: multiSummary!.excludedCounts, patch: setsPatch })
+      : splitArtifactSetSelections(combination.sets).excluded
+  ), [triActive, multiSummary, combination.sets, setsPatch])
+
+  // Metaset include toggle — mirrors the recipe panel's toggleMetaset so multi-edit
+  // stages a per-rule tri-state string patch instead of replacing every rule.
+  const toggleMetaset = (name: string) => {
+    if (multiEditActive && multiEdit) {
+      const state = getMetasetState(name)
+      const baseState = toTriStateBase(state)
+      const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+      const nextPatch = computeStringPatchToggle(metaSetNamesPatch, name, baseState, target)
+      const baseArray = combination.metaSetNames ?? []
+      const preview = applyStringPatchPreview(baseArray, nextPatch)
+      // Keep the local draft in sync so the closed Select label updates immediately.
+      setRuleCombination((prev) => ({ ...prev, metaSetNames: dedupeStringArray(preview) }))
+      multiEdit.updateField('metaSetNames', {
+        value: dedupeStringArray(preview),
+        status: 'common',
+        patch: nextPatch ?? undefined,
+      })
+      return
+    }
+    // Single-edit: plain membership toggle on the focused rule.
+    const current = combination.metaSetNames ?? []
+    const next = current.includes(name)
+      ? current.filter((entry) => entry !== name)
+      : [...current, name]
+    setRuleCombination((prev) => ({ ...prev, metaSetNames: dedupeStringArray(next) }))
+  }
+
+  // Include toggle (left-click) — mirrors the recipe panel's toggleSet so multi-edit
+  // stages a per-rule tri-state include patch. Toggling a set ON also clears any
+  // existing exclusion for it (the shared helper stages add+remove), so left-click
+  // un-NOTs a set identically in both builders.
+  const toggleSet = (id: number) => {
+    if (multiEditActive && multiEdit) {
+      const state = getSetState(id)
+      const baseState = toTriStateBase(state)
+      const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+      const nextPatch = computeArtifactSetPatchToggle(setsPatch, id, baseState, target)
+      const baseArray = Array.isArray(combination.sets) ? combination.sets : []
+      const preview = applyArtifactSetPatchPreview(baseArray, nextPatch)
+      // Keep the local draft in sync so the closed Select label updates immediately.
+      setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(preview) }))
+      multiEdit.updateField('sets', {
+        value: preview as ArtifactSetSelectionEntry[],
+        status: 'common',
+        patch: nextPatch ?? undefined,
+      })
+      return
+    }
+    // Single-edit: toggle the explicit include, dropping any exclusion for the set.
+    const split = splitArtifactSetSelections(combination.sets ?? [])
+    const included = new Set(split.included.map(Number))
+    if (included.has(id)) included.delete(id); else included.add(id)
+    const nextExcluded = split.excluded.filter((entry) => !included.has(entry))
+    const next = normalizeArtifactSetSelections([
+      ...Array.from(included).map((entry) => ({ id: entry })),
+      ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+    ])
+    setRuleCombination((prev) => ({ ...prev, sets: next }))
+  }
+
+  // Right-click "NOT" handler — one code path for single- and multi-select so the
+  // two panels behave identically (SSOT via the shared exclusion helpers). Plain
+  // function (not memoized) to mirror the recipe panel's handleExcludeSet. NOT is
+  // allowed on any set; the implicit-any guard (below / at apply time) drops a
+  // bare exclusion when nothing constrains the pool.
+  const handleExcludeSet = (id: number) => {
+    // Multi-edit: stage a tri-state exclusion patch across every selected rule.
+    if (multiEditActive && multiEdit) {
+      const state = getSetExclusionState(id)
+      const baseState = toTriStateBase(state)
+      // Tri-state: all excluded -> clear; otherwise -> exclude everywhere.
+      const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+      const nextPatch = computeArtifactSetExclusionToggle(setsPatch, id, baseState, target)
+      const baseArray = Array.isArray(combination.sets) ? combination.sets : []
+      const preview = applyArtifactSetPatchPreview(baseArray, nextPatch)
+      // Reflect the change in the local draft so the closed Select label updates.
+      setRuleCombination((prev) => ({ ...prev, sets: normalizeArtifactSetSelections(preview) }))
+      multiEdit.updateField('sets', {
+        value: preview as ArtifactSetSelectionEntry[],
+        status: 'common',
+        patch: nextPatch ?? undefined,
+      })
+      return
+    }
+    // Single-edit: flip the exclusion flag on the focused rule's selection only.
+    const split = splitArtifactSetSelections(combination.sets ?? [])
+    const isExcluded = split.excluded.includes(id)
+    const nextIncluded = split.included.filter((entry) => entry !== id)
+    const nextExcluded = isExcluded
+      ? split.excluded.filter((entry) => entry !== id)
+      : [...split.excluded, id]
+    // Strip the exclusion when the result is implicit-any (no include + no metaset).
+    const hasMetaset = (combination.metaSetNames ?? []).length > 0
+    const next = pruneImplicitAnyExclusions([
+      ...nextIncluded.map((entry) => ({ id: entry })),
+      ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+    ], hasMetaset)
+    setRuleCombination((prev) => ({ ...prev, sets: next }))
   }
 
   // Shared onChange for main-stat ToggleButtonGroup rows.
@@ -2884,6 +3040,15 @@ export default function SafeguardBuilderPanel({
                 showMetasets
                 layoutVersion={1}
                 anyLabel={t('anySet')}
+                onContextMenuSet={handleExcludeSet}
+                onToggleSet={toggleSet}
+                onToggleMetaset={toggleMetaset}
+                {...(multiEditActive ? {
+                  triStateForSet: getSetState,
+                  triStateForMetaset: getMetasetState,
+                  excludedSetIds: excludedSetUnion,
+                  mixedLabel: t('builderMultiMixedValue'),
+                } : {})}
               />
               {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, redundantDimensions.perSet, perScopeMixed.perSet,
                 perSetOverrideActive ? renderSafeguardOverrideBadge(
