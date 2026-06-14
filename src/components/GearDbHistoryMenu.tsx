@@ -19,6 +19,7 @@ import {
   LIST_SUBHEADER_SX,
 } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
+import { ClippedScrollBody } from './ClippedScrollBody'
 import { decodeGearDbDiffToastEntries, formatGearDbDiffHistoryLines } from '../lib/gearDbDiffToast'
 import type { GearDbDiffHistoryEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -32,83 +33,6 @@ export type GearDbHistoryMenuProps = {
   onRequestClearHistory: () => void
   substatColors: SubstatColorMap
   useStatButtonColors: boolean
-}
-
-function ClippedPreviewBody({
-  maxHeightPx,
-  children,
-  // CSS channel variable name for the overflow-fade gradient end color.
-  // Defaults to background.paper (correct for the menu context).
-  // Pass '--mui-palette-grey-700' when rendering inside a MUI Tooltip.
-  fadeColorVar = '--mui-palette-background-paper',
-}: {
-  maxHeightPx: number
-  children: React.ReactNode
-  fadeColorVar?: string
-}) {
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const [showOverflowCue, setShowOverflowCue] = React.useState(false)
-  // Ref-based setter so the ResizeObserver callback avoids the set-state-in-effect lint rule.
-  const setShowOverflowCueRef = React.useRef(setShowOverflowCue)
-  React.useEffect(() => { setShowOverflowCueRef.current = setShowOverflowCue }, [setShowOverflowCue])
-  // Mount-only ResizeObserver; re-measurement is driven by DOM size changes.
-  React.useEffect(() => {
-    const node = containerRef.current
-    if (!node) return undefined
-    const measure = () => {
-      const nextOverflow = node.scrollHeight > node.clientHeight + 1
-      setShowOverflowCueRef.current((prev) => (prev === nextOverflow ? prev : nextOverflow))
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(() => { measure() })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-  return (
-    <Box
-      ref={containerRef}
-      sx={(theme) => ({
-        position: 'relative',
-        maxHeight: maxHeightPx,
-        overflow: 'hidden',
-        ...(showOverflowCue
-          ? {
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: theme.spacing(7),
-              background: `linear-gradient(to bottom, rgba(var(${fadeColorVar}Channel) / 0) 0%, rgba(var(${fadeColorVar}Channel) / 0.85) 55%, rgba(var(${fadeColorVar}Channel) / 1) 100%)`,
-              pointerEvents: 'none',
-            },
-          }
-          : {}),
-      })}
-    >
-      {children}
-      {showOverflowCue ? (
-        <Typography
-          variant="caption"
-          component="span"
-          sx={{
-            position: 'absolute',
-            right: 8,
-            bottom: 4,
-            lineHeight: 1,
-            fontSize: '0.95rem',
-            opacity: 0.8,
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        >
-          ...
-        </Typography>
-      ) : null}
-    </Box>
-  )
 }
 
 // Format the local timestamp so history entries are easy to scan.
@@ -277,13 +201,13 @@ export function GearDbHistoryMenu({
                   setHoveredEntryId((current) => (current === entry.id ? null : current))
                 }}
               render={tooltipPayload ? (
-                <ClippedPreviewBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX} fadeColorVar="--mui-palette-grey-700">
+                <ClippedScrollBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX} fadeColorVar="--mui-palette-grey-700">
                   <GearDbDiffToast
                     payload={tooltipPayload}
                     substatColors={substatColors}
                     useStatButtonColors={useStatButtonColors}
                   />
-                </ClippedPreviewBody>
+                </ClippedScrollBody>
               ) : ''}
               slotProps={{
                 tooltip: {

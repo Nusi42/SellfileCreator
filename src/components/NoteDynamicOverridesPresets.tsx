@@ -20,12 +20,20 @@
  *    so they survive the menu unmounting on close (the menu's children unmount with it).
  */
 import React from 'react'
-import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Stack, TextField, Typography, Button, Divider } from '@mui/material'
+import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Popper, Stack, TextField, Typography, Button, Divider } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
-import MarkdownTooltip, { renderMarkdownTooltipContent } from './MarkdownTooltip'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { useI18n } from '../lib/i18n'
 import { formatLocalDateTime } from '../lib/dateDisplay'
+import { ClippedScrollBody } from './ClippedScrollBody'
+import { DynamicOverridesPresetSummaryTable } from './DynamicOverridesPresetSummaryTable'
+import {
+  DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX,
+  DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX,
+  DYNAMIC_OVERRIDES_PRESET_POPOVER_OPEN_DELAY_MS,
+  DYNAMIC_OVERRIDES_PRESET_POPOVER_CLOSE_DELAY_MS,
+} from '../lib/constants'
 import {
   useDynamicOverridesPresetsPreference,
   type DynamicOverridesPreset,
@@ -160,7 +168,7 @@ export function useDynamicOverridesPresetController({
   }
 }
 
-/** One saved-set row: name + timestamp, info tooltip, load on click, delete button. */
+/** One saved-set row: name + timestamp, a hover-anchored summary Popover, load on click, delete button. */
 function DynamicOverridesPresetRow({
   note,
   preset,
@@ -178,56 +186,36 @@ function DynamicOverridesPresetRow({
     () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers),
     [note, preset],
   )
-  // Render a structured tooltip that mirrors the override cards: each question's title
-  // (bold) with its selected answers as bullets beneath. Every piece of text runs through
-  // the shared markdown renderer so the override DSL's `code`/**bold** render as intended
-  // instead of leaking raw backticks/asterisks.
-  const renderTooltip = React.useCallback(() => {
-    if (lines.length === 0) {
-      return (
-        <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.85 }}>
-          {t('noteDynamicOverridesPresetsTooltipEmpty')}
-        </Typography>
-      )
-    }
-    return (
-      <Stack spacing={1.25}>
-        {lines.map((line) => (
-          <Box key={line.title}>
-            {/* Question title: bold weight applied at the wrapper so inner `code`/bold still render. */}
-            <Box sx={{ fontWeight: 700, mb: 0.4, '& p': { fontWeight: 700 } }}>
-              {renderMarkdownTooltipContent(line.title)}
-            </Box>
-            {/* Selected answers as a bullet list, like the option rows in the card.
-                Answers left at the note's default are dimmed and tagged so the user can
-                tell which they actively chose vs. accepted. */}
-            <Box component="ul" sx={{ pl: 2.25, m: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              {line.answers.map((answer) => (
-                <Box
-                  component="li"
-                  key={answer.label}
-                  sx={{ listStylePosition: 'outside', ...(answer.isDefault ? { opacity: 0.7 } : {}) }}
-                >
-                  <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5, flexWrap: 'wrap' }}>
-                    {renderMarkdownTooltipContent(answer.label)}
-                    {answer.isDefault ? (
-                      <Typography component="span" variant="caption" sx={{ fontStyle: 'italic', opacity: 0.85 }}>
-                        {t('noteDynamicOverridesPresetsDefaultTag')}
-                      </Typography>
-                    ) : null}
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Stack>
-    )
-  }, [lines, t])
+  // The summary lives in a scrollable Popover (not a tooltip) because large sets can be
+  // taller than the viewport and tooltips cannot scroll. Anchor is the row itself.
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
+  // Hover-intent timers: a short open delay mimics the old tooltip feel; a short close
+  // delay lets the pointer travel from the row into the Popover without it snapping shut.
+  const openTimerRef = React.useRef<number | null>(null)
+  const closeTimerRef = React.useRef<number | null>(null)
+  const clearTimers = React.useCallback(() => {
+    if (openTimerRef.current != null) { window.clearTimeout(openTimerRef.current); openTimerRef.current = null }
+    if (closeTimerRef.current != null) { window.clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
+  }, [])
+  // Open against the hovered row element after the open delay.
+  const scheduleOpen = React.useCallback((target: HTMLElement) => {
+    clearTimers()
+    openTimerRef.current = window.setTimeout(() => { setAnchorEl(target) }, DYNAMIC_OVERRIDES_PRESET_POPOVER_OPEN_DELAY_MS)
+  }, [clearTimers])
+  // Close after the grace delay so a pointer crossing the gap to the Popover keeps it open.
+  const scheduleClose = React.useCallback(() => {
+    clearTimers()
+    closeTimerRef.current = window.setTimeout(() => { setAnchorEl(null) }, DYNAMIC_OVERRIDES_PRESET_POPOVER_CLOSE_DELAY_MS)
+  }, [clearTimers])
+  // Tidy timers on unmount so a pending open/close never fires into a dead component.
+  React.useEffect(() => clearTimers, [clearTimers])
   return (
-    <MarkdownTooltip render={renderTooltip} placement="right">
+    <>
       <MenuItem
         onClick={() => onLoad(preset)}
+        // Hover the row to preview; leaving starts the grace close.
+        onMouseEnter={(event) => scheduleOpen(event.currentTarget)}
+        onMouseLeave={scheduleClose}
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
       >
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
@@ -252,8 +240,60 @@ function DynamicOverridesPresetRow({
         >
           <DeleteIcon fontSize="inherit" />
         </IconButton>
+        {/* Chevron hints that hovering opens a summary popout to the right. */}
+        <ChevronRightIcon
+          fontSize="small"
+          aria-hidden
+          sx={{ color: 'text.secondary', opacity: 0.6, alignSelf: 'center', flexShrink: 0 }}
+        />
       </MenuItem>
-    </MarkdownTooltip>
+      {/* A Popper (NOT a Popover/Modal): no backdrop, no focus trap, so the underlying
+          Dynamic Overrides menu keeps its own outside-click-to-dismiss backdrop. A modal
+          Popover layered a second (invisible) backdrop that swallowed the menu's dismiss
+          click, leaving Escape as the only way out. Placement mirrors the old tooltip. */}
+      <Popper
+        open={anchorEl != null}
+        anchorEl={anchorEl}
+        placement="right-start"
+        // Keep the popout on-screen: shift along the cross axis and flip to the left when
+        // there is no room to the right.
+        modifiers={[
+          { name: 'offset', options: { offset: [0, 8] } },
+          { name: 'preventOverflow', options: { altAxis: true, padding: 8 } },
+          { name: 'flip', options: { fallbackPlacements: ['left-start'] } },
+        ]}
+        // Above the menu's Popper layer so the summary is not clipped behind it.
+        sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
+      >
+        <Paper
+          elevation={8}
+          // Re-arm/cancel the hover-close so the pointer can rest inside the popout to scroll it.
+          onMouseEnter={clearTimers}
+          onMouseLeave={scheduleClose}
+          sx={{
+            width: DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX,
+            maxWidth: '90vw',
+            p: 1.25,
+          }}
+        >
+          {/* Title row: which set this is + when it was saved, so the popout is self-identifying. */}
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+              {preset.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', opacity: 0.8 }}>
+              {formatLocalDateTime(preset.savedAt) ?? preset.savedAt}
+            </Typography>
+          </Box>
+          {/* A bolder rule (thicker + full-opacity divider colour) sets the header apart from the table. */}
+          <Divider sx={{ mb: 1.25, borderBottomWidth: 2, borderColor: 'divider', opacity: 1 }} />
+          {/* Cap the height and scroll; long sets become a scroll area instead of off-screen overflow. */}
+          <ClippedScrollBody maxHeightPx={DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX} overflowY="auto">
+            <DynamicOverridesPresetSummaryTable lines={lines} />
+          </ClippedScrollBody>
+        </Paper>
+      </Popper>
+    </>
   )
 }
 

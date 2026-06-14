@@ -13,6 +13,7 @@ import {
   MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS,
   MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS,
   MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
+  FONT_FAMILY_MONO,
 } from '../lib/constants'
 import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
 
@@ -75,7 +76,14 @@ const INLINE_PATTERN = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*]+\*|_[^_]+_)/g
 // Inline renderer keeps parsing dead simple: we only care about the handful of tokens we expose to translators.
 
 // Lightweight inline parser: handles bold/em/code without pulling in a full markdown runtime.
-function parseInlineMarkdown(text: string): React.ReactNode[] {
+// Exported so callers that lay out their own structure (e.g. the saved-override summary
+// table) can render DSL tokens inline without the block-level wrapper / gaps that
+// renderMarkdownTooltipContent adds.
+// `plainCode`: render backtick tokens as plain body text instead of a mono code chip, so
+// surfaces that want a single consistent font (the saved-override popout) don't end up
+// mixing the body and mono stacks. Bold/italic still apply (weight/style, not a new font).
+export function parseInlineMarkdown(text: string, options?: { plainCode?: boolean }): React.ReactNode[] {
+  const plainCode = options?.plainCode ?? false
   const nodes: React.ReactNode[] = []
   let lastIndex = 0
   text.replace(INLINE_PATTERN, (match, _group, offset) => {
@@ -93,13 +101,16 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
       : isStrong
       ? match.slice(2, -2)
       : match.slice(1, -1)
-    if (isCode) {
+    if (isCode && plainCode) {
+      // Single-font surfaces: drop the mono chip and just emit the inner text.
+      nodes.push(content)
+    } else if (isCode) {
       // Inline code draws from the mono stack so stats/numbers stay legible.
       nodes.push(
         <Box
           key={`code-${offset}`}
           component="code"
-          sx={{ fontFamily: 'var(--font-code, "JetBrains Mono", monospace)', fontSize: '0.85em', px: 0.5 }}
+          sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.85em', px: 0.5 }}
         >
           {content}
         </Box>,
