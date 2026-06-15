@@ -17,6 +17,7 @@ import { NO_SET_SPIDER_SRC } from '../NoGearSetIcon'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
+import type { ImprovementChanceWasmEntry } from '../../lib/wasm/wasmRuleEngine'
 import {
   EMPTY_GEAR_ANALYTICS_DIM,
   isGearAnalyticsDimActive,
@@ -62,6 +63,7 @@ import { GearAnalyticsRadar } from '../gear-analytics/GearAnalyticsRadar'
 import { GearAnalyticsHeatmap } from '../gear-analytics/GearAnalyticsHeatmap'
 import { GearAnalyticsChampStats } from '../gear-analytics/GearAnalyticsChampStats'
 import { GearAnalyticsNotEquipped } from '../gear-analytics/GearAnalyticsNotEquipped'
+import { GearAnalyticsImprovementChanceHistogram } from '../gear-analytics/GearAnalyticsImprovementChanceHistogram'
 import { useI18n } from '../../lib/i18n'
 import { canWriteImageToClipboard } from '../../lib/clipboard'
 import { buildWatermarkText, encodeStegOnDataUrl } from '../../lib/snapshotSteg'
@@ -69,6 +71,12 @@ import { buildWatermarkText, encodeStegOnDataUrl } from '../../lib/snapshotSteg'
 type Props = {
   /** All loaded gear rows, unfiltered. Stats always reflect the full inventory. */
   rows: readonly GearInspectorPreviewRow[]
+  /**
+   * Per-artifact improvement-chance map (keyed by artifact id), computed by the WASM worker.
+   * Drives the improvement-chance histogram and its cross-filter dimension. When absent, the
+   * histogram section is hidden and the improvChanceBins dimension stays inert.
+   */
+  improvementChanceByArtifactId?: Map<number, ImprovementChanceWasmEntry> | null
   /** Called when the user requests applying the current Gear Analytics filter to the Gear Inspector. */
   onApplyToGearInspector?: ((dim: GearAnalyticsDim) => void) | undefined
   /**
@@ -94,7 +102,7 @@ type Props = {
 
 // ── Section collapse IDs and localStorage persistence ─────────────────────────
 /** All collapsible section IDs in the Gear Analytics dashboard, in display order. */
-const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
+const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'improvChance', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
 type GearAnalyticsSectionId = (typeof GEAR_ANALYTICS_SECTION_IDS)[number]
 
 const COLLAPSED_STORAGE_KEY = GEAR_ANALYTICS_COLLAPSED_KEY
@@ -146,7 +154,7 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return next
 }
 
-export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInspectorDim, resetKey, selectedGearItemIds, onGearItemsSelect }: Props) {
+export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, onApplyToGearInspector, gearInspectorDim, resetKey, selectedGearItemIds, onGearItemsSelect }: Props) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
@@ -255,6 +263,24 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       setCopying(false)
     }
   }, [canCopy, copying, theme])
+
+  // Coalesce the improvement-chance map to a stable empty Map so downstream memo deps don't
+  // thrash on null↔Map transitions. Mirrors the GearInspectorItemsGrid pattern.
+  const chanceByArtifactId = useMemo<Map<number, ImprovementChanceWasmEntry>>(
+    () => improvementChanceByArtifactId ?? new Map(),
+    [improvementChanceByArtifactId],
+  )
+  // True once at least one item carries a real (non-degenerate) improvement-chance projection.
+  // Gates the histogram section so it stays hidden when no safeguards are configured.
+  const hasImprovementChance = useMemo(
+    () => {
+      for (const entry of chanceByArtifactId.values()) {
+        if (entry.hasMatchingSafeguard) return true
+      }
+      return false
+    },
+    [chanceByArtifactId],
+  )
 
   // Color callback used by bar charts to tint stat labels by their configured palette color.
   const statColorById = useCallback(
@@ -488,6 +514,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   const toggleMainStat = useCallback((id: number | string) => {
     setDim((prev) => ({ ...prev, mainStats: toggled(prev.mainStats, Number(id)) }))
   }, [])
+  // Toggle an improvement-chance histogram bin (bin index) in the cross-filter.
+  const toggleImprovChanceBin = useCallback((id: number | string) => {
+    setDim((prev) => ({ ...prev, improvChanceBins: toggled(prev.improvChanceBins, Number(id)) }))
+  }, [])
   const toggleSubstat = useCallback((variant: number) => {
     setSelectedSubstat((prev) => {
       // If already selected, deselect; if at the 4-pivot cap and not selected, ignore.
@@ -530,16 +560,20 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // Each chart receives the full row set filtered by all dimensions EXCEPT its own.
   // This preserves the full range of that dimension for interactive exploration.
   // The icon tile grid exposes real set IDs directly, so no synthetic -1 expansion is needed.
-  const rowsForSlot    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'slots'),    [rows, deferredDim])
-  const rowsForRank    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'ranks'),    [rows, deferredDim])
-  const rowsForRarity  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'rarities'), [rows, deferredDim])
-  const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sets'),     [rows, deferredDim])
-  const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'outcomes'), [rows, deferredDim])
-  const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sources'),  [rows, deferredDim])
-  const rowsForLevel    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'levels'),    [rows, deferredDim])
-  const rowsForMainStat = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'mainStats'), [rows, deferredDim])
-  // KPIs use all active filters applied (including mainStats).
-  const rowsFiltered    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim),              [rows, deferredDim])
+  // Every chart receives the chance map so the improvChance dimension cross-filters the other
+  // charts too; each chart still excludes its OWN dimension to keep its full range interactive.
+  const rowsForSlot    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'slots',     chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForRank    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'ranks',     chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForRarity  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'rarities',  chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForSet     = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sets',      chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForOutcome = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'outcomes',  chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForSource  = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'sources',   chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForLevel    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'levels',    chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  const rowsForMainStat = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'mainStats', chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  // Improvement-chance histogram excludes its own dimension so all bins stay visible.
+  const rowsForImprovChance = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, 'improvChanceBins', chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
+  // KPIs use all active filters applied (including mainStats and improvement chance).
+  const rowsFiltered    = useMemo(() => applyGearAnalyticsFilter(rows, deferredDim, undefined, chanceByArtifactId), [rows, deferredDim, chanceByArtifactId])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
   // Slot donut data. Labels go through t() so they respect the active language.
@@ -709,6 +743,7 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
   // True when at least one cross-filter dimension is active.
   const isFilterActive = dim.slots.size > 0 || dim.ranks.size > 0 || dim.rarities.size > 0
     || dim.sets.size > 0 || dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0
+    || dim.mainStats.size > 0 || dim.improvChanceBins.size > 0
 
   return (
     // Outer wrapper: flex column so the action bar sits above the scroll area.
@@ -898,8 +933,10 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
       {/* Cross-filter chips — always visible below the donuts; disabled when nothing is selected. */}
       <GearAnalyticsCrossFilterChips dim={dim} onUpdate={updateDim} onClear={clearDim} />
 
-      {/* Row 3: Main stat bar (click-to-filter) + Substat frequency radar. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+      {/* Row 3: Main stat bar + improvement-chance histogram (both click-to-filter) + Substat radar.
+          The histogram column only appears when at least one item has a real improvement-chance
+          projection; otherwise the row falls back to the original two-column layout. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: hasImprovementChance ? '1fr 1fr 1fr' : '1fr 1fr', gap: 2, mb: 2 }}>
         <GearAnalyticsBar
           title={t('gearAnalyticsChartMainStat')}
           description={t('gearAnalyticsChartMainStatDesc')}
@@ -912,6 +949,20 @@ export function GearAnalyticsTabContent({ rows, onApplyToGearInspector, gearInsp
           collapsed={collapsed.mainStat}
           onToggleCollapse={(all) => toggleSection('mainStat', all)}
         />
+        {hasImprovementChance && (
+          <GearAnalyticsImprovementChanceHistogram
+            title={t('gearAnalyticsChartImprovChance')}
+            description={t('gearAnalyticsChartImprovChanceDesc')}
+            rows={rowsForImprovChance}
+            chanceByArtifactId={chanceByArtifactId}
+            selected={dim.improvChanceBins}
+            onToggle={toggleImprovChanceBin}
+            onEasterEgg={handleBarEgg}
+            peerDanceTrigger={barPeer}
+            collapsed={collapsed.improvChance}
+            onToggleCollapse={(all) => toggleSection('improvChance', all)}
+          />
+        )}
         <GearAnalyticsRadar
           title={t('gearAnalyticsChartSubstats')}
           description={t('gearAnalyticsChartSubstatsDesc')}

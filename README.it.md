@@ -205,6 +205,8 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 **Barra Stat principali:** Mostra la frequenza di ogni stat principale nell'equipaggiamento filtrato. Clicca una barra per approfondire — il grafico della frequenza delle sotto-stat si aggiorna mostrando solo le sotto-stat dell'equipaggiamento con quella stat principale selezionata. Clicca di nuovo per deselezionare.
 
+**Probabilità di miglioramento:** Quanto è probabile che il tuo equipaggiamento migliori, raggruppato in fasce del 10%. Il numero a destra indica quanti oggetti rientrano in ciascun gruppo. L'equipaggiamento senza salvaguardia e quello al massimo (+16) vengono esclusi. Clicca un gruppo per mostrare solo quell'equipaggiamento.
+
 **Radar Frequenza sotto-stat:** Mostra la frequenza di ogni sotto-stat nell'equipaggiamento filtrato (e opzionalmente limitato per stat principale) come grafico radar. Clicca una marca su un asse per selezionarla come pivot di co-occorrenza — il radar si restringe all'equipaggiamento che contiene tutte le sotto-stat selezionate insieme (fino a 4 pivot). I pivot attivi appaiono come chip sotto il grafico; × ne rimuove uno, **Cancella filtri** li rimuove tutti.
 
 **Heatmap Slot × Stat principale:** Numero di oggetti per slot (colonne) × stat principale (righe). Clicca un'intestazione di colonna o una cella per filtrare per slot.

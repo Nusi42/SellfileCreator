@@ -26,6 +26,7 @@ import {
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { GearInspectorItem } from '../../lib/gearInspectorSession'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
+import type { ImprovementChanceWasmEntry } from '../../lib/wasm/wasmRuleEngine'
 import { GearInspectorTabContent, type GearInspectorTabLayoutSlots } from './GearInspectorTabContent'
 import DungeonSimulatorTab from './DungeonSimulatorTab'
 import { GearAnalyticsTabContent } from './GearAnalyticsTabContent'
@@ -64,6 +65,8 @@ type LogicHubDialogProps = {
   recipeOverridesActive: boolean
   // All loaded gear rows — passed to Gear Analytics for full-inventory analytics.
   gearInspectorPreviewRows: readonly GearInspectorPreviewRow[]
+  // Per-artifact improvement-chance map — forwarded to Gear Analytics for the histogram.
+  improvementChanceByArtifactId?: Map<number, ImprovementChanceWasmEntry> | null
   // Called when the user requests applying the Gear Analytics filter to the Gear Inspector.
   onApplyGearAnalyticsFilter?: (dim: GearAnalyticsDim) => void
   // Current gear inspector filter expressed as a GearAnalyticsDim, for the "Copy from Gear Inspector" button.
@@ -101,6 +104,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     onSubstatTargetsChange,
     recipeOverridesActive,
     gearInspectorPreviewRows,
+    improvementChanceByArtifactId,
     onApplyGearAnalyticsFilter,
     gearInspectorDim,
     emptyStateVerticalAlign = 'center',
@@ -560,6 +564,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           // Gear Analytics receives all loaded rows so stats always reflect the full inventory.
           <GearAnalyticsTabContent
             rows={gearInspectorPreviewRows}
+            {...(improvementChanceByArtifactId !== undefined && { improvementChanceByArtifactId })}
             onApplyToGearInspector={onApplyGearAnalyticsFilter}
             {...(gearInspectorDim !== undefined && { gearInspectorDim })}
             resetKey={gearAnalyticsResetKey}

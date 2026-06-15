@@ -39,6 +39,13 @@ type Props = {
   baseColor?: string
   /** Optional per-entry label color (e.g. stat variant colors). Selected entries always use primary. */
   colorById?: (id: number | string) => string | undefined
+  /**
+   * Optional bar-width transform: maps (count, maxCount) → a 0–1 fill fraction. Defaults to a
+   * linear fraction (count / maxCount). The improvement-chance histogram passes a sqrt transform
+   * so a strongly bimodal distribution keeps its near-empty middle bins visible without the spikes
+   * dwarfing them. Width-only — the count label to the right always shows the true raw count.
+   */
+  widthScale?: (count: number, maxCount: number) => number
   /** When true, disables click handling and suppresses hover/pointer cues. */
   readOnly?: boolean
   /**
@@ -251,7 +258,7 @@ function triggerBarDance(container: HTMLElement, rows: ReadonlyMap<number | stri
   }
 }
 
-export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, readOnly = false, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
+export function GearAnalyticsBar({ title, description, data, selected, onToggle, height = 240, accentColor, baseColor, colorById, widthScale, readOnly = false, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const primary = accentColor ?? (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   // alpha() crashes on CSS var strings; use channel token for the default case.
@@ -290,7 +297,10 @@ export function GearAnalyticsBar({ title, description, data, selected, onToggle,
           // When nothing is selected all bars use the full accent color;
           // when a selection is active, deselected bars dim to a faded base color.
           const barColor = !hasSelection ? primary : isSelected ? primary : fadedBase
-          const barPct = maxCount > 0 ? (entry.count / maxCount) * 100 : 0
+          // Width fraction: caller-supplied transform (e.g. sqrt) when provided, else linear.
+          const barPct = maxCount > 0
+            ? (widthScale ? widthScale(entry.count, maxCount) : entry.count / maxCount) * 100
+            : 0
           return (
             <Box
               key={entry.id}

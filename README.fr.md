@@ -222,6 +222,8 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 **Barre Stats principales :** Indique la fréquence d'apparition de chaque stat principale dans l'équipement filtré. Cliquez une barre pour zoomer — le graphique de fréquence des sous-stats affiche alors uniquement les sous-stats provenant de l'équipement ayant cette stat principale. Cliquez à nouveau pour désélectionner.
 
+**Chance d'amélioration :** Probabilité que votre équipement s'améliore, regroupée par tranches de 10 %. Le nombre à droite indique combien d'objets se trouvent dans chaque groupe. L'équipement sans garde-fou et l'équipement +16 au maximum sont exclus. Cliquez sur un groupe pour n'afficher que cet équipement.
+
 **Radar Fréquence des sous-stats :** Indique la fréquence d'apparition de chaque sous-stat dans l'équipement filtré (et éventuellement limité à une stat principale) sous forme de graphique radar. Cliquez sur une marque d'axe pour la sélectionner comme pivot de co-occurrence — le radar se restreint alors aux pièces contenant tous les sous-stats sélectionnés à la fois (jusqu'à 4 pivots). Les pivots actifs apparaissent en puces sous le graphique ; × en retire un, **Effacer les filtres** les retire tous.
 
 **Carte de chaleur Slot × Stat principale :** Nombre d'objets par slot (colonnes) × stat principale (lignes). Cliquez sur un en-tête de colonne ou une cellule pour filtrer par ce slot.

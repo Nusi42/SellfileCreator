@@ -309,6 +309,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Sets",
   gearAnalyticsChartOutcome: "Resultado",
   gearAnalyticsChartMainStat: "Stats principales",
+  gearAnalyticsChartImprovChance: "Probabilidad de mejora",
+  gearAnalyticsChartImprovChanceDesc: "Probabilidad de que tu equipo mejore, agrupada en tramos del 10 %. El número de la derecha indica cuántos objetos caen en cada grupo. Se excluye el equipo sin salvaguarda y el equipo +16 al máximo. Haz clic en un grupo para mostrar solo ese equipo.",
   gearAnalyticsChartMainStatDesc: "Frecuencia de cada stat principal en el equipo filtrado. Usa el donut de Ranura para centrarte en un tipo de pieza específico.",
   gearAnalyticsChartSubstats: "Frecuencia de substats",
   gearAnalyticsChartSubstatsDesc: "Con qué frecuencia aparece cada substat en el equipo filtrado. Un objeto puede aportar hasta 4 substats.",

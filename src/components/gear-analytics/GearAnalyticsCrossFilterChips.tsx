@@ -15,6 +15,7 @@ import {
   artifactTypeI18nKey,
   rarityRankValueI18nKey,
   statVariantI18nKey,
+  improvementChanceBinLabel,
 } from '../../lib/gearAnalytics'
 import { type ArtifactSetId, getLocalizedGearSetName } from '../../lib/types'
 import { useI18n } from '../../lib/i18n'
@@ -113,6 +114,14 @@ export function GearAnalyticsCrossFilterChips({ dim, onUpdate, onClear }: Props)
       key: `mainstat-${id}`,
       label: t(statVariantI18nKey(id)),
       onDelete: () => onUpdate({ mainStats: without(dim.mainStats, id) }),
+    })
+  }
+  for (const bin of dim.improvChanceBins) {
+    // Improvement-chance histogram bin (e.g. "30–40%"); range label is locale-independent.
+    chips.push({
+      key: `improvchance-${bin}`,
+      label: improvementChanceBinLabel(bin),
+      onDelete: () => onUpdate({ improvChanceBins: without(dim.improvChanceBins, bin) }),
     })
   }
 

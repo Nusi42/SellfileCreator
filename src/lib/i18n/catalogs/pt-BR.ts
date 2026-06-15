@@ -310,6 +310,8 @@ const catalog: Catalog = {
   gearAnalyticsChartOutcome: "Resultado",
   gearAnalyticsChartMainStat: "Stats principais",
   gearAnalyticsChartMainStatDesc: "Frequência de cada stat principal no equipamento filtrado. Use o donut de Slot para focar em um tipo de peça específico.",
+  gearAnalyticsChartImprovChance: "Chance de melhoria",
+  gearAnalyticsChartImprovChanceDesc: "Quão provável é que seu equipamento melhore, agrupado em faixas de 10%. O número à direita indica quantos itens caem em cada faixa. Equipamentos sem salvaguarda e equipamentos maximizados em +16 ficam de fora. Clique em uma faixa para mostrar apenas aquele equipamento.",
   gearAnalyticsChartSubstats: "Frequência de substats",
   gearAnalyticsChartSubstatsDesc: "Com que frequência cada substat aparece no equipamento filtrado. Um item pode contribuir com até 4 substats.",
   gearAnalyticsChartHeatmap: "Cobertura Slot × Stat principal",

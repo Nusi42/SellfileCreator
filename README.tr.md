@@ -215,6 +215,8 @@ Araçlar'ı açıp **Ekipman Analizi** sekmesine geçin — içe aktarılan ekip
 
 **Ana Stat Çubuğu:** Filtrelenmiş ekipmanda her ana statın ne sıklıkla göründüğünü gösterir. Bir çubuğa tıklayarak ayrıntıya inin — Alt stat sıklık grafiği yalnızca o ana stat seçili ekipmanın alt statlarını gösterecek şekilde güncellenir. Seçimi kaldırmak için tekrar tıklayın.
 
+**İyileştirme Şansı:** Ekipmanınızın iyileşme olasılığı, %10'luk adımlar halinde gruplandırılır. Sağdaki sayı her grupta kaç eşya bulunduğunu gösterir. Koruması olmayan ekipman ve sonuna gelmiş +16 ekipman dahil edilmez. Yalnızca o grubu göstermek için bir gruba tıklayın.
+
 **Alt Stat Sıklık Radarı:** Filtrelenmiş (ve isteğe bağlı olarak ana stata göre sınırlı) ekipmanda her alt statın ne sıklıkla göründüğünü örümcek grafik olarak gösterir. Ortak oluşum pivotu olarak seçmek için bir eksen işaretine tıklayın — radar aynı anda seçilen tüm alt statları içeren ekipmanla kısıtlanır (en fazla 4 pivot). Aktif pivotlar grafiğin altında rozetler olarak görünür; × birini kaldırır, **Filtreleri temizle** hepsini kaldırır.
 
 **Yuva × Ana Stat Isı Haritası:** Yuva (sütunlar) × ana stat (satırlar) başına öğe sayısı. Sütun başlığına veya bir hücreye tıklayarak o yuvaya göre filtreleyin.

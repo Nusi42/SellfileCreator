@@ -314,6 +314,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSubstatsDesc: "Як часто кожен сабстат зустрічається у відфільтрованому спорядженні. Один предмет може мати до 4 сабстатів.",
   gearAnalyticsChartHeatmap: "Покриття Слот × Основний стат",
   gearAnalyticsChartHeatmapDesc: "Кількість предметів за слотом (стовпці) і основним статом (рядки). Натисніть на заголовок стовпця або клітинку для фільтрації за слотом.",
+  gearAnalyticsChartImprovChance: "Шанс покращення",
+  gearAnalyticsChartImprovChanceDesc: "Наскільки ймовірно ваше спорядження покращиться, згруповано за кроками 10 %. Число праворуч показує, скільки предметів потрапляє в кожну групу. Спорядження без захисту та максимальне спорядження +16 не враховуються. Натисніть групу, щоб показати лише це спорядження.",
   gearAnalyticsChartSource: "Джерело",
   gearAnalyticsOutcomeSell: "Продати",
   gearAnalyticsOutcomeKeep: "Залишити",

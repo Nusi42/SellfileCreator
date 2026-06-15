@@ -316,6 +316,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSubstatsDesc: "Fréquence d'apparition de chaque sous-stat dans l'équipement filtré. Un objet peut contribuer jusqu'à 4 sous-stats.",
   gearAnalyticsChartHeatmap: "Couverture Emplacement × Stat principale",
   gearAnalyticsChartHeatmapDesc: "Nombre d'objets par emplacement (colonnes) et stat principale (lignes). Cliquez sur un en-tête de colonne ou une cellule pour filtrer par emplacement.",
+  gearAnalyticsChartImprovChance: "Chance d'amélioration",
+  gearAnalyticsChartImprovChanceDesc: "Probabilité que votre équipement s'améliore, regroupée par tranches de 10 %. Le nombre à droite indique combien d'objets se trouvent dans chaque groupe. L'équipement sans garde-fou et l'équipement +16 au maximum sont exclus. Cliquez sur un groupe pour n'afficher que cet équipement.",
   gearAnalyticsChartSource: "Source",
   gearAnalyticsOutcomeSell: "Vendre",
   gearAnalyticsOutcomeKeep: "Garder",

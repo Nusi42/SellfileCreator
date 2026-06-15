@@ -314,6 +314,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSubstatsDesc: "Filtrelenmiş ekipmanlarda her alt stat'ın ne sıklıkla göründüğü. Bir eşya en fazla 4 alt stat katkısı sağlayabilir.",
   gearAnalyticsChartHeatmap: "Slot × Ana Stat Kapsamı",
   gearAnalyticsChartHeatmapDesc: "Slot (sütunlar) ve ana stat (satırlar) başına eşya sayısı. Slota göre filtrelemek için bir sütun başlığına veya hücreye tıklayın.",
+  gearAnalyticsChartImprovChance: "İyileştirme Şansı",
+  gearAnalyticsChartImprovChanceDesc: "Ekipmanınızın iyileşme olasılığı, %10'luk adımlar halinde gruplandırılır. Sağdaki sayı her grupta kaç eşya bulunduğunu gösterir. Koruması olmayan ekipman ve sonuna gelmiş +16 ekipman dahil edilmez. Yalnızca o grubu göstermek için bir gruba tıklayın.",
   gearAnalyticsChartSource: "Kaynak",
   gearAnalyticsOutcomeSell: "Sat",
   gearAnalyticsOutcomeKeep: "Tut",

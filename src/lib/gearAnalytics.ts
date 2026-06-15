@@ -10,7 +10,7 @@ import {
   determineGearInspectorSourceCategory,
   type GearInspectorSourceFilter,
 } from './rulesFilter'
-import { isAccessorySlot } from './gearInspectorDomain'
+import { isAccessorySlot, isDegenerateImprovChance } from './gearInspectorDomain'
 import {
   artifactTypeNames,
   artifactTypeI18nKey,
@@ -75,6 +75,12 @@ export type GearAnalyticsDim = {
   levels: ReadonlySet<number>
   /** Selected main stat variant IDs. Empty = no main stat filter. */
   mainStats: ReadonlySet<number>
+  /**
+   * Selected improvement-chance histogram bin indices (see IMPROVEMENT_CHANCE_BINS).
+   * Empty = no improvement-chance filter. Filtering this dimension requires the
+   * per-artifact chance map (see applyGearAnalyticsFilter's chanceByArtifactId arg).
+   */
+  improvChanceBins: ReadonlySet<number>
 }
 
 /** Canonical empty dim: all charts unfiltered. */
@@ -87,6 +93,7 @@ export const EMPTY_GEAR_ANALYTICS_DIM: GearAnalyticsDim = {
   sources: new Set(),
   levels: new Set(),
   mainStats: new Set(),
+  improvChanceBins: new Set(),
 }
 
 /** SVG icon asset for a source category — used on arc centroids in the Source donut. */
@@ -115,8 +122,133 @@ export function isGearAnalyticsDimActive(dim: GearAnalyticsDim): boolean {
   // Check each dimension set for non-empty state.
   return (
     dim.slots.size > 0 || dim.ranks.size > 0 || dim.rarities.size > 0 || dim.sets.size > 0 ||
-    dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0 || dim.mainStats.size > 0
+    dim.outcomes.size > 0 || dim.sources.size > 0 || dim.levels.size > 0 || dim.mainStats.size > 0 ||
+    dim.improvChanceBins.size > 0
   )
+}
+
+// ── Improvement chance histogram ────────────────────────────────────────────────
+
+/**
+ * Decile bin edges for the improvement-chance histogram, in ascending order.
+ * SSOT for both binning (binOfImprovementChance) and chip/bar labels (improvementChanceBinLabel).
+ * Each bin i covers [edges[i], edges[i+1]); the final bin is closed at 100 so a 100% value lands in it.
+ */
+export const IMPROVEMENT_CHANCE_BIN_EDGES: readonly number[] = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+/** Number of histogram bins (one fewer than the edge count). */
+export const IMPROVEMENT_CHANCE_BIN_COUNT = IMPROVEMENT_CHANCE_BIN_EDGES.length - 1
+
+/**
+ * Map a chancePercent (0–100) to its bin index, or null when out of range.
+ * Bins are half-open [lo, hi) except the last, which is closed [90, 100] so 100% lands in bin 9.
+ */
+export function binOfImprovementChance(chancePercent: number): number | null {
+  if (!Number.isFinite(chancePercent) || chancePercent < 0 || chancePercent > 100) return null
+  // Clamp the top edge into the final bin so exactly-100 doesn't fall off the end.
+  if (chancePercent >= 100) return IMPROVEMENT_CHANCE_BIN_COUNT - 1
+  // Linear scan over edges; the bin count is tiny so this stays cheap.
+  for (let i = 0; i < IMPROVEMENT_CHANCE_BIN_COUNT; i++) {
+    if (chancePercent >= IMPROVEMENT_CHANCE_BIN_EDGES[i]! && chancePercent < IMPROVEMENT_CHANCE_BIN_EDGES[i + 1]!) return i
+  }
+  return null
+}
+
+/**
+ * sqrt display scale for bar widths: returns the fraction of the longest bar to fill, computed as
+ * sqrt(count) / sqrt(maxCount) = sqrt(count / maxCount). Keeps the tallest bar at exactly 100%
+ * while pulling small counts outward so a strongly bimodal distribution (e.g. the improvement-chance
+ * histogram, which clusters at 0–10% and 90–100%) keeps its near-empty middle bins legible.
+ * Same visual transform the substat radar uses. Width-only — raw counts are shown unmodified.
+ */
+export function sqrtBarWidthScale(count: number, maxCount: number): number {
+  if (maxCount <= 0) return 0
+  return Math.sqrt(Math.max(count, 0) / maxCount)
+}
+
+/** Human-readable label for a histogram bin (e.g. bin 3 → "30–40%"). */
+export function improvementChanceBinLabel(bin: number): string {
+  const lo = IMPROVEMENT_CHANCE_BIN_EDGES[bin]
+  const hi = IMPROVEMENT_CHANCE_BIN_EDGES[bin + 1]
+  // Out-of-range bin index: fall back to the raw number so callers never render "undefined".
+  if (lo === undefined || hi === undefined) return String(bin)
+  return `${lo}–${hi}%`
+}
+
+/**
+ * Convert a set of selected histogram bin indices into the equivalent inclusive [min, max]
+ * percentage range — the form the Gear Inspector filter uses
+ * (gearInspectorImprovementChance.{min,max}). The range spans from the low edge of the
+ * lowest selected bin to the high edge of the highest selected bin; for a contiguous
+ * selection this round-trips exactly with rangeToImprovChanceBins. Returns null when no
+ * bins are selected (= no range constraint).
+ */
+export function improvChanceBinsToRange(bins: ReadonlySet<number>): { min: number; max: number } | null {
+  if (bins.size === 0) return null
+  let lo = Infinity
+  let hi = -Infinity
+  for (const bin of bins) {
+    // Ignore out-of-range indices defensively so a stray value can't blow up the bounds.
+    if (bin < 0 || bin >= IMPROVEMENT_CHANCE_BIN_COUNT) continue
+    lo = Math.min(lo, IMPROVEMENT_CHANCE_BIN_EDGES[bin]!)
+    hi = Math.max(hi, IMPROVEMENT_CHANCE_BIN_EDGES[bin + 1]!)
+  }
+  if (lo === Infinity) return null
+  return { min: lo, max: hi }
+}
+
+/**
+ * Convert an inclusive [min, max] percentage range into the set of histogram bin indices it
+ * covers — the inverse of improvChanceBinsToRange. A bin is included when it overlaps the
+ * range (half-open [edge, nextEdge), with the top bin closed at 100). The full 0–100 range
+ * yields an empty set (= no constraint) so a default range maps to "no bins selected".
+ */
+export function rangeToImprovChanceBins(min: number, max: number): Set<number> {
+  const bins = new Set<number>()
+  // The unconstrained full range is "no filter": return an empty selection.
+  if (min <= 0 && max >= 100) return bins
+  for (let i = 0; i < IMPROVEMENT_CHANCE_BIN_COUNT; i++) {
+    const lo = IMPROVEMENT_CHANCE_BIN_EDGES[i]!
+    const hi = IMPROVEMENT_CHANCE_BIN_EDGES[i + 1]!
+    // Overlap test: bin [lo, hi) intersects [min, max] when lo < max and hi > min.
+    // The top bin (hi === 100) is closed, so admit it when max reaches 100 too.
+    if (lo < max && (hi > min || (hi >= 100 && max >= 100))) bins.add(i)
+  }
+  return bins
+}
+
+/**
+ * Resolve a row's binnable improvement chance, or null when the row should be excluded
+ * from the histogram/filter. Excludes items with no matching safeguard and the degenerate
+ * +16/100% case — mirroring the Gear Inspector grid overlay and sort behavior (SSOT).
+ */
+export function rowImprovementChanceBin(
+  row: GearInspectorPreviewRow,
+  chanceByArtifactId: ReadonlyMap<number, { chancePercent: number; hasMatchingSafeguard: boolean }>,
+): number | null {
+  const entry = chanceByArtifactId.get(Number(row.artifact.id))
+  // No chance entry, or no safeguard projects an upgrade for this item — not binnable.
+  if (!entry || !entry.hasMatchingSafeguard) return null
+  // Already-maxed gear reports a trivial 100% — treat as "no data" exactly like the grid.
+  if (isDegenerateImprovChance(entry.chancePercent, Number(row.artifact.level))) return null
+  return binOfImprovementChance(entry.chancePercent)
+}
+
+/**
+ * Count rows into improvement-chance histogram bins.
+ * Returns a count per bin index (0 … IMPROVEMENT_CHANCE_BIN_COUNT-1); unbinnable rows are skipped.
+ */
+export function countByImprovementChanceBin(
+  rows: readonly GearInspectorPreviewRow[],
+  chanceByArtifactId: ReadonlyMap<number, { chancePercent: number; hasMatchingSafeguard: boolean }>,
+): Map<number, number> {
+  const map = new Map<number, number>()
+  for (const row of rows) {
+    const bin = rowImprovementChanceBin(row, chanceByArtifactId)
+    if (bin === null) continue
+    map.set(bin, (map.get(bin) ?? 0) + 1)
+  }
+  return map
 }
 
 // ── Slot groups ───────────────────────────────────────────────────────────────
@@ -146,19 +278,27 @@ export function applyGearAnalyticsFilter(
   rows: readonly GearInspectorPreviewRow[],
   dim: GearAnalyticsDim,
   exclude?: keyof GearAnalyticsDim,
+  /**
+   * Per-artifact improvement-chance map. Required only to resolve the improvChanceBins
+   * dimension; when omitted (or the dimension is inactive/excluded) the filter behaves as before.
+   */
+  chanceByArtifactId?: ReadonlyMap<number, { chancePercent: number; hasMatchingSafeguard: boolean }>,
 ): GearInspectorPreviewRow[] {
   // Short-circuit when nothing is active (after accounting for exclusion).
-  const activeSlots     = exclude === 'slots'     ? EMPTY_SET : dim.slots
-  const activeRanks     = exclude === 'ranks'     ? EMPTY_SET : dim.ranks
-  const activeRarities  = exclude === 'rarities'  ? EMPTY_SET : dim.rarities
-  const activeSets      = exclude === 'sets'      ? EMPTY_SET : dim.sets
-  const activeOutcomes  = exclude === 'outcomes'  ? EMPTY_SET : dim.outcomes
-  const activeSources   = exclude === 'sources'   ? EMPTY_SET : dim.sources
-  const activeLevels    = exclude === 'levels'    ? EMPTY_SET : dim.levels
-  const activeMainStats = exclude === 'mainStats' ? EMPTY_SET : dim.mainStats
+  const activeSlots     = exclude === 'slots'           ? EMPTY_SET : dim.slots
+  const activeRanks     = exclude === 'ranks'           ? EMPTY_SET : dim.ranks
+  const activeRarities  = exclude === 'rarities'        ? EMPTY_SET : dim.rarities
+  const activeSets      = exclude === 'sets'            ? EMPTY_SET : dim.sets
+  const activeOutcomes  = exclude === 'outcomes'        ? EMPTY_SET : dim.outcomes
+  const activeSources   = exclude === 'sources'         ? EMPTY_SET : dim.sources
+  const activeLevels    = exclude === 'levels'          ? EMPTY_SET : dim.levels
+  const activeMainStats = exclude === 'mainStats'       ? EMPTY_SET : dim.mainStats
+  // The improvChance dimension can only be honored when the chance map is supplied;
+  // without it, treat the dimension as inactive so existing call sites stay unaffected.
+  const activeChanceBins = (exclude === 'improvChanceBins' || !chanceByArtifactId) ? EMPTY_SET : dim.improvChanceBins
 
   // Fast path: if all dimensions are empty, return all rows as an array.
-  if (!activeSlots.size && !activeRanks.size && !activeRarities.size && !activeSets.size && !activeOutcomes.size && !activeSources.size && !activeLevels.size && !activeMainStats.size) {
+  if (!activeSlots.size && !activeRanks.size && !activeRarities.size && !activeSets.size && !activeOutcomes.size && !activeSources.size && !activeLevels.size && !activeMainStats.size && !activeChanceBins.size) {
     return rows as GearInspectorPreviewRow[]
   }
 
@@ -175,6 +315,11 @@ export function applyGearAnalyticsFilter(
     if (activeLevels.size    && !activeLevels.has(Number(a.level)))                                                          continue
     // Items with no main stat (accessories with null mainStat) never match a main-stat selection.
     if (activeMainStats.size && (a.mainStat == null || !activeMainStats.has(Number(a.mainStat.variant))))                   continue
+    // Improvement-chance bin: unbinnable rows (null bin) never match a bin selection.
+    if (activeChanceBins.size) {
+      const bin = rowImprovementChanceBin(row, chanceByArtifactId!)
+      if (bin === null || !activeChanceBins.has(bin)) continue
+    }
     result.push(row)
   }
   return result

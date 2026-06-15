@@ -14,7 +14,8 @@ All aggregation logic lives in `src/lib/gearAnalytics.ts` (pure functions, no Re
 | `src/components/gear-analytics/GearAnalyticsRadar.tsx` | Radar chart for substat frequency + co-occurrence pivot |
 | `src/components/gear-analytics/GearAnalyticsKpiCards.tsx` | Row of KPI cards — regular (single %) and double (two values with separator) |
 | `src/components/gear-analytics/GearAnalyticsCrossFilterChips.tsx` | Active filter chip bar with per-chip delete |
-| `src/components/gear-analytics/GearAnalyticsBar.tsx` | Horizontal bar chart (main stat frequency) |
+| `src/components/gear-analytics/GearAnalyticsBar.tsx` | Horizontal bar chart (main stat frequency, improvement-chance histogram) |
+| `src/components/gear-analytics/GearAnalyticsImprovementChanceHistogram.tsx` | Improvement-chance distribution (binned `GearAnalyticsBar` wrapper) |
 | `src/components/gear-analytics/GearAnalyticsHeatmap.tsx` | Slot × main stat count heatmap |
 | `src/components/gear-analytics/GearAnalyticsTreemap.tsx` | Squarified treemap for set cross-filter |
 | `src/components/gear-analytics/GearAnalyticsChampStats.tsx` | Per-champion gear summary table |
@@ -37,16 +38,43 @@ type GearAnalyticsDim = {
   outcomes: ReadonlySet<GearAnalyticsOutcome>  // sell | keep | safe | none
   sources:  ReadonlySet<GearInspectorSourceFilter>
   levels:   ReadonlySet<number>           // gear level milestone 0/4/8/12/16
+  mainStats: ReadonlySet<number>          // main stat variant ids
+  improvChanceBins: ReadonlySet<number>   // improvement-chance histogram bin indices (0…9)
 }
 ```
 
 `EMPTY_GEAR_ANALYTICS_DIM` is the canonical all-zeroes sentinel; compare against it to test whether any filter is active.
 
-### `applyGearAnalyticsFilter(rows, dim, exclude?)`
+### `applyGearAnalyticsFilter(rows, dim, exclude?, chanceByArtifactId?)`
 
 The core filter function. Each dimension narrows the result **AND**-wise; values within a dimension are **OR**'d. The optional `exclude` key tells the function to skip one dimension — used by each chart to receive data filtered only by the *other* active dimensions (so its own distribution always covers its full range).
 
+`improvChanceBins` is the one dimension that cannot be resolved from `row.artifact` alone — improvement chance lives in a separate per-artifact map. Pass that map as the optional `chanceByArtifactId` argument to honor the dimension; when it is omitted (or the dimension is excluded), the bin filter is a no-op so all existing call sites and tests are unaffected.
+
 Short-circuit path: if all active dimensions (after exclusion) are empty-sets, the original array is returned as-is with no allocation.
+
+## Improvement-chance histogram
+
+`GearAnalyticsImprovementChanceHistogram` bins items by their safeguard improvement-chance percentage into deciles (`IMPROVEMENT_CHANCE_BIN_EDGES = [0,10,…,100]`, 10 bins) and renders the counts via `GearAnalyticsBar`. It sits beside the Main Stats bar in the same row; the column only appears when at least one item carries a real (non-degenerate, safeguard-matched) projection (`hasImprovementChance`).
+
+**sqrt width scale.** The distribution is typically strongly bimodal — large clusters at the 0–10% and 90–100% bins with a near-empty middle. A linear bar scale would flatten every middle bin to a sliver, so the histogram passes `sqrtBarWidthScale` to `GearAnalyticsBar`'s `widthScale` prop: bar length = `sqrt(count / maxCount)`, keeping the tallest bin at 100% while pulling small counts outward. This is width-only — the count label on the right always shows the true raw count. Same visual transform the substat radar uses.
+
+Binning SSOT lives in `gearAnalytics.ts`:
+
+- `binOfImprovementChance(pct)` — maps a percentage to a bin index (top bin closed so exactly-100 lands in bin 9; out-of-range → `null`).
+- `rowImprovementChanceBin(row, map)` — resolves a row's bin, excluding items with no matching safeguard and the degenerate +16/100% case (mirrors the Gear Inspector grid overlay/sort via `isDegenerateImprovChance`).
+- `countByImprovementChanceBin(rows, map)` — per-bin counts for the chart.
+
+The improvement-chance map is plumbed App → `LogicHubDialog` → `GearAnalyticsTabContent` as `improvementChanceByArtifactId` (the same map the Gear Inspector grid consumes).
+
+### Bins ↔ range bridge (copy/apply to Gear Inspector)
+
+The Gear Inspector filter expresses improvement chance as a continuous `{ min, max, includeUnassessed }` range, not discrete bins. Two SSOT helpers bridge the two so "Apply to Gear Inspector" and "Copy from Gear Inspector" round-trip:
+
+- `improvChanceBinsToRange(bins)` — selected bins → `[min,max]` (low edge of lowest bin … high edge of highest). Applying a bin selection sets `includeUnassessed: false`, since selecting bins inherently drops unassessed items.
+- `rangeToImprovChanceBins(min, max)` — a range → every overlapping bin; the full `0–100` range yields an empty selection (= no constraint).
+
+The round-trip is exact for contiguous bin selections (the common case).
 
 ## Sets treemap
 

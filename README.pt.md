@@ -215,6 +215,8 @@ Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para um
 
 **Barra de Mainstats:** Mostra a frequência de cada mainstat no equipamento filtrado. Clique numa barra para aprofundar — o gráfico de frequência de substats atualiza-se para mostrar apenas substats do equipamento com esse mainstat selecionado. Clique novamente para desselecionar.
 
+**Hipótese de melhoria:** Probabilidade de o seu equipamento melhorar, agrupada em intervalos de 10 %. O número à direita indica quantos itens pertencem a cada grupo. O equipamento sem salvaguarda e o equipamento +16 totalmente melhorado ficam de fora. Clique num grupo para mostrar apenas esse equipamento.
+
 **Radar de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por mainstat) como gráfico de radar. Clique numa marca de eixo para a selecionar como pivô de co-ocorrência — o radar restringe-se então ao equipamento que contém todos os substats selecionados ao mesmo tempo (até 4 pivôs). Os pivôs ativos aparecem como chips abaixo do gráfico; × remove um, **Limpar filtros** remove todos.
 
 **Mapa de calor Slot × Mainstat:** Contagem de itens por slot (colunas) × mainstat (linhas). Clique num cabeçalho de coluna ou numa célula para filtrar por esse slot.

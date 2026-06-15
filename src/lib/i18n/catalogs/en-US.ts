@@ -318,6 +318,8 @@ const enUS: Catalog = {
   gearAnalyticsChartMainStatDesc: "Frequency of each main stat across the filtered gear. Use the Slot donut to focus on a specific piece type.",
   gearAnalyticsChartSubstats: "Substat Frequency",
   gearAnalyticsChartSubstatsDesc: "How often each substat appears across the filtered gear. One item can contribute up to 4 substats.",
+  gearAnalyticsChartImprovChance: "Improvement Chance",
+  gearAnalyticsChartImprovChanceDesc: "How likely your gear is to improve, grouped in 10% steps. The number on the right is how many items fall in each group. Gear with no safeguard, and maxed +16 gear, are left out. Click a group to show only that gear.",
   gearAnalyticsChartHeatmap: "Slot × Main Stat Coverage",
   gearAnalyticsChartHeatmapDesc: "Item count per slot (columns) and main stat (rows). Click a column header or cell to filter by slot.",
   gearAnalyticsChartSource: "Source",

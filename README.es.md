@@ -215,6 +215,8 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 
 **Barra de Mainstats:** Muestra la frecuencia de cada mainstat en el equipamiento filtrado. Haz clic en una barra para profundizar — el gráfico de frecuencia de substats se actualiza mostrando solo los substats del equipamiento con ese mainstat seleccionado. Haz clic de nuevo para deseleccionar.
 
+**Probabilidad de mejora:** Probabilidad de que tu equipo mejore, agrupada en tramos del 10 %. El número de la derecha indica cuántos objetos caen en cada grupo. Se excluye el equipo sin salvaguarda y el equipo +16 al máximo. Haz clic en un grupo para mostrar solo ese equipo.
+
 **Radar de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por mainstat) como gráfico de araña. Haz clic en una marca de eje para seleccionarla como pivote de coocurrencia — el radar se restringe entonces al equipamiento que contiene todos los substats seleccionados a la vez (hasta 4 pivotes). Los pivotes activos aparecen como chips debajo del gráfico; × elimina uno, **Borrar filtros** los elimina todos.
 
 **Mapa de calor Ranura × Mainstat:** Recuento de objetos por ranura (columnas) × mainstat (filas). Haz clic en un encabezado de columna o una celda para filtrar por esa ranura.

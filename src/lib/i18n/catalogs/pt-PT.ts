@@ -315,6 +315,8 @@ const overrides: Catalog = {
   gearAnalyticsChartHeatmap: "Cobertura Slot × Stat principal",
   gearAnalyticsChartHeatmapDesc: "Contagem de itens por slot (colunas) e stat principal (linhas). Clique num cabeçalho de coluna ou célula para filtrar por slot.",
   gearAnalyticsChartSource: "Fonte",
+  gearAnalyticsChartImprovChance: "Hipótese de melhoria",
+  gearAnalyticsChartImprovChanceDesc: "Probabilidade de o seu equipamento melhorar, agrupada em intervalos de 10 %. O número à direita indica quantos itens pertencem a cada grupo. O equipamento sem salvaguarda e o equipamento +16 totalmente melhorado ficam de fora. Clique num grupo para mostrar apenas esse equipamento.",
   gearAnalyticsOutcomeSell: "Vender",
   gearAnalyticsOutcomeKeep: "Manter",
   gearAnalyticsOutcomeSafe: "Protegido",

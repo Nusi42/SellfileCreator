@@ -309,6 +309,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Set",
   gearAnalyticsChartOutcome: "Risultato",
   gearAnalyticsChartMainStat: "Stat principali",
+  gearAnalyticsChartImprovChance: "Probabilità di miglioramento",
+  gearAnalyticsChartImprovChanceDesc: "Quanto è probabile che il tuo equipaggiamento migliori, raggruppato in fasce del 10%. Il numero a destra indica quanti oggetti rientrano in ciascun gruppo. L'equipaggiamento senza salvaguardia e quello al massimo (+16) vengono esclusi. Clicca un gruppo per mostrare solo quell'equipaggiamento.",
   gearAnalyticsChartMainStatDesc: "Frequenza di ogni stat principale nell'equipaggiamento filtrato. Usa il grafico a ciambella Slot per concentrarti su un tipo di pezzo specifico.",
   gearAnalyticsChartSubstats: "Frequenza dei substat",
   gearAnalyticsChartSubstatsDesc: "Frequenza con cui ogni substat appare nell'equipaggiamento filtrato. Un oggetto può contribuire fino a 4 substat.",

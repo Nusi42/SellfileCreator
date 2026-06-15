@@ -216,6 +216,8 @@ Hinweise:
 
 **Mainstat-Balken:** Zeigt, wie oft jeder Mainstat in der gefilterten Ausrüstung vorkommt. Klicke auf einen Balken, um ihn aufzubohren — das Substat-Frequenz-Chart zeigt dann nur Substats aus Ausrüstung mit dem ausgewählten Mainstat. Erneut klicken hebt die Auswahl auf.
 
+**Verbesserungschance:** Wie wahrscheinlich es ist, dass sich deine Ausrüstung verbessert, in 10 %-Schritten gruppiert. Die Zahl rechts gibt an, wie viele Gegenstände in jede Gruppe fallen. Ausrüstung ohne Schutzregel sowie voll aufgewertete +16-Ausrüstung werden ausgelassen. Klicke auf eine Gruppe, um nur diese Ausrüstung anzuzeigen.
+
 **Substat-Frequenz-Radar:** Zeigt, wie oft jeder Substat in der gefilterten (und optional nach Mainstat eingeschränkten) Ausrüstung vorkommt – als Spinnennetz-Diagramm. Klicke auf eine Achsenmarkierung, um sie als Kookkurrenz-Pivot zu wählen – der Radar zeigt dann nur Ausrüstung, die alle gewählten Substats enthält (bis zu 4 Pivots). Aktive Pivots erscheinen als Chips unterhalb des Charts; × entfernt einen einzelnen Chip, **Filter löschen** alle.
 
 **Slot × Mainstat-Heatmap:** Anzahl der Items pro Slot (Spalten) × Mainstat (Zeilen). Klicke auf einen Spaltenheader oder eine Zelle, um nach diesem Slot zu filtern.

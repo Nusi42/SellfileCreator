@@ -184,7 +184,7 @@ import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import { mergeRulesFilterState, subtractRulesFilterState, reapplyRulesFilterScalars, rulesFilterStateContains, rulesFilterStateHasContribution, projectFilterStateToMode } from './lib/rulesFilterMerge'
 import type { GearAnalyticsDim, GearAnalyticsOutcome, GearAnalyticsSource } from './lib/gearAnalytics'
-import { EMPTY_GEAR_ANALYTICS_DIM } from './lib/gearAnalytics'
+import { EMPTY_GEAR_ANALYTICS_DIM, improvChanceBinsToRange, rangeToImprovChanceBins } from './lib/gearAnalytics'
 import {
   useAutosaveRestore,
   metasetsEqualSession,
@@ -3359,6 +3359,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Translates a Gear Analytics cross-filter selection into a RulesFilterState applied to the
   // Gear Inspector filter only. Does not switch tabs — the user navigates manually.
   const handleApplyGearAnalyticsFilter = useCallback((dim: GearAnalyticsDim) => {
+    // Improvement-chance bins → inspector's [min,max] range. Selecting bins inherently excludes
+    // unassessed items, so includeUnassessed is false when a bin selection is active. When no bins
+    // are selected, omit the key so the default range (from the spread below) carries through.
+    const improvChanceRange = improvChanceBinsToRange(dim.improvChanceBins)
     const next: RulesFilterState = {
       ...DEFAULT_RULES_FILTER_STATE,
       slots: {
@@ -3388,6 +3392,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         anyMode: 'include',
       },
       gearInspectorSources: dim.sources.size > 0 ? { selected: [...dim.sources] } : { selected: [] },
+      // Spread the bin-derived range only when bins are selected; otherwise the default range from
+      // the DEFAULT_RULES_FILTER_STATE spread above remains in effect.
+      ...(improvChanceRange
+        ? { gearInspectorImprovementChance: { min: improvChanceRange.min, max: improvChanceRange.max, includeUnassessed: false } }
+        : {}),
       // 'keep' and 'safe' both map to the keep flag; 'none' maps to unmatched (no rule triggered).
       gearInspectorResult: dim.outcomes.size > 0
         ? {
@@ -3415,6 +3424,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
     const levels = new Set((f.level?.selected ?? []).map(Number))
     const mainStats = new Set((f.main?.selected ?? []).map(Number))
+    // Inspector improvement-chance range → overlapping histogram bins (empty for the full 0–100 range).
+    const ic = f.gearInspectorImprovementChance
+    const improvChanceBins = rangeToImprovChanceBins(ic?.min ?? 0, ic?.max ?? 100)
     const sources = new Set<GearAnalyticsSource>((f.gearInspectorSources?.selected ?? []) as GearAnalyticsSource[])
     const outcomes = new Set<GearAnalyticsOutcome>()
     // keep=true covers both 'keep' (rule triggered, keep) and 'safe' (safeguarded);
@@ -3423,10 +3435,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (f.gearInspectorResult?.sell) outcomes.add('sell')
     if (f.gearInspectorResult?.unmatched) outcomes.add('none')
     if (slots.size === 0 && ranks.size === 0 && rarities.size === 0 && sets.size === 0 &&
-        levels.size === 0 && mainStats.size === 0 && sources.size === 0 && outcomes.size === 0) {
+        levels.size === 0 && mainStats.size === 0 && sources.size === 0 && outcomes.size === 0 &&
+        improvChanceBins.size === 0) {
       return EMPTY_GEAR_ANALYTICS_DIM
     }
-    return { slots, ranks, rarities, sets, outcomes, sources, levels, mainStats }
+    return { slots, ranks, rarities, sets, outcomes, sources, levels, mainStats, improvChanceBins }
   }, [rulesFilterByMode])
 
   const handleDeleteFilterPreset = useCallback((presetId: string) => {
@@ -9384,6 +9397,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           gearInspectorMatches={gearInspectorMatchesByItemId}
           onResetGearInspector={handleResetGearInspectorItems}
           gearInspectorPreviewRows={gearInspectorPreviewRows}
+          improvementChanceByArtifactId={improvementChanceByArtifactId}
           onApplyGearAnalyticsFilter={handleApplyGearAnalyticsFilter}
           gearInspectorDim={gearInspectorDimForAnalytics}
           rules={mergedRules}

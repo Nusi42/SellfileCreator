@@ -314,6 +314,8 @@ const overrides: Catalog = {
   gearAnalyticsChartSubstatsDesc: "Wie oft jeder Substat in der gefilterten Ausrüstung vorkommt. Ein Gegenstand kann bis zu 4 Substats beitragen.",
   gearAnalyticsChartHeatmap: "Slot × Hauptstat-Abdeckung",
   gearAnalyticsChartHeatmapDesc: "Anzahl der Gegenstände pro Slot (Spalten) und Hauptstat (Zeilen). Klicke auf einen Spaltenheader oder eine Zelle, um nach Slot zu filtern.",
+  gearAnalyticsChartImprovChance: "Verbesserungschance",
+  gearAnalyticsChartImprovChanceDesc: "Wie wahrscheinlich es ist, dass sich deine Ausrüstung verbessert, in 10 %-Schritten gruppiert. Die Zahl rechts gibt an, wie viele Gegenstände in jede Gruppe fallen. Ausrüstung ohne Schutzregel sowie voll aufgewertete +16-Ausrüstung werden ausgelassen. Klicke auf eine Gruppe, um nur diese Ausrüstung anzuzeigen.",
   gearAnalyticsChartSource: "Quelle",
   gearAnalyticsOutcomeSell: "Verkaufen",
   gearAnalyticsOutcomeKeep: "Behalten",
