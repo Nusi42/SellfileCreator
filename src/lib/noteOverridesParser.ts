@@ -164,12 +164,36 @@ export class TokenCursor {
 /** All valid group types in the overrides DSL. */
 export type NoteQuestionGroupType = 'single' | 'multi' | 'slider'
 
-/** Numeric range for a slider group. */
+/** A labeled guide mark on a slider track. `value` is the position; `label` is shown
+ *  beneath the mark; optional `subtext` is surfaced as a tooltip on the mark. Marks are
+ *  purely visual guides — the slider stays continuous (no snapping). */
+export type SliderMark = {
+  value: number
+  label: string
+  subtext?: string
+}
+
+/** Optional on/off checkbox attached to a slider. When off, the slider's `else` block
+ *  applies instead of its selector blocks, and the track is disabled in the UI. */
+export type SliderToggle = {
+  // Label shown next to the checkbox. Empty string falls back to a UI default.
+  label: string
+  // Checkbox placement relative to the slider: 'left' (inline) or 'above' (stacked).
+  side: 'left' | 'above'
+  // Initial state when the user has not answered yet.
+  default: 'on' | 'off'
+}
+
+/** Numeric range for a slider group, plus optional labeled marks and an on/off toggle. */
 export type SliderParams = {
   min: number
   max: number
   step: number
   default: number
+  // Labeled guide marks (visual only; no snapping). Absent = bare end-tick marks.
+  marks?: SliderMark[]
+  // Optional enable/disable checkbox bound to the slider's else block.
+  toggle?: SliderToggle
 }
 
 // ── Keyword constants (single source of truth shared with syntax highlighter) ──
@@ -611,19 +635,60 @@ export function readTokenList(cursor: TokenCursor, sink: string[]): void {
   }
 }
 
-/** Parse slider params (min/max/step/default = number) before the opening brace. */
+/** All slider-param keywords; used both to drive parsing and to gate entry into it. */
+export const SLIDER_PARAM_KEYWORDS = ['min', 'max', 'step', 'default', 'marks', 'toggle', 'toggleside', 'toggledefault'] as const
+
+/** Parse a `marks=` list: `value:"label"[:"subtext"]` items, comma-separated. The list
+ *  ends at the first token that is not a `<number> :` mark (e.g. the next param or `{`). */
+const parseSliderMarks = (cursor: TokenCursor): SliderMark[] => {
+  const marks: SliderMark[] = []
+  while (true) {
+    const valueToken = cursor.peek()
+    if (!valueToken || valueToken.kind !== 'word') break
+    const value = Number.parseFloat(valueToken.value)
+    if (!Number.isFinite(value)) break
+    // A mark requires `<number> : "label"`; bail (without consuming) if the colon is absent.
+    if (cursor.peek(1)?.kind !== 'symbol' || cursor.peek(1)?.value !== ':') break
+    cursor.next() // number
+    cursor.next() // ':'
+    const labelToken = cursor.peek()
+    if (!labelToken || labelToken.kind !== 'string') break
+    cursor.next()
+    const mark: SliderMark = { value, label: labelToken.value }
+    // Optional `: "subtext"`.
+    if (cursor.peek()?.kind === 'symbol' && cursor.peek()?.value === ':') {
+      const subToken = cursor.peek(1)
+      if (subToken?.kind === 'string') { cursor.next(); cursor.next(); mark.subtext = subToken.value }
+    }
+    marks.push(mark)
+    // Continue only across an explicit comma separator.
+    if (cursor.peek()?.kind === 'symbol' && cursor.peek()?.value === ',') { cursor.next(); continue }
+    break
+  }
+  return marks
+}
+
+/** Parse slider params (min/max/step/default/marks/toggle…) before the opening brace. */
 export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
   // Defaults: slider from 0 to 10 in steps of 1 with default 1.
   let min = 0; let max = 10; let step = 1; let def = 1
+  let marks: SliderMark[] | undefined
+  let toggle: SliderToggle | undefined
+  // Lazily create the toggle so toggle/toggleside/toggledefault can appear in any order.
+  const ensureToggle = (): SliderToggle => (toggle ??= { label: '', side: 'above', default: 'on' })
   while (true) {
     const token = cursor.peek()
     if (!token || token.kind !== 'word') break
     const keyword = token.value.toLowerCase()
-    if (keyword !== 'min' && keyword !== 'max' && keyword !== 'step' && keyword !== 'default') break
+    if (!(SLIDER_PARAM_KEYWORDS as readonly string[]).includes(keyword)) break
     cursor.next()
     if (!cursor.consumeSymbol('=')) continue
+    if (keyword === 'marks') { marks = parseSliderMarks(cursor); continue }
     const valueToken = cursor.peek()
     if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
+    if (keyword === 'toggle') { cursor.next(); ensureToggle().label = valueToken.value; continue }
+    if (keyword === 'toggleside') { cursor.next(); ensureToggle().side = valueToken.value.toLowerCase() === 'left' ? 'left' : 'above'; continue }
+    if (keyword === 'toggledefault') { cursor.next(); ensureToggle().default = valueToken.value.toLowerCase() === 'off' ? 'off' : 'on'; continue }
     cursor.next()
     const parsed = Number.parseFloat(valueToken.value)
     if (!Number.isFinite(parsed)) continue
@@ -634,7 +699,10 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
   }
   // Clamp defaults so the initial slider position stays within range.
   const safeDefault = Math.min(max, Math.max(min, def))
-  return { min, max, step, default: safeDefault }
+  const result: SliderParams = { min, max, step, default: safeDefault }
+  if (marks && marks.length > 0) result.marks = marks
+  if (toggle) result.toggle = toggle
+  return result
 }
 
 /**
@@ -812,10 +880,12 @@ export function parseOverridesOptionBlock<S, O>(
         if (candidate) explicitToken = candidate
         continue
       }
-      // Parse slider params (min/max/step/default=<number>).
+      // Parse slider params (min/max/step/default=<number>, marks=…, toggle…=…).
       if (token.kind === 'word') {
         const kw = token.value.toLowerCase()
-        if ((kw === 'min' || kw === 'max' || kw === 'step')
+        // 'default' is overloaded: a bare `default` marker vs `default=` param. The other
+        // param keywords (min/max/step/marks/toggle…) are always params when followed by '='.
+        if ((kw !== 'default' && (SLIDER_PARAM_KEYWORDS as readonly string[]).includes(kw))
             || (kw === 'default' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=')) {
           sliderParams = parseSliderParams(cursor)
           continue

@@ -40,6 +40,8 @@ type AnyOption = {
   sliderMin?: number
   sliderMax?: number
   sliderDefault?: number
+  sliderMarks?: { value: number; label: string; subtext?: string }[]
+  sliderToggle?: { label: string; side: string; default: string }
 }
 type AnyQuestion = { prompt: string; layoutColumns: number; isSpacer?: boolean; options: AnyOption[] }
 
@@ -76,7 +78,11 @@ function buildDigest(label: string, questions: AnyQuestion[]): string {
       if (o.unsetOptionIds?.length) parts.push(`-[${refList(o.unsetOptionIds)}]`)
       if (o.excludedOptionIds?.length) parts.push(`![${refList(o.excludedOptionIds)}]`)
       if (o.requiresOptionIds?.length) parts.push(`needs[${refList(o.requiresOptionIds)}]`)
-      if (o.groupType === 'slider') parts.push(`sld:${o.sliderMin}-${o.sliderMax}/${o.sliderDefault}`)
+      if (o.groupType === 'slider') {
+        parts.push(`sld:${o.sliderMin}-${o.sliderMax}/${o.sliderDefault}`)
+        if (o.sliderToggle) parts.push(`tgl:${o.sliderToggle.side}/${o.sliderToggle.default}`)
+        if (o.sliderMarks?.length) parts.push(`marks:${o.sliderMarks.length}`)
+      }
       lines.push(parts.join(' '))
     }
   }
@@ -165,18 +171,10 @@ Q "How many damage or survivability pieces " cols=2
 Q "How many damage/survivability/debuffer p" cols=2
   #1 s blk:count sld:1-64/8
 Q "" cols=2 SPACER
-Q "Do you want to protect **artifacts** (no" cols=5
-  #1 s blk:improvementChance
-  #2 s blk:improvementChance
-  #3 s * blk:improvementChance
-  #4 s blk:improvementChance
-  #5 s blk:improvementChance
-Q "Do you want to protect **accessories** b" cols=5
-  #1 s blk:improvementChance
-  #2 s blk:improvementChance
-  #3 s * blk:improvementChance
-  #4 s blk:improvementChance
-  #5 s blk:improvementChance`
+Q "Do you want to protect **artifacts** (no" cols=2
+  #1 s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4
+Q "Do you want to protect **accessories** (" cols=2
+  #1 s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4`
 
 test('lategame.sfc overrides parse to the golden behavioural digest', () => {
   const recipe = resolveRecipeOverridesTags(note)

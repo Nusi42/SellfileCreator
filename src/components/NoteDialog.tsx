@@ -97,6 +97,7 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
   SAFEGUARD_OVERRIDES_OP_FIELD,
+  SLIDER_TOGGLE_OFF,
   formatSafeguardOverridesOpValue,
   type SafeguardOverridesOperation,
   type NoteSafeguardOverridesAnswers,
@@ -1788,6 +1789,11 @@ group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"chec
              | ("slider"|"range") string [headerToken {headerToken}] [constraints]
                sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [elseBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
+             | "marks" "=" markItem ("," markItem)*        // labeled guide ticks
+             | "toggle" "=" string                         // adds an on/off checkbox (off ⇒ the else block)
+             | "toggleside" "=" ("left" | "above")         // checkbox placement (default: above)
+             | "toggledefault" "=" ("on" | "off")          // initial checkbox state (default: on)
+markItem      := number ":" string [":" string]            // value : label [: subtext-tooltip]
 headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" sgAssignment+ "}"
 crossBlock    := "recipe" "@" selector "{" recipeAssignment+ "}"
@@ -1819,7 +1825,8 @@ rankNum       := /1–6/   (integer star rank)
 rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical"
 activationVal := "${_sgActVals}"
 subMatchVal   := "${_sgMatchVals}"
-impChanceVal  := "off" | "disabled" | number ("," [number])*
+impChanceVal  := "off" | "disabled" | "$value" | number ("," [number])*
+                 // $value = the enclosing slider's position (flat threshold at every stage)
                  // 1–4 comma-separated values; omitted slots inherit from the previous stage
 flexVal       := "on" | "off" | "true" | "false"
 elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   // option-level: applied when THIS option is unselected
@@ -2912,13 +2919,19 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 // Slider for safeguard-overrides values. The thumb follows the drag locally (cheap),
 // but the answer is committed only on release / keyboard settle (onChangeCommitted) —
 // so a single drag triggers ONE answer update + pipeline run instead of one per tick.
+// Vertical geometry for labeled marks: row 0 sits a comfortable gap below the track; each
+// extra row drops the label by ROW_H so a dropped label clears the one to its left.
+const MARK_ROW_BASE = 28
+const MARK_ROW_H = 18
 function NoteOverridesSlider({
-  value, min, max, step, disabled, onCommit,
+  value, min, max, step, marks, disabled, onCommit,
 }: {
   value: number
   min: number
   max: number
   step: number
+  // Labeled guide marks (raw data). Absent = a tick per step.
+  marks?: { value: number; label: string; subtext?: string }[]
   disabled: boolean
   onCommit: (value: number) => void
 }): JSX.Element {
@@ -2927,22 +2940,108 @@ function NoteOverridesSlider({
   const shown = dragValue ?? value
   // Sliders here are always single-thumb; collapse the union to a number.
   const resolve = (v: number | number[]): number => (typeof v === 'number' ? v : (v[0] ?? min))
+  const hasLabeledMarks = !!marks && marks.length > 0
+
+  // Measure the track width so label collisions can be detected in real pixels.
+  const sliderRef = useRef<HTMLSpanElement>(null)
+  const [trackWidth, setTrackWidth] = useState(0)
+  /* eslint-disable react-you-might-not-need-an-effect/no-initialize-state --
+     trackWidth must be measured from the rendered DOM (post-mount); it only feeds
+     label-collision layout, never correctness, so an effect is the right tool here. */
+  useEffect(() => {
+    const el = sliderRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    // ResizeObserver fires once on observe, so the width is set from the callback (not
+    // synchronously in the effect). First paint uses row 0 for every mark until it fires.
+    const ro = new ResizeObserver(() => setTrackWidth(el.getBoundingClientRect().width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  /* eslint-enable react-you-might-not-need-an-effect/no-initialize-state */
+
+  // Collision-aware row per mark: scan left→right keeping the right edge occupied on each
+  // row; place each label on the topmost row whose last label ends before this one starts.
+  // So a label only drops a row when it would actually overlap the label to its left.
+  const markRows = useMemo<number[]>(() => {
+    if (!hasLabeledMarks) return []
+    if (trackWidth <= 0 || max <= min) return marks!.map(() => 0)
+    const CHAR_PX = 7.5 // rough per-char width at the default mark-label font
+    const GAP = 8       // minimum px between two labels sharing a row
+    const rightEdge: number[] = []
+    return marks!.map((m) => {
+      const center = ((m.value - min) / (max - min)) * trackWidth
+      const halfW = (m.label.length * CHAR_PX) / 2 + 6
+      const left = center - halfW
+      let row = 0
+      while (row < rightEdge.length && left < rightEdge[row]! + GAP) row += 1
+      rightEdge[row] = center + halfW
+      return row
+    })
+  }, [hasLabeledMarks, marks, trackWidth, min, max])
+  const maxRow = markRows.length ? Math.max(...markRows) : 0
+
+  // Build MUI marks: each label is centered on its tick; dropped labels (row ≥ 1) get a
+  // dotted connector running up to the tick so they don't read as detached text.
+  const muiMarks = hasLabeledMarks
+    ? marks!.map((m, i) => {
+        const row = markRows[i] ?? 0
+        const connectorH = MARK_ROW_BASE + row * MARK_ROW_H - 6 // label top → just under the track
+        return {
+          value: m.value,
+          label: (
+            <Box
+              component="span"
+              {...(m.subtext ? { title: m.subtext } : {})}
+              sx={{ position: 'relative', display: 'inline-block', ...(m.subtext ? { cursor: 'help' } : {}) }}
+            >
+              {row > 0 && (
+                <Box component="span" aria-hidden sx={{
+                  position: 'absolute', left: '50%', bottom: '100%', width: 0,
+                  height: `${connectorH}px`, borderLeft: '1px dotted', borderColor: 'text.disabled',
+                }} />
+              )}
+              {m.label}
+            </Box>
+          ),
+        }
+      })
+    : undefined
+
+  // Per-index vertical offset for the dropped labels.
+  const markLabelSx: Record<string, { top: number }> = {}
+  if (hasLabeledMarks) {
+    markRows.forEach((row, i) => { markLabelSx[`& .MuiSlider-markLabel[data-index="${i}"]`] = { top: MARK_ROW_BASE + row * MARK_ROW_H } })
+  }
+  // Row-0 labels sit in the card's own padding; only reserve extra room for dropped rows
+  // (each dropped row adds MARK_ROW_H). Keeps single-row sliders as compact as tick sliders.
+  const marksMb = hasLabeledMarks && maxRow > 0 ? `${maxRow * MARK_ROW_H}px` : undefined
+
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
       <Slider
+        ref={sliderRef}
         size="small"
         min={min}
         max={max}
         step={step}
         value={shown}
-        marks
+        // Labeled marks replace the per-step ticks; otherwise keep the bare ticks.
+        marks={muiMarks ?? true}
         disabled={disabled}
         // Visual only — no answer/pipeline churn during the drag.
         onChange={(_, v) => { if (disabled) return; setDragValue(resolve(v)) }}
         // Commit once on release (also fires per keyboard step, which is already settled).
         onChangeCommitted={(_, v) => { if (disabled) return; const nv = resolve(v); setDragValue(null); onCommit(nv) }}
         valueLabelDisplay="auto"
-        sx={{ flex: 1, color: 'primary.main' }}
+        sx={{
+          flex: 1,
+          color: 'primary.main',
+          ...(hasLabeledMarks ? {
+            // Keep the default label font; only prevent wrapping. Vertical rows below.
+            '& .MuiSlider-markLabel': { whiteSpace: 'nowrap' },
+            ...markLabelSx,
+          } : {}),
+        }}
       />
       <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
         {shown}
@@ -3059,26 +3158,47 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
             if (group.type === 'slider') {
               const sliderOpt = group.options[0]
               if (!sliderOpt) return null
-              // Resolve current value from stored answers; fall back to sliderDefault.
-              const storedStr = question.answer.find((id) => group.options.some((o) => o.id === id))
-              const storedNumStr = storedStr
-                ? (question.options.find((o) => o.id === storedStr) ? (question.answer[0] ?? '') : '')
-                : ''
-              // Slider answer is stored as the numeric string in answers[questionId][0].
-              const storedValue = Number.parseFloat(
-                Array.isArray((question as { answer?: unknown }).answer)
-                  ? (question.answer.find((_) => true) ?? '')
-                  : '',
-              )
-              // The stored answer for a slider question contains the numeric value as the option id.
-              const numericValue = Number.parseFloat(selectedSet.values().next().value ?? '')
+              const toggle = sliderOpt.sliderToggle
+              // The single stored answer value is a numeric string, or the toggle-off sentinel.
+              const rawAnswer = selectedSet.values().next().value as string | undefined
+              const toggleOff = !!toggle && rawAnswer === SLIDER_TOGGLE_OFF
+              const numericValue = Number.parseFloat(rawAnswer ?? '')
               const sliderValue = Number.isFinite(numericValue)
                 ? numericValue
                 : (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1)
-              void storedStr; void storedNumStr; void storedValue
               const min = sliderOpt.sliderMin ?? 1
               const max = sliderOpt.sliderMax ?? 5
               const step = sliderOpt.sliderStep ?? 1
+              const sliderControl = (
+                <NoteOverridesSlider
+                  value={sliderValue}
+                  min={min}
+                  max={max}
+                  step={step}
+                  // Raw marks; the slider does collision-aware row layout + connectors itself.
+                  {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
+                  disabled={!safeguardOverridesEditable || toggleOff}
+                  // Commit the numeric value once on release; the off sentinel is set by the toggle.
+                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
+                />
+              )
+              // Optional enable/disable checkbox; unchecking stores the off sentinel (else block).
+              const toggleControl = toggle ? (
+                <FormControlLabel
+                  sx={{ m: 0, flexShrink: 0 }}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={!toggleOff}
+                      disabled={!safeguardOverridesEditable}
+                      onChange={(e) => { applyAnswer([e.target.checked ? String(sliderValue) : SLIDER_TOGGLE_OFF]) }}
+                    />
+                  }
+                  label={toggle.label
+                    ? <Typography variant="caption" sx={{ ...NOTE_QUESTION_SUBTEXT_SX }}>{toggle.label}</Typography>
+                    : ''}
+                />
+              ) : null
               const sliderBox = (
                 <Box key={group.id} sx={{ px: 0.5, pt: 0.5 }}>
                   {/* Slider prompt label mirrors the group header label when present */}
@@ -3088,16 +3208,20 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       {sliderOpt.isDefault && isEditorPreview && <NoteOptionDefaultChip />}
                     </Typography>
                   ) : null}
-                  <NoteOverridesSlider
-                    value={sliderValue}
-                    min={min}
-                    max={max}
-                    step={step}
-                    disabled={!safeguardOverridesEditable}
-                    // Store the numeric value as the single selected option id string,
-                    // committed once on release rather than on every drag tick.
-                    onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
-                  />
+                  {toggle && toggle.side === 'left' ? (
+                    // Checkbox inline-left, top-aligned so it sits on the slider's track line
+                    // (the slider box is tall because of the mark labels below the track).
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                      {toggleControl}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>{sliderControl}</Box>
+                    </Box>
+                  ) : (
+                    // Checkbox stacked above the slider (default).
+                    <>
+                      {toggleControl}
+                      {sliderControl}
+                    </>
+                  )}
                 </Box>
               )
               // Hover anywhere on the slider box → option-info tooltip (editor preview only).
@@ -4132,6 +4256,11 @@ export default function NoteDialog({
       const sliderOpt = sliderGroup.options[0]
       const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
       const numStr = nextSelection[0]
+      // The toggle-off sentinel passes through unchanged (routes to the else block).
+      if (numStr === SLIDER_TOGGLE_OFF) {
+        onSafeguardOverridesAnswersChange((prev) => ({ ...prev, [question.id]: [SLIDER_TOGGLE_OFF] }))
+        return
+      }
       const numVal = numStr !== undefined ? Number.parseFloat(numStr) : NaN
       onSafeguardOverridesAnswersChange((prev) => {
         const next = { ...prev }

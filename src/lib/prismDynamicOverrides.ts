@@ -177,11 +177,11 @@ function recipeOverrides(Prism: Refractor): void {
         // Plain `tag` (without `=`/`:`) is handled here after `tag-comparison`.
         'selector-field': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS),
 
-        // Slider group parameter keywords (min / max / step).
-        // `default` is caught by the earlier `default-kw` token.
+        // Slider group parameter keywords (min / max / step / marks / toggle…).
+        // `default` is caught by the earlier `default-kw` token (toggledefault is a distinct word).
         // Must precede `field` so these short keywords are colored distinctly rather than
         // falling through to unstyled text (they are not valid assignment-field names).
-        'slider-param-kw': /\b(?:min|max|step)\b/,
+        'slider-param-kw': /\b(?:min|max|step|marks|toggledefault|toggleside|toggle)\b/,
 
         // Field names used on the left-hand side of rule assignments (SSOT).
         // Combines recipe-overrides fields and safeguard-overrides fields so both grammars

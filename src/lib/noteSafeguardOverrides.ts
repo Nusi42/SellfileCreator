@@ -47,6 +47,8 @@ import {
   type NoteCountAstNode,
   type ParsedOverridesOption,
   type ParsedOverridesQuestion,
+  type SliderMark,
+  type SliderToggle,
   TokenCursor,
   stripCommentWrapper,
   parseTagSelector,
@@ -61,6 +63,11 @@ import {
 
 // Backward-compatible alias for external callers.
 export type SafeguardCountAstNode = NoteCountAstNode
+
+// Answer sentinel for a slider whose on/off toggle is unchecked. Stored as the slider
+// group's answer in place of a numeric value; the resolver then applies the option's
+// else block. Shared with the UI so both sides agree on the encoding.
+export const SLIDER_TOGGLE_OFF = 'off'
 
 // ── Exported constants (single source of truth for Prism + EBNF) ─────────────
 
@@ -121,7 +128,9 @@ export type SafeguardOverridesOperation =
   | { kind: 'substatMatch'; value: SafeguardSubstatMatch }
   | { kind: 'substatWeight'; stat: StatVariant; value: number }
   // null = disable the feature; non-null = enable with specific per-level thresholds.
-  | { kind: 'improvementChance'; value: SafeguardImprovementChanceLevelThresholds | null }
+  // dynamic = true means "use the enclosing slider's current value ($value)" — resolved
+  // to a flat { atLevel0: <slider>, … } at resolve time; `value` is ignored when dynamic.
+  | { kind: 'improvementChance'; value: SafeguardImprovementChanceLevelThresholds | null; dynamic?: boolean }
   // Combination filter overrides — replace or mutate the rule's rank/rarity/faction arrays.
   | { kind: 'ranks';    mode: 'replace'; values: RankValue[] }
   | { kind: 'ranks';    mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
@@ -190,7 +199,7 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'perRule': return String(op.value)
     case 'substatMatch': return String(op.value)
     case 'substatWeight': return `${labelOfVariant(op.stat)}=${op.value}`
-    case 'improvementChance': return op.value == null ? 'off' : 'on'
+    case 'improvementChance': return op.dynamic ? 'on' : (op.value == null ? 'off' : 'on')
     case 'substats': return op.mode === 'replace'
       ? op.stats.map((v) => labelOfVariant(v)).filter(Boolean).join(',')
       : formatSgMutateList(op.add.map((v) => labelOfVariant(v)).filter(Boolean), op.remove.map((v) => labelOfVariant(v)).filter(Boolean))
@@ -514,15 +523,19 @@ const parseOperations = (
       continue
     }
 
-    // ── improvchance = off | disabled | <N> ["," <N4> ["," <N8> ["," <N12>]]] ──
+    // ── improvchance = off | disabled | $value | <N> ["," <N4> ["," <N8> ["," <N12>]]] ──
     // Supported values:
     //   off / false / disabled  → disable the feature (null)
+    //   $value / $count          → use the enclosing slider's position (flat threshold)
     //   1–4 comma-separated numbers → thresholds for upgrade stages 0, 4, 8, 12.
     //                                 Omitted stages inherit the previous stage's value (null).
     //   Legacy: space-separated numbers are also accepted for backward compatibility.
     if (field === 'improvchance') {
       if (valueLc === 'off' || valueLc === 'false' || valueLc === 'disabled') {
         operations.push({ kind: 'improvementChance', value: null })
+      } else if (valueLc === '$value' || valueLc === '$count') {
+        // Dynamic: the enclosing slider's current value supplies a flat threshold at resolve time.
+        operations.push({ kind: 'improvementChance', value: null, dynamic: true })
       } else {
         const pct0 = Number.parseFloat(valueLc)
         if (Number.isFinite(pct0)) {
@@ -661,6 +674,10 @@ export type SafeguardNoteQuestionOption = {
   sliderMax?: number
   sliderStep?: number
   sliderDefault?: number
+  /** Labeled guide marks on the slider track (visual only; no snapping). */
+  sliderMarks?: SliderMark[]
+  /** Optional on/off checkbox bound to the slider's else block. */
+  sliderToggle?: SliderToggle
   /** 1-based positional index within the question (implicit DSL reference token). */
   positionalIndex: number
   /** Absolute source span of the whole option block (for editor-preview click-to-select). */
@@ -989,6 +1006,8 @@ const buildResolvedQuestion = (
       result.sliderMax     = option.sliderParams.max
       result.sliderStep    = option.sliderParams.step
       result.sliderDefault = option.sliderParams.default
+      if (option.sliderParams.marks) result.sliderMarks = option.sliderParams.marks
+      if (option.sliderParams.toggle) result.sliderToggle = option.sliderParams.toggle
     }
     return result
   })
@@ -1007,8 +1026,13 @@ const buildResolvedQuestion = (
       return
     }
     // Slider: default answer is the numeric default value as a string, not the option id.
+    // A toggle defaulting to off seeds the off sentinel instead (the else block applies).
     const sliderOpt = group.options[0]
-    if (sliderOpt) defaultAnswer.push(String(sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1))
+    if (sliderOpt) {
+      defaultAnswer.push(sliderOpt.sliderToggle?.default === 'off'
+        ? SLIDER_TOGGLE_OFF
+        : String(sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1))
+    }
   })
   const id = question.questionId
   const storedAnswer = answers ? answers[id] : undefined
@@ -1043,12 +1067,16 @@ const resolveAnswer = (
       return
     }
     if (group.type === 'slider') {
-      // Slider answer is a raw numeric string, not an option id — bypass id validation.
+      // Slider answer is a raw numeric string (or the toggle-off sentinel), not an option
+      // id — bypass id validation. Accept either form from stored answers.
       const sliderOpt = group.options[0]
       if (!sliderOpt) return
-      const defaultNum = sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1
-      const rawNum = hasStored ? stored.find((v) => Number.isFinite(Number.parseFloat(v))) : undefined
-      sliderAnswers.push(rawNum !== undefined ? rawNum : String(defaultNum))
+      const accept = (v: string): boolean => v === SLIDER_TOGGLE_OFF || Number.isFinite(Number.parseFloat(v))
+      const storedVal = hasStored ? stored.find(accept) : undefined
+      if (storedVal !== undefined) { sliderAnswers.push(storedVal); return }
+      // No usable stored value — fall back to the toggle-aware default answer.
+      const defVal = question.defaultAnswer.find(accept)
+      sliderAnswers.push(defVal ?? String(sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1))
       return
     }
     // multi group
@@ -1220,12 +1248,24 @@ export const resolveNoteSafeguardOverridesTags = (
         for (const block of option.recipeFallbackBlocks) recipeInstructions.push(block)
         continue
       }
-      // For slider groups: resolve $count / $value (and arithmetic ASTs) to numeric counts.
+      // For slider groups: resolve $count / $value (and arithmetic ASTs) to numeric values.
       if (option.groupType === 'slider') {
-        const numericStr = answers?.[question.id]?.[0] ?? ''
-        const sliderValue = Number.parseFloat(numericStr)
+        const rawAnswer = answers?.[question.id]?.[0]
+        // A toggle that is off (explicit sentinel, or unanswered with default=off) routes to
+        // the option's else block — the same "disabled" path an unchecked checkbox would take.
+        const toggleOff = option.sliderToggle != null
+          && (rawAnswer === SLIDER_TOGGLE_OFF
+            || (rawAnswer === undefined && option.sliderToggle.default === 'off'))
+        if (toggleOff) {
+          for (const block of option.fallbackBlocks) instructions.push(block)
+          for (const block of option.recipeFallbackBlocks) recipeInstructions.push(block)
+          continue
+        }
+        const sliderValue = Number.parseFloat(rawAnswer ?? '')
         const defaultValue = option.sliderDefault ?? 1
         const resolvedValue = Number.isFinite(sliderValue) ? sliderValue : defaultValue
+        // Flat improvement-chance threshold (0–100, one decimal) from the slider position.
+        const improvPct = Math.round(Math.max(0, Math.min(100, resolvedValue)) * 10) / 10
         for (const block of option.blocks) {
           const resolvedOps = block.operations.map((op) => {
             // Resolve null-valued count ops: evaluate the AST if present, otherwise use
@@ -1236,6 +1276,11 @@ export const resolveNoteSafeguardOverridesTags = (
                 : resolvedValue
               // Emit a resolved count op with no ast — the expression has been evaluated to a literal.
               return { kind: 'count' as const, value: Math.max(1, Math.min(9999, Math.round(rawResult))) }
+            }
+            // Resolve dynamic improvchance=$value into a flat per-level threshold.
+            if (op.kind === 'improvementChance' && op.dynamic) {
+              return { kind: 'improvementChance' as const,
+                value: { atLevel0: improvPct, atLevel4: null, atLevel8: null, atLevel12: null } }
             }
             return op
           })
@@ -1346,7 +1391,10 @@ export const applySafeguardOverrides = (
             break
           }
           case 'improvementChance':
-            clone.improvementChanceThreshold = op.value
+            // Resolved ops carry a concrete value (or null=disabled). An unresolved
+            // dynamic op (improvchance=$value used outside a slider) has no value to
+            // apply — leave the rule's existing threshold untouched rather than disable it.
+            if (!op.dynamic) clone.improvementChanceThreshold = op.value
             break
           case 'ranks':
             if (op.mode === 'replace') {
