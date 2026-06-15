@@ -80,6 +80,22 @@ Once the pipeline queue is fully empty, `signalPipelineDone(rulesChanged)` fires
 - **Tools-sim**: if `rulesChanged=false` and the worker is still alive, sends a `resume` message so the sim continues from exactly where it stopped. If `rulesChanged=true`, the stale `cachedSession` is discarded by terminating the worker; the sim effect restarts fresh when the new rules arrive. If the worker was idle-terminated before the pipeline started, `evictToken` is bumped regardless so the sim effect re-runs.
 - **Note-sim**: delegates entirely to the `enabled = !pipelineRunning` prop. Because the note-sim's control effect treats `reenabled = true` as a clean restart, `onPipelineDone` is a no-op — the pipeline-running state change already triggers the correct reset path.
 
+### Note-sim restart trigger: override epoch + completion gate
+
+The note-sim's control effect (`useDungeonNoteSimulator`) restarts on **user intent**, never on rule-content identity. It deliberately does **not** compare `rules`/`substatTargets` — those are read live via refs at worker-send time, but a change to them alone never restarts. A restart fires only when:
+
+1. **`userOverrideEpoch` advances** (a user override edit), or
+2. **`runs` changes**, or
+3. **re-enable while the previous run was still mid-flight** (`reenabledMidRun`).
+
+`userOverrideEpoch` is a monotonic counter owned by `NoteDialog`, forwarded through `NoteRenderContext`. It is bumped at a single chokepoint: the wrapped `onRecipeOverridesAnswersChange` / `onSafeguardOverridesAnswersChange` setters. Every user-driven override mutation funnels through these two setters — per-question edits, reset-to-defaults, and the save/load/delete override-set controller — so all of them bump it, and nothing else can.
+
+**Why a completion gate is needed (the push-restart trap).** The sim's `enabled` prop is `!pipelineRunning`, and *every* endpoint push that runs the rule-cache pipeline flips `pipelineRunning` true→false. Without a gate, the re-enable (`reenabled`) at the end of each push would restart the sim from config 0 — so background pushes would restart it constantly even though no user touched anything. The fix: `completedRef` tracks whether all 6 configs finished. On re-enable, a run that had **already completed** is left untouched (`reenabledMidRun` is false), so pushes never restart a completed sim. A run interrupted **mid-flight** is restarted fresh — not resumed — because a push may have changed `rules` and configs are read live at send time, so resuming would mix old and new rules within one run.
+
+**Edit-during-pause.** When `enabled` is false the effect preserves the previously-seen `epoch`/`runs` (rather than absorbing the current values), so a user override edit made *while* the pipeline is running is still detected as `epochChanged` on re-enable and forces a fresh restart.
+
+**Consequence:** after a run completes, the sim reflects the rules as of that run and silently ignores subsequent background pushes until the next user override edit. The displayed odds can therefore lag live rules in that window — intended, given that pushes must never restart the sim.
+
 ### `resume` worker message
 
 `dungeonSimulatorWorkerTypes.ts` defines a `resume` request kind (`{ id, kind: 'resume', payload: { batchSize, throttleMs? } }`). The worker's `runResumedSimulation` handler reads `cachedSession` and calls the shared `runSessionToCompletion` helper, which is also used by fresh `simulate` runs. If `cachedSession` is null or already complete the handler is a no-op.

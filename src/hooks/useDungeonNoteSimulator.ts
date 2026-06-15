@@ -169,6 +169,12 @@ const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'un
 type UseDungeonNoteSimulatorParams = {
   rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
+  // Monotonic counter advanced ONLY by user-driven override edits. This — not the
+  // identity of `rules`/`substatTargets` — is the restart trigger. Background endpoint
+  // pushes regenerate `rules` (possibly with new sim-relevant content) without bumping
+  // the epoch, so they never restart the sim; the latest rules are still picked up by
+  // the *next* user-triggered restart because they are read live at send time.
+  userOverrideEpoch: number
   // When false, any running simulation is cancelled and new runs are blocked.
   // Flip to true once the rule cache pipeline finishes so simulation sees stable rules.
   enabled: boolean
@@ -194,6 +200,7 @@ export function useDungeonNoteSimulator(
   const {
     rules,
     substatTargets,
+    userOverrideEpoch,
     enabled,
     runs = NOTE_SIM_RUNS,
     batchSize = DUNGEON_SIM_BATCH_SIZE,
@@ -221,16 +228,21 @@ export function useDungeonNoteSimulator(
   const configIndexRef = useRef(0)
   // Latest accumulated results (mirrors state without triggering re-renders).
   const resultsByConfigRef = useRef<DungeonNoteSimResults>(new Map())
+  // True once all configs have finished. Distinguishes a completed run (which a
+  // background push-pause must NOT restart) from a mid-run pause (which restarts fresh
+  // so the resumed run stays internally consistent). Reset to false on every fresh start.
+  const completedRef = useRef(false)
   // Stable snapshot of the current rules/substatTargets for the message sender.
   const rulesRef = useRef(rules)
   const substatTargetsRef = useRef(substatTargets)
   const runsRef = useRef(runs)
   const batchSizeRef = useRef(batchSize)
   const throttleMsRef = useRef(throttleMs)
-  // Track previous inputs to detect changes.
+  // Track previous restart-relevant inputs. Deliberately excludes rules/substatTargets:
+  // those are read live (via refs) at send time but never compared here, so background
+  // pushes that only churn their reference/content cannot trigger a restart.
   const prevInputsRef = useRef<{
-    rules: HsfRuleWithRecipe[]
-    substatTargets: SubstatTargetTable
+    epoch: number
     runs: number
     enabled: boolean
   } | null>(null)
@@ -264,6 +276,9 @@ export function useDungeonNoteSimulator(
     // resetting here ensures the second invocation's control effect doesn't skip startup
     // because prevInputsRef still holds values from the first (cleaned-up) invocation.
     prevInputsRef.current = null
+    // A fresh mount has no completed run to protect; clear so the first control-effect
+    // pass treats startup as a normal (re)start rather than a completed run to leave alone.
+    completedRef.current = false
     setResultsByConfigRef.current(new Map())
     setConfigIndexRef.current(0)
     setRunningRef.current(false)
@@ -330,7 +345,8 @@ export function useDungeonNoteSimulator(
           // Queue the next config using the same request id.
           sendConfig(data.id, nextIdx)
         } else {
-          // All configs done.
+          // All configs done — mark complete so a later push-pause re-enable won't restart.
+          completedRef.current = true
           setRunningRef.current(false)
         }
         return
@@ -356,8 +372,10 @@ export function useDungeonNoteSimulator(
     // Soft-pause: send cancel to the worker immediately.
     // This fires synchronously in pauseAllDsimWorkers() — before React has propagated
     // pipelineRunning=true — so the worker stops before the pipeline's WASM peak.
-    // Restart is handled by the enabled=!pipelineRunning prop: when pipelineRunning
-    // becomes false, the control effect re-enables the sim and restarts from config 0.
+    // Re-enable is handled by the enabled=!pipelineRunning prop: when pipelineRunning
+    // becomes false, the control effect restarts ONLY if the run was still mid-flight
+    // (or a user override edit landed during the pause). A run that had already completed
+    // is left untouched — background pushes never restart a completed sim.
     const pauseNoteSim = () => {
       const w = workerRef.current
       if (!w) return
@@ -390,16 +408,23 @@ export function useDungeonNoteSimulator(
     const id = ++activeRequestRef.current
     const prevInputs = prevInputsRef.current
 
-    // Detect whether inputs or the enabled flag changed in ways that require a restart.
-    const rulesChanged = !prevInputs || prevInputs.rules !== rules
-    const substatChanged = !prevInputs || prevInputs.substatTargets !== substatTargets
+    // Detect whether a restart is warranted. The override epoch — not the identity of
+    // rules/substatTargets — is the content trigger: it advances only on user override
+    // edits, so background endpoint pushes (which regenerate `rules`) never restart here.
+    const epochChanged = !prevInputs || prevInputs.epoch !== userOverrideEpoch
     const runsChanged = !prevInputs || prevInputs.runs !== runs
     const wasEnabled = prevInputs?.enabled ?? false
 
-    // Persist inputs for the next comparison.
-    prevInputsRef.current = { rules, substatTargets, runs, enabled }
-
     if (!enabled) {
+      // Paused (e.g. rule-cache pipeline running). Track only the enabled flag — DELIBERATELY
+      // preserve the previously-seen epoch/runs so a user override edit made *during* the pause
+      // is still detected as a change when the sim re-enables, rather than being silently
+      // absorbed here and lost.
+      prevInputsRef.current = {
+        epoch: prevInputs?.epoch ?? userOverrideEpoch,
+        runs: prevInputs?.runs ?? runs,
+        enabled,
+      }
       // Cancel any in-flight worker run.
       if (workerRef.current) {
         workerRef.current.postMessage({ id, kind: 'cancel' } satisfies DungeonSimulatorWorkerRequest)
@@ -409,12 +434,26 @@ export function useDungeonNoteSimulator(
       return
     }
 
-    // Skip no-op: enabled was already true and nothing changed.
+    // Persist inputs for the next comparison (enabled path only — see disabled branch above).
+    prevInputsRef.current = { epoch: userOverrideEpoch, runs, enabled }
+
+    // A user override edit (epoch) or a runs change always forces a fresh restart.
+    const userRestart = epochChanged || runsChanged
+
+    // Re-enable after a pause (e.g. the rule-cache pipeline finished). This fires on every
+    // background push that ran the pipeline, so it must NOT blanket-restart: a run that had
+    // already completed before the pause is left untouched (pushes never restart a completed
+    // run); only a run interrupted mid-flight is restarted so the resumed run stays internally
+    // consistent (a push may have changed rules, and configs are read live at send time).
     const reenabled = !wasEnabled && enabled
-    if (!reenabled && !rulesChanged && !substatChanged && !runsChanged) return
+    const reenabledMidRun = reenabled && !completedRef.current
+
+    // Skip no-op: nothing user-driven changed, and we are not resuming an interrupted run.
+    if (!userRestart && !reenabledMidRun) return
 
     // ─── Start / restart ─────────────────────────────────────────────────────
     // Reset all accumulated results and start from config 0.
+    completedRef.current = false
     configIndexRef.current = 0
     resultsByConfigRef.current = new Map()
     setConfigIndexRef.current(0)
@@ -451,7 +490,12 @@ export function useDungeonNoteSimulator(
       },
     }
     worker.postMessage(payload)
-  }, [rules, substatTargets, enabled, runs, batchSize, throttleMs])
+    // rules/substatTargets/batchSize/throttleMs are intentionally NOT deps: they are read
+    // live via refs at send time (see useLayoutEffect above). Restarts are driven solely by
+    // user override edits (userOverrideEpoch), the runs count, and the enabled gate — so a
+    // background push that only updates `rules` re-renders without re-entering this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+  }, [userOverrideEpoch, enabled, runs])
 
   return {
     resultsByConfig,

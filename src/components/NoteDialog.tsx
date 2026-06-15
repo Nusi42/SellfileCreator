@@ -818,6 +818,10 @@ type NoteRenderContextValue = {
   // Merged rules + substat targets forwarded from App for dungeon simulation.
   rules: HsfRuleWithRecipe[]
   substatTargets: SubstatTargetTable
+  // Monotonic counter that advances only on user-driven override edits (never on
+  // background endpoint pushes). The dungeon simulator restarts on epoch change and
+  // ignores `rules`/`substatTargets` reference churn, so pushes don't restart it.
+  userOverrideEpoch: number
   // True while the rule cache pipeline is still running; gates dungeon sim start.
   pipelineRunning: boolean
   // True only when this context is powering the MDEditor split-pane preview (edit mode).
@@ -3723,13 +3727,14 @@ export default function NoteDialog({
   onRequestEdit,
   onRequestView,
   recipeOverridesAnswers,
-  onRecipeOverridesAnswersChange,
+  // Raw prop setters — wrapped below so user-driven mutations bump the override epoch.
+  onRecipeOverridesAnswersChange: onRecipeOverridesAnswersChangeRaw,
   noteOverridesDisabled,
   onNoteOverridesDisabledChange,
   onApplyRecipeOverrides,
   onApplySafeguardOverrides,
   safeguardOverridesAnswers,
-  onSafeguardOverridesAnswersChange,
+  onSafeguardOverridesAnswersChange: onSafeguardOverridesAnswersChangeRaw,
   onSafeguardOverridesResolutionChange,
   recipes,
   metasets,
@@ -3853,6 +3858,33 @@ export default function NoteDialog({
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
   const notePending = mode === 'view' && deferredNote !== note
+
+  // ─── User-override epoch (dungeon-simulator restart signal) ─────────────────
+  // Monotonic counter bumped ONLY when the user mutates a recipe/safeguard override
+  // — through any path: per-question edits, reset-to-defaults, or load/save/delete of
+  // an override set. Background endpoint pushes re-derive `rules` (new array, possibly
+  // new content) WITHOUT touching this counter, so the embedded simulator can use the
+  // epoch as its sole restart signal and stay inert to background rule churn.
+  const [userOverrideEpoch, setUserOverrideEpoch] = useState(0)
+  // Wrap the two override setters once so every user-driven mutation bumps the epoch.
+  // Wrapping at this single chokepoint (rather than at each call site) is the SSOT move:
+  // answer-change handlers, the reset action, and the preset save/load/delete controller
+  // all funnel through these two setters, so none can mutate overrides without stamping.
+  const onRecipeOverridesAnswersChange = useCallback<typeof onRecipeOverridesAnswersChangeRaw>(
+    (update) => {
+      setUserOverrideEpoch((n) => n + 1)
+      onRecipeOverridesAnswersChangeRaw(update)
+    },
+    [onRecipeOverridesAnswersChangeRaw],
+  )
+  const onSafeguardOverridesAnswersChange = useCallback<typeof onSafeguardOverridesAnswersChangeRaw>(
+    (update) => {
+      setUserOverrideEpoch((n) => n + 1)
+      onSafeguardOverridesAnswersChangeRaw(update)
+    },
+    [onSafeguardOverridesAnswersChangeRaw],
+  )
+
   // Consider any positive ratio as a sign the Gear Inspector/rule workload is still rebuilding.
   const noteSummaryInFlight = summaryProgressRatio > 0
   // Only render the summary chip when at least one Gear Inspector row exists.
@@ -4177,6 +4209,7 @@ export default function NoteDialog({
       // Forwarded to DungeonSimulatorNoteBlock via context.
       rules,
       substatTargets,
+      userOverrideEpoch,
       pipelineRunning,
       isEditorPreview: false,
     }),
@@ -4196,6 +4229,7 @@ export default function NoteDialog({
       handleSafeguardOverridesAnswerChange,
       rules,
       substatTargets,
+      userOverrideEpoch,
       // pipelineRunning is derived from summaryProgressRatio in the same render, so tracking
       // summaryProgressRatio here is sufficient — the memo will invalidate when it changes.
       pipelineRunning,

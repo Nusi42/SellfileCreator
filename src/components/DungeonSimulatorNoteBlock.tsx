@@ -103,11 +103,15 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   const rules = ctx?.rules ?? []
   const substatTargets = ctx?.substatTargets ?? ({} as SubstatTargetTable)
   const pipelineRunning = ctx?.pipelineRunning ?? false
+  // Restart signal: advances only on user override edits, never on background pushes.
+  const userOverrideEpoch = ctx?.userOverrideEpoch ?? 0
 
   // Run the sequential 6-config simulation; paused while the rule cache pipeline is active.
   const { resultsByConfig, configIndex, running } = useDungeonNoteSimulator({
     rules,
     substatTargets,
+    // Restart only on user override edits (open + epoch change) — not on background pushes.
+    userOverrideEpoch,
     // Gate simulation behind the rule cache pipeline so results are always current.
     enabled: !pipelineRunning && ctx !== null,
   })
