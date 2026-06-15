@@ -4848,6 +4848,16 @@ export default function NoteDialog({
             bottom: 0,
             zIndex: (theme) => theme.zIndex.modal,
             ...NOTE_DRAWER_PAPER_SX,
+            // Authoritative width driven by panelWidth state. Without this the Paper has no width
+            // constraint until the imperative layout effect runs, so a position:fixed panel sizes
+            // itself to its (wide) content on mount/HMR — making it jump to full width. flexShrink:0
+            // + boxSizing keep wide inner content (e.g. the dungeon-sim tables) from expanding it.
+            // The layout effect / drag handlers still write inline width for frame-by-frame updates;
+            // inline styles win over sx, so live resize is unaffected and this is just the floor.
+            width: panelWidth,
+            maxWidth: '100vw',
+            flexShrink: 0,
+            boxSizing: 'border-box',
             overscrollBehavior: 'contain',
           }}
         >

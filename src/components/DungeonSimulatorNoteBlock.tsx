@@ -91,6 +91,17 @@ const NOTE_SIM_SPIDER_COLUMNS: readonly { configId: string }[] = [
 // All 5 milestone levels as rows; level-up mode captures each checkpoint without extra CPU cost.
 const NOTE_SIM_LEVELS: readonly LevelMilestone[] = [0, 4, 8, 12, 16] as const
 
+// Fixed per-table widths (px). Each `<Table>` is `tableLayout:fixed` with one of these explicit
+// widths (capped to the container via maxWidth:100%), so it sizes to a predictable width instead of
+// `width:100%` stretching to fill its flex wrapper. That was the bug: in a wide note panel the two
+// `width:100%` tables each filled a ~50% wrapper and the fixed columns overflowed, overlapping the
+// sibling table. With explicit widths the pairs sit at their natural size, side by side, and the
+// flex row simply wraps to stacked rows when the panel is too narrow for both.
+//  - WIDE: 7-column boosted tables (Fire Knight / Dragon: label + 3 no-boost + 3 boost).
+//  - NARROW: 4-column tables (Ice Golem / Spider: label + 3).
+const NOTE_SIM_WIDE_TABLE_WIDTH_PX = 360 as const
+const NOTE_SIM_NARROW_TABLE_WIDTH_PX = 240 as const
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export type DungeonSimulatorNoteBlockProps = Record<string, unknown>
@@ -290,7 +301,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     return (
     <Table
       size="small"
-      sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
+      sx={{ tableLayout: 'fixed', width: NOTE_SIM_WIDE_TABLE_WIDTH_PX, maxWidth: '100%', mb: 0 }}
     >
       <TableHead>
         {/* Title row: dungeon name left, boost group label right */}
@@ -371,7 +382,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   ) => (
     <Table
       size="small"
-      sx={{ tableLayout: 'fixed', width: '100%', mb: 0 }}
+      sx={{ tableLayout: 'fixed', width: NOTE_SIM_NARROW_TABLE_WIDTH_PX, maxWidth: '100%', mb: 0 }}
     >
       <TableHead>
         {/* Section header spanning all columns */}
@@ -426,18 +437,26 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   )
 
   return (
+    // Each table column grows from its natural width up to NOTE_SIM_TABLE_MAX_WIDTH_PX, then stops.
+    // `flex: 1 1 <basis>` with a maxWidth lets a narrow panel still give each table its basis (the
+    // 7-column boosted tables need more than the 4-column ones, so they get a larger basis), while a
+    // very wide panel no longer stretches them to ~50% each — which previously drifted the pairs
+    // apart with a big empty gap. minWidth keeps fixed-layout columns from being squeezed so tight
+    // they overflow and overlap the sibling table.
     <Box sx={{ my: 0.5 }}>
-      {/* Fire Knight + Dragon side by side */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>{renderDungeonTable('fireKnight')}</Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>{renderDungeonTable('dragon')}</Box>
+      {/* Fire Knight + Dragon side by side. Tables carry their own fixed width, so the wrappers do
+          NOT grow (flex: 0 0 auto) — that is what stops the wide tables from stretching/overlapping.
+          flexWrap lets the second table drop below when the panel is too narrow for both. */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+        <Box sx={{ flex: '0 0 auto', minWidth: 0 }}>{renderDungeonTable('fireKnight')}</Box>
+        <Box sx={{ flex: '0 0 auto', minWidth: 0 }}>{renderDungeonTable('dragon')}</Box>
       </Box>
       {/* Ice Golem + Spider side by side */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+        <Box sx={{ flex: '0 0 auto', minWidth: 0 }}>
           {renderNoBoostTable('iceGolem', NOTE_SIM_ICE_GOLEM_COLUMNS, 1.5)}
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: '0 0 auto', minWidth: 0 }}>
           {renderNoBoostTable('spider', NOTE_SIM_SPIDER_COLUMNS, 1.5)}
         </Box>
       </Box>
