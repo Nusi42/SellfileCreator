@@ -5157,6 +5157,10 @@ function useEditorPreviewScrollSync(
         const previewY = (card.getBoundingClientRect().top - previewRect.top) / (previewZoom || 1) + preview.scrollTop
         anchors.push({ editorY, previewY })
       })
+      // Anchor both panes' tops together so editor-scroll 0 ↔ preview-scroll 0. Without this, content
+      // before the first marker is extrapolated off the first segment's slope and the editor top maps
+      // the preview ~250px down (the markers don't start at the very top of the note).
+      anchors.push({ editorY: 0, previewY: 0 })
       anchors.sort((a, b) => a.editorY - b.editorY)
       anchorsRef.current = anchors
     }
