@@ -24,7 +24,7 @@ import {
   normalizeOptionLabelText,
   type NoteRecipeOverridesAnswers,
 } from './noteRecipeOverrides'
-import { resolveNoteSafeguardOverridesTags, type NoteSafeguardOverridesAnswers } from './noteSafeguardOverrides'
+import { resolveNoteSafeguardOverridesTags, SLIDER_TOGGLE_OFF, type NoteSafeguardOverridesAnswers } from './noteSafeguardOverrides'
 
 /**
  * The minimal question shape both override domains satisfy. `groups` lets us spot
@@ -35,7 +35,9 @@ import { resolveNoteSafeguardOverridesTags, type NoteSafeguardOverridesAnswers }
 type SummarizableQuestion = {
   id: string
   prompt: string
-  options: { id: string; label: string }[]
+  // `sliderToggle` (present only on a slider option carrying an on/off checkbox) lets the
+  // summary prefix the value with the toggle wording, e.g. "Yes - 25".
+  options: { id: string; label: string; sliderToggle?: { label: string } }[]
   groups: { type: string }[]
   answer: string[]
   defaultAnswer: string[]
@@ -80,10 +82,17 @@ const summarizeQuestions = (
     const isSlider = question.groups.some((group) => group.type === 'slider')
     let answers: DynamicOverridesSummaryAnswer[]
     if (isSlider) {
-      // Show the numeric value(s) verbatim; a slider value equal to its default reads as default.
+      // A slider with an on/off toggle shows the toggle wording + value, e.g. "Yes - 25";
+      // a plain count slider shows the numeric value alone. A toggle that is off behaves
+      // like any other unchecked checkbox — it contributes no answer (so its question line
+      // drops out), rather than printing a placeholder for the off state.
+      const toggleLabel = question.options[0]?.sliderToggle?.label
       answers = resolved
-        .filter((value) => value.trim().length > 0)
-        .map((value) => ({ label: value, isDefault: defaultSet.has(value) }))
+        .filter((value) => value.trim().length > 0 && value !== SLIDER_TOGGLE_OFF)
+        .map((value) => ({
+          label: toggleLabel ? `${toggleLabel} - ${value}` : value,
+          isDefault: defaultSet.has(value),
+        }))
     } else {
       const optionById = new Map(question.options.map((o) => [o.id, o]))
       // Resolve each option id to its label (single-lined), dropping ids that no longer exist.

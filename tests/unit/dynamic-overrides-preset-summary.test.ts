@@ -92,3 +92,24 @@ test('saving a set round-trips slider value + toggle-off (regression: not filter
   const loadedOff = resolveDynamicOverridesPresetApply(note, savedOff.recipeAnswers, savedOff.safeguardAnswers)
   assert.deepEqual(loadedOff.safeguardAnswers[sliderQ!.id], [SLIDER_TOGGLE_OFF], 'toggle-off must survive save → load')
 })
+
+test('slider+toggle summary shows toggle wording + value when on, and omits the question when off', () => {
+  const sg = resolveNoteSafeguardOverridesTags(note)
+  const sliderQs = sg.questions.filter((q) => q.groups.some((g) => g.type === 'slider' && g.options[0]?.sliderToggle))
+  assert.ok(sliderQs.length > 0, 'preset should contain improvchance slider+toggle questions')
+  const toggleLabel = sliderQs[0]!.options[0]!.sliderToggle!.label
+  // Toggle on: "<toggle> - <value>".
+  const onLines = buildDynamicOverridesPresetSummary(note, {}, { [sliderQs[0]!.id]: ['25'] })
+  assert.ok(
+    onLines.some((l) => l.answers.some((a) => a.label === `${toggleLabel} - 25`)),
+    `expected "${toggleLabel} - 25", got ${JSON.stringify(onLines.flatMap((l) => l.answers))}`,
+  )
+  // Toggle off behaves like an unchecked checkbox: the question contributes no line (no
+  // "off" placeholder, no "<toggle> - …" answer). Set every toggle slider off to check.
+  const allOff = Object.fromEntries(sliderQs.map((q) => [q.id, [SLIDER_TOGGLE_OFF]]))
+  const offLabels = buildDynamicOverridesPresetSummary(note, {}, allOff).flatMap((l) => l.answers).map((a) => a.label)
+  assert.ok(
+    !offLabels.includes('off') && !offLabels.some((l) => l.startsWith(`${toggleLabel} -`)),
+    `a disabled (toggle-off) slider should be omitted, got ${JSON.stringify(offLabels)}`,
+  )
+})
