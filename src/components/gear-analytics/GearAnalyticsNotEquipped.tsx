@@ -42,6 +42,9 @@ import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
   GEAR_DB_DIFF_TOAST_CARD_SCALE,
   CHAMPION_ICON_LARGE_THRESHOLD,
+  GEAR_ANALYTICS_SORT_MODE_KEY,
+  GEAR_ANALYTICS_SIMULATE_SOLD_KEY,
+  GEAR_ANALYTICS_SHOW_FULLY_EQUIPPED_KEY,
 } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
@@ -85,7 +88,7 @@ const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
  *  for that slot group (most missing first). */
 type SortMode = 'rank' | 'all' | 'artifacts' | 'accessories'
 
-const LS_SORT_MODE = 'sellfileCreator.gearAnalytics.sortMode.v1'
+const LS_SORT_MODE = GEAR_ANALYTICS_SORT_MODE_KEY
 const DEFAULT_SORT_MODE: SortMode = 'rank'
 
 function readSortMode(): SortMode {
@@ -100,7 +103,7 @@ function readSortMode(): SortMode {
 // ── Simulate-sold toggle ──────────────────────────────────────────────────────
 
 /** Persisted on/off state for the "simulate sold gear" overlay. */
-const LS_SIMULATE_SOLD = 'sellfileCreator.gearAnalytics.simulateSold.v1'
+const LS_SIMULATE_SOLD = GEAR_ANALYTICS_SIMULATE_SOLD_KEY
 const DEFAULT_SIMULATE_SOLD = false
 
 function readSimulateSold(): boolean {
@@ -110,7 +113,7 @@ function readSimulateSold(): boolean {
 // ── Show-fully-equipped toggle ────────────────────────────────────────────────
 
 /** Persisted on/off state for the "show fully equipped champions" expansion. */
-const LS_SHOW_FULLY_EQUIPPED = 'sellfileCreator.gearAnalytics.showFullyEquipped.v1'
+const LS_SHOW_FULLY_EQUIPPED = GEAR_ANALYTICS_SHOW_FULLY_EQUIPPED_KEY
 const DEFAULT_SHOW_FULLY_EQUIPPED = false
 
 function readShowFullyEquipped(): boolean {

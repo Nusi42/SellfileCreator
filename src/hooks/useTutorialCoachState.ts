@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
-import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY, SFC_NUDGE_SEEN_KEY } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/recipeMultiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
@@ -1916,7 +1916,6 @@ export function useTutorialCoachState({
     setSfcLoadNudgeFading(false)
     setSfcLoadNudgeActive(true)
     // First time: 12 s so the user can read and notice; every subsequent trigger: 3 s.
-    const SFC_NUDGE_SEEN_KEY = 'sellfileCreator.sfcNudge.seen'
     const firstTime = localStorage.getItem(SFC_NUDGE_SEEN_KEY) !== '1'
     const visibleMs = firstTime ? 12_000 : 3_000
     try { localStorage.setItem(SFC_NUDGE_SEEN_KEY, '1') } catch {}

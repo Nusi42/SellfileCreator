@@ -495,6 +495,10 @@ export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled
 // Sellfile export: when enabled and an endpoint is active, automatically push the sellfile
 // whenever unsaved changes are detected (hsfDirty rising edge).
 export const SELLFILE_AUTO_PUSH_KEY = 'sellfileCreator.sellfile.autoPush.v1'
+// Gear DB updates: when enabled, suppress the toast shown after the endpoint
+// pushes a new gear database (status badges still update). View-only preference
+// that should persist across sessions like the other endpoint toggles.
+export const GEAR_DB_HIDE_UPDATE_TOAST_KEY = 'sellfileCreator.gearDb.hideUpdateToast.v1'
 // Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
 // payload classes (future uploads can use their own prefixes without guessing).
 export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'
@@ -539,6 +543,28 @@ export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.gearInspector.so
 // Gear Inspector grid: normalized overlay presets + selection.
 // Why: Overlay is view-only, but users need the presets to persist across sessions.
 export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.gearInspector.grid.normalizedOverlay.v1'
+
+// Gear Analytics dialog preferences. Centralized here so every persisted key
+// follows the same `sellfileCreator.<feature>.<item>.v<n>` convention and lives
+// in the single registry rather than scattered across components.
+export const GEAR_ANALYTICS_COLLAPSED_KEY = 'sellfileCreator.gearAnalytics.collapsed.v1'
+export const GEAR_ANALYTICS_SORT_MODE_KEY = 'sellfileCreator.gearAnalytics.sortMode.v1'
+export const GEAR_ANALYTICS_SIMULATE_SOLD_KEY = 'sellfileCreator.gearAnalytics.simulateSold.v1'
+export const GEAR_ANALYTICS_SHOW_FULLY_EQUIPPED_KEY = 'sellfileCreator.gearAnalytics.showFullyEquipped.v1'
+export const GEAR_ANALYTICS_CHAMP_LOCATION_KEY = 'sellfileCreator.gearAnalytics.champLocation.v1'
+export const GEAR_ANALYTICS_CHAMP_FULLY_EQUIPPED_KEY = 'sellfileCreator.gearAnalytics.champFullyEquipped.v1'
+export const GEAR_ANALYTICS_CHAMP_INCLUDE_GLYPHS_KEY = 'sellfileCreator.gearAnalytics.champIncludeGlyphs.v1'
+// Preview table: wrap long rows toggle.
+export const RULES_TABLE_WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
+// Note dialog: persisted side-panel snap position.
+export const NOTE_PANEL_SNAP_KEY = 'sellfileCreator.notePanel.v1'
+// Runtime gear-sets cache key.
+export const RUNTIME_GEAR_SETS_KEY = 'sellfileCreator.runtimeGearSets.v1'
+// First-run SFC nudge: marks whether the one-time coach nudge has been seen.
+export const SFC_NUDGE_SEEN_KEY = 'sellfileCreator.sfcNudge.seen.v1'
+// Easter-egg leaderboards: per-game high-score storage keys.
+export const EASTER_EGG_PONG_SCORES_KEY = 'sellfileCreator.easterEgg.pong.scores.v1'
+export const EASTER_EGG_SELLFALL_SCORES_KEY = 'sellfileCreator.easterEgg.sellfall.scores.v1'
 // Preview selection scroll sources.
 // Why: Auto-scroll should only fire from explicit user/command signals.
 export const SELECTION_SCROLL_SOURCE_USER = 'user' as const

@@ -404,6 +404,7 @@ import {
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
+import { useHideGearDbUpdateToastPreference } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
@@ -2848,11 +2849,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
   const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [setGearDbCommandSuccess])
   // History toast toggle keeps endpoint updates quiet without hiding status badges.
-  const [hideGearDbUpdateToast, setHideGearDbUpdateToast] = useState(false)
+  // Persisted to localStorage so the preference survives reloads.
+  const [hideGearDbUpdateToast, setHideGearDbUpdateToast] = useHideGearDbUpdateToastPreference()
   // Toggle helper keeps the checkbox handler stable for the header menu.
   const toggleHideGearDbUpdateToast = useCallback((next: boolean) => {
     setHideGearDbUpdateToast(next)
-  }, [])
+  }, [setHideGearDbUpdateToast])
   // Pause toggle silently drops endpoint pushes for the session without queuing them.
   const [pauseEndpointUpdates, setPauseEndpointUpdates] = useState(false)
   // Toggle helper keeps the checkbox handler stable for the header menu.

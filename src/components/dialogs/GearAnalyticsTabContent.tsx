@@ -44,7 +44,7 @@ import {
   type GearAnalyticsOutcome,
   type GearAnalyticsSource,
 } from '../../lib/gearAnalytics'
-import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID } from '../../lib/constants'
+import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID, GEAR_ANALYTICS_COLLAPSED_KEY } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId } from '../../lib/types'
 import { getAccessorySlotsCompatibleSetIds, getArmorFixedSetIds, getArmorVariableSetIds } from '../../lib/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
@@ -97,7 +97,7 @@ type Props = {
 const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
 type GearAnalyticsSectionId = (typeof GEAR_ANALYTICS_SECTION_IDS)[number]
 
-const COLLAPSED_STORAGE_KEY = 'sellfileCreator.gearAnalytics.collapsed.v1'
+const COLLAPSED_STORAGE_KEY = GEAR_ANALYTICS_COLLAPSED_KEY
 
 /** Returns a fully-expanded default collapsed record (all false = expanded). */
 function defaultCollapsed(): Record<GearAnalyticsSectionId, boolean> {

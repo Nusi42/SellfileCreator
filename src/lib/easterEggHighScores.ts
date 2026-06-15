@@ -9,6 +9,8 @@
  * and SellfallFlyout share one definition — SSOT for the leaderboard look.
  */
 
+import { EASTER_EGG_PONG_SCORES_KEY, EASTER_EGG_SELLFALL_SCORES_KEY } from './constants'
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type GameId = 'pong' | 'sellfall'
@@ -27,9 +29,10 @@ export type ScoreEntry = {
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
+// Key strings live in the central registry (constants.ts); mapped per game here.
 const STORAGE_KEY: Record<GameId, string> = {
-  pong:     'sellfileCreator.easterEgg.pong.scores',
-  sellfall: 'sellfileCreator.easterEgg.sellfall.scores',
+  pong:     EASTER_EGG_PONG_SCORES_KEY,
+  sellfall: EASTER_EGG_SELLFALL_SCORES_KEY,
 }
 
 /** Maximum entries kept in localStorage per game to avoid unbounded growth. */

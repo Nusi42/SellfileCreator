@@ -21,7 +21,7 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -321,7 +321,7 @@ function getAppZoom(): number {
 // The panel snaps to the left or right viewport edge; height always fills from
 // the header to the bottom. Width is adjustable via the side resize handles.
 // Snap side and width persist across sessions via localStorage.
-const PANEL_SNAP_KEY = 'sellfileCreator.notePanel.v1'
+const PANEL_SNAP_KEY = NOTE_PANEL_SNAP_KEY
 const PANEL_MIN_WIDTH_PX = 280
 interface PanelSnapData { side: 'left' | 'right'; width: number }
 

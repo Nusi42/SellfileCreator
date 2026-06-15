@@ -3,7 +3,8 @@ import type { ArtifactSetPieceGroup as ArtifactSetPieceGroupValue } from './grou
 import type { ArtifactSetDescription } from '../setDescriptions'
 import type { ArtifactSetId } from '../types'
 import { setRuntimeGearSetIcon } from '../iconMaps/gearsetIconMap'
-const STORAGE_KEY = 'sellfileCreator.runtimeGearSets.v1'
+import { RUNTIME_GEAR_SETS_KEY } from '../constants'
+const STORAGE_KEY = RUNTIME_GEAR_SETS_KEY
 const FILE_VERSION = 1
 const FALLBACK_ICON_SIZE = 64
 

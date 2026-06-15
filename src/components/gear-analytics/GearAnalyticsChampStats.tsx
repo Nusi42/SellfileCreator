@@ -30,7 +30,12 @@ import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { resolveRarityAccentColor } from '../../lib/rarityColors'
-import { CHAMPION_ICON_BORDER_RADIUS_PX } from '../../lib/constants'
+import {
+  CHAMPION_ICON_BORDER_RADIUS_PX,
+  GEAR_ANALYTICS_CHAMP_LOCATION_KEY,
+  GEAR_ANALYTICS_CHAMP_FULLY_EQUIPPED_KEY,
+  GEAR_ANALYTICS_CHAMP_INCLUDE_GLYPHS_KEY,
+} from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
@@ -279,9 +284,11 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
 // ── localStorage persistence ───────────────────────────────────────────────────
 
-const LS_LOCATION         = 'sellfileCreator.gearAnalytics.champLocation'
-const LS_FULLY_EQUIPPED   = 'sellfileCreator.gearAnalytics.champFullyEquipped'
-const LS_INCLUDE_GLYPHS   = 'sellfileCreator.gearAnalytics.champIncludeGlyphs'
+// Storage key strings live in the central registry (constants.ts); aliased here
+// for readability. SSOT: the string is defined once and imported.
+const LS_LOCATION         = GEAR_ANALYTICS_CHAMP_LOCATION_KEY
+const LS_FULLY_EQUIPPED   = GEAR_ANALYTICS_CHAMP_FULLY_EQUIPPED_KEY
+const LS_INCLUDE_GLYPHS   = GEAR_ANALYTICS_CHAMP_INCLUDE_GLYPHS_KEY
 
 // Factory defaults — used both on first load and when the parent resets to defaults.
 const DEFAULT_LOCATION: ChampAnalyticsLocation = 'collection'

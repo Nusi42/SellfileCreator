@@ -22,6 +22,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  FONT_SIZE_BASE_PX,
   RULE_COUNT_LIMIT,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
+  RULES_TABLE_WRAP_ROWS_KEY,
   type SelectionScrollRequest,
   type ColorBlindMode,
 } from '../lib/constants'
@@ -300,17 +301,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   useEffect(() => { setHeaderHeightPxRef.current = setHeaderHeightPx }, [setHeaderHeightPx])
   // Smooth-scroll preview jumps via TanStack's `scrollToFn` hook.
   // Why: calling `scrollToIndex({ behavior: 'smooth' })` alone is not reliable with dynamic-size rows.
-  const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
-      const raw = localStorage.getItem(WRAP_ROWS_KEY)
+      const raw = localStorage.getItem(RULES_TABLE_WRAP_ROWS_KEY)
       if (raw === 'true') return true
       if (raw === 'false') return false
     } catch {}
     return false
   })
   useEffect(() => {
-    try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
+    try { localStorage.setItem(RULES_TABLE_WRAP_ROWS_KEY, String(wrapRows)) } catch {}
   }, [wrapRows])
 
   // Render helpers cache derived strings/arrays per rule so repeated renders
@@ -1951,7 +1951,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
             variant="outlined"
             color="error"
             onClick={() => {
-              try { localStorage.removeItem(WRAP_ROWS_KEY) } catch {}
+              try { localStorage.removeItem(RULES_TABLE_WRAP_ROWS_KEY) } catch {}
               setStoredCols([])
               setWrapRows(false)
               closeHeaderMenu()
