@@ -110,12 +110,16 @@ const keysEqual = (a: string[], b: string[]): boolean => {
 }
 
 // Single composite key encoding everything that determines mergedRulesFinal
-// except (a) pipelineState.keys (compared element-wise for speed) and
-// (b) the detection snapshot (covered by lastSentDetectionKey).
-// Includes: substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity,
-// omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, safeguards.enabled + full rule
-// content hash (requiredCount, activation, countMode, ignore flags, substats, substatMatch,
-// substatWeights, improvementChance), and full finalSellRemainder content.
+// except the detection snapshot (covered by lastSentDetectionKey).
+// Includes: substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity, the
+// per-recipe cache keys (pipelineState.keys — the recipe-rules dimension, which empties
+// when recipes are toggled off), omitDisabledBeforeSafeguards, dedupeBeforeSafeguards,
+// safeguards.enabled + full rule content hash (requiredCount, activation, countMode, ignore
+// flags, substats, substatMatch, substatWeights, improvementChance), and full
+// finalSellRemainder content.
+// NOTE: pipelineState.keys MUST be folded in here. It is the only recipe-content signal in
+// the key; omitting it lets the WASM-side generated-rules cache go stale across recipe edits
+// and the recipes-enabled toggle (the merge returns the previously cached recipe rules).
 const computeRecipeKey = (
   pipelineState: PipelineState,
   payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
@@ -131,11 +135,27 @@ const computeRecipeKey = (
   for (const idx of pipelineState.truncatedRecipeIndices) {
     truncatedHash = Math.imul(truncatedHash ^ idx, 0x9e3779b9) | 0
   }
+  // XOR-multiply hash over the per-recipe cache keys — the recipe-rules dimension of the
+  // merge. Without this the key omits recipes entirely: toggling all recipes off (keys → [])
+  // or editing a recipe leaves rulesCacheKey unchanged, so the WASM-side generated-rules
+  // cache is never refreshed and computeMergedRulesCached returns the previously cached rules
+  // (still containing every recipe). pipelineState.keys is one entry per recipe and changes
+  // on any recipe content change AND empties when recipes are disabled, so it captures the
+  // whole recipe dimension. Seeded with length so [] never collides with a 1-recipe set.
+  let recipeKeysHash = pipelineState.keys.length
+  for (const key of pipelineState.keys) {
+    // Fold each string key in char-by-char; identity of the recipe rule set is what matters.
+    for (let i = 0; i < key.length; i += 1) {
+      recipeKeysHash = Math.imul(recipeKeysHash ^ key.charCodeAt(i), 0x9e3779b9) | 0
+    }
+    // Separator between keys so concatenation boundaries cannot alias across recipes.
+    recipeKeysHash = Math.imul(recipeKeysHash ^ 0x7f, 0x85ebca6b) | 0
+  }
   // Safeguard rule content fingerprint comes from the shared SSOT helper so this cache key
   // and the export-dirty signature (App.hsfExportStateSig) always agree on which safeguard
   // fields matter (previously they diverged — see safeguardRulesContentFingerprint).
   const safeguardsFingerprint = safeguardRulesContentFingerprint(safeguards.enabled, safeguards.rules)
-  return `${pipelineState.substatTargetsKey}|${pipelineState.totalLimitHit ? 1 : 0}|${truncatedHash}|${omit ? 1 : 0}${dedup ? 1 : 0}|${safeguardsFingerprint}${fsrKey}`
+  return `${pipelineState.substatTargetsKey}|${pipelineState.totalLimitHit ? 1 : 0}|${truncatedHash}|${recipeKeysHash}|${omit ? 1 : 0}${dedup ? 1 : 0}|${safeguardsFingerprint}${fsrKey}`
 }
 
 // Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.
