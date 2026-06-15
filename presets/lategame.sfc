@@ -12455,6 +12455,9 @@
         "mainStats": [],
         "factions": []
       },
+      "tags": [
+        "slowdebuffer"
+      ],
       "improvementChanceThreshold": {
         "atLevel0": 25,
         "atLevel4": null,
@@ -12514,6 +12517,9 @@
         ],
         "factions": []
       },
+      "tags": [
+        "slowdebuffer"
+      ],
       "improvementChanceThreshold": {
         "atLevel0": 25,
         "atLevel4": null,
@@ -12568,6 +12574,9 @@
         ],
         "factions": []
       },
+      "tags": [
+        "slowdebuffer"
+      ],
       "improvementChanceThreshold": {
         "atLevel0": 25,
         "atLevel4": null,
@@ -12619,6 +12628,9 @@
         ],
         "factions": []
       },
+      "tags": [
+        "slowdebuffer"
+      ],
       "improvementChanceThreshold": {
         "atLevel0": 25,
         "atLevel4": null,
