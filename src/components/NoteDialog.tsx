@@ -5086,7 +5086,12 @@ function charOffsetEditorY(codeEl: HTMLElement, offset: number): number | null {
       const preRect = codeEl.getBoundingClientRect()
       // rect.top is viewport-relative; subtract the code's viewport top to get the offset
       // from the content origin (which scrolls with the textarea), so the result is scroll-invariant.
-      return rect.top - preRect.top
+      // SCALING: #root can carry CSS `zoom` (useAutoSideBySideZoom in side-by-side mode), so
+      // getBoundingClientRect returns VISUAL px (×zoom) while scrollTop/scrollHeight stay LAYOUT px.
+      // Divide by a self-calibrated zoom (offsetWidth is layout, rect width is visual) so this Y is in
+      // LAYOUT px and can be compared/assigned against scrollTop directly. Falls back to 1 unzoomed.
+      const zoom = codeEl.offsetWidth ? preRect.width / codeEl.offsetWidth : 1
+      return (rect.top - preRect.top) / (zoom || 1)
     }
     acc += len
     node = walker.nextNode() as Text | null
@@ -5133,6 +5138,10 @@ function useEditorPreviewScrollSync(
       // previewY is measured relative to the preview's content origin via bounding rects, so it
       // is robust to intermediate positioned wrappers (offsetTop would be relative to those).
       const previewRect = preview.getBoundingClientRect()
+      // SCALING: same #root `zoom` caveat as charOffsetEditorY — getBoundingClientRect is VISUAL px
+      // but preview.scrollTop is LAYOUT px. Convert the viewport-rect delta to layout px (÷zoom) before
+      // adding scrollTop, so previewY stays in the same coordinate space as the scrollTop we read/set.
+      const previewZoom = preview.offsetWidth ? previewRect.width / preview.offsetWidth : 1
       // Each preview card maps to a marker; pair by domain + marker index.
       const cards = preview.querySelectorAll<HTMLElement>('[data-question-index],[data-sg-question-index]')
       cards.forEach((card) => {
@@ -5144,8 +5153,8 @@ function useEditorPreviewScrollSync(
         if (offset == null) return
         const editorY = charOffsetEditorY(code, offset)
         if (editorY == null) return
-        // Card top relative to preview content origin = (card viewport top − preview viewport top) + current preview scroll.
-        const previewY = card.getBoundingClientRect().top - previewRect.top + preview.scrollTop
+        // Card top relative to preview content origin = (card viewport top − preview viewport top) ÷ zoom + current preview scroll.
+        const previewY = (card.getBoundingClientRect().top - previewRect.top) / (previewZoom || 1) + preview.scrollTop
         anchors.push({ editorY, previewY })
       })
       anchors.sort((a, b) => a.editorY - b.editorY)
