@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { resolveRecipeOverridesTags } from '../../src/lib/noteRecipeOverrides.js'
-import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
+import { resolveNoteSafeguardOverridesTags, SLIDER_TOGGLE_OFF } from '../../src/lib/noteSafeguardOverrides.js'
 import {
   buildDynamicOverridesPresetSummary,
   resolveDynamicOverridesPresetApply,
@@ -75,4 +75,20 @@ test('apply intersects to valid selections and drops unknown ids', () => {
   )
   assert.deepEqual(applied.recipeAnswers[acctQ.id], [lategameOpt.id], 'keeps valid, drops bogus option id')
   assert.ok(!('gone-question' in applied.recipeAnswers), 'drops question ids absent from the note')
+})
+
+test('saving a set round-trips slider value + toggle-off (regression: not filtered as a non-option-id)', () => {
+  // The improvchance blocks are slider+toggle; a slider answer is a raw numeric value (or the
+  // toggle-off sentinel), NOT an option id — apply must keep it instead of resetting the slider.
+  const sliderQ = resolveNoteSafeguardOverridesTags(note)
+    .questions.find((q) => q.groups.some((g) => g.type === 'slider' && g.options[0]?.sliderToggle))
+  assert.ok(sliderQ, 'preset should contain an improvchance slider+toggle question')
+
+  const savedValue = snapshotDynamicOverridesFullSelection(note, {}, { [sliderQ!.id]: ['51'] })
+  const loadedValue = resolveDynamicOverridesPresetApply(note, savedValue.recipeAnswers, savedValue.safeguardAnswers)
+  assert.deepEqual(loadedValue.safeguardAnswers[sliderQ!.id], ['51'], 'a chosen slider value must survive save → load')
+
+  const savedOff = snapshotDynamicOverridesFullSelection(note, {}, { [sliderQ!.id]: [SLIDER_TOGGLE_OFF] })
+  const loadedOff = resolveDynamicOverridesPresetApply(note, savedOff.recipeAnswers, savedOff.safeguardAnswers)
+  assert.deepEqual(loadedOff.safeguardAnswers[sliderQ!.id], [SLIDER_TOGGLE_OFF], 'toggle-off must survive save → load')
 })

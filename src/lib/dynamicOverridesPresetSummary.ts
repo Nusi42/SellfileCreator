@@ -115,11 +115,16 @@ const intersectAnswers = (
   for (const [questionId, selected] of Object.entries(answers)) {
     const question = byId.get(questionId)
     if (!question) continue
+    const sel = Array.isArray(selected) ? selected : []
+    // Slider questions store a raw numeric value (or the toggle-off sentinel), not option
+    // ids — keep them verbatim rather than dropping them through the option-id filter
+    // (which would reset the slider to its default on load).
+    if (question.groups.some((group) => group.type === 'slider')) { next[questionId] = sel; continue }
     const valid = new Set(question.options.map((o) => o.id))
-    const filtered = (Array.isArray(selected) ? selected : []).filter((id) => valid.has(id))
+    const filtered = sel.filter((id) => valid.has(id))
     // Preserve explicit empty selections (a multi-question turned fully off) so the
     // saved "nothing checked" state survives, mirroring the answer normalizers.
-    if (filtered.length === 0 && (!Array.isArray(selected) || selected.length > 0)) continue
+    if (filtered.length === 0 && sel.length > 0) continue
     next[questionId] = filtered
   }
   return next
