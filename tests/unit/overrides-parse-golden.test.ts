@@ -116,7 +116,7 @@ Q "How many good substats does an artifact " cols=1
   rolls_22 s blk:autoLate+lockedMinRequiredRolls+minRequiredRolls+minSubstats
   rolls_32 s blk:autoLate+lockedMinRequiredRolls+minRequiredRolls+minSubstats
   rolls_33 s blk:lockedMinRequiredRolls+minRequiredRolls
-  rolls_43 s *
+  rolls_43 s
 Q "How many good substats does an accessory" cols=1
   acc_rolls_22 s blk:autoLate+lockedMinRequiredRolls+minRequiredRolls+minSubstats+substatMinAll
   acc_rolls_32 s
