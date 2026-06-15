@@ -18594,7 +18594,7 @@
     "  rb \"`Very relaxed`\" \"All artifacts need only **2** good substats.\" id=rolls_22 { @lockedminrolls=4 { lockedminrolls=2 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=2 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=2 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } }",
     "  rb \"`Relaxed`\" \"Defensive and support artifacts needs **3** good substats; everything else only **2**.\" id=rolls_32 { @lockedminrolls=4 { lockedminrolls=3 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=3 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=3 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } }",
     "  rb \"`Strict`\" \"All artifacts need at least **3** good substats.\" id=rolls_33 { @lockedminrolls=4 { lockedminrolls=3 } @minrolls=4 { minrolls=3 } }",
-    "  rb \"`Very Strict`\" \"Defensive and support artifacts need **4** good substats; offensive artifacts need **3**. Limited Sets and set-bonus rules always cap at **3** regardless.\" * id=rolls_43 {}",
+    "  rb \"`Very Strict`\" \"Defensive and support artifacts need **4** good substats; offensive artifacts need **3**. Limited Sets and set-bonus rules always cap at **3** regardless.\" id=rolls_43 {}",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"How many good substats does an accessory (ring, amulet, banner) need to be worth keeping?\"",
