@@ -90,7 +90,7 @@ const summarizeQuestions = (
       answers = resolved
         .filter((value) => value.trim().length > 0 && value !== SLIDER_TOGGLE_OFF)
         .map((value) => ({
-          label: toggleLabel ? `${toggleLabel} - ${value}` : value,
+          label: toggleLabel ? `${toggleLabel} — ${value}` : value,
           isDefault: defaultSet.has(value),
         }))
     } else {
