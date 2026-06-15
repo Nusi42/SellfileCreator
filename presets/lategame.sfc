@@ -11699,10 +11699,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -11750,10 +11750,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -11805,10 +11805,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -11865,10 +11865,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -11934,10 +11934,10 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -11992,10 +11992,10 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -12062,10 +12062,10 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -12136,10 +12136,10 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -12196,10 +12196,10 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -12253,10 +12253,10 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -12325,10 +12325,10 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -12400,10 +12400,10 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12456,10 +12456,10 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -12515,10 +12515,10 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -12569,10 +12569,10 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12620,10 +12620,10 @@
         "factions": []
       },
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12691,10 +12691,10 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12757,10 +12757,10 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12819,10 +12819,10 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -12873,10 +12873,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -12924,10 +12924,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -12976,10 +12976,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -13026,10 +13026,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -13078,10 +13078,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC",
@@ -13130,10 +13130,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC",
@@ -13182,10 +13182,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP",
@@ -13239,10 +13239,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC",
@@ -13296,10 +13296,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "RES",
@@ -13353,10 +13353,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "RES",
@@ -13410,10 +13410,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13463,10 +13463,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13518,10 +13518,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13571,10 +13571,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13626,10 +13626,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13679,10 +13679,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13733,10 +13733,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13784,10 +13784,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -13839,10 +13839,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -13894,10 +13894,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -13951,10 +13951,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14006,10 +14006,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14063,10 +14063,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14118,10 +14118,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14173,10 +14173,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -14224,10 +14224,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -14279,10 +14279,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -14342,10 +14342,10 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14420,10 +14420,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14487,10 +14487,10 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14557,10 +14557,10 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14628,10 +14628,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14695,10 +14695,10 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14763,10 +14763,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14841,10 +14841,10 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14907,10 +14907,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -14979,10 +14979,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -15047,10 +15047,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15115,10 +15115,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15183,10 +15183,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15251,10 +15251,10 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15316,10 +15316,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15382,10 +15382,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15448,10 +15448,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15514,10 +15514,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "DEF%"
@@ -15575,10 +15575,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ATK%"
@@ -15636,10 +15636,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%"
@@ -15699,10 +15699,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15766,10 +15766,10 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -15826,10 +15826,10 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -15887,10 +15887,10 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -15956,10 +15956,10 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16023,10 +16023,10 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16087,10 +16087,10 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16155,10 +16155,10 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16225,10 +16225,10 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16288,10 +16288,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16352,10 +16352,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16419,10 +16419,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16492,10 +16492,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16564,10 +16564,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16639,10 +16639,10 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16704,10 +16704,10 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -16761,10 +16761,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16818,10 +16818,10 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16887,10 +16887,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -16948,10 +16948,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17009,10 +17009,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17073,10 +17073,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17131,10 +17131,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -17189,10 +17189,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -17247,10 +17247,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -17305,10 +17305,10 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "CR%",
@@ -17363,10 +17363,10 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17426,10 +17426,10 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17487,10 +17487,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC"
@@ -17539,10 +17539,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC",
@@ -17593,10 +17593,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "ACC",
@@ -17650,10 +17650,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "RES",
@@ -17707,10 +17707,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -17762,10 +17762,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -17817,10 +17817,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "HP%",
@@ -17873,10 +17873,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17930,10 +17930,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -17987,10 +17987,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -18044,10 +18044,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -18102,10 +18102,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -18161,10 +18161,10 @@
         "acc"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD"
@@ -18400,10 +18400,10 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -18478,10 +18478,10 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 3,
-        "atLevel4": 6,
-        "atLevel8": 12,
-        "atLevel12": 25
+        "atLevel0": 25,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
       },
       "substats": [
         "SPD",
@@ -18671,19 +18671,21 @@
     "  slider \"\" min=1 max=64 default=8 { @tag=mercurial4 { count=$value/2 } @tag=mercurial8 { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2]--><br>",
-    "<!-- safeguard-overrides [columns=4]",
-    "  q \"Do you want to protect **artifacts** (not accessories) by its **improvement chance**?\\nIn addition to protecting your current best gear, we can also protect gear which has a chance to become better than what you already own. \"",
-    "  rb \"`No`\" \"I want above amounts to be interpreted strictly.\" { @tagged { improvchance=disabled } }",
-    "  rb \"`Yes ~12.5%`\" \"Protect artifacts with ≥ 3% (on level 0) to 12.5% (on level 12) chance to be better than what I have.\" { @tagged { improvchance=3,3,6,12.5 } }",
-    "  rb \"`Yes ~25%`\" \"Protect artifacts with ≥ 3% (on level 0) - 25% (on level 12) chance to be better than what I have.\" * { @tagged { improvchance=3,6,12,25 } }",
-    "  rb \"`Yes ~50%`\" \"Protect artifacts with ≥ 6% (on level 0) - 50% (on level 12) chance to be better than what I have.\" { @tagged { improvchance=6,12,25,50 } }",
+    "<!-- safeguard-overrides [columns=5]",
+    "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nBeyond your current best gear, this also keeps pieces that still have a realistic chance to roll into something better than you already own. The number is the minimum chance to be worth keeping; because most leveled-but-mediocre gear already reads near 0%, one cutoff naturally sells more of it as it levels.\"",
+    "  rb \"`No`\" \"Interpret the amounts above strictly — no chance-based keeps.\" { @tagged { improvchance=disabled } }",
+    "  rb \"`Soft`\" \"Most lenient: keep anything that isn't junk — ≥10% chance to become one of your best.\" { @tagged { improvchance=10 } }",
+    "  rb \"`Balanced`\" \"Keep pieces with a real shot — ≥25% chance to become one of your best.\" * { @tagged { improvchance=25 } }",
+    "  rb \"`Moderate`\" \"Keep only pieces with a strong shot — ≥33% chance to become one of your best.\" { @tagged { improvchance=33 } }",
+    "  rb \"`Strict`\" \"Only clearly-promising pieces — ≥50% chance to become one of your best.\" { @tagged { improvchance=50 } }",
     "--><br>",
-    "<!-- safeguard-overrides [columns=4]",
-    "  q \"Do you want to protect **accessories** by its **improvement chance**?\"",
-    "  rb \"`No`\" \"I want above amounts to be interpreted strictly.\" { @tag=acc { improvchance=disabled } }",
-    "  rb \"`Yes ~12.5%`\" \"Protect accessories with ≥ 3% (on level 0) to 12.5% (on level 12) chance to be better than what I have.\" { @tag=acc { improvchance=3,3,6,12.5 } }",
-    "  rb \"`Yes ~25%`\" \"Protect accessories with ≥ 3% (on level 0) - 25% (on level 12) chance to be better than what I have.\" * { @tag=acc { improvchance=3,6,12,25 } }",
-    "  rb \"`Yes ~50%`\" \"Protect accessories with ≥ 6% (on level 0) - 50% (on level 12) chance to be better than what I have.\" { @tag=acc { improvchance=6,12,25,50 } }",
+    "<!-- safeguard-overrides [columns=5]",
+    "  q \"Do you want to protect **accessories** by their **improvement chance**?\\nSame idea as the artifact question above, applied to rings, amulets, and banners. Accessories tend to score a little higher, so the same cutoff keeps somewhat more of them.\"",
+    "  rb \"`No`\" \"Interpret the amounts above strictly — no chance-based keeps.\" { @tag=acc { improvchance=disabled } }",
+    "  rb \"`Soft`\" \"Most lenient: keep anything that isn't junk — ≥10% chance to become one of your best.\" { @tag=acc { improvchance=10 } }",
+    "  rb \"`Balanced`\" \"Keep accessories with a real shot — ≥25% chance to become one of your best.\" * { @tag=acc { improvchance=25 } }",
+    "  rb \"`Moderate`\" \"Keep only accessories with a strong shot — ≥33% chance to become one of your best.\" { @tag=acc { improvchance=33 } }",
+    "  rb \"`Strict`\" \"Only clearly-promising accessories — ≥50% chance to become one of your best.\" { @tag=acc { improvchance=50 } }",
     "--><br>",
     "---",
     "Ignoring the dynamic nature of Safeguards — above settings will result in about this amount of gear pieces kept:",

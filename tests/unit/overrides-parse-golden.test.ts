@@ -165,16 +165,18 @@ Q "How many damage or survivability pieces " cols=2
 Q "How many damage/survivability/debuffer p" cols=2
   #1 s blk:count sld:1-64/8
 Q "" cols=2 SPACER
-Q "Do you want to protect **artifacts** (no" cols=4
+Q "Do you want to protect **artifacts** (no" cols=5
   #1 s blk:improvementChance
   #2 s blk:improvementChance
   #3 s * blk:improvementChance
   #4 s blk:improvementChance
-Q "Do you want to protect **accessories** b" cols=4
+  #5 s blk:improvementChance
+Q "Do you want to protect **accessories** b" cols=5
   #1 s blk:improvementChance
   #2 s blk:improvementChance
   #3 s * blk:improvementChance
-  #4 s blk:improvementChance`
+  #4 s blk:improvementChance
+  #5 s blk:improvementChance`
 
 test('lategame.sfc overrides parse to the golden behavioural digest', () => {
   const recipe = resolveRecipeOverridesTags(note)

@@ -221,8 +221,10 @@ export const IMPROVEMENT_CHANCE_PRESETS: readonly SafeguardImprovementChancePres
   { id: 'harsh', thresholds: { atLevel0: 65, atLevel4: null, atLevel8: null, atLevel12: null } },
   // Looser for fresh items, stricter as upgrades accumulate — moderate ramp.
   { id: 'graduated', thresholds: { atLevel0: 25, atLevel4: 35, atLevel8: 50, atLevel12: 65 } },
-  // Very lenient early (catches near-everything at lvl 0), moderate gate at end.
-  { id: 'soft', thresholds: { atLevel0: 3, atLevel4: 12.5, atLevel8: 25, atLevel12: 50 } },
+  // Lenient flat 10%: keep anything that isn't junk. Measured against real accounts,
+  // chances cluster at 0 / ~25 / ~50, so 10% sells only the ~0% (desired substats never
+  // rolled) while keeping everything with a genuine shot. (Old 3% floor was a no-op filter.)
+  { id: 'soft', thresholds: { atLevel0: 10, atLevel4: null, atLevel8: null, atLevel12: null } },
 ]
 
 /** Returns the matching preset ID if the thresholds exactly match a builtin preset,
