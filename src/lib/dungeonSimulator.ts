@@ -763,6 +763,8 @@ type DungeonSimRuntime = {
   cellsBySet: Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>
   summaryBySet: Map<ArtifactSetId, DungeonSimAccumulatorCell>
   detailBySet: Map<ArtifactSetId, DungeonSimDetailItem[]>
+  // When false, the per-run detail item is never built or retained (note-sim memory opt-out).
+  collectDetail: boolean
   completed: number
   runs: number
 }
@@ -1111,8 +1113,12 @@ const createDungeonRuntime = (params: {
   spotlight: EventSpotlightSelection
   mode: DungeonSimMode
   boost?: DungeonBoostSelection | null
+  // Forwarded from the session; gates per-run detail collection.
+  collectDetail?: boolean
 }): DungeonSimRuntime => {
   const { dungeonId, runs, spotlight, mode } = params
+  // Detail collection on unless the caller opted out.
+  const collectDetail = params.collectDetail ?? true
   // Normalize stage selection so downstream weights are always in-range.
   const selection = normalizeDungeonStageSelection(dungeonId, params.selection)
   // Event logic reuses the normalized stage directly.
@@ -1140,7 +1146,9 @@ const createDungeonRuntime = (params: {
   for (const setId of sets) {
     cellsBySet.set(setId, createCellMap())
     summaryBySet.set(setId, createEmptyCell())
-    detailBySet.set(setId, [])
+    // Only allocate detail buckets when detail collection is enabled. Skipping this keeps
+    // the note-sim's 6 concurrent sessions memory-flat (detail is the only run-scaling state).
+    if (collectDetail) detailBySet.set(setId, [])
   }
   // Seed RNG per dungeon + selection for deterministic output.
   const seedStage = dungeonId === 'event' ? String(eventStage) : String(selection.stage)
@@ -1165,6 +1173,7 @@ const createDungeonRuntime = (params: {
     cellsBySet,
     summaryBySet,
     detailBySet,
+    collectDetail,
     completed: 0,
     runs,
   }
@@ -1397,9 +1406,16 @@ export const createDungeonSimSpotlightSession = (params: {
   runs?: number
   // Restrict simulation to a subset of dungeons; omitted = all 5 dungeons (existing behavior).
   simulateDungeons?: readonly DungeonId[]
+  // When false, skip per-run substat detail collection entirely. The note-sim never issues
+  // detail queries, so dropping the detail buffer keeps memory flat even with 6 concurrent
+  // sessions: the only state that scales with run count is the detail buffer. Defaults to true
+  // so the Tools-dialog sim (which DOES run detail queries) keeps its current behavior.
+  collectDetail?: boolean
 }): DungeonSimSpotlightSession => {
   // Default run count mirrors the global simulator default.
   const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  // Detail collection on unless explicitly disabled (note-sim opts out to stay memory-flat).
+  const collectDetail = params.collectDetail ?? true
   // Snapshot mode preserves the legacy "roll to +16" behavior.
   const mode = params.mode ?? DUNGEON_SIM_MODE_DEFAULT
   // Copy the spotlight array so we can safely mutate.
@@ -1433,6 +1449,7 @@ export const createDungeonSimSpotlightSession = (params: {
       spotlight: EVENT_SPOTLIGHT_DEFAULT,
       mode: modeState,
       boost,
+      collectDetail,
       ...(selection ? { selection } : {}),
     })
   }
@@ -1444,6 +1461,7 @@ export const createDungeonSimSpotlightSession = (params: {
       runs,
       spotlight,
       mode: modeState,
+      collectDetail,
       ...(selection ? { selection } : {}),
     })
   }

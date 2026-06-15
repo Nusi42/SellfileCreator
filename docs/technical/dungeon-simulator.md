@@ -78,23 +78,37 @@ Each dungeon-sim hook registers two callbacks at mount via `registerDsimCallback
 Once the pipeline queue is fully empty, `signalPipelineDone(rulesChanged)` fires. Each hook's `onPipelineDone` callback decides what to do:
 
 - **Tools-sim**: if `rulesChanged=false` and the worker is still alive, sends a `resume` message so the sim continues from exactly where it stopped. If `rulesChanged=true`, the stale `cachedSession` is discarded by terminating the worker; the sim effect restarts fresh when the new rules arrive. If the worker was idle-terminated before the pipeline started, `evictToken` is bumped regardless so the sim effect re-runs.
-- **Note-sim**: delegates entirely to the `enabled = !pipelineRunning` prop. Because the note-sim's control effect treats `reenabled = true` as a clean restart, `onPipelineDone` is a no-op — the pipeline-running state change already triggers the correct reset path.
+- **Note-sim**: delegates entirely to the `enabled = !pipelineRunning` prop; `onPipelineDone` is a no-op. The control effect's re-enable path decides whether to restart — gated by the completion flag described below (a completed run is left alone; a mid-flight run restarts fresh).
 
 ### Note-sim restart trigger: override epoch + completion gate
 
-The note-sim's control effect (`useDungeonNoteSimulator`) restarts on **user intent**, never on rule-content identity. It deliberately does **not** compare `rules`/`substatTargets` — those are read live via refs at worker-send time, but a change to them alone never restarts. A restart fires only when:
+The note-sim's control effect (`useDungeonNoteSimulator`) restarts on **user intent**, never on rule-content identity. It deliberately does **not** compare `rules`/`substatTargets` — those are read live via refs at worker-send time, but a change to them alone never restarts. A run starts when either:
 
-1. **`userOverrideEpoch` advances** (a user override edit), or
-2. **`runs` changes**, or
-3. **re-enable while the previous run was still mid-flight** (`reenabledMidRun`).
+1. **a user restart is owed** — `userOverrideEpoch` advanced or `runs` changed, latched in `pendingRestartRef` (see below), or
+2. **a mid-flight run re-enables** after a pause (`reenabledMidRun`).
 
 `userOverrideEpoch` is a monotonic counter owned by `NoteDialog`, forwarded through `NoteRenderContext`. It is bumped at a single chokepoint: the wrapped `onRecipeOverridesAnswersChange` / `onSafeguardOverridesAnswersChange` setters. Every user-driven override mutation funnels through these two setters — per-question edits, reset-to-defaults, and the save/load/delete override-set controller — so all of them bump it, and nothing else can.
 
-**Why a completion gate is needed (the push-restart trap).** The sim's `enabled` prop is `!pipelineRunning`, and *every* endpoint push that runs the rule-cache pipeline flips `pipelineRunning` true→false. Without a gate, the re-enable (`reenabled`) at the end of each push would restart the sim from config 0 — so background pushes would restart it constantly even though no user touched anything. The fix: `completedRef` tracks whether all 6 configs finished. On re-enable, a run that had **already completed** is left untouched (`reenabledMidRun` is false), so pushes never restart a completed sim. A run interrupted **mid-flight** is restarted fresh — not resumed — because a push may have changed `rules` and configs are read live at send time, so resuming would mix old and new rules within one run.
+**Why a completion gate is needed (the push-restart trap).** The sim's `enabled` prop is `!pipelineRunning`, and *every* endpoint push that runs the rule-cache pipeline flips `pipelineRunning` true→false. Without a gate, the re-enable (`reenabled`) at the end of each push would restart the whole round-robin run from scratch — so background pushes would restart it constantly even though no user touched anything. The fix: `completedRef` tracks whether the round-robin run finished (all configs complete). On re-enable, a run that had **already completed** is left untouched (`reenabledMidRun` is false), so pushes never restart a completed sim. A run interrupted **mid-flight** is restarted fresh — not resumed — because a push may have changed `rules` and configs are read live at send time, so resuming would mix old and new rules within one run.
 
-**Edit-during-pause.** When `enabled` is false the effect preserves the previously-seen `epoch`/`runs` (rather than absorbing the current values), so a user override edit made *while* the pipeline is running is still detected as `epochChanged` on re-enable and forces a fresh restart.
+**Owed-restart latch (`pendingRestartRef`).** A user override edit bumps the epoch *and* triggers the rule-cache pipeline, which pauses the sim before the debounced start fires. A level-triggered epoch comparison would lose that owed start (the comparison advances on the next render, and a previously-*completed* run leaves `completedRef = true`, so the re-enable path would skip). To avoid this, a user restart (epoch/runs change) sets `pendingRestartRef = true`; it survives pauses and re-renders and is cleared only when a run **actually starts**. The control effect starts a run whenever `pendingRestartRef` is set (debounced) or a mid-flight run re-enables. So an edit always results in exactly one run after the pipeline settles, regardless of whether the prior run had completed.
+
+**Invalidate-on-edit.** The same epoch/runs change clears the results map immediately (before the run starts), so every column renders its skeleton (`isConfigPending` = `!resultsByConfig.has(id)`) right away. The stale numbers do not linger while the pipeline recomputes; the fresh run then fills the skeletons in place.
 
 **Consequence:** after a run completes, the sim reflects the rules as of that run and silently ignores subsequent background pushes until the next user override edit. The displayed odds can therefore lag live rules in that window — intended, given that pushes must never restart the sim.
+
+### Note-sim round-robin scheduling (`simulate:multi`)
+
+The note table has 6 configs spanning ~18 visible columns. Rather than running them sequentially (one config to completion, then the next — which fills the table block-by-block), the note-sim issues a **single** `simulate:multi` worker request carrying all 6 configs. The worker builds one session per config and **round-robins** a slice (`NOTE_SIM_SLICE_RUNS = 500`) through each session per round, emitting one `simulate:multi:progress` snapshot covering *all* configs each round. The hook merges the whole `resultsByConfig` map in one `setState`, so every column refines together — the table comes into focus at once instead of left-to-right. `NOTE_SIM_RUNS = 2500` per config → ~5 update rounds.
+
+- **Memory stays flat despite 6 concurrent sessions.** The only per-session state that scales with run count is the substat *detail buffer* (`detailBySet`, one item pushed per run). The note-sim never issues detail queries, so its sessions are built with `collectDetail: false` — the buffer is neither allocated nor filled. What remains is the fixed-size accumulator state (cells per set × milestone), independent of run count. So 6 sessions × 2500 runs ≈ the memory of the old single 2000-run session. `collectDetail` defaults to `true`, so the Tools-dialog sim (which *does* run detail queries) is unaffected.
+- **Overwrite-in-place.** A restart resets the accumulator refs but does **not** blank the displayed map; incoming snapshots overwrite each config's entry as fresh values arrive. No blank flash between runs (especially invisible since deterministic seeds mean the numbers usually barely move).
+
+### Note-sim start debounce (deferring past the pipeline)
+
+A user override edit bumps `userOverrideEpoch` immediately, but the *same* edit also triggers the rule-cache pipeline — debounced by `PIPELINE_DEBOUNCE_MS = 200` in `App.tsx`. If the sim started the instant the epoch bumped, the pipeline would pause+cancel it ~200ms later and the re-enable would restart it: the first run is pure waste and flickers numbers in then out.
+
+To avoid this, a **user-driven** (re)start (epoch/runs change) is debounced by `NOTE_SIM_START_DEBOUNCE_MS = 300` — just above the pipeline debounce — so the edit coalesces into a single start *after* the pipeline settles. A **mid-run re-enable** (already past the pipeline) starts immediately, since there is nothing left to wait for. The pending-start timer is cleared on pause (`pauseNoteSim`), on disable, and on unmount; `activeRequestRef` also guards a stale timer from firing for a superseded run.
 
 ### `resume` worker message
 

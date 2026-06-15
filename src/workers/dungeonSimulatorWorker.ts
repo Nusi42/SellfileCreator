@@ -2,6 +2,7 @@
 
 import {
   DUNGEON_IDS,
+  DUNGEON_SIM_BATCH_SIZE,
   EVENT_SPOTLIGHT_DEFAULT,
   EVENT_SPOTLIGHT_OPTIONS,
   createDungeonSimSpotlightSession,
@@ -12,7 +13,7 @@ import {
   evaluateDsimRuleEngineItemsWithLoadedWasm,
 } from '../lib/wasm/wasmDsimRuleEngine'
 import { setRuleEvalWasmBindings } from '../lib/ruleEval'
-import type { DungeonId } from '../lib/dungeonSimulator'
+import type { DungeonId, DungeonSimSpotlightResults } from '../lib/dungeonSimulator'
 import type {
   DungeonSimulatorWorkerRequest,
   DungeonSimulatorWorkerResponse,
@@ -178,6 +179,108 @@ const runSessionToCompletion = async (
   self.postMessage(doneResponse)
 }
 
+// ─── Multi-config round-robin (note-sim) ─────────────────────────────────────
+
+// Run all configs together: build one session per config, then advance every session by a
+// `sliceRuns` slice each round so all configs' results refine in lockstep. Emits one snapshot
+// covering ALL configs per round (the note table updates all 18 columns at once), then a final
+// done snapshot. Reuses the same activeRunId / yield / cancel discipline as single-config runs.
+const runMultiSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { kind: 'simulate:multi' }>) => {
+  const { id, payload } = message
+  // Newest run wins; older loops self-abort on the activeRunId check.
+  activeRunId = id
+  // Warm WASM before any sync matcher calls inside the run loops.
+  await ensureWasmWorkerReady()
+  // Clamp the slice so a bad value cannot stall the loop.
+  const sliceRuns = Number.isFinite(payload.sliceRuns) ? Math.max(1, Math.floor(payload.sliceRuns)) : 1
+  const throttleMs = payload.throttleMs ?? PROGRESS_THROTTLE_MS
+  // Build one session per config. collectDetail:false — the note-sim never issues detail
+  // queries, so skipping the detail buffer keeps memory flat across all 6 concurrent sessions.
+  const sessions = payload.configs.map((cfg) => ({
+    id: cfg.id,
+    session: createDungeonSimSpotlightSession({
+      rules: payload.rules,
+      substatTargets: payload.substatTargets,
+      runs: payload.runs,
+      collectDetail: false,
+      ...(payload.mode ? { mode: payload.mode } : {}),
+      ...(Object.keys(cfg.boosts).length > 0 ? { boosts: cfg.boosts } : {}),
+      selections: cfg.selections,
+      simulateDungeons: cfg.simulateDungeons,
+    }),
+  }))
+  // Note-sim has no cached-session reuse path; expose only the first config's session for any
+  // stray detail query (none are issued today, but keep cachedSession non-null for safety).
+  cachedSession = sessions[0]?.session ?? null
+  // Build the all-configs snapshot the hook merges in one shot.
+  const buildSnapshot = (): Record<string, DungeonSimSpotlightResults> => {
+    const resultsByConfig: Record<string, DungeonSimSpotlightResults> = {}
+    for (const entry of sessions) resultsByConfig[entry.id] = entry.session.getResultsBySpotlight()
+    return resultsByConfig
+  }
+  // Aggregate runs completed across every config, so the throttler's advance/finish logic sees a
+  // real fraction (drives readable mid-run cadence). Sampled from the default spotlight, whose
+  // per-dungeon totals already cover the base dungeons each config simulates.
+  const aggregateProgress = (): { completed: number; total: number } => {
+    let completed = 0
+    let total = 0
+    for (const entry of sessions) {
+      const progress = entry.session.getProgressBySpotlight()[EVENT_SPOTLIGHT_DEFAULT]
+      if (!progress) continue
+      completed += progress.completed
+      total += progress.total
+    }
+    return { completed, total }
+  }
+  // Throttle progress so a fast machine does not spam the UI thread between rounds.
+  const forwardProgress = createProgressThrottler((_snapshot) => {
+    if (activeRunId !== id) return
+    self.postMessage({
+      id,
+      kind: 'simulate:multi:progress',
+      payload: { resultsByConfig: buildSnapshot() },
+    } satisfies DungeonSimulatorWorkerResponse)
+  }, { throttleMs })
+  // Round-robin: each round advances every still-incomplete session by one slice.
+  // Advance one config's session by `sliceRuns`, but in DUNGEON_SIM_BATCH_SIZE sub-chunks with a
+  // yield between each. The slice governs how much each config advances per *visual update round*;
+  // the sub-chunk governs how often the worker breaks to process cancel/newer-run messages. Keeping
+  // them separate means a large slice never produces a long synchronous block that would jank the
+  // worker or delay a pause — the loop stays as responsive as the old per-config batch loop.
+  const advanceConfigSlice = async (session: ReturnType<typeof createDungeonSimSpotlightSession>) => {
+    let remaining = sliceRuns
+    while (remaining > 0 && activeRunId === id && !session.isComplete()) {
+      const chunk = Math.min(remaining, DUNGEON_SIM_BATCH_SIZE)
+      session.runBatch(chunk)
+      remaining -= chunk
+      // Yield mid-slice so cancel / newer-run messages can land promptly.
+      await yieldToEventLoop()
+    }
+  }
+  let allComplete = false
+  while (activeRunId === id && !allComplete) {
+    allComplete = true
+    for (const entry of sessions) {
+      // Abort mid-round if a newer request preempted us.
+      if (activeRunId !== id) return
+      if (entry.session.isComplete()) continue
+      // Advance this config by a slice (sub-chunked + yielding internally).
+      await advanceConfigSlice(entry.session)
+      if (!entry.session.isComplete()) allComplete = false
+    }
+    // One throttled snapshot per round so all configs' columns step forward together.
+    forwardProgress(aggregateProgress())
+  }
+  // Superseded — drop without emitting a done snapshot.
+  if (activeRunId !== id) return
+  // Final snapshot with every config's completed results.
+  self.postMessage({
+    id,
+    kind: 'simulate:multi:done',
+    payload: { resultsByConfig: buildSnapshot() },
+  } satisfies DungeonSimulatorWorkerResponse)
+}
+
 // Resume a previously paused cachedSession from where it stopped.
 // Only runs if the session is still alive and has remaining work.
 const runResumedSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { kind: 'resume' }>) => {
@@ -208,6 +311,18 @@ self.onmessage = (event: MessageEvent<DungeonSimulatorWorkerRequest>) => {
   if (message.kind === 'simulate') {
     // Run the simulation async so the worker can yield between batches.
     runSimulation(message).catch((error) => {
+      if (activeRunId !== message.id) return
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+      self.postMessage(response)
+    })
+  }
+  if (message.kind === 'simulate:multi') {
+    // Round-robin all configs together so the note table refines all columns at once.
+    runMultiSimulation(message).catch((error) => {
       if (activeRunId !== message.id) return
       const response: DungeonSimulatorWorkerResponse = {
         id: message.id,

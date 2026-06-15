@@ -107,7 +107,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
   const userOverrideEpoch = ctx?.userOverrideEpoch ?? 0
 
   // Run the sequential 6-config simulation; paused while the rule cache pipeline is active.
-  const { resultsByConfig, configIndex, running } = useDungeonNoteSimulator({
+  const { resultsByConfig, running } = useDungeonNoteSimulator({
     rules,
     substatTargets,
     // Restart only on user override edits (open + epoch change) — not on background pushes.
@@ -181,12 +181,10 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
     return cellPercent(aggCell)
   }
 
-  // Determine whether a column's config has been simulated yet.
-  const isConfigPending = (configId: string): boolean => {
-    if (!running && resultsByConfig.size === 0) return true
-    const cfgIdx = NOTE_SIM_CONFIGS.findIndex((c) => c.id === configId)
-    return cfgIdx > configIndex && !resultsByConfig.has(configId)
-  }
+  // Determine whether a column's config has been simulated yet. With the round-robin
+  // scheduler every config receives results together each round, so a column is "pending"
+  // only until the first snapshot lands (after which all configs are present in the map).
+  const isConfigPending = (configId: string): boolean => !resultsByConfig.has(configId)
 
   // ─── Tooltip content (JSX) ────────────────────────────────────────────────
 

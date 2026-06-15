@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import DungeonSimulatorWorker from '../workers/dungeonSimulatorWorker?worker&inline'
 import {
-  DUNGEON_SIM_BATCH_SIZE,
   type DungeonBoostableId,
   type DungeonId,
   type DungeonSimSpotlightResults,
@@ -21,9 +20,23 @@ import { registerDsimCallbacks, clearDsimCallbacks } from '../lib/wasmWorkerSlot
 
 // ─── Note-sim constants ───────────────────────────────────────────────────────
 
-// Reduced run count tuned for the compact summary table: fast updates at the
-// cost of slightly noisier percentages, which 1-decimal display absorbs well.
-export const NOTE_SIM_RUNS = 2000 as const
+// Run count per config. Higher than the old 2000 for tighter percentages; the
+// round-robin scheduler keeps the UI responsive despite the larger total because
+// all configs advance in lockstep slices rather than one config running to the end.
+export const NOTE_SIM_RUNS = 2500 as const
+
+// Runs advanced per config per round-robin round. Each round, every config runs this
+// many runs and then ALL 18 columns update together, so the table refines simultaneously
+// rather than block-by-block. 500 → ~5 update rounds across the full 2500-run budget
+// (leanest: fewest snapshots/merges, coarser stepping, fastest to final numbers).
+export const NOTE_SIM_SLICE_RUNS = 500 as const
+
+// Delay before a user-driven (re)start actually sends to the worker. Set just above the
+// pipeline debounce (PIPELINE_DEBOUNCE_MS = 200 in App.tsx) so a user override edit — which
+// also triggers the rule-cache pipeline — coalesces into a single post-pipeline start instead
+// of starting a run that the pipeline immediately pauses and discards. Mid-run re-enables
+// (already past the pipeline) bypass this and start immediately.
+export const NOTE_SIM_START_DEBOUNCE_MS = 300 as const
 
 // Dragon + Fire Knight sub-set for boost configs (Ice Golem / Spider excluded there).
 const NOTE_SIM_DUNGEONS_FK_DRAGON: readonly DungeonId[] = ['dragon', 'fireKnight'] as const
@@ -179,15 +192,12 @@ type UseDungeonNoteSimulatorParams = {
   // Flip to true once the rule cache pipeline finishes so simulation sees stable rules.
   enabled: boolean
   runs?: number
-  batchSize?: number
   throttleMs?: number
 }
 
 export type UseDungeonNoteSimulatorResult = {
-  // Final/latest results per config id.
+  // Final/latest results per config id. With round-robin, all configs are populated together.
   resultsByConfig: DungeonNoteSimResults
-  // 0-based index of the config currently being simulated (equals NOTE_SIM_CONFIGS.length when done).
-  configIndex: number
   // Always NOTE_SIM_CONFIGS.length (6) — exposed so components can compute progress.
   totalConfigs: number
   running: boolean
@@ -203,19 +213,16 @@ export function useDungeonNoteSimulator(
     userOverrideEpoch,
     enabled,
     runs = NOTE_SIM_RUNS,
-    batchSize = DUNGEON_SIM_BATCH_SIZE,
     throttleMs = PROGRESS_THROTTLE_MS,
   } = params
 
   // ─── React state for renders ────────────────────────────────────────────────
   const [resultsByConfig, setResultsByConfig] = useState<DungeonNoteSimResults>(() => new Map())
-  const [configIndex, setConfigIndex] = useState(0)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // ─── Setter refs so async callbacks never capture stale closures ─────────────
   const setResultsByConfigRef = useRef(setResultsByConfig)
-  const setConfigIndexRef = useRef(setConfigIndex)
   const setRunningRef = useRef(setRunning)
   const setErrorRef = useRef(setError)
 
@@ -224,19 +231,24 @@ export function useDungeonNoteSimulator(
   const workerRef = useRef<Worker | null>(null)
   // Monotonically increasing request id for stale-message rejection.
   const activeRequestRef = useRef(0)
-  // Which config index the worker is currently running (mirrors state in closure-safe form).
-  const configIndexRef = useRef(0)
+  // Pending debounced-start timer handle (null when no start is queued).
+  const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Latest accumulated results (mirrors state without triggering re-renders).
   const resultsByConfigRef = useRef<DungeonNoteSimResults>(new Map())
   // True once all configs have finished. Distinguishes a completed run (which a
   // background push-pause must NOT restart) from a mid-run pause (which restarts fresh
   // so the resumed run stays internally consistent). Reset to false on every fresh start.
   const completedRef = useRef(false)
+  // A user-driven (re)start is owed but not yet started. Set when a user override edit (epoch)
+  // or runs change is observed; cleared only when a run ACTUALLY starts. Crucially it survives
+  // a pause: the same edit that bumps the epoch also triggers the rule-cache pipeline, which
+  // pauses the sim before the debounced start fires — without this latch the owed start would be
+  // lost (the epoch comparison already advanced), so the table would never refresh after the edit.
+  const pendingRestartRef = useRef(false)
   // Stable snapshot of the current rules/substatTargets for the message sender.
   const rulesRef = useRef(rules)
   const substatTargetsRef = useRef(substatTargets)
   const runsRef = useRef(runs)
-  const batchSizeRef = useRef(batchSize)
   const throttleMsRef = useRef(throttleMs)
   // Track previous restart-relevant inputs. Deliberately excludes rules/substatTargets:
   // those are read live (via refs) at send time but never compared here, so background
@@ -254,7 +266,6 @@ export function useDungeonNoteSimulator(
     rulesRef.current = rules
     substatTargetsRef.current = substatTargets
     runsRef.current = runs
-    batchSizeRef.current = batchSize
     throttleMsRef.current = throttleMs
   })
 
@@ -279,76 +290,39 @@ export function useDungeonNoteSimulator(
     // A fresh mount has no completed run to protect; clear so the first control-effect
     // pass treats startup as a normal (re)start rather than a completed run to leave alone.
     completedRef.current = false
+    // No owed restart carries across a remount.
+    pendingRestartRef.current = false
     setResultsByConfigRef.current(new Map())
-    setConfigIndexRef.current(0)
     setRunningRef.current(false)
 
-    // Send the next config in the sequence to the worker.
-    const sendConfig = (id: number, idx: number) => {
-      const cfg = NOTE_SIM_CONFIGS[idx]
-      if (!cfg || !workerRef.current) return
-      const hasBoosts = Object.keys(cfg.boosts).length > 0
-      const payload: DungeonSimulatorWorkerRequest = {
-        id,
-        kind: 'simulate',
-        payload: {
-          rules: rulesRef.current,
-          substatTargets: substatTargetsRef.current,
-          // No dirtyDungeons → worker creates a fresh session for this config.
-          runs: runsRef.current,
-          batchSize: Math.max(1, Math.floor(batchSizeRef.current)),
-          throttleMs: throttleMsRef.current,
-          mode: 'levelUp',
-          selections: cfg.selections,
-          // Only include boosts key when the config actually has boosts set.
-          ...(hasBoosts ? { boosts: cfg.boosts } : {}),
-          // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
-          simulateDungeons: cfg.simulateDungeons,
-        },
-      }
-      workerRef.current.postMessage(payload)
+    // Merge a multi-config snapshot (every config's results) into hook state in one shot,
+    // so all 18 columns update together. Overwrite-in-place: prior numbers stay visible and
+    // are replaced cell-by-cell as the worker streams refined values — no blank flash.
+    const applyMultiSnapshot = (resultsByConfig: Record<string, DungeonSimSpotlightResults>) => {
+      const next: DungeonNoteSimResults = new Map(resultsByConfigRef.current)
+      for (const [cfgId, results] of Object.entries(resultsByConfig)) next.set(cfgId, results)
+      resultsByConfigRef.current = next
+      setResultsByConfigRef.current(new Map(next))
     }
 
     const handleMessage = (event: MessageEvent<DungeonSimulatorWorkerResponse>) => {
       const data = event.data
       if (!data) return
-      // Only handle detail queries that match any pending request.
-      // (detail queries are not used in this hook, so only simulate responses matter.)
+      // Ignore messages from superseded runs.
       if (data.id !== activeRequestRef.current) return
 
-      if (data.kind === 'simulate:progress') {
-        // Update intermediate results for the currently running config.
-        const cfgId = NOTE_SIM_CONFIGS[configIndexRef.current]?.id
-        if (cfgId) {
-          const next = new Map(resultsByConfigRef.current)
-          next.set(cfgId, data.payload.resultsBySpotlight)
-          resultsByConfigRef.current = next
-          setResultsByConfigRef.current(new Map(next))
-        }
+      if (data.kind === 'simulate:multi:progress') {
+        // One round completed — refresh all configs' columns at once.
+        applyMultiSnapshot(data.payload.resultsByConfig)
         return
       }
 
-      if (data.kind === 'simulate:done') {
-        // Store final results for the completed config.
-        const cfgId = NOTE_SIM_CONFIGS[configIndexRef.current]?.id
-        if (cfgId) {
-          const next = new Map(resultsByConfigRef.current)
-          next.set(cfgId, data.payload.resultsBySpotlight)
-          resultsByConfigRef.current = next
-          setResultsByConfigRef.current(new Map(next))
-        }
-        // Advance to the next config.
-        const nextIdx = configIndexRef.current + 1
-        configIndexRef.current = nextIdx
-        setConfigIndexRef.current(nextIdx)
-        if (nextIdx < NOTE_SIM_CONFIGS.length) {
-          // Queue the next config using the same request id.
-          sendConfig(data.id, nextIdx)
-        } else {
-          // All configs done — mark complete so a later push-pause re-enable won't restart.
-          completedRef.current = true
-          setRunningRef.current(false)
-        }
+      if (data.kind === 'simulate:multi:done') {
+        // Final round — apply the completed results and mark the run complete so a later
+        // push-pause re-enable does not restart a finished sim.
+        applyMultiSnapshot(data.payload.resultsByConfig)
+        completedRef.current = true
+        setRunningRef.current(false)
         return
       }
 
@@ -377,6 +351,12 @@ export function useDungeonNoteSimulator(
     // (or a user override edit landed during the pause). A run that had already completed
     // is left untouched — background pushes never restart a completed sim.
     const pauseNoteSim = () => {
+      // Drop a start that was waiting out the debounce so the pause is not undone by a
+      // timer that fires mid-pipeline.
+      if (startTimerRef.current !== null) {
+        clearTimeout(startTimerRef.current)
+        startTimerRef.current = null
+      }
       const w = workerRef.current
       if (!w) return
       const id = activeRequestRef.current
@@ -394,6 +374,11 @@ export function useDungeonNoteSimulator(
 
     return () => {
       clearDsimCallbacks(pauseNoteSim)
+      // Cancel any pending debounced start so it cannot fire after unmount.
+      if (startTimerRef.current !== null) {
+        clearTimeout(startTimerRef.current)
+        startTimerRef.current = null
+      }
       worker.removeEventListener('message', handleMessage)
       worker.removeEventListener('error', handleError)
       worker.removeEventListener('messageerror', handleError)
@@ -414,31 +399,42 @@ export function useDungeonNoteSimulator(
     const epochChanged = !prevInputs || prevInputs.epoch !== userOverrideEpoch
     const runsChanged = !prevInputs || prevInputs.runs !== runs
     const wasEnabled = prevInputs?.enabled ?? false
+    // Record the latest inputs for the next comparison (always — even while disabled — so the
+    // same epoch is not re-detected as a change on every later render during a pause).
+    prevInputsRef.current = { epoch: userOverrideEpoch, runs, enabled }
+
+    // A user override edit (epoch) or a runs change owes a fresh run. Latch it so the owed
+    // start survives a pause and a re-render: it is only cleared when a run actually starts.
+    if (epochChanged || runsChanged) {
+      pendingRestartRef.current = true
+      // Invalidate the table IMMEDIATELY so the stale numbers do not linger while the pipeline
+      // recomputes — clearing the results map makes every column render its skeleton. The run
+      // itself is deferred until the pipeline finishes (enabled flips back true), below.
+      completedRef.current = false
+      resultsByConfigRef.current = new Map()
+      setResultsByConfigRef.current(new Map())
+      setErrorRef.current(null)
+    }
+
+    // Helper: cancel a queued debounced start (used by both pause and supersede paths).
+    const clearStartTimer = () => {
+      if (startTimerRef.current !== null) {
+        clearTimeout(startTimerRef.current)
+        startTimerRef.current = null
+      }
+    }
 
     if (!enabled) {
-      // Paused (e.g. rule-cache pipeline running). Track only the enabled flag — DELIBERATELY
-      // preserve the previously-seen epoch/runs so a user override edit made *during* the pause
-      // is still detected as a change when the sim re-enables, rather than being silently
-      // absorbed here and lost.
-      prevInputsRef.current = {
-        epoch: prevInputs?.epoch ?? userOverrideEpoch,
-        runs: prevInputs?.runs ?? runs,
-        enabled,
-      }
-      // Cancel any in-flight worker run.
+      // Paused (e.g. rule-cache pipeline running). Cancel the in-flight run and any queued
+      // start, but KEEP pendingRestartRef: an owed user restart must still fire once the
+      // pipeline finishes and the sim re-enables.
+      clearStartTimer()
       if (workerRef.current) {
         workerRef.current.postMessage({ id, kind: 'cancel' } satisfies DungeonSimulatorWorkerRequest)
       }
-      // Always clear running state when disabled, even if nothing was running.
       setRunningRef.current(false)
       return
     }
-
-    // Persist inputs for the next comparison (enabled path only — see disabled branch above).
-    prevInputsRef.current = { epoch: userOverrideEpoch, runs, enabled }
-
-    // A user override edit (epoch) or a runs change always forces a fresh restart.
-    const userRestart = epochChanged || runsChanged
 
     // Re-enable after a pause (e.g. the rule-cache pipeline finished). This fires on every
     // background push that ran the pipeline, so it must NOT blanket-restart: a run that had
@@ -446,60 +442,75 @@ export function useDungeonNoteSimulator(
     // run); only a run interrupted mid-flight is restarted so the resumed run stays internally
     // consistent (a push may have changed rules, and configs are read live at send time).
     const reenabled = !wasEnabled && enabled
-    const reenabledMidRun = reenabled && !completedRef.current
+    const reenabledMidRun = reenabled && !completedRef.current && !pendingRestartRef.current
 
-    // Skip no-op: nothing user-driven changed, and we are not resuming an interrupted run.
-    if (!userRestart && !reenabledMidRun) return
+    // Skip no-op: no owed user restart, and not resuming an interrupted run.
+    if (!pendingRestartRef.current && !reenabledMidRun) return
 
-    // ─── Start / restart ─────────────────────────────────────────────────────
-    // Reset all accumulated results and start from config 0.
-    completedRef.current = false
-    configIndexRef.current = 0
-    resultsByConfigRef.current = new Map()
-    setConfigIndexRef.current(0)
-    setResultsByConfigRef.current(new Map())
-    setErrorRef.current(null)
-    setRunningRef.current(true)
+    // A new decision supersedes a start that was waiting out the debounce.
+    clearStartTimer()
 
-    const worker = workerRef.current
-
-    if (!supportsWorkerEnv || !worker) {
-      // Worker unavailable: show not-running rather than hanging.
-      setRunningRef.current(false)
-      return
+    // Send a single multi-config round-robin run to the worker. Reads rules/substatTargets
+    // live at call time so the freshest pipeline output is used. Clears the owed-restart latch
+    // and resets accumulators; the table already shows skeletons from the invalidate above.
+    const startRun = () => {
+      if (activeRequestRef.current !== id) return
+      const worker = workerRef.current
+      pendingRestartRef.current = false
+      completedRef.current = false
+      resultsByConfigRef.current = new Map()
+      setResultsByConfigRef.current(new Map())
+      setErrorRef.current(null)
+      setRunningRef.current(true)
+      if (!supportsWorkerEnv || !worker) {
+        // Worker unavailable: show not-running rather than hanging.
+        setRunningRef.current(false)
+        return
+      }
+      // One message carries every config; the worker round-robins them and streams a
+      // snapshot covering all 18 columns per round.
+      const payload: DungeonSimulatorWorkerRequest = {
+        id,
+        kind: 'simulate:multi',
+        payload: {
+          rules: rulesRef.current,
+          substatTargets: substatTargetsRef.current,
+          mode: 'levelUp',
+          runs: runsRef.current,
+          sliceRuns: NOTE_SIM_SLICE_RUNS,
+          throttleMs: throttleMsRef.current,
+          configs: NOTE_SIM_CONFIGS.map((cfg) => ({
+            id: cfg.id,
+            selections: cfg.selections,
+            boosts: cfg.boosts,
+            simulateDungeons: cfg.simulateDungeons,
+          })),
+        },
+      }
+      worker.postMessage(payload)
     }
 
-    // Worker path: send first config; subsequent configs are queued in the message handler.
-    const firstCfg = NOTE_SIM_CONFIGS[0]
-    if (!firstCfg) return
-    const firstHasBoosts = Object.keys(firstCfg.boosts).length > 0
-    const payload: DungeonSimulatorWorkerRequest = {
-      id,
-      kind: 'simulate',
-      payload: {
-        rules,
-        substatTargets,
-        runs,
-        batchSize: Math.max(1, Math.floor(batchSize)),
-        throttleMs,
-        mode: 'levelUp',
-        selections: firstCfg.selections,
-        ...(firstHasBoosts ? { boosts: firstCfg.boosts } : {}),
-        // Use per-config dungeon list (off configs include Ice Golem; boost configs do not).
-        simulateDungeons: firstCfg.simulateDungeons,
-      },
+    // A user override edit also triggers the rule-cache pipeline (debounced ~200ms), which
+    // would pause+cancel a sim started right now and then restart it post-pipeline — the
+    // initial run is pure waste and flickers. Debounce the user-driven start past the pipeline
+    // debounce so the edit coalesces into ONE start after the pipeline settles. A mid-run
+    // re-enable (already past the pipeline, nothing owed) starts immediately.
+    if (reenabledMidRun) {
+      startRun()
+    } else {
+      startTimerRef.current = setTimeout(() => {
+        startTimerRef.current = null
+        startRun()
+      }, NOTE_SIM_START_DEBOUNCE_MS)
     }
-    worker.postMessage(payload)
-    // rules/substatTargets/batchSize/throttleMs are intentionally NOT deps: they are read
-    // live via refs at send time (see useLayoutEffect above). Restarts are driven solely by
-    // user override edits (userOverrideEpoch), the runs count, and the enabled gate — so a
-    // background push that only updates `rules` re-renders without re-entering this effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+    // rules/substatTargets/throttleMs are intentionally NOT deps: they are read live via refs
+    // at send time (see useLayoutEffect above). Restarts are driven solely by user override
+    // edits (userOverrideEpoch), the runs count, and the enabled gate — so a background push
+    // that only updates `rules` re-renders without re-entering this effect.
   }, [userOverrideEpoch, enabled, runs])
 
   return {
     resultsByConfig,
-    configIndex,
     totalConfigs: NOTE_SIM_CONFIGS.length,
     running,
     error,
