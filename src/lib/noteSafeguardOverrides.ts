@@ -59,6 +59,8 @@ import {
   parseOverridesMarkerSpacerColumns,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
+  parseOverridesBooleanValue,
+  reportInvalidEnumValue,
 } from './noteOverridesParser'
 
 // Backward-compatible alias for external callers.
@@ -275,13 +277,6 @@ const matchesTagSelectorForRule = (
 
 // ── Boolean value parser (shared with flag fields) ────────────────────────────
 
-const parseBooleanValue = (value: string): boolean | null => {
-  const cleaned = value.trim().toLowerCase()
-  if (cleaned === 'true' || cleaned === 'on') return true
-  if (cleaned === 'false' || cleaned === 'off') return false
-  return null
-}
-
 // Deduplicate and sort a numeric array — shared by ranks, rarities, and factions applier.
 const sortDedupNumeric = <T extends number>(arr: T[]): T[] =>
   Array.from(new Set(arr)).sort((a, b) => a - b) as T[]
@@ -403,12 +398,14 @@ const parseOperations = (
     // ── activation = off | protect_existing | anticipate_gaps ────────────────
     if (field === 'activation') {
       const act = ACTIVATION_KEYWORD_MAP[valueLc]
+      // Unknown value (e.g. `activation=of`) would silently no-op; flag the typo.
       if (act) operations.push({ kind: 'activation', value: act })
+      else reportInvalidEnumValue('activation', valueToken, NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS, diags, absoluteOffset)
       continue
     }
 
     // ── boolean flag fields ───────────────────────────────────────────────────
-    const boolValue = parseBooleanValue(valueLc)
+    const boolValue = parseOverridesBooleanValue(valueLc)
     if (boolValue !== null) {
       if (field === 'ignprev')     { operations.push({ kind: 'ignPrev',               value: boolValue }); continue }
       if (field === 'igncoll')     { operations.push({ kind: 'ignEquippedCollection', value: boolValue }); continue }
@@ -501,8 +498,10 @@ const parseOperations = (
 
     // ── substatmatch = 1|2|3|4|persubstat ────────────────────────────────────
     if (field === 'substatmatch') {
-      const matchVal = SUBSTAT_MATCH_KEYWORD_MAP[valueLc]
-      if (matchVal) operations.push({ kind: 'substatMatch', value: matchVal })
+      // Use `in` (not truthiness) so an enum value of 0 is still recognized.
+      if (valueLc in SUBSTAT_MATCH_KEYWORD_MAP) operations.push({ kind: 'substatMatch', value: SUBSTAT_MATCH_KEYWORD_MAP[valueLc]! })
+      // Unknown value (e.g. `substatmatch=5`) would silently no-op; flag the typo.
+      else reportInvalidEnumValue('substatmatch', valueToken, NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, diags, absoluteOffset)
       continue
     }
 

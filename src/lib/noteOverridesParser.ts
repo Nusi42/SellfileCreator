@@ -178,6 +178,25 @@ export type SliderMark = {
 export const SLIDER_TOGGLE_SIDE_VALUES = ['left', 'above'] as const
 export type SliderToggleSide = (typeof SLIDER_TOGGLE_SIDE_VALUES)[number]
 
+/** Accepted `toggledefault=` values: 'on' (checked) or 'off' (unchecked). SSOT for the
+ *  parsed type, the `toggledefault` value parse below, and Prism highlighting. */
+export const SLIDER_TOGGLE_DEFAULT_VALUES = ['on', 'off'] as const
+export type SliderToggleDefault = (typeof SLIDER_TOGGLE_DEFAULT_VALUES)[number]
+
+/** Accepted boolean-like keyword values across the grammars: `on`/`true` ⇒ true,
+ *  `off`/`false` ⇒ false. SSOT for both the parse (`parseOverridesBooleanValue`) and the
+ *  enum-value diagnostic listing (e.g. `needs=…`, `flex=…`). */
+export const NOTE_OVERRIDES_BOOLEAN_KEYWORDS = ['on', 'off', 'true', 'false'] as const
+
+/** Parse a boolean-like keyword value (see NOTE_OVERRIDES_BOOLEAN_KEYWORDS); null if
+ *  unrecognized. Single definition imported by the recipe + safeguard parsers (DRY). */
+export const parseOverridesBooleanValue = (value: string): boolean | null => {
+  const cleaned = value.trim().toLowerCase()
+  if (cleaned === 'on' || cleaned === 'true') return true
+  if (cleaned === 'off' || cleaned === 'false') return false
+  return null
+}
+
 /** Optional on/off checkbox attached to a slider. When off, the slider's `else` block
  *  applies instead of its selector blocks, and the track is disabled in the UI. */
 export type SliderToggle = {
@@ -186,7 +205,7 @@ export type SliderToggle = {
   // Checkbox placement relative to the slider: 'left' (inline) or 'above' (stacked).
   side: SliderToggleSide
   // Initial state when the user has not answered yet.
-  default: 'on' | 'off'
+  default: SliderToggleDefault
 }
 
 /** Numeric range for a slider group, plus optional labeled marks and an on/off toggle. */
@@ -319,6 +338,26 @@ const reportReservedIdToken = (
     from: blockOffset + valueToken.index,
     to: blockOffset + valueToken.index + valueToken.value.length,
     message: `'${valueToken.value}' is a reserved keyword and cannot be used as an id — a constraint like 'set ${valueToken.value}' would not reference it (quote it as id="${valueToken.value}", or rename the id)`,
+  })
+}
+
+/** Flag a token whose value is outside an accepted enumerated set. SSOT for the
+ *  "not a valid <keyword> value — use 'a' or 'b'" diagnostic shared by every enumerated
+ *  param across the recipe/safeguard/slider grammars, so a typo (e.g. `toggleside=ab`,
+ *  `activation=of`) is surfaced instead of silently falling back to a default. */
+export const reportInvalidEnumValue = (
+  keyword: string,
+  valueToken: Token,
+  accepted: readonly string[],
+  diags: DiagnosticSpan[] | undefined,
+  blockOffset: number,
+): void => {
+  if (!diags) return
+  const from = blockOffset + valueToken.index
+  diags.push({
+    from,
+    to: from + valueToken.value.length,
+    message: `'${valueToken.value}' is not a valid ${keyword} value — use ${accepted.map((v) => `'${v}'`).join(' or ')}`,
   })
 }
 
@@ -722,8 +761,11 @@ const parseSliderMarks = (cursor: TokenCursor): SliderMark[] => {
   return marks
 }
 
-/** Parse slider params (min/max/step/default/marks/toggle…) before the opening brace. */
-export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
+/** Parse slider params (min/max/step/default/marks/toggle…) before the opening brace.
+ *  `diags`/`blockOffset` (optional) collect diagnostics for enumerated params whose value
+ *  is outside the accepted set (e.g. `toggleside=ab`), which would otherwise silently fall
+ *  back to a default instead of being surfaced as a typo. */
+export const parseSliderParams = (cursor: TokenCursor, diags?: DiagnosticSpan[], blockOffset = 0): SliderParams => {
   // Defaults: slider from 0 to 10 in steps of 1 with default 1.
   let min = 0; let max = 10; let step = 1; let def = 1
   let marks: SliderMark[] | undefined
@@ -731,6 +773,9 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
   let unit: string | undefined
   // Lazily create the toggle so toggle/toggleside/toggledefault can appear in any order.
   const ensureToggle = (): SliderToggle => (toggle ??= { label: '', side: 'above', default: 'on' })
+  // Flag an enumerated value outside its accepted set (delegates to the shared SSOT helper).
+  const reportInvalidValue = (keyword: string, valueToken: Token, accepted: readonly string[]): void =>
+    reportInvalidEnumValue(keyword, valueToken, accepted, diags, blockOffset)
   while (true) {
     const token = cursor.peek()
     if (!token || token.kind !== 'word') break
@@ -744,13 +789,23 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
     if (keyword === 'toggle') { cursor.next(); ensureToggle().label = valueToken.value; continue }
     // `unit` is a display-only suffix; accept the raw string/word verbatim.
     if (keyword === 'unit') { cursor.next(); unit = valueToken.value; continue }
-    // Accept only `left`; anything else (incl. the explicit `above`) maps to the default 'above'.
+    // Accept only the enumerated sides; anything else maps to the default 'above' AND is flagged
+    // (a silent fallback would hide typos like `toggleside=ab`).
     if (keyword === 'toggleside') {
       cursor.next()
-      ensureToggle().side = valueToken.value.toLowerCase() === SLIDER_TOGGLE_SIDE_VALUES[0] ? 'left' : 'above'
+      const lowered = valueToken.value.toLowerCase()
+      if (!(SLIDER_TOGGLE_SIDE_VALUES as readonly string[]).includes(lowered)) reportInvalidValue('toggleside', valueToken, SLIDER_TOGGLE_SIDE_VALUES)
+      ensureToggle().side = lowered === SLIDER_TOGGLE_SIDE_VALUES[0] ? 'left' : 'above'
       continue
     }
-    if (keyword === 'toggledefault') { cursor.next(); ensureToggle().default = valueToken.value.toLowerCase() === 'off' ? 'off' : 'on'; continue }
+    // Likewise for toggledefault: accept only on/off; flag anything else (it defaults to 'on').
+    if (keyword === 'toggledefault') {
+      cursor.next()
+      const lowered = valueToken.value.toLowerCase()
+      if (!(SLIDER_TOGGLE_DEFAULT_VALUES as readonly string[]).includes(lowered)) reportInvalidValue('toggledefault', valueToken, SLIDER_TOGGLE_DEFAULT_VALUES)
+      ensureToggle().default = lowered === 'off' ? 'off' : 'on'
+      continue
+    }
     cursor.next()
     const parsed = Number.parseFloat(valueToken.value)
     if (!Number.isFinite(parsed)) continue
@@ -951,7 +1006,7 @@ export function parseOverridesOptionBlock<S, O>(
         // param keywords (min/max/step/marks/toggle…) are always params when followed by '='.
         if ((kw !== 'default' && (SLIDER_PARAM_KEYWORDS as readonly string[]).includes(kw))
             || (kw === 'default' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=')) {
-          sliderParams = parseSliderParams(cursor)
+          sliderParams = parseSliderParams(cursor, diags, blockOffset)
           continue
         }
       }
@@ -1036,6 +1091,9 @@ export function parseOverridesOptionBlock<S, O>(
           const value = stateToken.value.toLowerCase()
           if (value === 'on' || value === 'true') { needsDisabledState = 'on'; cursor.next() }
           else if (value === 'off' || value === 'false') { needsDisabledState = 'off'; cursor.next() }
+          // Anything else (e.g. `needs=maybe`) is a typo: flag it instead of leaving the
+          // state null and silently swallowing the token into the following id list.
+          else { reportInvalidEnumValue('needs', stateToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, blockOffset); cursor.next() }
         }
       }
       readTokenList(cursor, needsTokens); continue

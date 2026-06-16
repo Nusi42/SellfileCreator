@@ -2962,7 +2962,7 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 const MARK_ROW_BASE = 28
 const MARK_ROW_H = 18
 function NoteOverridesSlider({
-  value, min, max, step, marks, unit, disabled, onCommit,
+  value, min, max, step, marks, unit, disabled, onCommit, leftControl,
 }: {
   value: number
   min: number
@@ -2974,6 +2974,10 @@ function NoteOverridesSlider({
   unit?: string
   disabled: boolean
   onCommit: (value: number) => void
+  // Optional control (the enable/disable checkbox) rendered inline left of the track.
+  // Placed here — not by the caller — so it shares the track's exact centre line; the
+  // mark labels hang below the whole row, keeping the checkbox on the track, not above it.
+  leftControl?: React.ReactNode
 }): JSX.Element {
   // Local visual value while dragging; null falls back to the committed `value`.
   const [dragValue, setDragValue] = useState<number | null>(null)
@@ -3060,6 +3064,8 @@ function NoteOverridesSlider({
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
+      {/* Inline checkbox (when toggleside=left): shares the row's centre line with the track. */}
+      {leftControl ? <Box sx={{ flexShrink: 0 }}>{leftControl}</Box> : null}
       <Slider
         ref={sliderRef}
         size="small"
@@ -3212,21 +3218,6 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
               const min = sliderOpt.sliderMin ?? 1
               const max = sliderOpt.sliderMax ?? 5
               const step = sliderOpt.sliderStep ?? 1
-              const sliderControl = (
-                <NoteOverridesSlider
-                  value={sliderValue}
-                  min={min}
-                  max={max}
-                  step={step}
-                  // Raw marks; the slider does collision-aware row layout + connectors itself.
-                  {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
-                  // Optional display-only value suffix (e.g. "%").
-                  {...(sliderOpt.sliderUnit ? { unit: sliderOpt.sliderUnit } : {})}
-                  disabled={!safeguardOverridesEditable || toggleOff}
-                  // Commit the numeric value once on release; the off sentinel is set by the toggle.
-                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
-                />
-              )
               // Optional enable/disable checkbox; unchecking stores the off sentinel (else block).
               const toggleControl = toggle ? (
                 <FormControlLabel
@@ -3244,6 +3235,26 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                     : ''}
                 />
               ) : null
+              // toggleside=left renders the checkbox inline within the slider row (sharing the
+              // track centre line); otherwise it stacks above and the slider gets no leftControl.
+              const inlineLeft = !!toggle && toggle.side === 'left'
+              const sliderControl = (
+                <NoteOverridesSlider
+                  value={sliderValue}
+                  min={min}
+                  max={max}
+                  step={step}
+                  // Raw marks; the slider does collision-aware row layout + connectors itself.
+                  {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
+                  // Optional display-only value suffix (e.g. "%").
+                  {...(sliderOpt.sliderUnit ? { unit: sliderOpt.sliderUnit } : {})}
+                  disabled={!safeguardOverridesEditable || toggleOff}
+                  // Commit the numeric value once on release; the off sentinel is set by the toggle.
+                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
+                  // Inline-left toggle sits in the slider's own centred row.
+                  {...(inlineLeft && toggleControl ? { leftControl: toggleControl } : {})}
+                />
+              )
               const sliderBox = (
                 <Box key={group.id} sx={{ px: 0.5, pt: 0.5 }}>
                   {/* Slider prompt label mirrors the group header label when present */}
@@ -3253,13 +3264,9 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       {sliderOpt.isDefault && isEditorPreview && <NoteOptionDefaultChip />}
                     </Typography>
                   ) : null}
-                  {toggle && toggle.side === 'left' ? (
-                    // Checkbox inline-left, top-aligned so it sits on the slider's track line
-                    // (the slider box is tall because of the mark labels below the track).
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      {toggleControl}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>{sliderControl}</Box>
-                    </Box>
+                  {inlineLeft ? (
+                    // Checkbox is inside sliderControl's centred row — render the slider alone.
+                    sliderControl
                   ) : (
                     // Checkbox stacked above the slider (default).
                     <>

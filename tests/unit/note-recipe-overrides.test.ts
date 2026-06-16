@@ -454,6 +454,37 @@ test('id=<reserved keyword> is flagged as a diagnostic', () => {
   assert.equal(diag('cb "X" id=keep_epic { @all { export=active } }').length, 0)
 })
 
+test('invalid enumerated assignment values are flagged instead of silently dropped', () => {
+  const diag = (line: string) => {
+    const block = `<!-- recipe-overrides\nq "Q"\n${line}\n-->`
+    const diags: { from: number; to: number; message: string }[] = []
+    collectRecipeOverridesDiagnostics(block, 0, diags)
+    return diags
+  }
+  // export= / keep= / autolate= / flex= each accept a closed value set; a typo must be flagged.
+  const cases: { line: string; needle: RegExp }[] = [
+    { line: 'cb "X" id=a { @all { export=activ } }',     needle: /'activ' is not a valid export value/ },
+    { line: 'cb "X" id=a { @all { keep=middle } }',      needle: /'middle' is not a valid keep value/ },
+    { line: 'cb "X" id=a { @all { autolate=legendary } }', needle: /'legendary' is not a valid autolate value/ },
+    { line: 'cb "X" id=a { @all { flex=maybe } }',       needle: /'maybe' is not a valid flex value/ },
+  ]
+  for (const { line, needle } of cases) {
+    const diags = diag(line)
+    assert.equal(diags.length, 1, `${line} should produce exactly one diagnostic`)
+    assert.match(diags[0]!.message, needle)
+  }
+  // Control: well-formed values produce no diagnostics.
+  assert.equal(diag('cb "X" id=a { @all { export=toggle keep=early autolate=rare flex=on } }').length, 0)
+})
+
+test('needs= with an invalid on/off state is flagged', () => {
+  const block = '<!-- recipe-overrides\nq "Q"\ncb "Epic" id=epic { @all { export=active } }\ncb "Cap" id=cap needs=maybe epic { @all { lvl=12-16 } }\n-->'
+  const diags: { from: number; to: number; message: string }[] = []
+  collectRecipeOverridesDiagnostics(block, 0, diags)
+  assert.equal(diags.length, 1)
+  assert.match(diags[0]!.message, /'maybe' is not a valid needs value/)
+})
+
 test('needs=on|off captures the displayed-while-disabled state', () => {
   const note = [
     '<!-- recipe-overrides',
