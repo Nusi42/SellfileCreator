@@ -216,7 +216,7 @@ export const NOTE_OVERRIDES_GROUP_TYPE_MAP: Record<string, NoteQuestionGroupType
 }
 
 /** Word-form constraint keywords (symbolic forms ! + - ^ are handled separately). */
-export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl', 'needs'] as const
+export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl', 'needs', 'setval'] as const
 
 /** Boolean logic connectors for compound selector expressions. */
 export const NOTE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
@@ -545,6 +545,12 @@ export type OverridesSelectorBlock<S, O> = {
 }
 
 /** A parsed option within a group, parameterized over selector and operation types. */
+/** A single `setval` force: target a slider by its `id=token` marker, pin it to `value`. */
+export type OverridesSetValueDirective = {
+  token: string
+  value: number
+}
+
 export type ParsedOverridesOption<S, O> = {
   id: string
   legacyId: string
@@ -570,6 +576,11 @@ export type ParsedOverridesOption<S, O> = {
   // Optional `needs=on|off`: the checkbox is shown in this state while the gate is
   // unmet (display only; the stored value is untouched). null = keep current state.
   needsDisabledState: 'on' | 'off' | null
+  // `setval token=number …`: while THIS option is selected, force the referenced slider
+  // (matched by its `id=token` marker) to `value`. The target slider may live in another
+  // overrides domain (e.g. a recipe checkbox forcing a safeguard slider) — resolution of the
+  // force is computed, never persisted, so dragging the slider releases this option.
+  setValueTokens: OverridesSetValueDirective[]
   groupType: NoteQuestionGroupType
   // Only populated when groupType === 'slider'.
   sliderParams?: SliderParams
@@ -632,6 +643,37 @@ export function readTokenList(cursor: TokenCursor, sink: string[]): void {
     cursor.next()
     const normalized = normalizeQuestionToken(token.value)
     if (normalized) sink.push(normalized)
+  }
+}
+
+/** Read `token=number` pairs (comma/space-separated) into a sink until a structural keyword.
+ *  Mirrors readTokenList's stop conditions but, unlike it, consumes the `=value` suffix that
+ *  readTokenList deliberately breaks on. Pairs missing a numeric value are skipped. */
+export function readValueAssignmentList(cursor: TokenCursor, sink: OverridesSetValueDirective[]): void {
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === ',') { cursor.next(); continue }
+    // Same boundaries as readTokenList: stop before a new directive/keyword/block.
+    if (token.kind === 'word' && (isQuestionKeyword(token) || isFallbackKeyword(token))) break
+    if (token.kind === 'word' && parseGroupType(token.value)) break
+    if (token.kind === 'word' && token.value.startsWith('-')) break
+    if (token.kind === 'word'
+        && (NOTE_OVERRIDES_CONSTRAINT_KEYWORDS as readonly string[]).includes(token.value.toLowerCase())) break
+    if (token.kind === 'symbol' && token.value === '{') break
+    if (token.kind !== 'word' && token.kind !== 'string') break
+    // Expect `token = number`; bail on a malformed pair rather than mis-consuming downstream tokens.
+    const normalized = normalizeQuestionToken(token.value)
+    if (!normalized) { cursor.next(); continue }
+    if (cursor.peek(1)?.kind !== 'symbol' || cursor.peek(1)?.value !== '=') { cursor.next(); continue }
+    cursor.next() // token
+    cursor.next() // '='
+    const valueToken = cursor.peek()
+    if (!valueToken || valueToken.kind !== 'word') continue
+    const value = Number.parseFloat(valueToken.value)
+    cursor.next() // value
+    if (!Number.isFinite(value)) continue
+    sink.push({ token: normalized, value })
   }
 }
 
@@ -849,6 +891,7 @@ export function parseOverridesOptionBlock<S, O>(
   const excludedTokens: string[] = []
   const onlyTokens: string[] = []
   const needsTokens: string[] = []
+  const setValueTokens: OverridesSetValueDirective[] = []
   let needsDisabledState: 'on' | 'off' | null = null
   let sliderParams: SliderParams | undefined
   // Track header parsing order so constraints stay before the selector block.
@@ -901,7 +944,7 @@ export function parseOverridesOptionBlock<S, O>(
     return {
       id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
       isDefault, explicitToken, implicitToken: null,
-      setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
+      setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState, setValueTokens,
       groupType, sliderParams,
       sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
     }
@@ -964,6 +1007,10 @@ export function parseOverridesOptionBlock<S, O>(
       }
       readTokenList(cursor, needsTokens); continue
     }
+    if (token.kind === 'word' && token.value.toLowerCase() === 'setval') {
+      headerPhase = 'constraints'; cursor.next()
+      readValueAssignmentList(cursor, setValueTokens); continue
+    }
     if (token.kind === 'symbol' && token.value === '+') {
       headerPhase = 'constraints'; cursor.next()
       readTokenList(cursor, setTokens); continue
@@ -988,7 +1035,7 @@ export function parseOverridesOptionBlock<S, O>(
   return {
     id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
     isDefault, explicitToken, implicitToken,
-    setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState,
+    setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState, setValueTokens,
     groupType,
     sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
   }

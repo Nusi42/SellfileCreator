@@ -1833,7 +1833,13 @@ elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   /
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+             | "setval" valueAssignList
 tokenList     := token ("," token)*
+valueAssignList := token "=" number ("," token "=" number)*
+                 // When THIS option becomes selected, write number into the slider whose
+                 // id=token marker matches (persisted as a real stored value, like a drag). The
+                 // target slider may live in another overrides domain (recipe checkbox ->
+                 // safeguard slider). Afterwards the slider is an ordinary stored answer.
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
 gearToken     := ["+" | "+-" | "-"] token
 value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
@@ -2355,6 +2361,30 @@ function NoteOptionConstraintRow(
   )
 }
 
+// FORCES row for `setval token=N` directives. Unlike on/off/excl/needs (which reference sibling
+// option ids), these target SLIDERS by id=token — usually in the other overrides domain — so they
+// render as `token=value` literals rather than resolved option-ref chips.
+function NoteOptionSetvalRow(
+  { directives, kwColor, tokenColor }:
+  { directives: { token: string; value: number }[]; kwColor: string; tokenColor: string },
+): JSX.Element | null {
+  if (directives.length === 0) return null
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
+      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: 'var(--font-code, monospace)' }}>
+        setval
+      </Typography>
+      <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.25, minWidth: 0 }}>
+        {directives.map((d) => (
+          <Typography key={d.token} component="span" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: 'var(--font-code, monospace)' }}>
+            {d.token}={d.value}
+          </Typography>
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
 // Tooltip body. See the layout comment above the section. All sections are render-time
 // derived from the structured option; nothing here mutates note state.
 function NoteOptionInfoTooltipContent({
@@ -2366,6 +2396,7 @@ function NoteOptionInfoTooltipContent({
   excludedOptionIds,
   requiresOptionIds,
   requiresDisabledState,
+  setValueDirectives,
   slider,
   positionalIndex,
   blocks,
@@ -2378,6 +2409,7 @@ function NoteOptionInfoTooltipContent({
   excludedOptionIds: string[]
   requiresOptionIds: string[]
   requiresDisabledState?: 'on' | 'off' | null | undefined
+  setValueDirectives?: { token: string; value: number }[]
   slider?: { min: number; max: number; default: number } | null | undefined
   positionalIndex: number
   blocks: NoteOverrideInfoBlock[]
@@ -2398,7 +2430,8 @@ function NoteOptionInfoTooltipContent({
   const hasOwnFields = blocks.some((b) => b.operations.length > 0)
   // Reconstruct the CHANGES DSL ([prefix ]selector→field=value — no id header line).
   const dsl = buildOptionInfoDsl({ blocks })
-  const hasConstraints = setOptionIds.length + unsetOptionIds.length + excludedOptionIds.length + requiresOptionIds.length > 0
+  const setvals = setValueDirectives ?? []
+  const hasConstraints = setOptionIds.length + unsetOptionIds.length + excludedOptionIds.length + requiresOptionIds.length + setvals.length > 0
   // needs-gate display state suffix (`shown off until met`), display-only.
   const needsSuffix = requiresDisabledState ? `shown ${requiresDisabledState} until met` : undefined
   // ID reference: explicit `id=token` verbatim; otherwise the 1-based position (the DSL
@@ -2436,6 +2469,7 @@ function NoteOptionInfoTooltipContent({
               <NoteOptionConstraintRow label="off" ids={unsetOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
               <NoteOptionConstraintRow label="excl" ids={excludedOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
               <NoteOptionConstraintRow label="needs" ids={requiresOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} suffix={needsSuffix} />
+              <NoteOptionSetvalRow directives={setvals} kwColor={constraintKwColor} tokenColor={tokenColor} />
             </>
           ) : (
             <NoteTooltipNothing />
@@ -2485,6 +2519,8 @@ type NoteInfoTooltipOption = {
   excludedOptionIds: string[]
   requiresOptionIds?: string[]
   requiresDisabledState?: 'on' | 'off' | null
+  // `setval token=N` cross-domain slider value forces (recipe option only carries these).
+  setValueDirectives?: { token: string; value: number }[]
   sliderMin?: number
   sliderMax?: number
   sliderDefault?: number
@@ -2555,6 +2591,7 @@ function NoteOptionInfoTooltipWrap(
           excludedOptionIds={option.excludedOptionIds}
           requiresOptionIds={option.requiresOptionIds ?? []}
           requiresDisabledState={option.requiresDisabledState ?? null}
+          setValueDirectives={option.setValueDirectives ?? []}
           slider={buildOptionSliderInfo(option)}
           positionalIndex={option.positionalIndex}
           blocks={assembleOptionInfoBlocks(option, domain)}
@@ -4209,24 +4246,65 @@ export default function NoteDialog({
     onApplySafeguardOverrides,
     onNoteOverridesDisabledChange,
   ])
+  // Resolve safeguard overrides markers — produces both question definitions (for rendering)
+  // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange). Declared before
+  // the recipe handler because that handler reads it to resolve cross-domain `setval` slider writes.
+  const safeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
+    [renderNote, safeguardOverridesAnswers],
+  )
   const handleRecipeOverridesAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
     preferredId?: string,
     removedId?: string,
   ) => {
-    // Delegate the persist + normalize flow (incl. the seed-on-uncheck fix that keeps a
-    // released account tier from cascading unrelated boxes off) to the shared helper.
+    // Persist the recipe answer change.
+    const note = renderNote ?? ''
     onRecipeOverridesAnswersChange((prev) => applyRecipeOverridesAnswerChange(
-      renderNote ?? '', prev, question, nextSelection, preferredId, removedId,
+      note, prev, question, nextSelection, preferredId, removedId,
     ))
-  }, [onRecipeOverridesAnswersChange, renderNote])
-  // Resolve safeguard overrides markers — produces both question definitions (for rendering)
-  // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange).
-  const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
-    [renderNote, safeguardOverridesAnswers],
-  )
+    // Cross-domain slider writes: an option that becomes newly selected pins a SAFEGUARD slider
+    // (matched by its id=token), persisting a real stored value — exactly as if the user dragged
+    // it there (no render overlay, no snap-back). This is how an account-mode radio sets the
+    // improvement-chance sliders: `Endgame+` → 50, the rest → 25.
+    //   • `setval token=N` → write the slider value N (implies toggle on).
+    //   • `+token` / `-token` (set/unset) naming a slider id → toggle it on / off.
+    // We diff the resolved recipe selection before/after off the CURRENT answers prop (this handler
+    // fires on a user action, so `recipeOverridesAnswers` is the live state) to avoid nested setState.
+    const before = new Set(resolveRecipeOverridesTags(note, recipeOverridesAnswers).questions.flatMap((q) => q.answer))
+    const nextRecipe = applyRecipeOverridesAnswerChange(note, recipeOverridesAnswers, question, nextSelection, preferredId, removedId)
+    // token → safeguard slider option (id=token), for resolving cross-domain writes.
+    const sliderByToken = new Map<string, { questionId: string; defaultNum: number }>()
+    for (const q of safeguardOverridesResolution.questions) {
+      const slider = q.options.find((o) => o.groupType === 'slider' && o.token)
+      if (slider?.token) sliderByToken.set(slider.token, { questionId: q.id, defaultNum: slider.sliderDefault ?? slider.sliderMin ?? 1 })
+    }
+    // Accumulate writes from every newly-selected option, in resolution order (last wins).
+    const writes: { questionId: string; value: string }[] = []
+    for (const q of resolveRecipeOverridesTags(note, nextRecipe).questions) {
+      for (const o of q.options) {
+        if (!q.answer.includes(o.id) || before.has(o.id)) continue
+        for (const { token, value } of o.setValueDirectives) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(value) })
+        }
+        // +token → toggle the slider ON at its default; -token → toggle OFF (sentinel).
+        for (const token of o.setTokens) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(sld.defaultNum) })
+        }
+        for (const token of o.unsetTokens) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: SLIDER_TOGGLE_OFF })
+        }
+      }
+    }
+    if (writes.length > 0) {
+      onSafeguardOverridesAnswersChange((prevSg) => {
+        const nextSg = { ...prevSg }
+        for (const w of writes) nextSg[w.questionId] = [w.value]
+        return nextSg
+      })
+    }
+  }, [onRecipeOverridesAnswersChange, onSafeguardOverridesAnswersChange, recipeOverridesAnswers, safeguardOverridesResolution, renderNote])
   // Build the marker index → question definition map for NoteSafeguardOverridesBlock.
   const safeguardOverridesResolutions = useMemo(
     () => {
@@ -4256,6 +4334,8 @@ export default function NoteDialog({
       const sliderOpt = sliderGroup.options[0]
       const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
       const numStr = nextSelection[0]
+      // Note: a slider value set by an account-mode `setval` is just a normal stored answer here
+      // (persisted on select), so dragging it is an ordinary value change — no special release.
       // The toggle-off sentinel passes through unchanged (routes to the else block).
       if (numStr === SLIDER_TOGGLE_OFF) {
         onSafeguardOverridesAnswersChange((prev) => ({ ...prev, [question.id]: [SLIDER_TOGGLE_OFF] }))

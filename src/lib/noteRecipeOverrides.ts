@@ -17,6 +17,7 @@ import {
   type NoteCountAstNode,
   type NoteQuestionGroupType,
   type ParsedOverridesOption,
+  type OverridesSetValueDirective,
   type ParsedOverridesQuestion,
   TokenCursor,
   NOTE_OVERRIDES_QUESTION_KEYWORDS,
@@ -364,6 +365,14 @@ export type NoteQuestionOption = {
   setOptionIds: string[]
   unsetOptionIds: string[]
   excludedOptionIds: string[]
+  // Cross-domain slider forcing (computed, never persisted). While this option is selected:
+  //  • setValueDirectives — force each named slider (by its id=token) to a value, toggled on.
+  //  • setTokens / unsetTokens — raw header tokens; a token matching a safeguard slider's id
+  //    forces that slider's toggle on (set) or off (unset). In-domain resolution of these tokens
+  //    lives in setOptionIds/unsetOptionIds; the raw forms are retained for the cross-domain bridge.
+  setValueDirectives: OverridesSetValueDirective[]
+  setTokens: string[]
+  unsetTokens: string[]
   // `needs` ids: the UI renders this option disabled until at least one of these
   // is selected. Empty = always enabled. Purely a UI gate (selection unaffected).
   requiresOptionIds: string[]
@@ -1767,6 +1776,10 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
+      // Retain raw header tokens + setval pairs for the cross-domain slider-forcing bridge.
+      setValueDirectives: option.setValueTokens,
+      setTokens: option.setTokens,
+      unsetTokens: option.unsetTokens,
       requiresOptionIds,
       requiresDisabledState: option.needsDisabledState,
       groupType: option.groupType,
