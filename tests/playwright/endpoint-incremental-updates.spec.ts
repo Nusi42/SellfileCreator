@@ -45,7 +45,7 @@ import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { getWorkloadIndicator } from './workload-indicator'
+import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { PRESET_LATEGAME_SFC_PATH, EXAMPLE_RSLHELPER_DB_PATHS } from './fixture-paths'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
@@ -200,10 +200,10 @@ const measureHeapMB = async (page: { evaluate: (fn: () => number) => Promise<num
 
 test.describe('endpoint-incremental-updates', () => {
   test('a growing artifact inventory does not crash or leak across many updates', async ({ page }) => {
-    // 1 seed + WITHHELD_ARTIFACTS reveal rounds, each driving a diff/merge/pipeline cycle
-    // over a strictly larger dataset, plus interleaved champion/lastUsed pushes. Generous
-    // ceiling for a slow content process.
-    test.setTimeout(1_200_000)
+    // 1 seed + WITHHELD_ARTIFACTS reveal rounds, each one push + settleWorkload() over a
+    // strictly larger dataset. Shared sweep token (480 s) — less than half the former
+    // 20-min ceiling. A run near this bound means a per-reveal settle is regressing.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointSweep)
 
     // Reconstruct every real account's feed once, up front (Node disk + sql.js work
     // stays out of the hot loop). Swapping accounts mid-run varies inventory size + ids.
@@ -260,17 +260,15 @@ test.describe('endpoint-incremental-updates', () => {
     await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
     await dismissBlockingDialogs(page)
 
-    const workload = getWorkloadIndicator(page)
-    await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-    await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+    await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
     for (let i = 0; i < 50 && !serverWs; i++) { await page.waitForTimeout(100) }
     if (!serverWs) throw new Error('App did not open the WebSocket endpoint connection.')
 
-    // Settle helper: a feed push should kick the workload indicator; wait it out.
+    // Settle helper: a feed push should kick the workload indicator; wait it out,
+    // then one extra tick so React commits the revealed cards before we measure heap.
     const settle = async (): Promise<void> => {
-      await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-      await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+      await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
       await page.waitForTimeout(150)
     }
 

@@ -5,7 +5,7 @@ import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { getWorkloadIndicator } from './workload-indicator'
+import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { PRESET_LATEGAME_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
 
@@ -59,8 +59,8 @@ test.describe('binary-endpoint-memory', () => {
    * If Chrome crashes or heap grows without bound, the leak is confirmed.
    */
   test('binary db push does not leak memory across repeated bursts', async ({ page }) => {
-    // Budget: 8 rounds × 4 bursts × ~30 s per settle + startup.
-    test.setTimeout(600_000)
+    // TOTAL_ROUNDS × RAPID_BURST_COUNT pushes, settled per round; shared burst token.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointBurst)
 
     // The fixture already ships in RSL Helper's slimmed format (~1.4 MB, no
     // ChampOverviewImage blobs), so the base64-encoded WebSocket frame stays well
@@ -106,9 +106,7 @@ test.describe('binary-endpoint-memory', () => {
     await dismissBlockingDialogs(page)
 
     // Wait for the SFC-triggered rule-build pipeline to finish before we start pushing.
-    const workload = getWorkloadIndicator(page)
-    await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-    await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+    await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
     // Poll until the app opens the WebSocket to our interceptor.
     for (let i = 0; i < 50 && !serverWs; i++) {
@@ -143,9 +141,8 @@ test.describe('binary-endpoint-memory', () => {
         ws.send(dbBuffer)
       }
 
-      // Wait for workload indicator to appear (pipeline started) then disappear (settled).
-      await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
-      await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+      // Wait for the pipeline to settle (visible wait short, hidden wait gets the work budget).
+      await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
       // Extra rAF so React can commit any trailing state updates.
       await page.waitForTimeout(500)

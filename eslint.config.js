@@ -115,6 +115,37 @@ export default [
       'react-hooks/exhaustive-deps': 'off',
       // Playwright's `use()` fixture function is not a React hook; suppress false positives.
       '@eslint-react/rules-of-hooks': 'off',
+
+      // ── Timeout-discipline guardrails ──────────────────────────────────────
+      // These exist because the recurring failure mode in this suite has been
+      // "test flaked → bump the timeout / reach for testXL", which hides wrong
+      // waits behind ever-longer ceilings and has cost hours of dead waiting.
+      // A longer timeout never makes a correct test pass faster and never fixes a
+      // broken one — it only makes failures slower. Diagnose the root cause; do
+      // not extend the budget. See the "Timeout policy" section in docs/TECHNICAL.md.
+      'no-restricted-syntax': ['error',
+        {
+          // Ban raw numeric literals in test.setTimeout(...). Every budget must be
+          // a named, centrally-defined token from PLAYWRIGHT_TIMEOUTS so the value
+          // is reviewable in one place and cannot be silently inflated per-spec.
+          selector: "CallExpression[callee.object.name='test'][callee.property.name='setTimeout'] > Literal",
+          message:
+            'Do not pass a raw number to test.setTimeout(). Use a named PLAYWRIGHT_TIMEOUTS.* token (add one to tests/playwright/timeouts.ts if none fits). Bumping a numeric ceiling hides wrong waits — diagnose the slowness instead.',
+        },
+        {
+          // Ban a "visible" waitFor carrying a long (work-sized) budget. A spinner
+          // can show-and-hide before Playwright polls it visible, so a long visible
+          // timeout blocks the FULL duration on every missed appearance (this is the
+          // exact bug that made binary-endpoint specs run 30+ min). Visible waits
+          // must use a short budget (expectDefault / uiMenu); to wait on the preview
+          // pipeline, call settleWorkload() — it spends the long budget only on the
+          // hidden wait.
+          selector:
+            "CallExpression[callee.property.name='waitFor'] > ObjectExpression:has(Property[key.name='state'][value.value='visible']):has(Property[key.name='timeout'] MemberExpression[object.name='PLAYWRIGHT_TIMEOUTS'][property.name=/^(testLong|testHeavy|testXL|testXXL|workloadIdle|expectLong)$/])",
+          message:
+            "A 'visible' waitFor must not use a long timeout: a missed spinner appearance would block the full budget. Use a short budget (expectDefault/uiMenu), or call settleWorkload() to wait on the preview pipeline (long budget applies only to the hidden wait).",
+        },
+      ],
     },
   },
   // TypeScript-specific tweaks

@@ -6,7 +6,7 @@ import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { getWorkloadIndicator } from './workload-indicator'
+import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 
@@ -38,8 +38,8 @@ const MEMORY_LEAK_ROUNDS = 3 // raise to 20 in development tests, use 3 at relea
 
 test.describe('endpoint-replay', () => {
   test('replays sample-log packets 3× without crash or page error', async ({ page }) => {
-    // Each round can trigger a full WASM pipeline pass over a large artifact set; budget accordingly.
-    test.setTimeout(120_000)
+    // A few push-burst rounds, each capped by one settleWorkload() wait; shared token.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointBurst)
 
     // Load every captured packet once in Node.js; the full burst fits comfortably in memory.
     // Each file is a self-contained JSON-RPC envelope, so no stitching or comma-patching is needed.
@@ -74,9 +74,7 @@ test.describe('endpoint-replay', () => {
     await dismissBlockingDialogs(page)
 
     // Wait for the initial rule-build pipeline triggered by the SFC load.
-    const workload = getWorkloadIndicator(page)
-    await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-    await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+    await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
     // Poll until the app has established the WebSocket connection (should be nearly instant).
     for (let i = 0; i < 50 && !serverWs; i++) {
@@ -101,8 +99,7 @@ test.describe('endpoint-replay', () => {
       // Wait for the gear-inspector workload indicator to appear then disappear.
       // The pipeline runs storeArtifactRows + evaluateAndCollectSafeguardProtection
       // for the full artifact set each time endpoint data arrives.
-      await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-      await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+      await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
       // Short pause between rounds so the JS heap can stabilise before the next burst.
       // Catch page-closed errors (e.g. OOM under full-suite load) so the crash flag
@@ -127,8 +124,9 @@ test.describe('endpoint-replay', () => {
    * a no-op diff after round 1 and the WASM worker is never exercised.
    */
   test('json per-type burst does not leak memory across 20 rounds', async ({ page }) => {
-    // 20 rounds × ~30 s settle budget + startup headroom.
-    test.setTimeout(720_000)
+    // MEMORY_LEAK_ROUNDS push-burst rounds, each one settleWorkload() wait; shared token.
+    // (The old 720_000 ms ceiling sized for a 20-round dev config that never ships at 3.)
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointBurst)
 
     // Parse once; we mutate the objects in place between rounds to avoid large
     // JSON roundtrips per round.  Revision fields are bumped per round so the
@@ -176,9 +174,7 @@ test.describe('endpoint-replay', () => {
     await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
     await dismissBlockingDialogs(page)
 
-    const workload = getWorkloadIndicator(page)
-    await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-    await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+    await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
     for (let i = 0; i < 50 && !serverWs; i++) {
       await page.waitForTimeout(100)
@@ -208,8 +204,7 @@ test.describe('endpoint-replay', () => {
       }
 
       // workload appears when pipeline is triggered, disappears when settled.
-      await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-      await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+      await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
 
       await page.waitForTimeout(500)
 

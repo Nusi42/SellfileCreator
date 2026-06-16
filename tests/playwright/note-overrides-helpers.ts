@@ -13,7 +13,7 @@
 import { expect, type Page } from '@playwright/test'
 import { NOTE_DIALOG_TITLES, NOTE_DIALOG_CLOSE_LABEL } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { getWorkloadIndicator } from './workload-indicator'
+import { settleWorkload } from './workload-indicator'
 import { NOTE_TOGGLE_SELECTOR } from './ui-selectors'
 
 /**
@@ -34,10 +34,10 @@ export const openNoteDialog = async (page: Page): Promise<void> => {
  * a fast pipeline may finish before the spinner ever renders.
  */
 export const waitForWorkloadIdle = async (page: Page): Promise<void> => {
-  const workload = getWorkloadIndicator(page)
-  // The indicator may never appear when the pipeline hits a warm cache.
-  await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).catch(() => undefined)
-  await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.workloadIdle }).catch(() => undefined)
+  // Thin alias over the canonical settle routine (visible=expectDefault,
+  // hidden=workloadIdle). Kept as a named export for the override specs that
+  // already reference it; the actual logic has exactly one home in settleWorkload.
+  await settleWorkload(page)
 }
 
 /**

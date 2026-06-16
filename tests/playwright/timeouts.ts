@@ -15,6 +15,20 @@ const TEST_TIMEOUT_XL_MS = 90_000
 // Budget per mode: ~8 s overhead + ≤18 s workload-idle + ≤30 s card-render wait ≈ 56 s max.
 // 3 modes: ~168 s. 180 s gives a 12 s buffer against transient slowness.
 const TEST_TIMEOUT_XXL_MS = 180_000
+// Endpoint-burst timeout for the binary/replay/memory stress specs: a handful of
+// rounds, each one binary/JSON push burst + a single settleWorkload() wait.
+// Budget: boot ~10 s + ≤8 rounds × (≤15 s real settle) ≈ 130 s. 240 s gives generous
+// headroom on a slow Firefox content process WITHOUT the old minutes-long ceilings,
+// which only existed to mask a visible-wait-that-never-fires bug settleWorkload() avoids.
+// If a run approaches this, a real settle is regressing — investigate, don't raise it.
+const TEST_TIMEOUT_ENDPOINT_BURST_MS = 240_000
+// Endpoint-sweep timeout for the per-case / per-reveal specs that iterate dozens of
+// times (fragmentation: 32 cases; incremental: 60 reveal rounds). Each iteration is
+// one push + one settleWorkload(); only a few iterations pay the note-dialog rebuild.
+// Budget: boot ~10 s + 60 iterations × ~6 s typical settle ≈ 370 s, rounded to 480 s
+// for slow-CI headroom. Still less than half the old 1_200_000 ms (20 min) ceiling.
+// A run near this bound means per-iteration settle is regressing — profile it.
+const TEST_TIMEOUT_ENDPOINT_SWEEP_MS = 480_000
 
 // Default expect timeout for fast-fail UI assertions.
 const EXPECT_TIMEOUT_DEFAULT_MS = 3_000
@@ -48,6 +62,10 @@ export const PLAYWRIGHT_TIMEOUTS = {
   testXL: TEST_TIMEOUT_XL_MS,
   // XXL timeout for midgame-progression's 3-mode beforeAll (3 fresh contexts, each with WASM).
   testXXL: TEST_TIMEOUT_XXL_MS,
+  // Endpoint stress specs that run a few push-burst rounds (replay / binary-memory).
+  testEndpointBurst: TEST_TIMEOUT_ENDPOINT_BURST_MS,
+  // Endpoint stress specs that iterate dozens of push+settle cases (fragmentation / incremental).
+  testEndpointSweep: TEST_TIMEOUT_ENDPOINT_SWEEP_MS,
   // Expect timeouts.
   expectDefault: EXPECT_TIMEOUT_DEFAULT_MS,
   // Long expect timeout reserved for rebuild/matching waits.

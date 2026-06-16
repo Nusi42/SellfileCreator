@@ -42,7 +42,7 @@ import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { getWorkloadIndicator } from './workload-indicator'
+import { settleWorkload } from './workload-indicator'
 import {
   openNoteDialog,
   setNoteOverrideCheckbox,
@@ -95,12 +95,12 @@ const buildCases = (): FragCase[] => {
 test.describe('binary-endpoint-fragmentation', () => {
   test('varied DB + rule-set pushes do not crash the WASM pipeline', async ({ page }) => {
     const cases = buildCases()
-    // Budget: 32 cases. Only the 8 rule-set transitions pay the note-dialog +
-    // SFC-rebuild cost; the other 24 are DB-only binary pushes bounded by a couple
-    // of workload-idle waits (≤15 s each). 20 min gives generous headroom so a slow
-    // Firefox content process never trips the overall timeout before the per-case
-    // crash assertions can run. Serialized in the <browser>-perf project.
-    test.setTimeout(1_200_000)
+    // 32 cases: 8 pay the note-dialog + SFC-rebuild cost, the other 24 are DB-only
+    // pushes bounded by a single settleWorkload() each. Shared sweep token (480 s) —
+    // less than half the former 20-min ceiling, which only existed to mask the
+    // visible-wait-that-never-fires bug that settleWorkload() avoids. Serialized in
+    // the <browser>-perf project; a run near this bound means a real settle regressed.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointSweep)
 
     // Pre-read every DB once so the hot loop only does WebSocket I/O, not disk I/O.
     const dbBuffers = new Map<string, Buffer>()
@@ -205,9 +205,11 @@ test.describe('binary-endpoint-fragmentation', () => {
       ws.send(dbBuffers.get(c.dbPath)!)
 
       // 3) Wait for the import + full safeguard pipeline to settle for this push.
-      const workload = getWorkloadIndicator(page)
-      await workload.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
-      await workload.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.testXL }).catch(() => undefined)
+      // settleWorkload keeps the visible wait short (a fast small-DB pipeline can
+      // show-and-hide the spinner before Playwright polls it) and spends the long
+      // budget only on the hidden wait — the bug that made this spec run for 30+ min
+      // was a long visible budget × 24 DB-only cases of dead waiting.
+      await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
       // Trailing tick so React can commit any final state before the next case.
       await page.waitForTimeout(250)
 
