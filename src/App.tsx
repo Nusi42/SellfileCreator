@@ -9199,9 +9199,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   applyNoteChange(null, { mode: 'restore', publish: false })
                 }
                 const restoredAnswers = draft.NoteRecipeOverridesAnswers ?? {}
-                setNoteRecipeOverridesAnswers(pruneNoteRecipeOverridesAnswers(restoredNote, restoredAnswers))
+                const prunedRecipeAnswers = pruneNoteRecipeOverridesAnswers(restoredNote, restoredAnswers)
+                setNoteRecipeOverridesAnswers(prunedRecipeAnswers)
                 const restoredSafeguardAnswers = draft.NoteSafeguardOverridesAnswers ?? {}
-                setNoteSafeguardOverridesAnswers(pruneNoteSafeguardOverridesAnswers(restoredNote, restoredSafeguardAnswers))
+                const prunedSafeguardAnswers = pruneNoteSafeguardOverridesAnswers(restoredNote, restoredSafeguardAnswers)
+                // Re-seed any forced safeguard sliders the saved draft is MISSING — exactly as the
+                // import path does. A draft saved before the seed fix (or while overrides were
+                // disabled/cleared) carries an empty/partial NoteSafeguardOverridesAnswers; without
+                // this, restore reinstates those gaps and the forced sliders fall back to their own
+                // `default=` instead of the restored recipe mode's authored values. The seed resolves
+                // forces from the RESTORED recipe selection (so a saved `endgame` keeps endgame's
+                // forces, not lategame's) and its no-clobber design preserves every saved slider edit.
+                setNoteSafeguardOverridesAnswers(
+                  seedSafeguardAnswersFromRecipeDefaults(restoredNote, prunedRecipeAnswers, prunedSafeguardAnswers),
+                )
                 setNoteOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
               }
               if (selection.filters) {

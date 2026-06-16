@@ -89,6 +89,43 @@ test('seeding never clobbers an answer the user/autosave already set', () => {
   assert.equal(seeded[imprQ.id]?.[0], '33', 'un-set artifact slider still seeded')
 })
 
+// ── Restore-from-autosave seeding ───────────────────────────────────────────────────
+// The restore path makes the exact call: seedSafeguardAnswersFromRecipeDefaults(note,
+// restoredRecipeAnswers, restoredSafeguardAnswers). A draft saved with empty/partial safeguard
+// answers (e.g. pre-fix, or while overrides were cleared) must have its missing forced sliders
+// re-seeded from the RESTORED recipe mode — not left at the slider default, and not seeded from
+// the wrong (default) mode.
+const sgIds = (() => {
+  const sg = resolveNoteSafeguardOverridesTags(seedNote)
+  const q = (tok: string) => sg.questions.find((x) => x.options.some((o) => o.token === tok))!.id
+  return { spd: q('min_spd_pieces'), impr: q('impr_art') }
+})()
+const recipeQ = resolveRecipeOverridesTags(seedNote).questions[0]!
+const modeId = (tok: string) => recipeQ.options.find((o) => o.token === tok)!.id
+
+test('restore re-seeds missing forced sliders from the RESTORED recipe mode (not the default)', () => {
+  // Draft restored with `high` selected but an EMPTY safeguard map (the bug scenario).
+  const restored = seedSafeguardAnswersFromRecipeDefaults(
+    seedNote,
+    { [recipeQ.id]: [modeId('high')] }, // restored recipe answers select High
+    {},                                 // empty saved safeguard answers
+  )
+  // High forces 20 / 50 — must be applied, NOT Low's default-mode 12 and NOT slider defaults 16/25.
+  assert.equal(restored[sgIds.spd]?.[0], '20', 'speed slider re-seeded to High force 20')
+  assert.equal(restored[sgIds.impr]?.[0], '50', 'artifact slider re-seeded to High force 50')
+})
+
+test('restore preserves a saved slider value and only fills the missing one', () => {
+  // Draft restored with `low` selected; the user had dragged speed to 7, artifact unsaved.
+  const restored = seedSafeguardAnswersFromRecipeDefaults(
+    seedNote,
+    { [recipeQ.id]: [modeId('low')] },
+    { [sgIds.spd]: ['7'] }, // saved user edit on the speed slider
+  )
+  assert.equal(restored[sgIds.spd]?.[0], '7', 'saved speed edit is preserved (no clobber)')
+  assert.equal(restored[sgIds.impr]?.[0], '33', 'missing artifact slider seeded to Low force 33')
+})
+
 // ── Diagnostics for malformed setval pairs ─────────────────────────────────────────
 const diagnose = (n: string) => {
   const re = /<!--\s*recipe-overrides[\s\S]*?-->/g
