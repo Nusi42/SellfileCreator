@@ -717,6 +717,12 @@
           }
         },
         {
+          "stat": "CR%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
           "stat": "CDMG%",
           "rollBounds": {
             "any": true
