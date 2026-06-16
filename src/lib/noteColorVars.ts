@@ -72,6 +72,7 @@ export const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   // note-markers sub-tokens
   'marker-kw':         '#c678dd',
   'slider-param-kw':   '#56b6c2',  // min / max / step — same family as field names
+  'slider-toggle-side-val': '#d19a66',  // toggleside= left / above — warm amber like boolean-val
   // safeguard-overrides specific tokens — reuse existing palette hues for consistency.
   'sg-activation-val':          '#d19a66',  // same as boolean-val (warm amber)
   'sg-match-val':               '#d19a66',  // same as boolean-val (warm amber)

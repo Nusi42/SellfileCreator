@@ -1790,6 +1790,7 @@ group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"chec
                sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [elseBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
              | "marks" "=" markItem ("," markItem)*        // labeled guide ticks
+             | "unit" "=" string                           // display-only suffix on the value (e.g. "%")
              | "toggle" "=" string                         // adds an on/off checkbox (off ⇒ the else block)
              | "toggleside" "=" ("left" | "above")         // checkbox placement (default: above)
              | "toggledefault" "=" ("on" | "off")          // initial checkbox state (default: on)
@@ -2961,7 +2962,7 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 const MARK_ROW_BASE = 28
 const MARK_ROW_H = 18
 function NoteOverridesSlider({
-  value, min, max, step, marks, disabled, onCommit,
+  value, min, max, step, marks, unit, disabled, onCommit,
 }: {
   value: number
   min: number
@@ -2969,12 +2970,16 @@ function NoteOverridesSlider({
   step: number
   // Labeled guide marks (raw data). Absent = a tick per step.
   marks?: { value: number; label: string; subtext?: string }[]
+  // Optional display-only suffix appended to the shown value (e.g. "%").
+  unit?: string
   disabled: boolean
   onCommit: (value: number) => void
 }): JSX.Element {
   // Local visual value while dragging; null falls back to the committed `value`.
   const [dragValue, setDragValue] = useState<number | null>(null)
   const shown = dragValue ?? value
+  // SSOT for value+unit formatting — used by both the readout and the drag tooltip.
+  const formatValue = (v: number): string => `${v}${unit ?? ''}`
   // Sliders here are always single-thumb; collapse the union to a number.
   const resolve = (v: number | number[]): number => (typeof v === 'number' ? v : (v[0] ?? min))
   const hasLabeledMarks = !!marks && marks.length > 0
@@ -3070,6 +3075,7 @@ function NoteOverridesSlider({
         // Commit once on release (also fires per keyboard step, which is already settled).
         onChangeCommitted={(_, v) => { if (disabled) return; const nv = resolve(v); setDragValue(null); onCommit(nv) }}
         valueLabelDisplay="auto"
+        valueLabelFormat={formatValue}
         sx={{
           flex: 1,
           color: 'primary.main',
@@ -3081,7 +3087,7 @@ function NoteOverridesSlider({
         }}
       />
       <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-        {shown}
+        {formatValue(shown)}
       </Typography>
     </Box>
   )
@@ -3214,6 +3220,8 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                   step={step}
                   // Raw marks; the slider does collision-aware row layout + connectors itself.
                   {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
+                  // Optional display-only value suffix (e.g. "%").
+                  {...(sliderOpt.sliderUnit ? { unit: sliderOpt.sliderUnit } : {})}
                   disabled={!safeguardOverridesEditable || toggleOff}
                   // Commit the numeric value once on release; the off sentinel is set by the toggle.
                   onCommit={(numVal) => { applyAnswer([String(numVal)]) }}

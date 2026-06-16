@@ -678,6 +678,8 @@ export type SafeguardNoteQuestionOption = {
   sliderMarks?: SliderMark[]
   /** Optional on/off checkbox bound to the slider's else block. */
   sliderToggle?: SliderToggle
+  /** Optional display-only suffix appended to the slider's shown value (e.g. "%"). */
+  sliderUnit?: string
   /** 1-based positional index within the question (implicit DSL reference token). */
   positionalIndex: number
   /** Absolute source span of the whole option block (for editor-preview click-to-select). */
@@ -1008,6 +1010,7 @@ const buildResolvedQuestion = (
       result.sliderDefault = option.sliderParams.default
       if (option.sliderParams.marks) result.sliderMarks = option.sliderParams.marks
       if (option.sliderParams.toggle) result.sliderToggle = option.sliderParams.toggle
+      if (option.sliderParams.unit) result.sliderUnit = option.sliderParams.unit
     }
     return result
   })

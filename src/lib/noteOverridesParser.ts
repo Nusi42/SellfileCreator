@@ -173,13 +173,18 @@ export type SliderMark = {
   subtext?: string
 }
 
+/** Accepted `toggleside=` values: 'left' (inline) or 'above' (stacked). SSOT for both
+ *  the parsed type and the `toggleside` value parse below (and Prism highlighting). */
+export const SLIDER_TOGGLE_SIDE_VALUES = ['left', 'above'] as const
+export type SliderToggleSide = (typeof SLIDER_TOGGLE_SIDE_VALUES)[number]
+
 /** Optional on/off checkbox attached to a slider. When off, the slider's `else` block
  *  applies instead of its selector blocks, and the track is disabled in the UI. */
 export type SliderToggle = {
   // Label shown next to the checkbox. Empty string falls back to a UI default.
   label: string
   // Checkbox placement relative to the slider: 'left' (inline) or 'above' (stacked).
-  side: 'left' | 'above'
+  side: SliderToggleSide
   // Initial state when the user has not answered yet.
   default: 'on' | 'off'
 }
@@ -194,6 +199,9 @@ export type SliderParams = {
   marks?: SliderMark[]
   // Optional enable/disable checkbox bound to the slider's else block.
   toggle?: SliderToggle
+  // Optional display suffix appended to the slider's shown value (e.g. "%"). Display-only;
+  // the stored/forwarded answer is always the bare number. Absent = no suffix.
+  unit?: string
 }
 
 // ── Keyword constants (single source of truth shared with syntax highlighter) ──
@@ -215,8 +223,12 @@ export const NOTE_OVERRIDES_GROUP_TYPE_MAP: Record<string, NoteQuestionGroupType
   slider: 'slider', range: 'slider',
 }
 
+/** The `setval` keyword: unlike the other constraint keywords it takes `token=number`
+ *  pairs (not bare tokens). Exported so the parser branch and Prism grammar share one name. */
+export const NOTE_OVERRIDES_SETVAL_KEYWORD = 'setval'
+
 /** Word-form constraint keywords (symbolic forms ! + - ^ are handled separately). */
-export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl', 'needs', 'setval'] as const
+export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl', 'needs', NOTE_OVERRIDES_SETVAL_KEYWORD] as const
 
 /** Boolean logic connectors for compound selector expressions. */
 export const NOTE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
@@ -678,7 +690,7 @@ export function readValueAssignmentList(cursor: TokenCursor, sink: OverridesSetV
 }
 
 /** All slider-param keywords; used both to drive parsing and to gate entry into it. */
-export const SLIDER_PARAM_KEYWORDS = ['min', 'max', 'step', 'default', 'marks', 'toggle', 'toggleside', 'toggledefault'] as const
+export const SLIDER_PARAM_KEYWORDS = ['min', 'max', 'step', 'default', 'marks', 'unit', 'toggle', 'toggleside', 'toggledefault'] as const
 
 /** Parse a `marks=` list: `value:"label"[:"subtext"]` items, comma-separated. The list
  *  ends at the first token that is not a `<number> :` mark (e.g. the next param or `{`). */
@@ -716,6 +728,7 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
   let min = 0; let max = 10; let step = 1; let def = 1
   let marks: SliderMark[] | undefined
   let toggle: SliderToggle | undefined
+  let unit: string | undefined
   // Lazily create the toggle so toggle/toggleside/toggledefault can appear in any order.
   const ensureToggle = (): SliderToggle => (toggle ??= { label: '', side: 'above', default: 'on' })
   while (true) {
@@ -729,7 +742,14 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
     const valueToken = cursor.peek()
     if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
     if (keyword === 'toggle') { cursor.next(); ensureToggle().label = valueToken.value; continue }
-    if (keyword === 'toggleside') { cursor.next(); ensureToggle().side = valueToken.value.toLowerCase() === 'left' ? 'left' : 'above'; continue }
+    // `unit` is a display-only suffix; accept the raw string/word verbatim.
+    if (keyword === 'unit') { cursor.next(); unit = valueToken.value; continue }
+    // Accept only `left`; anything else (incl. the explicit `above`) maps to the default 'above'.
+    if (keyword === 'toggleside') {
+      cursor.next()
+      ensureToggle().side = valueToken.value.toLowerCase() === SLIDER_TOGGLE_SIDE_VALUES[0] ? 'left' : 'above'
+      continue
+    }
     if (keyword === 'toggledefault') { cursor.next(); ensureToggle().default = valueToken.value.toLowerCase() === 'off' ? 'off' : 'on'; continue }
     cursor.next()
     const parsed = Number.parseFloat(valueToken.value)
@@ -744,6 +764,7 @@ export const parseSliderParams = (cursor: TokenCursor): SliderParams => {
   const result: SliderParams = { min, max, step, default: safeDefault }
   if (marks && marks.length > 0) result.marks = marks
   if (toggle) result.toggle = toggle
+  if (unit) result.unit = unit
   return result
 }
 
@@ -934,6 +955,18 @@ export function parseOverridesOptionBlock<S, O>(
           continue
         }
       }
+      // Anything else before the slider body is unexpected — typically a malformed param
+      // value (e.g. a stray quote turning `marks=…` into a string) that stops param parsing
+      // and leaves garbage behind. Flag it once so the error checker surfaces the typo
+      // instead of silently dropping the leftover tokens.
+      if (diags) {
+        const from = blockOffset + token.index
+        diags.push({
+          from,
+          to: from + token.value.length,
+          message: `unexpected '${token.value}' in slider header — check the preceding slider params (e.g. a stray quote in marks=…)`,
+        })
+      }
       cursor.next()
     }
     // If no params were parsed, apply defaults.
@@ -1007,7 +1040,7 @@ export function parseOverridesOptionBlock<S, O>(
       }
       readTokenList(cursor, needsTokens); continue
     }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'setval') {
+    if (token.kind === 'word' && token.value.toLowerCase() === NOTE_OVERRIDES_SETVAL_KEYWORD) {
       headerPhase = 'constraints'; cursor.next()
       readValueAssignmentList(cursor, setValueTokens); continue
     }

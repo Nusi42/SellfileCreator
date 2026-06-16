@@ -43,6 +43,7 @@ type AnyOption = {
   sliderDefault?: number
   sliderMarks?: { value: number; label: string; subtext?: string }[]
   sliderToggle?: { label: string; side: string; default: string }
+  sliderUnit?: string
 }
 type AnyQuestion = { prompt: string; layoutColumns: number; isSpacer?: boolean; options: AnyOption[] }
 
@@ -85,6 +86,7 @@ function buildDigest(label: string, questions: AnyQuestion[]): string {
         parts.push(`sld:${o.sliderMin}-${o.sliderMax}/${o.sliderDefault}`)
         if (o.sliderToggle) parts.push(`tgl:${o.sliderToggle.side}/${o.sliderToggle.default}`)
         if (o.sliderMarks?.length) parts.push(`marks:${o.sliderMarks.length}`)
+        if (o.sliderUnit) parts.push(`unit:${o.sliderUnit}`)
       }
       lines.push(parts.join(' '))
     }
