@@ -18684,7 +18684,7 @@
     "-->",
     "<!-- safeguard-overrides [columns=2]--><br>",
     "<!-- safeguard-overrides [columns=2]",
-    "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nAlso keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
+    "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
     "  slider \"\" id=impr_art min=0 max=90 step=1 default=25 toggle=\"Yes\" toggleside=left marks=10:\"Soft\",25:\"Balanced\",33:\"Moderate\",50:\"Strict\" unit=\"%\" { @tagged { improvchance=$value } else { @tagged { improvchance=disabled } } }",
     "-->",
     "<!-- safeguard-overrides [columns=2]",
