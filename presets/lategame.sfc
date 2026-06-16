@@ -680,8 +680,6 @@
         "Weapon",
         "Helmet",
         "Shield",
-        "Gauntlets",
-        "Chestplate",
         "Banner"
       ],
       "artifactSetNames": [],
@@ -700,7 +698,6 @@
       "Rarity": "Auto",
       "Faction": "Any",
       "mainStats": [
-        "SPD",
         "CR%",
         "CDMG%",
         "ACC",
@@ -714,13 +711,50 @@
       "substats": [
         {
           "stat": "SPD",
+          "fixed": true,
           "rollBounds": {
             "min": 3
           }
+        },
+        {
+          "stat": "CDMG%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
         }
       ],
-      "minCount": 1,
-      "autoMinCount": true,
+      "minCount": 3,
+      "autoMinCount": false,
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
