@@ -166,20 +166,20 @@ Q "Keep weak \`6★\` pieces from any gear set " cols=0
 Q "" cols=1 SPACER
 == SAFEGUARD ==
 Q "How many of the best SPD banners **per f" cols=2
-  #1 s blk:count sld:1-64/16
+  #1 s blk:count sld:1-64/16 unit: pieces
 Q "How many speed-set pieces **per slot** s" cols=2
-  #1 s blk:count sld:1-64/16
+  #1 s blk:count sld:1-64/16 unit: pieces
 Q "How many debuffer pieces **per slot** sh" cols=2
-  #1 s blk:count sld:1-64/32
+  #1 s blk:count sld:1-64/32 unit: pieces
 Q "How many damage or survivability pieces " cols=2
-  #1 s blk:count sld:1-64/32
+  #1 s blk:count sld:1-64/32 unit: pieces
 Q "How many damage/survivability/debuffer p" cols=2
-  #1 s blk:count sld:1-64/8
+  #1 s blk:count sld:1-64/8 unit: pieces
 Q "" cols=2 SPACER
 Q "Do you want to protect **artifacts** (no" cols=2
-  impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4
+  impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%
 Q "Do you want to protect **accessories** (" cols=2
-  impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4`
+  impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%`
 
 test('lategame.sfc overrides parse to the golden behavioural digest', () => {
   const recipe = resolveRecipeOverridesTags(note)
