@@ -99,35 +99,48 @@ test('the improvement-chance sliders carry the setval target ids', () => {
   assert.ok(sliderTokens.includes('impr_acc'), 'accessory slider has id=impr_acc')
 })
 
-test('each account mode forces the keep-piece + improvement-chance sliders', () => {
+test('each account mode forces the same set of keep-piece + improvement-chance sliders', () => {
   // The mode radios live in the account-tier question (acctQ); read each option's setval.
-  const setvalOf = (token: string): Record<string, number> => {
+  const setvalTokens = (token: string): string[] => {
     const opt = acctQ.options.find((o) => o.token === token)!
-    return Object.fromEntries(opt.setValueDirectives.map((d) => [d.token, d.value]))
+    return opt.setValueDirectives.map((d) => d.token).sort()
   }
-  // Per-mode authored forces — keep-piece thresholds plus improvement-chance percentages.
-  assert.deepEqual(setvalOf('midgame'),
-    { min_spd_pieces: 8, min_debuffer_pieces: 16, min_dmgsurv_pieces: 16, impr_art: 25, impr_acc: 25 })
-  assert.deepEqual(setvalOf('lategame'),
-    { min_spd_pieces: 12, min_debuffer_pieces: 24, min_dmgsurv_pieces: 24, impr_art: 33, impr_acc: 33 })
-  assert.deepEqual(setvalOf('endgame'),
-    { min_spd_pieces: 16, min_debuffer_pieces: 32, min_dmgsurv_pieces: 32, impr_art: 33, impr_acc: 50 })
-  assert.deepEqual(setvalOf('endgameplus'),
-    { min_spd_pieces: 16, min_debuffer_pieces: 32, min_dmgsurv_pieces: 32, impr_art: 60, impr_acc: 60 })
+  // Structural contract (not the exact authored numbers, which are content): every tier forces
+  // the full slider set so switching modes / loading a preset always seeds all of them.
+  const expectedTokens = ['impr_acc', 'impr_art', 'min_debuffer_pieces', 'min_dmgsurv_pieces', 'min_spd_pieces', 'min_spdbanner_pieces'].sort()
+  for (const tier of ['midgame', 'lategame', 'endgame', 'endgameplus']) {
+    assert.deepEqual(setvalTokens(tier), expectedTokens, `${tier} forces every keep-piece/improv slider`)
+  }
+  // Spot-check the default Lategame values (the seeding-relevant mode) are concrete + finite.
+  const lategame = Object.fromEntries(
+    acctQ.options.find((o) => o.token === 'lategame')!.setValueDirectives.map((d) => [d.token, d.value]),
+  )
+  for (const [token, value] of Object.entries(lategame)) {
+    assert.ok(Number.isFinite(value) && value > 0, `lategame ${token} is a positive number (${value})`)
+  }
 })
 
-test('loading the preset seeds the keep-piece sliders from the default Lategame mode', () => {
-  // Fresh load (empty answers) → the `*` default Lategame is selected; its setval forces must
-  // seed the safeguard sliders, NOT leave them at each slider's own default (16/32/32/25/25).
+test('loading the preset seeds every slider from the default Lategame mode (not slider defaults)', () => {
+  // Fresh load (empty answers) → the `*` default Lategame is selected; its setval forces must seed
+  // the safeguard sliders to the FORCED values, NOT leave them at each slider's own `default=`.
+  // Expected values are read from the resolved Lategame option so the test tracks the authored
+  // preset rather than hardcoding numbers the author keeps tuning.
+  const lategameForces = new Map(
+    acctQ.options.find((o) => o.token === 'lategame')!.setValueDirectives.map((d) => [d.token, d.value]),
+  )
   const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
   const sg = resolveNoteSafeguardOverridesTags(note, seeded)
   const seededValue = (token: string): string | undefined => {
     const q = sg.questions.find((x) => x.options.some((o) => o.token === token))!
     return seeded[q.id]?.[0]
   }
-  assert.equal(seededValue('min_spd_pieces'), '12', 'speed-set slider seeded to Lategame 12')
-  assert.equal(seededValue('min_debuffer_pieces'), '24', 'debuffer slider seeded to Lategame 24')
-  assert.equal(seededValue('min_dmgsurv_pieces'), '24', 'damage/surv slider seeded to Lategame 24')
-  assert.equal(seededValue('impr_art'), '33', 'artifact improv-chance seeded to Lategame 33')
-  assert.equal(seededValue('impr_acc'), '33', 'accessory improv-chance seeded to Lategame 33')
+  // Every forced token must be seeded to exactly its forced value, and must DIFFER from the
+  // slider's own default for at least one token (else the test couldn't catch the original bug).
+  let differsFromDefault = false
+  for (const [token, value] of lategameForces) {
+    assert.equal(seededValue(token), String(value), `${token} seeded to Lategame force ${value}`)
+    const slider = sg.questions.flatMap((q) => q.options).find((o) => o.token === token)!
+    if (value !== (slider.sliderDefault ?? slider.sliderMin)) differsFromDefault = true
+  }
+  assert.ok(differsFromDefault, 'at least one forced value differs from the slider default (guards the original bug)')
 })

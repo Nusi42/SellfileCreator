@@ -834,6 +834,12 @@ type NoteRenderContextValue = {
   // textarea and pulse its background once (used to locate an option's DSL when its control
   // is clicked). No-op in view mode.
   onRevealOptionSource?: (from: number, to: number) => void
+  // Editor-preview only: recipe markerIndex → full source span of the whole `<!-- recipe-overrides … -->`
+  // block. Stamped on the card root so a misclick on the CARD (not a specific control) reveals the
+  // whole marker instead of falling through to the nearest control / scrolling nowhere useful.
+  recipeMarkerSpans?: Map<number, { from: number; to: number }>
+  // Editor-preview only: safeguard markerIndex → full source span (same purpose as recipeMarkerSpans).
+  safeguardMarkerSpans?: Map<number, { from: number; to: number }>
   // Editor-preview only: global optionId → {token,label} map, so a tooltip can resolve a
   // forces-reference (id of an option in another question) to its unique token + answer label.
   optionLookup?: Map<string, { token: string; label: string }>
@@ -2610,7 +2616,7 @@ function NoteOptionInfoTooltipWrap(
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull recipe overrides wiring from context.
-  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange, isEditorPreview } = useNoteRenderContext()
+  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange, isEditorPreview, recipeMarkerSpans } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -2621,6 +2627,16 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Lookup the parsed question definition by marker index.
   const question = markerIndex != null ? recipeOverridesResolutions.get(markerIndex) : undefined
+  // Editor-preview only: the whole-marker source span, stamped on the card root so a click that
+  // misses every control (e.g. the card background or prompt) still reveals the full marker block
+  // in the editor instead of falling through. Control wrappers stamp their own narrower span and
+  // sit inside this card, so `closest('[data-reveal-from]')` still resolves a control click to the
+  // control first — only a card-area miss falls back to this card span. Memoized so the React
+  // Compiler can track it as a stable value across the early return below.
+  const cardSpan = useMemo(
+    () => (isEditorPreview && markerIndex != null ? recipeMarkerSpans?.get(markerIndex) : undefined),
+    [isEditorPreview, markerIndex, recipeMarkerSpans],
+  )
   // Split prompt text so the first line becomes the title.
   const promptParts = useMemo(
     () => (question ? splitQuestionPrompt(question.prompt) : { title: '', subtext: null }),
@@ -2753,6 +2769,10 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
       // Stamp the marker index onto the DOM so the editor↔preview scroll sync can pair this
       // rendered card with its source marker. (Read off node.properties above; not auto-forwarded.)
       data-question-index={markerIndex ?? undefined}
+      // Card-level reveal span (editor preview only): a click that misses every control reveals
+      // the whole marker. Nested control wrappers carry their own narrower data-reveal-from.
+      data-reveal-from={cardSpan?.from}
+      data-reveal-to={cardSpan?.to}
       sx={{
         // Match Safeguard card styling for tighter, consistent layout.
         // Width limits mirror Safeguard cards so multiple can fit on a line.
@@ -2764,6 +2784,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
         p: NOTE_QUESTION_CARD_PADDING,
         bgcolor: 'background.paper',
         opacity: cardOpacity,
+        // Pointer affordance only when the card-level reveal is wired (editor preview).
+        ...(cardSpan ? { cursor: 'pointer' } : {}),
       }}
     >
       {/* Stack keeps the heading and options tightly grouped. */}
@@ -3127,7 +3149,7 @@ function NoteOverridesSlider({
 type NoteSafeguardOverridesBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps): JSX.Element | null {
-  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange, isEditorPreview } = useNoteRenderContext()
+  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange, isEditorPreview, safeguardMarkerSpans } = useNoteRenderContext()
   const theme = useTheme()
   const rawIndexAttr = coerceFirstString(node?.properties?.[SG_QUESTION_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
@@ -3136,6 +3158,12 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
     if (Number.isFinite(parsed)) markerIndex = parsed
   }
   const question = markerIndex != null ? safeguardOverridesResolutions.get(markerIndex) : undefined
+  // Card-level reveal span (editor preview only): a click missing every control reveals the whole
+  // marker. See NoteQuestionBlock for the closest()-based control-vs-card resolution rationale.
+  const cardSpan = useMemo(
+    () => (isEditorPreview && markerIndex != null ? safeguardMarkerSpans?.get(markerIndex) : undefined),
+    [isEditorPreview, markerIndex, safeguardMarkerSpans],
+  )
   const promptParts = useMemo(
     () => (question ? splitQuestionPrompt(question.prompt) : { title: '', subtext: null }),
     [question],
@@ -3196,6 +3224,9 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
     <Box
       // Stamp the marker index for the editor↔preview scroll sync (see NoteQuestionBlock).
       data-sg-question-index={markerIndex ?? undefined}
+      // Card-level reveal span; nested control wrappers carry their own narrower data-reveal-from.
+      data-reveal-from={cardSpan?.from}
+      data-reveal-to={cardSpan?.to}
       sx={{
         ...cardWidthSx,
         borderRadius: 1,
@@ -3204,6 +3235,8 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
         p: NOTE_QUESTION_CARD_PADDING,
         bgcolor: 'background.paper',
         opacity: cardOpacity,
+        // Pointer affordance only when the card-level reveal is wired (editor preview).
+        ...(cardSpan ? { cursor: 'pointer' } : {}),
       }}
     >
       <Stack spacing={0}>
@@ -5161,6 +5194,21 @@ function markerCharOffsets(draft: string, re: RegExp): number[] {
   return offsets
 }
 
+// Compute markerIndex → full {from,to} source span for one domain's markers in the draft.
+// Order of matches === the `data-question-index` the cards carry, so the Nth match maps to card N.
+// Used to stamp a card-level reveal span so a misclick on the card reveals the whole marker block.
+function buildMarkerSpanMap(draft: string, re: RegExp): Map<number, { from: number; to: number }> {
+  const map = new Map<number, { from: number; to: number }>()
+  re.lastIndex = 0
+  let index = 0
+  for (const m of draft.matchAll(re)) {
+    const from = m.index ?? 0
+    map.set(index, { from, to: from + m[0].length })
+    index += 1
+  }
+  return map
+}
+
 // Find the pixel Y of a character offset inside the highlighted mirror `<pre>` (.w-md-editor-text-pre
 // > code), which wraps identically to the textarea. Walks the code's text nodes to place a DOM
 // Range at the offset and measures its top relative to the pre's scroll origin. Returns null if
@@ -5578,6 +5626,11 @@ function NoteEditorContent({
     editorSafeguardOverridesResolutions.forEach((q) => q.options?.forEach((o) => map.set(o.id, { token: o.token, label: o.label })))
     return map
   }, [editorRecipeOverridesResolutions, editorSafeguardOverridesResolutions])
+  // Per-domain markerIndex → whole-marker source span, so a card-background click reveals the
+  // full `<!-- … -->` block. Matched positionally against the cards' data-question-index, same as
+  // the scroll-sync offset scan, so indices line up.
+  const editorRecipeMarkerSpans = useMemo(() => buildMarkerSpanMap(draft ?? '', RECIPE_MARKER_OFFSET_REGEX), [draft])
+  const editorSafeguardMarkerSpans = useMemo(() => buildMarkerSpanMap(draft ?? '', SG_MARKER_OFFSET_REGEX), [draft])
   // Scroll an option's DSL into view in the editor and flash a highlight over JUST that range.
   // Used when a preview control is clicked. We measure the range's pixel rect from the
   // highlighted mirror `<pre>` (which wraps identically to the textarea), scroll the editor's
@@ -5691,6 +5744,8 @@ function NoteEditorContent({
       onSafeguardOverridesAnswerChange: ignoreSafeguardOverridesAnswerChange,
       isEditorPreview: true,
       onRevealOptionSource: revealOptionSource,
+      recipeMarkerSpans: editorRecipeMarkerSpans,
+      safeguardMarkerSpans: editorSafeguardMarkerSpans,
       optionLookup: editorOptionLookup,
     }),
     [
@@ -5703,6 +5758,8 @@ function NoteEditorContent({
       editorSafeguardOverridesResolutions,
       ignoreSafeguardOverridesAnswerChange,
       revealOptionSource,
+      editorRecipeMarkerSpans,
+      editorSafeguardMarkerSpans,
       editorOptionLookup,
     ],
   )
