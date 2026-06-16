@@ -699,8 +699,15 @@ export function readTokenList(cursor: TokenCursor, sink: string[]): void {
 
 /** Read `token=number` pairs (comma/space-separated) into a sink until a structural keyword.
  *  Mirrors readTokenList's stop conditions but, unlike it, consumes the `=value` suffix that
- *  readTokenList deliberately breaks on. Pairs missing a numeric value are skipped. */
-export function readValueAssignmentList(cursor: TokenCursor, sink: OverridesSetValueDirective[]): void {
+ *  readTokenList deliberately breaks on. Malformed pairs are skipped (so downstream tokens are
+ *  not mis-consumed) and, when `diags` is supplied, surfaced as syntax diagnostics so a typo
+ *  like `setval x=y` or a bare `setval x` is flagged instead of silently dropped. */
+export function readValueAssignmentList(
+  cursor: TokenCursor,
+  sink: OverridesSetValueDirective[],
+  diags?: DiagnosticSpan[],
+  blockOffset = 0,
+): void {
   while (true) {
     const token = cursor.peek()
     if (!token) break
@@ -716,14 +723,38 @@ export function readValueAssignmentList(cursor: TokenCursor, sink: OverridesSetV
     // Expect `token = number`; bail on a malformed pair rather than mis-consuming downstream tokens.
     const normalized = normalizeQuestionToken(token.value)
     if (!normalized) { cursor.next(); continue }
-    if (cursor.peek(1)?.kind !== 'symbol' || cursor.peek(1)?.value !== '=') { cursor.next(); continue }
+    // A bare target with no `=value` (e.g. `setval min_dmgsurv_pieces`) is incomplete — flag it.
+    if (cursor.peek(1)?.kind !== 'symbol' || cursor.peek(1)?.value !== '=') {
+      if (diags) diags.push({
+        from: blockOffset + token.index,
+        to: blockOffset + token.index + token.value.length,
+        message: `'${token.value}' is missing its value — write 'setval ${token.value}=<number>'`,
+      })
+      cursor.next(); continue
+    }
     cursor.next() // token
     cursor.next() // '='
     const valueToken = cursor.peek()
-    if (!valueToken || valueToken.kind !== 'word') continue
+    // An `=` with no following word (e.g. trailing `setval x=`) is incomplete — flag it.
+    if (!valueToken || valueToken.kind !== 'word') {
+      if (diags) diags.push({
+        from: blockOffset + token.index,
+        to: blockOffset + token.index + token.value.length + 1,
+        message: `'${token.value}=' is missing its value — write 'setval ${token.value}=<number>'`,
+      })
+      continue
+    }
     const value = Number.parseFloat(valueToken.value)
     cursor.next() // value
-    if (!Number.isFinite(value)) continue
+    // A non-numeric value (e.g. `x32`) cannot be applied — flag it instead of dropping silently.
+    if (!Number.isFinite(value)) {
+      if (diags) diags.push({
+        from: blockOffset + valueToken.index,
+        to: blockOffset + valueToken.index + valueToken.value.length,
+        message: `'${valueToken.value}' is not a valid setval value for '${normalized}' — use a number`,
+      })
+      continue
+    }
     sink.push({ token: normalized, value })
   }
 }
@@ -1100,7 +1131,7 @@ export function parseOverridesOptionBlock<S, O>(
     }
     if (token.kind === 'word' && token.value.toLowerCase() === NOTE_OVERRIDES_SETVAL_KEYWORD) {
       headerPhase = 'constraints'; cursor.next()
-      readValueAssignmentList(cursor, setValueTokens); continue
+      readValueAssignmentList(cursor, setValueTokens, diags, blockOffset); continue
     }
     if (token.kind === 'symbol' && token.value === '+') {
       headerPhase = 'constraints'; cursor.next()

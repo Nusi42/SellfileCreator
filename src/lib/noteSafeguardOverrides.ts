@@ -1181,6 +1181,30 @@ export type SafeguardOverridesResolution = {
   recipeInstructions: RecipeOverridesInstructions
 }
 
+/**
+ * Build the `id=TOKEN → { questionId, defaultNum }` map that the cross-domain slider
+ * WRITE bridge uses to translate a recipe option's directive token into the safeguard
+ * question it must store into. SSOT for both the change handler and load-time seeding.
+ * Only slider options carrying an explicit `id=TOKEN` contribute.
+ */
+export const buildSafeguardSliderTokenMap = (
+  questions: readonly SafeguardNoteQuestionDefinition[],
+): Map<string, { questionId: string; defaultNum: number }> => {
+  // One entry per id=TOKEN slider; defaultNum is the slider's resting value.
+  const map = new Map<string, { questionId: string; defaultNum: number }>()
+  for (const question of questions) {
+    // A safeguard question has at most one slider option; pick the id-bearing one.
+    const slider = question.options.find((o) => o.groupType === 'slider' && o.token)
+    if (slider?.token) {
+      map.set(slider.token, {
+        questionId: question.id,
+        defaultNum: slider.sliderDefault ?? slider.sliderMin ?? 1,
+      })
+    }
+  }
+  return map
+}
+
 // ── Resolution function ───────────────────────────────────────────────────────
 
 /**

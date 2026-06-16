@@ -76,6 +76,7 @@ import {
   applyRecipeOverridesAnswerChange,
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
+  collectCrossDomainSliderWrites,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
@@ -91,6 +92,7 @@ import {
 import {
   resolveNoteSafeguardOverridesTags,
   buildNoteSafeguardOverridesSignature,
+  buildSafeguardSliderTokenMap,
   applyQuestionSgSelectionRules,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
@@ -4307,29 +4309,14 @@ export default function NoteDialog({
     // fires on a user action, so `recipeOverridesAnswers` is the live state) to avoid nested setState.
     const before = new Set(resolveRecipeOverridesTags(note, recipeOverridesAnswers).questions.flatMap((q) => q.answer))
     const nextRecipe = applyRecipeOverridesAnswerChange(note, recipeOverridesAnswers, question, nextSelection, preferredId, removedId)
-    // token → safeguard slider option (id=token), for resolving cross-domain writes.
-    const sliderByToken = new Map<string, { questionId: string; defaultNum: number }>()
-    for (const q of safeguardOverridesResolution.questions) {
-      const slider = q.options.find((o) => o.groupType === 'slider' && o.token)
-      if (slider?.token) sliderByToken.set(slider.token, { questionId: q.id, defaultNum: slider.sliderDefault ?? slider.sliderMin ?? 1 })
-    }
-    // Accumulate writes from every newly-selected option, in resolution order (last wins).
-    const writes: { questionId: string; value: string }[] = []
-    for (const q of resolveRecipeOverridesTags(note, nextRecipe).questions) {
-      for (const o of q.options) {
-        if (!q.answer.includes(o.id) || before.has(o.id)) continue
-        for (const { token, value } of o.setValueDirectives) {
-          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(value) })
-        }
-        // +token → toggle the slider ON at its default; -token → toggle OFF (sentinel).
-        for (const token of o.setTokens) {
-          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(sld.defaultNum) })
-        }
-        for (const token of o.unsetTokens) {
-          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: SLIDER_TOGGLE_OFF })
-        }
-      }
-    }
+    // token → safeguard slider (id=token), for translating directives into answer writes.
+    const sliderByToken = buildSafeguardSliderTokenMap(safeguardOverridesResolution.questions)
+    // Only options that were NOT selected before this change contribute writes (newly selected).
+    const writes = collectCrossDomainSliderWrites(
+      resolveRecipeOverridesTags(note, nextRecipe).questions,
+      sliderByToken,
+      (optionId) => !before.has(optionId),
+    )
     if (writes.length > 0) {
       onSafeguardOverridesAnswersChange((prevSg) => {
         const nextSg = { ...prevSg }

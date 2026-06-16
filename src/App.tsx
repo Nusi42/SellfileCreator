@@ -445,6 +445,7 @@ import {
   resolveRecipeOverridesExportMode,
   resolveRecipeOverridesEffectiveRecipe,
   resolveRecipeOverridesTags,
+  seedSafeguardAnswersFromRecipeDefaults,
   type RecipeOverridesInstructions,
 } from './lib/noteRecipeOverrides'
 import {
@@ -7248,8 +7249,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteRecipeOverridesAnswers({})
     // SFC files never store the disabled flag, so re-enable parsing.
     setNoteOverridesDisabled(false)
-    // Safeguard overrides answers are session-only; clear on every SFC load.
-    setNoteSafeguardOverridesAnswers({})
+    // Safeguard overrides answers are session-only; clear on every SFC load. A preset's
+    // default-selected recipe option (e.g. `* Lategame`) can force safeguard sliders via
+    // `setval`/+/-; that WRITE only fires on a recipe-selection CHANGE, never at load, so we
+    // seed those forced values here (persist-on-select) from the freshly-loaded note.
+    setNoteSafeguardOverridesAnswers(
+      importedNote !== null ? seedSafeguardAnswersFromRecipeDefaults(importedNote) : {},
+    )
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
@@ -7440,6 +7446,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (selection.note) {
       const incomingNoteRaw = typeof payload.note === 'string' ? payload.note : ''
+      // The effective note text committed by this branch — seeded below so a default-selected
+      // recipe option's cross-domain `setval` slider forces apply on shift-load too.
+      let effectiveNote: string | null = null
       if (modes.note === 'append') {
         const current = typeof sfcNote === 'string' ? sfcNote.trim() : ''
         const incoming = incomingNoteRaw.trim()
@@ -7450,6 +7459,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setNoteAutoOpenedFromSfc(true)
           applyNoteChange(joined, { mode: 'import', publish: false })
           openNoteViewer()
+          effectiveNote = joined
         } else {
           applyNoteChange(null, { mode: 'import', publish: false })
           handleCloseNote()
@@ -7460,6 +7470,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setNoteAutoOpenedFromSfc(true)
           applyNoteChange(importedNote, { mode: 'import', publish: false })
           openNoteViewer()
+          effectiveNote = importedNote
         } else {
           applyNoteChange(null, { mode: 'import', publish: false })
           handleCloseNote()
@@ -7468,8 +7479,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Shift-load note import still resets recipe-overrides answers to canonical defaults.
       setNoteRecipeOverridesAnswers({})
       setNoteOverridesDisabled(false)
-      // Safeguard overrides answers are session-only; clear on shift-load too.
-      setNoteSafeguardOverridesAnswers({})
+      // Safeguard overrides answers are session-only; clear on shift-load too, then seed the
+      // cross-domain slider forces from the imported note's default recipe selection.
+      setNoteSafeguardOverridesAnswers(
+        effectiveNote !== null ? seedSafeguardAnswersFromRecipeDefaults(effectiveNote) : {},
+      )
     }
     if (selection.safeguards) {
       if (modes.safeguards === 'replace') {

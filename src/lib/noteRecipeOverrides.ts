@@ -7,7 +7,13 @@
 import type { BuilderRecipe, SellfileExportMode, Star, SubstatRollTargetEntry, SubstatTargetTable } from './hsfBuilder'
 import type { SafeguardOverridesSelectorBlock, SafeguardOverridesInstruction } from './noteSafeguardOverrides'
 // Runtime import for cross-domain parsing — safe for circular use since only called inside function bodies.
-import { parseSafeguardSelectorBlock } from './noteSafeguardOverrides'
+import {
+  parseSafeguardSelectorBlock,
+  SLIDER_TOGGLE_OFF,
+  resolveNoteSafeguardOverridesTags,
+  buildSafeguardSliderTokenMap,
+  type NoteSafeguardOverridesAnswers,
+} from './noteSafeguardOverrides'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 import { normalizeTagValue } from './tagHelpers'
@@ -499,6 +505,93 @@ export type RecipeOverridesResolution = {
   instructions: RecipeOverridesInstructions
   // Cross-domain: safeguard instructions emitted by recipe-overrides questions.
   safeguardInstructions: SafeguardOverridesInstruction[]
+}
+
+// ── Cross-domain slider WRITES (setval / +TOKEN / -TOKEN → safeguard slider) ──────
+//
+// A single safeguard slider, addressed by the recipe option's directive token (= the
+// slider's `id=TOKEN`). The caller builds this map once from the safeguard resolution.
+export type CrossDomainSliderTarget = { questionId: string; defaultNum: number }
+// One resolved write: store `value` into the safeguard question's answer (a raw string,
+// exactly as if the user dragged the slider there — persist-on-select, not an overlay).
+export type CrossDomainSliderWrite = { questionId: string; value: string }
+
+/**
+ * SSOT for resolving a recipe option's cross-domain slider directives into concrete
+ * safeguard-answer writes. Used by BOTH the interactive change handler (newly-selected
+ * options only) and the load-time seeding path (every initially-selected option).
+ *
+ * For each selected option `shouldApply` accepts, in resolution order (last wins):
+ *   • `setval TOKEN=N`        → write N into the slider whose id=TOKEN.
+ *   • `+TOKEN` (setTokens)    → toggle that slider ON at its default value.
+ *   • `-TOKEN` (unsetTokens)  → toggle that slider OFF (SLIDER_TOGGLE_OFF sentinel).
+ * Tokens that do not name a known slider id are ignored.
+ */
+export const collectCrossDomainSliderWrites = (
+  recipeQuestions: readonly NoteQuestionDefinition[],
+  sliderByToken: ReadonlyMap<string, CrossDomainSliderTarget>,
+  // Gate deciding which selected options contribute writes. Default: every selected
+  // option (load-time seeding). The change handler passes a "newly selected" predicate.
+  shouldApply: (optionId: string) => boolean = () => true,
+): CrossDomainSliderWrite[] => {
+  // Accumulate writes across all questions/options; later entries win on the App side.
+  const writes: CrossDomainSliderWrite[] = []
+  for (const question of recipeQuestions) {
+    for (const option of question.options) {
+      // Skip unselected options and any the caller wants excluded (e.g. already-selected).
+      if (!question.answer.includes(option.id) || !shouldApply(option.id)) continue
+      // Explicit value forces: `setval TOKEN=N`.
+      for (const { token, value } of option.setValueDirectives) {
+        const target = sliderByToken.get(token)
+        if (target) writes.push({ questionId: target.questionId, value: String(value) })
+      }
+      // `+TOKEN` → toggle the slider ON at its default value.
+      for (const token of option.setTokens) {
+        const target = sliderByToken.get(token)
+        if (target) writes.push({ questionId: target.questionId, value: String(target.defaultNum) })
+      }
+      // `-TOKEN` → toggle the slider OFF (sentinel value).
+      for (const token of option.unsetTokens) {
+        const target = sliderByToken.get(token)
+        if (target) writes.push({ questionId: target.questionId, value: SLIDER_TOGGLE_OFF })
+      }
+    }
+  }
+  return writes
+}
+
+/**
+ * Compute the safeguard-overrides answers a note's INITIAL recipe selection forces, for
+ * seeding at SFC/preset LOAD time. The cross-domain WRITE otherwise only fires on a recipe
+ * selection CHANGE, so a preset shipping a default-selected account mode (e.g. `* Lategame`)
+ * never applied its forced slider values — they fell back to each slider's own `default=`.
+ *
+ * Resolves the recipe with the freshly-loaded answers (empty on load → the `*` default) and
+ * translates every selected option's `setval`/+/- directives into stored slider answers,
+ * exactly as a click would (persist-on-select, not an overlay). Pass any restored recipe
+ * answers as `recipeAnswers`; `existing` safeguard answers are never overwritten so an
+ * autosave restore or a user edit is preserved. Returns the merged safeguard answers.
+ */
+export const seedSafeguardAnswersFromRecipeDefaults = (
+  note: string,
+  recipeAnswers: NoteRecipeOverridesAnswers = {},
+  existing: NoteSafeguardOverridesAnswers = {},
+): NoteSafeguardOverridesAnswers => {
+  // Resolve both domains from the note so we can map directive tokens → safeguard questions.
+  const recipeQuestions = resolveRecipeOverridesTags(note, recipeAnswers).questions
+  const sliderByToken = buildSafeguardSliderTokenMap(resolveNoteSafeguardOverridesTags(note).questions)
+  // Translate every selected option's directives into concrete slider writes.
+  const writes = collectCrossDomainSliderWrites(recipeQuestions, sliderByToken)
+  if (writes.length === 0) return existing
+  // Apply writes without clobbering any answer the caller already has (restore / user edit).
+  const next: NoteSafeguardOverridesAnswers = { ...existing }
+  let changed = false
+  for (const write of writes) {
+    if (next[write.questionId] !== undefined) continue
+    next[write.questionId] = [write.value]
+    changed = true
+  }
+  return changed ? next : existing
 }
 
 // Recipe impact summary for Apply Tags flow.

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics } from '../../src/lib/noteRecipeOverrides.js'
+import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics, seedSafeguardAnswersFromRecipeDefaults } from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
 
 // Load the real shipped preset note so we validate the actual authored markup.
@@ -99,14 +99,35 @@ test('the improvement-chance sliders carry the setval target ids', () => {
   assert.ok(sliderTokens.includes('impr_acc'), 'accessory slider has id=impr_acc')
 })
 
-test('each account mode sets both improvement-chance sliders (25 normal tiers, 50 Endgame+)', () => {
+test('each account mode forces the keep-piece + improvement-chance sliders', () => {
   // The mode radios live in the account-tier question (acctQ); read each option's setval.
   const setvalOf = (token: string): Record<string, number> => {
     const opt = acctQ.options.find((o) => o.token === token)!
     return Object.fromEntries(opt.setValueDirectives.map((d) => [d.token, d.value]))
   }
-  for (const tier of ['midgame', 'lategame', 'endgame']) {
-    assert.deepEqual(setvalOf(tier), { impr_art: 25, impr_acc: 25 }, `${tier} sets both sliders to 25`)
+  // Per-mode authored forces — keep-piece thresholds plus improvement-chance percentages.
+  assert.deepEqual(setvalOf('midgame'),
+    { min_spd_pieces: 8, min_debuffer_pieces: 16, min_dmgsurv_pieces: 16, impr_art: 25, impr_acc: 25 })
+  assert.deepEqual(setvalOf('lategame'),
+    { min_spd_pieces: 12, min_debuffer_pieces: 24, min_dmgsurv_pieces: 24, impr_art: 33, impr_acc: 33 })
+  assert.deepEqual(setvalOf('endgame'),
+    { min_spd_pieces: 16, min_debuffer_pieces: 32, min_dmgsurv_pieces: 32, impr_art: 33, impr_acc: 50 })
+  assert.deepEqual(setvalOf('endgameplus'),
+    { min_spd_pieces: 16, min_debuffer_pieces: 32, min_dmgsurv_pieces: 32, impr_art: 60, impr_acc: 60 })
+})
+
+test('loading the preset seeds the keep-piece sliders from the default Lategame mode', () => {
+  // Fresh load (empty answers) → the `*` default Lategame is selected; its setval forces must
+  // seed the safeguard sliders, NOT leave them at each slider's own default (16/32/32/25/25).
+  const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
+  const sg = resolveNoteSafeguardOverridesTags(note, seeded)
+  const seededValue = (token: string): string | undefined => {
+    const q = sg.questions.find((x) => x.options.some((o) => o.token === token))!
+    return seeded[q.id]?.[0]
   }
-  assert.deepEqual(setvalOf('endgameplus'), { impr_art: 50, impr_acc: 50 }, 'Endgame+ sets both sliders to 50')
+  assert.equal(seededValue('min_spd_pieces'), '12', 'speed-set slider seeded to Lategame 12')
+  assert.equal(seededValue('min_debuffer_pieces'), '24', 'debuffer slider seeded to Lategame 24')
+  assert.equal(seededValue('min_dmgsurv_pieces'), '24', 'damage/surv slider seeded to Lategame 24')
+  assert.equal(seededValue('impr_art'), '33', 'artifact improv-chance seeded to Lategame 33')
+  assert.equal(seededValue('impr_acc'), '33', 'accessory improv-chance seeded to Lategame 33')
 })
