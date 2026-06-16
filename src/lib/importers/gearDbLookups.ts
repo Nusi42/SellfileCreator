@@ -16,6 +16,7 @@ import {
   coerceGearInspectorRarity,
 } from '../gearInspectorDomain'
 import { coerceLastUseValue } from './gearDbTime'
+import { championStaticRecord } from '../iconMaps/championStaticMap'
 
 export type ChampionLookup = Map<number, ChampionLookupRecord>
 export type LastUsedLookup = Map<number, string>
@@ -112,6 +113,28 @@ export const mergeChampionRowFields = (
   return merged
 }
 
+// Track baseHeroIds already reported so the dev-only signal logs once per champion type
+// instead of once per owned instance (a roster carries many copies of the same type).
+const unknownStaticChampionsWarned = new Set<number>()
+
+// Dev-only: note a champion whose intrinsics (rarity/affinity/name) were missing from the
+// live feed AND absent from the static table — i.e. one we could add to the hardcoded map.
+// No-op in production builds. Logs formatted primitives so the line copies cleanly to chat.
+const noteUnknownStaticChampion = (baseHeroId: number | null, heroId: number | null): void => {
+  // The structural access keeps this safe under both the Vite app tsconfig (where
+  // import.meta.env is typed) and the node-test tsconfig (where it is not).
+  const importMetaEnv = (import.meta as { env?: { DEV?: boolean } }).env
+  if (!importMetaEnv?.DEV) return
+  // Skip ids we cannot key on, and ids already reported this session.
+  if (baseHeroId == null || unknownStaticChampionsWarned.has(baseHeroId)) return
+  unknownStaticChampionsWarned.add(baseHeroId)
+  console.log(
+    `[champion-static] no rarity/affinity for baseHeroId=${baseHeroId} (heroId=${heroId ?? 'n/a'}) ` +
+    `— champion newer than the source DBs; extend src/lib/iconMaps/championStaticMap.ts ` +
+    `by regenerating it from the examples/ DBs`
+  )
+}
+
 export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLookupRecord | null => {
   const id = Number(row.ID)
   if (!Number.isFinite(id) || id <= 0) return null
@@ -133,15 +156,27 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
   const location: ChampionLocation = Number(row.RVault ?? 0) > 0
     ? 'reserveVault'
     : (Number(row.Vault ?? 0) > 0 ? 'vault' : 'collection')
+  const baseHeroId = sanitizeBaseHeroId(row.BaseHeroID)
+  // Static fallback for type-intrinsic fields the live feed may omit. RSL Helper's
+  // WebSocket `champions` push dropped Rarity/Affinity/Name; on a cold start there is
+  // no prior snapshot to merge from, so resolve them from baseHeroId here. Live values
+  // always win — the static record only fills a gap (see championStaticMap.ts).
+  const needsFallback = rarity === null || affinity === null || name === null || name.length === 0
+  const fallback = needsFallback ? championStaticRecord(baseHeroId) : undefined
+  // Dev-only signal: the live row lacked intrinsics AND baseHeroId is absent from the
+  // static table — a champion newer than the source DBs. Surface it (once per id) so we
+  // know our hardcoded table can be extended with this entry. See championStaticMap.ts
+  // for the provenance/encoding and how to regenerate.
+  if (needsFallback && !fallback) noteUnknownStaticChampion(baseHeroId, row.HeroID ?? null)
   return {
     id,
-    name: name && name.length > 0 ? name : null,
+    name: name && name.length > 0 ? name : (fallback?.name ?? null),
     location,
-    baseHeroId: sanitizeBaseHeroId(row.BaseHeroID),
-    rarity,
+    baseHeroId,
+    rarity: rarity ?? (fallback ? coerceGearInspectorRarity(fallback.rarity, 6) : null),
     ascensionLevel,
     empowermentLevel,
-    affinity,
+    affinity: affinity ?? (fallback?.affinity ?? null),
     blessingGrade,
     starGrade,
     experienceLevel,

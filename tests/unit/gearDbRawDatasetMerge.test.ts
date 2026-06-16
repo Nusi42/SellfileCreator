@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
 import {
+  championRowToLookupRecord,
   createLastUsedLookup,
   mergeChampionRowFields,
   mergeLastUsedLookup,
@@ -271,4 +272,39 @@ test('buildRestoredGearDbBaselines: reconstructs champions/lastUsed/equip map fr
   assert.equal(lastUsed[0]?.lastUse, '2024-05-01 10:00:00', 'lastUsed reconstructed')
   assert.equal(champions[0]?.BaseHeroID, 700, 'champion baseHeroId reconstructed')
   assert.equal(champions[0]?.HeroID, 702, 'HeroID = baseHeroId + ascensionLevel')
+})
+
+// Static-fallback coverage: RSL Helper's WebSocket `champions` push dropped the
+// Rarity/Affinity/Name fields. championRowToLookupRecord must backfill them from the
+// type-intrinsic static map (keyed by baseHeroId) so a cold-start sparse row still
+// resolves a rarity colour. baseHeroId 2060 = Warpriest, Rare(3), Spirit(3).
+test('championRowToLookupRecord backfills rarity/affinity/name from the static map', () => {
+  // Sparse row mirroring the live WS payload: id + ids only, no Rarity/Affinity/Name.
+  const sparse: GearDbChampionRow = { ID: 5, HeroID: 2066, BaseHeroID: 2060 } as GearDbChampionRow
+  const record = championRowToLookupRecord(sparse)
+  assert.ok(record, 'record built from sparse row')
+  assert.equal(record?.rarity, 3, 'rarity backfilled from static map (Warpriest = Rare)')
+  assert.equal(record?.affinity, 3, 'affinity backfilled from static map (Warpriest = Spirit)')
+  assert.equal(record?.name, 'Warpriest', 'name backfilled from static map')
+})
+
+test('championRowToLookupRecord keeps live values over the static fallback', () => {
+  // Live row that DOES carry Rarity/Affinity/Name — those must win over the static map.
+  const live: GearDbChampionRow = {
+    ID: 5, HeroID: 2066, BaseHeroID: 2060, Rarity: 5, Affinity: 4, Name: 'Custom Name',
+  } as GearDbChampionRow
+  const record = championRowToLookupRecord(live)
+  assert.equal(record?.rarity, 5, 'live rarity wins over static fallback')
+  assert.equal(record?.affinity, 4, 'live affinity wins over static fallback')
+  assert.equal(record?.name, 'Custom Name', 'live name wins over static fallback')
+})
+
+test('championRowToLookupRecord leaves unknown baseHeroId fields null (graceful)', () => {
+  // baseHeroId absent from the static table (champion newer than the source DBs):
+  // fields stay null so the UI degrades to no colour rather than guessing.
+  const unknown: GearDbChampionRow = { ID: 5, HeroID: 9999992, BaseHeroID: 9999990 } as GearDbChampionRow
+  const record = championRowToLookupRecord(unknown)
+  assert.equal(record?.rarity, null, 'unknown champion rarity stays null')
+  assert.equal(record?.affinity, null, 'unknown champion affinity stays null')
+  assert.equal(record?.name, null, 'unknown champion name stays null')
 })
