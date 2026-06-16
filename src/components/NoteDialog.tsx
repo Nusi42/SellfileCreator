@@ -2961,6 +2961,12 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 // extra row drops the label by ROW_H so a dropped label clears the one to its left.
 const MARK_ROW_BASE = 28
 const MARK_ROW_H = 18
+// Height (px) of a size="small" horizontal MUI slider's root box = rail height (2) + vertical
+// padding (13*2) = 28. The rail sits at its vertical centre (50% → 14px). Wrapping each side
+// element (checkbox, value readout) in a box of this height and centring its content puts both
+// on the rail's centre line — matching the top-aligned slider's rail and each other. (Assumes a
+// fine pointer; coarse-pointer touch padding would differ.)
+const SLIDER_TRACK_BAND = 28
 function NoteOverridesSlider({
   value, min, max, step, marks, unit, disabled, onCommit, leftControl,
 }: {
@@ -3062,10 +3068,22 @@ function NoteOverridesSlider({
   // (each dropped row adds MARK_ROW_H). Keeps single-row sliders as compact as tick sliders.
   const marksMb = hasLabeledMarks && maxRow > 0 ? `${maxRow * MARK_ROW_H}px` : undefined
 
+  // A labeled slider reserves height below its track for the mark labels, so its box centre
+  // sits below the track line; centring the row would drop the checkbox + readout below it.
+  // Instead the row is TOP-aligned and each side element (checkbox, readout) is wrapped in a
+  // box of the slider's track-band height with its content vertically centred — so the checkbox
+  // "Yes" and the "25%" readout share the SAME centre line, which coincides with the track
+  // (also top-aligned, rail at the band's mid-point). This makes their baselines match
+  // regardless of the differing intrinsic heights of a checkbox row vs a bare caption.
+  // Tickless sliders have no overhang and just centre normally.
+  const sideOnTrackSx = hasLabeledMarks
+    ? { height: `${SLIDER_TRACK_BAND}px`, display: 'flex', alignItems: 'center' }
+    : {}
+
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
-      {/* Inline checkbox (when toggleside=left): shares the row's centre line with the track. */}
-      {leftControl ? <Box sx={{ flexShrink: 0 }}>{leftControl}</Box> : null}
+    <Box sx={{ display: 'flex', alignItems: hasLabeledMarks ? 'flex-start' : 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
+      {/* Inline checkbox (when toggleside=left): centred on the track band, like the readout. */}
+      {leftControl ? <Box sx={{ flexShrink: 0, ...sideOnTrackSx }}>{leftControl}</Box> : null}
       <Slider
         ref={sliderRef}
         size="small"
@@ -3092,7 +3110,7 @@ function NoteOverridesSlider({
           } : {}),
         }}
       />
-      <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+      <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums', ...sideOnTrackSx, ...(hasLabeledMarks ? { justifyContent: 'flex-end' } : {}) }}>
         {formatValue(shown)}
       </Typography>
     </Box>
