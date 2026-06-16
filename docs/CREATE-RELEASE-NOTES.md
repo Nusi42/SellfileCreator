@@ -74,7 +74,11 @@ If you find no concerns, leave `$CHECKLIST_FILE` untouched.
 - **Never** stage, commit, or amend git. The maintainer handles commits.
 - Do not touch anything under `plans/` or rename plan files.
 - Treat `examples/` diffs as reference material; skim only when behavior changes.
-- Keep tone factual and player-focused. No hype, no marketing fluff. Plain language; avoid backend terms (cache, threads, async, mutex) unless players directly interact with the concept.
+- Keep tone factual and player-focused. No hype, no marketing fluff. **Plain language first** — backend terms (cache, threads, async, mutex, invalidat*, race condition) are banned unless the player literally interacts with that concept. A "caching problem" is acceptable when it genuinely explains the symptom; internal implementation details are not.
+- **Bug fixes: frame as happy little accidents.** A bug that slipped in while making the app better should be presented sympathetically — not as a failure, but as a side-effect of ambitious improvements. Never describe a bug in stark technical terms; describe the symptom the player experienced and, if context helps, briefly note the optimization that unintentionally caused it (in plain language).
+- **Only mention changes that meaningfully affect players.** Skip minor UI polish, cosmetic tweaks, and internal-only improvements unless there are no other changes for the release — in that case they may be included. If in doubt, leave it out.
+- **Do not mention developer/creator-native features in the history.** Note DSL syntax (e.g. `setval`, `unit=`, `needs=`, `toggleside`), editor syntax highlighting, inline diagnostics for malformed override configs, and similar authoring tools are internal features; omit them from HISTORY.txt entirely. Only mention what players who *use* a note (not those who *write* one) will notice.
+- **Be aware of what is new vs. already released.** Before writing a bullet, check whether the feature or behavior it describes already existed in a previous release entry. Fixes and extensions for things that were not yet shipped belong to the same release window and should be dropped. Do not write "Fixed: …" for a bug that was introduced *and* fixed within the same window — it never affected users.
 - Drop features added and removed within the same release window.
 - Drop fixes for features added in the same release window.
 - Do not mention or hint at easter eggs.

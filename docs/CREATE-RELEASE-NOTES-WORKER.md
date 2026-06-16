@@ -83,6 +83,10 @@ The reducer sees bullets from every chunk and applies those rules with full cont
 - Do not mention or hint at easter eggs.
 - Stay inside `$COMMIT_RANGE`. Do not look at commits outside it.
 - Do not overwrite `$CHECKLIST_FILE`. Append only.
+- **Plain language only.** Backend terms (cache, threads, async, mutex, invalidat*) are banned unless the player directly interacts with that concept. A "caching problem" in plain terms is acceptable when it genuinely explains the symptom; internal implementation details are not.
+- **Do not emit bullets for developer/creator-native features.** Note DSL syntax (e.g. `setval`, `unit=`, `needs=`, `toggleside`), editor syntax highlighting, inline diagnostics for malformed override configs, and similar authoring tools are internal; omit them. Only surface what players who *use* a note (not those who *write* one) will notice.
+- **Only emit bullets for changes that meaningfully affect players.** Skip minor UI polish and internal-only tweaks unless they are the only changes in the chunk. The reducer will filter, but fewer spurious bullets is better.
+- **Flag added-then-fixed patterns for the reducer.** If you see a feature introduced and a bug fix for it in the same chunk, emit both bullets but mark the fix with `[same-window?]` so the reducer can verify whether both are within the current release window and drop the fix if so.
 
 ## Report
 
