@@ -3980,6 +3980,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         noteSessionBaselineRef.current = null
         noteSessionModeRef.current = null
       }
+      // An import is a FULL state replacement, not an in-place edit: the override answers must be
+      // reset+seeded even when the note TEXT is unchanged. This happens when the same preset is
+      // loaded twice in a row (e.g. restore an `endgame` session → load that same preset again):
+      // the text matches, so the normal answer-reconciliation below is skipped, leaving the stale
+      // restored answers (or a bare {} cleared by the caller) in place — so the loaded preset's
+      // default mode shows the wrong slider values. Reconcile here too. (Edit/clear/restore keep
+      // the old skip: edits leave answers as-is, and restore's caller sets answers explicitly.)
+      if (mode === 'import') {
+        setNoteRecipeOverridesAnswers({})
+        setNoteSafeguardOverridesAnswers(seedSafeguardAnswersFromRecipeDefaults(nextNormalized ?? ''))
+      }
       setSfcNote(() => nextNormalized)
       return null
     }
