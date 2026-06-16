@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics } from '../../src/lib/noteRecipeOverrides.js'
+import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
 
 // Load the real shipped preset note so we validate the actual authored markup.
 const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
@@ -84,4 +85,28 @@ test('switching account tiers resets the 5★ toggles deterministically', () => 
   const load = resolveRecipeOverridesTags(note)
   assert.deepEqual(keepTokens(pick(pick(load, 'midgame'), 'lategame')), keepTokens(load), 'Midgame→Lategame == fresh load')
   assert.deepEqual(keepTokens(pick(pick(load, 'endgame'), 'lategame')), keepTokens(load), 'Endgame→Lategame == fresh load')
+})
+
+// ── Account modes set both improvement-chance sliders via setval (persist-on-select) ──
+// The cross-domain WRITE is done in the NoteDialog handler; here we assert each mode carries the
+// right setval directives, and that the target sliders exist with the ids those directives name.
+
+test('the improvement-chance sliders carry the setval target ids', () => {
+  const sg = resolveNoteSafeguardOverridesTags(note)
+  const sliderTokens = sg.questions
+    .flatMap((q) => q.options.filter((o) => o.groupType === 'slider').map((o) => o.token))
+  assert.ok(sliderTokens.includes('impr_art'), 'artifact slider has id=impr_art')
+  assert.ok(sliderTokens.includes('impr_acc'), 'accessory slider has id=impr_acc')
+})
+
+test('each account mode sets both improvement-chance sliders (25 normal tiers, 50 Endgame+)', () => {
+  // The mode radios live in the account-tier question (acctQ); read each option's setval.
+  const setvalOf = (token: string): Record<string, number> => {
+    const opt = acctQ.options.find((o) => o.token === token)!
+    return Object.fromEntries(opt.setValueDirectives.map((d) => [d.token, d.value]))
+  }
+  for (const tier of ['midgame', 'lategame', 'endgame']) {
+    assert.deepEqual(setvalOf(tier), { impr_art: 25, impr_acc: 25 }, `${tier} sets both sliders to 25`)
+  }
+  assert.deepEqual(setvalOf('endgameplus'), { impr_art: 50, impr_acc: 50 }, 'Endgame+ sets both sliders to 50')
 })

@@ -1790,6 +1790,7 @@ group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"chec
                sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [elseBlock] "}"
 sliderParam   := ("min" | "max" | "step" | "default") "=" number
              | "marks" "=" markItem ("," markItem)*        // labeled guide ticks
+             | "unit" "=" string                           // display-only suffix on the value (e.g. "%")
              | "toggle" "=" string                         // adds an on/off checkbox (off ⇒ the else block)
              | "toggleside" "=" ("left" | "above")         // checkbox placement (default: above)
              | "toggledefault" "=" ("on" | "off")          // initial checkbox state (default: on)
@@ -1833,7 +1834,13 @@ elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   /
 fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
 constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
              | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
+             | "setval" valueAssignList
 tokenList     := token ("," token)*
+valueAssignList := token "=" number ("," token "=" number)*
+                 // When THIS option becomes selected, write number into the slider whose
+                 // id=token marker matches (persisted as a real stored value, like a drag). The
+                 // target slider may live in another overrides domain (recipe checkbox ->
+                 // safeguard slider). Afterwards the slider is an ordinary stored answer.
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
 gearToken     := ["+" | "+-" | "-"] token
 value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
@@ -2355,6 +2362,30 @@ function NoteOptionConstraintRow(
   )
 }
 
+// FORCES row for `setval token=N` directives. Unlike on/off/excl/needs (which reference sibling
+// option ids), these target SLIDERS by id=token — usually in the other overrides domain — so they
+// render as `token=value` literals rather than resolved option-ref chips.
+function NoteOptionSetvalRow(
+  { directives, kwColor, tokenColor }:
+  { directives: { token: string; value: number }[]; kwColor: string; tokenColor: string },
+): JSX.Element | null {
+  if (directives.length === 0) return null
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
+      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: 'var(--font-code, monospace)' }}>
+        setval
+      </Typography>
+      <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.25, minWidth: 0 }}>
+        {directives.map((d) => (
+          <Typography key={d.token} component="span" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: 'var(--font-code, monospace)' }}>
+            {d.token}={d.value}
+          </Typography>
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
 // Tooltip body. See the layout comment above the section. All sections are render-time
 // derived from the structured option; nothing here mutates note state.
 function NoteOptionInfoTooltipContent({
@@ -2366,6 +2397,7 @@ function NoteOptionInfoTooltipContent({
   excludedOptionIds,
   requiresOptionIds,
   requiresDisabledState,
+  setValueDirectives,
   slider,
   positionalIndex,
   blocks,
@@ -2378,6 +2410,7 @@ function NoteOptionInfoTooltipContent({
   excludedOptionIds: string[]
   requiresOptionIds: string[]
   requiresDisabledState?: 'on' | 'off' | null | undefined
+  setValueDirectives?: { token: string; value: number }[]
   slider?: { min: number; max: number; default: number } | null | undefined
   positionalIndex: number
   blocks: NoteOverrideInfoBlock[]
@@ -2398,7 +2431,8 @@ function NoteOptionInfoTooltipContent({
   const hasOwnFields = blocks.some((b) => b.operations.length > 0)
   // Reconstruct the CHANGES DSL ([prefix ]selector→field=value — no id header line).
   const dsl = buildOptionInfoDsl({ blocks })
-  const hasConstraints = setOptionIds.length + unsetOptionIds.length + excludedOptionIds.length + requiresOptionIds.length > 0
+  const setvals = setValueDirectives ?? []
+  const hasConstraints = setOptionIds.length + unsetOptionIds.length + excludedOptionIds.length + requiresOptionIds.length + setvals.length > 0
   // needs-gate display state suffix (`shown off until met`), display-only.
   const needsSuffix = requiresDisabledState ? `shown ${requiresDisabledState} until met` : undefined
   // ID reference: explicit `id=token` verbatim; otherwise the 1-based position (the DSL
@@ -2436,6 +2470,7 @@ function NoteOptionInfoTooltipContent({
               <NoteOptionConstraintRow label="off" ids={unsetOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
               <NoteOptionConstraintRow label="excl" ids={excludedOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} />
               <NoteOptionConstraintRow label="needs" ids={requiresOptionIds} kwColor={constraintKwColor} tokenColor={tokenColor} lookup={optionLookup} suffix={needsSuffix} />
+              <NoteOptionSetvalRow directives={setvals} kwColor={constraintKwColor} tokenColor={tokenColor} />
             </>
           ) : (
             <NoteTooltipNothing />
@@ -2485,6 +2520,8 @@ type NoteInfoTooltipOption = {
   excludedOptionIds: string[]
   requiresOptionIds?: string[]
   requiresDisabledState?: 'on' | 'off' | null
+  // `setval token=N` cross-domain slider value forces (recipe option only carries these).
+  setValueDirectives?: { token: string; value: number }[]
   sliderMin?: number
   sliderMax?: number
   sliderDefault?: number
@@ -2555,6 +2592,7 @@ function NoteOptionInfoTooltipWrap(
           excludedOptionIds={option.excludedOptionIds}
           requiresOptionIds={option.requiresOptionIds ?? []}
           requiresDisabledState={option.requiresDisabledState ?? null}
+          setValueDirectives={option.setValueDirectives ?? []}
           slider={buildOptionSliderInfo(option)}
           positionalIndex={option.positionalIndex}
           blocks={assembleOptionInfoBlocks(option, domain)}
@@ -2923,8 +2961,14 @@ function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
 // extra row drops the label by ROW_H so a dropped label clears the one to its left.
 const MARK_ROW_BASE = 28
 const MARK_ROW_H = 18
+// Height (px) of a size="small" horizontal MUI slider's root box = rail height (2) + vertical
+// padding (13*2) = 28. The rail sits at its vertical centre (50% → 14px). Wrapping each side
+// element (checkbox, value readout) in a box of this height and centring its content puts both
+// on the rail's centre line — matching the top-aligned slider's rail and each other. (Assumes a
+// fine pointer; coarse-pointer touch padding would differ.)
+const SLIDER_TRACK_BAND = 28
 function NoteOverridesSlider({
-  value, min, max, step, marks, disabled, onCommit,
+  value, min, max, step, marks, unit, disabled, onCommit, leftControl,
 }: {
   value: number
   min: number
@@ -2932,12 +2976,20 @@ function NoteOverridesSlider({
   step: number
   // Labeled guide marks (raw data). Absent = a tick per step.
   marks?: { value: number; label: string; subtext?: string }[]
+  // Optional display-only suffix appended to the shown value (e.g. "%").
+  unit?: string
   disabled: boolean
   onCommit: (value: number) => void
+  // Optional control (the enable/disable checkbox) rendered inline left of the track.
+  // Placed here — not by the caller — so it shares the track's exact centre line; the
+  // mark labels hang below the whole row, keeping the checkbox on the track, not above it.
+  leftControl?: React.ReactNode
 }): JSX.Element {
   // Local visual value while dragging; null falls back to the committed `value`.
   const [dragValue, setDragValue] = useState<number | null>(null)
   const shown = dragValue ?? value
+  // SSOT for value+unit formatting — used by both the readout and the drag tooltip.
+  const formatValue = (v: number): string => `${v}${unit ?? ''}`
   // Sliders here are always single-thumb; collapse the union to a number.
   const resolve = (v: number | number[]): number => (typeof v === 'number' ? v : (v[0] ?? min))
   const hasLabeledMarks = !!marks && marks.length > 0
@@ -3016,8 +3068,22 @@ function NoteOverridesSlider({
   // (each dropped row adds MARK_ROW_H). Keeps single-row sliders as compact as tick sliders.
   const marksMb = hasLabeledMarks && maxRow > 0 ? `${maxRow * MARK_ROW_H}px` : undefined
 
+  // A labeled slider reserves height below its track for the mark labels, so its box centre
+  // sits below the track line; centring the row would drop the checkbox + readout below it.
+  // Instead the row is TOP-aligned and each side element (checkbox, readout) is wrapped in a
+  // box of the slider's track-band height with its content vertically centred — so the checkbox
+  // "Yes" and the "25%" readout share the SAME centre line, which coincides with the track
+  // (also top-aligned, rail at the band's mid-point). This makes their baselines match
+  // regardless of the differing intrinsic heights of a checkbox row vs a bare caption.
+  // Tickless sliders have no overhang and just centre normally.
+  const sideOnTrackSx = hasLabeledMarks
+    ? { height: `${SLIDER_TRACK_BAND}px`, display: 'flex', alignItems: 'center' }
+    : {}
+
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
+    <Box sx={{ display: 'flex', alignItems: hasLabeledMarks ? 'flex-start' : 'center', gap: 2, ...(marksMb ? { mb: marksMb } : {}) }}>
+      {/* Inline checkbox (when toggleside=left): centred on the track band, like the readout. */}
+      {leftControl ? <Box sx={{ flexShrink: 0, ...sideOnTrackSx }}>{leftControl}</Box> : null}
       <Slider
         ref={sliderRef}
         size="small"
@@ -3033,6 +3099,7 @@ function NoteOverridesSlider({
         // Commit once on release (also fires per keyboard step, which is already settled).
         onChangeCommitted={(_, v) => { if (disabled) return; const nv = resolve(v); setDragValue(null); onCommit(nv) }}
         valueLabelDisplay="auto"
+        valueLabelFormat={formatValue}
         sx={{
           flex: 1,
           color: 'primary.main',
@@ -3043,8 +3110,8 @@ function NoteOverridesSlider({
           } : {}),
         }}
       />
-      <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-        {shown}
+      <Typography variant="caption" sx={{ minWidth: 20, textAlign: 'right', color: 'text.secondary', fontVariantNumeric: 'tabular-nums', ...sideOnTrackSx, ...(hasLabeledMarks ? { justifyContent: 'flex-end' } : {}) }}>
+        {formatValue(shown)}
       </Typography>
     </Box>
   )
@@ -3169,19 +3236,6 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
               const min = sliderOpt.sliderMin ?? 1
               const max = sliderOpt.sliderMax ?? 5
               const step = sliderOpt.sliderStep ?? 1
-              const sliderControl = (
-                <NoteOverridesSlider
-                  value={sliderValue}
-                  min={min}
-                  max={max}
-                  step={step}
-                  // Raw marks; the slider does collision-aware row layout + connectors itself.
-                  {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
-                  disabled={!safeguardOverridesEditable || toggleOff}
-                  // Commit the numeric value once on release; the off sentinel is set by the toggle.
-                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
-                />
-              )
               // Optional enable/disable checkbox; unchecking stores the off sentinel (else block).
               const toggleControl = toggle ? (
                 <FormControlLabel
@@ -3199,6 +3253,26 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                     : ''}
                 />
               ) : null
+              // toggleside=left renders the checkbox inline within the slider row (sharing the
+              // track centre line); otherwise it stacks above and the slider gets no leftControl.
+              const inlineLeft = !!toggle && toggle.side === 'left'
+              const sliderControl = (
+                <NoteOverridesSlider
+                  value={sliderValue}
+                  min={min}
+                  max={max}
+                  step={step}
+                  // Raw marks; the slider does collision-aware row layout + connectors itself.
+                  {...(sliderOpt.sliderMarks ? { marks: sliderOpt.sliderMarks } : {})}
+                  // Optional display-only value suffix (e.g. "%").
+                  {...(sliderOpt.sliderUnit ? { unit: sliderOpt.sliderUnit } : {})}
+                  disabled={!safeguardOverridesEditable || toggleOff}
+                  // Commit the numeric value once on release; the off sentinel is set by the toggle.
+                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
+                  // Inline-left toggle sits in the slider's own centred row.
+                  {...(inlineLeft && toggleControl ? { leftControl: toggleControl } : {})}
+                />
+              )
               const sliderBox = (
                 <Box key={group.id} sx={{ px: 0.5, pt: 0.5 }}>
                   {/* Slider prompt label mirrors the group header label when present */}
@@ -3208,13 +3282,9 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       {sliderOpt.isDefault && isEditorPreview && <NoteOptionDefaultChip />}
                     </Typography>
                   ) : null}
-                  {toggle && toggle.side === 'left' ? (
-                    // Checkbox inline-left, top-aligned so it sits on the slider's track line
-                    // (the slider box is tall because of the mark labels below the track).
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      {toggleControl}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>{sliderControl}</Box>
-                    </Box>
+                  {inlineLeft ? (
+                    // Checkbox is inside sliderControl's centred row — render the slider alone.
+                    sliderControl
                   ) : (
                     // Checkbox stacked above the slider (default).
                     <>
@@ -4209,24 +4279,65 @@ export default function NoteDialog({
     onApplySafeguardOverrides,
     onNoteOverridesDisabledChange,
   ])
+  // Resolve safeguard overrides markers — produces both question definitions (for rendering)
+  // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange). Declared before
+  // the recipe handler because that handler reads it to resolve cross-domain `setval` slider writes.
+  const safeguardOverridesResolution = useMemo(
+    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
+    [renderNote, safeguardOverridesAnswers],
+  )
   const handleRecipeOverridesAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
     preferredId?: string,
     removedId?: string,
   ) => {
-    // Delegate the persist + normalize flow (incl. the seed-on-uncheck fix that keeps a
-    // released account tier from cascading unrelated boxes off) to the shared helper.
+    // Persist the recipe answer change.
+    const note = renderNote ?? ''
     onRecipeOverridesAnswersChange((prev) => applyRecipeOverridesAnswerChange(
-      renderNote ?? '', prev, question, nextSelection, preferredId, removedId,
+      note, prev, question, nextSelection, preferredId, removedId,
     ))
-  }, [onRecipeOverridesAnswersChange, renderNote])
-  // Resolve safeguard overrides markers — produces both question definitions (for rendering)
-  // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange).
-  const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
-    [renderNote, safeguardOverridesAnswers],
-  )
+    // Cross-domain slider writes: an option that becomes newly selected pins a SAFEGUARD slider
+    // (matched by its id=token), persisting a real stored value — exactly as if the user dragged
+    // it there (no render overlay, no snap-back). This is how an account-mode radio sets the
+    // improvement-chance sliders: `Endgame+` → 50, the rest → 25.
+    //   • `setval token=N` → write the slider value N (implies toggle on).
+    //   • `+token` / `-token` (set/unset) naming a slider id → toggle it on / off.
+    // We diff the resolved recipe selection before/after off the CURRENT answers prop (this handler
+    // fires on a user action, so `recipeOverridesAnswers` is the live state) to avoid nested setState.
+    const before = new Set(resolveRecipeOverridesTags(note, recipeOverridesAnswers).questions.flatMap((q) => q.answer))
+    const nextRecipe = applyRecipeOverridesAnswerChange(note, recipeOverridesAnswers, question, nextSelection, preferredId, removedId)
+    // token → safeguard slider option (id=token), for resolving cross-domain writes.
+    const sliderByToken = new Map<string, { questionId: string; defaultNum: number }>()
+    for (const q of safeguardOverridesResolution.questions) {
+      const slider = q.options.find((o) => o.groupType === 'slider' && o.token)
+      if (slider?.token) sliderByToken.set(slider.token, { questionId: q.id, defaultNum: slider.sliderDefault ?? slider.sliderMin ?? 1 })
+    }
+    // Accumulate writes from every newly-selected option, in resolution order (last wins).
+    const writes: { questionId: string; value: string }[] = []
+    for (const q of resolveRecipeOverridesTags(note, nextRecipe).questions) {
+      for (const o of q.options) {
+        if (!q.answer.includes(o.id) || before.has(o.id)) continue
+        for (const { token, value } of o.setValueDirectives) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(value) })
+        }
+        // +token → toggle the slider ON at its default; -token → toggle OFF (sentinel).
+        for (const token of o.setTokens) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: String(sld.defaultNum) })
+        }
+        for (const token of o.unsetTokens) {
+          const sld = sliderByToken.get(token); if (sld) writes.push({ questionId: sld.questionId, value: SLIDER_TOGGLE_OFF })
+        }
+      }
+    }
+    if (writes.length > 0) {
+      onSafeguardOverridesAnswersChange((prevSg) => {
+        const nextSg = { ...prevSg }
+        for (const w of writes) nextSg[w.questionId] = [w.value]
+        return nextSg
+      })
+    }
+  }, [onRecipeOverridesAnswersChange, onSafeguardOverridesAnswersChange, recipeOverridesAnswers, safeguardOverridesResolution, renderNote])
   // Build the marker index → question definition map for NoteSafeguardOverridesBlock.
   const safeguardOverridesResolutions = useMemo(
     () => {
@@ -4256,6 +4367,8 @@ export default function NoteDialog({
       const sliderOpt = sliderGroup.options[0]
       const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
       const numStr = nextSelection[0]
+      // Note: a slider value set by an account-mode `setval` is just a normal stored answer here
+      // (persisted on select), so dragging it is an ordinary value change — no special release.
       // The toggle-off sentinel passes through unchanged (routes to the else block).
       if (numStr === SLIDER_TOGGLE_OFF) {
         onSafeguardOverridesAnswersChange((prev) => ({ ...prev, [question.id]: [SLIDER_TOGGLE_OFF] }))

@@ -56,6 +56,8 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.field                      { color: var(--note-tok-field, #56b6c2); }
 /* Slider group param keywords (min / max / step) — same teal as field names. */
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.slider-param-kw             { color: var(--note-tok-slider-param-kw, #56b6c2); }
+/* `toggleside=` value keywords (left / above) — warm amber like other enum values. */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.slider-toggle-side-val      { color: var(--note-tok-slider-toggle-side-val, #d19a66); }
 /* Safeguard-overrides enum values — warm amber matching boolean-val. */
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-activation-val           { color: var(--note-tok-sg-activation-val, #d19a66); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.sg-match-val               { color: var(--note-tok-sg-match-val, #d19a66); }
@@ -71,6 +73,10 @@ body.restrict-ui [data-allow-select="1"] {
 /* Keyword constraints (set/unset/only/excl + id-refs). */
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.constraint-kw    { color: var(--note-tok-constraint-kw, #e5c07b); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.constraint-block .token.id-ref           { color: var(--note-tok-id-ref, #c8a96e); }
+/* setval forces (setval + slider-id=number pairs) — keyword and id-refs match constraint-block. */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.setval-block .token.constraint-kw        { color: var(--note-tok-constraint-kw, #e5c07b); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.setval-block .token.id-ref               { color: var(--note-tok-id-ref, #c8a96e); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.setval-block .token.number               { color: var(--note-tok-number, #d19a66); }
 /* Symbolic constraints (!/+/-/^ + id-refs) – operator gets its own orange so it reads as a sigil,
    not a keyword; id-refs stay muted amber. */
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.shorthand-constraint .token.constraint-op { color: var(--note-tok-constraint-op, #e87c3e); }

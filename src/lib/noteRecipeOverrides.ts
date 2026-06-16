@@ -17,6 +17,7 @@ import {
   type NoteCountAstNode,
   type NoteQuestionGroupType,
   type ParsedOverridesOption,
+  type OverridesSetValueDirective,
   type ParsedOverridesQuestion,
   TokenCursor,
   NOTE_OVERRIDES_QUESTION_KEYWORDS,
@@ -33,6 +34,9 @@ import {
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
   parseCountExpression,
+  parseOverridesBooleanValue,
+  reportInvalidEnumValue,
+  NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
 } from './noteOverridesParser'
 import { normalizeRollTargetEntry } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
@@ -94,11 +98,18 @@ export const NOTE_RECIPE_OVERRIDES_GROUP_TYPE_KEYWORDS = (
 export const NOTE_RECIPE_OVERRIDES_RARITY_NAMES = [
   'any', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythical', 'auto',
 ] as const
-/** Enumerated string values for non-numeric fields (export=, keep=, flex=). */
+/** Accepted `export=` values (per-field SSOT for parse + diagnostics). */
+export const NOTE_RECIPE_OVERRIDES_EXPORT_VALS = ['active', 'disabled', 'toggle'] as const
+/** Accepted `keep=` values (per-field SSOT for parse + diagnostics). */
+export const NOTE_RECIPE_OVERRIDES_KEEP_VALS = ['early', 'late'] as const
+/** Accepted `autolate=` rarity-threshold values (per-field SSOT for parse + diagnostics). */
+export const NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS = ['uncommon', 'rare', 'epic'] as const
+/** Enumerated string values for non-numeric fields (export=, keep=, flex=), composed from
+ *  the per-field SSOT sets above + the shared boolean keywords. Drives Prism `boolean-val`. */
 export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
-  'active', 'disabled', 'toggle',  // export=
-  'early', 'late',                  // keep=
-  'true', 'false', 'on', 'off',     // flex=
+  ...NOTE_RECIPE_OVERRIDES_EXPORT_VALS,  // export=
+  ...NOTE_RECIPE_OVERRIDES_KEEP_VALS,    // keep=
+  ...NOTE_OVERRIDES_BOOLEAN_KEYWORDS,    // flex=
 ] as const
 /** Artifact slot names accepted by the DSL `slots=` assignment field (SSOT from ArtifactType). */
 export const NOTE_RECIPE_OVERRIDES_SLOT_NAMES = Object.keys(ArtifactType) as readonly string[]
@@ -364,6 +375,14 @@ export type NoteQuestionOption = {
   setOptionIds: string[]
   unsetOptionIds: string[]
   excludedOptionIds: string[]
+  // Cross-domain slider forcing (computed, never persisted). While this option is selected:
+  //  • setValueDirectives — force each named slider (by its id=token) to a value, toggled on.
+  //  • setTokens / unsetTokens — raw header tokens; a token matching a safeguard slider's id
+  //    forces that slider's toggle on (set) or off (unset). In-domain resolution of these tokens
+  //    lives in setOptionIds/unsetOptionIds; the raw forms are retained for the cross-domain bridge.
+  setValueDirectives: OverridesSetValueDirective[]
+  setTokens: string[]
+  unsetTokens: string[]
   // `needs` ids: the UI renders this option disabled until at least one of these
   // is selected. Empty = always enabled. Purely a UI gate (selection unaffected).
   requiresOptionIds: string[]
@@ -617,13 +636,6 @@ const parseLevelRange = (value: string): { min: LevelMilestone; max: LevelMilest
   // Reject reversed windows so outputs stay deterministic.
   if (minRaw > maxRaw) return null
   return { min: minRaw, max: maxRaw }
-}
-
-const parseBooleanValue = (value: string): boolean | null => {
-  const cleaned = value.trim().toLowerCase()
-  if (cleaned === 'true' || cleaned === 'on') return true
-  if (cleaned === 'false' || cleaned === 'off') return false
-  return null
 }
 
 const parseIntegerValue = (value: string): number | null => {
@@ -880,7 +892,7 @@ const parseSelectorTokens = (
       const valueToken = cursor.peek()
       if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
       cursor.next()
-      const parsed = parseBooleanValue(valueToken.value)
+      const parsed = parseOverridesBooleanValue(valueToken.value)
       if (parsed == null) return null
       return { kind: 'flex', value: parsed }
     }
@@ -1178,8 +1190,11 @@ const parseOperations = (
     if (field === 'export') {
       if (op !== 'eq') continue
       const mode = valueRaw.trim().toLowerCase()
-      if (mode === 'active' || mode === 'disabled' || mode === 'toggle') {
+      if ((NOTE_RECIPE_OVERRIDES_EXPORT_VALS as readonly string[]).includes(mode)) {
         operations.push({ kind: 'exportMode', action: mode as 'active' | 'disabled' | 'toggle' })
+      } else {
+        // Unknown value (e.g. `export=activ`) would silently no-op; flag the typo.
+        reportInvalidEnumValue('export', valueToken, NOTE_RECIPE_OVERRIDES_EXPORT_VALS, diags, absoluteOffset)
       }
       continue
     }
@@ -1208,14 +1223,18 @@ const parseOperations = (
     if (field === 'keep') {
       if (op !== 'eq') continue
       const mode = valueRaw.trim().toLowerCase()
-      if (mode !== 'early' && mode !== 'late') continue
+      if (!(NOTE_RECIPE_OVERRIDES_KEEP_VALS as readonly string[]).includes(mode)) {
+        reportInvalidEnumValue('keep', valueToken, NOTE_RECIPE_OVERRIDES_KEEP_VALS, diags, absoluteOffset); continue
+      }
       operations.push({ kind: 'keep', mode: mode as 'early' | 'late' })
       continue
     }
     if (field === 'autolate') {
       if (op !== 'eq') continue
       const raw = valueRaw.trim().toLowerCase()
-      if (raw !== 'uncommon' && raw !== 'rare' && raw !== 'epic') continue
+      if (!(NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS as readonly string[]).includes(raw)) {
+        reportInvalidEnumValue('autolate', valueToken, NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS, diags, absoluteOffset); continue
+      }
       operations.push({ kind: 'autoLate', threshold: raw as AutoRaritySupplementsThreshold })
       continue
     }
@@ -1242,8 +1261,10 @@ const parseOperations = (
     }
     if (field === 'flex') {
       if (op !== 'eq') continue
-      const parsed = parseBooleanValue(valueRaw)
-      if (parsed == null) continue
+      const parsed = parseOverridesBooleanValue(valueRaw)
+      if (parsed == null) {
+        reportInvalidEnumValue('flex', valueToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset); continue
+      }
       operations.push({ kind: 'flex', value: parsed })
       continue
     }
@@ -1767,6 +1788,10 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
+      // Retain raw header tokens + setval pairs for the cross-domain slider-forcing bridge.
+      setValueDirectives: option.setValueTokens,
+      setTokens: option.setTokens,
+      unsetTokens: option.unsetTokens,
       requiresOptionIds,
       requiresDisabledState: option.needsDisabledState,
       groupType: option.groupType,

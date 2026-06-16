@@ -43,12 +43,23 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
   NOTE_SAFEGUARD_OVERRIDES_IMPROVEMENT_CHANCE_KW_VALS,
 } from './noteSafeguardOverrides';
+import {
+  SLIDER_PARAM_KEYWORDS,
+  SLIDER_TOGGLE_SIDE_VALUES,
+  NOTE_OVERRIDES_SETVAL_KEYWORD,
+} from './noteOverridesParser';
 
 // Build a \b-bounded alternation regex from a keyword array.
 // Single source of truth: Prism patterns are derived from parser constants, not
 // maintained as parallel hardcoded strings.
 const wordAlt = (words: readonly string[]): RegExp => (
   new RegExp(`\\b(?:${words.join('|')})\\b`)
+)
+
+// Like wordAlt, but emits the alternation longest-first so prefix keywords
+// (e.g. `toggle`) never shadow their longer forms (`toggleside`, `toggledefault`).
+const wordAltLongestFirst = (words: readonly string[]): RegExp => (
+  wordAlt([...words].sort((a, b) => b.length - a.length))
 )
 
 // ── marker-option patterns ──────────────────────────────────────────────────
@@ -177,11 +188,21 @@ function recipeOverrides(Prism: Refractor): void {
         // Plain `tag` (without `=`/`:`) is handled here after `tag-comparison`.
         'selector-field': wordAlt(NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS),
 
-        // Slider group parameter keywords (min / max / step / marks / toggle…).
-        // `default` is caught by the earlier `default-kw` token (toggledefault is a distinct word).
+        // Slider group parameter keywords (min / max / step / marks / toggle…) — derived
+        // from the parser constant (SSOT). Emitted longest-first so `toggle` does not
+        // shadow `toggleside`/`toggledefault`. `default` is also a slider param but is
+        // caught by the earlier `default-kw` token; excluded here so it keeps that color.
         // Must precede `field` so these short keywords are colored distinctly rather than
         // falling through to unstyled text (they are not valid assignment-field names).
-        'slider-param-kw': /\b(?:min|max|step|marks|toggledefault|toggleside|toggle)\b/,
+        'slider-param-kw': wordAltLongestFirst(
+            SLIDER_PARAM_KEYWORDS.filter((kw) => kw !== 'default'),
+        ),
+
+        // `toggleside=` value keywords (`left` / `above`) — derived from the parser
+        // constant (SSOT). Rendered as a boolean-val so the side value reads in the same
+        // warm amber family as `toggledefault`'s on/off value. Must precede `field` so
+        // bare `above`/`left` are not left unstyled (they are not assignment-field names).
+        'slider-toggle-side-val': wordAlt(SLIDER_TOGGLE_SIDE_VALUES),
 
         // Field names used on the left-hand side of rule assignments (SSOT).
         // Combines recipe-overrides fields and safeguard-overrides fields so both grammars
@@ -226,6 +247,29 @@ function recipeOverrides(Prism: Refractor): void {
             },
         },
 
+        // `setval token=N [token=N …]` — the one constraint keyword whose arguments are
+        // `token=number` pairs rather than bare tokens. Modeled separately (and BEFORE the
+        // generic constraint-block) so the whole pair list is consumed as one unit; the
+        // generic block would otherwise stop at the first `=` and leave later tokens unstyled.
+        'setval-block': {
+            pattern: new RegExp(
+                `\\b${NOTE_OVERRIDES_SETVAL_KEYWORD}\\b(?:\\s+\\w[\\w-]*\\s*=\\s*\\d+)*`
+            ),
+            // Greedy so the whole `setval id=n id=n …` run is claimed as one span before
+            // value tokens (number / field) can carve out a piece of it mid-stream.
+            greedy: true,
+            inside: {
+                // The `setval` keyword shares the constraint-kw color family.
+                'constraint-kw': new RegExp(`\\b${NOTE_OVERRIDES_SETVAL_KEYWORD}\\b`),
+                // The `=` separator between a slider id and its forced value.
+                'operator': /=/,
+                // The forced numeric value.
+                'number': /\d+/,
+                // Each target slider id (referenced ID, muted amber like other id-refs).
+                'id-ref': /\w[\w-]*/,
+            },
+        },
+
         // Constraint keywords optionally followed by one or more ID token arguments (SSOT).
         // The nested grammar gives the keyword its own color while each space-separated
         // bare-word argument is colored as an id-ref (used ID), distinct from id-assign.
@@ -234,6 +278,10 @@ function recipeOverrides(Prism: Refractor): void {
             pattern: new RegExp(
                 `\\b(?:${NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS.join('|')})\\b(?:\\s*=\\s*\\w+)?(?:\\s+\\w[\\w-]*)*`
             ),
+            // Greedy so the keyword + its bare-word id list is claimed as one span. Without
+            // this, an earlier value token (e.g. `sg-activation-val` matching the `off` in
+            // `needs=off`) carves the string and the trailing ids fall through unstyled.
+            greedy: true,
             inside: {
                 // The constraint keyword itself.
                 'constraint-kw': wordAlt(NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS),
