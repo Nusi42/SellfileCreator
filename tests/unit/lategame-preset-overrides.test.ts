@@ -144,3 +144,20 @@ test('loading the preset seeds every slider from the default Lategame mode (not 
   }
   assert.ok(differsFromDefault, 'at least one forced value differs from the slider default (guards the original bug)')
 })
+
+test('"Reset Options to Defaults" re-applies the default-mode forces over a dirtied state', () => {
+  // Reproduce the reset handler: it clears recipe answers and computes safeguard answers via
+  // seedSafeguardAnswersFromRecipeDefaults(note) with NO `existing` map — so prior user edits
+  // (e.g. a dragged-away slider) are discarded and every default-mode force is re-applied.
+  const spdQ = resolveNoteSafeguardOverridesTags(note).questions
+    .find((x) => x.options.some((o) => o.token === 'min_spd_pieces'))!
+  // Simulate a user who dragged the speed-set slider to a non-default, non-forced value.
+  const dirtied = { [spdQ.id]: ['64'] }
+  // The reset call (matches NoteDialog.handleResetRecipeOverridesAnswers) ignores `dirtied`.
+  const afterReset = seedSafeguardAnswersFromRecipeDefaults(note)
+  assert.notEqual(afterReset[spdQ.id]?.[0], dirtied[spdQ.id]?.[0], 'reset discards the dragged value')
+  // It lands on the authored Lategame force, not the slider default.
+  const lategameForce = acctQ.options.find((o) => o.token === 'lategame')!
+    .setValueDirectives.find((d) => d.token === 'min_spd_pieces')!.value
+  assert.equal(afterReset[spdQ.id]?.[0], String(lategameForce), 'reset applies the Lategame speed-set force')
+})

@@ -77,6 +77,7 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   collectCrossDomainSliderWrites,
+  seedSafeguardAnswersFromRecipeDefaults,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
@@ -4160,13 +4161,17 @@ export default function NoteDialog({
     [recipeOverridesAnswers, renderNote],
   )
   // Reset answers by clearing stored overrides back to defaults and re-enabling parsing.
-  // Safeguard overrides answers (sliders, radios) are reset alongside recipe overrides
-  // so all question controls return to their default positions.
+  // This must reproduce the SFC/preset LOAD state exactly: clearing recipe answers to {}
+  // re-selects the `*` default account mode, whose cross-domain setval/+/- directives must be
+  // re-applied to the safeguard sliders — otherwise those sliders fall back to their own
+  // `default=` instead of the preset-authored forced values (e.g. Lategame min_spd_pieces=12,
+  // impr_art=33). seedSafeguardAnswersFromRecipeDefaults resolves the note with empty answers
+  // (= the default selection) and writes those forces, the same SSOT helper the load paths use.
   const handleResetRecipeOverridesAnswers = React.useCallback(() => {
     onNoteOverridesDisabledChange(false)
     onRecipeOverridesAnswersChange(() => ({}))
-    onSafeguardOverridesAnswersChange(() => ({}))
-  }, [onRecipeOverridesAnswersChange, onNoteOverridesDisabledChange, onSafeguardOverridesAnswersChange])
+    onSafeguardOverridesAnswersChange(() => seedSafeguardAnswersFromRecipeDefaults(renderNote ?? ''))
+  }, [renderNote, onRecipeOverridesAnswersChange, onNoteOverridesDisabledChange, onSafeguardOverridesAnswersChange])
   const handleEnableRecipeOverrides = React.useCallback(() => {
     onNoteOverridesDisabledChange(false)
   }, [onNoteOverridesDisabledChange])
