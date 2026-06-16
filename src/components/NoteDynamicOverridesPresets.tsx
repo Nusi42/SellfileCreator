@@ -22,6 +22,7 @@
 import React from 'react'
 import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Popper, Stack, TextField, Typography, Button, Divider } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import SaveAsIcon from '@mui/icons-material/SaveAs'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { useI18n } from '../lib/i18n'
@@ -69,6 +70,7 @@ export type DynamicOverridesPresetController = {
   presets: readonly DynamicOverridesPreset[]
   handleLoad: (preset: DynamicOverridesPreset) => void
   requestDelete: (preset: DynamicOverridesPreset) => void
+  requestOverwrite: (preset: DynamicOverridesPreset) => void
   openSaveDialog: () => void
   // Save dialog wiring.
   saveOpen: boolean
@@ -80,6 +82,10 @@ export type DynamicOverridesPresetController = {
   deleteTarget: DynamicOverridesPreset | null
   closeDeleteDialog: () => void
   confirmDelete: () => void
+  // Overwrite dialog wiring.
+  overwriteTarget: DynamicOverridesPreset | null
+  closeOverwriteDialog: () => void
+  confirmOverwrite: () => void
 }
 
 /** Owns preset state + the save/load/delete handlers shared by both menus. */
@@ -98,6 +104,8 @@ export function useDynamicOverridesPresetController({
   const [saveName, setSaveName] = React.useState('')
   // Delete-confirm target (null when closed).
   const [deleteTarget, setDeleteTarget] = React.useState<DynamicOverridesPreset | null>(null)
+  // Overwrite-confirm target (null when closed): the existing set to replace with the live selection.
+  const [overwriteTarget, setOverwriteTarget] = React.useState<DynamicOverridesPreset | null>(null)
 
   // Open the save dialog with an empty name after the host menu closes.
   const openSaveDialog = React.useCallback(() => {
@@ -151,11 +159,36 @@ export function useDynamicOverridesPresetController({
     })
   }, [setPresets])
 
+  // Overwrite request closes the menu first, then opens the confirm dialog.
+  const requestOverwrite = React.useCallback((preset: DynamicOverridesPreset) => {
+    onCloseMenu()
+    setOverwriteTarget(preset)
+  }, [onCloseMenu])
+  const closeOverwriteDialog = React.useCallback(() => setOverwriteTarget(null), [])
+  // Replace the target set's stored answers with the current FULL selection (same snapshot
+  // rule as confirmSave), keeping its id + name and bumping the saved timestamp.
+  const confirmOverwrite = React.useCallback(() => {
+    setOverwriteTarget((target) => {
+      if (target) {
+        const full = snapshotDynamicOverridesFullSelection(note, recipeAnswers, safeguardAnswers)
+        const updated: DynamicOverridesPreset = {
+          ...target,
+          savedAt: new Date().toISOString(),
+          recipeAnswers: full.recipeAnswers,
+          safeguardAnswers: full.safeguardAnswers,
+        }
+        setPresets((prev) => (Array.isArray(prev) ? prev.map((p) => (p.id === target.id ? updated : p)) : []))
+      }
+      return null
+    })
+  }, [note, recipeAnswers, safeguardAnswers, setPresets])
+
   return {
     note,
     presets,
     handleLoad,
     requestDelete,
+    requestOverwrite,
     openSaveDialog,
     saveOpen,
     saveName,
@@ -165,6 +198,9 @@ export function useDynamicOverridesPresetController({
     deleteTarget,
     closeDeleteDialog,
     confirmDelete,
+    overwriteTarget,
+    closeOverwriteDialog,
+    confirmOverwrite,
   }
 }
 
@@ -174,11 +210,13 @@ function DynamicOverridesPresetRow({
   preset,
   onLoad,
   onRequestDelete,
+  onRequestOverwrite,
 }: {
   note: string
   preset: DynamicOverridesPreset
   onLoad: (preset: DynamicOverridesPreset) => void
   onRequestDelete: (preset: DynamicOverridesPreset) => void
+  onRequestOverwrite: (preset: DynamicOverridesPreset) => void
 }) {
   const { t } = useI18n()
   // Resolve the per-set summary against the current note (display text only).
@@ -227,6 +265,19 @@ function DynamicOverridesPresetRow({
             {formatLocalDateTime(preset.savedAt) ?? preset.savedAt}
           </Typography>
         </Box>
+        {/* Overwrite: replace this set's stored selection with the current one (confirmed). */}
+        <IconButton
+          size="small"
+          aria-label={t('noteDynamicOverridesPresetsOverwriteButton')}
+          onClick={(event) => {
+            // Stop the click from also triggering the row's load handler.
+            try { event.stopPropagation() } catch {}
+            onRequestOverwrite(preset)
+          }}
+          sx={{ p: 0.5, alignSelf: 'center' }}
+        >
+          <SaveAsIcon fontSize="inherit" />
+        </IconButton>
         <IconButton
           size="small"
           color="error"
@@ -305,7 +356,7 @@ function DynamicOverridesPresetRow({
  */
 export function DynamicOverridesPresetMenuItems({ controller }: { controller: DynamicOverridesPresetController }) {
   const { t } = useI18n()
-  const { note, presets, handleLoad, requestDelete, openSaveDialog } = controller
+  const { note, presets, handleLoad, requestDelete, requestOverwrite, openSaveDialog } = controller
   return (
     <>
       {/* Visually separate the saved-sets section from the reset/disable actions above. */}
@@ -321,6 +372,7 @@ export function DynamicOverridesPresetMenuItems({ controller }: { controller: Dy
             preset={preset}
             onLoad={handleLoad}
             onRequestDelete={requestDelete}
+            onRequestOverwrite={requestOverwrite}
           />
         ))
       ) : (
@@ -343,6 +395,7 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
   const {
     saveOpen, saveName, setSaveName, closeSaveDialog, confirmSave,
     deleteTarget, closeDeleteDialog, confirmDelete,
+    overwriteTarget, closeOverwriteDialog, confirmOverwrite,
   } = controller
   return (
     <>
@@ -384,6 +437,22 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
           <Button onClick={closeDeleteDialog}>{t('cancel')}</Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
             {t('delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Overwrite-confirm dialog: replacing a set's stored selection is destructive, so confirm. */}
+      <Dialog open={Boolean(overwriteTarget)} onClose={closeOverwriteDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('noteDynamicOverridesPresetsOverwriteDialogTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {t('noteDynamicOverridesPresetsOverwriteDialogMessage', { name: overwriteTarget?.name ?? '' })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeOverwriteDialog}>{t('cancel')}</Button>
+          <Button onClick={confirmOverwrite} color="warning" variant="contained">
+            {t('noteDynamicOverridesPresetsOverwriteButton')}
           </Button>
         </DialogActions>
       </Dialog>
