@@ -212,24 +212,37 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    // Build the production bundle then serve it via vite preview at the configured port.
-    // Why: a per-clone PREVIEW_PORT (PLAYWRIGHT_PORT env var) lets parallel clones coexist
-    // on WSL + Windows without colliding on a fixed port.
-    command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${PREVIEW_PORT}`,
-    // VITE_TEST_HOOKS=1 makes vite.config set the compile-time __ALLOW_TEST_HOOKS__ flag, so
-    // this prod-like e2e build INCLUDES the test-only diagnostics (e.g. the ?logWasmHeap /
-    // window.__wasmHeapMB worker-heap probe the leak spec reads). Real release builds omit
-    // this env var → the flag is false → the diagnostics are tree-shaken out. Passed via the
-    // env option (not an inline `VAR=… cmd` prefix) so it works on Windows shells too.
-    env: { VITE_TEST_HOOKS: '1' },
-    url: `${PREVIEW_BASE_URL}/`,
-    // Always start a fresh preview so we never silently inherit a stale bundle (the
-    // exact failure mode that produced the README-dialog regression after bumping the
-    // app version). The build cost is paid up front; correctness wins over speed.
-    reuseExistingServer: false,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  /* Run your local dev server before starting the tests.
+     When E2E_EXTERNAL_SERVER=1 the orchestrator (scripts/test/run-e2e.mjs) has already
+     built the bundle once and started a single shared `vite preview`, then runs each
+     browser suite against it — so the build + serve cost is paid ONCE for the whole
+     matrix instead of once per browser (the former 3× redundant rebuild). In that mode
+     this webServer only needs to confirm the shared server is up, so it serves (no build)
+     and reuses the existing process. Run standalone (no env flag) it falls back to the
+     self-contained build+serve so `npx playwright test` still works on its own. */
+  webServer: (() => {
+    // The orchestrator manages the shared server; here we must NOT rebuild or kill it.
+    const useExternalServer = process.env.E2E_EXTERNAL_SERVER === '1';
+    return {
+      // External mode: serve the already-built bundle (no rebuild). Standalone mode:
+      // build the prod bundle first, then serve it. Per-clone PREVIEW_PORT keeps parallel
+      // WSL/Windows clones from colliding on a fixed port.
+      command: useExternalServer
+        ? `npm run preview -- --host 127.0.0.1 --port ${PREVIEW_PORT}`
+        : `npm run build && npm run preview -- --host 127.0.0.1 --port ${PREVIEW_PORT}`,
+      // VITE_TEST_HOOKS=1 makes vite.config set the compile-time __ALLOW_TEST_HOOKS__ flag, so
+      // this prod-like e2e build INCLUDES the test-only diagnostics (e.g. the ?logWasmHeap /
+      // window.__wasmHeapMB worker-heap probe the leak spec reads). Real release builds omit
+      // this env var → the flag is false → the diagnostics are tree-shaken out. Passed via the
+      // env option (not an inline `VAR=… cmd` prefix) so it works on Windows shells too.
+      env: { VITE_TEST_HOOKS: '1' },
+      url: `${PREVIEW_BASE_URL}/`,
+      // External mode: reuse the orchestrator's shared server (do NOT start a competing one).
+      // Standalone mode: always start fresh so we never silently inherit a stale bundle (the
+      // exact failure mode that produced the README-dialog regression after a version bump).
+      reuseExistingServer: useExternalServer,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    };
+  })(),
 });

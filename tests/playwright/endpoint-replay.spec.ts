@@ -8,6 +8,7 @@ import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { REPLAY_ROUNDS, MEMORY_LEAK_ROUNDS } from './iteration-counts'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint; app reads it from ?endpoint= query param.
@@ -29,15 +30,11 @@ const loadCapturedPackets = (): unknown[] => {
   // Each file is a clean standalone envelope — no array wrapping or comma stitching needed.
   return files.map((name) => JSON.parse(fs.readFileSync(path.join(SAMPLE_LOG_DIR, name), 'utf-8')))
 }
-// Repeat the full message burst this many times to stress-test the WASM boundary.
-// 3 rounds is enough to verify crash-free operation; memory-focused runs use the
-// binary-endpoint-memory spec which does many more rounds with explicit heap tracking.
-const REPLAY_ROUNDS = 3 // raise to 8 in development tests, use 3 at release builds
-// Extended round count for the memory-leak detection variant.
-const MEMORY_LEAK_ROUNDS = 3 // raise to 20 in development tests, use 3 at release builds
+// Round counts come from the shared dev/release split (E2E_FULL). REPLAY_ROUNDS verifies
+// crash-free operation; MEMORY_LEAK_ROUNDS drives the heap-tracking variant for longer.
 
 test.describe('endpoint-replay', () => {
-  test('replays sample-log packets 3× without crash or page error', async ({ page }) => {
+  test(`replays sample-log packets ${REPLAY_ROUNDS}× without crash or page error`, async ({ page }) => {
     // A few push-burst rounds, each capped by one settleWorkload() wait; shared token.
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointBurst)
 
@@ -114,7 +111,7 @@ test.describe('endpoint-replay', () => {
   })
 
   /**
-   * Memory-leak detection: runs 20 rounds of the full JSON per-type burst.
+   * Memory-leak detection: runs MEMORY_LEAK_ROUNDS rounds of the full JSON per-type burst.
    * Each round triggers: enqueue → handleGearDbRawPart → WASM pipeline → settle.
    *
    * Data is mutated between rounds (artifact revision incremented) so the diff
@@ -123,7 +120,7 @@ test.describe('endpoint-replay', () => {
    * and the rule-cache worker lifecycle.  Without this, identical data produces
    * a no-op diff after round 1 and the WASM worker is never exercised.
    */
-  test('json per-type burst does not leak memory across 20 rounds', async ({ page }) => {
+  test(`json per-type burst does not leak memory across ${MEMORY_LEAK_ROUNDS} rounds`, async ({ page }) => {
     // MEMORY_LEAK_ROUNDS push-burst rounds, each one settleWorkload() wait; shared token.
     // (The old 720_000 ms ceiling sized for a 20-round dev config that never ships at 3.)
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testEndpointBurst)

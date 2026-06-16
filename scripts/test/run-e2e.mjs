@@ -1,86 +1,160 @@
 #!/usr/bin/env node
 
-// Run Playwright browsers sequentially without short-circuiting on failure.
+// Run the Playwright browser suites sequentially without short-circuiting on failure.
+//
+// Build + serve ONCE for the whole matrix: previously every browser suite (and, within a
+// suite, the parallel run then the perf run) rebuilt the bundle and restarted Vite — up to
+// ~6 redundant builds per full run. Here we build once, start a single shared `vite preview`,
+// and point every browser suite at it via E2E_EXTERNAL_SERVER=1 (the Playwright config then
+// serves-and-reuses instead of build-and-start). The shared server is owned by THIS process
+// and torn down only after all suites finish.
+//
+// Two tiers, selected by E2E_FULL:
+//   - dev (default): FHD-only viewport projects, short iteration counts. Fast inner loop.
+//   - full (E2E_FULL=1, set by release:win): both viewports, full iteration counts.
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import net from 'node:net'
 
 // Capture the script directory so path math is deterministic.
 const here = fileURLToPath(new URL('.', import.meta.url))
 // Anchor child runs at the repo root for consistent relative paths.
 const root = join(here, '..', '..')
 
-// Enumerate the browser scripts in the desired execution order.
-// Keep the names here so test:e2e remains the single source of truth.
-// Each entry pairs a friendly name with its npm script.
-const browserRuns = [
-  { name: 'chromium', script: 'test:e2e:chromium' },
-  { name: 'firefox', script: 'test:e2e:firefox' },
-]
+// Full tier when --full is passed (test:e2e:full / release:win) or E2E_FULL=1 is set; dev
+// tier otherwise. The --full flag keeps the npm scripts cross-platform (no env-prefix that
+// would need cross-env on Windows). We export E2E_FULL=1 to the child suites below so the
+// specs' iteration-count helper picks the full counts.
+const isFull = process.argv.includes('--full') || process.env.E2E_FULL === '1'
+
+// Browser suites in execution order. The :full scripts add the 1280×720 viewport project
+// on top of the FHD project; the dev scripts run FHD only. (webkit is intentionally not in
+// the historical matrix here — order is chromium → firefox.)
+const browserRuns = isFull
+  ? [
+      { name: 'chromium', script: 'test:e2e:chromium:full' },
+      { name: 'firefox', script: 'test:e2e:firefox:full' },
+    ]
+  : [
+      { name: 'chromium', script: 'test:e2e:chromium' },
+      { name: 'firefox', script: 'test:e2e:firefox' },
+    ]
+
 // Shared report root so we can emit a combined index after all runs.
 const reportRoot = join(root, 'test-results', 'reports')
 
+// Resolve the per-clone preview port the same way playwright.config.ts does (djb2 hash of
+// cwd → 5180–5279), honoring an explicit PLAYWRIGHT_PORT override. Keeping the math in sync
+// lets us wait on the shared server before launching the suites.
+const PREVIEW_PORT_RANGE_START = 5180
+const PREVIEW_PORT_RANGE_SIZE = 100
+function hashCwdToPort(cwd) {
+  let hash = 5381
+  for (let index = 0; index < cwd.length; index += 1) {
+    hash = ((hash << 5) + hash + cwd.charCodeAt(index)) | 0
+  }
+  return PREVIEW_PORT_RANGE_START + (Math.abs(hash) % PREVIEW_PORT_RANGE_SIZE)
+}
+const previewPort = process.env.PLAYWRIGHT_PORT
+  ? Number.parseInt(process.env.PLAYWRIGHT_PORT, 10)
+  : hashCwdToPort(root)
+
 // Prefer npm_execpath when available to stay cross-platform inside npm scripts.
-// This avoids relying on shell resolution for npm.cmd on Windows.
-// Capture the npm CLI path when we are inside an npm lifecycle.
 const npmExecPath = process.env.npm_execpath
-// Build the base command and arguments so we avoid shell-specific behaviors.
-// Fall back to npm on PATH when run outside the npm lifecycle.
 const npmCommand = npmExecPath ? process.execPath : 'npm'
-// Prefix args with the npm CLI path when we invoke via node.
 const npmArgsPrefix = npmExecPath ? [npmExecPath] : []
 
-// Track failures so we still run all browsers before exiting non-zero.
-// This is the key difference from chained npm scripts.
-const failures = []
-
-// Execute the configured runs in order so failures never skip later browsers.
-for (const run of browserRuns) {
-  // Run each browser suite sequentially to keep the Vite server stable.
-  // Sequential runs also preserve ordering in the combined console output.
-  // Build the npm invocation for the current browser suite.
-  const runArgs = [...npmArgsPrefix, 'run', run.script]
-  // Mirror child output to keep console logs chronological and complete.
-  const result = spawnSync(npmCommand, runArgs, {
-    stdio: 'inherit',
-    // Keep the working directory stable so relative paths resolve correctly.
-    cwd: root,
-    // Pass through env so Playwright config and NODE_OPTIONS stay intact.
-    env: process.env,
+// Poll a TCP port until something is listening (the shared preview server) or we time out.
+function waitForPort(port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const socket = net.connect(port, '127.0.0.1')
+      socket.once('connect', () => { socket.destroy(); resolve() })
+      socket.once('error', () => {
+        socket.destroy()
+        if (Date.now() > deadline) { reject(new Error(`preview server never came up on :${port}`)); return }
+        setTimeout(attempt, 250)
+      })
+    }
+    attempt()
   })
+}
 
-  // Treat spawn errors as failures but continue to the next browser.
-  // We still want to attempt the remaining engines for coverage.
-  if (result.error) {
-    console.error(`[test:e2e] ${run.name} failed to start: ${result.error.message}`)
-    // Record the browser name so the summary points to the failing suite.
-    failures.push(run.name)
-    continue
+// Track failures so we still run all browsers before exiting non-zero.
+const failures = []
+// Holds the shared preview server child so we can always tear it down.
+let sharedServer = null
+
+async function main() {
+  // 1) Build the prod-like bundle ONCE (VITE_TEST_HOOKS=1 keeps the ?logWasmHeap probes in).
+  console.log('[test:e2e] building bundle once for the whole matrix...')
+  const build = spawnSync(npmCommand, [...npmArgsPrefix, 'run', 'build'], {
+    stdio: 'inherit', cwd: root, env: { ...process.env, VITE_TEST_HOOKS: '1' },
+  })
+  if ((typeof build.status === 'number' ? build.status : 1) !== 0) {
+    console.error('[test:e2e] build failed; aborting')
+    process.exit(1)
   }
 
-  // Normalize non-zero exit codes (including signal exits) into a failure.
-  // This keeps the summary consistent across platforms and signals.
-  // Prefer the explicit status when available; fall back to failure on signals.
-  const exitCode = typeof result.status === 'number' ? result.status : 1
-  if (exitCode !== 0) {
-    // Keep a simple list for the final failure summary.
-    failures.push(run.name)
+  // 2) Start a single shared `vite preview` and keep it alive across all suites.
+  console.log(`[test:e2e] starting shared preview server on :${previewPort}...`)
+  sharedServer = spawn(
+    npmCommand,
+    [...npmArgsPrefix, 'run', 'preview', '--', '--host', '127.0.0.1', '--port', String(previewPort)],
+    { stdio: 'inherit', cwd: root, env: { ...process.env, VITE_TEST_HOOKS: '1' } },
+  )
+  await waitForPort(previewPort, 60_000)
+  console.log('[test:e2e] shared preview server is up.')
+
+  // 3) Run each browser suite against the shared server. E2E_EXTERNAL_SERVER=1 makes the
+  //    Playwright config serve-and-reuse instead of build-and-start, so no suite rebuilds.
+  for (const run of browserRuns) {
+    const result = spawnSync(npmCommand, [...npmArgsPrefix, 'run', run.script], {
+      stdio: 'inherit',
+      cwd: root,
+      env: {
+        ...process.env,
+        E2E_EXTERNAL_SERVER: '1',
+        PLAYWRIGHT_PORT: String(previewPort),
+        // Propagate the tier so the specs' iteration-count helper picks full counts.
+        ...(isFull ? { E2E_FULL: '1' } : {}),
+      },
+    })
+    if (result.error) {
+      console.error(`[test:e2e] ${run.name} failed to start: ${result.error.message}`)
+      failures.push(run.name)
+      continue
+    }
+    const exitCode = typeof result.status === 'number' ? result.status : 1
+    if (exitCode !== 0) failures.push(run.name)
   }
 }
 
-// Summarize failures after all browsers have run.
-// Exit non-zero so CI and local scripts still fail fast.
-if (failures.length > 0) {
-  console.error(`[test:e2e] failed browsers: ${failures.join(', ')}`)
-  // Still write the combined report index for quick navigation.
-  writeCombinedReportIndex(reportRoot, browserRuns)
-  process.exit(1)
+// Always stop the shared server, whatever happened.
+function shutdown() {
+  if (sharedServer && !sharedServer.killed) {
+    try { sharedServer.kill() } catch { /* already gone */ }
+    sharedServer = null
+  }
 }
-// Exit cleanly when all browser suites succeed.
-// Still write the combined report index for quick navigation.
-writeCombinedReportIndex(reportRoot, browserRuns)
+
+main()
+  .catch((err) => {
+    console.error(`[test:e2e] orchestration error: ${err.message}`)
+    failures.push('orchestrator')
+  })
+  .finally(() => {
+    shutdown()
+    writeCombinedReportIndex(reportRoot, browserRuns)
+    if (failures.length > 0) {
+      console.error(`[test:e2e] failed browsers: ${failures.join(', ')}`)
+      process.exit(1)
+    }
+  })
 
 function writeCombinedReportIndex(outputRoot, runs) {
   // Ensure the report root exists so we can always write the index file.

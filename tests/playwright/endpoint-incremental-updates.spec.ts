@@ -46,6 +46,7 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
+import { INCREMENTAL_REVEAL_ROUNDS } from './iteration-counts'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { PRESET_LATEGAME_SFC_PATH, EXAMPLE_RSLHELPER_DB_PATHS } from './fixture-paths'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
@@ -58,10 +59,11 @@ const ENDPOINT_URL = 'ws://localhost:8080/'
 // grow monotonically. That growing inventory (a real farming session pulling new gear) is
 // the trigger; a fixed-size set with bumped revisions reaches steady state and never exposes
 // the accumulation.
-// 60 rounds: the pre-fix leak stepped the WASM heap unboundedly within ~15 rounds, so 60
-// gives a wide margin to prove flatness while fitting the per-test budget on Firefox (which
-// runs the full pipeline notably slower than Chromium — 100 rounds overran 20 min there).
-const WITHHELD_ARTIFACTS = 60
+// Round count comes from the shared dev/release split (E2E_FULL). The pre-fix leak stepped
+// the WASM heap unboundedly within ~15 rounds, so the dev count (15) still reproduces a real
+// leak; the full release count (60) gives a wide flatness margin while fitting the per-test
+// budget on Firefox (slower than Chromium — 100 rounds overran 20 min there).
+const WITHHELD_ARTIFACTS = INCREMENTAL_REVEAL_ROUNDS
 // Max tolerated heap growth (MB) from the post-seed baseline to the peak. Adding 100 small
 // artifacts to a multi-thousand dataset is a few MB of real data; a per-round leak (each
 // push retaining a copy of the growing dataset) blows far past this. Generous so normal

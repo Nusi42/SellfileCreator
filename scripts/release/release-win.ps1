@@ -146,8 +146,11 @@ try {
       if ($LASTEXITCODE -ne 0) {
         throw "Tests failed with exit code $LASTEXITCODE"
       }
-      Write-Host 'Running test suite (npm run test:e2e)...'
-      npm run --silent test:e2e
+      # Full e2e tier for releases: both viewports (1280 + FHD) and full iteration counts
+      # (E2E_FULL via --full). The default `test:e2e` is the lean dev loop; releases must
+      # exercise the complete matrix + leak/fragmentation audits.
+      Write-Host 'Running test suite (npm run test:e2e:full)...'
+      npm run --silent test:e2e:full
     } else {
       Write-Host 'Skipping test suite.' -ForegroundColor Yellow
     }

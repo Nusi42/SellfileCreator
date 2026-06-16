@@ -50,6 +50,7 @@ import {
   waitForWorkloadIdle,
 } from './note-overrides-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { FRAGMENTATION_DBS_PER_RULESET } from './iteration-counts'
 import { PRESET_LATEGAME_SFC_PATH, EXAMPLE_RSLHELPER_DB_PATHS } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint.
@@ -81,9 +82,12 @@ const KEEP_LIMITED_LABEL = 'Keep 5★ limited'
 type FragCase = { mode: (typeof ACCOUNT_MODES)[number]; keepLimited: boolean; dbPath: string; dbLabel: string }
 const buildCases = (): FragCase[] => {
   const cases: FragCase[] = []
+  // Dev runs cap the DBs per rule-set (E2E_FULL → Infinity = every DB) so the matrix
+  // stays size-varied — the fragmentation signal — while the dev loop stays short.
+  const dbsPerRuleSet = EXAMPLE_RSLHELPER_DB_PATHS.slice(0, FRAGMENTATION_DBS_PER_RULESET)
   for (const mode of ACCOUNT_MODES) {
     for (const keepLimited of [false, true]) {
-      for (const dbPath of EXAMPLE_RSLHELPER_DB_PATHS) {
+      for (const dbPath of dbsPerRuleSet) {
         const dbLabel = dbPath.split('/').pop() ?? dbPath
         cases.push({ mode, keepLimited, dbPath, dbLabel })
       }

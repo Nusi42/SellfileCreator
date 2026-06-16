@@ -7,6 +7,7 @@ import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { BINARY_MEMORY_ROUNDS } from './iteration-counts'
 import { PRESET_LATEGAME_SFC_PATH, LARGE_ACCOUNT_DB_PATH } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint.
@@ -15,7 +16,8 @@ const ENDPOINT_URL = 'ws://localhost:8080/'
 // Mimics the crash scenario: several pushes arrive while the WASM worker is still running.
 const RAPID_BURST_COUNT = 4
 // Total rounds of rapid bursts; each round = RAPID_BURST_COUNT binary pushes.
-const TOTAL_ROUNDS = 2
+// Comes from the shared dev/release split (E2E_FULL): short in dev, full for release.
+const TOTAL_ROUNDS = BINARY_MEMORY_ROUNDS
 // Max allowed heap growth (MB) over all rounds before the test fails.
 // Set to 4 × db-file-size so normal peak usage is tolerated but sustained
 // accumulation (each round adding another full copy) causes a failure.

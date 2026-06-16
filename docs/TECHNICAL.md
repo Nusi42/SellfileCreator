@@ -234,13 +234,13 @@ All documents describe the *current* implementation; update the relevant file wh
   - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Gear Inspector autosave payload (no DB import) to verify recipe-duplicate behavior with recipe overrides disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and SFC fixture runner.
-  - `npm run test:e2e:chromium` executes the Playwright suite in Chromium only.
-  - `npm run test:e2e:firefox` executes the Playwright suite in Firefox only.
-  - `npm run test:e2e:webkit` executes the Playwright suite in WebKit only.
-  - `npm run test:e2e` runs Chromium → Firefox → WebKit sequentially (fresh dev server each run) and continues even if an earlier browser fails; it exits non-zero if any browser fails.
-  - `npm run test:e2e:all` is a backwards-compatible alias for `test:e2e` (full browser matrix).
-  - `npm test` runs `test:all` (unit/integration + all Playwright browsers).
-  - `npm run test:all:full` currently mirrors `test:all`; keep it for CI parity.
+  - **Two e2e tiers — pick the dev tier for the inner loop.** The dev tier is the fast default; the full tier is reserved for releases and pre-merge confidence.
+    - **dev** (`npm run test:e2e`, and the per-browser `test:e2e:chromium` / `test:e2e:firefox`): FHD-only viewport (`*-fhd` projects) and short iteration counts. This is what the CLAUDE.md handoff rule requires; use `test:e2e:chromium` while iterating on a single change.
+    - **full** (`npm run test:e2e:full`, and `test:e2e:chromium:full` / `test:e2e:firefox:full`): both viewports (1280×720 + FHD) and full leak/fragmentation iteration counts (`E2E_FULL`). Run before release; `release:win` runs this tier.
+  - `npm run test:e2e` / `test:e2e:full` run Chromium → Firefox sequentially via `scripts/test/run-e2e.mjs`; the run continues even if an earlier browser fails and exits non-zero if any browser failed.
+  - **Build is shared across browsers.** The orchestrator builds the prod-like bundle ONCE and starts a single `vite preview`, then runs every browser suite against it (`E2E_EXTERNAL_SERVER=1` → the Playwright config serves-and-reuses instead of build-and-start). Running a per-browser script standalone (e.g. `npm run test:e2e:chromium`, or `npx playwright test …`) still self-builds and serves, so single-spec debugging needs no orchestrator.
+  - Dev vs. release iteration counts live in `tests/playwright/iteration-counts.ts` (the single `E2E_FULL` toggle); specs import named counts from there. Lower a count there, never inline per-spec.
+  - `npm run test:e2e:all` aliases `test:e2e:full`; `npm test` runs `test:all` (unit + dev e2e tier); `npm run test:all:full` runs unit + full e2e tier.
   - Keep e2e specs browser-agnostic; avoid per-browser `test.skip` unless a true platform limitation exists.
 - Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
 - Timeout policy:
