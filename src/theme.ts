@@ -112,7 +112,11 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
       body2:    { fontSize: `${FONT_SIZE_BASE_REM}rem` },
       subtitle2:{ fontSize: `${FONT_SIZE_BASE_REM}rem`, fontWeight: 600 },
       caption:  { fontSize: `${FONT_SIZE_SECONDARY_REM}rem` },
-      button:   { fontSize: `${FONT_SIZE_BASE_REM}rem`, textTransform: 'none' },
+      // fontWeight 400: MUI defaults buttons (and Tab/ToggleButton/Chip, which inherit
+      // typography.button) to 500. Arial silently rounds 500→400 (it has no Medium face), so
+      // Dark/Light always looked regular; fonts with a real 500 (Segoe UI under RSLH) rendered
+      // them visibly bolder. Pin 400 so buttons read regular-weight consistently across fonts.
+      button:   { fontSize: `${FONT_SIZE_BASE_REM}rem`, textTransform: 'none', fontWeight: 400 },
       h6:       { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 },
     },
     custom: CUSTOM_TOKENS,
