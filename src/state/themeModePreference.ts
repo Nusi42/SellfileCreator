@@ -10,6 +10,7 @@
  * coupling RSLH into that path previously broke the dark theme.
  */
 import { RSLH_ENABLED_KEY, THEME_MODE_KEY } from '../lib/constants'
+import { getSimpleMode } from '../lib/runtimeConfig'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 // MUI mode is only ever light/dark here (parser rejects anything else → dark fallback).
@@ -28,11 +29,18 @@ const themeModeStore = createLocalStorageStore<'dark' | 'light'>({
 export const useThemeModePreference = createLocalStorageStateHook(themeModeStore)
 
 // ─── RSLH flag (additive; does not touch MUI's dark/light path) ─────────────────
+// Default-on under ?simple (opened from RSL Helper): the streamlined entry should land in the
+// RSLH skin by default. It is still only a DEFAULT — an explicit user toggle persists and wins,
+// so to make "off" distinguishable from "unset" we serialize both states ('true'/'false') rather
+// than removing the key on false. parse() returns the simple-aware fallback for any unset/legacy
+// value, so a fresh ?simple session with no stored choice resolves to RSLH.
+const RSLH_DEFAULT = getSimpleMode()
+
 const rslhEnabledStore = createLocalStorageStore<boolean>({
   key: RSLH_ENABLED_KEY,
-  fallback: false,
-  parse: (raw) => raw === 'true',
-  serialize: (value) => (value ? 'true' : null), // null → key removed when false (default)
+  fallback: RSLH_DEFAULT,
+  parse: (raw) => (raw === 'true' ? true : raw === 'false' ? false : RSLH_DEFAULT),
+  serialize: (value) => (value ? 'true' : 'false'),
 })
 
 // Reactive read of the RSLH flag. main.tsx gates the preset merge on it; the popout reads it
