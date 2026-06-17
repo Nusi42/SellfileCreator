@@ -89,6 +89,11 @@ export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 // only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
 // flag (RSLH_ENABLED_KEY), so this key stays MUI-clean.
 export const THEME_MODE_KEY = 'sellfileCreator.themeMode.v1'
+// MUI's OTHER storage key (CSS-variables mode): the resolved scheme per mode. Left at MUI's
+// default it writes un-namespaced `mui-color-scheme-{light,dark}` keys; we set it explicitly
+// so every key we own carries the `sellfileCreator.` prefix. MUI appends the scheme suffix
+// (`…colorScheme.v1-light` / `-dark`) internally — no further composition needed here.
+export const COLOR_SCHEME_STORAGE_KEY = 'sellfileCreator.colorScheme.v1'
 // The 3-way SELECTION shown in the theme popout. 'rslh' is a UI-level value (dark base + the
 // RSLH flag); it is not stored in THEME_MODE_KEY. See themeModePreference.
 export type ThemeMode = 'dark' | 'light' | 'rslh'

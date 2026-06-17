@@ -160,15 +160,16 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             onChange={(_, v) => { if (v != null && v !== themeMode) { setThemeMode(v as ThemeMode); resetColors() } }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* RSLH — the RSL Helper skin (third scheme). Placed first; dark stays the default
+                selection (see defaultMode="dark" in main.tsx). Proper-noun label, not translated. */}
+            <ToggleButton value="rslh" aria-label={t('themeRslhAria')}>
+              <SmartToyOutlinedIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeRslh')}
+            </ToggleButton>
             <ToggleButton value="dark" aria-label={t('themeDarkAria')}>
               <DarkModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeDark')}
             </ToggleButton>
             <ToggleButton value="light" aria-label={t('themeLightAria')}>
               <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeLight')}
-            </ToggleButton>
-            {/* RSLH — the RSL Helper skin (third scheme). Proper-noun label, not translated. */}
-            <ToggleButton value="rslh" aria-label={t('themeRslhAria')}>
-              <SmartToyOutlinedIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeRslh')}
             </ToggleButton>
           </ToggleButtonGroup>
         </MenuItem>

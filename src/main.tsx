@@ -26,6 +26,7 @@ import { useThemeCustomization } from './state/themeCustomization'
 import { useRslhEnabled } from './state/themeModePreference'
 import { SCHEME_ALPHA_STYLES, buildCustomValueVars } from './lib/themeCustomTokens'
 import { RSLH_PRESET, mergeCustomization } from './lib/rslhPreset'
+import { COLOR_SCHEME_STORAGE_KEY, THEME_MODE_KEY } from './lib/constants'
 import type { ColorBlindMode } from './lib/constants'
 
 
@@ -63,7 +64,9 @@ function AppShell() {
     <ThemeProvider
       theme={theme}
       defaultMode="dark"
-      modeStorageKey="sellfileCreator.themeMode.v1"
+      modeStorageKey={THEME_MODE_KEY}
+      // Namespace MUI's resolved-scheme keys too (default would write `mui-color-scheme-*`).
+      colorSchemeStorageKey={COLOR_SCHEME_STORAGE_KEY}
       disableTransitionOnChange
       // noSsr: skip the isClient=false first render that would otherwise show the light scheme.
       // This is a CSR-only app (no SSR/hydration), so the safety guard is unnecessary.

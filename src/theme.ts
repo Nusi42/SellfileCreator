@@ -73,10 +73,13 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     // v1.0.13 used getContrastText(success.main) = rgba(0,0,0,0.87).  setColor() only
     // writes when the key is absent, so pre-setting it here locks in the correct value.
     ...(isDark ? { Alert: { successFilledColor: 'rgba(0,0,0,0.87)' } } : {}),
-    ...over,
+    // Custom semantic colours (incl. the RSLH preset's success/warning/error) first…
     ...(custom.successColor != null && { success: { main: custom.successColor } }),
     ...(custom.warningColor != null && { warning: { main: custom.warningColor } }),
     ...(custom.errorColor   != null && { error:   { main: custom.errorColor   } }),
+    // …then the color-blind palette wins: accessibility overrides decorative choice, so a
+    // selected palette takes effect even under RSLH or a user's own success/warning/error.
+    ...over,
     // info: custom override only; dark/light otherwise defer to MUI's default info.
     ...(custom.infoColor != null ? { info: { main: custom.infoColor } } : {}),
   }
