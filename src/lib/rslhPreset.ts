@@ -29,7 +29,7 @@ export const RSLH_CODE_FONT = '"Cascadia Code", "Consolas", ui-monospace, monosp
 export const RSLH_PRESET: ThemeCustomization = {
   primaryColor: '#FF8800',        // orange accent
   toggleColor: null,              // inherit dark toggle behavior (white-tinted) — skin didn't override
-  selectionColor: null,           // inherit dark selection — skin didn't override
+  selectionColor: '#cc9064',      // warm tan selection tint (was inheriting dark's blue #4e94e5)
   bgColor: '#151515',             // flat window background
   paperColor: '#2C2C2C',          // flat surface (skin's lighter card paper)
   dividerColor: '#3C3C3C',
@@ -42,7 +42,11 @@ export const RSLH_PRESET: ThemeCustomization = {
   textDisabledColor: '#666666',
   uiFontFamily: RSLH_UI_FONT,
   codeFontFamily: RSLH_CODE_FONT,
-  scrollbarThumbColor: '#383838', // skin's scrollbar thumb
+  // Skin's resting thumb (#383838) sits on our paper-colored track (#2C2C2C) at only ΔL≈12 —
+  // it reads as "no scrollbar". The skin masked this with a transparent track; our app paints the
+  // track with background.paper, so we raise the thumb to the skin's hover grey (#454545, ΔL≈25)
+  // to match dark's thumb/track contrast (ΔL≈27). Scrollbars then look like dark, just RSLH-colored.
+  scrollbarThumbColor: '#454545',
   borderRadius: 8,                // skin: cards 8px (controls were 6px; single knob → 8)
   selectionOpacity: null,         // inherit dark default
 }
