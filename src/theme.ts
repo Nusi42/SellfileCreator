@@ -11,6 +11,7 @@
 import { alpha, createTheme, darken, lighten } from '@mui/material/styles'
 import type { ColorBlindMode, ThemeCustomization } from './lib/constants'
 import {
+  SAFE_TEXT_LINE_HEIGHT,
   EMPTY_THEME_CUSTOMIZATION,
   FONT_SIZE_BASE_PX,
   FONT_SIZE_BASE_REM,
@@ -124,8 +125,15 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
       MuiButton: {
         defaultProps: { variant: 'contained' },
         styleOverrides: {
+          // Descender-safe line-height so "g"/"y" tails are not clipped under deeper-descender
+          // fonts (Segoe UI in RSLH). Buttons flex-center their label, so footprint is unchanged.
+          root: { lineHeight: SAFE_TEXT_LINE_HEIGHT },
           sizeSmall: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
         },
+      },
+      MuiTab: {
+        // Tabs inherit typography.button; give their label the same descender-safe line-height.
+        styleOverrides: { root: { lineHeight: SAFE_TEXT_LINE_HEIGHT } },
       },
       MuiPaper: { styleOverrides: { root: ({ theme }) => ({ border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` }) } },
       MuiAlert: {
@@ -218,6 +226,8 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             const tc = custom.toggleColor
             if (tc != null) {
               return {
+                // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
+                lineHeight: SAFE_TEXT_LINE_HEIGHT,
                 '&.Mui-selected': {
                   // Light: tint from custom toggleColor.
                   ...theme.applyStyles('light', {
@@ -238,6 +248,8 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             const toggleMain = lightPalette.primary.main
             const darkToggleMain = '#ffffff'
             return {
+              // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
+              lineHeight: SAFE_TEXT_LINE_HEIGHT,
               '&.Mui-selected': {
                 ...theme.applyStyles('light', {
                   color: toggleMain,

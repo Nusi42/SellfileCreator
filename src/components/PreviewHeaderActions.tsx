@@ -3,6 +3,7 @@ import { Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, Dial
 import { keyframes, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
+  SAFE_TEXT_LINE_HEIGHT,
   COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   SMALL_BUTTON_HEIGHT_PX,
@@ -1146,7 +1147,7 @@ export default function PreviewHeaderActions(props: {
             </ProgressChip>
           )}
           {baseRulesLabel ? (
-            <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: SAFE_TEXT_LINE_HEIGHT, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {baseRulesLabel}
             </Typography>
           ) : null}
@@ -1439,12 +1440,12 @@ export default function PreviewHeaderActions(props: {
                       ) : null}
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
-                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, ...(preset.color ? { color: preset.color } : {}) }}>
                           {filterPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets carry no meaningful timestamp; show it only for user presets. */}
                         {!preset.builtin ? (
-                          <Typography variant="caption" noWrap sx={{ lineHeight: 1.1, color: 'text.secondary', opacity: 0.78 }}>
+                          <Typography variant="caption" noWrap sx={{ lineHeight: SAFE_TEXT_LINE_HEIGHT, color: 'text.secondary', opacity: 0.78 }}>
                             {formatPresetSavedAt(preset.savedAt)}
                           </Typography>
                         ) : null}
@@ -1713,12 +1714,12 @@ export default function PreviewHeaderActions(props: {
                       ) : null}
                       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
                         {/* Apply label color when set; fall back to default inherited text color. */}
-                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2, ...(preset.color ? { color: preset.color } : {}) }}>
+                        <Typography variant="body2" noWrap sx={{ ...ELLIPSIS_TEXT_SX, ...(preset.color ? { color: preset.color } : {}) }}>
                           {sortPresetDisplayName(preset)}
                         </Typography>
                         {/* Built-in presets have no meaningful timestamp; skip the caption. */}
                         {!preset.builtin ? (
-                          <Typography variant="caption" noWrap sx={{ lineHeight: 1.1, color: 'text.secondary', opacity: 0.78 }}>
+                          <Typography variant="caption" noWrap sx={{ lineHeight: SAFE_TEXT_LINE_HEIGHT, color: 'text.secondary', opacity: 0.78 }}>
                             {formatPresetSavedAt(preset.savedAt)}
                           </Typography>
                         ) : null}

@@ -310,12 +310,34 @@ export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
 export const MATCHING_RECIPE_CHIP_MIN_WIDTH_PX = 50
 // Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
 // single line while remaining accessible via title/tooltips.
+// Descender-safe line-height for any clamped/fixed-height TEXT. A line box of ~1em (lineHeight 1,
+// and even 1.1–1.2) is shorter than a UI font's full ascent+descent extent (Segoe UI ≈ 1.37em),
+// so when the text also has overflow:hidden (single-line ellipsis) or sits in a fixed-height
+// control, descender tails ("g", "y", "p", "j") get clipped — visible in RSLH's Segoe UI but
+// masked in Arial (shallower descenders). 1.4 clears the deepest common UI-font descenders while
+// staying compact. SSOT for every place that previously hard-coded lineHeight 1 / 1.1 / 1.2 on text.
+export const SAFE_TEXT_LINE_HEIGHT = 1.4
+
+// Reusable single-line ellipsis style for inline text (button/chip labels, captions): clamp to one
+// line, stay accessible via title/tooltip, and use the descender-safe line-height so tails aren't cut.
 export const ELLIPSIS_TEXT_SX = {
   display: 'inline-block',
   maxWidth: '100%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  lineHeight: SAFE_TEXT_LINE_HEIGHT,
+} as const
+
+// The single-line ellipsis style shared by button labels (Recipe/Safeguards/Tools toggles, etc.):
+// clamp to one line, center, use the button typography, and apply the descender-safe line-height.
+// Extracted so the identical inline object isn't duplicated across call sites (SSOT + DRY).
+export const ELLIPSIS_BUTTON_LABEL_SX = {
+  ...ELLIPSIS_TEXT_SX,
+  width: '100%',
+  typography: 'button',
+  textAlign: 'center',
+  display: 'block',
 } as const
 
 // Standard dialog padding matches the Metasets/Substat dialogs (16px block, 24px inline).

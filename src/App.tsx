@@ -56,7 +56,7 @@ import {
   PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
   SMALL_BUTTON_HEIGHT_PX,
-  ELLIPSIS_TEXT_SX,
+  ELLIPSIS_BUTTON_LABEL_SX,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
   GEAR_DB_DIFF_HISTORY_MAX_ITEMS,
@@ -7829,7 +7829,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }}
         >
           <EllipsisTooltip title={t('recipesToggleLabel')} selector="[data-ellipsis-target]" wrap="block">
-            <Box component="span" data-ellipsis-target sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', typography: 'button', textAlign: 'center', lineHeight: 1, display: 'block' }}>
+            <Box component="span" data-ellipsis-target sx={ELLIPSIS_BUTTON_LABEL_SX}>
               {t('recipesToggleLabel')}
             </Box>
           </EllipsisTooltip>
@@ -7890,7 +7890,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             })}
           >
             <EllipsisTooltip title={t('finalSellToggleLabel')} selector="[data-ellipsis-target]" wrap="block">
-              <Box component="span" data-ellipsis-target sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', typography: 'button', textAlign: 'center', lineHeight: 1, display: 'block' }}>
+              <Box component="span" data-ellipsis-target sx={ELLIPSIS_BUTTON_LABEL_SX}>
                 {t('finalSellToggleLabel')}
               </Box>
             </EllipsisTooltip>
@@ -7961,7 +7961,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }}
         >
           <EllipsisTooltip title={t('safeguardsToggleLabel')} selector="[data-ellipsis-target]" wrap="block">
-            <Box component="span" data-ellipsis-target sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', typography: 'button', textAlign: 'center', lineHeight: 1, display: 'block' }}>
+            <Box component="span" data-ellipsis-target sx={ELLIPSIS_BUTTON_LABEL_SX}>
               {t('safeguardsToggleLabel')}
             </Box>
           </EllipsisTooltip>

@@ -34,6 +34,7 @@ import {
   DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX,
   DYNAMIC_OVERRIDES_PRESET_POPOVER_OPEN_DELAY_MS,
   DYNAMIC_OVERRIDES_PRESET_POPOVER_CLOSE_DELAY_MS,
+  SAFE_TEXT_LINE_HEIGHT,
 } from '../lib/constants'
 import {
   useDynamicOverridesPresetsPreference,
@@ -257,11 +258,11 @@ function DynamicOverridesPresetRow({
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
       >
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
-          <Typography variant="body2" noWrap sx={{ lineHeight: 1.2 }}>
+          <Typography variant="body2" noWrap sx={{ lineHeight: SAFE_TEXT_LINE_HEIGHT }}>
             {preset.name}
           </Typography>
           {/* Timestamp keeps the menu scan-friendly, mirroring filter/sort preset rows. */}
-          <Typography variant="caption" noWrap sx={{ lineHeight: 1.1, color: 'text.secondary', opacity: 0.78 }}>
+          <Typography variant="caption" noWrap sx={{ lineHeight: SAFE_TEXT_LINE_HEIGHT, color: 'text.secondary', opacity: 0.78 }}>
             {formatLocalDateTime(preset.savedAt) ?? preset.savedAt}
           </Typography>
         </Box>

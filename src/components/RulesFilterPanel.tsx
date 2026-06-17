@@ -1283,9 +1283,10 @@ function RulesFilterPanel({
   const previewRecipesValueWidthCh = React.useMemo(() => (
     Math.max(t('recipeFilterOn').length, gearInspectorRecipeLabelStrings.off.length)
   ), [t, gearInspectorRecipeLabelStrings.off])
-  // "Narrow" label is fixed — a single ch reservation keeps the label column stable.
+  // "Narrow" label is fixed. `ch` is the width of "0"; "Narrow" has wider glyphs (N, w, r),
+  // so a bare .length under-reserves and the label ellipsizes — add 1ch of headroom.
   const previewRecipesLabelWidthCh = React.useMemo(() => (
-    t('filterLimitPreviewRecipes').length
+    t('filterLimitPreviewRecipes').length + 1
   ), [t])
   const gearInspectorSourceOptions = React.useMemo(() => {
     const options = [
