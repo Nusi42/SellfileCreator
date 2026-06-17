@@ -177,6 +177,28 @@ export const SCHEME_ALPHA_STYLES = (() => {
   }
 })()
 
+// ─── Custom-value CSS variables (theme-popout overrides expressed as CSS) ────────
+// Scrollbar thumb color and code/markdown font family are user overrides that need to
+// reach CSS not driven by the MUI palette. They are emitted as :root CSS variables from
+// main.tsx (driven by the themeCustomization hook) and consumed with a fallback so an
+// unset value preserves the prior behavior.
+export const APP_CUSTOM_VALUE_VAR = {
+  scrollbarThumb: '--app-scrollbar-thumb', // fallback: palette divider
+  // Reuses the existing --font-code convention (FONT_FAMILY_MONO and the MD editor read it
+  // with a JetBrains-Mono fallback). Setting it here overrides every code/markdown surface
+  // from one place — no second variable.
+  codeFontFamily: '--font-code',
+} as const
+
+// Builds the :root style object for the custom-value vars. Only emits a var when the user
+// has set it, so the consuming `var(--x, <fallback>)` keeps the default behavior otherwise.
+export function buildCustomValueVars(opts: { scrollbarThumbColor?: string | null; codeFontFamily?: string | null }) {
+  const root: Record<string, string> = {}
+  if (opts.scrollbarThumbColor) root[APP_CUSTOM_VALUE_VAR.scrollbarThumb] = opts.scrollbarThumbColor
+  if (opts.codeFontFamily)      root[APP_CUSTOM_VALUE_VAR.codeFontFamily] = opts.codeFontFamily
+  return { ':root': root }
+}
+
 // ─── Static CSS token strings ─────────────────────────────────────────────────
 // Each string is a valid CSS color value referencing MUI channel variables.
 // Channel format: "R G B" (space-separated) — used in rgba(R G B / alpha) modern syntax.
@@ -299,6 +321,8 @@ export type SchemeMode = 'light' | 'dark'
 
 // SSOT for the colorScheme→mode convention: useColorScheme() may return undefined
 // during first render; the app's defaultMode is "dark", so undefined resolves to dark.
+// (RSLH renders as MUI 'dark' — its colors come from merged customization, not a scheme —
+// so useColorScheme() already reports 'dark' under RSLH and no special case is needed.)
 export function schemeModeFromColorScheme(colorScheme: string | undefined): SchemeMode {
   return colorScheme === 'light' ? 'light' : 'dark'
 }

@@ -85,9 +85,18 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 // Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
-// Persisted light/dark UI mode — testing toggle in Help screen
+// MUI's mode key — MUI's ThemeProvider reads this synchronously at init. The STORED value is
+// only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
+// flag (RSLH_ENABLED_KEY), so this key stays MUI-clean.
 export const THEME_MODE_KEY = 'sellfileCreator.themeMode.v1'
-export type ThemeMode = 'dark' | 'light'
+// The 3-way SELECTION shown in the theme popout. 'rslh' is a UI-level value (dark base + the
+// RSLH flag); it is not stored in THEME_MODE_KEY. See themeModePreference.
+export type ThemeMode = 'dark' | 'light' | 'rslh'
+
+// RSLH-enabled flag. RSLH renders on the DARK base with the RSLH value-set merged into
+// ThemeCustomization (orange accent, flat surfaces, Segoe/Cascadia fonts — see rslhPreset.ts).
+// When this is on, MUI mode is 'dark' and the app applies the RSLH preset. See themeModePreference.
+export const RSLH_ENABLED_KEY = 'sellfileCreator.rslhEnabled.v1'
 
 // Persisted per-element theme overrides from the theme editor popover
 export const THEME_CUSTOM_KEY = 'sellfileCreator.themeCustom.v1'
@@ -101,8 +110,28 @@ export type ThemeCustomization = {
   successColor: string | null  // null = use palette default; overrides color-blind mode when set
   warningColor: string | null  // null = use palette default; overrides color-blind mode when set
   errorColor: string | null    // null = use palette default; overrides color-blind mode when set
+  infoColor: string | null     // null = use palette default (info.main)
+  // Text colors — null = use mode default (MUI computes from contrast). Set to pin exact hues.
+  textPrimaryColor: string | null    // null = mode default
+  textSecondaryColor: string | null  // null = mode default
+  textDisabledColor: string | null   // null = mode default
+  // Font families — null = system default (MUI default stack). Stored as a CSS font-family value.
+  uiFontFamily: string | null    // null = MUI default; applies to UI chrome typography
+  codeFontFamily: string | null  // null = default mono; applies to code/markdown surfaces
+  // Scrollbar — null = derive from divider (current behavior). Set to pin a thumb color.
+  scrollbarThumbColor: string | null  // null = use divider color
   borderRadius: number | null      // null = use default (8px); valid range 0–24
   selectionOpacity: number | null  // null = mode default (light: 0.12, dark: 0.08); range 0–0.30
+}
+
+// SSOT for the "no customization" object — every key null. Imported by the store fallback,
+// the theme builder default, and the popout reset so the three never drift out of sync.
+export const EMPTY_THEME_CUSTOMIZATION: ThemeCustomization = {
+  primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null,
+  dividerColor: null, successColor: null, warningColor: null, errorColor: null, infoColor: null,
+  textPrimaryColor: null, textSecondaryColor: null, textDisabledColor: null,
+  uiFontFamily: null, codeFontFamily: null, scrollbarThumbColor: null,
+  borderRadius: null, selectionOpacity: null,
 }
 
 // Non-breaking space for UI formatting (keeps labels glued to following token)

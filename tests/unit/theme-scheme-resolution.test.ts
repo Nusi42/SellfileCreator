@@ -48,6 +48,9 @@ test('schemeModeFromColorScheme matches the defaultMode=dark convention', () => 
   assert.equal(schemeModeFromColorScheme('dark'), 'dark')
   assert.equal(schemeModeFromColorScheme(undefined), 'dark')
   assert.equal(schemeModeFromColorScheme('system'), 'dark')
+  // RSLH renders on the dark base (its colors come from merged customization, not a scheme),
+  // so it resolves to 'dark' here like any non-light value.
+  assert.equal(schemeModeFromColorScheme('rslh'), 'dark')
 })
 
 // The core fix: paper must come from the RUNTIME scheme, not the frozen light palette.

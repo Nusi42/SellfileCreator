@@ -9,15 +9,17 @@
 import React from 'react'
 import {
   Box, Button, Divider, IconButton, Menu, MenuItem,
-  Slider, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
+  Slider, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import PaletteIcon from '@mui/icons-material/Palette'
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import { useColorScheme, useTheme } from '@mui/material/styles'
-import type { ColorBlindMode } from '../lib/constants'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
+import type { ColorBlindMode, ThemeMode } from '../lib/constants'
+import { EMPTY_THEME_CUSTOMIZATION, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 import { useThemeCustomization } from '../state/themeCustomization'
+import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -55,13 +57,27 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 }) {
   const { t } = useI18n()
   const muiTheme = useTheme()
+  // MUI owns the dark/light mode exactly as before. RSLH is a separate flag layered on the dark
+  // base (its values are merged into the theme upstream), so it does not touch this path.
   const { colorScheme, setColorScheme: setMode } = useColorScheme()
-  const isDark = colorScheme !== 'light'
-  // theme.palette.* always returns light-scheme hex in CSS vars mode; use colorSchemes[scheme]
+  const rslhEnabled = useRslhEnabled()
+  // The 3-way value shown by the toggle: RSLH wins (it sits on the dark base).
+  const themeMode: ThemeMode = rslhEnabled ? 'rslh' : (colorScheme === 'light' ? 'light' : 'dark')
+  // Pick a scheme + write the RSLH flag accordingly. dark/light → flag off + MUI setMode;
+  // rslh → flag on + MUI dark base. resetColors() runs for any switch (each starts from defaults).
+  const setThemeMode = React.useCallback((next: ThemeMode) => {
+    if (next === 'rslh') { setMode('dark'); setRslhEnabled(true) }
+    else { setRslhEnabled(false); setMode(next) }
+  }, [setMode])
+  // RSLH is dark-based, so dark-leaning fallbacks (white toggle text etc.) apply to it.
+  const isDark = themeMode !== 'light'
+  // The MUI scheme key whose palette backs the picker fallback swatches: rslh → dark.
+  const muiSchemeKey: 'dark' | 'light' = isDark ? 'dark' : 'light'
+  // theme.palette.* always returns light-scheme hex in CSS vars mode; use colorSchemes[key]
   // to get concrete values for the active scheme — needed for color-picker fallback swatches.
   // colorSchemes exists at runtime in CSS vars mode but isn't on useTheme()'s Theme type.
-  type SchemeMap = { dark?: { palette: typeof muiTheme.palette }; light?: { palette: typeof muiTheme.palette } }
-  const schemePalette = ((muiTheme as unknown as { colorSchemes?: SchemeMap }).colorSchemes?.[isDark ? 'dark' : 'light'])?.palette
+  type SchemeMap = Partial<Record<'dark' | 'light', { palette: typeof muiTheme.palette }>>
+  const schemePalette = ((muiTheme as unknown as { colorSchemes?: SchemeMap }).colorSchemes?.[muiSchemeKey])?.palette
 
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const [themeCustom, setThemeCustom] = useThemeCustomization()
@@ -90,12 +106,13 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 
   const resetColors = React.useCallback(() => {
     setPsychedelic(false)
-    const blank = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null } as const
-    setDraft(blank)
-    setThemeCustom(blank)
+    // SSOT empty-customization object — keeps reset in sync with the store fallback / theme default.
+    setDraft(EMPTY_THEME_CUSTOMIZATION)
+    setThemeCustom(EMPTY_THEME_CUSTOMIZATION)
   }, [setThemeCustom, setPsychedelic])
 
-  const hasCustomization = draft.primaryColor != null || draft.toggleColor != null || draft.selectionColor != null || draft.bgColor != null || draft.paperColor != null || draft.dividerColor != null || draft.successColor != null || draft.warningColor != null || draft.errorColor != null || draft.borderRadius != null || draft.selectionOpacity != null
+  // Any field set (non-null) counts as customization — drives the reset button visibility.
+  const hasCustomization = Object.values(draft).some(v => v != null)
   const { statButtonBorders } = useDisplayPreferences()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
 
@@ -123,6 +140,11 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             onRequestClose: closeThemeMenu,
             closeLabel: t('close'),
           }), ref: themeMenuRef as React.Ref<HTMLDivElement> },
+          // ContextMenuPaper forces `overflow: visible` on the paper (so the close button can
+          // sit outside it). That disables the paper's own scroll, so a tall menu would spill
+          // its rows past the painted background. Move the cap+scroll onto the inner list:
+          // it stays inside the paper bg and scrolls when the content exceeds the viewport.
+          list: { sx: { maxHeight: 'calc(100vh - 112px)', overflowY: 'auto' } },
         }}
       >
         {/* Dark/light mode row */}
@@ -131,8 +153,11 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           <ToggleButtonGroup
             exclusive
             size="small"
-            value={colorScheme ?? 'dark'}
-            onChange={(_, v) => { if (v != null && v !== (colorScheme ?? 'dark')) { setMode(v as 'dark' | 'light'); resetColors() } }}
+            value={themeMode}
+            // Switching scheme also resets manual customizations so each scheme starts from its
+            // own defaults (RSLH's orange/dark, dark's blue, etc.) rather than carrying overrides across.
+            // dark/light switch MUI's mode; rslh sets the RSLH flag on the dark base.
+            onChange={(_, v) => { if (v != null && v !== themeMode) { setThemeMode(v as ThemeMode); resetColors() } }}
             onClick={(e) => e.stopPropagation()}
           >
             <ToggleButton value="dark" aria-label={t('themeDarkAria')}>
@@ -140,6 +165,10 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </ToggleButton>
             <ToggleButton value="light" aria-label={t('themeLightAria')}>
               <LightModeIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeLight')}
+            </ToggleButton>
+            {/* RSLH — the RSL Helper skin (third scheme). Proper-noun label, not translated. */}
+            <ToggleButton value="rslh" aria-label={t('themeRslhAria')}>
+              <SmartToyOutlinedIcon fontSize="small" sx={{ mr: 0.5 }} />{t('themeRslh')}
             </ToggleButton>
           </ToggleButtonGroup>
         </MenuItem>
@@ -161,6 +190,13 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: schemePalette?.success?.main ?? muiTheme.palette.success.main },
           { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: schemePalette?.warning?.main ?? muiTheme.palette.warning.main },
           { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: schemePalette?.error?.main ?? muiTheme.palette.error.main },
+          { label: t('themeColorInfo'),       field: 'infoColor'     as const, fallback: schemePalette?.info?.main ?? muiTheme.palette.info.main },
+          // Text colors — fallbacks read the active scheme's resolved text palette.
+          { label: t('themeColorTextPrimary'),   field: 'textPrimaryColor'   as const, fallback: schemePalette?.text?.primary   ?? muiTheme.palette.text.primary },
+          { label: t('themeColorTextSecondary'), field: 'textSecondaryColor' as const, fallback: schemePalette?.text?.secondary ?? muiTheme.palette.text.secondary },
+          { label: t('themeColorTextDisabled'),  field: 'textDisabledColor'  as const, fallback: schemePalette?.text?.disabled  ?? muiTheme.palette.text.disabled },
+          // Scrollbar thumb — fallback is the active scheme divider (current default behavior).
+          { label: t('themeColorScrollbar'),  field: 'scrollbarThumbColor' as const, fallback: schemePalette?.divider ?? muiTheme.palette.divider },
         ]).map(({ label, field, fallback }) => (
           <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
@@ -208,6 +244,32 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </Typography>
           </Box>
         </MenuItem>
+        {/* Font families — free-form CSS font-family values. Empty = default stack.
+            Commit on blur (and Enter) so the theme rebuild fires once, not per keystroke. */}
+        {([
+          { label: t('themeFontUi'),   field: 'uiFontFamily'   as const, placeholder: t('themeFontDefault') },
+          { label: t('themeFontCode'), field: 'codeFontFamily' as const, placeholder: 'JetBrains Mono' },
+        ]).map(({ label, field, placeholder }) => (
+          <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
+            <Box sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
+              <TextField
+                size="small"
+                variant="outlined"
+                placeholder={placeholder}
+                value={draft[field] ?? ''}
+                onChange={(e) => setDraft(prev => ({ ...prev, [field]: e.target.value }))}
+                // Commit the trimmed value (or null when blank) to the store on blur / Enter.
+                onBlur={(e) => { const v = e.target.value.trim(); setThemeCustom(prev => ({ ...prev, [field]: v.length > 0 ? v : null })) }}
+                // Stop keystrokes from bubbling to the Menu, whose built-in typeahead would
+                // otherwise swallow letters (typing "C" jumps to a menu item instead of the field).
+                // Keep Enter → blur to commit.
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); e.stopPropagation() }}
+                sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+              />
+            </Box>
+          </MenuItem>
+        ))}
         <Divider />
         {/* Color vision — same CycleButton pattern as gear inspector / rules table */}
         <MenuCycleRow

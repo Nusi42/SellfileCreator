@@ -8481,7 +8481,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
-          scrollbarColor: `${theme.vars?.palette.divider ?? theme.palette.divider} transparent`,
+          // Thumb color: custom override (--app-scrollbar-thumb) falls back to the divider color.
+          scrollbarColor: `var(--app-scrollbar-thumb, ${theme.vars?.palette.divider ?? theme.palette.divider}) transparent`,
         },
         // Firefox does not render overlay scrollbars; keep the default width there
         '@media all and (min--moz-device-pixel-ratio:0)': {
@@ -8507,7 +8508,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           backgroundColor: (theme.vars?.palette.background.paper ?? theme.palette.background.paper),
         },
         '::-webkit-scrollbar-thumb': {
-          backgroundColor: (theme.vars?.palette.divider ?? theme.palette.divider),
+          // Thumb color: custom override (--app-scrollbar-thumb) falls back to the divider color.
+          backgroundColor: `var(--app-scrollbar-thumb, ${theme.vars?.palette.divider ?? theme.palette.divider})`,
           borderRadius: 8,
           border: `2px solid ${(theme.vars?.palette.background.paper ?? theme.palette.background.paper)}`,
         },
@@ -8519,6 +8521,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           margin: 0,
           opacity: 0.7,
           filter: 'none',
+          // Invert the native spinner glyphs on dark surfaces.
           ...theme.applyStyles('dark', { filter: 'invert(0.8)' }),
         },
       })} />

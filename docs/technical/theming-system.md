@@ -9,7 +9,7 @@ All color-scheme-aware styling must follow the patterns in this document to avoi
 
 ### Theme construction — `src/theme.ts`
 
-`makeTheme(colorBlindMode, custom)` calls `buildSchemePalette` twice (once for dark, once for light) and merges both into a single `createTheme` call:
+`makeTheme(colorBlindMode, custom)` calls `buildSchemePalette` twice (dark, light) and merges both into a single `createTheme` call:
 
 ```ts
 createTheme({
@@ -24,7 +24,22 @@ createTheme({
 
 `colorSchemeSelector: 'data-mui-color-scheme'` tells MUI to look for `data-mui-color-scheme="dark"` on an ancestor element (MUI puts it on `<html>`) instead of following the OS `prefers-color-scheme` media query directly, so the user's manual toggle always wins.
 
-`custom: ThemeCustomization` carries optional overrides for primary, success, warning, error, background, paper, divider, border-radius, and selection colours — all piped through by `ThemeEditorMenu`.
+`custom: ThemeCustomization` carries optional overrides for primary, toggle, selection, background, paper, divider, success, warning, error, **info, the three text colours (primary/secondary/disabled), the UI and code font families, the scrollbar thumb colour**, border-radius, and selection opacity — all piped through by `ThemeEditorMenu`. `EMPTY_THEME_CUSTOMIZATION` (in `constants.ts`) is the SSOT all-null object shared by the store fallback, the theme default, and the popout reset.
+
+Non-palette overrides are applied as follows:
+- **UI font** → `typography.fontFamily` in `createTheme`.
+- **Code font** → emitted as the `--font-code` CSS variable (the existing convention `FONT_FAMILY_MONO` and the MD editor already read it); set once at `:root` from `main.tsx`.
+- **Scrollbar thumb** → emitted as `--app-scrollbar-thumb`; App.tsx scrollbar styling consumes it with a divider fallback.
+- Both custom-value CSS vars are built by `buildCustomValueVars()` (`themeCustomTokens.ts`) and injected via a `<GlobalStyles>` in `main.tsx`. They are only present when the user sets them, so unset values preserve prior behaviour.
+
+### RSLH — the third selection (`src/lib/rslhPreset.ts`)
+
+RSLH ("RSL Helper" skin) is **not** a separate MUI color scheme. It is the **dark theme with a fixed `ThemeCustomization` preset merged in** — the same value slots a user can edit by hand. This is deliberate: anything RSLH does is reproducible on the dark theme via the popout, and RSLH + "dark + manual edits" run identical code, so the contrast/adaptation pipeline behaves correctly under RSLH instead of being bypassed.
+
+- `ThemeMode` (`constants.ts`) is the union `'dark' | 'light' | 'rslh'` — the **UI selection** shown in the popout. `'rslh'` is never stored in MUI's mode key.
+- MUI owns light/dark via its own `modeStorageKey` (read synchronously at init → correct first paint). When RSLH is selected, MUI's mode is `'dark'` and a separate boolean flag (`RSLH_ENABLED_KEY`) is set — see `themeModePreference.ts` (`useRslhEnabled` / `setRslhEnabled`).
+- `main.tsx` merges `RSLH_PRESET` under the user's customization (`mergeCustomization(RSLH_PRESET, themeCustom)`) when the flag is on. User edits layer on top per-field (user value wins, else the preset).
+- The preset reproduces a look a user originally brute-forced by injecting a `<style>` block of `!important` overrides onto built HTML (they couldn't reach the runtime controls). Routing it through `ThemeCustomization` makes surfaces flat (`paperColor`/`bgColor` bypass MUI's derivation) like the skin. **Warning is adapted to amber `#FFC107`** (the skin used orange `#F1960E`, indistinguishable from RSLH's orange primary).
 
 ### Token SSOT — `src/lib/themeCustomTokens.ts`
 
@@ -35,7 +50,8 @@ All custom CSS variable names, per-scheme alpha values, and pre-built colour exp
 | `APP_CSS_VAR` | `--app-*` CSS custom property name strings |
 | `APP_SCHEME_ALPHAS` | Per-scheme numeric alpha values keyed by `APP_CSS_VAR` key — TypeScript enforces that every key in `APP_CSS_VAR` that is alpha-typed has a matching entry here. |
 | `CUSTOM_TOKENS` | Pre-built `rgba(var(--mui-palette-…Channel) / var(--app-*))` strings, accessible in `sx` callbacks as `theme.custom.<tokenName>`. |
-| `SCHEME_ALPHA_STYLES` | Auto-derived `GlobalStyles` block injected once in `main.tsx`; adds per-scheme `--app-*` values under `[data-mui-color-scheme="dark"]` and `[data-mui-color-scheme="light"]` selectors. New tokens are picked up automatically — no manual step. |
+| `SCHEME_ALPHA_STYLES` | Auto-derived `GlobalStyles` block injected once in `main.tsx`; adds per-scheme `--app-*` values under `[data-mui-color-scheme="dark"]` and `[data-mui-color-scheme="light"]` selectors. New tokens are picked up automatically — no manual step. (RSLH renders as dark, so it uses the dark alphas.) |
+| `buildCustomValueVars` / `APP_CUSTOM_VALUE_VAR` | `:root` CSS vars for the scheme-agnostic user overrides not driven by the MUI palette — scrollbar thumb (`--app-scrollbar-thumb`) and code font (`--font-code`). Emitted from `main.tsx`; only present when set. |
 | `SUBSTAT_LIGHT_CHIP_BG_ALPHA` / `SUBSTAT_LIGHT_CHIP_BORDER_ALPHA` | Plain numeric constants for code paths that call MUI's `alpha()` JS function (which requires a number, not a CSS string). |
 
 **Adding a new token:**
@@ -190,7 +206,7 @@ Also use `colorScheme ?? 'dark'` (not `theme.palette.mode`) for the WMDE markdow
 
 ### `src/components/ThemeEditorMenu.tsx`
 
-The colour editor flyout: PaletteIcon button + Menu with colour pickers, dark/light toggle, colour-blind mode, border-radius, psychedelic toggle, and stat-button border preference.
+The colour editor flyout: PaletteIcon button + Menu with the scheme toggle (**Dark / Light / RSLH**), colour pickers (accent, toggle, selection, background, paper, dividers, success, warning, error, **info, three text colours, scrollbar thumb**), **UI/code font-family text fields**, border-radius and selection-opacity sliders, colour-blind mode, psychedelic toggle, and stat-button border preference. Switching scheme resets manual customizations so each scheme starts from its own defaults. `hasCustomization` is computed generically (`Object.values(draft).some(v => v != null)`) and reset uses the shared `EMPTY_THEME_CUSTOMIZATION` SSOT, so new fields need no per-field bookkeeping.
 
 - Reads/writes `ThemeCustomization` via `useThemeCustomization()` (Zustand-backed, persisted to localStorage).
 - Reads/writes `psychedelic` via the display preferences context (`useDisplayPreferences` / `useDisplayPreferenceActions`).
