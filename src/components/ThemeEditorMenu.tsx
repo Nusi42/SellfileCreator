@@ -19,6 +19,7 @@ import { useColorScheme, useTheme } from '@mui/material/styles'
 import type { ColorBlindMode, ThemeMode } from '../lib/constants'
 import { EMPTY_THEME_CUSTOMIZATION, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 import { useThemeCustomization } from '../state/themeCustomization'
+import { RSLH_PRESET } from '../lib/rslhPreset'
 import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
@@ -78,6 +79,20 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
   // colorSchemes exists at runtime in CSS vars mode but isn't on useTheme()'s Theme type.
   type SchemeMap = Partial<Record<'dark' | 'light', { palette: typeof muiTheme.palette }>>
   const schemePalette = ((muiTheme as unknown as { colorSchemes?: SchemeMap }).colorSchemes?.[muiSchemeKey])?.palette
+
+  // Picker/placeholder fallback for an un-edited field. RSLH applies its preset OVER the dark base
+  // (see rslhPreset.ts), but the popout edits the user's own `themeCustom` — which is null for any
+  // field the user hasn't touched. So when RSLH is active, the effective default for an un-edited
+  // field is the RSLH preset value, not the dark base. Surface that here so the swatch/placeholder
+  // shows what is actually in effect (e.g. selection = #cc9064, not dark's #4e94e5). Where the RSLH
+  // preset leaves a field null, it inherits the dark base, so we fall through to `base`.
+  const fieldFallback = React.useCallback(<K extends keyof typeof RSLH_PRESET>(field: K, base: string): string => {
+    if (rslhEnabled) {
+      const preset = RSLH_PRESET[field]
+      if (typeof preset === 'string' && preset.length > 0) return preset
+    }
+    return base
+  }, [rslhEnabled])
 
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const [themeCustom, setThemeCustom] = useThemeCustomization()
@@ -175,29 +190,32 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         </MenuItem>
         <Divider />
         {/* Color pickers — operate on local draft; debounce commits to store. */}
+        {/* Each `fallback` is the dark/light base default; fieldFallback() swaps in the RSLH preset
+            value when RSLH is active and that field hasn't been edited, so the swatch reflects what
+            is actually applied (e.g. selection #cc9064) instead of the dark base. */}
         {([
-          { label: t('themeColorAccent'),     field: 'primaryColor'  as const, fallback: schemePalette?.primary?.main ?? muiTheme.palette.primary.main },
+          { label: t('themeColorAccent'),     field: 'primaryColor'  as const, fallback: fieldFallback('primaryColor', schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
           // Toggle fallback: dark uses #ffffff (matches theme.ts default); light uses primary.
-          { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: isDark
+          { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: fieldFallback('toggleColor', isDark
               ? '#ffffff'
-              : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
+              : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main)) },
           // Selection fallback: dark uses #4e94e5 (matches theme.ts default); light uses primary.
-          { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: isDark
+          { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: fieldFallback('selectionColor', isDark
               ? '#4e94e5'
-              : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
-          { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: schemePalette?.background?.default ?? muiTheme.palette.background.default },
-          { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: schemePalette?.background?.paper ?? muiTheme.palette.background.paper },
-          { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: schemePalette?.divider ?? muiTheme.palette.divider },
-          { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: schemePalette?.success?.main ?? muiTheme.palette.success.main },
-          { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: schemePalette?.warning?.main ?? muiTheme.palette.warning.main },
-          { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: schemePalette?.error?.main ?? muiTheme.palette.error.main },
-          { label: t('themeColorInfo'),       field: 'infoColor'     as const, fallback: schemePalette?.info?.main ?? muiTheme.palette.info.main },
+              : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main)) },
+          { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: fieldFallback('bgColor', schemePalette?.background?.default ?? muiTheme.palette.background.default) },
+          { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: fieldFallback('paperColor', schemePalette?.background?.paper ?? muiTheme.palette.background.paper) },
+          { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: fieldFallback('dividerColor', schemePalette?.divider ?? muiTheme.palette.divider) },
+          { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: fieldFallback('successColor', schemePalette?.success?.main ?? muiTheme.palette.success.main) },
+          { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: fieldFallback('warningColor', schemePalette?.warning?.main ?? muiTheme.palette.warning.main) },
+          { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: fieldFallback('errorColor', schemePalette?.error?.main ?? muiTheme.palette.error.main) },
+          { label: t('themeColorInfo'),       field: 'infoColor'     as const, fallback: fieldFallback('infoColor', schemePalette?.info?.main ?? muiTheme.palette.info.main) },
           // Text colors — fallbacks read the active scheme's resolved text palette.
-          { label: t('themeColorTextPrimary'),   field: 'textPrimaryColor'   as const, fallback: schemePalette?.text?.primary   ?? muiTheme.palette.text.primary },
-          { label: t('themeColorTextSecondary'), field: 'textSecondaryColor' as const, fallback: schemePalette?.text?.secondary ?? muiTheme.palette.text.secondary },
-          { label: t('themeColorTextDisabled'),  field: 'textDisabledColor'  as const, fallback: schemePalette?.text?.disabled  ?? muiTheme.palette.text.disabled },
+          { label: t('themeColorTextPrimary'),   field: 'textPrimaryColor'   as const, fallback: fieldFallback('textPrimaryColor', schemePalette?.text?.primary   ?? muiTheme.palette.text.primary) },
+          { label: t('themeColorTextSecondary'), field: 'textSecondaryColor' as const, fallback: fieldFallback('textSecondaryColor', schemePalette?.text?.secondary ?? muiTheme.palette.text.secondary) },
+          { label: t('themeColorTextDisabled'),  field: 'textDisabledColor'  as const, fallback: fieldFallback('textDisabledColor', schemePalette?.text?.disabled  ?? muiTheme.palette.text.disabled) },
           // Scrollbar thumb — fallback is the active scheme divider (current default behavior).
-          { label: t('themeColorScrollbar'),  field: 'scrollbarThumbColor' as const, fallback: schemePalette?.divider ?? muiTheme.palette.divider },
+          { label: t('themeColorScrollbar'),  field: 'scrollbarThumbColor' as const, fallback: fieldFallback('scrollbarThumbColor', schemePalette?.divider ?? muiTheme.palette.divider) },
         ]).map(({ label, field, fallback }) => (
           <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
@@ -246,10 +264,12 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           </Box>
         </MenuItem>
         {/* Font families — free-form CSS font-family values. Empty = default stack.
-            Commit on blur (and Enter) so the theme rebuild fires once, not per keystroke. */}
+            Commit on blur (and Enter) so the theme rebuild fires once, not per keystroke.
+            Placeholder uses fieldFallback so an un-edited field under RSLH shows the RSLH preset
+            font (Segoe UI / Cascadia Code) that is actually applied, not the generic default. */}
         {([
-          { label: t('themeFontUi'),   field: 'uiFontFamily'   as const, placeholder: t('themeFontDefault') },
-          { label: t('themeFontCode'), field: 'codeFontFamily' as const, placeholder: 'JetBrains Mono' },
+          { label: t('themeFontUi'),   field: 'uiFontFamily'   as const, placeholder: fieldFallback('uiFontFamily', t('themeFontDefault')) },
+          { label: t('themeFontCode'), field: 'codeFontFamily' as const, placeholder: fieldFallback('codeFontFamily', 'JetBrains Mono') },
         ]).map(({ label, field, placeholder }) => (
           <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
