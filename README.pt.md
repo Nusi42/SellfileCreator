@@ -133,6 +133,16 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 
   **O que é a hipótese de melhoria?** A app simula todas as formas possíveis como uma peça pode rolar durante as melhorias até +16 — algumas rolagens afetam o substat que te interessa, outras não — e conta quantas vezes a peça acaba no teu top N em todos esses futuros. Uma peça com 68 % de hipótese de melhoria chega ao top N em cerca de dois em cada três caminhos simulados.
 
+  **A hipótese de melhoria é uma *previsão*, não a regra que mantém o teu equipamento — são dois sistemas distintos.** Isto costuma confundir, por isso vale a pena ser claro:
+
+  - O safeguard **mantém sempre as peças do top-N pelo seu valor de substat *neste momento***. É essa ordenação pelo valor atual que realmente protege uma peça.
+  - A hipótese de melhoria responde a uma pergunta *diferente*: *«quando tudo estiver melhorado para +16, esta peça continuará entre as minhas melhores?»*. Pontua **tanto a peça como os seus concorrentes pelos valores projetados a +16** e conta quantas vezes a peça acaba no top N.
+
+  Como fazem perguntas diferentes, as duas podem divergir — e isso é esperado, não é um erro:
+
+  - Uma peça pode mostrar **0 % de hipótese de melhoria e ainda assim estar protegida.** É uma das tuas melhores *hoje* (por isso o top-N pelo valor atual mantém-na), mas a simulação espera que rivais que também estão a ser melhoradas a ultrapassem até +16 (logo a hipótese *futura* de top-N é ~0 %). Uma única boa rolagem que coloque uma peça no teu top-N atual protege-a de imediato — a hipótese de melhoria pode ficar nos 0 % o tempo todo, porque esse número nunca foi o que a protegia.
+  - Uma peça pode mostrar uma **hipótese de melhoria alta e ainda assim não estar protegida (ainda).** É um drop promissor que não está no teu top-N atual: só é mantido se ativares o limiar abaixo.
+
   **Regra fundamental: o limiar só pode adicionar à proteção, nunca retirar.** O teu top-N atual é sempre conservado, independentemente da sua pontuação de hipótese de melhoria. Uma peça completamente melhorada (+16) conta diretamente o seu valor atual bloqueado — não pode sair da proteção por ter «esgotado o potencial de melhoria».
 
   **Exemplo — estandartes SPD, Quantidade necessária = 2, Por facção (rank 6 lendário):**

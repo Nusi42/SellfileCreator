@@ -133,6 +133,16 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 
   **O que é a chance de melhoria?** O app simula todos os caminhos possíveis que uma peça pode seguir durante as melhorias até +16 — algumas rolagens acertam o substat que você quer, outras não — e conta quantas vezes a peça acaba no seu top N em todos esses futuros. Uma peça com 68 % de chance de melhoria chega ao top N em aproximadamente dois de cada três caminhos simulados.
 
+  **A chance de melhoria é uma *previsão*, não a regra que mantém seu equipamento — são dois sistemas separados.** Isso costuma confundir, então vale deixar claro:
+
+  - O safeguard **sempre mantém as peças do top-N pelo valor de substat *agora***. É essa classificação por valor atual que de fato protege uma peça.
+  - A chance de melhoria responde a uma pergunta *diferente*: *«quando tudo estiver melhorado para +16, esta peça ainda estará entre as minhas melhores?»*. Ela pontua **tanto a peça quanto seus concorrentes pelos valores projetados em +16** e conta quantas vezes a peça acaba no top N.
+
+  Como fazem perguntas diferentes, as duas podem divergir — e isso é esperado, não é um bug:
+
+  - Uma peça pode mostrar **0 % de chance de melhoria e ainda assim estar protegida.** Ela é uma das suas melhores *hoje* (então o top-N por valor atual a mantém), mas a simulação espera que rivais que também estão sendo melhoradas a ultrapassem até +16 (por isso a chance *futura* de top-N é ~0 %). Uma única boa rolagem que coloque uma peça no seu top-N atual a protege imediatamente — a chance de melhoria pode ficar em 0 % o tempo todo, porque esse número nunca foi o que a protegia.
+  - Uma peça pode mostrar uma **chance de melhoria alta e ainda assim não estar protegida (ainda).** É um drop promissor que não está no seu top-N atual: só é mantido se você ativar o limite abaixo.
+
   **Regra principal: o limite só pode adicionar à proteção, nunca remover.** Seu top-N atual é sempre mantido, independentemente da pontuação de chance de melhoria. Uma peça completamente melhorada (+16) conta diretamente seu valor atual bloqueado — ela não pode sair da proteção por ter «esgotado o potencial de melhoria».
 
   **Exemplo — estandartes SPD, Quantidade necessária = 2, Por facção (rank 6 lendário):**

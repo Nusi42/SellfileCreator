@@ -139,6 +139,16 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 
   **Qu’est-ce que la chance d’amélioration ?** L’app simule toutes les façons dont une pièce pourrait roller lors du passage à +16 — certains jets touchent le sous-stat voulu, d’autres non — et compte combien de fois la pièce finit dans votre top N sur l’ensemble de ces futuros. Une pièce avec 68 % de chance d’amélioration finit dans le top N dans environ deux chemins simulés sur trois.
 
+  **La chance d’amélioration est une *prédiction*, pas la règle qui conserve votre équipement — ce sont deux systèmes distincts.** Cela prête souvent à confusion, alors soyons clairs :
+
+  - Le garde-fou **conserve toujours les pièces du top-N selon leur valeur de sous-stat *en ce moment***. C’est ce classement par valeur actuelle qui protège réellement une pièce.
+  - La chance d’amélioration répond à une *autre* question : *« une fois tout monté à +16, cette pièce fera-t-elle encore partie de mes meilleures ? »*. Elle évalue **à la fois la pièce et ses concurrentes selon leurs valeurs projetées à +16**, puis compte combien de fois la pièce finit dans le top N.
+
+  Comme elles posent des questions différentes, les deux peuvent diverger — c’est attendu, ce n’est pas un bug :
+
+  - Une pièce peut afficher **0 % de chance d’amélioration et rester protégée.** Elle fait partie de vos meilleures *aujourd’hui* (le top-N par valeur actuelle la conserve), mais la simulation s’attend à ce que des rivales encore en cours de montée la dépassent à +16 (sa chance *future* d’être dans le top-N est donc ~0 %). Un seul bon jet qui fait entrer une pièce dans votre top-N actuel la protège aussitôt — sa chance d’amélioration peut rester à 0 % tout du long, car ce chiffre n’a jamais été ce qui la protégeait.
+  - Une pièce peut afficher une **chance d’amélioration élevée sans être protégée (pour l’instant).** C’est un drop brut prometteur qui n’est pas dans votre top-N actuel : il n’est conservé que si vous activez le seuil ci-dessous.
+
   **Règle essentielle : le seuil ne peut qu’ajouter au garde-fou, jamais en retirer.** Votre top-N actuel est toujours conservé, quelle que soit sa chance d’amélioration. Une pièce entièrement renforcée (+16) compte directement sa valeur actuelle figée — elle ne peut pas tomber hors du garde-fou parce qu’elle « n’a plus de potentiel d’amélioration ».
 
   **Exemple — bannières SPD, Quantité requise = 2, Par faction (rang 6 légendaire) :**

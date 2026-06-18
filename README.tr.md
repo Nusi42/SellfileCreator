@@ -133,6 +133,16 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 
   **İyileştirme şansı nedir?** Uygulama, bir parçanın +16'ya yükseltilirken tüm olası atış yollarını simüle eder — bazı atışlar önemsediğiniz alt stata isabet eder, bazıları etmez — ve parçanın tüm bu geleceklerde kaç kez top N'e girdiğini sayar. %68 iyileştirme şansına sahip bir parça, simüle edilen yükseltme yollarının yaklaşık ikisinde top N'e girer.
 
+  **İyileştirme şansı bir *tahmindir*, gear’ı asıl koruyan kural değildir — bunlar iki ayrı sistemdir.** Bu çoğu kişiyi yanıltıyor, o yüzden net olalım:
+
+  - Safeguard, **her zaman top-N parçaları *şu anki* alt stat değerlerine göre tutar**. Bir parçayı asıl koruyan şey, bu güncel değere göre sıralamadır.
+  - İyileştirme şansı *farklı* bir soruyu yanıtlar: «her şey +16’ya yükseltildiğinde bu parça hâlâ en iyilerimden biri olacak mı?». **Hem parçayı hem rakiplerini +16’daki öngörülen değerlerine göre** puanlar ve parçanın kaç kez top N’e girdiğini sayar.
+
+  Farklı sorular sordukları için ikisi çelişebilir — bu beklenen bir durumdur, hata değildir:
+
+  - Bir parça **%0 iyileştirme şansı gösterip yine de korunabilir.** *Bugün* en iyilerinden biridir (bu yüzden güncel değere göre top-N onu tutar), ama simülasyon, hâlâ yükseltilmekte olan rakiplerin +16’ya kadar onu geçmesini bekler (yani *gelecekteki* top-N şansı ~%0’dır). Bir parçayı güncel top-N’e sokan tek bir iyi atış onu anında korur — bu sırada iyileştirme şansı baştan sona %0 kalabilir, çünkü onu koruyan şey hiçbir zaman o sayı değildi.
+  - Bir parça **yüksek iyileştirme şansı gösterip yine de (henüz) korunmuyor olabilir.** Güncel top-N’de olmayan, umut vaat eden ham bir drop’tur: yalnızca aşağıdaki eşiği açarsanız tutulur.
+
   **Temel kural: eşik yalnızca korumaya ekleme yapabilir, asla çıkarma yapamaz.** Mevcut top-N'niz iyileştirme şansı puanından bağımsız olarak her zaman korunur. Tamamen yükseltilmiş bir parça (+16) mevcut sabit değerini doğrudan sayar — «yükseltme potansiyelini tüketti» diye korumadan çıkarılamaz.
 
   **Örnek — SPD bayrakları, Gerekli Sayı = 2, Fraksiyona göre (rank-6 efsanevi):**

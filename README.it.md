@@ -123,6 +123,16 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 
   **Cos’è la probabilità di miglioramento?** L’app simula tutti i modi possibili in cui un pezzo potrebbe tirare durante i potenziamenti fino a +16 — alcuni tiri colpiscono la sotto-stat che ti interessa, altri no — e conta quante volte il pezzo finisce nel tuo top N su tutti questi futuri. Un pezzo con il 68 % di probabilità di miglioramento finisce nel top N in circa due percorsi simulati su tre.
 
+  **La probabilità di miglioramento è una *previsione*, non la regola che conserva il tuo equipaggiamento: sono due sistemi distinti.** Questo crea spesso confusione, quindi è bene essere chiari:
+
+  - Il safeguard **conserva sempre i pezzi top-N in base al loro valore di sotto-stat *in questo momento***. È questa classifica per valore attuale a proteggere davvero un pezzo.
+  - La probabilità di miglioramento risponde a una domanda *diversa*: *«una volta che tutto è potenziato a +16, questo pezzo sarà ancora tra i miei migliori?»*. Valuta **sia il pezzo sia i suoi concorrenti in base ai loro valori previsti a +16** e conta quante volte il pezzo finisce nel top N.
+
+  Poiché pongono domande diverse, le due cose possono non coincidere — ed è previsto, non è un bug:
+
+  - Un pezzo può mostrare **0 % di probabilità di miglioramento ed essere comunque protetto.** È tra i tuoi migliori *oggi* (quindi il top-N per valore attuale lo conserva), ma la simulazione prevede che rivali ancora in fase di potenziamento lo superino entro il +16 (perciò la sua probabilità *futura* di top-N è ~0 %). Un singolo buon tiro che porta un pezzo nel tuo top-N attuale lo protegge subito — la sua probabilità di miglioramento può restare a 0 % per tutto il tempo, perché quel numero non è mai stato ciò che lo proteggeva.
+  - Un pezzo può mostrare una **probabilità di miglioramento alta e non essere (ancora) protetto.** È un drop grezzo promettente non presente nel tuo top-N attuale: viene conservato solo se attivi la soglia qui sotto.
+
   **Regola fondamentale: la soglia può solo aggiungere alla protezione, mai toglierla.** Il tuo top-N attuale è sempre conservato, indipendentemente dalla loro probabilità di miglioramento. Un pezzo completamente potenziato (+16) conta direttamente il suo valore attuale bloccato — non può uscire dalla protezione perché «ha esaurito il potenziale di miglioramento».
 
   **Esempio — stendardi SPD, Quantità richiesta = 2, Per fazione (rango 6 leggendario):**

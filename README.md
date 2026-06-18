@@ -139,6 +139,16 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 
   **What is improvement chance?** The app simulates all possible ways a piece could roll during upgrades to +16 — some rolls hit the substat you care about, some don't — and counts how often the piece ends up in your top N across all those futures. A piece with 68% improvement chance lands in the top N in roughly two out of three simulated upgrade paths.
 
+  **Improvement chance is a *prediction*, not the rule that keeps your gear — they are two separate systems.** This trips people up, so it's worth being explicit:
+
+  - The safeguard **always keeps the top-N pieces by their substat value *right now*** (see [Selected substats are ranked by their **current** value](#safeguards)). That current-value ranking is what actually protects a piece.
+  - Improvement chance answers a *different* question: *"once everything is leveled to +16, will this piece still be one of my best?"* It scores **both the piece and its competitors at their projected +16 values**, then asks how often the piece lands in the top N.
+
+  Because they ask different questions, the two can disagree — and that's expected, not a bug:
+
+  - A piece can show **0% improvement chance and still be safeguarded.** It's one of your best *today* (so the current-value top-N keeps it), but the simulation expects rivals that are themselves still leveling to out-roll it by +16 (so its *future* top-N chance is ~0%). A single good roll that pushes a piece into your current top-N will safeguard it immediately — its improvement chance may stay 0% the whole time, because that number was never what protected it.
+  - A piece can show a **high improvement chance and not be safeguarded yet.** It's a promising raw drop that isn't in your current top-N — it only gets kept if you turn on the threshold below.
+
   **Key rule: the threshold can only add to protection, never remove.** Your current top-N is always kept, regardless of their improvement chance score. A fully upgraded piece (+16) counts its locked current value directly — it cannot fall out of protection because it "ran out of upgrade potential."
 
   **Example — SPD banners, Required Count = 2, Per faction (rank-6 legendary):**

@@ -133,6 +133,16 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 
   **¿Qué es la probabilidad de mejora?** La app simula todas las formas posibles en que una pieza podría tirar durante las mejoras hasta +16 — algunas tiradas afectan al substat que te interesa, otras no — y cuenta cuántas veces la pieza acaba en tu top N en todos esos futuros. Una pieza con un 68 % de probabilidad de mejora llega al top N en aproximadamente dos de cada tres caminos de mejora simulados.
 
+  **La probabilidad de mejora es una *predicción*, no la regla que conserva tu equipo: son dos sistemas distintos.** Esto suele confundir, así que vale la pena ser claros:
+
+  - El safeguard **siempre conserva las piezas top-N por su valor de substat *ahora mismo***. Esa clasificación por valor actual es lo que realmente protege una pieza.
+  - La probabilidad de mejora responde a *otra* pregunta: *«una vez que todo esté mejorado a +16, ¿seguirá siendo esta pieza una de mis mejores?»*. Puntúa **tanto la pieza como a sus competidores según sus valores proyectados a +16** y cuenta cuántas veces la pieza acaba en el top N.
+
+  Como hacen preguntas distintas, ambas pueden discrepar, y eso es lo esperado, no un fallo:
+
+  - Una pieza puede mostrar **0 % de probabilidad de mejora y aun así estar protegida.** Es una de tus mejores *hoy* (así que el top-N por valor actual la conserva), pero la simulación espera que rivales que también se están mejorando la superen al llegar a +16 (por eso su probabilidad *futura* de top-N es ~0 %). Una sola buena tirada que meta una pieza en tu top-N actual la protege de inmediato; su probabilidad de mejora puede quedarse en 0 % todo el tiempo, porque ese número nunca fue lo que la protegía.
+  - Una pieza puede mostrar una **probabilidad de mejora alta y aun así no estar protegida (todavía).** Es un drop prometedor que no está en tu top-N actual: solo se conserva si activas el umbral de abajo.
+
   **Regla clave: el umbral solo puede añadir protección, nunca quitarla.** Tu top-N actual siempre se conserva, independientemente de su puntuación de probabilidad de mejora. Una pieza completamente mejorada (+16) cuenta directamente su valor actual bloqueado — no puede perder la protección porque «se le acabó el potencial de mejora».
 
   **Ejemplo — estandartes SPD, Cantidad requerida = 2, Por facción (rango 6 legendario):**

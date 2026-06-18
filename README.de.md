@@ -133,6 +133,16 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 
   **Was ist die Verbesserungschance?** Die App simuliert alle möglichen Wege, wie ein Teil beim Aufwerten auf +16 würfeln könnte – manche Würfe treffen den gewünschten Substat, manche nicht – und zählt, wie oft das Teil dabei im Top-N landet. Ein Teil mit 68 % Verbesserungschance landet in etwa zwei von drei simulierten Aufwertungspfaden im Top-N.
 
+  **Die Verbesserungschance ist eine *Vorhersage*, nicht die Regel, die dein Gear behält – das sind zwei getrennte Systeme.** Das verwirrt oft, deshalb hier ganz deutlich:
+
+  - Der Safeguard behält **immer die Top-N-Teile nach ihrem Substat-Wert *jetzt gerade***. Diese Reihung nach aktuellem Wert ist es, die ein Teil tatsächlich schützt.
+  - Die Verbesserungschance beantwortet eine *andere* Frage: *„Wird dieses Teil, wenn alles auf +16 aufgewertet ist, immer noch zu meinen besten gehören?“* Sie bewertet **sowohl das Teil als auch seine Konkurrenten anhand ihrer voraussichtlichen +16-Werte** und zählt, wie oft das Teil im Top-N landet.
+
+  Da sie unterschiedliche Fragen stellen, können beide voneinander abweichen – das ist erwartet, kein Fehler:
+
+  - Ein Teil kann **0 % Verbesserungschance anzeigen und trotzdem geschützt sein.** Es gehört *heute* zu deinen besten (also behält es das Top-N nach aktuellem Wert), aber die Simulation erwartet, dass Konkurrenten, die selbst noch aufgewertet werden, es bis +16 überholen (also liegt seine *zukünftige* Top-N-Chance bei ~0 %). Ein einzelner guter Wurf, der ein Teil ins aktuelle Top-N hebt, schützt es sofort – seine Verbesserungschance kann dabei die ganze Zeit 0 % bleiben, denn diese Zahl war nie das, was es geschützt hat.
+  - Ein Teil kann eine **hohe Verbesserungschance anzeigen und trotzdem (noch) nicht geschützt sein.** Es ist ein vielversprechender Rohdrop, der nicht im aktuellen Top-N ist – es wird nur behalten, wenn du den Schwellenwert unten einschaltest.
+
   **Wichtige Regel: Der Schwellenwert kann den Schutz nur erweitern, nie verringern.** Das aktuelle Top-N bleibt immer erhalten, unabhängig von der Verbesserungschance. Ein vollständig aufgewertetes Teil (+16) zählt seinen eingefrorenen aktuellen Wert direkt – es kann nicht aus dem Schutz fallen, weil es „keine Aufwertungsmöglichkeiten mehr hat".
 
   **Beispiel – SPD-Banner, Benötigte Anzahl = 2, Pro Fraktion (Rang 6, legendär):**

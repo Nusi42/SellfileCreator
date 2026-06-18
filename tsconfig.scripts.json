@@ -16,6 +16,7 @@
     "scripts/tooling/audit-l10n-widths.ts",
     "scripts/tooling/measure-rule-tester.ts",
     "scripts/tooling/sim-improvement-chance.ts",
+    "scripts/tooling/instrument-safeguard-piece.ts",
     "src/types/globals.d.ts"
   ]
 }
