@@ -63,6 +63,7 @@ import {
   MENU_CONTROL_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
   type ColorBlindMode,
+  type SafeguardRankMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import {
@@ -100,6 +101,7 @@ import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormaliz
 import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
+import { makeSafeguardRankCycleOptions, safeguardRankCycleVariant } from '../lib/safeguardRankCycleOptions'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
   parseSpacingPx,
@@ -199,7 +201,10 @@ type GearInspectorItemsGridProps = {
   // When present, ranked items show "#N" bottom chip.
   // ruleOrdinal (1-based): the rule that gave this artifact its best rank (click-to-jump + tooltip).
   // otherRules: up to 3 other rules where this artifact is also a candidate (rank + ruleOrdinal).
-  safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null
+  // requiredPerGroup: the primary rule's per-group keep cutoff, rendered as #N/req in 'rankQuota' mode.
+  // inSelection: false when the rank comes from a rule outside the current safeguard selection — the
+  // chip is dimmed in that case so it reads as "ranked elsewhere, not in your selected rule".
+  safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; requiredPerGroup: number; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null
   // Gear-diff split-view: this grid is one of two half-width panes. Rounds the dynamic
   // column count so each pane shows half the full-grid columns at identical card width.
   halfPaneColumns?: boolean
@@ -415,7 +420,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     showRuleTemplates,
     highlightKeepSell,
     showSafeguardImprovementChance,
-    showSafeguardRank,
+    safeguardRankMode,
     setColumns,
     setShowFirstMatch,
     setShowMatchRecipeIndex,
@@ -425,7 +430,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     setShowRuleTemplates,
     setHighlightKeepSell,
     setShowSafeguardImprovementChance,
-    setShowSafeguardRank,
+    setSafeguardRankMode,
   } = useGearInspectorGridPreferences(variant)
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
@@ -803,12 +808,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   // green = kept (within quota), red = sold.
   // Chip carries click-to-jump only; all tooltip content surfaces on the card icon level.
   const safeguardRankOverlayByArtifactId = useMemo(() => {
-    if (!safeguardRankByArtifactId || safeguardRankByArtifactId.size === 0) {
+    // 'off' hides the overlay entirely; only build chips for the active rank modes.
+    if (safeguardRankMode === 'off' || !safeguardRankByArtifactId || safeguardRankByArtifactId.size === 0) {
       return null
     }
     // Entry shape: chip data + JSX tooltipRender (MarkdownTooltip custom parser has no table support).
-    const overlays = new Map<number, { text: string; color?: string; onClick?: () => void; tooltipRender: React.ReactNode }>()
-    safeguardRankByArtifactId.forEach(({ rank, isWithinQuota, ruleOrdinal, otherRules }, artifactId) => {
+    const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; onClick?: () => void; tooltipRender: React.ReactNode }>()
+    safeguardRankByArtifactId.forEach(({ rank, isWithinQuota, ruleOrdinal, requiredPerGroup, inSelection, otherRules }, artifactId) => {
       if (rank <= 0) return
       // Resolve chip color: green = kept, red = sold.
       const color = isWithinQuota
@@ -852,16 +858,28 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               </Typography>
             </Box>
           ))}
+          {/* Dimmed chip: explain that the rank comes from a rule outside the current selection. */}
+          {!inSelection ? (
+            <Typography variant="caption" sx={{ mt: 0.25, opacity: 0.8 }}>
+              {t('safeguardRankTooltipOutsideSelection')}
+            </Typography>
+          ) : null}
         </Box>
       ) : null
       // Click navigates to the primary rule if a valid ordinal and jump callback are available.
       const ruleIdx = ruleOrdinal != null ? ruleOrdinal - 1 : -1
       const canJump = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
       const onClick = canJump ? () => onJumpToSafeguardRule!(ruleIdx) : undefined
-      overlays.set(artifactId, { text: `#${rank}`, color, tooltipRender, ...(onClick ? { onClick } : {}) })
+      // 'rank' shows the bare rank (#N); 'rankQuota' appends the per-group keep cutoff (#N/req)
+      // so the green/red meaning is self-evident (within the first `req` = kept).
+      const chipText = safeguardRankMode === 'rankQuota' && requiredPerGroup > 0
+        ? `#${rank}/${requiredPerGroup}`
+        : `#${rank}`
+      // Dim when the rank comes from a rule outside the current selection (best rank elsewhere).
+      overlays.set(artifactId, { text: chipText, color, dimmed: !inSelection, tooltipRender, ...(onClick ? { onClick } : {}) })
     })
     return overlays.size > 0 ? overlays : null
-  }, [safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, paletteSuccessMain, paletteErrorMain, t])
+  }, [safeguardRankMode, safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, paletteSuccessMain, paletteErrorMain, t])
 
   // Gear actions only apply to the Gear Inspector grid and must be explicitly enabled.
   const canShowRuleTemplateActions = variant === 'gearInspector'
@@ -2385,9 +2403,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                 : null
 
               // Center slot: safeguard rank — chip text + per-chip rank table tooltip.
-              // Hidden when the showSafeguardRank toggle is off.
+              // Hidden when the rank overlay mode is 'off' (the overlay memo is null then too).
               // Pass the stable useMemo entry directly so reference equality is preserved across renders.
-              const centerOverlay = showSafeguardRank && Number.isFinite(artifactId)
+              const centerOverlay = safeguardRankMode !== 'off' && Number.isFinite(artifactId)
                 ? (safeguardRankOverlayByArtifactId?.get(artifactId) ?? null)
                 : null
 
@@ -2401,7 +2419,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               const overlaySlotCount = Math.max(1, Math.min(3,
                 (normalizedOverlayEnabled ? 1 : 0) +
                 (showSafeguardImprovementChance ? 1 : 0) +
-                (showSafeguardRank && safeguardRankByArtifactId != null ? 1 : 0),
+                (safeguardRankMode !== 'off' && safeguardRankByArtifactId != null ? 1 : 0),
               )) as 1 | 2 | 3
               return (
                 <GearInspectorGridCard
@@ -2608,7 +2626,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         }}
       >
         <MenuToggleRow label={t('gearInspectorGridShowSafeguardImprovementChance')} checked={showSafeguardImprovementChance} onChange={() => setShowSafeguardImprovementChance(!showSafeguardImprovementChance)} tooltip={t('gearInspectorGridShowSafeguardImprovementChanceTooltip')} />
-        <MenuToggleRow label={t('gearInspectorGridShowSafeguardRank')} checked={showSafeguardRank} onChange={() => setShowSafeguardRank(!showSafeguardRank)} tooltip={t('gearInspectorGridShowSafeguardRankTooltip')} />
+        <MenuCycleRow
+          label={t('gearInspectorGridShowSafeguardRank')}
+          options={makeSafeguardRankCycleOptions(t)}
+          value={safeguardRankMode}
+          variant={safeguardRankCycleVariant(safeguardRankMode)}
+          onChange={(v) => setSafeguardRankMode(v as SafeguardRankMode)}
+          tooltip={t('gearInspectorGridShowSafeguardRankTooltip')}
+        />
         <MenuItem
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}

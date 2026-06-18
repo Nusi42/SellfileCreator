@@ -12,7 +12,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue } from '../lib
 import { ArtifactSet } from '../lib/types'
 import { resolveRarityAccentColor, ASCENSION_STAR_FG, RANK_STAR_FG } from '../lib/rarityColors'
 import { ensureContrastOnBg } from '../lib/colorUtils'
-import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { resolveSchemePaper, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 // MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
 import MarkdownTooltip from './MarkdownTooltip'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -49,6 +49,8 @@ type OutcomeIndicatorProps = {
 type OverlayChip = {
   text: string
   color?: string
+  // When true, the chip renders at reduced opacity (e.g. a rank from outside the current selection).
+  dimmed?: boolean
   onClick?: () => void
   // Per-chip tooltip content — shown when hovering this chip only.
   // When render is provided it takes priority over markdown (same as MarkdownTooltip behavior).
@@ -140,7 +142,21 @@ export default function GridIconBox({
   // They are only contrast-adapted when they sit on the flat compact-mode paper pill, the one
   // well-defined surface; adapting against paper everywhere darkens the gold into mud on light art.
   const { colorScheme } = useColorScheme()
-  const starPillSurface = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
+  const schemeMode = schemeModeFromColorScheme(colorScheme)
+  const starPillSurface = resolveSchemePaper(theme, schemeMode)
+  // Style overrides for "dimmed" overlay chips (e.g. a rank from a non-selected safeguard).
+  // Keep the regular chip's background, opacity and shadow (inherited from overlayChipSx); the
+  // chip signals its secondary state by (a) using muted secondary TEXT instead of the green/red
+  // keep/sell colour and (b) a DOTTED border instead of solid. Read the text colour from the
+  // SCHEME-RESOLVED palette — theme.palette.* is the static base and does not track the active
+  // dark/light/RSLH scheme (the bug that made dark and RSLH look different).
+  const schemePalette = resolveSchemePalette(theme, schemeMode)
+  const dimmedChipSx = {
+    color: schemePalette.text.secondary,
+    borderStyle: 'dotted' as const,
+    // Non-bold (vs the regular chip's 800) further marks it as secondary / not-your-selected-rule.
+    fontWeight: 500 as const,
+  }
   const adaptStarFgOnPill = (fg: string): string =>
     showRankStarsBackground ? ensureContrastOnBg(fg, starPillSurface) : fg
   const slotArtSrc = gearSetSlotIconUrl(
@@ -455,6 +471,8 @@ export default function GridIconBox({
           : undefined}
         sx={{
           ...overlayChipSx(chip.color, clickable, yPercent),
+          // "Dimmed" chips read as quiet/secondary — a recessed pill (see dimmedChipSx above).
+          ...(chip.dimmed ? dimmedChipSx : {}),
           // Chips with click or tooltip must accept pointer events; pure display chips pass through.
           pointerEvents: (clickable || hasTooltip) ? 'auto' : 'none',
           cursor: clickable ? 'pointer' : 'default',

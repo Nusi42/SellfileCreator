@@ -10,7 +10,9 @@ import {
   GEAR_INSPECTOR_GRID_SHOW_OTHER_MATCHES_KEY,
   GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY,
   GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY,
+  GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY,
   GEAR_INSPECTOR_GRID_SHOW_RULE_TEMPLATES_KEY,
+  type SafeguardRankMode,
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
@@ -106,17 +108,31 @@ const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageS
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
-const gearInspectorGridShowSafeguardRankStore = createLocalStorageStore<boolean>({
-  key: GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY,
-  // Default off — rank chip is opt-in so the card overlay stays uncluttered by default.
-  fallback: false,
-  parse: (raw) => raw === 'true',
-  serialize: (value) => (value ? 'true' : 'false'),
+// Safeguard-rank overlay MODE store (v2). Default off — the chip is opt-in so the
+// card overlay stays uncluttered by default. Migrates the legacy v1 boolean on first
+// read: a stored `'true'` becomes 'rank' (the prior overlay), anything else 'off'.
+const parseSafeguardRankMode = (raw: string | null): SafeguardRankMode => {
+  if (raw === 'rank' || raw === 'rankQuota' || raw === 'off') return raw
+  // v2 unset — fall back to the legacy v1 boolean so existing users keep their overlay.
+  if (raw === null && typeof localStorage !== 'undefined') {
+    try {
+      const legacy = localStorage.getItem(GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY)
+      if (legacy === 'true') return 'rank'
+    } catch { /* storage may be unavailable; fall through to default */ }
+  }
+  return 'off'
+}
+
+const gearInspectorGridSafeguardRankModeStore = createLocalStorageStore<SafeguardRankMode>({
+  key: GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY,
+  fallback: 'off',
+  parse: parseSafeguardRankMode,
+  serialize: (value) => value,
 })
 
-// Reactive read for callers that only need the rank toggle without the full preference hook.
-export const useShowSafeguardRank = (): boolean =>
-  gearInspectorGridShowSafeguardRankStore.useValue()
+// Reactive read for callers that only need the rank mode without the full preference hook.
+export const useSafeguardRankMode = (): SafeguardRankMode =>
+  gearInspectorGridSafeguardRankModeStore.useValue()
 
 // Standalone helpers for tutorial snapshot/restore — avoids passing the setter as a prop.
 export const snapshotSafeguardImprovementChance = (): boolean =>
@@ -142,7 +158,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
   const showRuleTemplates = gearInspectorGridShowRuleTemplatesStore.useValue()
   const highlightKeepSell = gearInspectorGridHighlightKeepSellStore.useValue()
   const showSafeguardImprovementChance = gearInspectorGridShowSafeguardImprovementChanceStore.useValue()
-  const showSafeguardRank = gearInspectorGridShowSafeguardRankStore.useValue()
+  const safeguardRankMode = gearInspectorGridSafeguardRankModeStore.useValue()
 
   const setColumns = useCallback((next: GearInspectorGridColumnMode) => {
     // Accept only the three named modes; fall back to large for any other value.
@@ -187,8 +203,8 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     gearInspectorGridShowSafeguardImprovementChanceStore.set(Boolean(next))
   }, [])
 
-  const setShowSafeguardRank = useCallback((next: boolean) => {
-    gearInspectorGridShowSafeguardRankStore.set(Boolean(next))
+  const setSafeguardRankMode = useCallback((next: SafeguardRankMode) => {
+    gearInspectorGridSafeguardRankModeStore.set(next)
   }, [])
 
   return {
@@ -201,7 +217,7 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     showRuleTemplates,
     highlightKeepSell,
     showSafeguardImprovementChance,
-    showSafeguardRank,
+    safeguardRankMode,
     setColumns,
     setShowFirstMatch,
     setShowMatchRecipeIndex,
@@ -211,6 +227,6 @@ export function useGearInspectorGridPreferences(variant: GearInspectorGridPrefer
     setShowRuleTemplates,
     setHighlightKeepSell,
     setShowSafeguardImprovementChance,
-    setShowSafeguardRank,
+    setSafeguardRankMode,
   }
 }

@@ -85,6 +85,11 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 // Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
+// Safeguard-rank overlay modes for the Gear Inspector grid cycle button.
+// 'off' hides the chip; 'rank' shows the best rank (#N); 'rankQuota' shows the
+// rank against the per-group required count (#N/req) so the keep/sell cutoff is explicit.
+export type SafeguardRankMode = 'off' | 'rank' | 'rankQuota'
+
 // MUI's mode key — MUI's ThemeProvider reads this synchronously at init. The STORED value is
 // only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
 // flag (RSLH_ENABLED_KEY), so this key stays MUI-clean.
@@ -590,9 +595,13 @@ export const GEAR_INSPECTOR_GRID_HIGHLIGHT_KEEP_SELL_KEY = 'sellfileCreator.gear
 // Gear Inspector grid: safeguard improvement chance overlay toggle.
 // Why: the overlay is view-only and should persist across sessions like other grid display toggles.
 export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_IMPROVEMENT_CHANCE_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardImprovementChance.v1'
-// Gear Inspector grid: safeguard rank chip overlay toggle.
+// Gear Inspector grid: safeguard rank chip overlay toggle (legacy boolean store).
 // Why: rank is a secondary overlay; users may want improvement chance without rank for a cleaner view.
+// Retained only to migrate the legacy on/off value into the v2 mode store on first read.
 export const GEAR_INSPECTOR_GRID_SHOW_SAFEGUARD_RANK_KEY = 'sellfileCreator.gearInspector.grid.showSafeguardRank.v1'
+// Gear Inspector grid: safeguard rank overlay MODE (off | rank | rankQuota).
+// v2 supersedes the v1 boolean; the store seeds from v1 when v2 is unset.
+export const GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY = 'sellfileCreator.gearInspector.grid.safeguardRankMode.v2'
 // Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
 export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.gearInspector.sort.substats.v1'
