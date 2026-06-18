@@ -18,7 +18,7 @@ import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
-import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -198,13 +198,7 @@ export function SubstatTargetsTabContent({
             paddingRight: themeInner.spacing(1),
             paddingLeft: themeInner.spacing(0.25),
           },
-          '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-            WebkitAppearance: 'none',
-            margin: 0,
-          },
-          '& input[type=number]': {
-            MozAppearance: 'textfield',
-          },
+          ...HIDE_NATIVE_NUMBER_SPINNER_SX,
         })}
       />
     )

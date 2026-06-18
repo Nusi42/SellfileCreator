@@ -118,7 +118,7 @@ import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { isAccessorySlot, slotSelectionAllowsAccessories, ACCESSORY_SLOT_IDS } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
-import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
@@ -1544,10 +1544,7 @@ export default function SafeguardBuilderPanel({
                         onStep={(delta) => stepSlot(col.slot, delta)}
                       />
                     ),
-                    sx: {
-                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                      '& input[type=number]': { MozAppearance: 'textfield' },
-                    },
+                    sx: { ...HIDE_NATIVE_NUMBER_SPINNER_SX },
                   },
                   htmlInput: { min: 0, step: 0.1, max: 100 },
                 }}
@@ -1904,8 +1901,7 @@ export default function SafeguardBuilderPanel({
             }}
             sx={(themeInner) => ({
               width: 130,
-              '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-              '& input[type=number]': { MozAppearance: 'textfield' },
+              ...HIDE_NATIVE_NUMBER_SPINNER_SX,
               '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.5) },
             })}
           />

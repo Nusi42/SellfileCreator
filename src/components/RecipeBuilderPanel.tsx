@@ -118,7 +118,7 @@ import { useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference } from 
 import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
 import BuilderSectionHeader from './BuilderSectionToggle'
 import { HistoryContextMenu } from './HistoryContextMenu'
-import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
 import {
   applyArtifactSetPatchPreview,
@@ -4184,13 +4184,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           paddingRight: theme.spacing(1),
                           paddingLeft: theme.spacing(0.25),
                         },
-                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                          WebkitAppearance: 'none',
-                          margin: 0,
-                        },
-                        '& input[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
+                        ...HIDE_NATIVE_NUMBER_SPINNER_SX,
                       })}
                       slotProps={{
                         htmlInput: {
@@ -4278,13 +4272,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               paddingRight: themeInner.spacing(1),
                               paddingLeft: themeInner.spacing(0.25),
                             },
-                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                              WebkitAppearance: 'none',
-                              margin: 0,
-                            },
-                            '& input[type=number]': {
-                              MozAppearance: 'textfield',
-                            },
+                            ...HIDE_NATIVE_NUMBER_SPINNER_SX,
                           })}
                           slotProps={{
                             htmlInput: {
