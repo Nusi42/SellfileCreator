@@ -85,9 +85,23 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 // Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
-// Persisted light/dark UI mode — testing toggle in Help screen
+// MUI's mode key — MUI's ThemeProvider reads this synchronously at init. The STORED value is
+// only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
+// flag (RSLH_ENABLED_KEY), so this key stays MUI-clean.
 export const THEME_MODE_KEY = 'sellfileCreator.themeMode.v1'
-export type ThemeMode = 'dark' | 'light'
+// MUI's OTHER storage key (CSS-variables mode): the resolved scheme per mode. Left at MUI's
+// default it writes un-namespaced `mui-color-scheme-{light,dark}` keys; we set it explicitly
+// so every key we own carries the `sellfileCreator.` prefix. MUI appends the scheme suffix
+// (`…colorScheme.v1-light` / `-dark`) internally — no further composition needed here.
+export const COLOR_SCHEME_STORAGE_KEY = 'sellfileCreator.colorScheme.v1'
+// The 3-way SELECTION shown in the theme popout. 'rslh' is a UI-level value (dark base + the
+// RSLH flag); it is not stored in THEME_MODE_KEY. See themeModePreference.
+export type ThemeMode = 'dark' | 'light' | 'rslh'
+
+// RSLH-enabled flag. RSLH renders on the DARK base with the RSLH value-set merged into
+// ThemeCustomization (orange accent, flat surfaces, Segoe/Cascadia fonts — see rslhPreset.ts).
+// When this is on, MUI mode is 'dark' and the app applies the RSLH preset. See themeModePreference.
+export const RSLH_ENABLED_KEY = 'sellfileCreator.rslhEnabled.v1'
 
 // Persisted per-element theme overrides from the theme editor popover
 export const THEME_CUSTOM_KEY = 'sellfileCreator.themeCustom.v1'
@@ -101,8 +115,28 @@ export type ThemeCustomization = {
   successColor: string | null  // null = use palette default; overrides color-blind mode when set
   warningColor: string | null  // null = use palette default; overrides color-blind mode when set
   errorColor: string | null    // null = use palette default; overrides color-blind mode when set
+  infoColor: string | null     // null = use palette default (info.main)
+  // Text colors — null = use mode default (MUI computes from contrast). Set to pin exact hues.
+  textPrimaryColor: string | null    // null = mode default
+  textSecondaryColor: string | null  // null = mode default
+  textDisabledColor: string | null   // null = mode default
+  // Font families — null = system default (MUI default stack). Stored as a CSS font-family value.
+  uiFontFamily: string | null    // null = MUI default; applies to UI chrome typography
+  codeFontFamily: string | null  // null = default mono; applies to code/markdown surfaces
+  // Scrollbar — null = derive from divider (current behavior). Set to pin a thumb color.
+  scrollbarThumbColor: string | null  // null = use divider color
   borderRadius: number | null      // null = use default (8px); valid range 0–24
   selectionOpacity: number | null  // null = mode default (light: 0.12, dark: 0.08); range 0–0.30
+}
+
+// SSOT for the "no customization" object — every key null. Imported by the store fallback,
+// the theme builder default, and the popout reset so the three never drift out of sync.
+export const EMPTY_THEME_CUSTOMIZATION: ThemeCustomization = {
+  primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null,
+  dividerColor: null, successColor: null, warningColor: null, errorColor: null, infoColor: null,
+  textPrimaryColor: null, textSecondaryColor: null, textDisabledColor: null,
+  uiFontFamily: null, codeFontFamily: null, scrollbarThumbColor: null,
+  borderRadius: null, selectionOpacity: null,
 }
 
 // Non-breaking space for UI formatting (keeps labels glued to following token)
@@ -276,12 +310,34 @@ export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
 export const MATCHING_RECIPE_CHIP_MIN_WIDTH_PX = 50
 // Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
 // single line while remaining accessible via title/tooltips.
+// Descender-safe line-height for any clamped/fixed-height TEXT. A line box of ~1em (lineHeight 1,
+// and even 1.1–1.2) is shorter than a UI font's full ascent+descent extent (Segoe UI ≈ 1.37em),
+// so when the text also has overflow:hidden (single-line ellipsis) or sits in a fixed-height
+// control, descender tails ("g", "y", "p", "j") get clipped — visible in RSLH's Segoe UI but
+// masked in Arial (shallower descenders). 1.4 clears the deepest common UI-font descenders while
+// staying compact. SSOT for every place that previously hard-coded lineHeight 1 / 1.1 / 1.2 on text.
+export const SAFE_TEXT_LINE_HEIGHT = 1.4
+
+// Reusable single-line ellipsis style for inline text (button/chip labels, captions): clamp to one
+// line, stay accessible via title/tooltip, and use the descender-safe line-height so tails aren't cut.
 export const ELLIPSIS_TEXT_SX = {
   display: 'inline-block',
   maxWidth: '100%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  lineHeight: SAFE_TEXT_LINE_HEIGHT,
+} as const
+
+// The single-line ellipsis style shared by button labels (Recipe/Safeguards/Tools toggles, etc.):
+// clamp to one line, center, use the button typography, and apply the descender-safe line-height.
+// Extracted so the identical inline object isn't duplicated across call sites (SSOT + DRY).
+export const ELLIPSIS_BUTTON_LABEL_SX = {
+  ...ELLIPSIS_TEXT_SX,
+  width: '100%',
+  typography: 'button',
+  textAlign: 'center',
+  display: 'block',
 } as const
 
 // Standard dialog padding matches the Metasets/Substat dialogs (16px block, 24px inline).

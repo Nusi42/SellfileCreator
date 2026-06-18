@@ -11,6 +11,8 @@
 import { alpha, createTheme, darken, lighten } from '@mui/material/styles'
 import type { ColorBlindMode, ThemeCustomization } from './lib/constants'
 import {
+  SAFE_TEXT_LINE_HEIGHT,
+  EMPTY_THEME_CUSTOMIZATION,
   FONT_SIZE_BASE_PX,
   FONT_SIZE_BASE_REM,
   FONT_SIZE_SECONDARY_PX,
@@ -19,10 +21,14 @@ import {
 } from './lib/constants'
 import { CUSTOM_TOKENS } from './lib/themeCustomTokens'
 
-const EMPTY_CUSTOM: ThemeCustomization = { primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null, dividerColor: null, successColor: null, warningColor: null, errorColor: null, borderRadius: null, selectionOpacity: null }
+const EMPTY_CUSTOM: ThemeCustomization = EMPTY_THEME_CUSTOMIZATION
 
-// Builds per-scheme palette options. Called twice (dark, light) so both colorSchemes
-// receive their full palette including custom overrides and color-blind alternatives.
+// Builds per-scheme palette options. Called twice (dark, light) so both colorSchemes receive
+// their full palette including custom overrides and color-blind alternatives.
+//
+// RSLH is NOT a scheme here — it is the dark theme with the RSLH value-set merged into `custom`
+// upstream (see rslhPreset.ts + main.tsx). So RSLH's orange/greys/fonts arrive through the same
+// custom.* fields a user edits by hand; this builder needs no RSLH-specific branch.
 function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, custom: ThemeCustomization) {
   // Okabe–Ito (deuter/protan friendly)
   const OI = { success: '#0072B2', warning: '#E69F00', error: '#D55E00' }
@@ -36,8 +42,8 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     : {}
 
   const primaryMain = custom.primaryColor ?? (isDark ? '#58a6ff' : '#0969da')
-  const defaultBg    = isDark ? '#0f1216' : '#eeeeee'
-  const defaultPaper = isDark ? '#161b22' : '#f5f5f5'
+  const defaultBg    = isDark ? '#0f1216' : '#cecece'
+  const defaultPaper = isDark ? '#161b22' : '#fafafa'
   const bgDefault    = custom.bgColor ?? defaultBg
   const bgPaperDerived = custom.bgColor != null
     ? (isDark ? lighten(bgDefault, 0.06) : darken(bgDefault, 0.03))
@@ -47,29 +53,47 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
   const selColor   = custom.selectionColor ?? (isDark ? '#4e94e5' : primaryMain)
   const selOpacity = custom.selectionOpacity ?? (isDark ? 0.16 : 0.12)
 
+  // Text colors: a custom override (incl. the RSLH preset's greys) wins; otherwise dark/light
+  // defer to MUI's contrast-derived defaults, except light's raised disabled opacity.
+  const textOverrides: Record<string, string> = {}
+  if (custom.textPrimaryColor   != null) textOverrides.primary   = custom.textPrimaryColor
+  if (custom.textSecondaryColor != null) textOverrides.secondary = custom.textSecondaryColor
+  if (custom.textDisabledColor  != null) textOverrides.disabled  = custom.textDisabledColor
+  // Light mode: raise disabled text opacity from MUI's default 0.38 to 0.50 so it
+  // reads clearly against the off-white bg without looking like active secondary text.
+  else if (!isDark)                      textOverrides.disabled  = 'rgba(0,0,0,0.50)'
+
   return {
     primary: { main: primaryMain },
     background: { default: bgDefault, paper: bgPaper },
     divider: custom.dividerColor ?? (isDark ? '#30363d' : '#d0d7de'),
     action: { selected: alpha(selColor, selOpacity), selectedOpacity: selOpacity },
-    // Light mode: raise disabled text opacity from MUI's default 0.38 to 0.50 so it
-    // reads clearly against the off-white bg without looking like active secondary text.
-    ...(!isDark ? { text: { disabled: 'rgba(0,0,0,0.50)' } } : {}),
-    ...over,
+    ...(Object.keys(textOverrides).length > 0 ? { text: textOverrides } : {}),
     // Pre-set Alert.successFilledColor before MUI's setColor() runs.
     // MUI computes this from getContrastText(success.dark) — dark green → white — but
     // v1.0.13 used getContrastText(success.main) = rgba(0,0,0,0.87).  setColor() only
     // writes when the key is absent, so pre-setting it here locks in the correct value.
     ...(isDark ? { Alert: { successFilledColor: 'rgba(0,0,0,0.87)' } } : {}),
+    // Custom semantic colours (incl. the RSLH preset's success/warning/error) first…
     ...(custom.successColor != null && { success: { main: custom.successColor } }),
     ...(custom.warningColor != null && { warning: { main: custom.warningColor } }),
     ...(custom.errorColor   != null && { error:   { main: custom.errorColor   } }),
+    // …then the color-blind palette wins: accessibility overrides decorative choice, so a
+    // selected palette takes effect even under RSLH or a user's own success/warning/error.
+    ...over,
+    // info: custom override only; dark/light otherwise defer to MUI's default info.
+    ...(custom.infoColor != null ? { info: { main: custom.infoColor } } : {}),
   }
 }
 
 export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomization = EMPTY_CUSTOM) {
   const darkPalette  = buildSchemePalette(true,  colorBlindMode, custom)
   const lightPalette = buildSchemePalette(false, colorBlindMode, custom)
+
+  // UI font family: custom override (incl. RSLH preset's Segoe UI) wins; else MUI's default
+  // stack (undefined leaves it untouched). Code/markdown font is applied via the --font-code
+  // CSS var in main.tsx, not here.
+  const uiFontFamily = custom.uiFontFamily ?? undefined
 
   return createTheme({
     // colorSchemeSelector: Without this, MUI defaults to 'media' when both dark and
@@ -82,12 +106,18 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
     },
     shape: { borderRadius: custom.borderRadius ?? 8 },
     typography: {
+      // Custom UI font (if set) overrides the default stack across all typography variants.
+      ...(uiFontFamily ? { fontFamily: uiFontFamily } : {}),
       fontSize: FONT_SIZE_BASE_PX,
       body1:    { fontSize: `${FONT_SIZE_BASE_REM}rem` },
       body2:    { fontSize: `${FONT_SIZE_BASE_REM}rem` },
       subtitle2:{ fontSize: `${FONT_SIZE_BASE_REM}rem`, fontWeight: 600 },
       caption:  { fontSize: `${FONT_SIZE_SECONDARY_REM}rem` },
-      button:   { fontSize: `${FONT_SIZE_BASE_REM}rem`, textTransform: 'none' },
+      // fontWeight 400: MUI defaults buttons (and Tab/ToggleButton/Chip, which inherit
+      // typography.button) to 500. Arial silently rounds 500→400 (it has no Medium face), so
+      // Dark/Light always looked regular; fonts with a real 500 (Segoe UI under RSLH) rendered
+      // them visibly bolder. Pin 400 so buttons read regular-weight consistently across fonts.
+      button:   { fontSize: `${FONT_SIZE_BASE_REM}rem`, textTransform: 'none', fontWeight: 400 },
       h6:       { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 },
     },
     custom: CUSTOM_TOKENS,
@@ -95,8 +125,15 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
       MuiButton: {
         defaultProps: { variant: 'contained' },
         styleOverrides: {
+          // Descender-safe line-height so "g"/"y" tails are not clipped under deeper-descender
+          // fonts (Segoe UI in RSLH). Buttons flex-center their label, so footprint is unchanged.
+          root: { lineHeight: SAFE_TEXT_LINE_HEIGHT },
           sizeSmall: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
         },
+      },
+      MuiTab: {
+        // Tabs inherit typography.button; give their label the same descender-safe line-height.
+        styleOverrides: { root: { lineHeight: SAFE_TEXT_LINE_HEIGHT } },
       },
       MuiPaper: { styleOverrides: { root: ({ theme }) => ({ border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` }) } },
       MuiAlert: {
@@ -189,6 +226,8 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             const tc = custom.toggleColor
             if (tc != null) {
               return {
+                // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
+                lineHeight: SAFE_TEXT_LINE_HEIGHT,
                 '&.Mui-selected': {
                   // Light: tint from custom toggleColor.
                   ...theme.applyStyles('light', {
@@ -209,6 +248,8 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             const toggleMain = lightPalette.primary.main
             const darkToggleMain = '#ffffff'
             return {
+              // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
+              lineHeight: SAFE_TEXT_LINE_HEIGHT,
               '&.Mui-selected': {
                 ...theme.applyStyles('light', {
                   color: toggleMain,

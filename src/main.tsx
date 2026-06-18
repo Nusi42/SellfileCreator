@@ -23,7 +23,10 @@ import './styles.css'
 import { I18nProvider } from './lib/i18n'
 import { useColorBlindPreference } from './state/colorBlindPreference'
 import { useThemeCustomization } from './state/themeCustomization'
-import { SCHEME_ALPHA_STYLES } from './lib/themeCustomTokens'
+import { useRslhEnabled } from './state/themeModePreference'
+import { SCHEME_ALPHA_STYLES, buildCustomValueVars } from './lib/themeCustomTokens'
+import { RSLH_PRESET, mergeCustomization } from './lib/rslhPreset'
+import { COLOR_SCHEME_STORAGE_KEY, THEME_MODE_KEY } from './lib/constants'
 import type { ColorBlindMode } from './lib/constants'
 
 
@@ -36,19 +39,34 @@ function AppShellInner({ cbMode, setCbMode }: { cbMode: ColorBlindMode; setCbMod
 function AppShell() {
   const [cbMode, setCbMode]    = useColorBlindPreference()
   const [themeCustom]          = useThemeCustomization()
+  const rslhEnabled            = useRslhEnabled()
 
-  // Rebuild theme only when color-blind mode or manual palette customization changes.
-  // Scheme switching (dark ↔ light) no longer re-creates the theme — it only toggles
-  // the data-mui-color-scheme attribute via useColorScheme().setColorScheme().
+  // RSLH = the dark theme with the RSLH value-set merged into customization (user edits layer
+  // on top, per-field). It does NOT touch MUI's mode below — MUI stays dark while the flag is on.
+  const effectiveCustom = useMemo(
+    () => (rslhEnabled ? mergeCustomization(RSLH_PRESET, themeCustom) : themeCustom),
+    [rslhEnabled, themeCustom],
+  )
+
+  // Rebuild theme only when color-blind mode or the effective customization changes.
+  // Scheme switching (dark ↔ light) does not re-create the theme — MUI toggles the
+  // data-mui-color-scheme attribute via useColorScheme().setColorScheme().
   const theme = useMemo(
-    () => makeTheme(cbMode, themeCustom),
-    [cbMode, themeCustom],
+    () => makeTheme(cbMode, effectiveCustom),
+    [cbMode, effectiveCustom],
+  )
+  // Scheme-agnostic custom-value CSS vars (scrollbar thumb / code font), emitted at :root.
+  const customValueStyles = useMemo(
+    () => buildCustomValueVars({ scrollbarThumbColor: effectiveCustom.scrollbarThumbColor, codeFontFamily: effectiveCustom.codeFontFamily }),
+    [effectiveCustom.scrollbarThumbColor, effectiveCustom.codeFontFamily],
   )
   return (
     <ThemeProvider
       theme={theme}
       defaultMode="dark"
-      modeStorageKey="sellfileCreator.themeMode.v1"
+      modeStorageKey={THEME_MODE_KEY}
+      // Namespace MUI's resolved-scheme keys too (default would write `mui-color-scheme-*`).
+      colorSchemeStorageKey={COLOR_SCHEME_STORAGE_KEY}
       disableTransitionOnChange
       // noSsr: skip the isClient=false first render that would otherwise show the light scheme.
       // This is a CSR-only app (no SSR/hydration), so the safety guard is unnecessary.
@@ -57,6 +75,8 @@ function AppShell() {
       <CssBaseline />
       {/* Inject per-scheme alpha CSS variables once; no JS re-evaluation on scheme switch. */}
       <GlobalStyles styles={SCHEME_ALPHA_STYLES} />
+      {/* Custom-value vars (scrollbar thumb / code font) — only present when the user sets them. */}
+      <GlobalStyles styles={customValueStyles} />
       <I18nProvider>
         <AppStateProvider initial={makeInitialAppState({ substatTargets: defaultSubstatTargets(), metasets: defaultMetasets() })}>
           <DisplayPreferencesProvider>

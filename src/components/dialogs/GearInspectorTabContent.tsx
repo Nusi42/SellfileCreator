@@ -33,7 +33,7 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX, GEAR_INSPECTOR_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID, GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SUBSTAT_SELECT_MIN_WIDTH_PX, GEAR_INSPECTOR_SLOT_SELECT_WIDTH_PX, GEAR_INSPECTOR_SET_SELECT_WIDTH_PX, GEAR_INSPECTOR_FACTION_SELECT_WIDTH_PX, GEAR_INSPECTOR_RANK_SELECT_WIDTH_PX, GEAR_INSPECTOR_RARITY_SELECT_WIDTH_PX, GEAR_INSPECTOR_LEVEL_SELECT_WIDTH_PX, GEAR_INSPECTOR_SELECT_HEIGHT_PX, GEAR_INSPECTOR_RESULT_ROW_MIN_HEIGHT_PX, GEAR_INSPECTOR_RECIPE_CHIP_MAX_WIDTH_PX, GEAR_INSPECTOR_VIRTUAL_OVERSCAN_PX, GEAR_INSPECTOR_ROW_ESTIMATE_COMPACT_PX, GEAR_INSPECTOR_ROW_ESTIMATE_EXPANDED_PX, GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -1607,13 +1607,7 @@ export function GearInspectorTabContent({
                             borderColor: (theme.vars?.palette.text.primary ?? theme.palette.text.primary),
                           },
                         } : {}),
-                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                          WebkitAppearance: 'none',
-                          margin: 0,
-                        },
-                        '& input[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
+                        ...HIDE_NATIVE_NUMBER_SPINNER_SX,
                       })}
                       slotProps={{
                         // Native input attributes: numeric keyboard, pattern hint, and accessible label.

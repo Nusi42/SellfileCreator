@@ -84,6 +84,7 @@ import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilterMode } from '../types/gearInspectorRecipeFilterMode'
@@ -1158,6 +1159,13 @@ function RulesFilterPanel({
       : { maxDays: isValid ? parsed : fallback }
     applyLastUseCustom(payload)
   }, [applyLastUseCustom])
+  // Custom +/- stepper used by the substat-style number fields below. Bounds and min<=max
+  // ordering are enforced by normalizeGearInspectorLastUseFilter inside applyLastUseCustom,
+  // so we just nudge the current value by the delta.
+  const handleLastUseStep = React.useCallback((field: 'minDays' | 'maxDays') => (delta: number) => {
+    const current = field === 'minDays' ? lastUseCustom.minDays : lastUseCustom.maxDays
+    applyLastUseCustom(field === 'minDays' ? { minDays: current + delta } : { maxDays: current + delta })
+  }, [applyLastUseCustom, lastUseCustom.minDays, lastUseCustom.maxDays])
   const scrollSetsMenuToSelected = (orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && !setsMenuOpen) return
     const order = orderOverride ?? setsOrder
@@ -1283,9 +1291,10 @@ function RulesFilterPanel({
   const previewRecipesValueWidthCh = React.useMemo(() => (
     Math.max(t('recipeFilterOn').length, gearInspectorRecipeLabelStrings.off.length)
   ), [t, gearInspectorRecipeLabelStrings.off])
-  // "Narrow" label is fixed — a single ch reservation keeps the label column stable.
+  // "Narrow" label is fixed. `ch` is the width of "0"; "Narrow" has wider glyphs (N, w, r),
+  // so a bare .length under-reserves and the label ellipsizes — add 1ch of headroom.
   const previewRecipesLabelWidthCh = React.useMemo(() => (
-    t('filterLimitPreviewRecipes').length
+    t('filterLimitPreviewRecipes').length + 1
   ), [t])
   const gearInspectorSourceOptions = React.useMemo(() => {
     const options = [
@@ -3813,19 +3822,40 @@ function RulesFilterPanel({
                   type="number"
                   size="small"
                   label={t('gearInspectorLastUsedRangeMinLabel')}
-                  slotProps={{ htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS } }}
+                  slotProps={{
+                    htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS },
+                    // Custom +/- stepper matching the substat-targets fields (native spinner hidden via sx).
+                    input: {
+                      endAdornment: (
+                        <NumberSpinnerAdornment
+                          ariaLabel={t('gearInspectorLastUsedRangeMinLabel')}
+                          onStep={handleLastUseStep('minDays')}
+                        />
+                      ),
+                    },
+                  }}
                   value={lastUseCustom.minDays}
                   onChange={handleLastUseInputChange('minDays')}
-                  sx={{ flex: '1 1 120px' }}
+                  sx={{ flex: '1 1 120px', ...HIDE_NATIVE_NUMBER_SPINNER_SX }}
                 />
                 <TextField
                   type="number"
                   size="small"
                   label={t('gearInspectorLastUsedRangeMaxLabel')}
-                  slotProps={{ htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS } }}
+                  slotProps={{
+                    htmlInput: { min: GEAR_INSPECTOR_LAST_USE_MIN_DAYS, max: GEAR_INSPECTOR_LAST_USE_MAX_DAYS },
+                    input: {
+                      endAdornment: (
+                        <NumberSpinnerAdornment
+                          ariaLabel={t('gearInspectorLastUsedRangeMaxLabel')}
+                          onStep={handleLastUseStep('maxDays')}
+                        />
+                      ),
+                    },
+                  }}
                   value={lastUseCustom.maxDays}
                   onChange={handleLastUseInputChange('maxDays')}
-                  sx={{ flex: '1 1 120px' }}
+                  sx={{ flex: '1 1 120px', ...HIDE_NATIVE_NUMBER_SPINNER_SX }}
                 />
               </Box>
               <Slider

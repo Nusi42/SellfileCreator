@@ -12,6 +12,22 @@ export interface NumberSpinnerAdornmentProps {
 }
 
 /**
+ * SSOT for suppressing the browser's native number-input spinner so the custom
+ * NumberSpinnerAdornment can stand in its place. Spread into a numeric TextField's
+ * `sx` alongside an endAdornment={<NumberSpinnerAdornment .../>} to get the substat-style
+ * field. Webkit hides the inner/outer spin buttons; Firefox needs MozAppearance: textfield.
+ */
+export const HIDE_NATIVE_NUMBER_SPINNER_SX = {
+  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+    WebkitAppearance: 'none',
+    margin: 0,
+  },
+  '& input[type=number]': {
+    MozAppearance: 'textfield',
+  },
+} as const
+
+/**
  * Shared inline spinner used by numeric TextFields (mirrors the substat menu style).
  */
 export function NumberSpinnerAdornment({ ariaLabel, disabled, onStep }: NumberSpinnerAdornmentProps) {

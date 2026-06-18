@@ -1123,7 +1123,9 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                       singleSelect
                       size="small"
                       minWidthPx={220}
-                      menuWidthPx={360}
+                      // Inherit the default SETS_MENU_WIDTH_PX dropdown width (as every other
+                      // GearSetsSelect does); the prior 360 override was too narrow and clipped
+                      // longer gear-set names in the menu.
                     />
                     <ToggleButtonGroup
                       size="small"
