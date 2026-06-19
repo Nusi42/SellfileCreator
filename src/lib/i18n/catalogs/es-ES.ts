@@ -509,6 +509,8 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Conservar",
   safeguardsCandidateSold: "Vender",
   safeguardsCandidateSafeguarded: "Seguro",
+  safeguardsCandidateFocusGroup: "Mostrar solo este grupo",
+  safeguardsCandidateFocusClear: "Mostrar todos los grupos",
   safeguardsCandidateCutoff: "── corte (cuota: {n}) ──",
   safeguardsCandidateCutoffPerGroup: "── cuota: {n} por {scope} ──",
   safeguardsCountModeScopeSlot: "ranura",

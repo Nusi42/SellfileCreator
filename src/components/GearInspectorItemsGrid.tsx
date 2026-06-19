@@ -170,7 +170,8 @@ type GearInspectorItemsGridProps = {
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
   // Navigate to the safeguard rule at this 0-based index in the Safeguard Builder.
-  onJumpToSafeguardRule?: ((ruleIdx: number) => void) | undefined
+  // artifactId (2nd arg) lets App seed the weights flyout's default focus group to the clicked gear.
+  onJumpToSafeguardRule?: ((ruleIdx: number, artifactId?: number) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   variant?: GearInspectorItemsGridVariant
   safeguardsEnabled?: boolean
@@ -789,7 +790,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         color,
         tooltipMarkdown,
         ...(tooltipRender ? { tooltipRender } : {}),
-        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(ruleIdx) } : {}),
+        ...(canJumpToSafeguard ? { onClick: () => onJumpToSafeguardRule(ruleIdx, artifactId) } : {}),
       })
     }
     return overlays
@@ -893,7 +894,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // Click navigates to the primary rule if a valid ordinal and jump callback are available.
       const ruleIdx = ruleOrdinal != null ? ruleOrdinal - 1 : -1
       const canJump = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
-      const onClick = canJump ? () => onJumpToSafeguardRule!(ruleIdx) : undefined
+      const onClick = canJump ? () => onJumpToSafeguardRule!(ruleIdx, artifactId) : undefined
       // Chip text per mode: global #N, group #M, or both (#N · #M) — same SSOT formatter.
       const chipText = formatRankBadge(rank, groupRank)
       // Dim when the rank comes from a rule outside the current selection (best rank elsewhere).

@@ -509,6 +509,8 @@ const catalog: Catalog = {
   safeguardsCandidateKept: "Manter",
   safeguardsCandidateSold: "Vender",
   safeguardsCandidateSafeguarded: "Seguro",
+  safeguardsCandidateFocusGroup: "Mostrar apenas este grupo",
+  safeguardsCandidateFocusClear: "Mostrar todos os grupos",
   safeguardsCandidateCutoff: "── corte (cota: {n}) ──",
   safeguardsCandidateCutoffPerGroup: "── cota: {n} por {scope} ──",
   safeguardsCountModeScopeSlot: "slot",

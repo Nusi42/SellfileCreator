@@ -18,15 +18,17 @@
  * - candidates provided: render ranked list (score/rank from WASM)
  * - no detection data + substats selected: render per-roll weight hints
  */
-import { Box, Divider, Typography } from '@mui/material'
+import { Box, Chip, Divider, IconButton, Tooltip, Typography } from '@mui/material'
 import EllipsisTooltip from './EllipsisTooltip'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
 import StarsIcon from '@mui/icons-material/Stars'
+import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM, FONT_FAMILY_MONO } from '../lib/constants'
 import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
-import { createElement, useEffect, useMemo, useRef } from 'react'
+import { createElement, useEffect, useMemo, useRef, useState } from 'react'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
+import { safeguardFocusGroupKeyFor } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
 import { artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
@@ -45,7 +47,7 @@ import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearIns
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
 import type { NameAppearance } from '../lib/nameAppearance'
-import { ensureContrastOnBg } from '../lib/colorUtils'
+import { ensureContrastOnBg, mixRgb, parseCssColorToRgb, rgbToCss } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme, adaptSubstatFgOnSurface, MYTHIC_SUBSTAT_BG_ALPHA } from '../lib/themeCustomTokens'
 import { TINT, ALPHA } from '../lib/colorTints'
 
@@ -149,6 +151,76 @@ export type SafeguardCandidateRankListProps = {
   // Computed by the parent from the max matching substats across candidates; falls back to
   // min(substats.length, SUBSTAT_SLOT_COUNT) when not provided.
   substatColumnCount?: number
+  // Controlled focus group: when provided, the list scopes to this count-group and the parent owns
+  // the value (so it can persist across opens while the rule stays selected). onFocusedGroupKeyChange
+  // is called on every toggle. When neither is provided the list falls back to internal focus state.
+  focusedGroupKey?: string | null
+  onFocusedGroupKeyChange?: (key: string | null) => void
+  // Improvement chance percent (for the currently edited rule) keyed by safeguard item key.
+  // Rendered as a column left of the score; absent keys render a blank cell.
+  improvementChanceByItemKey?: ReadonlyMap<number, number> | null
+}
+
+// Human-readable label for a focused count-group, built from a representative artifact's active
+// dimension values in the cutoff scope's slot → set → faction → main order. SSOT for the focus chip
+// so the panel header (where the chip lives) and the list agree on naming. Returns null when no group
+// is focused, the rule has no per-group dimension, or no candidate matches the key.
+//
+// Two modes are taken on purpose. `matchCountMode` is the mode the focus key was BUILT with (App's
+// derivation) and is used only to locate the representative artifact — it must equal the key's mode
+// or the lookup misses. `displayCountMode` decides which dimensions are NAMED in the chip; it may be
+// stricter (e.g. drops perFaction for non-accessory rules) so the chip never shows a meaningless
+// dimension. When omitted, the display mode falls back to the match mode.
+export function computeSafeguardFocusGroupLabel(
+  focusGroupKey: string | null,
+  candidates: readonly SafeguardCandidateOut[] | undefined,
+  artifactsByItemKey: ReadonlyMap<number, SafeguardDetectionArtifact>,
+  matchCountMode: SafeguardRuleCountMode | undefined,
+  t: ReturnType<typeof useI18n>['t'],
+  displayCountMode?: SafeguardRuleCountMode,
+): string | null {
+  if (focusGroupKey == null || !matchCountMode || !candidates) return null
+  // Locate any candidate in the focused group using the SAME mode the key was built with.
+  let art: SafeguardDetectionArtifact | undefined
+  for (const c of candidates) {
+    const candidateArt = artifactsByItemKey.get(c.itemKey)
+    if (!candidateArt) continue
+    if (safeguardFocusGroupKeyFor(candidateArt, matchCountMode) === focusGroupKey) {
+      art = candidateArt
+      break
+    }
+  }
+  if (!art) return null
+  // Name dimensions per the display mode (defaults to the match mode when not narrowed).
+  const display = displayCountMode ?? matchCountMode
+  const parts: string[] = []
+  if (display.perSlot) parts.push(t(artifactTypeI18nKey(art.slot)))
+  if (display.perSet) parts.push(artifactSetName(art.set))
+  if (display.perFaction) parts.push(t(factionI18nKey(art.faction)))
+  if (display.perMainStat) parts.push(t(statVariantI18nKey(art.mainStat)))
+  return parts.join(' · ')
+}
+
+// Clearable chip naming the focused count-group. Rendered by the panel beside the "Candidates"
+// header (not inside the scroll container) so it stays visible while the list scrolls. Renders
+// nothing when no group is focused.
+export function SafeguardFocusGroupChip({
+  label,
+  onClear,
+}: {
+  label: string | null
+  onClear: () => void
+}) {
+  if (label == null) return null
+  return (
+    <Chip
+      size="small"
+      icon={<FilterCenterFocusIcon />}
+      label={label}
+      onDelete={onClear}
+      sx={{ maxWidth: '100%' }}
+    />
+  )
 }
 
 export default function SafeguardCandidateRankList({
@@ -171,6 +243,9 @@ export default function SafeguardCandidateRankList({
   countMode,
   combination,
   substatColumnCount,
+  focusedGroupKey: controlledFocusedGroupKey,
+  onFocusedGroupKeyChange,
+  improvementChanceByItemKey,
 }: SafeguardCandidateRankListProps) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -182,6 +257,19 @@ export default function SafeguardCandidateRankList({
   // Ref on the cutoff divider — scroll effect positions the view at the cutoff on first render.
   // Must be before any early returns (React hooks rules of hooks).
   const cutoffRef = useRef<HTMLDivElement | null>(null)
+
+  // Focus state: when set, the list is scoped to a single count-group (the group of the candidate
+  // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
+  // onFocusedGroupKeyChange (so focus persists across opens while the rule stays selected); otherwise
+  // falls back to internal state. Held before early returns to satisfy the rules of hooks.
+  const [internalFocusedGroupKey, setInternalFocusedGroupKey] = useState<string | null>(null)
+  const isFocusControlled = onFocusedGroupKeyChange != null
+  const focusedGroupKey = isFocusControlled ? (controlledFocusedGroupKey ?? null) : internalFocusedGroupKey
+  // Single setter that routes to the parent (controlled) or local state (uncontrolled).
+  const setFocusedGroupKey = (next: string | null): void => {
+    if (isFocusControlled) onFocusedGroupKeyChange(next)
+    else setInternalFocusedGroupKey(next)
+  }
 
   // On first render scroll the cutoff divider to center so both kept-near-cutoff and sold items are visible.
   // Only fires when we actually have a scroll container (candidates present); ref is null otherwise.
@@ -223,10 +311,6 @@ export default function SafeguardCandidateRankList({
   // fall back to the rule's selection length so the layout is still valid before detection runs.
   const resolvedSubstatColumnCount = substatColumnCount ?? Math.min(substats.length, SUBSTAT_SLOT_COUNT)
 
-  // Split into kept (isWithinQuota) and sold (outside quota) preserving rank order.
-  const kept = candidates.filter((c) => c.isWithinQuota)
-  const sold = candidates.filter((c) => !c.isWithinQuota)
-
   // Suppress per-X labels that are no-ops given the selected combination filters.
   const effectiveCutoffMode = (combination && countMode)
     ? safeguardEffectiveCountModeForDisplay(combination, countMode)
@@ -241,8 +325,63 @@ export default function SafeguardCandidateRankList({
     ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: cutoffScopeParts.join(' · ') })
     : t('safeguardsCandidateCutoff', { n: quota })
 
+  // Focus is only meaningful when at least one per-group dimension is active — otherwise every
+  // candidate is one global group and a focus toggle would be a no-op. Pass null down in that case
+  // so CandidateRow hides its focus button entirely.
+  const groupKeyFor = (itemKey: number): string | null => {
+    if (!effectiveCutoffMode) return null
+    const art = artifactsByItemKey.get(itemKey)
+    return art ? safeguardFocusGroupKeyFor(art, effectiveCutoffMode) : null
+  }
+  const focusable = effectiveCutoffMode != null && cutoffScopeParts.length > 0
+
+  // Drop a stale focus once the active group vanishes (e.g. weights changed and re-ranked the list,
+  // or the user edited the count mode) so the list never renders empty with no way back.
+  const focusStillPresent = focusedGroupKey != null
+    && candidates.some((c) => groupKeyFor(c.itemKey) === focusedGroupKey)
+  const activeFocusKey = focusStillPresent ? focusedGroupKey : null
+
+  // When focused, keep only the candidates in the focused group; the kept/sold split and the cutoff
+  // label still apply, now reading as a clean per-group ranking.
+  const inFocus = (c: SafeguardCandidateOut): boolean =>
+    activeFocusKey == null || groupKeyFor(c.itemKey) === activeFocusKey
+  // Split into kept (isWithinQuota) and sold (outside quota) preserving rank order.
+  const kept = candidates.filter((c) => c.isWithinQuota && inFocus(c))
+  const sold = candidates.filter((c) => !c.isWithinQuota && inFocus(c))
+
+  // Toggle focus to a candidate's group, or clear it when its group is already focused. Computed
+  // against the current activeFocusKey so the setter never needs the functional-updater form (which
+  // the controlled path does not support).
+  const toggleFocusFor = (itemKey: number): void => {
+    const key = groupKeyFor(itemKey)
+    setFocusedGroupKey(activeFocusKey === key ? null : key)
+  }
+
+  // Shared props for every row — `groupRankMode` switches the rank column from global candidateRank
+  // to per-group bucketRank while a group is focused; improvementChanceByItemKey feeds the chance cell.
+  const rowCommonProps = {
+    showSlotIcons,
+    showSetIcons,
+    showFactionIcons,
+    substats,
+    weights,
+    ruleAppearance,
+    ruleOrdinal,
+    mainstatCellWidthPx,
+    substatCellWidthPx,
+    substatColumnCount: resolvedSubstatColumnCount,
+    substatColors: substatColors ?? {},
+    useStatButtonColors: useStatButtonColors ?? false,
+    groupRankMode: activeFocusKey != null,
+    improvementChanceByItemKey: improvementChanceByItemKey ?? null,
+    t,
+    theme,
+  }
+
   return (
     <Box sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* The focus chip lives beside the "Candidates" header (rendered by SafeguardBuilderPanel) so it
+          stays visible while this list scrolls — see SafeguardFocusGroupChip. */}
       {/* All kept candidates */}
       {kept.map((candidate) => (
         <CandidateRow
@@ -250,22 +389,11 @@ export default function SafeguardCandidateRankList({
           candidate={candidate}
           artifact={artifactsByItemKey.get(candidate.itemKey)}
           previewRow={previewRowByItemKey?.get(candidate.itemKey)}
-          showSlotIcons={showSlotIcons}
-          showSetIcons={showSetIcons}
-          showFactionIcons={showFactionIcons}
-          substats={substats}
-          weights={weights}
-          ruleAppearance={ruleAppearance}
-          ruleOrdinal={ruleOrdinal}
-          mainstatCellWidthPx={mainstatCellWidthPx}
-          substatCellWidthPx={substatCellWidthPx}
-          substatColumnCount={resolvedSubstatColumnCount}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
           {...(onSelectCandidate ? { onSelectCandidate } : {})}
-          substatColors={substatColors ?? {}}
-          useStatButtonColors={useStatButtonColors ?? false}
-          t={t}
-          theme={theme}
+          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
+          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
+          {...rowCommonProps}
         />
       ))}
       {/* Cutoff divider — scroll target on mount.
@@ -285,22 +413,11 @@ export default function SafeguardCandidateRankList({
           candidate={candidate}
           artifact={artifactsByItemKey.get(candidate.itemKey)}
           previewRow={previewRowByItemKey?.get(candidate.itemKey)}
-          showSlotIcons={showSlotIcons}
-          showSetIcons={showSetIcons}
-          showFactionIcons={showFactionIcons}
-          substats={substats}
-          weights={weights}
-          ruleAppearance={ruleAppearance}
-          ruleOrdinal={ruleOrdinal}
-          mainstatCellWidthPx={mainstatCellWidthPx}
-          substatCellWidthPx={substatCellWidthPx}
-          substatColumnCount={resolvedSubstatColumnCount}
           isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
           {...(onSelectCandidate ? { onSelectCandidate } : {})}
-          substatColors={substatColors ?? {}}
-          useStatButtonColors={useStatButtonColors ?? false}
-          t={t}
-          theme={theme}
+          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
+          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
+          {...rowCommonProps}
         />
       ))}
     </Box>
@@ -328,6 +445,10 @@ function CandidateRow({
   substatColors,
   useStatButtonColors,
   onSelectCandidate,
+  onToggleFocus,
+  isFocused,
+  groupRankMode,
+  improvementChanceByItemKey,
   t,
   theme,
 }: {
@@ -352,6 +473,15 @@ function CandidateRow({
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onSelectCandidate?: (itemKey: number) => void
+  // When provided, a per-row focus toggle is rendered; clicking scopes the list to this row's group.
+  // Absent when no per-group count dimension is active (focus would be a no-op).
+  onToggleFocus?: () => void
+  // True when the list is currently focused on this row's group — drives the toggle's active state.
+  isFocused: boolean
+  // True while a group is focused — show the per-group bucketRank instead of the global candidateRank.
+  groupRankMode: boolean
+  // Improvement chance percent (current rule) keyed by item key — rendered left of the score.
+  improvementChanceByItemKey: ReadonlyMap<number, number> | null
   t: ReturnType<typeof useI18n>['t']
   theme: Theme
 }) {
@@ -411,6 +541,22 @@ function CandidateRow({
   const factionId = (isAccessory && artifact) ? artifact.faction as FactionId : null
   const factionLabel = (factionId !== null && !showFactionIcons) ? t(factionI18nKey(factionId)) : null
   const identifierText = [slotLabel, setLabel, factionLabel].filter(Boolean).join(' · ')
+
+  // Rank shown in the leading column: per-group bucketRank while a group is focused (so the column
+  // reads as a clean 1..N within the group), otherwise the global candidateRank across the rule.
+  const displayedRank = groupRankMode ? candidate.bucketRank : candidate.candidateRank
+
+  // Improvement chance for the current rule on this artifact (absent → blank cell). Graded on an
+  // absolute 0→100 scale from error (low) to success (high), mirroring the grid overlay's palette.
+  const improvementChance = improvementChanceByItemKey?.get(candidate.itemKey) ?? null
+  const improvementChanceColor = ((): string | null => {
+    if (improvementChance == null) return null
+    const lowRgb = parseCssColorToRgb(theme.vars?.palette.error.main ?? theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(theme.vars?.palette.success.main ?? theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    // Clamp to [0,1] so out-of-range values never overshoot the mix.
+    const ratio = Math.max(0, Math.min(1, improvementChance / 100))
+    return ensureContrastOnBg(rgbToCss(mixRgb(lowRgb, highRgb, ratio)), rowSurfacePaper)
+  })()
 
   // Mainstat: label + color (follows the same stat-button-color flag as substats).
   const mainStatLabel = artifact ? t(statVariantI18nKey(artifact.mainStat)) : null
@@ -496,7 +642,7 @@ function CandidateRow({
           flexShrink: 0,
         }}
       >
-        {candidate.candidateRank > 0 ? `#${candidate.candidateRank}` : '—'}
+        {displayedRank > 0 ? `#${displayedRank}` : '—'}
       </Typography>
       {/* Compact identifier: slot icon OR nothing (text goes in identifierText below),
           set icon, faction icon — all flex-shrink-0, no growing. */}
@@ -610,6 +756,14 @@ function CandidateRow({
           <Box key={`ph-${i}`} sx={{ width: substatCellWidthPx, flexShrink: 0, flexGrow: 0 }} />
         ))}
       </Box>
+      {/* Improvement chance: fixed-width column immediately left of the score, colour-graded
+          low→high. Blank when no chance is known for this artifact under the current rule. */}
+      <Typography
+        variant="caption"
+        sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: improvementChanceColor ?? 'text.secondary', flexShrink: 0, width: 40, textAlign: 'right' }}
+      >
+        {improvementChance != null ? `${Math.round(improvementChance)}%` : ''}
+      </Typography>
       {/* Score */}
       {/* Score: fixed width + right-align so the column stays consistent across all rows.
           Always rendered (empty when unranked) so badge/match don't shift. */}
@@ -644,6 +798,31 @@ function CandidateRow({
       >
         {matchSourceDecoration.displayName}
       </Typography>
+      {/* Per-row focus toggle: scopes the list to this candidate's count-group. Wrapped in a styled
+          MUI Tooltip with a matching aria-label — the same pattern as the Gear Inspector group
+          select/clear icon buttons. stopPropagation keeps the row's select-in-grid click from also
+          firing. Rendered only when grouping is active (onToggleFocus provided). */}
+      {onToggleFocus && (
+        <Tooltip title={isFocused ? t('safeguardsCandidateFocusClear') : t('safeguardsCandidateFocusGroup')}>
+          <IconButton
+            size="small"
+            aria-pressed={isFocused}
+            aria-label={isFocused ? t('safeguardsCandidateFocusClear') : t('safeguardsCandidateFocusGroup')}
+            onClick={(e) => { e.stopPropagation(); onToggleFocus() }}
+            sx={{
+              flexShrink: 0,
+              p: 0,
+              width: 18,
+              height: 18,
+              // Active focus reads in the primary accent; inactive sits muted so it never competes
+              // with the outcome badge or stat colours.
+              color: isFocused ? 'primary.main' : 'text.disabled',
+            }}
+          >
+            <FilterCenterFocusIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   )
 

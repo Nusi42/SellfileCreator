@@ -599,6 +599,27 @@ export type SafeguardDetectionSubstat = {
   value: number
 }
 
+// Stable identifier for the count-group an artifact belongs to under a given effective count mode.
+// Mirrors how WASM buckets candidates: only dimensions active in `effectiveCountMode` participate,
+// so two artifacts share a key iff they would share a quota bucket. Each segment is prefixed so
+// values from different dimensions can never collide (e.g. a set id equal to a faction id).
+// Returns null when no per-group dimension is active — every candidate is then one global group
+// and focusing would be a no-op (callers hide the focus control in that case).
+export function safeguardFocusGroupKeyFor(
+  artifact: SafeguardDetectionArtifact,
+  effectiveCountMode: SafeguardRuleCountMode,
+): string | null {
+  // Collect the active-dimension segments in the same display order as the cutoff label.
+  const segments: string[] = []
+  if (effectiveCountMode.perSlot) segments.push(`slot:${artifact.slot}`)
+  if (effectiveCountMode.perSet) segments.push(`set:${artifact.set}`)
+  if (effectiveCountMode.perFaction) segments.push(`faction:${artifact.faction}`)
+  if (effectiveCountMode.perMainStat) segments.push(`main:${artifact.mainStat}`)
+  // No active dimension → single global group; signal "no focus possible" to callers.
+  if (segments.length === 0) return null
+  return segments.join('|')
+}
+
 // Per-candidate scoring output from the WASM detection pass or live preview.
 // Pure mirror of SafeguardWasmCandidateOut (Rust) — imported from the ts-rs
 // generated rust-types/ directory and re-exported under the legacy name so

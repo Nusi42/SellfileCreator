@@ -524,6 +524,9 @@ const enUS: Catalog = {
   safeguardsCandidateKept: "Keep",
   safeguardsCandidateSold: "Sell",
   safeguardsCandidateSafeguarded: "Guard",
+  // Per-candidate focus toggle: scopes the candidate list to that item's count-group.
+  safeguardsCandidateFocusGroup: "Show only this group",
+  safeguardsCandidateFocusClear: "Show all groups",
   // {n} = quota count
   safeguardsCandidateCutoff: "── cutoff (quota: {n}) ──",
   // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"

@@ -53,6 +53,7 @@ import {
   pruneSafeguardsSubstatWeights,
   sanitizeSafeguardCountMode,
   safeguardRedundantCountModeDimensions,
+  safeguardEffectiveCountModeForDisplay,
   sortSafeguardCombination,
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
@@ -140,7 +141,7 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
 import { ColorField } from './ColorField'
-import SafeguardCandidateRankList from './SafeguardCandidateRankList'
+import SafeguardCandidateRankList, { computeSafeguardFocusGroupLabel, SafeguardFocusGroupChip } from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { useTheme, useColorScheme } from '@mui/material/styles'
@@ -285,6 +286,12 @@ export type SafeguardBuilderPanelProps = {
   // When provided, candidates whose itemKey is absent from this set are dimmed in the list
   // (they are currently hidden by the Gear Inspector filter).
   visibleItemKeys?: ReadonlySet<number> | null
+  // Controlled focus group for the weights flyout candidate list — App owns it so the focus persists
+  // across opens while the rule stays selected, and clears on selection change. Forwarded as-is.
+  candidateFocusGroupKey?: string | null
+  onCandidateFocusGroupKeyChange?: (key: string | null) => void
+  // Improvement chance percent (current rule) keyed by safeguard item key — shown left of the score.
+  improvementChanceByItemKey?: ReadonlyMap<number, number> | null
   // Override instructions from the current note's safeguard-overrides block.
   // Used to compare stored vs effective field values and show warning badges on overridden controls.
   safeguardOverridesInstructions?: readonly SafeguardOverridesInstruction[] | null
@@ -330,6 +337,9 @@ export default function SafeguardBuilderPanel({
   visibleItemKeys,
   safeguardOverridesInstructions,
   scoreCandidates,
+  candidateFocusGroupKey,
+  onCandidateFocusGroupKeyChange,
+  improvementChanceByItemKey,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
   // ── multi-edit mode derived state ─────────────────────────────────────────
@@ -3490,11 +3500,32 @@ export default function SafeguardBuilderPanel({
           {/* Right column: candidate rank list — width computed from measured cell widths so it
               fits the list content without wasted space or clipping. */}
           <Box sx={{ flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
-            <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'inline-block' }}>
-                {t('safeguardsCandidatesLabel')}
-              </Typography>
-            </MarkdownTooltip>
+            {/* Header row: "Candidates" label plus the focus-group chip. The chip sits here (outside
+                the list's scroll container) so it stays visible while the candidate list scrolls;
+                clearing it routes through the controlled focus handler. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, minHeight: 24 }}>
+              <MarkdownTooltip markdown={t('safeguardsCandidatesLabelTooltip')} placement="top">
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'inline-block' }}>
+                  {t('safeguardsCandidatesLabel')}
+                </Typography>
+              </MarkdownTooltip>
+              <SafeguardFocusGroupChip
+                label={computeSafeguardFocusGroupLabel(
+                  candidateFocusGroupKey ?? null,
+                  popoverCandidates,
+                  artifactsByItemKey,
+                  // Match mode: must equal the mode App built the focus key with, or the lookup misses.
+                  rule?.combination
+                    ? safeguardEffectiveCountModeForDisplay(rule.combination, rule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+                    : rule?.countMode,
+                  t,
+                  // Display mode: effectiveCountMode is the scope-chip SSOT — it drops perFaction when
+                  // no accessory slot is targeted, so the chip never names a meaningless faction.
+                  effectiveCountMode,
+                )}
+                onClear={() => onCandidateFocusGroupKeyChange?.(null)}
+              />
+            </Box>
             <SafeguardCandidateRankList
               candidates={popoverCandidates}
               quota={rule?.requiredCount ?? 1}
@@ -3515,6 +3546,10 @@ export default function SafeguardBuilderPanel({
               {...(editingRuleIdx !== null ? { ruleOrdinal: editingRuleIdx + 1 } : {})}
               {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
               {...(onSelectCandidate ? { onSelectCandidate } : {})}
+              {...(improvementChanceByItemKey != null ? { improvementChanceByItemKey } : {})}
+              {...(onCandidateFocusGroupKeyChange
+                ? { focusedGroupKey: candidateFocusGroupKey ?? null, onFocusedGroupKeyChange: onCandidateFocusGroupKeyChange }
+                : {})}
             />
           </Box>
         </Box>

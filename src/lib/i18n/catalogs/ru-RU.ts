@@ -510,6 +510,8 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Оставить",
   safeguardsCandidateSold: "Продать",
   safeguardsCandidateSafeguarded: "Защ.",
+  safeguardsCandidateFocusGroup: "Показать только эту группу",
+  safeguardsCandidateFocusClear: "Показать все группы",
   safeguardsCandidateCutoff: "── порог (квота: {n}) ──",
   safeguardsCandidateCutoffPerGroup: "── квота: {n} на {scope} ──",
   safeguardsCountModeScopeSlot: "слот",

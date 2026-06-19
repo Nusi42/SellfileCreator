@@ -510,6 +510,8 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Tut",
   safeguardsCandidateSold: "Sat",
   safeguardsCandidateSafeguarded: "Koruma",
+  safeguardsCandidateFocusGroup: "Yalnızca bu grubu göster",
+  safeguardsCandidateFocusClear: "Tüm grupları göster",
   safeguardsCandidateCutoff: "── kesim (kota: {n}) ──",
   safeguardsCandidateCutoffPerGroup: "── kota: {n} / {scope} ──",
   safeguardsCountModeScopeSlot: "slot",
