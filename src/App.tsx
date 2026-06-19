@@ -4465,6 +4465,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         lastUsed: new Map(),
         artifacts: new Map(artifacts.map((artifact) => [artifact.id, artifact])),
         inboxArtifacts: new Map(inboxArtifacts.map((artifact) => [artifact.id, artifact])),
+        // Manual/SQLite imports carry no endpoint revision stream; leave empty so the
+        // next endpoint push re-normalizes every row once (no false reuse) and seeds
+        // its own revision baseline from then on.
+        artifactRevisions: new Map(),
       }
       if (source === 'command') {
         // Fast-path: if the newly imported dataset matches the cached snapshot from
@@ -6529,11 +6533,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [applyEndpointPushCommand])
   // Queue ingress helper used by the external command dispatcher.
   const enqueueEndpointPush = useCallback((cmd: EndpointPushCommand) => {
+    const queue = endpointPushQueueRef.current
     // Each gearDbFileBinary is a complete SQLite snapshot that supersedes any
     // pending copies waiting in the tail of the queue. Discard that trailing
     // run to avoid accumulating N large Uint8Array buffers simultaneously.
     if (cmd.kind === 'gearDbFileBinary') {
-      const queue = endpointPushQueueRef.current
       let coalesceTo = -1
       for (let i = queue.length - 1; i >= 0; i -= 1) {
         const entry = queue[i]
@@ -6553,7 +6557,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Remove the superseded suffix so its Uint8Array buffers can be GC'd.
       if (coalesceTo >= 0) queue.splice(coalesceTo)
     }
-    endpointPushQueueRef.current.push(cmd)
+    // Per-type full-snapshot pushes (artifacts / inboxArtifacts / champions /
+    // lastUsed) each carry a COMPLETE replacement collection for their type. When
+    // a drain stalls during a farm burst, RSL Helper can enqueue several ~11.8 MB
+    // `gearDbArtifacts` snapshots that all sit pending at once — only the newest
+    // matters. Drop any pending entry of the SAME kind so we retain a single live
+    // copy per type instead of N. We only coalesce same-kind entries (not across
+    // types), preserving the relative order of the other pending part messages.
+    else if (
+      cmd.kind === 'gearDbArtifacts'
+      || cmd.kind === 'gearDbInboxArtifacts'
+      || cmd.kind === 'gearDbChampions'
+      || cmd.kind === 'gearDbLastUsed'
+    ) {
+      for (let i = queue.length - 1; i >= 0; i -= 1) {
+        const entry = queue[i]
+        if (!entry) break
+        // Superseded only by an identical kind; remove it so its big arrays GC.
+        if (entry.kind === cmd.kind) queue.splice(i, 1)
+      }
+    }
+    queue.push(cmd)
     void drainEndpointPushQueue()
   }, [drainEndpointPushQueue])
   // Ensure queue state does not survive component teardown.

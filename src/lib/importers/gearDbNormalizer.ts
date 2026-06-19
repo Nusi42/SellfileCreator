@@ -272,6 +272,18 @@ const toNumber = (value: number | null | undefined): number | null => {
   return null
 }
 
+/**
+ * Resolve the equipped-champion id from a raw artifact row's `cID` field.
+ * Returns null when unequipped (cID missing, 0, or non-finite). Single definition
+ * shared by {@link normalizeGearDbArtifact} and the incremental-reuse predicate in
+ * gearDbRawDataset so both agree on what "equipped to whom" means.
+ */
+export const resolveEquippedChampionId = (row: GearDbArtifactRow): number | null => {
+  const value = toNumber(row.cID)
+  if (value === null || value === 0) return null
+  return value
+}
+
 const decodeFixedPoint = (value: number | null | undefined): number => (
   toNumber(value) !== null ? Number(value) / STAT_SCALE : 0
 )
@@ -479,11 +491,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
 
   const rerollCount = toNumber(row.REROLLCOUNT) ?? 0
   const isLocked = row.isLocked === true
-  const equippedToChampionId = (() => {
-    const value = toNumber(row.cID)
-    if (value === null || value === 0) return null
-    return value
-  })()
+  const equippedToChampionId = resolveEquippedChampionId(row)
   const championLookup = options.championLookup
   // Reference to the equipped champion's lookup record; null when unequipped or
   // when the champion id is not in the current lookup map. All previously

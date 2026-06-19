@@ -10,6 +10,7 @@
 import type { TestItem } from '../ruleEval'
 import {
   normalizeGearDbArtifact,
+  resolveEquippedChampionId,
   type GearDbArtifactRow,
   type GearDbChampionRow,
   type GearDbLastUsedRow,
@@ -30,6 +31,11 @@ export type GearDbRawDataset = {
   lastUsed: LastUsedLookup
   artifacts: Map<number, NormalizedGearArtifact>
   inboxArtifacts: Map<number, NormalizedGearArtifact>
+  // Raw revision per artifact id (inventory + inbox), captured at build time so
+  // the NEXT snapshot can cheaply tell which rows actually changed and reuse the
+  // unchanged normalized references (incremental ingest — see buildArtifactMap's
+  // `reuse` hook). In-memory only; never persisted.
+  artifactRevisions: Map<number, number>
 }
 
 type ArtifactSource = 'artifacts' | 'inbox'
@@ -66,13 +72,64 @@ export const createDatasetFromSnapshot = (
   const lastUsedLookup = previousDataset
     ? mergeLastUsedLookup(incomingLastUsed, previousDataset.lastUsed)
     : incomingLastUsed
+  // Build the incremental-reuse predicate once per snapshot. A prior normalized
+  // artifact is reused verbatim only when EVERY input to its normalization is
+  // provably unchanged for that id:
+  //   1. revision   — covers all stat/level/rarity/set edits the helper bumps;
+  //   2. cID        — equip changes can occur WITHOUT a revision bump (the very
+  //                   case the App.tsx cID fingerprint guards), so compare it;
+  //   3. lastUse    — the resolved timestamp feeds normalization (display + sort);
+  //   4. champion   — the equipped champion's lookup RECORD must be the same
+  //                   reference, so a champion-metadata edit (icon, vault move)
+  //                   re-normalizes the artifacts that point at it.
+  // Any mismatch (or no prior dataset / no prior revision) falls through to a
+  // full normalize. isLocked is intentionally not checked here: when the row
+  // omits isLocked the carry-forward branch in buildArtifactMap only runs on the
+  // normalize path, and an explicit lock/unlock bumps neither revision nor cID —
+  // but it DOES change row.isLocked, which is not part of the reuse key, so a
+  // lock toggle on an otherwise-identical row would be missed. Guard it: include
+  // the raw isLocked flag in the reuse key.
+  const makeReuse = (
+    previousArtifacts: ReadonlyMap<number, NormalizedGearArtifact> | undefined,
+  ): ((id: number, row: GearDbArtifactRow) => NormalizedGearArtifact | null) | undefined => {
+    // No prior dataset → nothing to reuse; let every row normalize.
+    if (!previousDataset || !previousArtifacts) return undefined
+    const prevRevisions = previousDataset.artifactRevisions
+    const prevChampions = previousDataset.champions
+    const prevLastUsed = previousDataset.lastUsed
+    return (id, row) => {
+      const prev = previousArtifacts.get(id)
+      if (!prev) return null
+      // 1. revision must be present, valid, and unchanged.
+      const rev = Number(row.revision)
+      if (!Number.isFinite(rev) || rev <= 0) return null
+      if (prevRevisions.get(id) !== rev) return null
+      // 2. equip target unchanged.
+      if (resolveEquippedChampionId(row) !== (prev.equippedChampion?.id ?? null)) return null
+      // 3. resolved lastUse unchanged (both lookups merge sparse pushes, so a
+      //    raw map miss means "carry forward" — compare the resolved values).
+      if ((lastUsedLookup.get(id) ?? null) !== (prevLastUsed.get(id) ?? null)) return null
+      // 4. equipped champion record is the same reference across lookups. When
+      //    unequipped both are null/undefined and this holds trivially.
+      const cid = prev.equippedChampion?.id ?? null
+      if (cid != null && championLookup.get(cid) !== prevChampions.get(cid)) return null
+      // 5. raw lock flag unchanged (an explicit toggle bumps neither rev nor cID).
+      if ((row.isLocked === true) !== prev.isLocked) return null
+      return prev
+    }
+  }
+
   const artifacts = buildArtifactMap(
     snapshot.artifacts, 'artifacts', championLookup, lastUsedLookup,
-    previousDataset?.artifacts,
+    previousDataset?.artifacts, makeReuse(previousDataset?.artifacts),
   )
   const inboxArtifacts = buildArtifactMap(
     snapshot.inboxArtifacts ?? [], 'inbox', championLookup, lastUsedLookup,
-    previousDataset?.inboxArtifacts,
+    previousDataset?.inboxArtifacts, makeReuse(previousDataset?.inboxArtifacts),
+  )
+  // Capture raw revisions for both collections so the NEXT push can diff cheaply.
+  const artifactRevisions = buildArtifactRevisionMap(
+    snapshot.artifacts, snapshot.inboxArtifacts ?? [],
   )
   const dataset: GearDbRawDataset = {
     snapshotId: snapshot.snapshotId ?? null,
@@ -80,6 +137,7 @@ export const createDatasetFromSnapshot = (
     lastUsed: lastUsedLookup,
     artifacts,
     inboxArtifacts,
+    artifactRevisions,
   }
   const { gearInspectorItems, artifactCount, inboxCount } = collectGearInspectorItems(dataset)
   return { dataset, gearInspectorItems, artifactCount, inboxCount }
@@ -169,11 +227,29 @@ const buildArtifactMap = (
   // When provided, previously known protected field values are preserved over
   // endpoint defaults when the incoming row omits those fields.
   previousArtifacts?: ReadonlyMap<number, NormalizedGearArtifact>,
+  // Incremental-reuse hook. During a farm session RSL Helper re-pushes the FULL
+  // artifact DB (~7,777 rows) on every change even though typically a single row
+  // differs (capture session_260619_201700.016: median 1, mean 1.3 changed/push).
+  // When this predicate returns the prior NormalizedGearArtifact for an id, we
+  // reuse that reference verbatim instead of re-running normalizeGearDbArtifact —
+  // collapsing ~7,776 redundant normalizations per push. The caller owns the
+  // safety check (revision + cID + lastUse + champion-record all unchanged); see
+  // buildArtifactReuse in createDatasetFromSnapshot. Reuse is reference-stable,
+  // so downstream memos (gearInspectorPreviewArtifacts) and the content hash also
+  // short-circuit. Omitted (undefined) → every row is normalized as before.
+  reuse?: (id: number, row: GearDbArtifactRow) => NormalizedGearArtifact | null,
 ): Map<number, NormalizedGearArtifact> => {
   const map = new Map<number, NormalizedGearArtifact>()
   for (const row of rows) {
     const id = Number(row.ID)
     if (!Number.isFinite(id) || id <= 0) continue
+    // Fast path: an unchanged row reuses its prior normalized reference. This is
+    // the dominant case during farming and the whole point of incremental ingest.
+    const reused = reuse?.(id, row) ?? null
+    if (reused) {
+      map.set(id, reused)
+      continue
+    }
     try {
       // Mirror the SQL importer: rewrite the ID, plug in champion + last-used
       // metadata, and normalize via the shared helper.

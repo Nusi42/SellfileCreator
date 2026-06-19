@@ -168,6 +168,14 @@ None of these affect rule evaluation; they exist for UI display and the Gear Ana
 - Delta payloads mirror Helper’s SQL mutations (`upsert` or `remove` for each table). The dataset helper applies the operations incrementally, rehydrates champion metadata, and emits a fresh Gear Inspector payload so matcher diffs stay exact even when RSL Helper only changes one row.
 - Both commands honor `snapshotId`: when it regresses or is omitted after a prior snapshot, the browser drops the delta and requests a fresh snapshot so endpoints never have to guess which dataset is active.
 
+### Incremental ingest performance
+
+RSL Helper re-sends the **full** `artifacts` snapshot (~7,777 rows / ~11.8 MB JSON) on every change during a farm session, even though typically a single row differs (captured farm sessions show a median of **1** changed artifact per push). Naively re-normalizing all rows each push was the dominant CPU + allocation cost and the cause of an in-browser `out of memory` crash.
+
+- **Incremental reuse** (`createDatasetFromSnapshot` → `buildArtifactMap`'s `reuse` hook): a prior `NormalizedGearArtifact` reference is reused verbatim when *every* normalization input for that id is provably unchanged — `revision`, equip (`cID`, via the shared `resolveEquippedChampionId`), resolved `lastUse`, the equipped champion's lookup **record reference**, and the raw `isLocked` flag. Any mismatch (or no prior dataset) falls through to a full normalize. `GearDbRawDataset.artifactRevisions` stores the raw per-id revision so the next push can diff cheaply. Because reuse is reference-stable, the downstream `gearInspectorPreviewArtifacts` memo and the pipeline content-hash (`artifactContentHash`) short-circuit too. Manual/SQLite imports seed `artifactRevisions` empty (no false reuse) and the next endpoint push re-normalizes once.
+- **Queue coalescing** (`enqueueEndpointPush`, `App.tsx`): each per-type full-snapshot push (`artifacts` / `inboxArtifacts` / `champions` / `lastUsed`) replaces its whole collection, so when a drain stalls during a burst only the newest matters. The enqueue path drops any pending same-kind entry, retaining a single live ~11.8 MB copy per type instead of N. (Complements the drain-time head accumulation that collapses contiguous part bursts.)
+- **Coverage**: the reuse predicate is locked in by `tests/unit/gearDbIncrementalReuse.test.ts` (asserts reference identity for unchanged ids); the farming crash is guarded end-to-end by `tests/playwright/endpoint-incremental-updates.spec.ts`.
+
 ### Table Relationships
 
 - `Artifacts.cID` points to `Champs.ID` for equipped pieces (3 714 matches in this dump). `0` denotes inventory items.
