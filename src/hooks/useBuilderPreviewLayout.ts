@@ -5,7 +5,7 @@ import {
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX,
-  SIDE_BY_SIDE_BREAKPOINT_PX,
+  SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
 } from '../lib/constants'
 import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 
@@ -48,6 +48,9 @@ export type UseBuilderPreviewLayoutOptions = {
 }
 
 export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderPreviewLayoutOptions = {}): BuilderPreviewLayout {
+  // Shared native-side-by-side query (width AND height — see SIDE_BY_SIDE_NATIVE_MEDIA_QUERY) so the
+  // JS matchMedia decision agrees with the CSS flash-guards and the zoom hook's raw≥1 handoff.
+  const sideBySideMediaQuery = SIDE_BY_SIDE_NATIVE_MEDIA_QUERY
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
   // When forceSideBySide, seed an immediate upper-bound estimate (viewport/zoom minus bottom inset)
@@ -103,7 +106,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
     if (forceSideBySide) return true
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-    return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
+    return window.matchMedia(sideBySideMediaQuery).matches
   })
   const isSideBySideRef = useRef(isSideBySide)
   // Sync refs in an effect so callbacks always read the latest values
@@ -290,7 +293,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
+    const media = window.matchMedia(sideBySideMediaQuery)
     const handleChange = (event: MediaQueryListEvent | MediaQueryList) => applySideBySideTransitionRef.current(event.matches)
     if (typeof media.addEventListener === 'function') {
       media.addEventListener('change', handleChange)
@@ -305,7 +308,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         media.removeListener(handleChange)
       }
     }
-  }, [])
+  }, [sideBySideMediaQuery])
 
   useEffect(() => {
     if (forceSideBySideRef.current) {
@@ -316,9 +319,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       applySideBySideTransitionRef.current(false, { forceSchedule: true })
       return
     }
-    const matches = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
+    const matches = window.matchMedia(sideBySideMediaQuery).matches
     applySideBySideTransitionRef.current(matches, { forceSchedule: true })
-  }, [forceSideBySide])
+  }, [forceSideBySide, sideBySideMediaQuery])
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return

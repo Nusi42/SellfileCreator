@@ -70,6 +70,10 @@ export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
+// Persisted auto side-by-side zoom preferences (theme flyout): whether the dynamic zoom is enabled
+// at all, and the user-tunable cutoff below which it gives up and reverts to the native layout.
+export const AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY = 'sellfileCreator.autoSideBySideZoom.enabled.v1'
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_KEY = 'sellfileCreator.autoSideBySideZoom.minZoom.v1'
 // Persisted safeguards grid filter toggle.
 export const SAFEGUARDS_GRID_FILTER_KEY = 'sellfileCreator.safeguards.gridFilter.v1'
 // Persisted safeguards grid column count.
@@ -186,21 +190,43 @@ export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3
 export const RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX = 26
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
-export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
+// Comfortable width of a single builder/preview panel in side-by-side. The two-panel canvas width
+// below is derived from this so the relationship stays explicit — change this and the canvas follows.
+export const SIDE_BY_SIDE_PANEL_WIDTH_PX = 950
+// Forced side-by-side renders a fixed-width canvas of exactly this width and shrinks it with CSS
+// zoom so both panels fit. The zoom is computed dynamically (viewport / target, capped at 1) — see
+// lib/sideBySideZoom.ts. This is BOTH the canvas width the papers render at native scale AND the
+// divisor for the zoom ratio. Derived as two panels plus the splitter gap between them, so it
+// tracks SIDE_BY_SIDE_PANEL_WIDTH_PX.
+export const SIDE_BY_SIDE_TARGET_WIDTH_PX = SIDE_BY_SIDE_PANEL_WIDTH_PX * 2 + GRID_COLUMN_GAP_PX
+// Companion target height: the shortest viewport at which both papers still fit. The dynamic zoom
+// fits the canvas to BOTH dimensions — zoom = min(viewportW / targetW, viewportH / targetH, 1) — so
+// a wide-but-short window shrinks too, instead of overflowing vertically.
+export const SIDE_BY_SIDE_TARGET_HEIGHT_PX = 1000
+// Native fluid side-by-side (100vw panels, no zoom) turns on at this width. It equals the zoom canvas
+// width so the two layouts meet exactly: below it the canvas zooms down; at/above it the panels grow
+// fluidly with the viewport. (Same value, named separately because @media literals read clearer.)
+export const SIDE_BY_SIDE_BREAKPOINT_PX = SIDE_BY_SIDE_TARGET_WIDTH_PX
+// The native fluid layout only applies when the viewport fits the canvas in BOTH dimensions — the
+// same `raw ≥ 1` condition resolveSideBySideZoom uses to hand off from the zoom path. The media query
+// therefore gates on width AND height, so a wide-but-short window stays in the zoom path (which fits
+// vertically) instead of wrongly going 100vw. Used by the flash-guard @media blocks and the
+// useBuilderPreviewLayout matchMedia so the CSS and JS decisions agree. (The bare query string also
+// works in matchMedia.)
+export const SIDE_BY_SIDE_NATIVE_MEDIA_QUERY = `(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px) and (min-height:${SIDE_BY_SIDE_TARGET_HEIGHT_PX}px)`
 // Preview paper padding (theme spacing units).
 export const PREVIEW_PAPER_PADDING_UNITS = 2
-// Forced side-by-side renders a fixed-width canvas (SIDE_BY_SIDE_BREAKPOINT_PX) and shrinks it
-// with CSS zoom so both panels fit. The zoom is now computed dynamically from the viewport width
-// (viewport / target, capped at 1) rather than a single hard-coded factor — see lib/sideBySideZoom.ts.
-// This is the canvas width the dynamic zoom fits against; it equals the native breakpoint so the
-// layout reads at 1:1 once the viewport reaches it.
-export const SIDE_BY_SIDE_TARGET_WIDTH_PX = SIDE_BY_SIDE_BREAKPOINT_PX
-// Cutoff zoom for forced side-by-side. While the canvas fits at a zoom ≥ this value we force the
-// side-by-side layout; once the viewport is so narrow that fitting it would require a smaller zoom,
-// we stop forcing and fall back to the stacked single-column layout (zoom 1) instead of shrinking
-// the canvas into illegibility. So this is both the minimum applied zoom and the force/stack cutoff.
+// Default cutoff zoom for forced side-by-side. While the canvas fits at a zoom ≥ this value we force
+// the side-by-side layout; once the viewport is so narrow that fitting it would require a smaller
+// zoom, we stop forcing and fall back to the native breakpoint-gated layout instead of shrinking the
+// canvas into illegibility. This is the factory default for the user-tunable cutoff (theme flyout);
+// the live value is threaded in at runtime — see resolveSideBySideZoom's minZoom parameter.
 export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.4
+// Bounds for the user-tunable cutoff slider (theme flyout), shown as a percentage (30%–100%).
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN = 0.3
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX = 1
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP = 0.05
 
 // Duration for all express↔expert mode transitions (ms). Shared by NoteDialog's Fade/Collapse
 // timings and by App's post-transition attention pulses so they stay in lock-step.

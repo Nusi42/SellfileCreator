@@ -17,7 +17,14 @@ import PaletteIcon from '@mui/icons-material/Palette'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import { useColorScheme, useTheme } from '@mui/material/styles'
 import type { ColorBlindMode, ThemeMode } from '../lib/constants'
-import { EMPTY_THEME_CUSTOMIZATION, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
+import {
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX,
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN,
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP,
+  EMPTY_THEME_CUSTOMIZATION,
+  MENU_CONTROL_HEIGHT_PX,
+  MENU_CONTROL_MIN_WIDTH_PX,
+} from '../lib/constants'
 import { useThemeCustomization } from '../state/themeCustomization'
 import { RSLH_PRESET } from '../lib/rslhPreset'
 import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
@@ -128,8 +135,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 
   // Any field set (non-null) counts as customization — drives the reset button visibility.
   const hasCustomization = Object.values(draft).some(v => v != null)
-  const { statButtonBorders } = useDisplayPreferences()
-  const { setStatButtonBorders } = useDisplayPreferenceActions()
+  const { statButtonBorders, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  const { setStatButtonBorders, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
 
   return (
     <>
@@ -324,6 +331,41 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
             </MarkdownTooltip>
           }
         />
+        <Divider />
+        {/* Auto side-by-side zoom — master switch. Off reverts to the native breakpoint layout. */}
+        <MenuToggleRow
+          label={t('themeAutoZoom')}
+          tooltip={t('themeAutoZoomTooltip')}
+          checked={autoSideBySideZoomEnabled}
+          onChange={() => setAutoSideBySideZoomEnabled(!autoSideBySideZoomEnabled)}
+        />
+        {/* Cutoff: the smallest zoom we apply before reverting to the native layout. Shown as a
+            percentage; disabled (greyed) when auto-zoom is off since it has no effect then. */}
+        <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{ flex: 1, minWidth: 0, color: autoSideBySideZoomEnabled ? 'text.primary' : 'text.disabled' }}
+          >
+            {t('themeAutoZoomCutoff')}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: MENU_CONTROL_MIN_WIDTH_PX }} onClick={(e) => e.stopPropagation()}>
+            <Slider
+              size="small"
+              disabled={!autoSideBySideZoomEnabled}
+              value={autoSideBySideMinZoom}
+              min={AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN}
+              max={AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX}
+              step={AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP}
+              // Numeric float commits are cheap and the store ignores no-op writes, so commit on
+              // every change for live feedback rather than only onChangeCommitted.
+              onChange={(_, v) => setAutoSideBySideMinZoom(v as number)}
+              sx={{ flex: 1 }}
+            />
+            <Typography variant="caption" sx={{ minWidth: 30, textAlign: 'right', color: 'text.secondary' }}>
+              {Math.round(autoSideBySideMinZoom * 100)}%
+            </Typography>
+          </Box>
+        </MenuItem>
         <Divider />
         {/* Psychedelic cycle — purely cosmetic fun feature; lives at the bottom so it stays out of the way. */}
         <MenuItem disableRipple sx={{ gap: 0, alignItems: 'center', p: 0 }} onClick={() => setPsychedelic(!psychedelic)}>

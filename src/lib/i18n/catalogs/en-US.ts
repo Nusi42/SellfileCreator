@@ -1418,6 +1418,9 @@ const enUS: Catalog = {
   themeFontDefault: "Default",
   themeCorners: "Corners",
   themeSelectionOpacity: "Selection %",
+  themeAutoZoom: "Auto side-by-side zoom",
+  themeAutoZoomTooltip: "Shrink the app so the builder and preview show side-by-side on narrower screens. When off, side-by-side only appears at full width.",
+  themeAutoZoomCutoff: "Min zoom",
   themePsychedelic: "Psychedelic",
   themePsychedelicTooltip: "Just for fun — cycles all theme colors through the hue spectrum continuously. Not intended for normal use.",
 

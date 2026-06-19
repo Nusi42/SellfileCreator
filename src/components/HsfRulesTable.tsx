@@ -129,7 +129,7 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
   recipeFgColors?: readonly (string | null | undefined)[]
@@ -158,6 +158,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   // Optional external scroll target: rule index in the current rules array
   focusRuleIndex?: number | null
   onFocusRuleSettled?: () => void
+  // True whenever the builder/preview render side-by-side (native fluid OR forced-zoom). Drives the
+  // preview table's full-height mode; replaces a stale hardcoded `@media (min-width:2320px)` that no
+  // longer matches the dynamic-zoom layout (canvas width is now SIDE_BY_SIDE_TARGET_WIDTH_PX).
+  isSideBySide?: boolean
 }) {
   // TanStack Virtual's useVirtualizer returns functions incompatible with the React Compiler's
   // memoization model; opt out of compilation for this component to silence the warning.
@@ -1740,13 +1744,12 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
             // CSS-only hover highlight class for hovered recipe rows (added imperatively)
             '& tr.recipe-hover[data-selected-recipe="true"]': { backgroundColor: selectedHoverBg },
             '& tr.recipe-hover:not([data-selected-recipe="true"])': { backgroundColor: hoverBg },
-            maxHeight: 960,
-            '@media (min-width:2320px)': {
-              flex: 1,
-              minHeight: 0,
-              maxHeight: '100%',
-              height: '100%',
-            },
+            // Stacked: cap the scroller so the page (not the table) owns the long scroll. Side-by-side
+            // (native or forced-zoom): fill the paper's fixed height instead — driven by the
+            // isSideBySide prop, not a viewport-width media query, so it tracks the dynamic-zoom layout.
+            ...(isSideBySide
+              ? { flex: 1, minHeight: 0, maxHeight: '100%', height: '100%' }
+              : { maxHeight: 960 }),
           }
         }}
         data-tour-id="preview.table"

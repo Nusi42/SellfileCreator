@@ -8,7 +8,17 @@
  * field of its store — TypeScript enforces that new stores must declare one.
  */
 import React, { createContext, use, useMemo, useState } from 'react'
-import { RULES_TABLE_SHOW_FACTION_ICONS_KEY, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, STAT_BUTTON_BORDERS_KEY } from '../lib/constants'
+import {
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM,
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_KEY,
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX,
+  AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN,
+  AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY,
+  RULES_TABLE_SHOW_FACTION_ICONS_KEY,
+  RULES_TABLE_SHOW_SET_ICONS_KEY,
+  RULES_TABLE_SHOW_SLOT_ICONS_KEY,
+  STAT_BUTTON_BORDERS_KEY,
+} from '../lib/constants'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 export type DisplayPreferencesState = {
@@ -16,6 +26,9 @@ export type DisplayPreferencesState = {
   showSetIcons: boolean
   showFactionIcons: boolean
   statButtonBorders: boolean
+  // Auto side-by-side zoom: master switch + the force/stack cutoff (theme flyout).
+  autoSideBySideZoomEnabled: boolean
+  autoSideBySideMinZoom: number
   // Transient session flag — not persisted to localStorage, resets on page reload.
   psychedelic: boolean
 }
@@ -25,16 +38,30 @@ export type DisplayPreferenceDispatchers = {
   setShowSetIcons: (next: boolean) => void
   setShowFactionIcons: (next: boolean) => void
   setStatButtonBorders: (next: boolean) => void
+  setAutoSideBySideZoomEnabled: (next: boolean) => void
+  setAutoSideBySideMinZoom: (next: number) => void
   setPsychedelic: (next: boolean) => void
 }
 
-// Shared boolean parse/serialize helpers for all four preference stores below.
+// Shared boolean parse/serialize helpers for the boolean preference stores below.
 const parseBooleanPref = (fallback: boolean) => (raw: string | null): boolean => {
   if (raw === 'true') return true
   if (raw === 'false') return false
   return fallback
 }
 const serializeBooleanPref = (value: boolean): string => String(value)
+
+// Numeric preference parse/serialize, clamped to [min,max] so a corrupt/out-of-range stored value
+// degrades to the fallback rather than feeding a nonsensical zoom into the layout.
+const parseClampedNumberPref =
+  (fallback: number, min: number, max: number) =>
+  (raw: string | null): number => {
+    if (raw === null) return fallback
+    const parsed = Number.parseFloat(raw)
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) return fallback
+    return parsed
+  }
+const serializeNumberPref = (value: number): string => String(value)
 
 const showSlotIconsStore = createLocalStorageStore<boolean>({
   key: RULES_TABLE_SHOW_SLOT_ICONS_KEY,
@@ -64,11 +91,31 @@ const statButtonBordersStore = createLocalStorageStore<boolean>({
   serialize: serializeBooleanPref,
 })
 
+const autoSideBySideZoomEnabledStore = createLocalStorageStore<boolean>({
+  key: AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY,
+  fallback: true,
+  parse: parseBooleanPref(true),
+  serialize: serializeBooleanPref,
+})
+
+const autoSideBySideMinZoomStore = createLocalStorageStore<number>({
+  key: AUTO_SIDE_BY_SIDE_MIN_ZOOM_KEY,
+  fallback: AUTO_SIDE_BY_SIDE_MIN_ZOOM,
+  parse: parseClampedNumberPref(
+    AUTO_SIDE_BY_SIDE_MIN_ZOOM,
+    AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN,
+    AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX,
+  ),
+  serialize: serializeNumberPref,
+})
+
 // Convenience hooks following the project's createLocalStorageStateHook pattern.
 export const useShowSlotIconsPreference = createLocalStorageStateHook(showSlotIconsStore)
 export const useShowSetIconsPreference = createLocalStorageStateHook(showSetIconsStore)
 export const useShowFactionIconsPreference = createLocalStorageStateHook(showFactionIconsStore)
 export const useStatButtonBordersPreference = createLocalStorageStateHook(statButtonBordersStore)
+export const useAutoSideBySideZoomEnabledPreference = createLocalStorageStateHook(autoSideBySideZoomEnabledStore)
+export const useAutoSideBySideMinZoomPreference = createLocalStorageStateHook(autoSideBySideMinZoomStore)
 
 const PreferencesStateContext = createContext<DisplayPreferencesState | null>(null)
 const PreferencesDispatchContext = createContext<DisplayPreferenceDispatchers | null>(null)
@@ -81,11 +128,13 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   const showSetIcons = showSetIconsStore.useValue()
   const showFactionIcons = showFactionIconsStore.useValue()
   const statButtonBorders = statButtonBordersStore.useValue()
+  const autoSideBySideZoomEnabled = autoSideBySideZoomEnabledStore.useValue()
+  const autoSideBySideMinZoom = autoSideBySideMinZoomStore.useValue()
   const [psychedelic, setPsychedelic] = useState(false)
 
   const prefs = useMemo<DisplayPreferencesState>(
-    () => ({ showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, psychedelic }),
-    [showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, psychedelic],
+    () => ({ showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic }),
+    [showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic],
   )
 
   const actions = useMemo<DisplayPreferenceDispatchers>(() => ({
@@ -93,6 +142,8 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     setShowSetIcons: (next) => { showSetIconsStore.set(next) },
     setShowFactionIcons: (next) => { showFactionIconsStore.set(next) },
     setStatButtonBorders: (next) => { statButtonBordersStore.set(next) },
+    setAutoSideBySideZoomEnabled: (next) => { autoSideBySideZoomEnabledStore.set(next) },
+    setAutoSideBySideMinZoom: (next) => { autoSideBySideMinZoomStore.set(next) },
     setPsychedelic: (next) => { setPsychedelic((prev) => prev === next ? prev : next) },
   }), [])
 

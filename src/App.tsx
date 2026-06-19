@@ -51,7 +51,7 @@ import {
   PREVIEW_MODE_STORAGE_KEY,
   BUILDER_MODE_STORAGE_KEY,
   PANEL_WIDTH_PX,
-  SIDE_BY_SIDE_BREAKPOINT_PX,
+  SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
   GRID_COLUMN_GAP_PX,
   PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
@@ -601,7 +601,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
   // Auto-push: when enabled and an endpoint is active, push the sellfile on every dirty-state change.
   const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
-  const { statButtonBorders } = useDisplayPreferences()
+  const { statButtonBorders, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
   const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
   // Both panel hooks share the same underlying stores, so updates from the panels are
@@ -982,9 +982,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // zoom updates immediately instead of on the next resize. (Ref keeps the hook decoupled from the
   // later declaration order of those two values.)
   const sideBySideZoomSuppressedRef = useRef(false)
-  const { forceSideBySide: forceSideBySideLayout, reevaluate: reevaluateSideBySideZoom } = useAutoSideBySideZoom({
-    suppressedRef: sideBySideZoomSuppressedRef,
+  // Live auto-zoom settings (theme flyout) threaded into the hook via a ref so changes apply without
+  // re-subscribing the resize listener. Seeded with the current pref values for the first evaluate().
+  const sideBySideZoomSettingsRef = useRef<{ enabled: boolean; minZoom: number }>({
+    enabled: autoSideBySideZoomEnabled,
+    minZoom: autoSideBySideMinZoom,
   })
+  const { forceSideBySide: forceSideBySideLayout, canvasWidthPx: sideBySideCanvasWidthPx, reevaluate: reevaluateSideBySideZoom } = useAutoSideBySideZoom({
+    suppressedRef: sideBySideZoomSuppressedRef,
+    settingsRef: sideBySideZoomSettingsRef,
+  })
+  // Keep the settings ref current and re-evaluate immediately whenever the user changes either pref.
+  useEffect(() => {
+    sideBySideZoomSettingsRef.current = { enabled: autoSideBySideZoomEnabled, minZoom: autoSideBySideMinZoom }
+    reevaluateSideBySideZoom()
+  }, [autoSideBySideZoomEnabled, autoSideBySideMinZoom, reevaluateSideBySideZoom])
   const {
     leftPaperRef,
     chipsContainerRef,
@@ -1054,10 +1066,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Derive absolute px from ratio + measured container width; clamp to enforce min panel size.
   const splitterLeftPx = containerUsablePx > 0
     ? Math.max(SPLITTER_MIN_WIDTH_PX, Math.min(containerUsablePx - SPLITTER_MIN_WIDTH_PX, Math.round(splitterRatio * containerUsablePx)))
-    : Math.round(splitterRatio * (SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX))
+    // Pre-measurement fallback: estimate the container as the (dynamic) forced canvas width minus the
+    // splitter gap — the same width the canvas actually renders at.
+    : Math.round(splitterRatio * (sideBySideCanvasWidthPx - GRID_COLUMN_GAP_PX))
   const splitterRightPx = containerUsablePx > 0
     ? containerUsablePx - splitterLeftPx
-    : SIDE_BY_SIDE_BREAKPOINT_PX - GRID_COLUMN_GAP_PX - splitterLeftPx
+    : sideBySideCanvasWidthPx - GRID_COLUMN_GAP_PX - splitterLeftPx
   // Keep --splitter-left-width / --splitter-right-width in sync with the committed value.
   // useLayoutEffect runs synchronously before paint so there is no flash on initial render
   // when the user has a saved ratio that differs from the default.
@@ -8636,7 +8650,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Container doesn't push content off-screen or leave a dark strip.
       pb: (isSideBySide || forceSideBySideLayout) ? 0 : 1.5,
       // Flash-guard: mirror the SBS pb=0 before React state fires.
-      [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { pb: 0 },
+      [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: { pb: 0 },
     }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
@@ -8697,8 +8711,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Side-by-side: escape the MUI Container max-width cap so the header spans
           // the full two-panel width. Single-column: fill the Container width, same as
           // the BuilderColumn paper (which uses maxWidth:none / width:100%).
+          // Forced mode: match the dynamic canvas width so the header spans exactly the two-panel
+          // canvas (widens past the target when height drove the zoom, so no side bars).
           width: (isSideBySide || forceSideBySideLayout)
-            ? (forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100vw')
+            ? (forceSideBySideLayout ? `${sideBySideCanvasWidthPx}px` : '100vw')
             : '100%',
           maxWidth: 'none',
           mx: 0,
@@ -8710,7 +8726,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
             : {}),
           // Flash-guard: mirror the native side-by-side escape before React's state fires.
-          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+          [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
             width: '100vw',
             maxWidth: 'none',
             mx: 0,
@@ -8734,7 +8750,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   gridColumn: '1 / span 1',
                 }
               : {}),
-            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+            [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
               // Span the full two-panel width so the right-aligned buttons reach the preview edge.
               gridColumn: '1 / span 1',
               maxWidth: 'none',
@@ -8795,14 +8811,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             gap: isSideBySide ? 0 : 2,
             ...(isSideBySide && forceSideBySideLayout
               ? {
-                  // Forced-zoom path: fixed width so CSS zoom math stays correct.
+                  // Forced-zoom path: the canvas is rendered at sideBySideCanvasWidthPx and then
+                  // scaled by the zoom. canvasWidthPx = viewportW / zoom, so after scaling it fills
+                  // the viewport exactly — it equals the target when width is binding, and widens
+                  // when height drove the zoom so the spare width is used instead of left as side bars.
                   flexDirection: 'row',
                   // stretch so the splitter can fill the height of the taller panel.
                   alignItems: 'stretch',
                   position: 'relative',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  width: `${SIDE_BY_SIDE_BREAKPOINT_PX}px`,
+                  width: `${sideBySideCanvasWidthPx}px`,
                 }
               : isSideBySide
                 ? {
@@ -8820,7 +8839,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 : {}),
             // Flash-guard media query mirrors the native fluid side-by-side layout for the
             // initial CSS paint before React's matchMedia state has had a chance to fire.
-            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+            [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
               display: 'flex',
               flexDirection: 'row',
               alignItems: 'stretch',
@@ -8904,7 +8923,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }),
           // Flash-guard media query: the CSS var may not be initialised yet on the first paint.
           // Use the var with a 50% fallback so the panel fills its half of the fluid container.
-          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+          [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
             mx: 0,
             width: `var(--splitter-right-width, 50%)`,
             height: previewPaperHeightStyle ?? 'auto',
@@ -9114,6 +9133,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 selectedSafeguardOrdinal={previewSelectedSafeguardOrdinal}
                 multiselectActive={multiselectActive}
                 selectionScrollRequest={selectionScrollRequest}
+                isSideBySide={isSideBySide}
                 emptyStateVerticalAlign={emptyStateVerticalAlign}
                 focusRuleIndex={focusRuleIndex}
                 onFocusRuleSettled={handleFocusRuleSettled}

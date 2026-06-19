@@ -1,7 +1,7 @@
 import { Box, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
-import { SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
+import { SIDE_BY_SIDE_NATIVE_MEDIA_QUERY } from '../../lib/constants'
 
 /**
  * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, recipe chips,
@@ -74,7 +74,7 @@ export function BuilderColumn({
         }),
         // Native side-by-side (no zoom) gets the same fixed-height treatment so that
         // chipsMaxHeight updates on mode switch cannot nudge the paper height up or down.
-        [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+        [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
           mx: 0,
           // CSS variable carries live drag updates; 50% fallback covers the flash-guard window.
           width: `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})`,
