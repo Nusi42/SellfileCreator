@@ -124,6 +124,8 @@ http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
 
 **Layout**: The header, builder column, and preview panel are hidden (`display: none`). The Note dialog opens automatically and is the sole visible surface. It cannot be dismissed — close button, Escape key, and backdrop click are all disabled.
 
+**Zoom suppression**: While the simple-mode dialog is open (`isSimpleView && noteOpen`) the auto side-by-side zoom is suppressed — there are no visible panels behind the dialog to scale, so `useAutoSideBySideZoom` clears the `#root` zoom and reports stacked. App drives this through `sideBySideZoomSuppressedRef` + the hook's `reevaluate()` so the change applies immediately when the dialog opens/closes.
+
 **Preset toggle**: A Basic / Mid-to-Endgame toggle bar appears between the dialog title and the note content. Switching immediately loads the full corresponding preset SFC (recipes + note). Defaults to Mid-to-Endgame.
 
 **Action bar** (bottom of dialog):
@@ -140,7 +142,12 @@ http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
 - On the next `?simple` launch, if Expert was the last state, the full UI loads directly and the Note button pulses twice to signal where the note lives.
 - *Simple Mode* in the dialog title bar returns to the streamlined view and clears the persisted preference.
 
-**Transitions**: Switching between Simple and Expert mode is animated — the SFC toggle collapses (height), the action bar crossfades with a directional translateY, and the *Simple Mode* / *Go Expert* buttons fade in sync. Closing the dialog in Expert mode animates it shrinking toward the Note button.
+**Attention pulses** (shared `playAttentionPulse` in `lib/attentionPulse.ts` — one keyframe/timing SSOT for every "look here" blink):
+- The in-dialog *Simple Mode* toggle (`data-attention-id="note.goSimple"`) pulses for ~3s whenever it newly becomes visible — i.e. on the false→true edge of *simple+expert AND dialog open*. This covers both switching simple → expert from inside the dialog and (re)opening the dialog while already in expert mode. The pulse waits out the Fade-in first.
+- In simple+expert mode, closing the dialog pulses the header's Note toggle (`data-tour-id="note.toggle"`) for ~3s — it is the way back into the dialog.
+- Both fire only on the relevant transition edge (tracked via prev-value refs), not on every render.
+
+**Transitions**: Switching between Simple and Expert mode is animated — the SFC toggle collapses (height), the action bar crossfades with a directional translateY, and the *Simple Mode* / *Go Expert* buttons fade in sync. Closing the dialog in Expert mode animates it shrinking toward the Note button. The `SIMPLE_MODE_TRANSITION_MS` constant (in `lib/constants.ts`) is the single source for these fade/collapse timings and for the delay before the post-switch attention pulse.
 
 ### Verification checklist
 
@@ -475,22 +482,22 @@ Rendered in the builder column below the form panel, occupying the same scrollab
 ## Layout Notes (responsive + headers)
 
 - Fixed widths ensure both panels share `PANEL_WIDTH_PX` in stacked and side-by-side layouts. Stacked mode centers each Paper and caps width.
-- Side-by-side breakpoint: viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` renders the two Papers side-by-side, centered with a fixed grid and `GRID_COLUMN_GAP_PX` spacing.
+- Side-by-side is the default at all but the narrowest widths: the layout draws a fixed `SIDE_BY_SIDE_TARGET_WIDTH_PX` canvas (= `SIDE_BY_SIDE_BREAKPOINT_PX`) and shrinks it with dynamic CSS zoom so it fits the real viewport (see *Auto zoom* below). At viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` the zoom reaches 1 and the canvas reads at native 1:1 scale. Below the `AUTO_SIDE_BY_SIDE_MIN_ZOOM` cutoff — where fitting the canvas would require shrinking it past that floor — side-by-side turns off and the layout reverts to the stacked single column at zoom 1.
 - Chips height guard: `chipsMaxHeight` starts at `BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_RECIPE_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes. This drives chip sizing in stacked mode only; in side-by-side mode the Paper's `maxHeight = M` is the real constraint and chips flex-fill (see *Top-down paper height constraint* below).
-- Auto zoom fallback: `useAutoSideBySideZoom` applies the fixed `AUTO_SIDE_BY_SIDE_FORCED_ZOOM` whenever the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX` but still at least `AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX`; otherwise it restores zoom 1 and reverts to the stacked layout.
+- Auto zoom: `useAutoSideBySideZoom` decides force-vs-stacked and the zoom together via `resolveSideBySideZoom` (the SSOT in `lib/sideBySideZoom.ts`). From `raw = clientWidth / SIDE_BY_SIDE_TARGET_WIDTH_PX` (`clientWidth` excludes the scrollbar gutter): if `raw ≥ AUTO_SIDE_BY_SIDE_MIN_ZOOM` it forces side-by-side at `min(raw, 1)` (the cap never enlarges past native); if `raw` falls below the cutoff the viewport is too narrow to render both papers legibly, so it returns `{ forceSideBySide: false, zoom: 1 }` and the layout reverts to stacked. The hook re-evaluates on resize, applies the zoom to `#root` (or clears it when stacked), and publishes the live value to the `--app-zoom` CSS variable. Every consumer that converts between visual (zoomed) and CSS pixels — the splitter drag math, the chips/paper height measurements, the `NoteDialog` floating panel — reads that one value via `getCurrentSideBySideZoom(forced)` (`computeSideBySideZoom` is the thin `.zoom` accessor over the same resolver).
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
 
 ### Top-down paper height constraint (side-by-side mode)
 
-In both native side-by-side (viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX`) and forced/zoom side-by-side, the builder Paper is given a fixed height so its internal content never causes a document-level scrollbar:
+Side-by-side is always active, so the builder Paper is given a fixed height so its internal content never causes a document-level scrollbar:
 
 - **`M` (available height in CSS px)**: computed by `useBuilderPreviewLayout` as
   `M = floor((viewportHeight − paperRect.top) / zoom − BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX)`,
-  where `zoom = AUTO_SIDE_BY_SIDE_FORCED_ZOOM` in forced mode, `1` in native mode.
+  where `zoom = getCurrentSideBySideZoom(forceSideBySide)` (the live dynamic zoom, or `1` when not forced).
   `getBoundingClientRect()` returns visual (zoomed) coordinates; dividing by `zoom` converts back to CSS pixels, keeping the arithmetic consistent with `window.innerHeight`.
 - **Paper constraint**: `BuilderColumn` applies `minHeight = maxHeight = M` + `overflow: hidden` to the Paper in both the `forceSideBySide` code path and the `@media (min-width: SIDE_BY_SIDE_BREAKPOINT_PX)` path. Both paths use `maxHeight` (not just `minHeight`) so that `chipsMaxHeight` updates on mode switch cannot nudge the paper height up or down.
-- **M initialization**: `sideBySideMinPaperHeight` is seeded at `useState` init time with `floor(window.innerHeight / AUTO_SIDE_BY_SIDE_FORCED_ZOOM − INSET)` when `forceSideBySide` is detected. This upper-bound estimate is live from the very first render, preventing a scrollbar flash before the rAF measurement produces the refined value.
+- **M initialization**: `sideBySideMinPaperHeight` is seeded at `useState` init time with `floor(window.innerHeight / getCurrentSideBySideZoom(forceSideBySide) − INSET)` when `forceSideBySide` is detected. This upper-bound estimate is live from the very first render, preventing a scrollbar flash before the rAF measurement produces the refined value.
 - **M decoupled from chips visibility**: `runChipsMeasurement` computes and applies M from the paper position alone, before checking whether the chips container is visible. This ensures the paper height is always constrained on reload even when the app starts in safeguard builder mode (where the recipe chips container is hidden).
 - **Internal flex layout**: Inside the fixed-height Paper, the core section (`flexShrink: 0`) stacks above the chips wrapper (`flex: 1; minHeight: 0`). The chips wrapper fills all remaining space naturally without the paper ever exceeding M.
 

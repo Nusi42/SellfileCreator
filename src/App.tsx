@@ -198,6 +198,7 @@ import {
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 import { TINT } from './lib/colorTints'
+import { playAttentionPulse, attentionPulseIterationsForMs } from './lib/attentionPulse'
 const GEAR_INSPECTOR_MATCH_RESET_TIMEOUT_MS = 1500
 // Endpoint push processing polls until worker + preview pipelines settle.
 const ENDPOINT_PUSH_SETTLE_POLL_MS = 16
@@ -313,7 +314,7 @@ function computeChampionFingerprint(champions: readonly GearDbChampionRow[]): nu
 
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
-import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY } from './lib/constants'
+import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY, SIMPLE_MODE_TRANSITION_MS } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
@@ -976,7 +977,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [gearInspectorMatchResetReason, gearEntriesCommittedBuildId, gearEntriesBuilding, gearEntriesActiveBuildId])
   // State (not ref) so the render-time baseline check can read it without violating react-hooks/refs.
   const [exportBaselineResetPending, setExportBaselineResetPending] = useState(false)
-  const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
+  // Suppression ref for auto side-by-side zoom. Written below once isSimpleView/noteOpen are known;
+  // the hook reads it inside its evaluate() and we call reevaluate() when the condition flips so the
+  // zoom updates immediately instead of on the next resize. (Ref keeps the hook decoupled from the
+  // later declaration order of those two values.)
+  const sideBySideZoomSuppressedRef = useRef(false)
+  const { forceSideBySide: forceSideBySideLayout, reevaluate: reevaluateSideBySideZoom } = useAutoSideBySideZoom({
+    suppressedRef: sideBySideZoomSuppressedRef,
+  })
   const {
     leftPaperRef,
     chipsContainerRef,
@@ -3916,6 +3924,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCopyText,
     copyInputRef,
   } = sfcDialogs
+  // Suppress auto side-by-side zoom while simple mode shows only the note dialog: the builder/preview
+  // panels are display:none behind it, so scaling the page would only distort the dialog's framing.
+  // Keep the ref in sync and re-evaluate immediately whenever the condition flips.
+  const suppressSideBySideZoom = isSimpleView && noteOpen
+  useEffect(() => {
+    sideBySideZoomSuppressedRef.current = suppressSideBySideZoom
+    reevaluateSideBySideZoom()
+  }, [suppressSideBySideZoom, reevaluateSideBySideZoom])
   // Track when the note dialog opened automatically from an SFC import.
   // Why: auto-opened notes should hide the "Edit Note & Recipe Overrides…" button.
   const [noteAutoOpenedFromSfc, setNoteAutoOpenedFromSfc] = useState(false)
@@ -7814,14 +7830,50 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const btn = typeof document !== 'undefined'
       ? (document.querySelector('[data-tour-id="note.toggle"]') as HTMLElement | null)
       : null
-    if (!btn) return
-    const anim = btn.animate([
-      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.primaryGlow}` },
-      { transform: 'scale(1.12)', boxShadow: `0 0 0 10px ${TINT.pulseFadeOut}` },
-      { transform: 'scale(1)', boxShadow: `0 0 0 0 ${TINT.pulseFadeOut}` },
-    ], { duration: 550, iterations: 2, easing: 'ease-in-out' })
-    return () => { anim.cancel() }
+    const anim = playAttentionPulse(btn)
+    return () => { anim?.cancel() }
   }, [simpleMode, isSimpleViewAtStart, restoreDlgOpen])
+
+  // Number of pulse cycles that reads as a deliberate ~3s "look here" blink. Derived from the shared
+  // cycle length so it stays correct if the pulse timing changes.
+  const attentionPulseLongIterations = useMemo(() => attentionPulseIterationsForMs(3000), [])
+
+  // Task: pulse the in-dialog "Simple Mode" toggle whenever it newly becomes visible, so the user
+  // notices where the control is. It is visible exactly when simple+expert AND the dialog is open,
+  // so the single false → true edge of that combined condition covers both triggers: switching
+  // simple → expert from inside the open dialog, and (re)opening the dialog while already expert.
+  const prevGoSimpleVisibleRef = useRef(simpleMode && expertMode && noteOpen)
+  useEffect(() => {
+    const visible = simpleMode && expertMode && noteOpen
+    const wasVisible = prevGoSimpleVisibleRef.current
+    prevGoSimpleVisibleRef.current = visible
+    if (!visible || wasVisible) return // only on the newly-visible edge
+    // Wait out the Fade-in so the pulse plays on a fully visible button.
+    let anim: Animation | null = null
+    const timer = setTimeout(() => {
+      const btn = typeof document !== 'undefined'
+        ? (document.querySelector('[data-attention-id="note.goSimple"]') as HTMLElement | null)
+        : null
+      anim = playAttentionPulse(btn, attentionPulseLongIterations)
+    }, SIMPLE_MODE_TRANSITION_MS)
+    return () => { clearTimeout(timer); anim?.cancel() }
+  }, [simpleMode, expertMode, noteOpen, attentionPulseLongIterations])
+
+  // Task: in simple+expert mode, when the user closes the note dialog the "Note & dynamic overrides"
+  // toggle in the header becomes the way back into it — pulse it on the close transition so the user
+  // notices it. Mirrors the simple→expert toggle pulse above.
+  const prevNoteOpenSimpleExpertRef = useRef(noteOpen)
+  useEffect(() => {
+    const wasOpen = prevNoteOpenSimpleExpertRef.current
+    prevNoteOpenSimpleExpertRef.current = noteOpen
+    // Only on the open → closed edge, and only in simple+expert mode (where the header is visible).
+    if (!simpleMode || !expertMode || noteOpen || !wasOpen) return
+    const btn = typeof document !== 'undefined'
+      ? (document.querySelector('[data-tour-id="note.toggle"]') as HTMLElement | null)
+      : null
+    const anim = playAttentionPulse(btn, attentionPulseLongIterations)
+    return () => { anim?.cancel() }
+  }, [simpleMode, expertMode, noteOpen, attentionPulseLongIterations])
 
   // Show the deferred first-run help dialog once the user is in expert mode AND
   // has closed the NoteDialog, so it never overlays the note dialog.

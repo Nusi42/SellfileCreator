@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
-  AUTO_SIDE_BY_SIDE_FORCED_ZOOM,
   BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
 } from '../lib/constants'
+import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 
 const isSyntheticResizeEvent = (event?: Event): boolean => Boolean(event && event.type === 'resize' && event.isTrusted === false)
 
@@ -56,7 +56,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(() => {
     if (!forceSideBySide || typeof window === 'undefined') return 0
     const vh = window.innerHeight ?? 0
-    return Math.max(0, Math.floor(vh / AUTO_SIDE_BY_SIDE_FORCED_ZOOM - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX))
+    // Seed with the live/derived zoom so the maxHeight constraint is correct from the first render.
+    const zoom = getCurrentSideBySideZoom(forceSideBySide)
+    return Math.max(0, Math.floor(vh / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX))
   })
   const sideBySideMinPaperHeightRef = useRef(sideBySideMinPaperHeight)
   const updateSideBySideMinPaperHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
@@ -165,7 +167,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       // visual (zoomed) coordinates while window.innerHeight / visualViewport.height are CSS pixels.
       // Dividing by zoom converts rect positions back to CSS pixel space so minPaperHeight and
       // all downstream heights remain consistent with MUI sx values.
-      const zoom = forceSideBySideRef.current ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+      const zoom = getCurrentSideBySideZoom(forceSideBySideRef.current)
       const paperAvailable = (viewportHeight - paperRect.top) / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
       // Always update M from the paper's own position — this must run regardless of whether the
@@ -371,7 +373,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       // Apply the same zoom correction used in runChipsMeasurement for coordinate consistency.
       // In forceSideBySide mode, getBoundingClientRect() returns visual (zoomed) coordinates
       // while viewportHeight is in CSS pixels; dividing by zoom aligns the coordinate spaces.
-      const zoom = forceSideBySideRef.current ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+      const zoom = getCurrentSideBySideZoom(forceSideBySideRef.current)
       // How much CSS-pixel height is available below the paper's top edge.
       const paperAvailable = (viewportHeight - paperRect.top) / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return

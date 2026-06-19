@@ -21,7 +21,8 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS } from '../lib/constants'
+import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -317,9 +318,10 @@ const NOTE_DRAWER_PAPER_SX = {
 //   CSS px × zoom  = visual px  (what getBoundingClientRect / e.clientX report)
 //   CSS px         = visual px / zoom
 // So when writing a CSS `left` from a visual-px value, divide by getAppZoom().
+// Delegates to the side-by-side zoom SSOT; this floating-panel code only runs while the dialog
+// lives in the zoomed coordinate space, so the forced flag is always true here.
 function getAppZoom(): number {
-  if (typeof document === 'undefined') return 1
-  return Number(document.documentElement.style.getPropertyValue('--app-zoom') || '1') || 1
+  return getCurrentSideBySideZoom(true)
 }
 // ── Floating panel snap behavior ──────────────────────────────────────────────
 // The panel snaps to the left or right viewport edge; height always fills from
@@ -361,8 +363,6 @@ const noteDslPulse = keyframes`
   100% { background-color: ${TINT.pulseFadeOut}; box-shadow: 0 0 0 1px ${TINT.pulseFadeOut}; }
 `
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
-// Duration for all express↔expert mode transitions (ms).
-const SIMPLE_MODE_TRANSITION_MS = 220 as const
 const RECIPE_COMMENT_REGEX = /^\s*recipes\s*:\s*([0-9,\s]+)\s*$/i
 const RECIPE_MARKER_REGEX = /<!--\s*recipes\s*:\s*([0-9,\s]+)\s*-->/i
 const RECIPE_REGEX_COMMENT_REGEX = /^\s*recipes-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
@@ -4860,7 +4860,9 @@ export default function NoteDialog({
           <Fade in={Boolean(simpleMode && expertMode)} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <MarkdownTooltip markdown={t('simpleModeGoSimpleTooltip')}>
-                <Button size="small" variant="outlined" onClick={onGoSimple} sx={{ fontSize: '0.75rem', py: 0.25 }}>
+                {/* data-attention-id lets App pulse this button when it appears (simple→expert),
+                    so the user notices the toggle has moved into the dialog title bar. */}
+                <Button size="small" variant="outlined" onClick={onGoSimple} data-attention-id="note.goSimple" sx={{ fontSize: '0.75rem', py: 0.25 }}>
                   {t('simpleModeGoSimple')}
                 </Button>
               </MarkdownTooltip>

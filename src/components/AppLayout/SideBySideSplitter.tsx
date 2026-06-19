@@ -24,7 +24,8 @@ import { Box } from '@mui/material'
 import { useCallback, useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
-import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, GRID_COLUMN_GAP_PX } from '../../lib/constants'
+import { GRID_COLUMN_GAP_PX } from '../../lib/constants'
+import { getCurrentSideBySideZoom } from '../../lib/sideBySideZoom'
 import { SPLITTER_MIN_WIDTH_PX } from '../../state/splitterPreference'
 
 export type SideBySideSplitterProps = {
@@ -100,7 +101,8 @@ export function SideBySideSplitter({
     // mousemove, which would force a synchronous layout flush each event and starve the
     // browser's rendering update that delivers ResizeObserver notifications (live column count).
     const el = containerRef.current
-    const zoom = forceSideBySide ? AUTO_SIDE_BY_SIDE_FORCED_ZOOM : 1
+    // Snapshot the live zoom at drag start; it cannot change mid-gesture (no resize during a drag).
+    const zoom = getCurrentSideBySideZoom(forceSideBySide)
     const containerUsableAtStart = el
       ? Math.max(0, el.getBoundingClientRect().width / zoom - GRID_COLUMN_GAP_PX)
       : 0

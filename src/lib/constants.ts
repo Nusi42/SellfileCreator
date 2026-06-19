@@ -190,10 +190,21 @@ export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
 // Preview paper padding (theme spacing units).
 export const PREVIEW_PAPER_PADDING_UNITS = 2
-// Fixed zoom applied when we force side-by-side on desktops slightly narrower than the breakpoint.
-export const AUTO_SIDE_BY_SIDE_FORCED_ZOOM = 0.81
-// Only force the zoom when the viewport is wide enough that the fixed zoom will still fit both panels.
-export const AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX = Math.ceil(SIDE_BY_SIDE_BREAKPOINT_PX * AUTO_SIDE_BY_SIDE_FORCED_ZOOM)
+// Forced side-by-side renders a fixed-width canvas (SIDE_BY_SIDE_BREAKPOINT_PX) and shrinks it
+// with CSS zoom so both panels fit. The zoom is now computed dynamically from the viewport width
+// (viewport / target, capped at 1) rather than a single hard-coded factor — see lib/sideBySideZoom.ts.
+// This is the canvas width the dynamic zoom fits against; it equals the native breakpoint so the
+// layout reads at 1:1 once the viewport reaches it.
+export const SIDE_BY_SIDE_TARGET_WIDTH_PX = SIDE_BY_SIDE_BREAKPOINT_PX
+// Cutoff zoom for forced side-by-side. While the canvas fits at a zoom ≥ this value we force the
+// side-by-side layout; once the viewport is so narrow that fitting it would require a smaller zoom,
+// we stop forcing and fall back to the stacked single-column layout (zoom 1) instead of shrinking
+// the canvas into illegibility. So this is both the minimum applied zoom and the force/stack cutoff.
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.4
+
+// Duration for all express↔expert mode transitions (ms). Shared by NoteDialog's Fade/Collapse
+// timings and by App's post-transition attention pulses so they stay in lock-step.
+export const SIMPLE_MODE_TRANSITION_MS = 220
 
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
 // Extremely broad recipes can explode into millions of permutations and stall the worker.
