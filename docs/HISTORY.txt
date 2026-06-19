@@ -1,6 +1,21 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.21 — 2026-06-19
+English:
+- **New: "RSLH" theme option** — a third theme alongside Dark and Light.
+- **New: Theme editor exposes additional color and font options** — you can now adjust the info color, primary, secondary, and disabled text colors, the UI and code font families, and the scrollbar thumb color directly from the theme popout.
+- **New: Safeguard Rank overlay expanded to a four-mode cycle** — replaces the on/off toggle with four steps: Off, Rank (overall position among all safeguarded pieces), Group Rank (position within the piece's slot/set/faction group), and Rank + Group (both at once). Green = kept, red = would be sold.
+- **New: Pieces ranked by unselected safeguard rules now show their rank in the overlay** — such chips appear faded with a dotted border and a tooltip identifying the source rule, so rank information is no longer hidden just because the rule is not in the active filter.
+- **Midgame/Lategame/Endgame preset: SPD substat weight increased in safeguard rules** — gear with a Speed roll is now scored more aggressively when ranking borderline pieces under safeguard rules.
+
+Deutsch:
+- **Neu: Theme-Option „RSLH"** — ein drittes Theme neben Dunkel und Hell.
+- **Neu: Theme-Editor bietet weitere Farb- und Schriftoptionen** — im Theme-Popout lassen sich jetzt Info-Farbe, primäre, sekundäre und deaktivierte Textfarbe, UI- und Code-Schriftfamilien sowie die Scrollbar-Daumenfarbe anpassen.
+- **Neu: Safeguard-Rang-Overlay auf vier Modi erweitert** — der Ein/Aus-Schalter wird durch vier Schritte ersetzt: Aus, Rang (Gesamtposition aller safeguardeten Teile), Gruppen-Rang (Position innerhalb der Slot-/Set-/Fraktion-Gruppe des Teils) und Rang + Gruppe (beides gleichzeitig). Grün = behalten, rot = würde verkauft.
+- **Neu: Teile, die durch nicht ausgewählte Safeguard-Regeln gerankt werden, zeigen jetzt ihren Rang im Overlay** — solche Chips erscheinen gedimmt mit gestricheltem Rand und einem Tooltip, der die Quellregel benennt; Ranginformationen gehen nicht mehr verloren, wenn die Regel nicht im aktiven Filter ist.
+- **Midgame/Lategame/Endgame-Preset: SPD-Substat-Gewichtung in Safeguard-Regeln erhöht** — Gear mit Speed-Roll wird bei knapper Bewertung unter Safeguard-Regeln jetzt stärker priorisiert.
+
 ## v1.0.20 — 2026-06-16
 English:
 - **New: Improvement-chance override is now a continuous slider with named stops and an on/off toggle** — the improvement-chance question in notes uses a slider (range 0–90) with labeled marks (Soft 10 / Balanced 25 / Moderate 33 / Strict 50) and a Yes/No toggle, replacing the previous radio buttons; thresholds were recalibrated from real account data.
