@@ -193,7 +193,7 @@ export const PANEL_WIDTH_PX = 1152
 export const GRID_COLUMN_GAP_PX = 16
 // Comfortable width of a single builder/preview panel in side-by-side. The two-panel canvas width
 // below is derived from this so the relationship stays explicit — change this and the canvas follows.
-export const SIDE_BY_SIDE_PANEL_WIDTH_PX = 950
+export const SIDE_BY_SIDE_PANEL_WIDTH_PX = 1116
 // Forced side-by-side renders a fixed-width canvas of exactly this width and shrinks it with CSS
 // zoom so both panels fit. The zoom is computed dynamically (viewport / target, capped at 1) — see
 // lib/sideBySideZoom.ts. This is BOTH the canvas width the papers render at native scale AND the
