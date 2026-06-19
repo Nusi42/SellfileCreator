@@ -25,6 +25,7 @@ import MarkdownTooltip from './MarkdownTooltip'
   RULES_TABLE_WRAP_ROWS_KEY,
   type SelectionScrollRequest,
   type ColorBlindMode,
+  FONT_FAMILY_MONO,
 } from '../lib/constants'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -1617,7 +1618,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                 <TableCell
                   key={String(c.key)}
                   sx={{
-                    fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
+                    fontFamily: isSub ? 'inherit' : FONT_FAMILY_MONO,
                     fontSize: FONT_SIZE_BASE_PX,
                     width: c.width,
                     // Apply per-row opacity so disabled rules dim without striking text.

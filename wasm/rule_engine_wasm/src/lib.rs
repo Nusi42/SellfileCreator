@@ -2059,7 +2059,7 @@ mod build_safeguard_rules_value_wire_tests {
             "missing": 0,
             "reason": "global"
           }],
-          "ca": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "isWithinQuota": true }]
+          "ca": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "bucketRank": 1, "isWithinQuota": true }]
         }]
       }
     }"#;

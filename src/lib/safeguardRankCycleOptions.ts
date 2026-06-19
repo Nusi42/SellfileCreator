@@ -9,10 +9,11 @@ import type { SafeguardRankMode } from './constants'
  */
 export function makeSafeguardRankCycleOptions(t: (key: string) => string): ReadonlyArray<CycleButtonOption> {
   return [
-    // Order defines the click-through cycle: Off → Rank → Rank/quota → Off.
-    { value: 'off',       label: t('gearInspectorGridSafeguardRankModeOff')   },
-    { value: 'rank',      label: t('gearInspectorGridSafeguardRankModeRank')  },
-    { value: 'rankQuota', label: t('gearInspectorGridSafeguardRankModeQuota') },
+    // Order defines the click-through cycle: Off → Rank → Group rank → Rank + group → Off.
+    { value: 'off',       label: t('gearInspectorGridSafeguardRankModeOff')       },
+    { value: 'rank',      label: t('gearInspectorGridSafeguardRankModeRank')      },
+    { value: 'groupRank', label: t('gearInspectorGridSafeguardRankModeGroupRank') },
+    { value: 'both',      label: t('gearInspectorGridSafeguardRankModeBoth')      },
   ]
 }
 

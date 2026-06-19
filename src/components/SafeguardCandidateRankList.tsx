@@ -23,7 +23,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
 import StarsIcon from '@mui/icons-material/Stars'
-import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM, FONT_FAMILY_MONO } from '../lib/constants'
 import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
 import { createElement, useEffect, useMemo, useRef } from 'react'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
@@ -206,7 +206,7 @@ export default function SafeguardCandidateRankList({
           // Contribution of one max-6-star roll; uses normalization constant from domain (display hint only).
           const perRoll = normalizeSubstatByMax6(variant, weight)
           return (
-            <Typography key={variant} variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography key={variant} variant="caption" color="text.secondary" sx={{ fontFamily: FONT_FAMILY_MONO }}>
               {t('safeguardsCandidateWeightHint', { pts: perRoll.toFixed(2) })}
             </Typography>
           )
@@ -488,7 +488,7 @@ function CandidateRow({
       <Typography
         variant="caption"
         sx={{
-          fontFamily: 'monospace',
+          fontFamily: FONT_FAMILY_MONO,
           fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
           color: 'text.secondary',
           minWidth: 42,  // "#1000" = 5 chars at monospace 0.75rem ≈ 38px
@@ -615,7 +615,7 @@ function CandidateRow({
           Always rendered (empty when unranked) so badge/match don't shift. */}
       <Typography
         variant="caption"
-        sx={{ fontFamily: 'monospace', fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.primary', flexShrink: 0, width: 48, textAlign: 'right' }}
+        sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.primary', flexShrink: 0, width: 48, textAlign: 'right' }}
       >
         {candidate.candidateRank > 0 ? candidate.score.toFixed(2) : ''}
       </Typography>

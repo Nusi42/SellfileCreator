@@ -112,7 +112,9 @@ const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageS
 // card overlay stays uncluttered by default. Migrates the legacy v1 boolean on first
 // read: a stored `'true'` becomes 'rank' (the prior overlay), anything else 'off'.
 const parseSafeguardRankMode = (raw: string | null): SafeguardRankMode => {
-  if (raw === 'rank' || raw === 'rankQuota' || raw === 'off') return raw
+  if (raw === 'rank' || raw === 'groupRank' || raw === 'both' || raw === 'off') return raw
+  // Any unrecognized value (incl. the legacy v1 boolean handling below) resolves safely to a
+  // valid mode — never crash on stored nonsense.
   // v2 unset — fall back to the legacy v1 boolean so existing users keep their overlay.
   if (raw === null && typeof localStorage !== 'undefined') {
     try {

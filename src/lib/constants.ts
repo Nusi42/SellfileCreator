@@ -86,9 +86,10 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
 // Safeguard-rank overlay modes for the Gear Inspector grid cycle button.
-// 'off' hides the chip; 'rank' shows the best rank (#N); 'rankQuota' shows the
-// rank against the per-group required count (#N/req) so the keep/sell cutoff is explicit.
-export type SafeguardRankMode = 'off' | 'rank' | 'rankQuota'
+// 'off' hides the chip; 'rank' shows the global rank across the whole rule (#N); 'groupRank'
+// shows the rank within the piece's own count-group (slot/set/faction/main-stat scope); 'both'
+// shows global · group (#N · #M).
+export type SafeguardRankMode = 'off' | 'rank' | 'groupRank' | 'both'
 
 // MUI's mode key — MUI's ThemeProvider reads this synchronously at init. The STORED value is
 // only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
@@ -292,6 +293,9 @@ export const LANG_KEY = 'sellfileCreator.lang.v1'
 // the header context menu layout remains stable while switching states.
 export const MENU_CONTROL_HEIGHT_PX = 28
 export const MENU_CONTROL_MIN_WIDTH_PX = 120
+// Width of the grid menu's 5-button rating row (sort-source + 4 presets): 5×28 + 4×4px gaps.
+// The Safeguard Rank cycle button matches this so the two rows line up.
+export const MENU_RATING_ROW_WIDTH_PX = 5 * MENU_CONTROL_HEIGHT_PX + 4 * 4
 // Fixed label width for header context menu items. Ensures translations (e.g., German)
 // wrap instead of expanding the menu paper width.
 export const MENU_LABEL_WIDTH_PX = 176

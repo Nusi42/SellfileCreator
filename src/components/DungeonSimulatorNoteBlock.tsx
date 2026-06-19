@@ -1,6 +1,7 @@
 import { use, Fragment } from 'react'
 import { Box, Skeleton, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
 import { SetIcon } from './SetIcon'
+import { FONT_FAMILY_MONO } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import {
   EVENT_SPOTLIGHT_DEFAULT,
@@ -248,7 +249,7 @@ export default function DungeonSimulatorNoteBlock(_props: DungeonSimulatorNoteBl
       : []
 
     // Shared monospace style for the per-set breakdown grid.
-    const monoSx = { fontFamily: 'monospace', fontSize: '0.8125rem', lineHeight: 1.5 }
+    const monoSx = { fontFamily: FONT_FAMILY_MONO, fontSize: '0.8125rem', lineHeight: 1.5 }
 
     return (
       <Box sx={{ py: 0.25 }}>

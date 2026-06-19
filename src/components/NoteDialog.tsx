@@ -21,7 +21,7 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -1760,7 +1760,7 @@ const RECIPE_OVERRIDES_TOOLTIP_WRAP_SX = {
 }
 const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
   // Use the mono stack so grammar alignment stays readable.
-  fontFamily: 'var(--font-code, "JetBrains Mono", monospace)',
+  fontFamily: FONT_FAMILY_MONO,
   // Slightly smaller text keeps the tooltip compact.
   fontSize: '0.78rem',
   // Preserve newlines while still wrapping long lines.
@@ -2254,7 +2254,7 @@ function NoteOptionRefChip(
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4, whiteSpace: 'nowrap', mr: 1.25 }}>
       {token && (
-        <Box component="span" sx={{ color: tokenColor, fontFamily: 'var(--font-code, monospace)', fontSize: '0.8rem', fontWeight: 600 }}>
+        <Box component="span" sx={{ color: tokenColor, fontFamily: FONT_FAMILY_MONO, fontSize: '0.8rem', fontWeight: 600 }}>
           {token}{shortAnswer ? ':' : ''}
         </Box>
       )}
@@ -2299,7 +2299,7 @@ const NOTE_OPTION_INFO_PANEL_SX = {
 } satisfies Record<string, unknown>
 // The CHANGES DSL <pre> itself — transparent (the panel above provides the surface).
 const NOTE_OPTION_INFO_PRE_SX = {
-  fontFamily: 'var(--font-code, "JetBrains Mono", monospace)',
+  fontFamily: FONT_FAMILY_MONO,
   fontSize: '0.85rem',
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
@@ -2342,7 +2342,7 @@ function NoteTooltipSectionHeading({ children, color }: { children: React.ReactN
   return (
     <Typography
       component="div"
-      sx={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color, mb: 0.5, fontFamily: 'var(--font-code, monospace)' }}
+      sx={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color, mb: 0.5, fontFamily: FONT_FAMILY_MONO }}
     >
       {children}
     </Typography>
@@ -2358,7 +2358,7 @@ function NoteOptionConstraintRow(
   if (ids.length === 0) return null
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: 'var(--font-code, monospace)' }}>
+      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: FONT_FAMILY_MONO }}>
         {label}
       </Typography>
       <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 0.25, minWidth: 0 }}>
@@ -2381,12 +2381,12 @@ function NoteOptionSetvalRow(
   if (directives.length === 0) return null
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: 'var(--font-code, monospace)' }}>
+      <Typography component="span" sx={{ fontSize: '0.8rem', width: '4em', flexShrink: 0, color: kwColor, fontFamily: FONT_FAMILY_MONO }}>
         setval
       </Typography>
       <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.25, minWidth: 0 }}>
         {directives.map((d) => (
-          <Typography key={d.token} component="span" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: 'var(--font-code, monospace)' }}>
+          <Typography key={d.token} component="span" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: FONT_FAMILY_MONO }}>
             {d.token}={d.value}
           </Typography>
         ))}
@@ -2464,7 +2464,7 @@ function NoteOptionInfoTooltipContent({
           )}
         </Box>
         {/* ID section: how to address this option in the DSL. */}
-        <Typography component="div" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: 'var(--font-code, monospace)', mt: 0.25 }}>
+        <Typography component="div" sx={{ fontSize: '0.78rem', color: tokenColor, fontFamily: FONT_FAMILY_MONO, mt: 0.25 }}>
           {idText}<Box component="span" sx={{ fontFamily: 'inherit', color: 'text.disabled' }}>{idHint}</Box>
         </Typography>
       </Box>
@@ -2494,7 +2494,7 @@ function NoteOptionInfoTooltipContent({
           <Box sx={NOTE_OPTION_INFO_PANEL_SX}>
             {hasOwnFields && renderPrismHighlighted(dsl, 'dynamic-overrides', NOTE_OPTION_INFO_PRE_SX)}
             {slider && (
-              <Typography component="div" sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: hasOwnFields ? 0.5 : 0, fontFamily: 'var(--font-code, monospace)' }}>
+              <Typography component="div" sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: hasOwnFields ? 0.5 : 0, fontFamily: FONT_FAMILY_MONO }}>
                 range: {slider.min}–{slider.max} (default {slider.default})
               </Typography>
             )}

@@ -492,8 +492,9 @@ pub struct SafeguardWasmArtifactOut {
 }
 
 // Per-candidate scored output exposed in detection entries for UI overlays.
-// candidateRank is 1-based (1 = best score); 0 means the non-ranking path was used.
-// isWithinQuota is true when the candidate is among the top-N selected for this rule.
+// candidateRank is 1-based (1 = best score) across ALL of this rule's buckets (global rank);
+// bucketRank is 1-based within the candidate's own count-group bucket. Both are 0 on the
+// non-ranking path. isWithinQuota is true when the candidate is among the top-N selected.
 //
 // ts-rs export: leaf type referenced by SafeguardWasmEntryOut and the live preview path.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
@@ -503,6 +504,7 @@ pub struct SafeguardWasmCandidateOut {
     pub item_key: i64,
     pub score: f64,
     pub candidate_rank: u32,
+    pub bucket_rank: u32,
     pub is_within_quota: bool,
 }
 
@@ -2993,6 +2995,10 @@ fn safeguard_build_entry_for_substats(
         let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
         // Collect all scored candidates across groups for rank/quota output.
         let mut raw_candidates_for_output: Vec<SafeguardWasmScoredCandidate> = Vec::new();
+        // Per-bucket (count-group) rank by candidate_idx: 1-based position within the candidate's
+        // own bucket. candidate_rank below is the GLOBAL rank across buckets; bucket_rank is local.
+        // BTreeMap (not HashMap): wasm/ uses BTreeMap throughout to avoid talc fragmentation.
+        let mut bucket_rank_by_idx: BTreeMap<usize, u32> = BTreeMap::new();
 
         // Use explicit expected list when present, otherwise derive from observed groups.
         let expected_list = if !expected_groups.is_empty() {
@@ -3032,6 +3038,23 @@ fn safeguard_build_entry_for_substats(
                 ));
                 deficit += deficit_group;
                 continue;
+            }
+            // Per-bucket rank: 1 + count of strictly-better peers in THIS bucket. Uses the same
+            // tie-only comparator as top-N selection, so bucket_rank <= required_per_group exactly
+            // matches is_within_quota. This is the in-group position (vs the global candidate_rank).
+            for entry in bucket.iter() {
+                let mut better = 0u32;
+                for challenger in bucket.iter() {
+                    if challenger.candidate_idx == entry.candidate_idx {
+                        continue;
+                    }
+                    if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates)
+                        == Ordering::Less
+                    {
+                        better += 1;
+                    }
+                }
+                bucket_rank_by_idx.insert(entry.candidate_idx, better + 1);
             }
             // Always select top-N by current-value score with tie-boundary extension.
             let top_n = safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates);
@@ -3148,6 +3171,7 @@ fn safeguard_build_entry_for_substats(
                 item_key: candidates[entry.candidate_idx].item_key,
                 score: entry.score,
                 candidate_rank: (rank_idx + 1) as u32,
+                bucket_rank: bucket_rank_by_idx.get(&entry.candidate_idx).copied().unwrap_or(0),
                 is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
             })
             .collect();
@@ -3241,6 +3265,7 @@ fn safeguard_build_entry_for_substats(
                 item_key: candidates[*idx].item_key,
                 score: 0.0,
                 candidate_rank: 0,
+                bucket_rank: 0,
                 is_within_quota: !candidate_sold_state[*idx]
                     || selected_sold_set.contains(idx),
             })
@@ -3456,6 +3481,7 @@ fn safeguard_build_entry_for_substats(
             item_key: candidates[idx].item_key,
             score: 0.0,
             candidate_rank: 0,
+            bucket_rank: 0,
             is_within_quota: !candidate_sold_state[idx] || at_risk_set.contains(&idx),
         })
         .collect();
@@ -3984,11 +4010,28 @@ pub fn score_safeguard_candidates_for_preview_core(
     }
     // Accumulate the union of per-group top-N selections — this drives is_within_quota.
     let mut within_quota_indices = HashSet::<usize>::new();
+    // Per-bucket rank by candidate_idx (mirrors the detection path). BTreeMap per wasm/ convention.
+    let mut bucket_rank_by_idx: BTreeMap<usize, u32> = BTreeMap::new();
     for bucket in groups.values() {
         // Reuse the detection top-N picker so tie-boundary expansion stays identical.
         let selected = safeguard_select_top_scored_candidates(bucket, required_per_group, &candidates);
         for entry in selected {
             within_quota_indices.insert(entry.candidate_idx);
+        }
+        // 1 + strictly-better peers in this bucket (same comparator as top-N selection).
+        for entry in bucket.iter() {
+            let mut better = 0u32;
+            for challenger in bucket.iter() {
+                if challenger.candidate_idx == entry.candidate_idx {
+                    continue;
+                }
+                if safeguard_compare_scored_candidates_tie_only(challenger, entry, &candidates)
+                    == Ordering::Less
+                {
+                    better += 1;
+                }
+            }
+            bucket_rank_by_idx.insert(entry.candidate_idx, better + 1);
         }
     }
     // Sort all scored entries by score descending for rank assignment in output order.
@@ -4006,6 +4049,7 @@ pub fn score_safeguard_candidates_for_preview_core(
                 item_key,
                 score: entry.score,
                 candidate_rank: (rank_idx + 1) as u32,
+                bucket_rank: bucket_rank_by_idx.get(&entry.candidate_idx).copied().unwrap_or(0),
                 // Mirrors detection: union of per-group top-N with tie extension.
                 is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
             }

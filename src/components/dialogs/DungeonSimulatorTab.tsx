@@ -6,7 +6,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { useI18n } from '../../lib/i18n'
-import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
+import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, FONT_FAMILY_MONO } from '../../lib/constants'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
 import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import type { HsfRuleWithRecipe } from '../../lib/merge'
@@ -989,10 +989,10 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 <Box>
                   <Typography variant="subtitle2">{t('dungeonDropsInfoSourcesTitle')}</Typography>
                   <Box component="ul" sx={{ pl: 2, my: 0.5, '& li': { display: 'list-item' } }}>
-                    <Typography component="li" variant="caption" sx={{ fontFamily: 'monospace' }}>
+                    <Typography component="li" variant="caption" sx={{ fontFamily: FONT_FAMILY_MONO }}>
                       {t('dungeonDropsInfoSourceAyumilove')}
                     </Typography>
-                    <Typography component="li" variant="caption" sx={{ fontFamily: 'monospace' }}>
+                    <Typography component="li" variant="caption" sx={{ fontFamily: FONT_FAMILY_MONO }}>
                       {t('dungeonDropsInfoSourceTyrauku')}
                     </Typography>
                   </Box>

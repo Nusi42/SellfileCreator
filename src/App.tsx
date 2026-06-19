@@ -5513,7 +5513,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardDetection, selectedSafeguardRuleIdx])
   // Safeguard rank overlay for the Gear Inspector: maps artifact id → best candidate rank + quota status.
   // Context-aware: one rule selected → that rule's rank; multiple selected → best among those; none → best across all.
-  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; requiredPerGroup: number; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number }> }> | null>(() => {
+  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> }> | null>(() => {
     if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
     // selectedSafeguardRuleIndices are 0-based; detection entries use 1-based ordinals.
     const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
@@ -5527,10 +5527,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Always rank against ALL active entries so a piece ranked only by an UNSELECTED rule still
     // surfaces (dimmed) instead of vanishing. inSelection records whether the chosen primary rank
     // comes from a currently-selected rule; the overlay dims chips where it does not.
-    type RankRec = { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; requiredPerGroup: number; inSelection: boolean }
+    // rank = global rank across the whole rule; groupRank = rank within the piece's count-group.
+    type RankRec = { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean }
     const result = new Map<number, RankRec>()
     // Track all other applicable rule ordinals per artifact (sorted by rank ascending) for tooltip extras.
-    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; ruleOrdinal: number | null }>>()
+    // groupRank is carried per entry so the tooltip can show each rule's own global · group ranks.
+    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; groupRank: number; ruleOrdinal: number | null }>>()
     for (const entry of activeEntries) {
       // Only entries with scored candidates carry rank data.
       if (!entry.candidates?.length) continue
@@ -5538,7 +5540,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       for (const candidate of entry.candidates) {
         if (candidate.candidateRank <= 0) continue
         const existing = result.get(candidate.itemKey)
-        const candRec: RankRec = { rank: candidate.candidateRank, isWithinQuota: candidate.isWithinQuota, ruleOrdinal: entry.ruleOrdinal, requiredPerGroup: entry.perGroupRequiredCount, inSelection: entryInSelection }
+        const candRec: RankRec = { rank: candidate.candidateRank, groupRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, ruleOrdinal: entry.ruleOrdinal, inSelection: entryInSelection }
         // Primary preference: a selected-rule candidacy always wins over an unselected one, so a
         // selected piece shows ITS rank in the selected rule (not a better rank elsewhere). Within the
         // same selection tier, keep the best (lowest) rank. The displaced record drops into otherRules.
@@ -5548,31 +5550,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (candWins) {
           if (existing) {
             const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-            others.push({ rank: existing.rank, ruleOrdinal: existing.ruleOrdinal })
+            others.push({ rank: existing.rank, groupRank: existing.groupRank, ruleOrdinal: existing.ruleOrdinal })
             otherRulesPerArtifact.set(candidate.itemKey, others)
           }
           result.set(candidate.itemKey, candRec)
         } else {
           const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-          others.push({ rank: candidate.candidateRank, ruleOrdinal: entry.ruleOrdinal })
+          others.push({ rank: candidate.candidateRank, groupRank: candidate.bucketRank, ruleOrdinal: entry.ruleOrdinal })
           otherRulesPerArtifact.set(candidate.itemKey, others)
         }
       }
     }
     // Merge otherRules (sorted by rank, deduplicated by ordinal, excluding primary) into the result.
-    const merged = new Map<number, { rank: number; isWithinQuota: boolean; ruleOrdinal: number | null; requiredPerGroup: number; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number }> }>()
-    result.forEach(({ rank, isWithinQuota, ruleOrdinal, requiredPerGroup, inSelection }, artifactId) => {
+    const merged = new Map<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> }>()
+    result.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection }, artifactId) => {
       const others = otherRulesPerArtifact.get(artifactId) ?? []
       const seen = new Set<number>()
-      const otherRules: Array<{ ruleOrdinal: number; rank: number }> = []
+      const otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> = []
       for (const o of others.sort((a, b) => a.rank - b.rank)) {
         if (typeof o.ruleOrdinal !== 'number' || o.ruleOrdinal === ruleOrdinal) continue
         if (seen.has(o.ruleOrdinal)) continue
         seen.add(o.ruleOrdinal)
-        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank })
+        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, groupRank: o.groupRank })
         if (otherRules.length === 3) break
       }
-      merged.set(artifactId, { rank, isWithinQuota, ruleOrdinal, requiredPerGroup, inSelection, otherRules })
+      merged.set(artifactId, { rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules })
     })
     return merged.size > 0 ? merged : null
   }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])

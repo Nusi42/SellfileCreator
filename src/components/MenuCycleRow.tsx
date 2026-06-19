@@ -19,6 +19,9 @@ type MenuCycleRowProps = {
   tooltip?: string
   // Replaces the default Typography sx ({ flex: 1, minWidth: 0 }).
   labelSx?: SxProps<Theme>
+  // Override the cycle button's min width (default MENU_CONTROL_MIN_WIDTH_PX) — used when a row
+  // needs to line up with a wider sibling control (e.g. the 5-button rating row).
+  controlMinWidth?: number
 }
 
 /**
@@ -37,6 +40,7 @@ export function MenuCycleRow({
   color = 'success',
   tooltip,
   labelSx,
+  controlMinWidth = MENU_CONTROL_MIN_WIDTH_PX,
 }: MenuCycleRowProps) {
   const handleRowClick = () => {
     const currentIdx = options.findIndex((o) => o.value === value)
@@ -62,7 +66,7 @@ export function MenuCycleRow({
         {...(disabled !== undefined ? { disabled } : {})}
         variant={variant}
         color={color}
-        sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+        sx={{ minWidth: controlMinWidth, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
       />
     </MenuItem>
   )
