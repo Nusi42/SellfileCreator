@@ -4605,8 +4605,11 @@ export default function NoteDialog({
   }, [mode, animatedOnClose])
 
   const handleDialogClose = React.useCallback(() => {
+    // Simple mode is a guided express flow — the dialog has no dismiss affordance,
+    // so backdrop clicks and Escape must not close it.
+    if (isSimpleMode) return
     try { editCommitRef.current() } catch { animatedOnClose() }
-  }, [animatedOnClose])
+  }, [animatedOnClose, isSimpleMode])
 
   // Locally-owned ref for the panel element, used for drag position and entry animation.
   // Synced to the animation hook's ref after mount so animateClose can still read bounds.
