@@ -149,17 +149,30 @@ export function useFittingLabel({
     setIdealWidth((prev) => (Math.abs(prev - full) < 1 ? prev : Math.ceil(full)))
   }, [tiers, reservedPx, trailingReservedPx, boundaryRef])
 
-  // Observe BOTH the wrapper and the boundary row so a change to either (panel resize,
-  // sibling appearing, zoom, font swap) re-fits. useLayoutEffect commits the corrected
-  // tier before paint, avoiding a wrong-width flash.
+  // Re-fit after EVERY render (no deps): a render is how React-state-driven layout changes
+  // reach us — a sibling control toggling (e.g. the Diff delta chip mounting), a mode switch,
+  // or the label tier itself changing. The header's own width is unchanged in those cases, so
+  // a ResizeObserver alone would miss them. measure() uses functional setState that no-ops
+  // when the tier is unchanged, so running it every render cannot loop. useLayoutEffect
+  // commits the corrected tier before paint, avoiding a wrong-width flash.
+  React.useLayoutEffect(() => {
+    measure()
+  })
+
+  // Plus a ResizeObserver for layout changes that DON'T re-render us — chiefly the preview
+  // paper/panel being resized via its splitter. Observe the boundary row (its width changes
+  // with the panel), the export wrapper, and the boundary's direct children (so a child
+  // growing/shrinking in place also re-fits). Re-attached when the boundary ref resolves.
   React.useLayoutEffect(() => {
     const el = ref.current
     const boundary = boundaryRef.current
     if (!el) return
-    measure()
     const observer = new ResizeObserver(() => measure())
     observer.observe(el)
-    if (boundary) observer.observe(boundary)
+    if (boundary) {
+      observer.observe(boundary)
+      for (const child of Array.from(boundary.children)) observer.observe(child)
+    }
     return () => observer.disconnect()
   }, [measure, boundaryRef])
 
