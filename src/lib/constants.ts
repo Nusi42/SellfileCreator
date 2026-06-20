@@ -193,23 +193,26 @@ export const GLYPH_ARROW_RIGHT = '→'
 export const GLYPH_TOGGLE_ON = '⦿'
 export const GLYPH_TOGGLE_OFF = '⭘'
 export const GLYPH_GLYPHS_SELECTED = '✓'
-// Per-dimension count glyphs — each scope gets a distinct colored emoji shown iff the flag is on.
+// Per-dimension count glyphs — each scope gets a distinct monochrome symbol shown iff the flag is on.
 // When the selection for that dimension is empty (any), ∀ is appended to signal "every".
-export const GLYPH_PER_SLOT = '🔲'     // black square button — slot/grid position
-export const GLYPH_PER_FACTION = '🚩'  // triangular flag — faction banner
-export const GLYPH_PER_MAIN_STAT = '⭐' // star — primary stat marker
-export const GLYPH_PER_SET = '🎯'      // direct hit/bullseye — set collection target
-export const GLYPH_PER_SUBSTAT = '➕'  // heavy plus — secondary stat addition
+export const GLYPH_PER_SLOT = '⬡'      // hexagon — grid cell / slot
+export const GLYPH_PER_FACTION = '⚑'   // black flag — faction banner
+export const GLYPH_PER_MAIN_STAT = '♦'  // diamond suit — primary/gem stat (distinct from ★ rank)
+export const GLYPH_PER_SET = '⚙'       // gear/cog — set mechanics
+export const GLYPH_PER_SUBSTAT = '✦'   // 4-pointed star — secondary stat sparkle
 export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) selections
 // Ignore-option chip glyphs — shown on the three ignore toggle chips.
-export const GLYPH_IGNORE_PREVIOUS = '⏩'    // skip/bypass previous safeguard results
-export const GLYPH_IGNORE_COLLECTION = '🏆'  // gear worn by collection champions
-export const GLYPH_IGNORE_VAULT = '🏦'       // gear worn by vault champions
-export const GLYPH_WEIGHT_BY_RANK_OFF = '⚖️'  // shown when weightMainStatByRank is disabled (non-default)
-export const GLYPH_IMPROVEMENT_CHANCE = '📈'     // improvement-chance threshold chip
+export const GLYPH_IGNORE_PREVIOUS = '»'    // right double angle — skip/bypass previous safeguard results
+export const GLYPH_IGNORE_COLLECTION = '♛'  // crown — ignore gear on collection champions
+export const GLYPH_IGNORE_VAULT = '⌂'       // house/building — ignore gear in vault
+export const GLYPH_WEIGHT_BY_RANK_OFF = '⚖'  // scales (no VS-16) — shown when weightMainStatByRank is disabled (non-default)
+export const GLYPH_IMPROVEMENT_CHANCE = '↑'     // up arrow — improvement-chance threshold chip
 // Substat match chip glyphs — one per mode option.
-export const GLYPH_SUBSTAT_ANY = '🔀'  // any one selected substat qualifies
-export const GLYPH_SUBSTAT_ALL = '🔗'  // all selected substats must be present
+export const GLYPH_SUBSTAT_ANY = '∨'   // logical or — any one selected substat qualifies
+export const GLYPH_SUBSTAT_ALL = '∧'   // logical and — all selected substats must be present
+// Keep-mode milestone glyphs — shown in recipe chip summary when Milestone Thresholds active.
+export const GLYPH_KEEP_MODE_EARLY = '☀'  // sun — early-phase keep mode
+export const GLYPH_KEEP_MODE_LATE = '☽'   // crescent moon — late-phase keep mode
 
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'

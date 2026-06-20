@@ -22,7 +22,7 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { CircledDigitBadge } from './CircledDigitBadge'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
@@ -675,12 +675,10 @@ export function summaryParts(
     if (combined) addText(combined)
   }
 
-  // Keep mode indicator: show a compact emoji for timing to make it explicit.
-  // 🌅 for Early, 🌙 for Late. Hide the section entirely when Milestone Thresholds
-  // cannot go Late so the summary stays focused on active behavior.
+  // Keep mode indicator: ○ Early, ● Late. Hidden when Milestone Thresholds cannot go Late.
   if (milestoneThresholdsActive) {
     const mode = (recipe.earlyKeepMode ?? 'early')
-    addText(mode === 'late' ? '🌙' : '🌅')
+    addText(mode === 'late' ? GLYPH_KEEP_MODE_LATE : GLYPH_KEEP_MODE_EARLY)
   }
 
   // Faction
