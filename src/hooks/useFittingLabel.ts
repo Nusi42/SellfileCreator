@@ -85,6 +85,11 @@ export function useFittingLabel({
     const viewport = viewportRef.current
     if (!el || !viewport) return
     const fontEl = fontReference(el)
+    // gapOf: the flex column-gap of a container (one gap per inter-item boundary).
+    const gapOf = (container: HTMLElement): number => {
+      const cs = window.getComputedStyle(container)
+      return parseFloat(cs.columnGap || cs.gap || '0') || 0
+    }
     // Sum the action group's fixed buttons (everything in el's parent except el itself).
     const group = el.parentElement
     let fixedWidth = 0
@@ -93,10 +98,24 @@ export function useFittingLabel({
         if (child === el || (child as HTMLElement).contains(el)) continue
         fixedWidth += outerWidth(child as HTMLElement)
       }
-      // Flex gap between the action group's children (one gap per fixed sibling + before el).
-      const gcs = window.getComputedStyle(group)
-      const gap = parseFloat(gcs.columnGap || gcs.gap || '0') || 0
-      fixedWidth += gap * Math.max(0, group.children.length - 1)
+      fixedWidth += gapOf(group) * Math.max(0, group.children.length - 1)
+    }
+    // Sum the control groups (Filter/Sort/Diff) that share the control row with the action
+    // group: everything in the row EXCEPT the action group itself and the flex-grow spacer.
+    // Subtracting these is what makes the label shrink as the header narrows (so the controls
+    // stay visible without scrolling); when even icon-only won't fit, the row scrolls.
+    const row = group ? group.parentElement : null
+    let controlsWidth = 0
+    if (row) {
+      let gaps = 0
+      for (const child of Array.from(row.children)) {
+        const c = child as HTMLElement
+        if (c === group || c.contains(el)) continue // skip the action group
+        if ((parseFloat(window.getComputedStyle(c).flexGrow) || 0) > 0) continue // skip spacer
+        controlsWidth += outerWidth(c)
+        gaps += 1
+      }
+      controlsWidth += gapOf(row) * Math.max(0, gaps)
     }
     // The export wrapper's own horizontal margins consume space too.
     const ownMargin = (() => {
@@ -107,7 +126,7 @@ export function useFittingLabel({
     const viewportContent =
       viewport.clientWidth - parseFloat(vcs.paddingLeft || '0') - parseFloat(vcs.paddingRight || '0')
     const available =
-      viewportContent - leadingReservedPx - fixedWidth - ownMargin - trailingReservedPx - reservedPx - FIT_SAFETY_PX
+      viewportContent - controlsWidth - leadingReservedPx - fixedWidth - ownMargin - trailingReservedPx - reservedPx - FIT_SAFETY_PX
     const next = chooseTier(tiers, fontEl, available)
     const full = tiers[0] ? measureTextWidth(tiers[0], fontEl) + reservedPx : 0
     // Functional updates: skip the re-render when nothing changed (resize jitter). The rule

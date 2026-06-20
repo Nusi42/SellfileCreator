@@ -27,7 +27,7 @@ import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { exportLabelTiers } from '../lib/exportLabelTiers'
 import { useFittingLabel } from '../hooks/useFittingLabel'
-import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX, EXPORT_SCROLL_MIN_WIDTH_PX } from '../lib/constants'
+import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX } from '../lib/constants'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -804,9 +804,6 @@ export default function PreviewHeaderActions(props: {
     reservedPx: EXPORT_LABEL_RESERVED_PX,
     // The chevron split-button (when shown) sits after the label inside the action group.
     trailingReservedPx: exportMenuEnabled ? EXPORT_CHEVRON_RESERVED_PX : 0,
-    // Reserve a minimum for the scrollable control-group area so the pinned action group
-    // never eats the whole header (the control groups scroll within what's left).
-    leadingReservedPx: EXPORT_SCROLL_MIN_WIDTH_PX,
     viewportRef: exportOuterHeaderRef,
   })
   const exportIcon = pushActive ? <PublishIcon /> : <FileDownloadIcon />
@@ -2892,9 +2889,12 @@ export default function PreviewHeaderActions(props: {
             position: 'sticky',
             right: 0,
             zIndex: 1,
-            // Real per-scheme paper (not the near-black frozen palette) so the occluding
-            // background matches the surface the controls scroll under.
+            // Match the surface the controls scroll under: the per-scheme paper BASE plus the
+            // MUI elevation overlay the Paper paints on top (a translucent gradient in dark
+            // mode). Using only the base read as too-dark/black; --Paper-overlay is set on the
+            // ancestor Paper and inherited here (falls back to none in light mode).
             bgcolor: schemePaper,
+            backgroundImage: 'var(--Paper-overlay, none)',
             pl: 1,
           }}
         >
