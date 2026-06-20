@@ -35,6 +35,7 @@ import {
   GLYPH_IGNORE_COLLECTION,
   GLYPH_IGNORE_PREVIOUS,
   GLYPH_IGNORE_VAULT,
+  GLYPH_WEIGHT_BY_RANK_OFF,
   NBSP,
   RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
   RECIPE_CHIP_VERTICAL_PADDING_PX,
@@ -210,12 +211,14 @@ const SafeguardChip = React.memo(function SafeguardChip({
     : rule.activation === SafeguardRuleActivation.AnticipateGaps
       ? t('safeguardsRuleModeAnticipateShort')
       : t('safeguardsRuleModeOffShort')
-  // Ignore-flag glyphs shown after ≥ N in the mode badge.
-  const ignoreParts: string[] = []
-  if (rule.ignorePreviousSafeguards !== false) ignoreParts.push(GLYPH_IGNORE_PREVIOUS)
-  if (rule.ignoreEquippedInCollection === true) ignoreParts.push(GLYPH_IGNORE_COLLECTION)
-  if (rule.ignoreEquippedInVault === true) ignoreParts.push(GLYPH_IGNORE_VAULT)
-  const perDimSuffix = ignoreParts.length > 0 ? NBSP + ignoreParts.join('') : ''
+  // Flag glyphs shown after ≥ N in the mode badge: ignore flags + weight-by-rank-off indicator.
+  const flagParts: string[] = []
+  if (rule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)
+  if (rule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
+  if (rule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
+  // weightMainStatByRank defaults to true; show ⚖️ when explicitly turned off.
+  if (rule.weightMainStatByRank === false) flagParts.push(GLYPH_WEIGHT_BY_RANK_OFF)
+  const perDimSuffix = flagParts.length > 0 ? NBSP + flagParts.join('') : ''
   // Summary line — memoized so it only recomputes when this chip's rule or display prefs change.
   const summary = useMemo(
     () => safeguardSummaryParts(rule, metasets, {

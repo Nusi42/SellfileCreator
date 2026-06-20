@@ -205,6 +205,7 @@ export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) s
 export const GLYPH_IGNORE_PREVIOUS = '⏩'    // skip/bypass previous safeguard results
 export const GLYPH_IGNORE_COLLECTION = '🏆'  // gear worn by collection champions
 export const GLYPH_IGNORE_VAULT = '🏦'       // gear worn by vault champions
+export const GLYPH_WEIGHT_BY_RANK_OFF = '⚖️'  // shown when weightMainStatByRank is disabled (non-default)
 export const GLYPH_IMPROVEMENT_CHANCE = '📈'     // improvement-chance threshold chip
 // Substat match chip glyphs — one per mode option.
 export const GLYPH_SUBSTAT_ANY = '🔀'  // any one selected substat qualifies
