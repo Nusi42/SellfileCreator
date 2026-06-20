@@ -1301,26 +1301,31 @@ export default function PreviewHeaderActions(props: {
         ) : null}
       </Stack>
       <Stack
-        // Boundary for useFittingLabel: its stable, viewport-driven content width (minus the
-        // left control groups + the export group's own fixed buttons) is the export label's
-        // budget, so the budget never feeds back on the current label.
+        // Boundary for useFittingLabel: its visible (client) width minus the left control
+        // groups + the export group's own fixed buttons is the export label's budget.
         ref={exportHeaderRowRef}
         direction="row"
         spacing={1}
         sx={{
           mb: 1,
-          // Wrap control groups onto additional rows rather than overflowing/scrolling the header.
-          flexWrap: 'wrap',
-          rowGap: 1,
+          // The control row no longer wraps: when it can't fit it scrolls horizontally. The
+          // export label still shrinks first (useFittingLabel), so scroll is the last resort.
+          flexWrap: 'nowrap',
           minWidth: 0,
           alignItems: 'center',
-          // Each group caps at the row width so its own contents wrap instead of overflowing.
-          '& > *': { minWidth: 0, maxWidth: '100%' },
+          overflowX: 'auto',
+          // Keep the single-line row from sprouting a vertical scrollbar (overflowX:auto
+          // would otherwise compute overflowY to auto); nothing overflows vertically here.
+          overflowY: 'hidden',
+          // Control groups keep their natural width and the row scrolls — they must NOT
+          // shrink (their default flexShrink:1 would ellipsis/wrap instead of scrolling).
+          // The export action group manages its own width via useFittingLabel.
+          '& > *': { flexShrink: 0 },
         }}
       >
         {onToggleFilter && (
           <>
-            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', flexWrap: 'nowrap', alignItems: 'center', gap: 0.5 }}>
               {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
               <MarkdownTooltip markdown={filterTooltipLabel}>
                 <Box
@@ -1389,7 +1394,7 @@ export default function PreviewHeaderActions(props: {
                 <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
               )}
             </Box>
-            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', flexWrap: 'nowrap', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
               <MarkdownTooltip markdown={t('gearInspectorSortTooltip')}>
                 {/* Outer span carries the hint-tracking and right-click handlers. */}
                 <Box
@@ -2853,18 +2858,28 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        {/* The action group. flex `1 1 auto` grows it to fill whatever flex line it lands on
-            — so justifyContent:flex-end right-aligns its buttons on BOTH the first row and,
-            after wrapping, its own second row (margin-left:auto only right-aligns on a shared
-            line, so it left-sticks once wrapped — grow fixes that). The AUTO basis (not 0) is
-            deliberate: basis:0 let the fixed buttons overflow and OVERLAP the Diff group;
-            auto basis lets flex-wrap measure real content and wrap the whole group cleanly.
-            Until it wraps, the hook shrinks the export label (full→short→min→icon) to fit.
-            nowrap keeps the buttons on one line; fixed siblings stay flexShrink:0. */}
+        {/* The action group is PINNED to the right via position:sticky while the rest of the
+            control row scrolls horizontally under it — so the export/push buttons stay
+            reachable no matter how far the row is scrolled. margin-left:auto pushes it to the
+            right edge when the row isn't overflowing; sticky takes over once it is. The paper
+            background + left padding occlude the Filter/Sort/Diff controls scrolling beneath
+            it. The export label still shrinks first (useFittingLabel), so scroll is the last
+            resort. fixed siblings stay flexShrink:0. */}
         <Stack
           direction="row"
           spacing={1}
-          sx={{ flex: '1 1 auto', minWidth: 0, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
+          sx={{
+            flex: '0 0 auto',
+            ml: 'auto',
+            minWidth: 0,
+            flexWrap: 'nowrap',
+            alignItems: 'center',
+            position: 'sticky',
+            right: 0,
+            zIndex: 1,
+            bgcolor: 'background.paper',
+            pl: 1,
+          }}
         >
           {historyMenuEnabled ? (
             <>
