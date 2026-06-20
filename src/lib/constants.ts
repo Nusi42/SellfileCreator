@@ -205,7 +205,7 @@ export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) s
 export const GLYPH_IGNORE_PREVIOUS = '»'    // right double angle — skip/bypass previous safeguard results
 export const GLYPH_IGNORE_COLLECTION = '♛'  // crown — ignore gear on collection champions
 export const GLYPH_IGNORE_VAULT = '⌂'       // house/building — ignore gear in vault
-export const GLYPH_WEIGHT_BY_RANK_OFF = '⚖'  // scales (no VS-16) — shown when weightMainStatByRank is disabled (non-default)
+export const GLYPH_WEIGHT_BY_RANK = '⚖'  // scales (no VS-16) — shown in main-stat subgroup when weightMainStatByRank is on
 export const GLYPH_IMPROVEMENT_CHANCE = '↑'     // up arrow — improvement-chance threshold chip
 // Substat match chip glyphs — one per mode option.
 export const GLYPH_SUBSTAT_ANY = '∨'   // logical or — any one selected substat qualifies

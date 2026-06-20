@@ -29,6 +29,7 @@ import {
   type RankValue,
 } from '../lib/types'
 import {
+  GLYPH_WEIGHT_BY_RANK,
   NBSP,
 } from '../lib/constants'
 import { collapseRankRunToOperator } from '../lib/hsfTypes'
@@ -262,6 +263,9 @@ export function safeguardSummaryParts(
 
   // ── Main stats ────────────────────────────────────────────────────────────
   const perMainStat = effectiveMode.perMainStat
+  // ⚖ suffix when weightMainStatByRank is on (default true); placed in this subgroup
+  // because the weight operates on the main-stat scoring dimension.
+  const weightSuffix = rule.weightMainStatByRank !== false ? `${NBSP}${GLYPH_WEIGHT_BY_RANK}` : ''
   if (c.mainStats && c.mainStats.length > 0) {
     // "Per Mainstat: " prefix when this rule splits its quota by main stat.
     const mainLbl = perMainStat ? `${opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat'}:${NBSP}` : ''
@@ -284,11 +288,15 @@ export function safeguardSummaryParts(
       <>
         {mainLbl && <Box component="span">{mainLbl}</Box>}
         {interleaved}
+        {weightSuffix}
       </>,
     )
   } else if (perMainStat) {
     // Wildcard main stats (all main stats): show the Per Mainstat scope label alone.
-    addText(opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat')
+    addText(`${opts.t ? opts.t('safeguardsCountModePerMain') : 'Per Mainstat'}${weightSuffix}`)
+  } else if (weightSuffix) {
+    // No main-stat filter but weight is off — show the glyph on its own so it's not lost.
+    addText(GLYPH_WEIGHT_BY_RANK)
   }
 
   // ── Substats ──────────────────────────────────────────────────────────────
