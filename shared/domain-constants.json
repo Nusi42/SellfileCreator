@@ -208,5 +208,185 @@
     "3": { "hpFlat": { "min": 125, "max": 275 }, "hpPercent": { "min": 1, "max": 3 }, "atkFlat": { "min":  6, "max": 15 }, "atkPercent": { "min": 1, "max": 3 }, "defFlat": { "min":  6, "max": 15 }, "defPercent": { "min": 1, "max": 3 }, "spd": { "min": 1, "max": 3 }, "res": { "min": 3, "max":  5 }, "acc": { "min": 3, "max":  5 } },
     "2": { "hpFlat": { "min": 125, "max": 175 }, "hpPercent": { "min": 1, "max": 2 }, "atkFlat": { "min":  4, "max": 10 }, "atkPercent": { "min": 1, "max": 2 }, "defFlat": { "min":  4, "max": 10 }, "defPercent": { "min": 1, "max": 2 }, "spd": { "min": 1, "max": 2 }, "res": { "min": 2, "max":  3 }, "acc": { "min": 2, "max":  3 } },
     "1": { "hpFlat": { "min":  75, "max": 100 }, "hpPercent": { "min": 1, "max": 1 }, "atkFlat": { "min":  4, "max":  5 }, "atkPercent": { "min": 1, "max": 1 }, "defFlat": { "min":  4, "max":  5 }, "defPercent": { "min": 1, "max": 1 }, "spd": { "min": 1, "max": 1 }, "res": { "min": 1, "max":  2 }, "acc": { "min": 1, "max":  2 } }
+  },
+  "mainStatRankWeighting": {
+    "_comment": "Main-stat rank weighting: safeguard score bonus = weight * (max16[clamp(rank,4,6)][slot][variant] / max16[6][slot][variant]). Level-independent (uses the rank's +16 main-stat, not current level), so a leveled and an unleveled piece of the same rank score the same main-stat term. Values are in-game level-16 main-stat maxima validated against all sample RSL DBs; rarity does NOT affect main-stat maxima. Banner has higher flat HP/ATK/DEF caps and amulet CDMG is half the gauntlet cap, hence the per-slot table.",
+    "weight": 1,
+    "max16ByRankSlotVariant": {
+      "4": {
+        "helmet": {
+          "hpFlat": 2840
+        },
+        "chestplate": {
+          "hpPercent": 40,
+          "hpFlat": 2840,
+          "atkPercent": 40,
+          "atkFlat": 190,
+          "defPercent": 40,
+          "defFlat": 190,
+          "acc": 64,
+          "res": 64
+        },
+        "gauntlets": {
+          "hpPercent": 40,
+          "hpFlat": 2840,
+          "atkPercent": 40,
+          "atkFlat": 190,
+          "defPercent": 40,
+          "defFlat": 190,
+          "cr": 40,
+          "cdmg": 49
+        },
+        "boots": {
+          "hpPercent": 40,
+          "hpFlat": 2840,
+          "atkPercent": 40,
+          "atkFlat": 190,
+          "defPercent": 40,
+          "defFlat": 190,
+          "spd": 35
+        },
+        "weapon": {
+          "atkFlat": 190
+        },
+        "shield": {
+          "defFlat": 190
+        },
+        "ring": {
+          "hpFlat": 2840,
+          "atkFlat": 190,
+          "defFlat": 190
+        },
+        "amulet": {
+          "hpFlat": 2840,
+          "atkFlat": 190,
+          "defFlat": 190,
+          "cdmg": 25
+        },
+        "banner": {
+          "hpFlat": 4260,
+          "atkFlat": 285,
+          "defFlat": 285,
+          "acc": 64,
+          "res": 64
+        }
+      },
+      "5": {
+        "helmet": {
+          "hpFlat": 3480
+        },
+        "chestplate": {
+          "hpPercent": 50,
+          "hpFlat": 3480,
+          "atkPercent": 50,
+          "atkFlat": 225,
+          "defPercent": 50,
+          "defFlat": 225,
+          "acc": 78,
+          "res": 78
+        },
+        "gauntlets": {
+          "hpPercent": 50,
+          "hpFlat": 3480,
+          "atkPercent": 50,
+          "atkFlat": 225,
+          "defPercent": 50,
+          "defFlat": 225,
+          "cr": 50,
+          "cdmg": 65
+        },
+        "boots": {
+          "hpPercent": 50,
+          "hpFlat": 3480,
+          "atkPercent": 50,
+          "atkFlat": 225,
+          "defPercent": 50,
+          "defFlat": 225,
+          "spd": 40
+        },
+        "weapon": {
+          "atkFlat": 225
+        },
+        "shield": {
+          "defFlat": 225
+        },
+        "ring": {
+          "hpFlat": 3480,
+          "atkFlat": 225,
+          "defFlat": 225
+        },
+        "amulet": {
+          "hpFlat": 3480,
+          "atkFlat": 225,
+          "defFlat": 225,
+          "cdmg": 33
+        },
+        "banner": {
+          "hpFlat": 5220,
+          "atkFlat": 338,
+          "defFlat": 338,
+          "acc": 78,
+          "res": 78
+        }
+      },
+      "6": {
+        "helmet": {
+          "hpFlat": 4080
+        },
+        "chestplate": {
+          "hpPercent": 60,
+          "hpFlat": 4080,
+          "atkPercent": 60,
+          "atkFlat": 265,
+          "defPercent": 60,
+          "defFlat": 265,
+          "acc": 96,
+          "res": 96
+        },
+        "gauntlets": {
+          "hpPercent": 60,
+          "hpFlat": 4080,
+          "atkPercent": 60,
+          "atkFlat": 265,
+          "defPercent": 60,
+          "defFlat": 265,
+          "cr": 60,
+          "cdmg": 80
+        },
+        "boots": {
+          "hpPercent": 60,
+          "hpFlat": 4080,
+          "atkPercent": 60,
+          "atkFlat": 265,
+          "defPercent": 60,
+          "defFlat": 265,
+          "spd": 45
+        },
+        "weapon": {
+          "atkFlat": 265
+        },
+        "shield": {
+          "defFlat": 265
+        },
+        "ring": {
+          "hpFlat": 4080,
+          "atkFlat": 265,
+          "defFlat": 265
+        },
+        "amulet": {
+          "hpFlat": 4080,
+          "atkFlat": 265,
+          "defFlat": 265,
+          "cdmg": 40
+        },
+        "banner": {
+          "hpFlat": 6120,
+          "atkFlat": 398,
+          "defFlat": 398,
+          "acc": 96,
+          "res": 96
+        }
+      }
+    }
   }
 }

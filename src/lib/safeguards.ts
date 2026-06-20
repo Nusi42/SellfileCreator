@@ -1,7 +1,7 @@
 import { stableSerialize } from './stableSerialize'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
-import { normalizeSubstatByMax6, getGlyphAverageForVariant } from './substatRollNormalization'
+import { normalizeSubstatByMax6, getGlyphAverageForVariant, mainStatRankRatio } from './substatRollNormalization'
 import { retainAllowedSubstats } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
@@ -86,6 +86,7 @@ import {
   SAFEGUARD_WEIGHT_MAX,
   SAFEGUARD_WEIGHT_MIN,
   SAFEGUARD_WEIGHT_STEP,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT,
   SAFEGUARD_SUBSTAT_ALL,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
   RANK_VALUE_MAX,
@@ -491,6 +492,10 @@ export type SafeguardRule = {
   substatMatch: SafeguardSubstatMatch
   // Per-substat weights for ranked scoring (only non-default values are stored).
   substatWeights: Partial<Record<StatVariant, number>>
+  // "Weight by Rank": when true, scoring adds a main-stat rank bonus so a higher-rank piece
+  // (e.g. 6★) outscores a same-main near-equal lower-rank (5★). New rules default ON; rules
+  // loaded from an SFC without this field default OFF to preserve their prior scoring.
+  weightMainStatByRank: boolean
   // Per-upgrade-stage improvement-chance thresholds. When set, a piece must meet the
   // threshold for its current level range to be expanded beyond the standard top-N.
   // null = feature disabled; use resolveImprovementChanceThresholds before passing to WASM.
@@ -520,6 +525,7 @@ export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => 
   substats: rule.substats,
   substatMatch: rule.substatMatch,
   substatWeights: rule.substatWeights,
+  weightMainStatByRank: rule.weightMainStatByRank,
   improvementChanceThreshold: rule.improvementChanceThreshold,
 })
 
@@ -556,6 +562,8 @@ export const createFactorySafeguardBuilderDefaults = (): SafeguardRule =>
     substats: [],
     substatMatch: SafeguardSubstatMatch.Min1,
     substatWeights: {},
+    // New rules opt into rank-aware main-stat scoring by default (UI default ON).
+    weightMainStatByRank: true,
     improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   })
 
@@ -571,6 +579,8 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Safegua
   requiredCount: rule.requiredCount,
   activation: rule.activation,
   countMode: rule.countMode,
+  // Included so equality/dirty checks react to the "Weight by Rank" toggle.
+  weightMainStatByRank: rule.weightMainStatByRank,
   ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
   ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
   ignoreEquippedInVault: rule.ignoreEquippedInVault,
@@ -906,6 +916,8 @@ export const scoreSafeguardCandidates = (params: {
   weights: Record<number, number>
   // How many items the rule intends to keep.
   requiredCount: number
+  // Editing rule's "Weight by Rank" toggle so the preview ranking matches detection.
+  weightMainStatByRank: boolean
   // Editing rule's count-mode flags; optional so legacy callers pre-dating the
   // partitioning fix keep working (Rust resolves to the canonical default).
   countMode?: SafeguardRuleCountMode
@@ -930,6 +942,7 @@ export const scoreSafeguardCandidates = (params: {
     })),
     substats: params.substats,
     weights: params.weights,
+    weightMainStatByRank: params.weightMainStatByRank,
     requiredCount: params.requiredCount,
     // Pass-through only when caller supplied a mode; undefined drops the field
     // entirely so the wasm wrapper substitutes its `countMode: null` default.
@@ -1098,6 +1111,8 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     substats: parsedSubstats,
     substatMatch,
     substatWeights: parseSubstatWeights(weightsSource),
+    // Absent in older SFC payloads → false, preserving their original (substat-only) scoring.
+    weightMainStatByRank: toBoolish(record.weightMainStatByRank) ?? false,
     improvementChanceThreshold,
   }))
 }
@@ -1186,6 +1201,8 @@ export const computeSafeguardScoreFromArtifact = (
   artifact: NormalizedGearArtifact,
   selectedSubstats: readonly number[],
   weights: ReadonlyMap<number, number>,
+  // "Weight by Rank" toggle; defaults off so non-passing callers keep substat-only scoring.
+  weightMainStatByRank = false,
 ): number => {
   const rank = Number(artifact.rank)
   let total = 0
@@ -1201,6 +1218,12 @@ export const computeSafeguardScoreFromArtifact = (
         total += weight * normalizeSubstatByMax6(variant as StatVariant, glyphAvg)
       }
     }
+  }
+  // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
+  // gated by the toggle and by having at least one selected substat (constant across levels).
+  if (weightMainStatByRank && selectedSubstats.length > 0 && artifact.mainStat) {
+    total += SAFEGUARD_MAIN_STAT_RANK_WEIGHT
+      * mainStatRankRatio(rank, Number(artifact.slot), Number(artifact.mainStat.variant))
   }
   return Number.isFinite(total) ? total : 0
 }

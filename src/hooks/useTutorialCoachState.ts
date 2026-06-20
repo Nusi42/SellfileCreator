@@ -222,6 +222,8 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   // Tutorial snapshot mirrors the scope chip defaults by cloning the
   // sanitized count mode so demos highlight the same state as the UI.
   countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+  // Demonstrate rank-aware main-stat scoring (matches the UI factory default ON).
+  weightMainStatByRank: true,
   // Keep tutorial behavior aligned with current safeguard defaults.
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,

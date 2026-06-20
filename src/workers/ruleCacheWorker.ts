@@ -468,6 +468,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         artifacts: payload.artifacts,
         substats: payload.substats as unknown as StatVariant[],
         weights: payload.weights,
+        weightMainStatByRank: payload.weightMainStatByRank,
         requiredCount: payload.requiredCount,
         // Forward count-mode when caller supplied it so the WASM partition
         // matches detection-side bucketing. Drop the key when absent so the

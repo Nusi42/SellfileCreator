@@ -133,6 +133,7 @@ test('HSF export strips every UI-only metadata field', () => {
 test('safeguard exports include sentinel RecipeID/RecipeName', () => {
   const keepRule: SafeguardRule = {
     appearance: { name: '  Safeguard Demo  ' },
+    weightMainStatByRank: false,
     combination: {
       slots: [ArtifactType.Ring],
       // Safeguard sets now use entry objects to allow exclusions.

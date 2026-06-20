@@ -515,6 +515,8 @@ const enUS: Catalog = {
   safeguardsCountModePerFactionHint: "**Per Faction**\nKeeps ≥N per faction independently — each faction is protected on its own, not sharing a single count. With no faction restriction, this applies to every faction in your inventory.",
   safeguardsCountModePerMain: "Per Mainstat",
   safeguardsCountModePerMainHint: "**Per Mainstat**\nKeeps ≥N per main stat independently — each main stat is protected on its own, not sharing a single count. With no main stat restriction, this applies to every main stat in your inventory.",
+  safeguardsWeightByRank: "Weight by Rank",
+  safeguardsWeightByRankHint: "**Weight by Rank**\nGives higher-rank gear an edge on its **main stat only**: a 6★ main stat counts full, a 5★ about 85%. So a 6★ beats a same-mainstat 5★ whose substats are just slightly better. It only sharpens ranking within the same main stat — not a blanket bonus for every higher-rank piece, and substats are untouched. Needs at least one substat selected. Each piece is measured against the best of its own slot and main stat.",
   safeguardsCountModePerRule: "Per Safeguard",
   safeguardsCountModeHint: "**Scope chips**\nBy default (**Per Safeguard**), all matching gear shares one count. Each scope chip splits that into independent groups:\n- **Per Slot**: each slot type is kept separately\n- **Per Set**: each set or metaset is kept separately\n- **Per Faction**: each faction is kept separately\n- **Per Mainstat**: each main stat is kept separately\nCombine any chips freely. When no filter is set, that scope covers every value in your inventory. Scope chips appear under every picker except Rank and Rarity. **Per Substat** (in the substat section) further splits each group by substat.",
   safeguardsSubstatLabel: "Substats",

@@ -108,6 +108,7 @@ const makeArtifact = (params: {
 // Rules no longer have an id field; ordinal is derived from position in the input array.
 const makeSpdSafeguardRule = (name: string): SafeguardRule => ({
   ...(name ? { appearance: { name } } : {}),
+  weightMainStatByRank: false,
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],

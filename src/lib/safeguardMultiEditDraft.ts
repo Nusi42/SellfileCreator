@@ -74,6 +74,8 @@ export type SafeguardEditableFields = {
   substats: StatVariant[]
   substatMatch: SafeguardSubstatMatch
   substatWeights: Partial<Record<StatVariant, number>>
+  // "Weight by Rank" scoring toggle (scalar bool — uses default equality/clone/apply paths).
+  weightMainStatByRank: boolean
   improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
 
@@ -97,6 +99,7 @@ export const SAFEGUARD_FIELD_KEYS = [
   'substats',
   'substatMatch',
   'substatWeights',
+  'weightMainStatByRank',
   'improvementChanceThreshold',
 ] as const satisfies ReadonlyArray<keyof SafeguardEditableFields>
 
@@ -212,6 +215,7 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     substats: Array.isArray(rule.substats) ? [...rule.substats] : [],
     substatMatch: rule.substatMatch,
     substatWeights: { ...(rule.substatWeights ?? {}) },
+    weightMainStatByRank: rule.weightMainStatByRank === true,
     improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
   }
 }

@@ -11747,7 +11747,8 @@
       "substats": [
         "SPD"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -11798,7 +11799,8 @@
       "substats": [
         "SPD"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -11860,7 +11862,8 @@
         "HP%": 0.75,
         "DEF%": 0.45,
         "SPD": 2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -11920,7 +11923,8 @@
         "HP%": 0.75,
         "DEF%": 0.45,
         "SPD": 2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -11982,7 +11986,8 @@
       "substats": [
         "SPD"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12055,7 +12060,8 @@
         "ACC": 0.75,
         "CR%": 0.5,
         "CDMG%": 0.5
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12125,7 +12131,8 @@
         "ACC": 0.7,
         "CR%": 1.1,
         "CDMG%": 0.95
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12184,7 +12191,8 @@
       "substats": [
         "SPD"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12244,7 +12252,8 @@
       "substats": [
         "SPD"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12315,7 +12324,8 @@
         "ACC": 0.7,
         "CR%": 0.7,
         "CDMG%": 0.7
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12387,7 +12397,8 @@
         "ACC": 0.7,
         "CR%": 0.7,
         "CDMG%": 0.7
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12453,7 +12464,8 @@
       "substatWeights": {
         "SPD": 1.2,
         "ACC": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12509,7 +12521,8 @@
       ],
       "substatWeights": {
         "ACC": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12571,7 +12584,8 @@
       ],
       "substatWeights": {
         "ACC": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12626,7 +12640,8 @@
       "substats": [
         "SPD",
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12689,7 +12704,8 @@
       "substatWeights": {
         "SPD": 3,
         "CDMG%": 0.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12756,7 +12772,8 @@
       "substatWeights": {
         "SPD": 1.2,
         "ACC": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12817,7 +12834,8 @@
       "substats": [
         "SPD",
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12879,7 +12897,8 @@
       "substats": [
         "SPD",
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12932,7 +12951,8 @@
       },
       "substats": [
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -12983,7 +13003,8 @@
       },
       "substats": [
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13035,7 +13056,8 @@
       },
       "substats": [
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13085,7 +13107,8 @@
       },
       "substats": [
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13139,7 +13162,8 @@
         "ACC",
         "RES"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13191,7 +13215,8 @@
         "ACC",
         "RES"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13244,7 +13269,8 @@
         "ATK",
         "DEF"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13302,7 +13328,8 @@
         "HP",
         "ATK",
         "DEF"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13361,7 +13388,8 @@
       "substatWeights": {
         "HP": 0.45,
         "DEF": 0.5
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13418,7 +13446,8 @@
       "substatWeights": {
         "HP": 0.5,
         "DEF": 0.45
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13473,7 +13502,8 @@
       ],
       "substatWeights": {
         "DEF%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13526,7 +13556,8 @@
       ],
       "substatWeights": {
         "DEF%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13581,7 +13612,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13634,7 +13666,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13689,7 +13722,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13742,7 +13776,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13795,7 +13830,8 @@
         "ATK%",
         "DEF%"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13846,7 +13882,8 @@
         "ATK%",
         "DEF%"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13903,7 +13940,8 @@
       "substatWeights": {
         "HP%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -13958,7 +13996,8 @@
       "substatWeights": {
         "HP%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14015,7 +14054,8 @@
       "substatWeights": {
         "ATK%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14070,7 +14110,8 @@
       "substatWeights": {
         "ATK%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14127,7 +14168,8 @@
       "substatWeights": {
         "DEF%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14182,7 +14224,8 @@
       "substatWeights": {
         "DEF%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14235,7 +14278,8 @@
         "ATK%",
         "DEF%"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14286,7 +14330,8 @@
         "ATK%",
         "DEF%"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14341,7 +14386,8 @@
       ],
       "substatWeights": {
         "SPD": 1.35
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14419,7 +14465,8 @@
         "ACC": 0.3,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14486,7 +14533,8 @@
         "SPD": 1.5,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14556,7 +14604,8 @@
         "ATK%": 0.7,
         "SPD": 1.3,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14626,7 +14675,8 @@
         "DEF%": 0.7,
         "SPD": 1.3,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14694,7 +14744,8 @@
       "substatWeights": {
         "SPD": 1.15,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14762,7 +14813,8 @@
         "SPD": 1.3,
         "ACC": 0.9,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14835,7 +14887,8 @@
         "SPD": 1.5,
         "ACC": 0.8,
         "CR%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14907,7 +14960,8 @@
         "SPD": 1.5,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -14973,7 +15027,8 @@
         "SPD": 1.5,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15045,7 +15100,8 @@
         "SPD": 1.5,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15113,7 +15169,8 @@
         "ACC": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15181,7 +15238,8 @@
         "HP%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15249,7 +15307,8 @@
         "ATK%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15317,7 +15376,8 @@
         "DEF%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15383,7 +15443,8 @@
         "DEF%": 1.05,
         "CR%": 1.3,
         "CDMG%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15449,7 +15510,8 @@
         "ATK%": 1.05,
         "CR%": 1.3,
         "CDMG%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15515,7 +15577,8 @@
         "HP%": 1.05,
         "CR%": 1.3,
         "CDMG%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15576,7 +15639,8 @@
       ],
       "substatWeights": {
         "DEF%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15637,7 +15701,8 @@
       ],
       "substatWeights": {
         "ATK%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15698,7 +15763,8 @@
       ],
       "substatWeights": {
         "HP%": 1.15
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15764,7 +15830,8 @@
       "substatWeights": {
         "CR%": 1.3,
         "CDMG%": 1.05
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15829,7 +15896,8 @@
       ],
       "substatWeights": {
         "CR%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15890,7 +15958,8 @@
       "substatWeights": {
         "SPD": 1.4,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -15955,7 +16024,8 @@
         "DEF%": 0.8,
         "SPD": 1.5,
         "ACC": 0.9
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16026,7 +16096,8 @@
         "SPD": 1.5,
         "RES": 0.7,
         "CR%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16089,7 +16160,8 @@
       "substatWeights": {
         "HP%": 1.1,
         "SPD": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16153,7 +16225,8 @@
       "substatWeights": {
         "HP%": 1.1,
         "SPD": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16222,7 +16295,8 @@
         "HP%": 1.2,
         "SPD": 1.4,
         "RES": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16291,7 +16365,8 @@
       "substatWeights": {
         "HP%": 1.1,
         "SPD": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16355,7 +16430,8 @@
       "substatWeights": {
         "HP%": 1.15,
         "SPD": 1.5
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16422,7 +16498,8 @@
         "SPD": 1.5,
         "CR%": 1.1,
         "CDMG%": 1.2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16489,7 +16566,8 @@
         "SPD": 1.5,
         "CR%": 1.1,
         "CDMG%": 1.2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16559,7 +16637,8 @@
       "substatWeights": {
         "HP%": 1.15,
         "SPD": 1.5
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16634,7 +16713,8 @@
         "SPD": 1.5,
         "CR%": 1.1,
         "CDMG%": 1.2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16709,7 +16789,8 @@
         "SPD": 1.5,
         "CR%": 1.1,
         "CDMG%": 1.2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16766,7 +16847,8 @@
       ],
       "substatWeights": {
         "SPD": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16826,7 +16908,8 @@
       "substatWeights": {
         "SPD": 1.2,
         "ACC": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16895,7 +16978,8 @@
         "ACC": 0.3,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -16956,7 +17040,8 @@
         "ATK%": 0.7,
         "SPD": 1.3,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17017,7 +17102,8 @@
         "DEF%": 0.7,
         "SPD": 1.3,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17076,7 +17162,8 @@
         "SPD": 1.3,
         "ACC": 0.9,
         "CR%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17139,7 +17226,8 @@
         "SPD": 1.5,
         "CR%": 1.3,
         "CDMG%": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17197,7 +17285,8 @@
         "ACC": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17255,7 +17344,8 @@
         "HP%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17313,7 +17403,8 @@
         "ATK%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17371,7 +17462,8 @@
         "DEF%": 0.9,
         "CR%": 1.3,
         "CDMG%": 1.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17429,7 +17521,8 @@
       "substatWeights": {
         "HP%": 1.1,
         "SPD": 1.2
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17493,7 +17586,8 @@
         "HP%": 1.2,
         "SPD": 1.4,
         "RES": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17546,7 +17640,8 @@
       },
       "substats": [
         "ACC"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17600,7 +17695,8 @@
         "ACC",
         "RES"
       ],
-      "substatMatch": "perSubstat"
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17656,7 +17752,8 @@
         "HP",
         "ATK",
         "DEF"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17715,7 +17812,8 @@
       "substatWeights": {
         "HP": 0.5,
         "DEF": 0.45
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17770,7 +17868,8 @@
       ],
       "substatWeights": {
         "DEF%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17825,7 +17924,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17880,7 +17980,8 @@
       ],
       "substatWeights": {
         "HP%": 0.3
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17937,7 +18038,8 @@
       "substatWeights": {
         "HP%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -17994,7 +18096,8 @@
       "substatWeights": {
         "ATK%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18051,7 +18154,8 @@
       "substatWeights": {
         "DEF%": 0.4,
         "SPD": 1.1
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18109,7 +18213,8 @@
       "substatWeights": {
         "DEF%": 0.8,
         "SPD": 1.5
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18170,7 +18275,8 @@
         "ATK%": 0.8,
         "DEF%": 0.8,
         "SPD": 1.35
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18223,7 +18329,8 @@
       ],
       "substatWeights": {
         "SPD": 1.35
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18268,7 +18375,8 @@
       "tags": [
         "fw_coverage",
         "acc"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18312,7 +18420,8 @@
         "fw_coverage",
         "fw_count",
         "acc"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18356,7 +18465,8 @@
         "fw_coverage",
         "fw_count",
         "acc"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18400,7 +18510,8 @@
         "fw_coverage",
         "fw_count",
         "acc"
-      ]
+      ],
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18469,7 +18580,8 @@
       ],
       "substatWeights": {
         "SPD": 1.35
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18547,7 +18659,8 @@
       ],
       "substatWeights": {
         "SPD": 1.35
-      }
+      },
+      "weightMainStatByRank": true
     },
     {
       "appearance": {
@@ -18591,7 +18704,8 @@
       "tags": [
         "fw_coverage",
         "fw_count"
-      ]
+      ],
+      "weightMainStatByRank": true
     }
   ],
   "SafeguardsEnabled": true,

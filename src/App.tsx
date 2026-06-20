@@ -1297,6 +1297,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     requiredCount: 1,
     activation: SafeguardRuleActivation.ProtectExisting,
     countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
+    // New builder draft opts into rank-aware main-stat scoring by default (UI default ON).
+    weightMainStatByRank: true,
     ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
     ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
     ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,

@@ -1360,6 +1360,8 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   substats: number[]
   // Per-variant weight multipliers (variant id → weight).
   weights: Record<number, number>
+  // "Weight by Rank" toggle so the preview ranking matches detection's main-stat bonus.
+  weightMainStatByRank: boolean
   // How many items the rule intends to keep (quota for isWithinQuota).
   requiredCount: number
   // Bucketing flags from the editing rule. Omit to let Rust resolve canonical
@@ -1371,6 +1373,7 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
     artifacts: params.artifacts,
     substats: params.substats,
     weights: params.weights,
+    weightMainStatByRank: params.weightMainStatByRank,
     requiredCount: params.requiredCount,
     // Forward as null when caller skipped countMode so the Rust side falls
     // through to safeguard_resolve_count_mode (matches the wire form of an

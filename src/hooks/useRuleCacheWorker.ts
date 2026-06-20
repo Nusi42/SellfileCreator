@@ -82,6 +82,8 @@ export type ScoreCandidatesParams = {
   substats: number[]
   // Per-variant weight multipliers (variant id → weight).
   weights: Record<number, number>
+  // Editing rule's "Weight by Rank" toggle so the preview ranking matches detection.
+  weightMainStatByRank: boolean
   requiredCount: number
   // Editing rule's count-mode flags. Required for popover-cutoff parity with
   // detection — without it the WASM partition falls back to top-N and the
@@ -692,6 +694,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         artifacts: params.artifacts,
         substats: params.substats,
         weights: params.weights,
+        weightMainStatByRank: params.weightMainStatByRank,
         requiredCount: params.requiredCount,
         // Conditional spread keeps the payload shape stable when caller omits
         // count-mode (legacy callers / tests). The worker handler treats an

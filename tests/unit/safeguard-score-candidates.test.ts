@@ -56,6 +56,7 @@ test('scoreSafeguardCandidates ranks by weighted score and respects requiredCoun
     artifacts,
     substats: [StatVariant.SPD],
     weights: { [StatVariant.SPD]: 1 },
+    weightMainStatByRank: false,
     requiredCount: 1,
   })
 
@@ -82,6 +83,7 @@ test('scoreSafeguardCandidates returns empty array when no substats are configur
     artifacts,
     substats: [],
     weights: {},
+    weightMainStatByRank: false,
     requiredCount: 1,
   })
 

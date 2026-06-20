@@ -111,6 +111,8 @@ export type RuleCacheScoreCandidatesRequest = {
     substats: number[]
     // Per-variant weight multipliers (variant id → weight).
     weights: Record<number, number>
+    // Editing rule's "Weight by Rank" toggle so the preview ranking matches detection.
+    weightMainStatByRank: boolean
     requiredCount: number
     // Editing rule's count-mode flags. Threaded through so the live preview's
     // isWithinQuota partition matches detection's (perSet/perFaction/perMain/

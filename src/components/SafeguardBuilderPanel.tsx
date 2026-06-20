@@ -354,6 +354,7 @@ export default function SafeguardBuilderPanel({
   // True when the selected rules have different activation modes and no staged change yet.
   const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
   const multiRequiredCountField = multiFields?.requiredCount ?? null
+  const multiWeightByRankField = multiFields?.weightMainStatByRank ?? null
   const multiIgnorePreviousField = multiFields?.ignorePreviousSafeguards ?? null
   const multiIgnoreCollectionField = multiFields?.ignoreEquippedInCollection ?? null
   const multiIgnoreVaultField = multiFields?.ignoreEquippedInVault ?? null
@@ -1150,6 +1151,8 @@ export default function SafeguardBuilderPanel({
         artifacts: detectionEntry.artifacts,
         substats: Array.from(currentSubstats),
         weights: weightRecord,
+        // Reflect the editing rule's toggle so the preview updates live as it is flipped.
+        weightMainStatByRank: rule?.weightMainStatByRank ?? false,
         requiredCount: rule?.requiredCount ?? 1,
         // Mirror detection's count-mode so the WASM preview's isWithinQuota
         // partition (perSet/perFaction/perMain/perSlot bucketing with tie
@@ -1591,6 +1594,14 @@ export default function SafeguardBuilderPanel({
   const ignPrevValue = multiEditActive
     ? Boolean(multiIgnorePreviousField?.value ?? ignorePreviousSafeguards)
     : (effectiveRule.ignorePreviousSafeguards !== false)
+  // "Weight by Rank" chip state mirrors the ignore-previous chip (mixed in multi-edit, else effective).
+  const weightByRankMixed = multiEditActive && multiWeightByRankField?.status === 'mixed' && !multiWeightByRankField.dirty
+  const weightByRankValue = multiEditActive
+    ? Boolean(multiWeightByRankField?.value ?? (rule?.weightMainStatByRank === true))
+    : (effectiveRule.weightMainStatByRank === true)
+  // The bonus only matters when substats are selected; otherwise the rank tie-break already
+  // favors higher ranks, so the chip is disabled to signal it has no effect.
+  const weightByRankDisabled = substatSelection.length === 0
   const ignCollMixed = multiEditActive && multiIgnoreCollectionField?.status === 'mixed' && !multiIgnoreCollectionField.dirty
   const ignCollValue = multiEditActive
     ? Boolean(multiIgnoreCollectionField?.value ?? ignoreEquippedInCollection)
@@ -2453,14 +2464,51 @@ export default function SafeguardBuilderPanel({
                   })}
                 </ToggleButtonGroup>
               </>
-              {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, redundantDimensions.perMainStat, perScopeMixed.perMainStat,
-                perMainStatOverrideActive ? renderSafeguardOverrideBadge(
-                  buildSafeguardOverrideBadgeTooltip(
-                    rule.countMode?.perMainStat ? 'on' : 'off',
-                    effectiveRule.countMode?.perMainStat ? 'on' : 'off',
-                  ),
-                ) : undefined,
-              )}
+              {/* Per Mainstat + Weight by Rank sit side by side on one row (the parent column
+                  stacks vertically, so they must share a horizontal flex wrapper). */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, redundantDimensions.perMainStat, perScopeMixed.perMainStat,
+                  perMainStatOverrideActive ? renderSafeguardOverrideBadge(
+                    buildSafeguardOverrideBadgeTooltip(
+                      rule.countMode?.perMainStat ? 'on' : 'off',
+                      effectiveRule.countMode?.perMainStat ? 'on' : 'off',
+                    ),
+                  ) : undefined,
+                )}
+                {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
+                    same-main near-equal 5★. Disabled when no substats are selected (the rank
+                    tie-break already orders ranks there). */}
+                <Box sx={{ position: 'relative', alignSelf: 'flex-start' }}>
+                  <MarkdownTooltip markdown={t('safeguardsWeightByRankHint')} ellipsisTitle={t('safeguardsWeightByRank')} ellipsisSelector=".MuiChip-label">
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={t('safeguardsWeightByRank')}
+                      aria-label={t('safeguardsWeightByRank')}
+                      clickable={!weightByRankDisabled}
+                      disabled={weightByRankDisabled}
+                      onClick={() => {
+                        if (weightByRankDisabled) return
+                        if (multiEditActive && multiEdit) {
+                          multiEdit.updateField('weightMainStatByRank', { value: !weightByRankValue, status: 'common' })
+                        } else {
+                          updateRule((prev) => ({ ...prev, weightMainStatByRank: !(prev.weightMainStatByRank === true) }))
+                        }
+                      }}
+                      sx={{
+                        // Green when on OR mixed; mixed adds the dashed/hatched overlay (shared pattern).
+                        ...builderStatusChipSx(weightByRankValue || weightByRankMixed, { dimDisabled: true }),
+                        ...(weightByRankMixed ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      }}
+                    />
+                  </MarkdownTooltip>
+                </Box>
+              </Box>
             </Box>
           </Collapse>
         </FormControl>
@@ -3202,6 +3250,7 @@ export default function SafeguardBuilderPanel({
                 ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
                 ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
+                weightMainStatByRank: rule.weightMainStatByRank,
                 improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
                 substats: rule.substats ?? [],
                 substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Min1,

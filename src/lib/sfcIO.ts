@@ -1165,6 +1165,8 @@ export type ReadableSafeguardRuleEntry = {
   substats?: string[]
   substatMatch?: string
   substatWeights?: Record<string, number>
+  // "Weight by Rank" toggle; written only when true (omitted → off on load, backward-compatible).
+  weightMainStatByRank?: boolean
 }
 
 // Build a readable safeguard tuple from a combination filter.
@@ -1274,6 +1276,8 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   if (shouldSerializeMatch) entry.substatMatch = normalizedSubstatMatch
   // Only emit weights when they are non-default.
   if (Object.keys(substatWeights).length > 0) entry.substatWeights = substatWeights
+  // Emit "Weight by Rank" only when enabled; omission loads as off (backward-compatible).
+  if (rule.weightMainStatByRank) entry.weightMainStatByRank = true
   return entry
 }
 

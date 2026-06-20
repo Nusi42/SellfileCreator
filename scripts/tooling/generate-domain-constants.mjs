@@ -457,6 +457,32 @@ const allowedMainsBySlotSpec = spec.allowedMainsBySlot
 const allowedSubsBySlotSpec = spec.allowedSubsBySlot
 const substatRollRangesByStar = spec.substatRollRangesByStar
 const glyphRangesByRank = spec.glyphRangesByRank
+const mainStatRankWeighting = spec.mainStatRankWeighting
+
+// Resolve the main-stat rank-weighting table (rank → slot token → variant token → max16)
+// into numeric (rank, slotId, variant, value) tuples shared by the TS + Rust emitters.
+const mainStatRankWeight = Number(mainStatRankWeighting.weight)
+const mainStatMax16Entries = Object.entries(mainStatRankWeighting.max16ByRankSlotVariant)
+  .map(([rankStr, slotMap]) => ({
+    rank: Number(rankStr),
+    slots: Object.entries(slotMap)
+      .map(([slotToken, variantMap]) => ({
+        slotId: Number(artifactType[slotToken]),
+        // Retain the token so the TS emitter can reference ARTIFACT_TYPE_* by name.
+        slotToken,
+        variants: Object.entries(variantMap)
+          .map(([vToken, value]) => ({ variant: Number(statVariant[vToken]), vToken, value: Number(value) }))
+          .sort((a, b) => a.variant - b.variant),
+      }))
+      .sort((a, b) => a.slotId - b.slotId),
+  }))
+  .sort((a, b) => a.rank - b.rank)
+// Flat tuple list (rank, slot, variant, value) — emitted verbatim for the Rust linear scan.
+const mainStatMax16Tuples = mainStatMax16Entries.flatMap(({ rank, slots }) =>
+  slots.flatMap(({ slotId, variants }) =>
+    variants.map(({ variant, value }) => ({ rank, slotId, variant, value }))
+  )
+)
 
 // Build sorted-by-id faction array for both emitters.
 const factionEntries = Object.entries(factionSpec)
@@ -586,6 +612,30 @@ tsLines.push(
   `export const GLYPH_RANGES_BY_RANK: Record<number, Record<number, { readonly min: number; readonly max: number }>> = { ${glyphRangesBody} }`
 )
 
+// ── TS: main-stat rank weighting (weight scalar + max16 lookup table) ─────
+// Score bonus for the safeguard "Weight by Rank" toggle. See domain-constants.json.
+// Slot/variant keys are emitted as the named ARTIFACT_TYPE_* / STAT_VARIANT_* constants
+// (declared earlier in this file) so the table reads as enum names rather than raw numbers.
+const mainStatMax16BodyTs = mainStatMax16Entries
+  .map(({ rank, slots }) =>
+    `${rank}: { ${slots
+      .map(({ slotToken, variants }) =>
+        `[ARTIFACT_TYPE_${toScreamingSnake(slotToken)}]: { ${variants
+          .map(({ vToken, value }) => `[STAT_VARIANT_${toScreamingSnake(vToken)}]: ${value}`)
+          .join(', ')} }`
+      )
+      .join(', ')} }`
+  )
+  .join(', ')
+tsLines.push('')
+tsLines.push('// Safeguard "Weight by Rank" score bonus weight (multiplies the rank/6★ main-stat ratio).')
+tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT = ${mainStatRankWeight}`)
+tsLines.push('')
+tsLines.push('// Level-16 main-stat maxima keyed by rank (4..6) → slot ID → stat variant. Rank-only (rarity-independent).')
+tsLines.push(
+  `export const MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT: Record<number, Record<number, Record<number, number>>> = { ${mainStatMax16BodyTs} }`
+)
+
 // ── Rust: faction individual constants ───────────────────────────────────
 rustLines.push('')
 rustLines.push('// Faction IDs — one constant per faction.')
@@ -694,6 +744,19 @@ const glyphRangesDispatchRust = glyphRangesRankEntries
   .join(', ')
 rustLines.push(
   `pub const GLYPH_RANGES_BY_RANK: &[(i64, &[(i64, i64, i64)])] = &[${glyphRangesDispatchRust}];`
+)
+
+// ── Rust: main-stat rank weighting (weight scalar + flat max16 tuple list) ──
+const mainStatMax16TuplesRust = mainStatMax16Tuples
+  .map(({ rank, slotId, variant, value }) => `(${rank}, ${slotId}, ${variant}, ${asRustF64Literal(value)})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Safeguard "Weight by Rank" score bonus weight (multiplies the rank/6-star main-stat ratio).')
+rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT: f64 = ${asRustF64Literal(mainStatRankWeight)};`)
+rustLines.push('')
+rustLines.push('// Level-16 main-stat maxima as (rank, slot, variant, value) tuples. Rank-only (rarity-independent).')
+rustLines.push(
+  `pub const MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT: &[(i64, i64, i64, f64)] = &[${mainStatMax16TuplesRust}];`
 )
 
 // Ensure target directories exist before writing generated outputs.

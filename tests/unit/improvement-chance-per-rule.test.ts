@@ -115,6 +115,7 @@ const makeArtifact = (params: {
 // slot/set/faction bucket so they share the same challenger pool.
 const makeSpdRule = (name: string, requiredCount: number): SafeguardRule => ({
   ...(name ? { appearance: { name } } : {}),
+  weightMainStatByRank: false,
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],

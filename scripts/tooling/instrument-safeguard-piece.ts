@@ -315,7 +315,7 @@ const run = async (): Promise<void> => {
       const matched = selected.filter((v) =>
         a.substats.some((s) => Number(s.variant) === v && Number(s.totalValue) > 0)).length
       if (matched < minMatch) continue
-      const score = computeSafeguardScoreFromArtifact(a, selected, weights)
+      const score = computeSafeguardScoreFromArtifact(a, selected, weights, TOP_ROW.weightMainStatByRank)
       if (!(score > 0)) continue
       bucket.push({ id: Number(a.id), score, level: a.exactLevel ?? a.level })
     }

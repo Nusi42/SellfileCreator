@@ -177,6 +177,9 @@ struct PreparedUpgradeRule {
     set_excludes: HashSet<i64>,
     ignore_equipped_in_collection: bool,
     ignore_equipped_in_vault: bool,
+    // "Weight by Rank" toggle so projected candidate + challenger scores include the same
+    // main-stat rank bonus the detection ranking uses (keeps the keep-list expansion consistent).
+    weight_main_stat_by_rank: bool,
 }
 
 // One ranking scenario expanded from a rule; perSubstat splits into N Any scenarios.
@@ -191,6 +194,8 @@ struct UpgradeScenario {
     required_per_group: i64,
     count_mode: SafeguardWasmCountMode,
     weights: BTreeMap<i64, f64>,
+    // "Weight by Rank" toggle propagated from the rule (applies the main-stat rank bonus).
+    weight_main_stat_by_rank: bool,
     // Challengers pre-bucketed by typed count key for fast per-artifact lookup.
     // SafeguardCountKey is stack-allocated (no heap per entry, unlike String keys).
     challengers_by_count_key: BTreeMap<SafeguardCountKey, Vec<StaticChallenger>>,
@@ -731,7 +736,16 @@ fn is_state_selected_by_any_scenario(
         if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
             continue;
         }
-        let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank);
+        // Mirror detection scoring: substat score plus the per-artifact main-stat rank bonus
+        // (constant during simulation; gated by the rule's "Weight by Rank" toggle).
+        let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank)
+            + super::safeguard_main_stat_rank_bonus_parts(
+                ctx.artifact_rank,
+                ctx.artifact_slot,
+                ctx.artifact_main_stat,
+                scenario.weight_main_stat_by_rank,
+                true,
+            );
         if !(score > 0.0) {
             continue;
         }
@@ -1187,6 +1201,7 @@ fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRu
             set_excludes,
             ignore_equipped_in_collection: rule.ignore_equipped_in_collection.unwrap_or(false),
             ignore_equipped_in_vault: rule.ignore_equipped_in_vault.unwrap_or(false),
+            weight_main_stat_by_rank: rule.weight_main_stat_by_rank.unwrap_or(false),
         });
     }
     prepared
@@ -1308,11 +1323,16 @@ fn build_scenarios(
                 ) {
                     continue;
                 }
-                // Project challenger to +16 for a fair comparison (Bug 2 fix).
+                // Project challenger to +16 for a fair comparison (Bug 2 fix), then add the same
+                // per-artifact main-stat rank bonus the detection ranking uses (constant at +16).
                 let proj_score = compute_projected_challenger_score(
                     &row.artifact,
                     &def.selected_substats,
                     &rule.weights,
+                ) + super::safeguard_main_stat_rank_bonus(
+                    &row.artifact,
+                    rule.weight_main_stat_by_rank,
+                    true,
                 );
                 if !(proj_score > 0.0) {
                     continue;
@@ -1344,6 +1364,7 @@ fn build_scenarios(
                 required_per_group: rule.required_per_group,
                 count_mode: rule.count_mode,
                 weights: rule.weights.clone(),
+                weight_main_stat_by_rank: rule.weight_main_stat_by_rank,
                 challengers_by_count_key: challengers_by_key,
             });
             // Index this scenario under every applicable artifact id so the caller can look up
@@ -1434,9 +1455,14 @@ fn build_chance_debug(
 ) -> ImprovementChanceDebug {
     // Mirror buildChanceDebugSnapshot; populates tooltip data.
     let artifact_id = artifact.id.unwrap_or(0);
-    // Current score (not projected) for the "betterCount" display in the tooltip.
-    let candidate_score =
-        safeguard_compute_score(artifact, &scenario.selected_substats, &scenario.weights);
+    // Current score (not projected) for the "betterCount" display in the tooltip. Includes the
+    // main-stat rank bonus so the comparison against (bonus-inclusive) challenger scores is fair.
+    let candidate_score = safeguard_compute_score(
+        artifact,
+        &scenario.selected_substats,
+        &scenario.weights,
+        scenario.weight_main_stat_by_rank,
+    );
     let key = safeguard_count_key_from_parts(
         artifact.slot,
         artifact.set,
