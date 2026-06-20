@@ -95,12 +95,21 @@ export function useFittingLabel({
     // Two levels: the row's other direct children (the left control groups) AND, within the
     // export group's own row-child, that child's other children (the fixed action buttons)
     // plus the trailing chevron. Both sums exclude the export wrapper itself.
+    //
+    // Use OUTER width (offsetWidth + horizontal margins): the control groups carry explicit
+    // ml/mr (e.g. ml:1 mr:1 ≈ 16px each) that offsetWidth omits — undercounting them was what
+    // made the budget too generous, so the hook kept the full label while CSS wrapped it.
+    const horizMargin = (c: HTMLElement): number => {
+      const cs = window.getComputedStyle(c)
+      return (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0)
+    }
+    const outerWidth = (c: HTMLElement): number => c.offsetWidth + horizMargin(c)
     const sumOtherChildren = (container: HTMLElement): { width: number; count: number } => {
       let width = 0
       let count = 0
       for (const child of Array.from(container.children)) {
         if (child === el || (child as HTMLElement).contains(el)) continue
-        width += (child as HTMLElement).offsetWidth
+        width += outerWidth(child as HTMLElement)
         count += 1
       }
       return { width, count }
@@ -123,7 +132,7 @@ export function useFittingLabel({
     // show the full label on row 2 even though a shorter label would have fit on row 1.
     const rowOthers = sumOtherChildren(boundary)
     // One gap PER other child: the gaps between them AND the gap separating the last from the
-    // action group.
+    // action group. (Margins above are additive to the flex gap, so both are subtracted.)
     const rowGaps = colGap(boundary) * rowOthers.count
     let actionOthers = 0
     let actionGaps = 0
@@ -132,8 +141,10 @@ export function useFittingLabel({
       actionOthers = inner.width
       actionGaps = colGap(groupChild) * inner.count
     }
+    // The export group's own horizontal margins (it carries ml:1) consume row space too.
+    const ownMargin = horizMargin(el)
     const freeForButton =
-      rowContent - rowOthers.width - rowGaps - actionOthers - actionGaps - trailingReservedPx
+      rowContent - rowOthers.width - rowGaps - actionOthers - actionGaps - ownMargin - trailingReservedPx
     // Available text budget = free button width minus icon/own-padding reserve, minus a small
     // safety margin so we step down a hair before CSS would wrap the group.
     const available = freeForButton - reservedPx - FIT_SAFETY_PX
