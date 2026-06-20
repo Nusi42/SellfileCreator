@@ -30,7 +30,7 @@ import {
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
 } from '../lib/gearInspectorSort'
 
 export const SORT_PRESETS_STORAGE_KEY = 'sellfileCreator.sortPresets.v1'
@@ -75,6 +75,16 @@ const FLAT_TYPE_GROUPING = {
 } as const
 
 /**
+ * Hide all headers: a single continuous list with no set/slot/faction headers at all.
+ * Used by the Newest preset so the most recently acquired gear reads as one uninterrupted stream.
+ */
+const HIDE_ALL_HEADERS_GROUPING = {
+  artifacts:   { bySet: false, bySlot: false },
+  accessories: { byFaction: false, bySet: false, bySlot: false },
+  hideHeaders: true,
+} as const
+
+/**
  * Shipped sort presets shown at the top of the sort preset menu by default.
  * They are non-deletable (`builtin: true`) but can be freely reordered.
  */
@@ -87,11 +97,11 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     // Monochrome sparkles glyph evokes freshly-acquired gear; pinned by default as a quick-toggle button.
     iconId: 'glyph.sparkles',
     pinned: true,
-    // Sort by acquisition date descending; flat type groups so newest items float to the top globally.
+    // Sort by acquisition date descending; hide all headers so newest items read as one global stream.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
       priorities: [GEAR_INSPECTOR_SORT_KEY_NEWEST],
-      grouping: FLAT_TYPE_GROUPING,
+      grouping: HIDE_ALL_HEADERS_GROUPING,
     },
   },
   {
@@ -156,16 +166,16 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
     },
   },
   {
-    id: 'builtin:safeguard-rank',
-    name: 'Safeguard Rank',
+    id: 'builtin:safeguard-group-rank',
+    name: 'Safeguard Group Rank',
     savedAt: '',
     builtin: true,
     // Monochrome shield glyph evokes safeguard protection.
     iconId: 'glyph.shield',
-    // Sort by safeguard rank ascending: rank #1 (most-protected) floats first; unranked items last.
+    // Sort by safeguard group rank ascending: group rank #1 (best within its count-group) floats first; unranked last.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
-      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK],
+      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK],
       direction: 'asc',
       grouping: FLAT_TYPE_GROUPING,
     },

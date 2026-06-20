@@ -60,6 +60,7 @@ import {
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
   isNeutralGearInspectorSortWeight,
   isDefaultGearInspectorGroupingState,
@@ -370,7 +371,7 @@ export default function PreviewHeaderActions(props: {
       case 'builtin:spd':                return t('builtinSortPresetSpd')
       case 'builtin:spd-per-slot':       return t('builtinSortPresetSpdPerSlot')
       case 'builtin:improvement-chance': return t('builtinSortPresetImprovementChance')
-      case 'builtin:safeguard-rank':     return t('builtinSortPresetSafeguardRank')
+      case 'builtin:safeguard-group-rank': return t('builtinSortPresetSafeguardGroupRank')
       case 'builtin:sort-ascending':     return t('builtinSortPresetAscending')
       case 'builtin:group-top-level':    return t('builtinSortPresetTopLevel')
       default: return p.name
@@ -472,6 +473,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortNewestLabel = t('gearInspectorSortNewestLabel')
 	  const sortImprovementChanceLabel = t('gearInspectorSortImprovementChanceLabel')
 	  const sortSafeguardRankLabel = t('gearInspectorSortSafeguardRankLabel')
+	  const sortSafeguardGroupRankLabel = t('gearInspectorSortSafeguardGroupRankLabel')
 	  const sortGlyphInheritDirectionLabel = t('gearInspectorSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('gearInspectorSortPerKeyFlippedDirection')
 	  const sortGroupingArtifactsLabel = t('gearInspectorSortGroupingArtifactsLabel')
@@ -946,8 +948,9 @@ export default function PreviewHeaderActions(props: {
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_NEWEST) return sortNewestLabel
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE) return sortImprovementChanceLabel
 	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK) return sortSafeguardRankLabel
+	    if (Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK) return sortSafeguardGroupRankLabel
 	    return t(statVariantI18nKey(key as StatVariant))
-	  }, [sortImprovementChanceLabel, sortLastUsedLabel, sortNewestLabel, sortSafeguardRankLabel, t])
+	  }, [sortImprovementChanceLabel, sortLastUsedLabel, sortNewestLabel, sortSafeguardRankLabel, sortSafeguardGroupRankLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
 	    if (isRulesMode) return sortLabel
 	    if (sortNormalizedEffective) return sortNormalizedLabel
@@ -2040,7 +2043,8 @@ export default function PreviewHeaderActions(props: {
                       onMicroConfirmStop={sortPopoutEasterEgg.forceExit}
                     />
                   ),
-                  sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
+                  // Widened from 320 so the longest sort labels (e.g. "Safeguard Group Rank") fit on one line.
+                  sx: { width: 360, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
                 }), ref: sortMenuPaperRef },
               }}
             >
@@ -2054,6 +2058,7 @@ export default function PreviewHeaderActions(props: {
 	                GEAR_INSPECTOR_SORT_KEY_NEWEST as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK as GearInspectorSortKey,
+	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK as GearInspectorSortKey,
 	              ].map((key) => {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
 	                const label = sortLabelForKey(key)

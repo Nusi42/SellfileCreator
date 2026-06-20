@@ -89,6 +89,7 @@ import {
   isDefaultGearInspectorGroupingState,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
   type GearInspectorGroupingState,
   type GearInspectorSubstatSortSpec,
 } from '../lib/gearInspectorSort'
@@ -533,6 +534,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK),
     [effectiveSubstatSort?.priorities],
   )
+  // Whether the safeguard group rank synthetic sort key is active in the current sort spec.
+  const safeguardGroupRankSortEnabled = useMemo(
+    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK),
+    [effectiveSubstatSort?.priorities],
+  )
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
   const safeguardImprovementChanceByArtifactId = useMemo<Map<number, ImprovementChanceWasmEntry>>(
     () => improvementChanceByArtifactId ?? new Map(),
@@ -561,20 +567,30 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         return { ...effectiveSubstatSort, safeguardImprovementChanceByArtifactId: chanceMap }
       })()
       : effectiveSubstatSort
-    // Thread the safeguard rank map only when the sort key is active.
+    // Thread the safeguard rank / group rank maps only when their sort keys are active.
+    let withRanks = withChance
     if (safeguardRankSortEnabled && safeguardRankByArtifactId) {
-      // Flatten { rank, isWithinQuota } to just rank (null = not ranked) for the comparator.
+      // Flatten { rank } to just rank (null = not ranked) for the comparator.
       const rankMap = new Map<number, number | null>()
       safeguardRankByArtifactId.forEach(({ rank }, artifactId) => {
         rankMap.set(artifactId, rank > 0 ? rank : null)
       })
-      return { ...withChance, safeguardRankByArtifactId: rankMap }
+      withRanks = { ...withRanks, safeguardRankByArtifactId: rankMap }
     }
-    return withChance
+    if (safeguardGroupRankSortEnabled && safeguardRankByArtifactId) {
+      // Flatten { groupRank } to just groupRank (null = not ranked) for the comparator.
+      const groupRankMap = new Map<number, number | null>()
+      safeguardRankByArtifactId.forEach(({ groupRank }, artifactId) => {
+        groupRankMap.set(artifactId, groupRank > 0 ? groupRank : null)
+      })
+      withRanks = { ...withRanks, safeguardGroupRankByArtifactId: groupRankMap }
+    }
+    return withRanks
   }, [
     effectiveSubstatSort,
     safeguardChanceSortEnabled,
     safeguardRankSortEnabled,
+    safeguardGroupRankSortEnabled,
     safeguardImprovementChanceByArtifactId,
     safeguardRankByArtifactId,
     levelByArtifactId,
