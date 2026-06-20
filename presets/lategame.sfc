@@ -18598,7 +18598,9 @@
   "RecipesEnabled": true,
   "Note": [
     "<span data-color=\"red\">**Use at your own risk.**</span> <span data-color=\"orange\">Your account may differ significantly from the one this file was built on.</span>  ",
-    "<span data-color=\"green\">It's recommended to use this file alongside the real **RSL Helper** database. This helps retain **unique** gear pieces (gear pieces you own few copies of). See the **Help** section to learn how to import the database into **RSL Helper Sellfile Creator**.</span>  ",
+    "<!-- if-no-endpoint -->",
+    "<span data-color=\"red\" data-blink>**⚠ Currently not connected.**</span> <span data-color=\"green\">It's recommended to use this file alongside the real **RSL Helper** database. This helps retain **unique** gear pieces (gear pieces you own few copies of). See the **Help** section to learn how to import the database into **RSL Helper Sellfile Creator**.</span>  ",
+    "<!-- end-if -->",
     "",
     "<span data-color=\"white\">In this file, we provide cutomizable overrides so you can tune the behavior for your own account.",
     "</span> ",

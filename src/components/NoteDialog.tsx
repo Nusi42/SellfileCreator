@@ -362,6 +362,18 @@ const noteDslPulse = keyframes`
   70%  { background-color: ${TINT.primaryActiveBg}; box-shadow: 0 0 0 1px ${TINT.primaryGlow}; }
   100% { background-color: ${TINT.pulseFadeOut}; box-shadow: 0 0 0 1px ${TINT.pulseFadeOut}; }
 `
+// Slow opacity blink for inline note warnings (e.g. the "currently not connected"
+// tip). Eases between full and dimmed so it reads as an attention cue, not a strobe.
+const noteWarningBlink = keyframes`
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+`
+// SSOT selector applied to both note render surfaces (view + edit preview):
+// any `<span data-blink>` slow-blinks via the keyframe above. Authors opt a span
+// in with the data-blink attribute; pair with data-color="red" for the warning hue.
+const NOTE_BLINK_SX_SELECTOR = {
+  '& [data-blink]': { animation: `${noteWarningBlink} 1.6s ease-in-out infinite` },
+} as const
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 const RECIPE_COMMENT_REGEX = /^\s*recipes\s*:\s*([0-9,\s]+)\s*$/i
 const RECIPE_MARKER_REGEX = /<!--\s*recipes\s*:\s*([0-9,\s]+)\s*-->/i
@@ -428,6 +440,15 @@ const SG_QUESTION_ELEMENT_INDEX_ATTR = 'data-sg-question-index'
 const DUNGEON_SIM_COMMENT_REGEX = /^\s*dungeon-simulator\s*$/i
 // Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
 const DUNGEON_SIM_ELEMENT_TAG = 'dungeon-sim-block'
+
+// ── Conditional "no endpoint" block ──────────────────────────────────────────
+// Wrapping directive: content between <!-- if-no-endpoint --> and <!-- end-if -->
+// is shown only while the app is NOT connected to RSL Helper. The markers are
+// authored as plain HTML comments so legacy renderers (and the raw .sfc text)
+// degrade gracefully — the comment markers simply stay invisible.
+const IF_NO_ENDPOINT_OPEN_REGEX = /^\s*if-no-endpoint\s*$/i
+// Closing marker, shared by any future conditional directives.
+const IF_BLOCK_CLOSE_REGEX = /^\s*end-if\s*$/i
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -1245,6 +1266,45 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
           children: [],
         }
       }
+    }
+    transform(tree)
+  }
+}
+
+// Resolve <!-- if-no-endpoint --> … <!-- end-if --> ranges against the live
+// connection state. When `show` is false the wrapped siblings are dropped; either
+// way the marker comment nodes themselves are removed so they never leak as text.
+// Markers are matched among siblings at every nesting level (they are emitted as
+// sibling block nodes because the Note array is joined with newlines).
+const makeRehypeConditionalEndpointComments = (show: boolean): Pluggable => () => {
+  return (tree: Root) => {
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      // Single forward pass: track whether we are inside an open if-no-endpoint
+      // range, rewriting children in place.
+      const next: RootContent[] = []
+      let inBlock = false
+      for (const child of nodeChildren) {
+        // Comment markers control the range; they are never themselves rendered.
+        if (child.type === 'comment') {
+          const value = (child as { value?: string }).value ?? ''
+          if (IF_NO_ENDPOINT_OPEN_REGEX.test(value)) {
+            inBlock = true
+            continue
+          }
+          if (IF_BLOCK_CLOSE_REGEX.test(value)) {
+            inBlock = false
+            continue
+          }
+        }
+        // Inside a hidden range, drop everything; inside a shown range, keep it.
+        if (inBlock && !show) continue
+        // Recurse so nested conditional ranges (if any) resolve too.
+        if (child.type === 'element') transform(child as Element)
+        next.push(child)
+      }
+      // Replace children in place to preserve the node reference.
+      ;(node as { children: RootContent[] }).children = next
     }
     transform(tree)
   }
@@ -4543,7 +4603,7 @@ export default function NoteDialog({
       ...defaultSchema,
       attributes: {
         ...defaultSchema.attributes,
-        span: [...spanAttrs, 'data-color', 'dataColor'],
+        span: [...spanAttrs, 'data-color', 'dataColor', 'data-blink', 'dataBlink'],
         [RECIPE_ELEMENT_TAG]: mergedRecipeAttrs,
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
@@ -4562,6 +4622,10 @@ export default function NoteDialog({
       ])),
     }
   }, [])
+  // "No endpoint" tip blocks show unless we are actually connected to RSL Helper
+  // (connect toggled on AND the push endpoint reachable). Anything short of a live
+  // connection counts as "no endpoint".
+  const showNoEndpointBlock = !((rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false))
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       rehypeRecipeComments,
@@ -4573,9 +4637,12 @@ export default function NoteDialog({
       rehypeSafeguardOverridesGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
+      // Resolve <!-- if-no-endpoint --> … <!-- end-if --> ranges before sanitize
+      // strips the comment markers.
+      makeRehypeConditionalEndpointComments(showNoEndpointBlock),
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
-  ), [sanitizeSchema])
+  ), [sanitizeSchema, showNoEndpointBlock])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
     [RECIPE_ELEMENT_TAG]: RecipeChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
@@ -4980,6 +5047,7 @@ export default function NoteDialog({
                   '& .wmde-markdown table th, & .wmde-markdown table td': { borderColor: 'var(--mui-palette-divider)', color: 'var(--mui-palette-text-primary)' },
                   '& .wmde-markdown table th': { backgroundColor: TINT.neutralHeaderBg },
                   ...NOTE_COLOR_SX_SELECTORS,
+                  ...NOTE_BLINK_SX_SELECTOR,
                 }}
               >
                 <MDEditor.Markdown
@@ -6128,6 +6196,7 @@ function NoteEditorContent({
             // emotion-scoped sx rules may not reach React portal targets reliably.
             '& .w-md-editor-text': { position: 'relative' },
             ...NOTE_COLOR_SX_SELECTORS,
+            ...NOTE_BLINK_SX_SELECTOR,
           }}
           onMouseDownCapture={(e) => {
             try {
