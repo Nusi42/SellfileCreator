@@ -1600,8 +1600,12 @@ export default function SafeguardBuilderPanel({
     ? Boolean(multiWeightByRankField?.value ?? (rule?.weightMainStatByRank === true))
     : (effectiveRule.weightMainStatByRank === true)
   // The bonus only matters when substats are selected; otherwise the rank tie-break already
-  // favors higher ranks, so the chip is disabled to signal it has no effect.
-  const weightByRankDisabled = substatSelection.length === 0
+  // favors higher ranks, so the chip is disabled to signal it has no effect. In multi-edit,
+  // substatSelection reflects only the representative rule, so key the disable off whether ANY
+  // selected rule (staged) has substats — toggling is a no-op on substat-less rules anyway.
+  const weightByRankDisabled = multiEditActive
+    ? !((multiProjectedRules ?? multiSelectedRules ?? []).some((r) => (r.substats?.length ?? 0) > 0))
+    : substatSelection.length === 0
   const ignCollMixed = multiEditActive && multiIgnoreCollectionField?.status === 'mixed' && !multiIgnoreCollectionField.dirty
   const ignCollValue = multiEditActive
     ? Boolean(multiIgnoreCollectionField?.value ?? ignoreEquippedInCollection)
