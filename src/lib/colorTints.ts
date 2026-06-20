@@ -69,7 +69,7 @@ export const TINT = {
 
   // ── Success / keep / "added" state ───────────────────────────────────────────
   // success* and error* below pair up: the HUE encodes keep vs sell, the ALPHA step is shared.
-  successAddedBgFaint:     tint('success-main', ALPHA.a08), // db-diff "added" row bg — pairs errorRemovedBgFaint (GearDbDiffToast)
+  successAddedBgFaint:     tint('success-main', ALPHA.a08), // db-diff "added" row bg — pairs errorRemovedBgFaint (GearDiffPreview)
   successSelectedBg:       tint('success-main', ALPHA.a12), // selected/active chip bg — pairs errorActiveBg (SafeguardBuilderPanel, RecipeBuilderPanel)
   successStatusChipBg:     tint('success-main', ALPHA.a18), // status icon-chip active bg (builderStatusChipStyles)
   successSelectedHover:    tint('success-main', ALPHA.a20), // hover for successSelectedBg — pairs errorActiveHover
@@ -123,7 +123,7 @@ export const TINT = {
   scrollTrackDark:       tint('common-white', ALPHA.a06), // dark-scheme scrollbar track (scrollbar.ts)
   scrollThumbDark:       tint('common-white', ALPHA.a20), // dark-scheme scrollbar thumb (scrollbar.ts)
   scrollThumbHoverDark:  tint('common-white', ALPHA.a40), // dark-scheme scrollbar thumb hover (scrollbar.ts)
-  onDarkSecondaryText:   tint('common-white', ALPHA.a70), // secondary text/arrow on a dark toast surface (GearDbDiffToast, BuilderTooltipContent)
+  onDarkSecondaryText:   tint('common-white', ALPHA.a70), // secondary text/arrow on a dark tooltip surface (BuilderTooltipContent)
 
   // ── Divider ──────────────────────────────────────────────────────────────────
   legendSwatchBorder: tint('divider', ALPHA.a50), // treemap legend swatch border (GearAnalyticsTreemap)

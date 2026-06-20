@@ -1,44 +1,28 @@
 /**
- * gearDbToastStyles — SSOT for the endpoint gear-update (item/diff) toast surface.
+ * gearDbToastStyles — SSOT for the shared gear-diff preview surface.
  *
- * The endpoint update toast historically rendered as a filled green `success` Alert.
- * It now renders on a neutral paper surface so it reads as a calm "here's an update"
- * notification rather than a success banner. This module is the single definition of
- * that look so the live Snackbar renderer in App.tsx stays in one place.
+ * The endpoint gear-update diff is shown in three places — the update toast, the
+ * history hover tooltip, and the pinned history flyout. All three render the same
+ * diff body (GearDiffPreview) on the same neutral paper surface so they read as one
+ * consistent "here's an update" card rather than three different-looking frames.
  *
- * Only the SUCCESS/update path is styled here. Failure/invalid toasts keep their red
- * `error` severity and are intentionally NOT covered by this spec.
+ * This module is the single definition of that surface. It is applied by GearDiffPreview
+ * to its own paper container (NOT an MUI Alert), so it carries no Alert-specific selectors.
+ * Failure/invalid toasts keep their red `error` Alert and are intentionally NOT covered here.
  */
-import type { AlertProps } from '@mui/material/Alert'
-import type { SxProps, Theme } from '@mui/material/styles'
+import type { SystemStyleObject, Theme } from '@mui/system'
 
-// Rendering recipe consumed by the Snackbar/Alert in App.tsx for the update toast.
-export type GearDbToastStyleSpec = {
-  // MUI Alert severity — drives the built-in icon/colour baseline.
-  severity: AlertProps['severity']
-  // MUI Alert variant.
-  variant: AlertProps['variant']
-  // Extra sx merged onto the Alert root so the surface stays neutral.
-  sx?: SxProps<Theme>
-}
-
-// The shipped update-toast look: a fully neutral paper surface with NO accent hue.
-// Add/remove cues come entirely from the diff chip + cards.
-//
-// Border note: the global MuiPaper styleOverride already paints a `1px solid divider`
-// border on every Alert root, so we deliberately do NOT add a second border here —
-// doing so produced a doubled/mismatched edge. We only neutralize the surface and the
-// standard-variant's info-tinted background + icon/text colour so nothing reads as
-// "info blue" against that neutral divider border.
-export const GEAR_DB_UPDATE_TOAST_STYLE: GearDbToastStyleSpec = {
-  severity: 'info',
-  variant: 'standard',
-  sx: {
-    // Opaque paper surface — overrides the standard info variant's blue tint.
-    bgcolor: 'background.paper',
-    // Body text tracks the primary text colour (not the info hue).
-    color: 'text.primary',
-    // Neutralize the standard-variant icon colour too, so the leading glyph is not blue.
-    '& .MuiAlert-icon': { color: 'text.secondary' },
-  },
+// Neutral paper surface shared by every gear-diff preview container (toast / tooltip /
+// flyout). Opaque paper background with primary text and a divider border, so the diff
+// chip + cards provide the only colour cues. Typed as a plain style object (not the SxProps
+// union) so callers can spread it safely into a composed sx.
+export const GEAR_DIFF_PREVIEW_SURFACE_SX: SystemStyleObject<Theme> = {
+  // Opaque paper surface keeps the preview on the app's neutral surface ladder.
+  bgcolor: 'background.paper',
+  // Body text tracks the primary text colour (no accent hue).
+  color: 'text.primary',
+  // Single divider border frames the card consistently across all three containers.
+  border: '1px solid',
+  borderColor: 'divider',
+  borderRadius: 1,
 }

@@ -11,7 +11,7 @@ import { useI18n } from '../lib/i18n'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
-import { GearDbDiffToast } from './GearDbDiffToast'
+import { GearDiffPreview } from './GearDiffPreview'
 import {
   GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
   HISTORY_MENU_MAX_HEIGHT_PX,
@@ -19,7 +19,6 @@ import {
   LIST_SUBHEADER_SX,
 } from '../lib/constants'
 import MarkdownTooltip from './MarkdownTooltip'
-import { ClippedScrollBody } from './ClippedScrollBody'
 import { decodeGearDbDiffToastEntries, formatGearDbDiffHistoryLines } from '../lib/gearDbDiffToast'
 import type { GearDbDiffHistoryEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -201,19 +200,26 @@ export function GearDbHistoryMenu({
                   setHoveredEntryId((current) => (current === entry.id ? null : current))
                 }}
               render={tooltipPayload ? (
-                <ClippedScrollBody maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX} fadeColorVar="--mui-palette-grey-700">
-                  <GearDbDiffToast
-                    payload={tooltipPayload}
-                    substatColors={substatColors}
-                    useStatButtonColors={useStatButtonColors}
-                  />
-                </ClippedScrollBody>
+                // Shared preview card owns the paper surface + clip-scroll; the tooltip slot
+                // below is stripped to a transparent, padding-less shell so this card IS the
+                // visible surface (matching the toast + flyout exactly).
+                <GearDiffPreview
+                  payload={tooltipPayload}
+                  substatColors={substatColors}
+                  useStatButtonColors={useStatButtonColors}
+                  scrollMode="clip"
+                  maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX}
+                />
               ) : ''}
               slotProps={{
                 tooltip: {
                   sx: {
                     maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
-                    // Let the content wrapper own scrolling so nested scrollbars cannot appear.
+                    // Strip the default dark MUI tooltip surface so the GearDiffPreview paper
+                    // card shows through unframed (no dark ring around the card).
+                    bgcolor: 'transparent',
+                    p: 0,
+                    // Let the preview card own scrolling so nested scrollbars cannot appear.
                     overflow: 'visible',
                   },
                 },
@@ -339,23 +345,19 @@ export function GearDbHistoryMenu({
           },
         }}
       >
-        <Box
-          sx={{
-            p: 1,
-            // Popout is interactive/persistent, so preserve scrolling for full inspection.
-            maxHeight: GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-          }}
-        >
-          {activePreviewPopout ? (
-            <GearDbDiffToast
-              payload={activePreviewPopout.payload}
-              substatColors={substatColors}
-              useStatButtonColors={useStatButtonColors}
-            />
-          ) : null}
-        </Box>
+        {activePreviewPopout ? (
+          // ContextMenuPaper already provides the paper card + close button, so the
+          // preview renders surface-less here; scroll mode lets the user inspect the
+          // full list. This is the same shared card as the toast + hover tooltip.
+          <GearDiffPreview
+            payload={activePreviewPopout.payload}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
+            scrollMode="scroll"
+            maxHeightPx={GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX}
+            surfaceless
+          />
+        ) : null}
       </Menu>
     </>
   )

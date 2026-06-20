@@ -142,7 +142,6 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
-import { GEAR_DB_UPDATE_TOAST_STYLE } from './lib/gearDbToastStyles'
 import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
@@ -163,7 +162,7 @@ import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
 import SafeguardChipsPanel from './components/SafeguardChipsPanel'
 import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
-import { GearDbDiffToast } from './components/GearDbDiffToast'
+import { GearDiffPreview } from './components/GearDiffPreview'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import LogicHubDialog from './components/dialogs/LogicHubDialog'
 import HelpDialog from './components/HelpDialog'
@@ -9340,40 +9339,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             '& .MuiSnackbarContent-root': { p: 0 },
           }}
         >
-          <Alert
-            icon={gearDbCommandToast.severity === 'success' ? <StorageIcon fontSize="inherit" /> : <ErrorOutlineIcon fontSize="inherit" />}
-            // Error toasts keep their filled-error look; success/update toasts adopt the
-            // shared neutral-surface style (severity/variant/surface) so the update toast
-            // reads as a calm notification rather than a green success banner.
-            severity={gearDbCommandToast.severity === 'error' ? 'error' : GEAR_DB_UPDATE_TOAST_STYLE.severity}
-            variant={gearDbCommandToast.severity === 'error' ? 'filled' : GEAR_DB_UPDATE_TOAST_STYLE.variant}
-            onClose={dismissGearDbCommandToast}
-            sx={{
-              alignItems: gearDbCommandToast.diff ? 'flex-start' : 'center',
-              fontSize: Math.max(12, FONT_SIZE_BASE_PX - 2),
-              lineHeight: 1.35,
-              px: 1.75,
-              py: 1,
-              minWidth: gearDbCommandToast.diff ? 320 : 240,
-              maxWidth: 560,
-              whiteSpace: gearDbCommandToast.diff ? 'normal' : 'pre-line',
-              // Diff toasts should clip overwide content instead of rendering a horizontal scrollbar.
-              overflowX: 'hidden',
-              // The neutral-surface overrides (paper bg / neutralized icon+text) only apply on
-              // the success/update path; errors render with the default filled-error sx.
-              ...(gearDbCommandToast.severity === 'error' ? null : GEAR_DB_UPDATE_TOAST_STYLE.sx),
-            }}
-          >
-            {gearDbCommandToast.diff
-              ? (
-                <GearDbDiffToast
+          {gearDbCommandToast.diff
+            ? (
+              // Diff/update toasts render the shared GearDiffPreview directly (no Alert
+              // chrome) so the toast, history tooltip, and history flyout are one card.
+              // Clip mode keeps the transient toast from stealing the scroll wheel; a click
+              // dismisses it (replacing the removed Alert close button) alongside auto-hide.
+              <Box
+                onClick={dismissGearDbCommandToast}
+                sx={{ minWidth: 320, maxWidth: 560, cursor: 'pointer' }}
+              >
+                <GearDiffPreview
                   payload={gearDbCommandToast.diff}
                   substatColors={substatColors}
                   useStatButtonColors={statButtonBorders}
+                  scrollMode="clip"
                 />
-              )
-              : gearDbCommandToast.message}
-          </Alert>
+              </Box>
+            )
+            : (
+              // Error / plain-text toasts keep the filled severity Alert (icon + close).
+              <Alert
+                icon={gearDbCommandToast.severity === 'success' ? <StorageIcon fontSize="inherit" /> : <ErrorOutlineIcon fontSize="inherit" />}
+                severity={gearDbCommandToast.severity}
+                variant="filled"
+                onClose={dismissGearDbCommandToast}
+                sx={{
+                  alignItems: 'center',
+                  fontSize: Math.max(12, FONT_SIZE_BASE_PX - 2),
+                  lineHeight: 1.35,
+                  px: 1.75,
+                  py: 1,
+                  minWidth: 240,
+                  maxWidth: 560,
+                  whiteSpace: 'pre-line',
+                  // Clip overwide content instead of rendering a horizontal scrollbar.
+                  overflowX: 'hidden',
+                }}
+              >
+                {gearDbCommandToast.message}
+              </Alert>
+            )}
         </Snackbar>
       ) : null}
       <ConfirmDialogs

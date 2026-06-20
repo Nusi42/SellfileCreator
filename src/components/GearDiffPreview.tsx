@@ -1,7 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material/styles'
 import { useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
-import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GLYPH_ARROW_RIGHT } from '../lib/constants'
+import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX, GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { buildPreviewArtifactFromGearInspectorItem } from '../lib/gearInspectorPreviewArtifacts'
 import type { TestItem } from '../lib/ruleEval'
 import type { MatchingRecipeDecision } from '../lib/ruleEval'
@@ -12,17 +13,19 @@ import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload
 // into a dedicated module to keep both files under the 1,500-line cap.
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
+import { ClippedScrollBody } from './ClippedScrollBody'
+import { GEAR_DIFF_PREVIEW_SURFACE_SX } from '../lib/gearDbToastStyles'
 import { TINT } from '../lib/colorTints'
 
-// Use a tight gap so five entries can still fit in the toast window.
+// Use a tight gap so five entries can still fit in the preview window.
 const TOAST_ENTRY_GAP_UNITS = 1
-// Smaller fonts keep the toast visually lightweight.
+// Smaller fonts keep the preview visually lightweight.
 const TOAST_HEADER_FONT_SIZE_REM = 0.85
-// Scale the card down so two entries fit comfortably in the toast.
+// Scale the card down so two entries fit comfortably in the preview.
 const TOAST_CARD_SCALE = GEAR_DB_DIFF_TOAST_CARD_SCALE
 // Use a wider column count so ascension renders as a block (avoids inline wrapping).
 const TOAST_CARD_COLUMN_COUNT = CHAMPION_ICON_LARGE_THRESHOLD
-// Toast previews do not show secondary match rows.
+// Diff previews do not show secondary match rows.
 const TOAST_SHOW_OTHER_MATCH_ROWS = false
 // Fixed match rows keep the before/after heights aligned when matches exist.
 const TOAST_CARD_PRIORITY_BASE = 0
@@ -37,19 +40,74 @@ type BadgeTone = 'added' | 'removed' | null
 // Single-sided batches (all adds or all removals) can render in a dense 2-column grid.
 type SingleSidedDiffKind = 'added' | 'removed'
 
-/**
- * Render the endpoint diff toast body: header lines + per-item diffs.
- */
-export function GearDbDiffToast({
-  payload,
-  substatColors,
-  useStatButtonColors,
-}: {
+// Props shared by the preview wrapper and its inner body.
+type GearDiffBodyProps = {
   payload: GearDbDiffToastPayload
   substatColors: SubstatColorMap
   useStatButtonColors: boolean
+}
+
+// Scroll behaviour for the shared preview surface:
+//  - 'clip'   : transient surfaces (update toast, hover tooltip) that must not steal the
+//               wheel — content is clipped with a bottom fade cue.
+//  - 'scroll' : pinned surfaces (history flyout) where the user inspects the full list.
+export type GearDiffPreviewScrollMode = 'clip' | 'scroll'
+
+/**
+ * GearDiffPreview — the single styled core shared by all three gear-diff surfaces
+ * (update toast, history hover tooltip, history click flyout).
+ *
+ * It owns the neutral paper surface + capped-height scroll/clip behaviour, so each
+ * entry point only has to supply its own container (Snackbar / Popper / Menu) and a
+ * scroll mode. This keeps the surface, fade colour, and body in exactly one place.
+ */
+export function GearDiffPreview({
+  payload,
+  substatColors,
+  useStatButtonColors,
+  // Default to clip so transient hosts (toast/tooltip) get the lightweight behaviour.
+  scrollMode = 'clip',
+  // Cap height with the shared history/tooltip ceiling unless a host overrides it.
+  maxHeightPx = GEAR_DB_HISTORY_TOOLTIP_MAX_HEIGHT_PX,
+  // When the host already provides the paper card chrome (e.g. the flyout's
+  // ContextMenuPaper), skip the preview's own surface so the card is not drawn twice.
+  surfaceless = false,
+  // Optional surface overrides (e.g. a host adding padding) merged onto the paper sx.
+  sx,
+}: GearDiffBodyProps & {
+  scrollMode?: GearDiffPreviewScrollMode
+  maxHeightPx?: number
+  surfaceless?: boolean
+  sx?: SxProps<Theme>
 }) {
-  // Localize static copy inside the toast itself.
+  // Pinned flyouts scroll; transient toast/tooltip clip with a fade.
+  const overflowY = scrollMode === 'scroll' ? 'auto' : 'hidden'
+  // Draw the shared paper surface unless the host already owns the card chrome.
+  const surfaceSx = surfaceless ? {} : GEAR_DIFF_PREVIEW_SURFACE_SX
+  return (
+    <Box sx={{ ...surfaceSx, p: 1, ...sx }}>
+      {/* Fade tracks the paper surface (the default) since all three hosts are now paper. */}
+      <ClippedScrollBody maxHeightPx={maxHeightPx} overflowY={overflowY}>
+        <GearDbDiffBody
+          payload={payload}
+          substatColors={substatColors}
+          useStatButtonColors={useStatButtonColors}
+        />
+      </ClippedScrollBody>
+    </Box>
+  )
+}
+
+/**
+ * Render the endpoint diff body: header lines + per-item diffs. Internal — callers use
+ * GearDiffPreview (above), which wraps this in the shared surface + scroll container.
+ */
+function GearDbDiffBody({
+  payload,
+  substatColors,
+  useStatButtonColors,
+}: GearDiffBodyProps) {
+  // Localize static copy inside the body itself.
   const { t } = useI18n()
   // Trim header lines up front so layout stays tight.
   // Filter empty headers so we do not render blank typography rows.
