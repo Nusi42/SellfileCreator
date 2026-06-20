@@ -75,6 +75,20 @@ export const SPLIT_BUTTON_CHEVRON_SX = {
   borderBottomLeftRadius: 0,
   flexShrink: 0,
 } as const
+// Horizontal space the export/push button reserves for its leading icon + side
+// paddings, subtracted from the button width before useFittingLabel measures label
+// tiers. Derivation: startIcon glyph (20px) + MUI startIcon margin-right (8px) +
+// the button's `px: 1.25` (10px) on each side (20px). A small slack avoids the label
+// brushing the chevron seam. Keep in sync with the button's `px`/`startIcon` if changed.
+export const EXPORT_LABEL_RESERVED_PX = 20 + 8 + 20 + 4
+// Upper bound on the export/push button's width. The measured wrapper grows to this cap
+// when the header has room (showing the full label at natural size) and shrinks below it
+// when the row is tight — driving useFittingLabel's full→short→min→icon stepping.
+export const EXPORT_BUTTON_MAX_WIDTH_PX = 320
+// Width the split-button chevron (+ its 1px seam gap) reserves to the right of the export
+// label inside the bounded action row, so useFittingLabel leaves room for it when sizing
+// the label. ~28px icon button + 1px gap.
+export const EXPORT_CHEVRON_RESERVED_PX = 29
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8

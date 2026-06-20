@@ -31,8 +31,11 @@ import trTR from './i18n/catalogs/tr-TR'
 // Base (English) catalog is the source of truth for keys
 const en = enUS
 
-type I18nKey = keyof typeof en
+export type I18nKey = keyof typeof en
 type StrictCatalog = { [K in I18nKey]: string }
+// The catalog-aware translate function, exported so helpers outside the React tree
+// (e.g. exportLabelTiers) can accept `t` with full key typing instead of `string`.
+export type TranslateFn = (key: I18nKey, params?: Record<string, string | number>) => string
 
 const STAT_TOKEN_PATTERN = /\[\[\s*stat\s*:\s*([A-Za-z0-9_]+)(?:\|([A-Za-z0-9_-]+))?\s*\]\]/g
 
@@ -122,7 +125,7 @@ function safeGetLanguage(): Language {
 export type I18nContextValue = {
   lang: Language
   setLang: (lang: Language) => void
-  t: (key: I18nKey, params?: Record<string, string | number>) => string
+  t: TranslateFn
   // Register a runtime catalog for quick testing (e.g., via dropped file)
   registerRuntimeCatalog: (langCode: string, catalog: Partial<StrictCatalog>) => void
 }

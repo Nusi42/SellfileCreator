@@ -63,7 +63,15 @@ const enUS: Catalog = {
   exportIgnoresFilters: "**Export** Ignores Filters",
   pushIgnoresFilters: "**Push** Ignores Filters",
   exportMergedSellfile: "Export Merged RSL Helper Sellfile",
+  // Shorter tiers of the export label, picked by useFittingLabel when the full
+  // string would overflow the split button: "…Short" drops "RSL Helper", "…Min"
+  // keeps only the verb. Each tier is translated per-locale so word order/grammar
+  // stay correct (never slice a localized string).
+  exportMergedSellfileShort: "Export Merged Sellfile",
+  exportMergedSellfileMin: "Export",
   exportSellfile: "Export RSL Helper Sellfile",
+  exportSellfileShort: "Export Sellfile",
+  exportSellfileMin: "Export",
   exportSellfileAutoPush: "Auto-push on change",
   exportSellfileDedupDefault: "Deduplicate Rules",
   exportSellfileOmitDisabled: "Omit Disabled Rules",
@@ -71,7 +79,11 @@ const enUS: Catalog = {
   dirtyBadgeNotSavedSince: "Unsaved changes — not saved since {time}",
   dirtyBadgeUnsaved: "Unsaved changes",
   pushMergedSellfile: "Push Merged RSL Helper Sellfile",
+  pushMergedSellfileShort: "Push Merged Sellfile",
+  pushMergedSellfileMin: "Push",
   pushSellfile: "Push RSL Helper Sellfile",
+  pushSellfileShort: "Push Sellfile",
+  pushSellfileMin: "Push",
   pushSellfileTooltip: "Sends the Sellfile to {endpoint}",
   manageColorsAria: "Manage Colors",
   // Gear Inspector

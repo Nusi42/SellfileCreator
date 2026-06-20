@@ -25,6 +25,9 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import PublishIcon from '@mui/icons-material/Publish'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
+import { exportLabelTiers } from '../lib/exportLabelTiers'
+import { useFittingLabel } from '../hooks/useFittingLabel'
+import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX } from '../lib/constants'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -490,6 +493,9 @@ export default function PreviewHeaderActions(props: {
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = () => { setExportMenuAnchor(null) }
   const exportChevronRef = React.useRef<HTMLButtonElement | null>(null)
+  // The right-side action group row; its right content edge bounds the export label's
+  // available width so useFittingLabel can shrink the label to fit instead of wrapping.
+  const exportActionRowRef = React.useRef<HTMLDivElement | null>(null)
   const filterMenuEnabled = React.useMemo(() => {
     // The filter button menu is the entry point for presets + sync, so enable it when any are available.
     return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
@@ -769,11 +775,35 @@ export default function PreviewHeaderActions(props: {
   // History menu toggle label keeps the context menu consistent across locales.
   const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
   const gearDbHistoryPauseUpdatesLabel = t('gearDbHistoryPauseUpdates')
-  const exportLabel = pushActive
-    ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
-    : (baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile'))
+  // Progressively-shortened label tiers (full → short → min); useFittingLabel below
+  // picks the widest that fits the split button, collapsing to icon-only otherwise.
+  // exportLabel stays the FULL tier — it backs the always-on tooltip and aria-label so
+  // the full wording is discoverable even when the visible text is shortened or hidden.
+  // Memoized so the array identity is stable across renders — useFittingLabel's measure
+  // effect re-subscribes its ResizeObserver only when the tiers actually change.
+  const exportLabelTierList = React.useMemo(
+    () => exportLabelTiers(t, pushActive, !!baseRuleCount),
+    [t, pushActive, baseRuleCount],
+  )
+  const exportLabel = exportLabelTierList[0]
+  // Measure the button and pick the widest tier that fits; null → render icon-only.
+  // idealWidth is the full label's footprint, requested as the wrapper width so a roomy
+  // header lays the button out full-size while flex-shrink collapses it when tight.
+  const { text: fittedExportLabel, idealWidth: exportIdealWidth, ref: exportLabelRef } = useFittingLabel({
+    tiers: exportLabelTierList,
+    reservedPx: EXPORT_LABEL_RESERVED_PX,
+    // The chevron split-button (when shown) sits after the label inside the bounded row.
+    trailingReservedPx: exportMenuEnabled ? EXPORT_CHEVRON_RESERVED_PX : 0,
+    boundaryRef: exportActionRowRef,
+  })
   const exportIcon = pushActive ? <PublishIcon /> : <FileDownloadIcon />
   const exportTooltipParts: string[] = []
+  // When the visible label is shortened (or hidden in icon-only mode) surface the full
+  // wording at the top of the tooltip so it stays discoverable; skip it when the full
+  // tier is already shown to avoid redundant hover text. (aria-label always carries it.)
+  if (fittedExportLabel !== exportLabel) {
+    exportTooltipParts.push(exportLabel)
+  }
   if (pushActive && pushEndpoint) {
     exportTooltipParts.push(t('pushSellfileTooltip', { endpoint: pushEndpoint }))
   }
@@ -1097,18 +1127,28 @@ export default function PreviewHeaderActions(props: {
   const hsfDirtyTooltip = buildDirtyTooltip(hsfDirtySince, t)
   // The export-action explanation wraps ONLY the button (not the badge/chevron) so
   // it never stacks with the dirty-dot's own tooltip when the cursor is on the dot.
+  // Icon-only when the label is fully collapsed; affects icon placement + height locking.
+  const exportIconOnly = fittedExportLabel === null
   const exportButtonNode = (
     <Button
-      startIcon={exportIcon}
+      // Keep the icon as a leading startIcon when there's a label (gets margin-right);
+      // icon-only renders it centered as the child. Either way the button height is locked
+      // (below) so the glyph box stays identical — icon size never jumps between modes.
+      startIcon={exportIconOnly ? undefined : exportIcon}
+      // Fill the measured wrapper (which caps the width); the wrapper, not the button, owns
+      // width so the label can shrink. Fixed height = the icon's box is constant whether or
+      // not the label is shown, so collapsing to icon-only does not resize the glyph.
       sx={{
         whiteSpace: 'nowrap',
         px: 1.25,
         minWidth: 0,
-        maxWidth: 320,
+        width: '100%',
+        height: SELLFILE_BUTTON_HEIGHT_PX,
         overflow: 'hidden',
-        flex: 1,
         display: 'flex',
         justifyContent: 'center',
+        // Drop the startIcon's trailing margin in icon-only mode so the glyph stays centered.
+        ...(exportIconOnly ? { '& .MuiButton-startIcon': { mx: 0 } } : {}),
         ...(exportMenuEnabled ? SPLIT_BUTTON_MAIN_SX : {}),
       }}
       onClick={onExport}
@@ -1116,21 +1156,43 @@ export default function PreviewHeaderActions(props: {
       data-tour-id="hsf.export"
       aria-label={exportLabel}
     >
-      <EllipsisTooltip title={exportLabel}>
+      {/* Render the fitted tier; null → icon-only (the full label lives in the tooltip
+          and aria-label). No EllipsisTooltip: we pre-fit, so the text never overflows. */}
+      {exportIconOnly ? (
+        exportIcon
+      ) : (
         <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
-          {exportLabel}
+          {fittedExportLabel}
         </Typography>
-      </EllipsisTooltip>
+      )}
     </Button>
   )
   const exportControl = (
-    <Box component="span" sx={{ display: 'inline-flex', gap: '1px', flex: 1, minWidth: 0, ml: 1 }}>
-      <DirtyBadge active={hsfDirty} tooltip={hsfDirtyTooltip} sx={{ display: 'flex', flex: 1, minWidth: 0 }}>
-        {(exportTooltip?.trim().length ?? 0) > 0 ? (
-          /* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */
-          <MarkdownTooltip markdown={exportTooltip}>{exportButtonNode}</MarkdownTooltip>
-        ) : exportButtonNode}
-      </DirtyBadge>
+    // Content-sized (NOT flex:1, so it never stretches and leaves a gap before the button).
+    // useFittingLabel derives the budget from the boundary row's other children, so it needs
+    // no stretch here. The hook reads the inner <button> for font; the fitted label means no
+    // fixed width and no icon-only latch.
+    <Box
+      ref={exportLabelRef as React.Ref<HTMLDivElement>}
+      component="span"
+      sx={{ display: 'inline-flex', gap: '1px', flexShrink: 0, minWidth: 0, ml: 1 }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          minWidth: 0,
+          flexShrink: 0,
+          // Cap at the full label's footprint so a roomy row shows full text at natural size.
+          maxWidth: exportIdealWidth > 0 ? Math.min(exportIdealWidth, EXPORT_BUTTON_MAX_WIDTH_PX) : EXPORT_BUTTON_MAX_WIDTH_PX,
+        }}
+      >
+        <DirtyBadge active={hsfDirty} tooltip={hsfDirtyTooltip} sx={{ display: 'flex', flex: 1, minWidth: 0 }}>
+          {(exportTooltip?.trim().length ?? 0) > 0 ? (
+            /* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */
+            <MarkdownTooltip markdown={exportTooltip}>{exportButtonNode}</MarkdownTooltip>
+          ) : exportButtonNode}
+        </DirtyBadge>
+      </Box>
       {/* Chevron opens the export options menu (no right-click anymore). */}
       {exportMenuEnabled ? (
         <Button
@@ -1139,7 +1201,8 @@ export default function PreviewHeaderActions(props: {
           aria-haspopup="menu"
           disabled={exportDisabled}
           onClick={() => setExportMenuAnchor(exportChevronRef.current)}
-          sx={SPLIT_BUTTON_CHEVRON_SX}
+          // Match the main button's locked height so the split halves stay aligned.
+          sx={{ ...SPLIT_BUTTON_CHEVRON_SX, height: SELLFILE_BUTTON_HEIGHT_PX }}
         >
           <ArrowDropDownIcon fontSize="small" />
         </Button>
@@ -2785,8 +2848,18 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        <Box sx={{ flex: 1, minWidth: 0 }} />
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0, alignItems: 'center' }}>
+        {/* The boundary row for useFittingLabel. It fills the space to the right of the
+            left control groups (flex:1, replacing the old spacer), so its content width is
+            stable/viewport-driven — the hook subtracts the fixed action buttons from it to
+            get the export label's free space, then steps the label full→short→min→icon to
+            fit instead of wrapping. nowrap keeps the buttons on one line; justifyContent
+            keeps them right-aligned; fixed siblings stay flexShrink:0. */}
+        <Stack
+          ref={exportActionRowRef}
+          direction="row"
+          spacing={1}
+          sx={{ flex: '1 1 0', minWidth: 0, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
+        >
           {historyMenuEnabled ? (
             <>
               <Box
