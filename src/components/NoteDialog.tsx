@@ -374,6 +374,38 @@ const noteWarningBlink = keyframes`
 const NOTE_BLINK_SX_SELECTOR = {
   '& [data-blink]': { animation: `${noteWarningBlink} 1.6s ease-in-out infinite` },
 } as const
+
+// Data attribute marking a conditional wrapper div + its single condition value.
+// The note container toggles a sibling state attribute (NOTE_CONNECTED_ATTR) so CSS
+// can fade/collapse the wrapper without re-parsing the markdown on connect changes.
+const NOTE_CONDITIONAL_ATTR = 'data-note-conditional'
+const NOTE_CONDITIONAL_NO_ENDPOINT = 'no-endpoint'
+// State attribute set on the note render container reflecting the live connection.
+const NOTE_CONNECTED_ATTR = 'data-note-connected'
+
+// SSOT styling for conditional note wrappers. The wrapper stays mounted at all
+// times; when the container reports a live connection (NOTE_CONNECTED_ATTR="true"),
+// the no-endpoint block fades + collapses to zero height so content below slides up.
+// The grid 1fr→0fr row trick animates content-driven height with no JS measurement.
+const NOTE_CONDITIONAL_SX = {
+  [`& [${NOTE_CONDITIONAL_ATTR}="${NOTE_CONDITIONAL_NO_ENDPOINT}"]`]: {
+    // Collapsible container: grid rows animate from 1fr (open) to 0fr (closed).
+    // The wrapper carries no margin of its own so the row track is the only height.
+    display: 'grid',
+    gridTemplateRows: '1fr',
+    opacity: 1,
+    margin: 0,
+    transition: 'grid-template-rows 400ms ease, opacity 400ms ease',
+    // The single grid child (a <p>) must clip + drop its own block margins, else
+    // those margins survive the 0fr collapse and leave a residual gap.
+    '& > *': { minHeight: 0, overflow: 'hidden', marginTop: 0, marginBottom: 0 },
+  },
+  // When connected, fade + collapse the no-endpoint block; content below slides up.
+  [`&[${NOTE_CONNECTED_ATTR}="true"] [${NOTE_CONDITIONAL_ATTR}="${NOTE_CONDITIONAL_NO_ENDPOINT}"]`]: {
+    gridTemplateRows: '0fr',
+    opacity: 0,
+  },
+} as const
 // Size of the workload indicator in express (non-expert) mode — visibly larger than the default 20 px.
 const RECIPE_COMMENT_REGEX = /^\s*recipes\s*:\s*([0-9,\s]+)\s*$/i
 const RECIPE_MARKER_REGEX = /<!--\s*recipes\s*:\s*([0-9,\s]+)\s*-->/i
@@ -1271,21 +1303,36 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
   }
 }
 
-// Resolve <!-- if-no-endpoint --> … <!-- end-if --> ranges against the live
-// connection state. When `show` is false the wrapped siblings are dropped; either
-// way the marker comment nodes themselves are removed so they never leak as text.
+// Wrap <!-- if-no-endpoint --> … <!-- end-if --> ranges in a <div> tagged with
+// NOTE_CONDITIONAL_ATTR. The content is ALWAYS emitted into the DOM (never dropped)
+// so visibility can be animated purely in CSS: the live connection state toggles a
+// class on the note container, and NOTE_CONDITIONAL_SX fades + collapses the div.
+// Keeping the markup state-independent means the markdown tree does not re-parse on
+// connect/disconnect, so the element persists and the CSS transition can run.
 // Markers are matched among siblings at every nesting level (they are emitted as
 // sibling block nodes because the Note array is joined with newlines).
-const makeRehypeConditionalEndpointComments = (show: boolean): Pluggable => () => {
+const rehypeConditionalEndpointComments: Pluggable = () => {
   return (tree: Root) => {
     const transform = (node: Root | Element): void => {
       const nodeChildren = (node.children ?? []) as RootContent[]
-      // Single forward pass: track whether we are inside an open if-no-endpoint
-      // range, rewriting children in place.
+      // Single forward pass: collect the children of an open range into a wrapper,
+      // then splice the wrapper back in place of the marker + range.
       const next: RootContent[] = []
       let inBlock = false
+      let buffer: RootContent[] = []
+      // Emit the accumulated range as one wrapper div carrying the conditional attr.
+      const flushBuffer = (): void => {
+        if (buffer.length === 0) return
+        next.push({
+          type: 'element',
+          tagName: 'div',
+          properties: { [NOTE_CONDITIONAL_ATTR]: NOTE_CONDITIONAL_NO_ENDPOINT },
+          children: buffer,
+        } as Element)
+        buffer = []
+      }
       for (const child of nodeChildren) {
-        // Comment markers control the range; they are never themselves rendered.
+        // Comment markers delimit the range; they are never themselves rendered.
         if (child.type === 'comment') {
           const value = (child as { value?: string }).value ?? ''
           if (IF_NO_ENDPOINT_OPEN_REGEX.test(value)) {
@@ -1293,16 +1340,19 @@ const makeRehypeConditionalEndpointComments = (show: boolean): Pluggable => () =
             continue
           }
           if (IF_BLOCK_CLOSE_REGEX.test(value)) {
+            flushBuffer()
             inBlock = false
             continue
           }
         }
-        // Inside a hidden range, drop everything; inside a shown range, keep it.
-        if (inBlock && !show) continue
         // Recurse so nested conditional ranges (if any) resolve too.
         if (child.type === 'element') transform(child as Element)
-        next.push(child)
+        // Buffer range content; pass everything else straight through.
+        if (inBlock) buffer.push(child)
+        else next.push(child)
       }
+      // Unterminated range (missing end-if): still wrap what we collected.
+      flushBuffer()
       // Replace children in place to preserve the node reference.
       ;(node as { children: RootContent[] }).children = next
     }
@@ -4605,10 +4655,14 @@ export default function NoteDialog({
       ...sgQuestionAttrs,
       SG_QUESTION_ELEMENT_INDEX_ATTR,
     ]))
+    // Allow the conditional-wrapper marker on the <div> emitted by the rehype plugin.
+    const divAttrs: SanitizeProp[] = Array.isArray(baseAttrs.div) ? baseAttrs.div : []
+    const mergedDivAttrs = Array.from(new Set<SanitizeProp>([...divAttrs, NOTE_CONDITIONAL_ATTR]))
     return {
       ...defaultSchema,
       attributes: {
         ...defaultSchema.attributes,
+        div: mergedDivAttrs,
         span: [...spanAttrs, 'data-color', 'dataColor', 'data-blink', 'dataBlink'],
         [RECIPE_ELEMENT_TAG]: mergedRecipeAttrs,
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
@@ -4628,10 +4682,10 @@ export default function NoteDialog({
       ])),
     }
   }, [])
-  // "No endpoint" tip blocks show unless we are actually connected to RSL Helper
-  // (connect toggled on AND the push endpoint reachable). Anything short of a live
-  // connection counts as "no endpoint".
-  const showNoEndpointBlock = !((rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false))
+  // Live connection: connect toggled on AND the push endpoint reachable. Anything
+  // short of that counts as "no endpoint". Drives the container state attribute that
+  // CSS uses to fade/collapse no-endpoint blocks (markup stays state-independent).
+  const noteConnected = (rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false)
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       rehypeRecipeComments,
@@ -4643,12 +4697,13 @@ export default function NoteDialog({
       rehypeSafeguardOverridesGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
-      // Resolve <!-- if-no-endpoint --> … <!-- end-if --> ranges before sanitize
-      // strips the comment markers.
-      makeRehypeConditionalEndpointComments(showNoEndpointBlock),
+      // Wrap <!-- if-no-endpoint --> … <!-- end-if --> ranges (always present in the
+      // DOM) before sanitize strips the comment markers. State-independent: the
+      // wrapper is shown/hidden via CSS keyed on the container's connection attr.
+      rehypeConditionalEndpointComments,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
-  ), [sanitizeSchema, showNoEndpointBlock])
+  ), [sanitizeSchema])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
     [RECIPE_ELEMENT_TAG]: RecipeChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [SAFEGUARD_ELEMENT_TAG]: SafeguardBlock as unknown as React.ComponentType<Record<string, unknown>>,
@@ -5035,6 +5090,7 @@ export default function NoteDialog({
                 data-allow-select={1 as const}
                 data-allow-context={1 as const}
                 data-color-mode={colorScheme ?? 'dark'}
+                {...{ [NOTE_CONNECTED_ATTR]: noteConnected ? 'true' : 'false' }}
                 sx={{
                   // Stretch the preview to fill the dialog body.
                   flex: 1,
@@ -5054,6 +5110,7 @@ export default function NoteDialog({
                   '& .wmde-markdown table th': { backgroundColor: TINT.neutralHeaderBg },
                   ...NOTE_COLOR_SX_SELECTORS,
                   ...NOTE_BLINK_SX_SELECTOR,
+                  ...NOTE_CONDITIONAL_SX,
                 }}
               >
                 <MDEditor.Markdown
