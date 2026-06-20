@@ -32,6 +32,7 @@ type SafeguardRuleSignature = {
   ignorePreviousSafeguards: boolean
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
+  weightMainStatByRank: boolean
   countMode: SafeguardRuleCountMode
   slots: number[]
   sets: Array<{ id: number; excluded: boolean }>
@@ -274,6 +275,7 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
+    weightMainStatByRank: rule.weightMainStatByRank === true,
     countMode: normalizeCountMode(rule.countMode),
     slots,
     sets,
@@ -301,6 +303,7 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     || left.ignorePreviousSafeguards !== right.ignorePreviousSafeguards
     || left.ignoreEquippedInCollection !== right.ignoreEquippedInCollection
     || left.ignoreEquippedInVault !== right.ignoreEquippedInVault
+    || left.weightMainStatByRank !== right.weightMainStatByRank
     || left.substatMatch !== right.substatMatch
   ) {
     return false

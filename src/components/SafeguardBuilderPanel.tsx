@@ -1599,10 +1599,10 @@ export default function SafeguardBuilderPanel({
   const weightByRankValue = multiEditActive
     ? Boolean(multiWeightByRankField?.value ?? (rule?.weightMainStatByRank === true))
     : (effectiveRule.weightMainStatByRank === true)
-  // The bonus only matters when substats are selected; otherwise the rank tie-break already
-  // favors higher ranks, so the chip is disabled to signal it has no effect. In multi-edit,
-  // substatSelection reflects only the representative rule, so key the disable off whether ANY
-  // selected rule (staged) has substats — toggling is a no-op on substat-less rules anyway.
+  // The bonus only applies when substats are selected (otherwise the rank tie-break already
+  // orders same-mainstat ranks), so the chip is disabled when none are. In multi-edit,
+  // substatSelection reflects only the representative rule, so check whether ANY selected
+  // (staged) rule has substats.
   const weightByRankDisabled = multiEditActive
     ? !((multiProjectedRules ?? multiSelectedRules ?? []).some((r) => (r.substats?.length ?? 0) > 0))
     : substatSelection.length === 0
@@ -2481,7 +2481,7 @@ export default function SafeguardBuilderPanel({
                 )}
                 {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
                     same-main near-equal 5★. Disabled when no substats are selected (the rank
-                    tie-break already orders ranks there). */}
+                    tie-break already orders ranks there, so the bonus has no effect). */}
                 <Box sx={{ position: 'relative', alignSelf: 'flex-start' }}>
                   <MarkdownTooltip markdown={t('safeguardsWeightByRankHint')} ellipsisTitle={t('safeguardsWeightByRank')} ellipsisSelector=".MuiChip-label">
                     <Chip

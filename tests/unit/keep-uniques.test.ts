@@ -8,6 +8,7 @@ import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPrevi
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import type { SafeguardRule } from '../../src/lib/safeguards.js'
 import type { Metaset } from '../../src/lib/metasets.js'
+import { createSafeguardsRulesChangeDescriptor } from '../../src/history/safeguardsDescriptors.js'
 import { buildSafeguardRules, prependSafeguardRules, RULE_SOURCE_SAFEGUARDS } from '../../src/lib/merge.js'
 import type { HsfRuleWithRecipe } from '../../src/lib/merge.js'
 import {
@@ -940,4 +941,81 @@ test('resolveSafeguardRuleLabel falls back to __safeguardRuleId stamp when ordin
   }
   const label = resolveSafeguardRuleLabel(injectedRule)
   assert.strictEqual(label, '#ku_demo')
+})
+
+test('Weight by Rank flips which rank the detection pipeline protects on a near-tie', async () => {
+  await warmupWasmRuleEngine()
+  // Two same-mainstat (ACC) banners in one group; the 6★ has the slightly WORSE substat — the
+  // exact overshadowing case the toggle targets. CR is non-glyphable so the score has no glyph noise.
+  const banner = (id: number, rank: RankValue, cr: number): GearInspectorPreviewRow =>
+    makeGearInspectorRow({
+      id,
+      slot: ArtifactType.Banner,
+      set: ArtifactSet.Speed,
+      rank,
+      rarity: rank,
+      substats: [buildSubstat(StatVariant.CR, cr)],
+    }, false, StatVariant.ACC)
+  const rows = [banner(6001, 6 as RankValue, 5.0), banner(5001, 5 as RankValue, 5.5)]
+  const combination = {
+    slots: [ArtifactType.Banner],
+    sets: [],
+    metaSetNames: [],
+    ranks: [5, 6] as RankValue[],
+    rarities: [5, 6] as RankValue[],
+    mainStats: [StatVariant.ACC],
+    factions: [],
+  }
+  // perRule = one global group so requiredCount 1 protects exactly the single top-scored banner.
+  const baseRule = makeRule({
+    requiredCount: 1,
+    combination,
+    substats: [StatVariant.CR],
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+  })
+  const { candidates } = collectSafeguardCandidates({ rows, baseRules: [], recipeModes: [] })
+
+  const off = computeSafeguardProtection({ candidates, rules: [{ ...baseRule, weightMainStatByRank: false }], enabled: true })
+  assert.deepStrictEqual(off.entries[0]?.itemKeys, [5001], 'flag OFF: substat-only ranking protects the slightly-better 5★')
+
+  const on = computeSafeguardProtection({ candidates, rules: [{ ...baseRule, weightMainStatByRank: true }], enabled: true })
+  assert.deepStrictEqual(on.entries[0]?.itemKeys, [6001], 'flag ON: the 6★ main-stat bonus overcomes the small substat gap')
+})
+
+test('Weight by Rank survives metaset resolution (the rules that feed detection)', async () => {
+  await warmupWasmRuleEngine()
+  // The app feeds detection with metaset-RESOLVED rules; this path previously dropped the flag
+  // because SafeguardWasmResolvedRuleOut omitted it. Resolve a metaset-referencing rule and
+  // confirm the toggle is preserved on the way out.
+  const metasets: Metaset[] = [{ name: 'WBRMeta', sets: [ArtifactSet.Speed] }]
+  const rule = {
+    ...makeRule({
+      requiredCount: 1,
+      combination: {
+        slots: [ArtifactType.Weapon],
+        sets: [],
+        metaSetNames: ['WBRMeta'],
+        ranks: [6] as RankValue[],
+        rarities: [6] as RankValue[],
+        mainStats: [StatVariant.ATK],
+        factions: [],
+      },
+    }),
+    weightMainStatByRank: true,
+  }
+  const resolved = resolveSafeguardRulesWithMetasets([rule], metasets)
+  assert.strictEqual(resolved[0]?.weightMainStatByRank, true, 'metaset resolution must preserve Weight by Rank=true')
+
+  const resolvedOff = resolveSafeguardRulesWithMetasets([{ ...rule, weightMainStatByRank: false }], metasets)
+  assert.strictEqual(resolvedOff[0]?.weightMainStatByRank, false, 'metaset resolution must preserve Weight by Rank=false')
+})
+
+test('a Weight by Rank-only edit registers as a change (so Apply commits it)', () => {
+  // applySafeguardRulesChange bails (no setState) when the change descriptor is null, so a
+  // flag-only edit must be detected here or Apply silently does nothing.
+  const base = makeRule({ requiredCount: 1 })
+  const previous = [{ ...base, weightMainStatByRank: false }]
+  const next = [{ ...base, weightMainStatByRank: true }]
+  const descriptor = createSafeguardsRulesChangeDescriptor({ previous, next, metasets: [] })
+  assert.ok(descriptor, 'toggling Weight by Rank must be detected as a change so the rule edit persists')
 })

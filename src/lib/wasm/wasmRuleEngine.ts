@@ -960,7 +960,12 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
     const nextAppearance = (wasmName || src.appearance?.fgColor)
       ? { name: wasmName, ...(src.appearance?.fgColor ? { fgColor: src.appearance.fgColor } : {}) }
       : undefined
-    return (nextAppearance ? { ...restRes, appearance: nextAppearance } : restRes) as T
+    // Metaset resolution never touches "Weight by Rank", so carry it over from the input rule.
+    // This keeps the flag intact even if the loaded wasm predates the resolved-rule field
+    // (older binary that omits it), so detection always sees the toggle.
+    const weightMainStatByRank = (original as { weightMainStatByRank?: boolean }).weightMainStatByRank === true
+    const withFlag: Record<string, unknown> = { ...restRes, weightMainStatByRank }
+    return (nextAppearance ? { ...withFlag, appearance: nextAppearance } : withFlag) as T
   })
 }
 
