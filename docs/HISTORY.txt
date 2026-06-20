@@ -1,6 +1,23 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.23 — 2026-06-20
+English:
+- **New: Load SFC and Export/Push buttons now have a dropdown chevron (▾)** — clicking the chevron opens the preset and options menu; clicking the main button area directly opens the file picker or exports. On the first click each session, the Load SFC button opens the menu automatically to help you discover presets. The nudge to right-click is gone.
+- **New: The unsaved-changes dot on the Save and Export/Push buttons now shows a "not saved since [time]" tooltip** — hover the dot to see at a glance how long ago you last saved or pushed.
+- **New: Safeguard rank overlay cycle order changed to Off → Group → Safeguard → Both** — the Group rank step now comes before the overall Safeguard rank. The chip's color, number, and click target are now always consistent with each other and with the tooltip rows.
+- **New: Safeguard rules now have a "Weight by Rank" toggle** — when enabled, higher-rank pieces get a scoring edge on their main stat, calibrated per slot and main stat, so a 6★ can edge out a same-mainstat 5★ with only slightly better substats.
+- **Improved: Bundled preset files in the Load SFC menu are now named "Midgame / Lategame / Endgame Sample" and "Beginner Sample"** instead of the old names they previously showed.
+- **Fixed: Clicking outside the note or pressing Escape no longer accidentally closes it when it is shown without a close button.**
+
+Deutsch:
+- **Neu: Lade-SFC- und Export/Push-Schaltflächen haben jetzt einen Dropdown-Pfeil (▾)** — ein Klick auf den Pfeil öffnet das Preset- und Optionsmenü; ein Klick auf den Hauptbereich öffnet direkt den Datei-Auswahldialog oder exportiert. Beim ersten Klick einer Sitzung öffnet die Lade-SFC-Schaltfläche automatisch das Menü, um Presets leichter zu entdecken. Der Hinweis auf Rechtsklick entfällt.
+- **Neu: Der Punkt für ungespeicherte Änderungen an Speichern- und Export/Push-Schaltflächen zeigt jetzt ein Tooltip „Nicht gespeichert seit [Zeit]"** — beim Hovern siehst du auf einen Blick, wie lange es seit dem letzten Speichern oder Push her ist.
+- **Neu: Der Zyklus des Safeguard-Rang-Overlays folgt jetzt der Reihenfolge Aus → Gruppe → Safeguard → Beides** — der Gruppen-Rang-Modus kommt jetzt vor dem Gesamt-Safeguard-Rang. Farbe, Zahl und Klickziel des Chips stimmen jetzt immer miteinander und mit den Tooltip-Zeilen überein.
+- **Neu: Safeguard-Regeln haben jetzt einen Schalter „Nach Rang gewichten"** — ist er aktiviert, erhalten höherstufige Teile einen Scoring-Vorteil auf ihren Hauptstat, der je nach Slot und Hauptstat kalibriert ist, sodass ein 6★-Teil ein gleichnamiges 5★-Teil mit nur minimal besseren Substats verdrängen kann.
+- **Verbessert: Gebündelte Preset-Dateien im Lade-SFC-Menü heißen jetzt „Midgame / Lategame / Endgame Sample" und „Beginner Sample"** statt der bisherigen alten Dateinamen.
+- **Behoben: Ein Klick außerhalb der Notiz oder Drücken der Escape-Taste schließt sie nicht mehr versehentlich, wenn sie ohne Schließen-Schaltfläche angezeigt wird.**
+
 ## v1.0.22 — 2026-06-20
 English:
 - **New: Builder and preview panels now appear side by side at most window sizes** — the layout no longer requires a wide screen to activate; zoom adjusts automatically to fit both the width and height of your browser window, so no space is wasted on the sides. At very small windows the layout stacks normally.

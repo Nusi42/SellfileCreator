@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.2-dev",
+  "Version": "1.0.23",
   "Metasets": [
     {
       "name": "Nuker - Limited Sets",
@@ -302,7 +302,9 @@
   },
   "Recipes": [
     {
-      "name": "Keep everything with at least 2 rolls",
+      "appearance": {
+        "name": "Keep everything with at least 2 rolls"
+      },
       "keep": true,
       "SellfileVisibility": "Separator",
       "Rank": "Any",
@@ -322,7 +324,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -383,7 +384,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -453,7 +453,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -520,7 +519,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -544,7 +542,9 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "ACC/RES are not needed early on, but later",
+      "appearance": {
+        "name": "ACC/RES are not needed early on, but later"
+      },
       "keep": true,
       "SellfileVisibility": "Separator",
       "Rank": "Any",
@@ -564,7 +564,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "≥ 4★",
@@ -637,7 +636,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "≥ 4★",
@@ -719,7 +717,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "≥ 4★",
@@ -746,7 +743,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "≥ 4★",
@@ -773,7 +769,9 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "For now, keep anything beyond 4 star",
+      "appearance": {
+        "name": "For now, keep anything beyond 4 star"
+      },
       "keep": true,
       "SellfileVisibility": "Separator",
       "Rank": "Any",
@@ -793,7 +791,6 @@
       "artifactMetaSetNames": []
     },
     {
-      "name": "",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "≥ 5★",
@@ -826,6 +823,9 @@
   },
   "Safeguards": [
     {
+      "appearance": {
+        "name": "Unique: Accessories"
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -835,7 +835,7 @@
         "perMainStat": false,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -850,10 +850,12 @@
         "rarities": [],
         "mainStats": [],
         "factions": []
-      },
-      "name": "Accessories"
+      }
     },
     {
+      "appearance": {
+        "name": "Unique: Just any gear"
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -863,7 +865,7 @@
         "perMainStat": false,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -884,10 +886,12 @@
         "rarities": [],
         "mainStats": [],
         "factions": []
-      },
-      "name": "Just any gear"
+      }
     },
     {
+      "appearance": {
+        "name": "Unique: SPD boots"
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -897,7 +901,7 @@
         "perMainStat": true,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -912,10 +916,12 @@
           "SPD"
         ],
         "factions": []
-      },
-      "name": "SPD boots"
+      }
     },
     {
+      "appearance": {
+        "name": "Unique: All Chestplate Types"
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -925,7 +931,7 @@
         "perMainStat": true,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -944,10 +950,12 @@
           "DEF%"
         ],
         "factions": []
+      }
       },
-      "name": "All Chestplate Types"
-    },
     {
+      "appearance": {
+        "name": "Unique: All Gauntlet Types"
+    },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -957,7 +965,7 @@
         "perMainStat": true,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -976,10 +984,12 @@
           "DEF%"
         ],
         "factions": []
+      }
       },
-      "name": "All Gauntlet Types"
-    },
     {
+      "appearance": {
+        "name": "Unique: All other Boot types"
+    },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -989,7 +999,7 @@
         "perMainStat": true,
         "perSlot": true
       },
-      "ignorePreviousSafeguards": true,
+      "ignorePreviousSafeguards_v2": true,
       "ignoreEquippedInCollection": false,
       "ignoreEquippedInVault": false,
       "tuple": {
@@ -1006,8 +1016,7 @@
           "DEF%"
         ],
         "factions": []
-      },
-      "name": "All other Boot types"
+      }
     }
   ],
   "SafeguardsEnabled": true,
@@ -1016,6 +1025,10 @@
     "# Sellfile Preset for Beginner Accounts",
     "",
     "<span data-color=\"red\">Use at your own risk!</span>",
+    "",
+    "<!-- if-no-endpoint -->",
+    "<span data-color=\"red\" data-blink>**⚠ Currently not connected.**</span> <span data-color=\"green\">It's recommended to use this file alongside the real **RSL Helper** gear inventory. This helps retain **unique** gear pieces (gear pieces you own few copies of). See the **Help** section to learn how to connect **RSL Helper Sellfile Creator** to **RSL Helper**.</span>  ",
+    "<!-- end-if -->",
     "",
     "## Recipes",
     "If your account is keeping 3★ and 4★ gear, then this sellfile is a base to start with.",
