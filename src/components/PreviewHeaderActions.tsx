@@ -27,7 +27,7 @@ import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { exportLabelTiers } from '../lib/exportLabelTiers'
 import { useFittingLabel } from '../hooks/useFittingLabel'
-import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX } from '../lib/constants'
+import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX, EXPORT_SCROLL_MIN_WIDTH_PX } from '../lib/constants'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -256,6 +256,10 @@ export default function PreviewHeaderActions(props: {
   diffDelta?: GearDiffDelta | null
   // True briefly when the diff reference just changed; runs the Diff-button border-chase.
   diffReferencePulsing?: boolean
+  // The filter panel, passed as a slot so it can share the control row's horizontal scroll
+  // container (one combined scrollbar). Rendered below the control groups, inside the shared
+  // scroll region; null/false when the panel is closed.
+  filterPanelSlot?: React.ReactNode
 }) {
   const {
     mergedCount,
@@ -350,6 +354,7 @@ export default function PreviewHeaderActions(props: {
     onChangeDiffFilterMode,
     diffDelta,
     diffReferencePulsing,
+    filterPanelSlot,
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
@@ -496,7 +501,7 @@ export default function PreviewHeaderActions(props: {
   // The header control row; its stable content width is useFittingLabel's measuring
   // boundary (budget = row width minus the left groups + the export group's fixed buttons),
   // so the export label shrinks to fit instead of overlapping or wrapping its neighbours.
-  const exportHeaderRowRef = React.useRef<HTMLDivElement | null>(null)
+  const exportOuterHeaderRef = React.useRef<HTMLDivElement | null>(null)
   const filterMenuEnabled = React.useMemo(() => {
     // The filter button menu is the entry point for presets + sync, so enable it when any are available.
     return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
@@ -793,9 +798,12 @@ export default function PreviewHeaderActions(props: {
   const { text: fittedExportLabel, idealWidth: exportIdealWidth, ref: exportLabelRef } = useFittingLabel({
     tiers: exportLabelTierList,
     reservedPx: EXPORT_LABEL_RESERVED_PX,
-    // The chevron split-button (when shown) sits after the label inside the bounded row.
+    // The chevron split-button (when shown) sits after the label inside the action group.
     trailingReservedPx: exportMenuEnabled ? EXPORT_CHEVRON_RESERVED_PX : 0,
-    boundaryRef: exportHeaderRowRef,
+    // Reserve a minimum for the scrollable control-group area so the pinned action group
+    // never eats the whole header (the control groups scroll within what's left).
+    leadingReservedPx: EXPORT_SCROLL_MIN_WIDTH_PX,
+    viewportRef: exportOuterHeaderRef,
   })
   const exportIcon = pushActive ? <PublishIcon /> : <FileDownloadIcon />
   const exportTooltipParts: string[] = []
@@ -1300,29 +1308,31 @@ export default function PreviewHeaderActions(props: {
           </EllipsisTooltip>
         ) : null}
       </Stack>
-      <Stack
-        // Boundary for useFittingLabel: its visible (client) width minus the left control
-        // groups + the export group's own fixed buttons is the export label's budget.
-        ref={exportHeaderRowRef}
-        direction="row"
-        spacing={1}
-        sx={{
-          mb: 1,
-          // The control row no longer wraps: when it can't fit it scrolls horizontally. The
-          // export label still shrinks first (useFittingLabel), so scroll is the last resort.
-          flexWrap: 'nowrap',
-          minWidth: 0,
-          alignItems: 'center',
-          overflowX: 'auto',
-          // Keep the single-line row from sprouting a vertical scrollbar (overflowX:auto
-          // would otherwise compute overflowY to auto); nothing overflows vertically here.
-          overflowY: 'hidden',
-          // Control groups keep their natural width and the row scrolls — they must NOT
-          // shrink (their default flexShrink:1 would ellipsis/wrap instead of scrolling).
-          // The export action group manages its own width via useFittingLabel.
-          '& > *': { flexShrink: 0 },
-        }}
+      {/* Outer header: the export action group is pinned at the right (a flex sibling, NOT
+          inside the scroll), while the control groups + filter panel share one horizontal
+          scrollbar to its left. viewportRef for useFittingLabel — its width is the budget the
+          action group's label draws from. */}
+      <Box
+        ref={exportOuterHeaderRef}
+        sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1, minWidth: 0 }}
       >
+        {/* Shared horizontal scroll region: the control row and (when open) the filter panel
+            live here, so a single scrollbar drives both. overflowY hidden keeps it to one
+            horizontal bar; the region grows vertically with the filter panel instead. */}
+        <Box sx={{ flex: '1 1 0', minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+        <Stack
+          // The control row: groups keep their natural width (flexShrink:0) and the shared
+          // box scrolls when they don't fit, rather than the groups squishing or wrapping.
+          direction="row"
+          spacing={1}
+          sx={{
+            width: 'max-content',
+            minWidth: '100%',
+            flexWrap: 'nowrap',
+            alignItems: 'center',
+            '& > *': { flexShrink: 0 },
+          }}
+        >
         {onToggleFilter && (
           <>
             <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', flexWrap: 'nowrap', alignItems: 'center', gap: 0.5 }}>
@@ -2858,27 +2868,22 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        {/* The action group is PINNED to the right via position:sticky while the rest of the
-            control row scrolls horizontally under it — so the export/push buttons stay
-            reachable no matter how far the row is scrolled. margin-left:auto pushes it to the
-            right edge when the row isn't overflowing; sticky takes over once it is. The paper
-            background + left padding occlude the Filter/Sort/Diff controls scrolling beneath
-            it. The export label still shrinks first (useFittingLabel), so scroll is the last
-            resort. fixed siblings stay flexShrink:0. */}
+        </Stack>
+        {/* The filter panel shares the control row's horizontal scroll region, so the two
+            present a single combined scrollbar when the panel is expanded. */}
+        {filterPanelSlot}
+        </Box>
+        {/* The export action group, pinned at the right OUTSIDE the shared scroll region so it
+            stays visible while the control groups + filter panel scroll. flexShrink:0 keeps it
+            at its label-fitted width; the scroll box (flex:1) takes the remaining width. */}
         <Stack
           direction="row"
           spacing={1}
           sx={{
-            flex: '0 0 auto',
-            ml: 'auto',
+            flexShrink: 0,
             minWidth: 0,
             flexWrap: 'nowrap',
             alignItems: 'center',
-            position: 'sticky',
-            right: 0,
-            zIndex: 1,
-            bgcolor: 'background.paper',
-            pl: 1,
           }}
         >
           {historyMenuEnabled ? (
@@ -3014,7 +3019,7 @@ export default function PreviewHeaderActions(props: {
             </Menu>
           ) : null}
         </Stack>
-      </Stack>
+      </Box>
     </>
   )
 }

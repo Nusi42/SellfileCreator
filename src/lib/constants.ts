@@ -89,6 +89,10 @@ export const EXPORT_BUTTON_MAX_WIDTH_PX = 320
 // label inside the bounded action row, so useFittingLabel leaves room for it when sizing
 // the label. ~28px icon button + 1px gap.
 export const EXPORT_CHEVRON_RESERVED_PX = 29
+// Minimum width reserved for the scrollable control-group area (Filter/Sort/Diff + filter
+// panel) to the left of the pinned export action group. Caps how wide the action group's
+// label may grow so it never consumes the whole header; below this the controls scroll.
+export const EXPORT_SCROLL_MIN_WIDTH_PX = 160
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8

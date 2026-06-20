@@ -160,6 +160,9 @@ type RulesFilterPanelProps = {
   substatColors?: SubstatColorMap
   useStatButtonColors?: boolean
   hasManualGearInspectorItems?: boolean
+  // When true, the panel does not own a horizontal scrollbar — its content overflows into a
+  // shared scroll container (the header control row) so the two present one combined scrollbar.
+  combinedScroll?: boolean
 }
 
 const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
@@ -600,6 +603,7 @@ function RulesFilterPanel({
     substatColors,
     useStatButtonColors = false,
     hasManualGearInspectorItems = false,
+    combinedScroll = false,
     ref,
   }: RulesFilterPanelProps & { ref?: React.Ref<RulesFilterPanelHandle> },
 ): React.JSX.Element {
@@ -1785,9 +1789,13 @@ function RulesFilterPanel({
           p: 0.75,
           borderRadius: 1,
           mb: 1,
-          // Single horizontal scrollbar for the whole filter panel: when the 2-column
-          // subgroup grid (min-width: max-content) is wider than the panel, scroll here.
-          overflowX: 'auto',
+          // Standalone: own horizontal scrollbar when the 2-column subgroup grid (min-width:
+          // max-content) is wider than the panel. Combined: let the grid overflow into the
+          // shared header scroll container instead, so there is a single combined scrollbar.
+          overflowX: combinedScroll ? 'visible' : 'auto',
+          // In combined mode the panel must be at least as wide as its content so it actually
+          // extends the shared scroll width (rather than clipping to the viewport).
+          ...(combinedScroll ? { width: 'max-content', minWidth: '100%' } : {}),
         })}
       >
         <Box

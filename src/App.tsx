@@ -9095,8 +9095,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChangeDiffFilterMode={handleChangeDiffFilterMode}
         diffDelta={gearDiffDisplayDelta}
         diffReferencePulsing={gearDiffReferencePulsing}
-      />
-          {filterOpen && (
+        // Passed as a slot so the filter panel shares the header control row's horizontal
+        // scroll region (one combined scrollbar) and the export action group stays pinned.
+        filterPanelSlot={filterOpen ? (
             <RulesFilterPanel
               ref={rulesFilterPanelRef}
               mode={previewMode}
@@ -9116,8 +9117,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               substatColors={substatColors}
               useStatButtonColors={statButtonBorders}
               hasManualGearInspectorItems={hasManualGearInspectorRows}
+              combinedScroll
             />
-          )}
+          ) : null}
+      />
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
             <Box
               aria-hidden={previewMode !== 'gearInspector'}

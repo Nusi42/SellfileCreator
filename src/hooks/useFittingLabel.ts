@@ -1,18 +1,17 @@
-// useFittingLabel — pick the widest label tier that fits the available row space,
-// collapsing to icon-only (null) when even the narrowest tier overflows. Drives the
-// export/push split button's progressive shortening: full → short → min → icon.
+// useFittingLabel — pick the widest label tier that fits the export action group's share of
+// the header, collapsing to icon-only (null) when even the narrowest tier overflows. Drives
+// the export/push button's progressive shortening: full → short → min → icon.
 //
-// Why a hook and not CSS: the tiers are *different strings* (and, across locales,
-// different word orders), so there is nothing for `text-overflow: ellipsis` to do —
-// we must measure each candidate and choose. Measurement is canvas-based
-// (measureTextWidth) so trying N tiers costs no reflow.
+// Layout context: the action group is pinned to the right of the header, OUTSIDE the
+// horizontal scroll region that holds the control groups + filter panel. So the label's
+// budget is the header's total width minus (a) a reserved minimum for the scroll area (so
+// the pinned action group never eats the whole header) and (b) the action group's own fixed
+// buttons (history/load) + chevron. The control groups themselves scroll, so they are NOT
+// subtracted — the label shrinks first, and scrolling is the last resort.
 //
-// Why measure ROW SPACE, not the button's own box: CSS flex-wrap wraps an item to a new
-// line *before* flex-shrink can squeeze it, so a self-sized button would wrap rather than
-// shorten. Instead we compute the free space as the boundary row's content width minus its
-// other children (the fixed action buttons) and the trailing chevron, then size the label
-// to fit it. Summing the OTHER children (never our own group) keeps the budget independent
-// of the current label, so there is no feedback loop and the box never latches to icon.
+// Why canvas measurement: the tiers are *different strings* (different word orders across
+// locales), so there is nothing for `text-overflow: ellipsis` to do — we measure each
+// candidate (measureTextWidth) and choose, at no reflow cost.
 import * as React from 'react'
 import { measureTextWidth } from '../lib/domMeasurements'
 
@@ -21,24 +20,24 @@ export interface FittingLabelOptions {
   tiers: readonly string[]
   // Space (CSS px) taken by the icon + the button's own paddings (label can't use it).
   reservedPx: number
-  // Space (CSS px) taken by trailing fixed siblings inside the row after the button
-  // (e.g. the split-button chevron + its gap) that eat into the available row width.
+  // Space (CSS px) taken by the trailing chevron split-button (+ its gap) that shares the
+  // action group with the label.
   trailingReservedPx?: number
-  // The row whose right content edge bounds the available space — typically the action
-  // group container the button lives in. Its right edge minus the button's left edge
-  // (minus reserves) is the label budget.
-  boundaryRef: React.RefObject<HTMLElement | null>
+  // Minimum width (CSS px) reserved for the scrollable area to the left of the action group,
+  // so the pinned action group never consumes the entire header width.
+  leadingReservedPx?: number
+  // The header element whose client width is the total budget the action group draws from.
+  viewportRef: React.RefObject<HTMLElement | null>
 }
 
 export interface FittingLabelResult {
   // The chosen tier text, or null when nothing fits (render icon-only).
   text: string | null
-  // The width (CSS px) the FULL tier wants: full-label text + reservedPx. The caller
-  // requests this as the wrapper's maxWidth so the button never grows past its natural
-  // full size even when the row has slack to spare.
+  // The width (CSS px) the FULL tier wants: full-label text + reservedPx. The caller caps
+  // the export wrapper at this so the button never grows past its natural full size.
   idealWidth: number
-  // Ref for the export group within the boundary row. The hook skips this child when
-  // summing the row's other children, and reads its inner <button> for the canvas font.
+  // Ref for the export wrapper (the action group's flexible child). The hook sums the action
+  // group's OTHER children (the fixed buttons) and reads the inner <button> for the font.
   ref: React.RefObject<HTMLElement | null>
 }
 
@@ -48,144 +47,100 @@ function fontReference(wrapper: HTMLElement): HTMLElement {
   return (wrapper.querySelector('button') as HTMLElement | null) ?? wrapper
 }
 
+// Outer width including horizontal margins (offsetWidth omits them, but the fixed action
+// buttons carry margins/gaps that consume real space).
+function outerWidth(c: HTMLElement): number {
+  const cs = window.getComputedStyle(c)
+  return c.offsetWidth + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0)
+}
+
 // Choose the widest tier whose measured width fits `available`, else null.
-function chooseTier(
-  tiers: readonly string[],
-  reference: HTMLElement,
-  available: number,
-): string | null {
-  // Tiers are widest-first; return the first that fits so we keep the most text.
+function chooseTier(tiers: readonly string[], reference: HTMLElement, available: number): string | null {
   for (const tier of tiers) {
     if (measureTextWidth(tier, reference) <= available) return tier
   }
-  // Even the narrowest overflows → caller collapses to icon-only.
   return null
 }
 
-// A few px shaved off the budget so the hook shrinks the label JUST before CSS would wrap
-// the group. Without it, sub-pixel rounding / un-modelled margins put the full label "just
-// fits" per our math while flex-wrap disagrees — the group wraps with full text instead of
-// stepping down. Slightly conservative is the correct bias here.
+// A few px shaved off the budget so the label steps down a hair before the action group would
+// be forced to overflow/shrink — absorbs sub-pixel rounding and un-modelled gaps.
 const FIT_SAFETY_PX = 12
 
 export function useFittingLabel({
   tiers,
   reservedPx,
   trailingReservedPx = 0,
-  boundaryRef,
+  leadingReservedPx = 0,
+  viewportRef,
 }: FittingLabelOptions): FittingLabelResult {
   const ref = React.useRef<HTMLElement | null>(null)
-  // Start at the full (widest) tier so first paint shows the most text; the measure
-  // effect immediately corrects it if it does not fit.
+  // Start at the full (widest) tier so first paint shows the most text; the measure effect
+  // immediately corrects it if it does not fit.
   const [text, setText] = React.useState<string | null>(() => tiers[0] ?? null)
   // The full-tier footprint; seeded after first layout so the wrapper can cap its width.
   const [idealWidth, setIdealWidth] = React.useState(0)
 
-  // Recompute the fitting tier (and the ideal full-tier width) from the free row space
-  // between the wrapper's left edge and the boundary row's right content edge.
   const measure = React.useCallback(() => {
     const el = ref.current
-    const boundary = boundaryRef.current
-    if (!el || !boundary) return
+    const viewport = viewportRef.current
+    if (!el || !viewport) return
     const fontEl = fontReference(el)
-    // Budget = the boundary ROW's content width (viewport-driven, stable) minus everything
-    // in the row that is NOT the export label. We never read the export group's own width,
-    // so the budget can't feed back on the current label → no shrink-to-icon latch.
-    //
-    // Two levels: the row's other direct children (the left control groups) AND, within the
-    // export group's own row-child, that child's other children (the fixed action buttons)
-    // plus the trailing chevron. Both sums exclude the export wrapper itself.
-    //
-    // Use OUTER width (offsetWidth + horizontal margins): the control groups carry explicit
-    // ml/mr (e.g. ml:1 mr:1 ≈ 16px each) that offsetWidth omits — undercounting them was what
-    // made the budget too generous, so the hook kept the full label while CSS wrapped it.
-    const horizMargin = (c: HTMLElement): number => {
-      const cs = window.getComputedStyle(c)
-      return (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0)
-    }
-    const outerWidth = (c: HTMLElement): number => c.offsetWidth + horizMargin(c)
-    const sumOtherChildren = (container: HTMLElement): { width: number; count: number } => {
-      let width = 0
-      let count = 0
-      for (const child of Array.from(container.children)) {
+    // Sum the action group's fixed buttons (everything in el's parent except el itself).
+    const group = el.parentElement
+    let fixedWidth = 0
+    if (group) {
+      for (const child of Array.from(group.children)) {
         if (child === el || (child as HTMLElement).contains(el)) continue
-        width += outerWidth(child as HTMLElement)
-        count += 1
+        fixedWidth += outerWidth(child as HTMLElement)
       }
-      return { width, count }
+      // Flex gap between the action group's children (one gap per fixed sibling + before el).
+      const gcs = window.getComputedStyle(group)
+      const gap = parseFloat(gcs.columnGap || gcs.gap || '0') || 0
+      fixedWidth += gap * Math.max(0, group.children.length - 1)
     }
-    const colGap = (container: HTMLElement): number => {
-      const cs = window.getComputedStyle(container)
-      return parseFloat(cs.columnGap || cs.gap || '0') || 0
-    }
-    const bcs = window.getComputedStyle(boundary)
-    const rowContent =
-      boundary.clientWidth - parseFloat(bcs.paddingLeft || '0') - parseFloat(bcs.paddingRight || '0')
-    // The export group's row-child (the action group), reached by walking up to the boundary.
-    let groupChild: HTMLElement | null = el
-    while (groupChild && groupChild.parentElement !== boundary) groupChild = groupChild.parentElement
-    // Budget is ALWAYS measured against the first-line free space: the row's content width
-    // minus the left control groups (level 1) and the action group's own fixed buttons +
-    // chevron (level 2). This makes the label SHRINK to keep the group on row 1 rather than
-    // wrapping eagerly — the group only wraps when even icon-only won't fit on the line. We
-    // deliberately do NOT widen the budget when the group has already wrapped: doing so would
-    // show the full label on row 2 even though a shorter label would have fit on row 1.
-    const rowOthers = sumOtherChildren(boundary)
-    // One gap PER other child: the gaps between them AND the gap separating the last from the
-    // action group. (Margins above are additive to the flex gap, so both are subtracted.)
-    const rowGaps = colGap(boundary) * rowOthers.count
-    let actionOthers = 0
-    let actionGaps = 0
-    if (groupChild) {
-      const inner = sumOtherChildren(groupChild)
-      actionOthers = inner.width
-      actionGaps = colGap(groupChild) * inner.count
-    }
-    // The export group's own horizontal margins (it carries ml:1) consume row space too.
-    const ownMargin = horizMargin(el)
-    const freeForButton =
-      rowContent - rowOthers.width - rowGaps - actionOthers - actionGaps - ownMargin - trailingReservedPx
-    // Available text budget = free button width minus icon/own-padding reserve, minus a small
-    // safety margin so we step down a hair before CSS would wrap the group.
-    const available = freeForButton - reservedPx - FIT_SAFETY_PX
+    // The export wrapper's own horizontal margins consume space too.
+    const ownMargin = (() => {
+      const cs = window.getComputedStyle(el)
+      return (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0)
+    })()
+    const vcs = window.getComputedStyle(viewport)
+    const viewportContent =
+      viewport.clientWidth - parseFloat(vcs.paddingLeft || '0') - parseFloat(vcs.paddingRight || '0')
+    const available =
+      viewportContent - leadingReservedPx - fixedWidth - ownMargin - trailingReservedPx - reservedPx - FIT_SAFETY_PX
     const next = chooseTier(tiers, fontEl, available)
-    // Ideal width = full tier's text width + the icon/padding reserve.
     const full = tiers[0] ? measureTextWidth(tiers[0], fontEl) + reservedPx : 0
-    // Functional updates: skip the re-render when nothing changed (resize jitter). The
-    // rule flags setState here because measure() runs synchronously in the layout effect
-    // below — intended: the pre-paint fit avoids a wrong-width flash.
+    // Functional updates: skip the re-render when nothing changed (resize jitter). The rule
+    // flags setState because measure() runs synchronously in the layout effect below —
+    // intended: the pre-paint fit avoids a wrong-width flash.
     // eslint-disable-next-line @eslint-react/set-state-in-effect
     setText((prev) => (prev === next ? prev : next))
     // eslint-disable-next-line @eslint-react/set-state-in-effect
     setIdealWidth((prev) => (Math.abs(prev - full) < 1 ? prev : Math.ceil(full)))
-  }, [tiers, reservedPx, trailingReservedPx, boundaryRef])
+  }, [tiers, reservedPx, trailingReservedPx, leadingReservedPx, viewportRef])
 
   // Re-fit after EVERY render (no deps): a render is how React-state-driven layout changes
-  // reach us — a sibling control toggling (e.g. the Diff delta chip mounting), a mode switch,
-  // or the label tier itself changing. The header's own width is unchanged in those cases, so
-  // a ResizeObserver alone would miss them. measure() uses functional setState that no-ops
-  // when the tier is unchanged, so running it every render cannot loop. useLayoutEffect
-  // commits the corrected tier before paint, avoiding a wrong-width flash.
+  // reach us — a sibling control toggling, a mode switch, or the label tier changing. The
+  // header's width is unchanged in those cases, so a ResizeObserver alone would miss them.
+  // measure() no-ops via functional setState when the tier is unchanged, so this cannot loop.
   React.useLayoutEffect(() => {
     measure()
   })
 
   // Plus a ResizeObserver for layout changes that DON'T re-render us — chiefly the preview
-  // paper/panel being resized via its splitter. Observe the boundary row (its width changes
-  // with the panel), the export wrapper, and the boundary's direct children (so a child
-  // growing/shrinking in place also re-fits). Re-attached when the boundary ref resolves.
+  // paper/panel being resized via its splitter. Observe the header viewport, the export
+  // wrapper, and the action group's children.
   React.useLayoutEffect(() => {
     const el = ref.current
-    const boundary = boundaryRef.current
+    const viewport = viewportRef.current
     if (!el) return
     const observer = new ResizeObserver(() => measure())
     observer.observe(el)
-    if (boundary) {
-      observer.observe(boundary)
-      for (const child of Array.from(boundary.children)) observer.observe(child)
-    }
+    if (viewport) observer.observe(viewport)
+    const group = el.parentElement
+    if (group) for (const child of Array.from(group.children)) observer.observe(child)
     return () => observer.disconnect()
-  }, [measure, boundaryRef])
+  }, [measure, viewportRef])
 
   return { text, idealWidth, ref }
 }
