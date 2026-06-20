@@ -77,7 +77,7 @@ import {
   type GearInspectorNormalizedPresetId,
 } from '../lib/gearInspectorNormalizedPresets'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
-import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
+import { useSubstatFgAdapter, useSchemePaper } from '../lib/themeContrastHooks'
 import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearInspectorGridNormalizedOverlayPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -358,6 +358,10 @@ export default function PreviewHeaderActions(props: {
   } = props
   const isRulesMode = previewMode === 'rules'
   const { t } = useI18n()
+  // The active scheme's REAL paper color — used to occlude the controls scrolling under the
+  // sticky action group. The frozen palette's background.paper reads as near-black in dark
+  // mode (no elevation overlay), so we resolve the per-scheme surface instead.
+  const schemePaper = useSchemePaper()
   // Resolve the localized display name for a built-in filter preset; user presets use their stored name.
   // useCallback keeps identity stable so the pinned-button memos don't recompute every render.
   const filterPresetDisplayName = React.useCallback((p: FilterPreset): string => {
@@ -1308,26 +1312,26 @@ export default function PreviewHeaderActions(props: {
           </EllipsisTooltip>
         ) : null}
       </Stack>
-      {/* Outer header: the export action group is pinned at the right (a flex sibling, NOT
-          inside the scroll), while the control groups + filter panel share one horizontal
-          scrollbar to its left. viewportRef for useFittingLabel — its width is the budget the
-          action group's label draws from. */}
+      {/* Shared horizontal scroll region (one scrollbar) holding the control row AND the
+          filter panel. viewportRef for useFittingLabel — its visible width is the budget the
+          action group's label draws from. overflowY hidden keeps it to a single horizontal
+          bar; it grows vertically with the filter panel instead. */}
       <Box
         ref={exportOuterHeaderRef}
-        sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1, minWidth: 0 }}
+        sx={{ mb: 1, minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}
       >
-        {/* Shared horizontal scroll region: the control row and (when open) the filter panel
-            live here, so a single scrollbar drives both. overflowY hidden keeps it to one
-            horizontal bar; the region grows vertically with the filter panel instead. */}
-        <Box sx={{ flex: '1 1 0', minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+        {/* Inner column sized to its widest row (control row OR filter panel) so BOTH rows
+            stretch to that width. That lets the control row be as wide as the filter grid,
+            which is what makes the action group's sticky-right pin across the full scroll
+            range — and keeps the filter panel full width (no reserved right column). */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', width: 'max-content', minWidth: '100%' }}>
         <Stack
-          // The control row: groups keep their natural width (flexShrink:0) and the shared
-          // box scrolls when they don't fit, rather than the groups squishing or wrapping.
+          // The control row stretches to the inner width; groups keep their natural width
+          // (flexShrink:0) and the box scrolls when they don't fit (no squish/wrap).
           direction="row"
           spacing={1}
           sx={{
-            width: 'max-content',
-            minWidth: '100%',
+            width: '100%',
             flexWrap: 'nowrap',
             alignItems: 'center',
             '& > *': { flexShrink: 0 },
@@ -2868,14 +2872,15 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        </Stack>
-        {/* The filter panel shares the control row's horizontal scroll region, so the two
-            present a single combined scrollbar when the panel is expanded. */}
-        {filterPanelSlot}
-        </Box>
-        {/* The export action group, pinned at the right OUTSIDE the shared scroll region so it
-            stays visible while the control groups + filter panel scroll. flexShrink:0 keeps it
-            at its label-fitted width; the scroll box (flex:1) takes the remaining width. */}
+        {/* Spacer truly right-aligns the action group: it grows to absorb any slack so the
+            action group sits at the row's right edge (margin-left:auto would be overridden by
+            the parent Stack's spacing margin). When the row overflows it collapses to 0 and
+            the action group's sticky-right takes over. */}
+        <Box sx={{ flex: 1, minWidth: 0 }} />
+        {/* The export action group, pinned at the right via position:sticky while the control
+            groups scroll under it (paper background occludes them). It lives INSIDE the control
+            row — which the inner column stretches to the full scroll width — so it pins across
+            the whole range. */}
         <Stack
           direction="row"
           spacing={1}
@@ -2884,6 +2889,13 @@ export default function PreviewHeaderActions(props: {
             minWidth: 0,
             flexWrap: 'nowrap',
             alignItems: 'center',
+            position: 'sticky',
+            right: 0,
+            zIndex: 1,
+            // Real per-scheme paper (not the near-black frozen palette) so the occluding
+            // background matches the surface the controls scroll under.
+            bgcolor: schemePaper,
+            pl: 1,
           }}
         >
           {historyMenuEnabled ? (
@@ -3019,6 +3031,12 @@ export default function PreviewHeaderActions(props: {
             </Menu>
           ) : null}
         </Stack>
+        </Stack>
+        {/* The filter panel shares the same scroll container, so the two present one combined
+            scrollbar; full width (no reserved right column) since the action group only pins
+            within the control row above. */}
+        {filterPanelSlot}
+        </Box>
       </Box>
     </>
   )
