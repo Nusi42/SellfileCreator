@@ -493,9 +493,10 @@ export default function PreviewHeaderActions(props: {
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = () => { setExportMenuAnchor(null) }
   const exportChevronRef = React.useRef<HTMLButtonElement | null>(null)
-  // The right-side action group row; its right content edge bounds the export label's
-  // available width so useFittingLabel can shrink the label to fit instead of wrapping.
-  const exportActionRowRef = React.useRef<HTMLDivElement | null>(null)
+  // The header control row; its stable content width is useFittingLabel's measuring
+  // boundary (budget = row width minus the left groups + the export group's fixed buttons),
+  // so the export label shrinks to fit instead of overlapping or wrapping its neighbours.
+  const exportHeaderRowRef = React.useRef<HTMLDivElement | null>(null)
   const filterMenuEnabled = React.useMemo(() => {
     // The filter button menu is the entry point for presets + sync, so enable it when any are available.
     return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
@@ -794,7 +795,7 @@ export default function PreviewHeaderActions(props: {
     reservedPx: EXPORT_LABEL_RESERVED_PX,
     // The chevron split-button (when shown) sits after the label inside the bounded row.
     trailingReservedPx: exportMenuEnabled ? EXPORT_CHEVRON_RESERVED_PX : 0,
-    boundaryRef: exportActionRowRef,
+    boundaryRef: exportHeaderRowRef,
   })
   const exportIcon = pushActive ? <PublishIcon /> : <FileDownloadIcon />
   const exportTooltipParts: string[] = []
@@ -1300,6 +1301,10 @@ export default function PreviewHeaderActions(props: {
         ) : null}
       </Stack>
       <Stack
+        // Boundary for useFittingLabel: its stable, viewport-driven content width (minus the
+        // left control groups + the export group's own fixed buttons) is the export label's
+        // budget, so the budget never feeds back on the current label.
+        ref={exportHeaderRowRef}
         direction="row"
         spacing={1}
         sx={{
@@ -2848,17 +2853,17 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        {/* The boundary row for useFittingLabel. It fills the space to the right of the
-            left control groups (flex:1, replacing the old spacer), so its content width is
-            stable/viewport-driven — the hook subtracts the fixed action buttons from it to
-            get the export label's free space, then steps the label full→short→min→icon to
-            fit instead of wrapping. nowrap keeps the buttons on one line; justifyContent
-            keeps them right-aligned; fixed siblings stay flexShrink:0. */}
+        {/* The boundary row for useFittingLabel. Right-aligned via marginLeft:auto (it sits
+            after the left control groups). flex `0 1 auto` (content basis, shrinkable) is
+            deliberate: with flex-basis:0 the fixed action buttons would overflow the box and
+            OVERLAP the Diff group; auto basis lets flex-wrap measure the real content and
+            wrap the whole group to a clean new row when it truly can't fit. Until then the
+            hook shrinks the export label (full→short→min→icon) from the row's free space.
+            nowrap keeps the buttons on one line; fixed siblings stay flexShrink:0. */}
         <Stack
-          ref={exportActionRowRef}
           direction="row"
           spacing={1}
-          sx={{ flex: '1 1 0', minWidth: 0, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
+          sx={{ flex: '0 1 auto', minWidth: 0, ml: 'auto', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
         >
           {historyMenuEnabled ? (
             <>

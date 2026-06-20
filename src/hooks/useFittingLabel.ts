@@ -82,30 +82,45 @@ export function useFittingLabel({
     const boundary = boundaryRef.current
     if (!el || !boundary) return
     const fontEl = fontReference(el)
-    // Available width = from the export wrapper's left edge to the boundary row's right
-    // inner edge, minus the trailing chevron. The wrapper is the rightmost flexible item
-    // (its left edge is fixed by the buttons to its left), and the boundary row is flex:1
-    // so its right edge is viewport-driven, NOT content-driven — together these make the
-    // budget independent of the current label (no feedback loop / latch).
+    // Budget = the boundary ROW's content width (viewport-driven, stable) minus everything
+    // in the row that is NOT the export label. We never read the export group's own width,
+    // so the budget can't feed back on the current label → no shrink-to-icon latch.
+    //
+    // Two levels: the row's other direct children (the left control groups) AND, within the
+    // export group's own row-child, that child's other children (the fixed action buttons)
+    // plus the trailing chevron. Both sums exclude the export wrapper itself.
+    const sumOtherChildren = (container: HTMLElement): { width: number; count: number } => {
+      let width = 0
+      let count = 0
+      for (const child of Array.from(container.children)) {
+        if (child === el || (child as HTMLElement).contains(el)) continue
+        width += (child as HTMLElement).offsetWidth
+        count += 1
+      }
+      return { width, count }
+    }
+    const colGap = (container: HTMLElement): number => {
+      const cs = window.getComputedStyle(container)
+      return parseFloat(cs.columnGap || cs.gap || '0') || 0
+    }
     const bcs = window.getComputedStyle(boundary)
-    // Free space = boundary row's content width minus every sibling in it that is NOT the
-    // export group, minus inter-item gaps, minus the trailing chevron. Summing the OTHER
-    // children (not our own wrapper) makes the budget independent of the current label — no
-    // feedback loop — and needs no visual stretch on the export group itself.
     const rowContent =
       boundary.clientWidth - parseFloat(bcs.paddingLeft || '0') - parseFloat(bcs.paddingRight || '0')
-    let siblingsWidth = 0
-    let siblingCount = 0
-    for (const child of Array.from(boundary.children)) {
-      // Skip our own group (the child that contains the measured wrapper).
-      if (child === el || (child as HTMLElement).contains(el)) continue
-      siblingsWidth += (child as HTMLElement).offsetWidth
-      siblingCount += 1
+    // Level 1: the row's other groups + the gaps around them.
+    const rowOthers = sumOtherChildren(boundary)
+    const rowGaps = colGap(boundary) * rowOthers.count
+    // Level 2: the export group's row-child (the action group); subtract its fixed buttons.
+    let groupChild: HTMLElement | null = el
+    while (groupChild && groupChild.parentElement !== boundary) groupChild = groupChild.parentElement
+    let actionOthers = 0
+    let actionGaps = 0
+    if (groupChild) {
+      const inner = sumOtherChildren(groupChild)
+      actionOthers = inner.width
+      actionGaps = colGap(groupChild) * inner.count
     }
-    // Stack spacing renders as a column-gap; subtract one gap per inter-item boundary.
-    const gap = parseFloat(bcs.columnGap || bcs.gap || '0') || 0
-    const gaps = gap * Math.max(0, siblingCount) // gaps between siblings + before our group
-    const freeForButton = rowContent - siblingsWidth - gaps - trailingReservedPx
+    const freeForButton =
+      rowContent - rowOthers.width - rowGaps - actionOthers - actionGaps - trailingReservedPx
     // Available text budget = free button width minus icon/own-padding reserve.
     const available = freeForButton - reservedPx
     const next = chooseTier(tiers, fontEl, available)
