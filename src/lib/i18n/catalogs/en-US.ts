@@ -1490,6 +1490,9 @@ const enUS: Catalog = {
   toastRecipesSaved: "Recipes saved. Check your Downloads folder.",
   toastSellfileSaved: "Sellfile exported.",
   toastSellfileExportFailed: "Sellfile export failed. See console for details.",
+  // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
+  toastSellfilePushed: "Sellfile pushed.",
+  toastSellfilePushFailed: "Sellfile push failed. See console for details.",
   toastGearDbImportedShort: "Imported {count}",
   toastGearDbImportedShortWithInbox: "Imported {count} (+{inboxCount} inbox)",
   // Used after the initial import when the DB already had gear — shows the running total, not "Imported".

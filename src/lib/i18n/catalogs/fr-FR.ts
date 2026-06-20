@@ -1453,6 +1453,8 @@ const overrides: Catalog = {
   toastRecipesSaved: "Recettes enregistrées. Vérifiez votre dossier Téléchargements.",
   toastSellfileSaved: "Sellfile exporté.",
   toastSellfileExportFailed: "Échec de l'exportation du Sellfile. Consultez la console.",
+  toastSellfilePushed: "Sellfile envoyé.",
+  toastSellfilePushFailed: "Échec de l'envoi du Sellfile. Consultez la console.",
   toastGearDbImportedShort: "Importé {count}",
   toastGearDbImportedShortWithInbox: "Importé {count} (+{inboxCount} boîte aux lettres)",
   toastGearDbTotalShort: "Total : {count}",

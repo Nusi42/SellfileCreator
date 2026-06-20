@@ -1452,6 +1452,8 @@ const catalog: Catalog = {
   toastRecipesSaved: "Receitas salvas. Confira sua pasta Downloads.",
   toastSellfileSaved: "Sellfile exportado.",
   toastSellfileExportFailed: "Falha ao exportar o Sellfile. Veja o console.",
+  toastSellfilePushed: "Sellfile enviado.",
+  toastSellfilePushFailed: "Falha ao enviar o Sellfile. Veja o console.",
   toastGearDbImportedShort: "Importadas {count}",
   toastGearDbImportedShortWithInbox: "Importadas {count} (+{inboxCount} caixa de entrada)",
   toastGearDbTotalShort: "Total: {count}",

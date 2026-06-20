@@ -1450,6 +1450,8 @@ const overrides: Catalog = {
   toastRecipesSaved: "Reçeteler kaydedildi. İndirilenler'i kontrol edin.",
   toastSellfileSaved: "Sellfile dışa aktarıldı.",
   toastSellfileExportFailed: "Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.",
+  toastSellfilePushed: "Sellfile gönderildi.",
+  toastSellfilePushFailed: "Sellfile gönderme başarısız oldu. Ayrıntılar için konsola bakın.",
   toastGearDbImportedShort: "İçe aktarıldı {count}",
   toastGearDbImportedShortWithInbox: "İçe aktarıldı {count} (+{inboxCount} gelen kutusu)",
   toastGearDbTotalShort: "Toplam: {count}",

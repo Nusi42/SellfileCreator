@@ -1451,6 +1451,8 @@ const overrides: Catalog = {
   toastRecipesSaved: "Рецепти збережено. Перевірте папку «Завантаження».",
   toastSellfileSaved: "Sellfile експортовано.",
   toastSellfileExportFailed: "Не вдалося експортувати Sellfile. Перевірте консоль.",
+  toastSellfilePushed: "Sellfile надіслано.",
+  toastSellfilePushFailed: "Не вдалося надіслати Sellfile. Перевірте консоль.",
   toastGearDbImportedShort: "Імпортовано {count}",
   toastGearDbImportedShortWithInbox: "Імпортовано {count} (+{inboxCount} з пошти)",
   toastGearDbTotalShort: "Всього: {count}",

@@ -8495,9 +8495,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         pushToast = 'failure'
       }
       if (pushToast === 'success' && !silent) {
-        showToast(t('toastSellfileSaved'))
+        // Push path: report the endpoint upload as a "push", not a file export.
+        showToast(t('toastSellfilePushed'))
       } else if (pushToast === 'failure') {
-        showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        showToast(t('toastSellfilePushFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
       }
       return
     }
