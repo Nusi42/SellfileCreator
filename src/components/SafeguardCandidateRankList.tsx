@@ -142,6 +142,9 @@ export type SafeguardCandidateRankListProps = {
   // When provided, candidates whose itemKey is not in this set are slightly dimmed
   // (the Gear Inspector filter is hiding them from the current grid view).
   visibleItemKeys?: ReadonlySet<number> | null
+  // When true, perFaction is suppressed from the quota label (faction is not accessible-slot
+  // relevant for this rule, so naming it in the cutoff label would be misleading).
+  suppressPerFactionInLabel?: boolean
   // Appearance (name + optional color) of the current safeguard rule — shown as match source label.
   ruleAppearance?: NameAppearance
   // 1-based ordinal of the current safeguard rule — used for identity comparisons.
@@ -238,6 +241,7 @@ export default function SafeguardCandidateRankList({
   useStatButtonColors,
   onSelectCandidate,
   visibleItemKeys,
+  suppressPerFactionInLabel,
   ruleAppearance,
   ruleOrdinal,
   countMode,
@@ -316,10 +320,12 @@ export default function SafeguardCandidateRankList({
     ? safeguardEffectiveCountModeForDisplay(combination, countMode)
     : countMode
   // Collect active per-group dimensions in display order (slot → set → faction → main).
+  // suppressPerFactionInLabel hides the faction dimension from the quota label when faction is not
+  // meaningful for this rule (no accessory slot targeted).
   const cutoffScopeParts: string[] = []
   if (effectiveCutoffMode?.perSlot) cutoffScopeParts.push(t('safeguardsCountModeScopeSlot'))
   if (effectiveCutoffMode?.perSet) cutoffScopeParts.push(t('safeguardsCountModeScopeSet'))
-  if (effectiveCutoffMode?.perFaction) cutoffScopeParts.push(t('safeguardsCountModeScopeFaction'))
+  if (effectiveCutoffMode?.perFaction && !suppressPerFactionInLabel) cutoffScopeParts.push(t('safeguardsCountModeScopeFaction'))
   if (effectiveCutoffMode?.perMainStat) cutoffScopeParts.push(t('safeguardsCountModeScopeMain'))
   const cutoffLabel = cutoffScopeParts.length > 0
     ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: cutoffScopeParts.join(' · ') })

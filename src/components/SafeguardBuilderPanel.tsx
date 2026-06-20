@@ -3598,6 +3598,7 @@ export default function SafeguardBuilderPanel({
               {...(rule?.appearance ? { ruleAppearance: rule.appearance } : {})}
               {...(editingRuleIdx !== null ? { ruleOrdinal: editingRuleIdx + 1 } : {})}
               {...(visibleItemKeys != null ? { visibleItemKeys } : {})}
+              {...(!hasAccessorySlot ? { suppressPerFactionInLabel: true } : {})}
               {...(onSelectCandidate ? { onSelectCandidate } : {})}
               {...(improvementChanceByItemKey != null ? { improvementChanceByItemKey } : {})}
               {...(onCandidateFocusGroupKeyChange
