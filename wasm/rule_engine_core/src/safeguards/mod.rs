@@ -1773,6 +1773,33 @@ fn safeguard_consolidate_rarity_codes(rarities: &[i64]) -> Vec<i64> {
     sorted.into_iter().map(safeguard_rarity_value_to_code).collect()
 }
 
+// Allowed main-stat variants for a slot from the static domain (mirrors ALLOWED_MAIN_BY_SLOT in
+// types.ts). Used to detect when a per-mainstat constraint is redundant for a fixed-main slot.
+fn safeguard_static_allowed_mains_for_slot(slot: i64) -> &'static [i64] {
+    for &(s, mains) in ALLOWED_MAINS_BY_SLOT {
+        if s == slot {
+            return mains;
+        }
+    }
+    &[]
+}
+
+// A concrete main-stat constraint is redundant when EVERY targeted slot allows exactly that one
+// main (e.g. Weapon→ATK-flat, Helmet→HP-flat, Shield→DEF-flat). In that case the emitted placeholder
+// rule keeps the same set of matchable pieces whether it pins the main or leaves it Any, so we drop
+// it to Any. This makes the per_main_stat ON / OFF placeholder rules identical for fixed-main slots
+// (no spurious sell-file rule-count change) without altering which gear is protected. Returns false
+// for the Any sentinel and for any slot whose sole allowed main differs from `main_variant`.
+fn safeguard_main_constraint_is_redundant(main_variant: i64, slots: &[i64]) -> bool {
+    if main_variant == STAT_VARIANT_ANY || slots.is_empty() {
+        return false;
+    }
+    slots.iter().all(|&slot| {
+        let allowed = safeguard_static_allowed_mains_for_slot(slot);
+        allowed.len() == 1 && allowed[0] == main_variant
+    })
+}
+
 // Returns (rule, main_variant, effective_slots) triples so callers can filter substats
 // that are impossible for the mainstat or not legal on any of the effective slots.
 fn safeguard_build_placeholder_base_rules(
@@ -1835,7 +1862,18 @@ fn safeguard_build_placeholder_base_rules(
                     if !slot_values.is_empty() && effective_slots.is_empty() {
                         continue;
                     }
-                    let (main_id, main_f) = safeguard_variant_to_main(*main_variant);
+                    // Drop a redundant per-mainstat constraint to Any when every effective slot has a
+                    // single fixed main (the concrete pin matches the exact same pieces). This keeps
+                    // per_main_stat ON/OFF placeholder rules identical for fixed-main slots. The
+                    // effective_slots filter above still used the concrete variant, so slot scoping is
+                    // unchanged; only the emitted main + the variant threaded into substat filtering
+                    // become Any (mirroring the OFF path). Multi-slot or multi-main slots are untouched.
+                    let emit_main_variant = if safeguard_main_constraint_is_redundant(*main_variant, &effective_slots) {
+                        STAT_VARIANT_ANY
+                    } else {
+                        *main_variant
+                    };
+                    let (main_id, main_f) = safeguard_variant_to_main(emit_main_variant);
                     let safeguard_rule = RuleRaw {
                         RecipeID: Some(recipe_id),
                         RecipeName: normalized_name.map(Arc::from),
@@ -1879,7 +1917,9 @@ fn safeguard_build_placeholder_base_rules(
                     if !seen.insert(canonical) {
                         continue;
                     }
-                    rules.push((safeguard_rule, *main_variant, effective_slots.clone()));
+                    // Thread emit_main_variant (Any when normalized) so the caller's substat
+                    // "exclude the mainstat" filter matches the per_main_stat OFF behavior exactly.
+                    rules.push((safeguard_rule, emit_main_variant, effective_slots.clone()));
                 }
             }
         }
