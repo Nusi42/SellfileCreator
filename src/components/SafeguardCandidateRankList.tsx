@@ -34,7 +34,7 @@ import { artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKe
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
-import { FactionIcon } from './FactionIcon'
+import { FactionIcon, FACTION_ICON_HALO_PAD_PX } from './FactionIcon'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { CircledDigitBadge } from './CircledDigitBadge'
@@ -108,6 +108,13 @@ const MYTHIC_SUBSTAT_SHADOW_SPREAD_PX = 1
 const MYTHIC_SUBSTAT_RADIUS_PX = 4
 // A substat has a mythic bonus when its mythValue component is at least this threshold.
 const MYTHIC_BONUS_MIN = 0.01
+
+// Faction icon sizing in candidate rows. SSOT so the rendered icon and the alignment spacer
+// (drawn on non-accessory rows when the list mixes accessory/non-accessory gear) stay identical.
+const ROW_FACTION_ICON_SIZE_PX = 14
+// Rendered footprint = icon size + halo pad (see FactionIcon's haloSize). The spacer reserves this
+// exact width so substat columns line up across rows with and without a faction icon.
+const ROW_FACTION_ICON_FOOTPRINT_PX = ROW_FACTION_ICON_SIZE_PX + FACTION_ICON_HALO_PAD_PX
 
 export type SafeguardCandidateRankListProps = {
   // Scored candidates from detection snapshot or live preview, sorted by rank ascending.
@@ -363,12 +370,22 @@ export default function SafeguardCandidateRankList({
     setFocusedGroupKey(activeFocusKey === key ? null : key)
   }
 
+  // Reserve a faction-icon-sized spacer on non-accessory rows when the list mixes accessory and
+  // non-accessory gear: only accessories render a faction icon, so without the spacer their substat
+  // columns shift left relative to accessory rows, breaking vertical alignment. Only matters when
+  // faction icons are actually shown AND at least one accessory is present to create the asymmetry.
+  const reserveFactionIconSpace = showFactionIcons
+    && candidates.some((c) => {
+      const art = artifactsByItemKey.get(c.itemKey)
+      return art != null && isAccessorySlot(art.slot)
+    })
   // Shared props for every row — `groupRankMode` switches the rank column from global candidateRank
   // to per-group bucketRank while a group is focused; improvementChanceByItemKey feeds the chance cell.
   const rowCommonProps = {
     showSlotIcons,
     showSetIcons,
     showFactionIcons,
+    reserveFactionIconSpace,
     substats,
     weights,
     ruleAppearance,
@@ -440,6 +457,7 @@ function CandidateRow({
   showSlotIcons,
   showSetIcons,
   showFactionIcons,
+  reserveFactionIconSpace,
   substats,
   weights,
   ruleAppearance,
@@ -464,6 +482,9 @@ function CandidateRow({
   showSlotIcons: boolean
   showSetIcons: boolean
   showFactionIcons: boolean
+  // True when other rows in the list show a faction icon; reserve a same-width spacer here so
+  // non-accessory rows stay column-aligned with accessory rows.
+  reserveFactionIconSpace: boolean
   substats: StatVariant[]
   weights: Partial<Record<StatVariant, number>>
   ruleAppearance: NameAppearance | undefined
@@ -673,9 +694,14 @@ function CandidateRow({
         {setIconId && (
           <SetIcon setId={setIconId} size={14} sx={{ mr: 0, display: 'block' }} />
         )}
-        {/* FactionIcon at size 14 (natural render size 19px with halo); no sx override to avoid clipping. */}
+        {/* FactionIcon (natural render size = size + halo pad); no sx override to avoid clipping. */}
         {factionId !== null && showFactionIcons && (
-          <FactionIcon faction={factionId} size={14} />
+          <FactionIcon faction={factionId} size={ROW_FACTION_ICON_SIZE_PX} />
+        )}
+        {/* Alignment spacer: when other rows show a faction icon but this (non-accessory) row has
+            none, reserve the icon's footprint so substat columns stay vertically aligned. */}
+        {(factionId === null || !showFactionIcons) && reserveFactionIconSpace && (
+          <Box sx={{ width: ROW_FACTION_ICON_FOOTPRINT_PX, flexShrink: 0 }} />
         )}
         {identifierText && (
           <Typography

@@ -11,7 +11,9 @@ export const FACTION_ICON_PX = 25 as const
 /** Shared map of faction IDs to their icon URLs. */
 export { FACTION_ICON_MAP }
 
-const FACTION_ICON_HALO_PAD_PX = 5 as const
+/** Halo padding added around the icon; rendered footprint is size + this pad. Exported so callers
+ *  that reserve alignment space for a faction icon can compute its exact width. */
+export const FACTION_ICON_HALO_PAD_PX = 5 as const
 
 /** Inline faction icon used across selects and the preview when assets exist. */
 export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: FactionId; size?: number; sx?: SxProps }) {
