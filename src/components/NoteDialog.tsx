@@ -5258,7 +5258,14 @@ export default function NoteDialog({
             // The layout effect / drag handlers still write inline width for frame-by-frame updates;
             // inline styles win over sx, so live resize is unaffected and this is just the floor.
             width: panelWidth,
-            maxWidth: '100vw',
+            // Cap at the SCALED viewport width, not raw 100vw. The panel lives inside #root's
+            // CSS `zoom: z`. A `100vw` length declared here resolves to the viewport and is then
+            // scaled BY z along with the element, so it visually caps the panel at viewport × z —
+            // i.e. too narrow when zoomed out (z < 1), which is the "strange" max width. Dividing
+            // by --app-zoom pre-compensates: (100vw / z) × z = the full viewport. This also puts
+            // the cap in the same CSS-px space as panelWidth and the resize/clamp effects'
+            // viewCssW = innerWidth / zoom. Falls back to 1 (no zoom) before the hook's first write.
+            maxWidth: 'calc(100vw / var(--app-zoom, 1))',
             flexShrink: 0,
             boxSizing: 'border-box',
             overscrollBehavior: 'contain',
