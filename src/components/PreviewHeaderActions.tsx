@@ -15,10 +15,13 @@ import {
 	  MENU_CONTROL_HEIGHT_PX,
 	  MENU_CONTROL_MIN_WIDTH_PX,
 	  STATUS_CHIP_BORDER_RADIUS_PX,
+	  SPLIT_BUTTON_MAIN_SX,
+	  SPLIT_BUTTON_CHEVRON_SX,
 	} from '../lib/constants'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import PublishIcon from '@mui/icons-material/Publish'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
@@ -76,7 +79,7 @@ import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearI
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { FilterPreset } from '../state/filterPresetsPreference'
 import type { SortPreset } from '../state/sortPresetsPreference'
-import { formatLocalDateTime } from '../lib/dateDisplay'
+import { formatLocalDateTime, buildDirtyTooltip } from '../lib/dateDisplay'
 import { useGearInspectorSortPopoutEasterEgg } from '../hooks/useGearInspectorSortPopoutEasterEgg'
 import GearInspectorSortPopoutEasterEggOverlay from './GearInspectorSortPopoutEasterEggOverlay'
 import { GearInspectorSortWeightControls } from './GearInspectorSortWeightControls'
@@ -145,6 +148,8 @@ export default function PreviewHeaderActions(props: {
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
+  // Timestamp (ms) when the current unexported state began; drives the badge tooltip.
+  hsfDirtySince?: number | null
   building?: boolean
   gearInspectorBuilding?: boolean
   workloadProgressRatio: number
@@ -269,6 +274,7 @@ export default function PreviewHeaderActions(props: {
     exportDisabled,
     pushEndpoint,
     hsfDirty,
+    hsfDirtySince,
     building = false,
     limitHit = false,
     previewMode,
@@ -477,18 +483,11 @@ export default function PreviewHeaderActions(props: {
     () => typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function' || !!onExportLocal,
     [onToggleDedupeDefault, onToggleOmitDisabled, onExportLocal],
   )
+  // Export options now open from a chevron (left-click menu); a standard MUI Menu
+  // handles outside-click/Escape, so no right-click close guard or hint is needed.
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = () => { setExportMenuAnchor(null) }
-  const exportMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  useContextMenuCloseOnOutsideRightClick({
-    open: Boolean(exportMenuAnchor),
-    onClose: closeExportMenu,
-    menuRef: exportMenuPaperRef,
-  })
-  const exportHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.previewExportMenu, {
-    enabled: exportMenuEnabled && !exportMenuAnchor,
-    text: t('contextMenuHint'),
-  })
+  const exportChevronRef = React.useRef<HTMLButtonElement | null>(null)
   const filterMenuEnabled = React.useMemo(() => {
     // The filter button menu is the entry point for presets + sync, so enable it when any are available.
     return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
@@ -1085,6 +1084,65 @@ export default function PreviewHeaderActions(props: {
 	  } as const
 
 	  // Weight controls now live in `GearInspectorSortWeightControls` so the Sort popout and gear-inspector-grid presets stay in sync.
+
+  // Single source for the export control — the primary button plus, when options
+  // exist, an attached chevron that opens the export menu. The dirty dot wraps ONLY
+  // the primary button (not the chevron) so it sits over the action, not the menu
+  // affordance. A flex row with a 1px gap keeps the theme's contained styling on
+  // both halves (no ButtonGroup); the gap reads as a seam.
+  // Localized "not saved since <time>" tooltip for the export badge dot.
+  const hsfDirtyTooltip = buildDirtyTooltip(hsfDirtySince, t)
+  // The export-action explanation wraps ONLY the button (not the badge/chevron) so
+  // it never stacks with the dirty-dot's own tooltip when the cursor is on the dot.
+  const exportButtonNode = (
+    <Button
+      startIcon={exportIcon}
+      sx={{
+        whiteSpace: 'nowrap',
+        px: 1.25,
+        minWidth: 0,
+        maxWidth: 320,
+        overflow: 'hidden',
+        flex: 1,
+        display: 'flex',
+        justifyContent: 'center',
+        ...(exportMenuEnabled ? SPLIT_BUTTON_MAIN_SX : {}),
+      }}
+      onClick={onExport}
+      disabled={exportDisabled}
+      data-tour-id="hsf.export"
+      aria-label={exportLabel}
+    >
+      <EllipsisTooltip title={exportLabel}>
+        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+          {exportLabel}
+        </Typography>
+      </EllipsisTooltip>
+    </Button>
+  )
+  const exportControl = (
+    <Box component="span" sx={{ display: 'inline-flex', gap: '1px', flex: 1, minWidth: 0, ml: 1 }}>
+      <DirtyBadge active={hsfDirty} tooltip={hsfDirtyTooltip} sx={{ display: 'flex', flex: 1, minWidth: 0 }}>
+        {(exportTooltip?.trim().length ?? 0) > 0 ? (
+          /* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */
+          <MarkdownTooltip markdown={exportTooltip}>{exportButtonNode}</MarkdownTooltip>
+        ) : exportButtonNode}
+      </DirtyBadge>
+      {/* Chevron opens the export options menu (no right-click anymore). */}
+      {exportMenuEnabled ? (
+        <Button
+          ref={exportChevronRef}
+          aria-label={t('exportSellfileMoreOptions')}
+          aria-haspopup="menu"
+          disabled={exportDisabled}
+          onClick={() => setExportMenuAnchor(exportChevronRef.current)}
+          sx={SPLIT_BUTTON_CHEVRON_SX}
+        >
+          <ArrowDropDownIcon fontSize="small" />
+        </Button>
+      ) : null}
+    </Box>
+  )
 
   return (
     <>
@@ -2832,107 +2890,12 @@ export default function PreviewHeaderActions(props: {
               sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
             />
           ) : null}
-          {(exportTooltip?.trim().length ?? 0) > 0 ? (
-            <>
-              {/* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */}
-              <MarkdownTooltip markdown={exportTooltip}>
-              <DirtyBadge
-                active={hsfDirty}
-                sx={{ display: 'flex', flexShrink: 1, minWidth: 0, ml: 1 }}
-              >
-                <Box
-                  component="span"
-                  sx={{ display: 'flex', flex: 1, minWidth: 0 }}
-                  {...exportHint.triggerProps}
-                  onContextMenu={(event) => {
-                    if (!exportMenuEnabled) return
-                    try {
-                      event.preventDefault()
-                      event.stopPropagation()
-                    } catch {}
-                    setExportMenuAnchor(event.currentTarget as HTMLElement)
-                    exportHint.onOpen()
-                  }}
-                >
-                  <Button
-                    startIcon={exportIcon}
-                    sx={{
-                      whiteSpace: 'nowrap',
-                      px: 1.25,
-                      minWidth: 0,
-                      maxWidth: 320,
-                      overflow: 'hidden',
-                      flex: 1,
-                      display: 'flex',
-                      justifyContent: 'center',
-                    }}
-                    onClick={onExport}
-                    disabled={exportDisabled}
-                    data-tour-id="hsf.export"
-                    aria-label={exportLabel}
-                  >
-                    <EllipsisTooltip title={exportLabel}>
-                      <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
-                        {exportLabel}
-                      </Typography>
-                    </EllipsisTooltip>
-                  </Button>
-                </Box>
-              </DirtyBadge>
-              </MarkdownTooltip>
-            </>
-          ) : (
-            <DirtyBadge
-              active={hsfDirty}
-              sx={{ display: 'flex', flexShrink: 1, ml: 1, minWidth: 0 }}
-            >
-              <Box
-                component="span"
-                sx={{ display: 'flex', flex: 1, minWidth: 0 }}
-                {...exportHint.triggerProps}
-                onContextMenu={(event) => {
-                  if (!exportMenuEnabled) return
-                  try {
-                    event.preventDefault()
-                    event.stopPropagation()
-                  } catch {}
-                  setExportMenuAnchor(event.currentTarget as HTMLElement)
-                  exportHint.onOpen()
-                }}
-              >
-                <Button
-                  startIcon={exportIcon}
-                  sx={{
-                    whiteSpace: 'nowrap',
-                    px: 1.25,
-                    minWidth: 0,
-                    maxWidth: 320,
-                    overflow: 'hidden',
-                    flex: 1,
-                    display: 'flex',
-                    justifyContent: 'center',
-                  }}
-                  onClick={onExport}
-                  disabled={exportDisabled}
-                  data-tour-id="hsf.export"
-                  aria-label={exportLabel}
-                >
-                  <EllipsisTooltip title={exportLabel}>
-                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
-                      {exportLabel}
-                    </Typography>
-                  </EllipsisTooltip>
-                </Button>
-              </Box>
-            </DirtyBadge>
-          )}
-          {exportHint.overlay}
+          {exportControl}
           {exportMenuEnabled ? (
             <Menu
               anchorEl={exportMenuAnchor}
               open={Boolean(exportMenuAnchor)}
               onClose={closeExportMenu}
-              slotProps={{ paper: { ref: exportMenuPaperRef } }}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >

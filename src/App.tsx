@@ -36,6 +36,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
+import { currentSfcMatchesAnyPreset } from './lib/sfcPresetMatch'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
   loadRuntimeGearSetsFromStorage,
@@ -4241,6 +4242,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfDirty = lastExportedHash !== null
     && currentMergedRulesHash !== null
     && currentMergedRulesHash !== lastExportedHash
+
+  // Capture the moment each dirty state began (rising edge of clean→dirty) so the
+  // badge tooltip can show "not saved since <time>". Cleared when saved again. This
+  // is a derived checkpoint stamped on a state transition — the same intentional
+  // set-state-on-edge pattern used elsewhere in this file — so the lint rules that
+  // assume effects mirror props are disabled here. Date.now() is fine in app code
+  // (only workflow scripts forbid it).
+  const [sfcDirtySince, setSfcDirtySince] = useState<number | null>(null)
+  const prevSfcDirtyRef = useRef(isDirty)
+  /* eslint-disable react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  useEffect(() => {
+    if (isDirty && !prevSfcDirtyRef.current) setSfcDirtySince(Date.now())
+    else if (!isDirty) setSfcDirtySince(null)
+    prevSfcDirtyRef.current = isDirty
+  }, [isDirty])
+  const [hsfDirtySince, setHsfDirtySince] = useState<number | null>(null)
+  const prevHsfDirtyForTsRef = useRef(hsfDirty)
+  useEffect(() => {
+    if (hsfDirty && !prevHsfDirtyForTsRef.current) setHsfDirtySince(Date.now())
+    else if (!hsfDirty) setHsfDirtySince(null)
+    prevHsfDirtyForTsRef.current = hsfDirty
+  }, [hsfDirty])
+  /* eslint-enable react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -8183,6 +8208,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return `${n} ${word}`
   })()
 
+  // Suppress the "load a preset" arrows when the current setup already matches a
+  // bundled preset (ignoring dynamic overrides) — the nudge would be redundant.
+  // Only computed while the nudge is active so the payload build stays off the
+  // hot path for the common case.
+  const sfcMatchesPreset = useMemo(() => {
+    if (!tutorial.sfcLoadNudgeActive) return false
+    return currentSfcMatchesAnyPreset({
+      metasets,
+      substatTargets,
+      recipes: customRecipes,
+      finalSellRemainder,
+      ...(sfcNote ? { note: sfcNote } : {}),
+      safeguardRules,
+      safeguardsEnabled,
+      recipesEnabled,
+    })
+  }, [
+    tutorial.sfcLoadNudgeActive,
+    metasets,
+    substatTargets,
+    customRecipes,
+    finalSellRemainder,
+    sfcNote,
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  ])
+
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
@@ -8223,7 +8276,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         chipLabel: safeguardChipLabel,
       } : {})}
       sfcDirty={isDirty}
-      sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive}
+      sfcDirtySince={sfcDirtySince}
+      sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive && !sfcMatchesPreset}
       sfcLoadNudgeFading={tutorial.sfcLoadNudgeFading}
       onSfcLoadNudgeDismiss={tutorial.clearSfcLoadNudge}
     />
@@ -8964,6 +9018,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
         hsfDirty={hsfDirty}
+        hsfDirtySince={hsfDirtySince}
         dedupeDefault={dedupeDefault}
         onToggleDedupeDefault={handleSetDedupeDefault}
         omitDisabledForExport={omitDisabledForExport}

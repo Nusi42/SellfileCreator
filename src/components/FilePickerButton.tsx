@@ -9,7 +9,12 @@ type FilePickerButtonProps = Omit<ButtonProps, 'component' | 'children' | 'onSel
   startIcon?: React.ReactNode
   accept: string
   onSelect: (file: File, context?: { shiftKey?: boolean }) => void | Promise<void>
-  onBeforeOpen?: (event: React.MouseEvent<HTMLButtonElement>) => void
+  /**
+   * Called on click before the native file chooser opens. Return `true` to
+   * suppress opening the dialog (e.g. to redirect the click into a menu on the
+   * first session click). Returning void/false keeps the default open behavior.
+   */
+  onBeforeOpen?: (event: React.MouseEvent<HTMLButtonElement>) => void | boolean
   buttonProps?: ButtonProps
   labelMaxWidth?: number
   children?: React.ReactNode
@@ -90,10 +95,13 @@ function FilePickerButton(props: FilePickerButtonProps) {
 
   const handleClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
+      // Whether onBeforeOpen vetoed opening the native chooser this click.
+      let suppressed = false
       try {
         // Capture modifiers before the native file chooser takes focus.
         pendingModifierRef.current = { shiftKey: Boolean(event.shiftKey) }
-        onBeforeOpen?.(event)
+        // A truthy return means "don't open the dialog" (e.g. show a menu instead).
+        suppressed = onBeforeOpen?.(event) === true
       } catch {
         // keep file picker responsive even if observers throw
       }
@@ -103,6 +111,9 @@ function FilePickerButton(props: FilePickerButtonProps) {
       if (typeof buttonOnClick === 'function') {
         buttonOnClick(event)
       }
+      // We drive the hidden input manually (rather than component="label") so a
+      // veto from onBeforeOpen can keep the chooser closed on the first click.
+      if (!suppressed) inputRef.current?.click()
     },
     [buttonOnClick, injectedOnClick, onBeforeOpen],
   )
@@ -111,7 +122,6 @@ function FilePickerButton(props: FilePickerButtonProps) {
   const buttonNode = (
     <Button
       ref={handleButtonRef}
-      component="label"
       startIcon={buttonStartIcon}
       onClick={handleClick}
       {...restButtonProps}

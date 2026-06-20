@@ -49,6 +49,22 @@ export function formatLocalDateTime(
   }
 }
 
+/**
+ * Builds the dirty-badge tooltip text: "Unsaved changes — not saved since <time>"
+ * when we know when the divergence began, falling back to a plain "Unsaved
+ * changes" when no timestamp is available. Centralized so the SFC and HSF badges
+ * stay worded and formatted identically. `translate` is the i18n `t` function;
+ * the time uses the app-wide medium-date/short-time format.
+ */
+export function buildDirtyTooltip(
+  dirtySince: number | null | undefined,
+  translate: (key: 'dirtyBadgeNotSavedSince' | 'dirtyBadgeUnsaved', params?: Record<string, string | number>) => string,
+): string {
+  const formatted = dirtySince != null ? formatLocalDateTime(dirtySince) : null
+  if (formatted) return translate('dirtyBadgeNotSavedSince', { time: formatted })
+  return translate('dirtyBadgeUnsaved')
+}
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 export function getDaysSince(value: string | number | Date | null | undefined): number | null {

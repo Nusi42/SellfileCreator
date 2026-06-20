@@ -13,7 +13,6 @@
  *  3. Render the returned overlay element near the trigger.
  */
 export const CONTEXT_HINT_IDS = {
-  sfcLoad: 'sfcLoad',
   builderRecipeChips: 'builderRecipeChips',
   safeguardChipsPanel: 'safeguardChipsPanel',
   builderSubstats: 'builderSubstats',
@@ -26,7 +25,6 @@ export const CONTEXT_HINT_IDS = {
   rulesTableRows: 'rulesTableRows',
   gearInspectorCompact: 'gearInspectorCompact',
   gearInspectorGridContextMenu: 'gearInspectorGridContextMenu',
-  previewExportMenu: 'previewExportMenu',
   previewFilterMenu: 'previewFilterMenu',
   previewSortPresetMenu: 'previewSortPresetMenu',
   previewDiffMenu: 'previewDiffMenu',

@@ -38,7 +38,9 @@ const STRUCTURAL_KW_AT_LINE_START_RE = new RegExp(
 )
 
 // Matches recipe-overrides, safeguard-overrides, and config-options blocks.
-const DSL_BLOCK_RE_SOURCE =
+// Exported as the single source for "what counts as a dynamic-overrides DSL block"
+// so callers that strip them (e.g. preset-equivalence checks) stay in lock-step.
+export const DSL_BLOCK_RE_SOURCE =
   `<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b[\\s\\S]*?-->`
 
 /**

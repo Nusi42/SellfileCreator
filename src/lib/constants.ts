@@ -56,6 +56,25 @@ export const COMPACT_HEADER_ACTION_BUTTON_SX = {
   width: COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX,
   maxWidth: COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX,
 } as const
+// Split-button seam: a primary action button with an attached chevron that opens
+// a menu. Both pieces keep the button's own variant/colour (no ButtonGroup, which
+// would override the theme's contained default); we only flatten the touching
+// corners and leave a 1px gap so the page background reads as a hairline divider
+// between them. Shared by the Load-SFC and Export/Push split buttons so the seam
+// looks identical. The wrapping flex container supplies `gap: '1px'`.
+export const SPLIT_BUTTON_MAIN_SX = {
+  // Square off the edge that meets the chevron.
+  borderTopRightRadius: 0,
+  borderBottomRightRadius: 0,
+} as const
+export const SPLIT_BUTTON_CHEVRON_SX = {
+  // Narrow icon-only trigger; square off the edge that meets the main button.
+  minWidth: 0,
+  px: 0.25,
+  borderTopLeftRadius: 0,
+  borderBottomLeftRadius: 0,
+  flexShrink: 0,
+} as const
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
@@ -668,6 +687,14 @@ export const NOTE_PANEL_SNAP_KEY = 'sellfileCreator.notePanel.v1'
 export const RUNTIME_GEAR_SETS_KEY = 'sellfileCreator.runtimeGearSets.v1'
 // First-run SFC nudge: marks whether the one-time coach nudge has been seen.
 export const SFC_NUDGE_SEEN_KEY = 'sellfileCreator.sfcNudge.seen.v1'
+// SFC-load chevron nudge (the bouncing arrows pointing at the menu chevron).
+// Visible window before fade-out: longer on the first ever show so the user can
+// register it, shorter on every later replay. Both kept here as SSOT so the
+// hook and any future caller stay in lock-step.
+export const SFC_NUDGE_VISIBLE_FIRST_MS = 4 * 1000
+export const SFC_NUDGE_VISIBLE_REPEAT_MS = 2 * 1000
+// How long the fade-out animation runs before the arrows are removed from the DOM.
+export const SFC_NUDGE_FADE_OUT_MS = 700
 // Easter-egg leaderboards: per-game high-score storage keys.
 export const EASTER_EGG_PONG_SCORES_KEY = 'sellfileCreator.easterEgg.pong.scores.v1'
 export const EASTER_EGG_SELLFALL_SCORES_KEY = 'sellfileCreator.easterEgg.sellfall.scores.v1'

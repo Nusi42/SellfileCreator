@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
-import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY, SFC_NUDGE_SEEN_KEY } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY, SFC_NUDGE_SEEN_KEY, SFC_NUDGE_VISIBLE_FIRST_MS, SFC_NUDGE_VISIBLE_REPEAT_MS, SFC_NUDGE_FADE_OUT_MS } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/recipeMultiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
@@ -1915,17 +1915,17 @@ export function useTutorialCoachState({
     if (nudgeFadeTimerRef.current) clearTimeout(nudgeFadeTimerRef.current)
     setSfcLoadNudgeFading(false)
     setSfcLoadNudgeActive(true)
-    // First time: 12 s so the user can read and notice; every subsequent trigger: 3 s.
+    // First ever show lingers a little longer so it registers; later replays are brief.
     const firstTime = localStorage.getItem(SFC_NUDGE_SEEN_KEY) !== '1'
-    const visibleMs = firstTime ? 12_000 : 3_000
+    const visibleMs = firstTime ? SFC_NUDGE_VISIBLE_FIRST_MS : SFC_NUDGE_VISIBLE_REPEAT_MS
     try { localStorage.setItem(SFC_NUDGE_SEEN_KEY, '1') } catch {}
     nudgeTimerRef.current = setTimeout(() => {
       setSfcLoadNudgeFading(true)
-      // Remove from DOM 700 ms after the fade-out animation starts.
+      // Remove from DOM once the fade-out animation has finished.
       nudgeFadeTimerRef.current = setTimeout(() => {
         setSfcLoadNudgeActive(false)
         setSfcLoadNudgeFading(false)
-      }, 700)
+      }, SFC_NUDGE_FADE_OUT_MS)
     }, visibleMs)
   }, [])
 
