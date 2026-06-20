@@ -6,13 +6,12 @@
 import type { JSX, ReactNode } from 'react'
 import { Box } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import type { GearDbDiffHistoryLineSpec, GearDbDiffHistoryLineTranslator } from '../lib/gearDbDiffToast'
 import { formatGearDbDiffHistoryLineText } from '../lib/gearDbDiffToast'
-import { ALPHA } from '../lib/colorTints'
 
 export type GearDbDiffSummaryLineProps = {
   // Localized prefix label (ex: "Gear updated:") shown before the counts.
@@ -27,8 +26,6 @@ export type GearDbDiffSummaryLineProps = {
   iconSize?: 'inherit' | 'small' | 'medium' | 'large'
   // Optional styling overrides for the root span.
   sx?: SxProps<Theme>
-  // When true, render a pill behind the full count block for contrast.
-  useCountPill?: boolean
 }
 
 /**
@@ -41,36 +38,23 @@ export function GearDbDiffSummaryLine({
   updatedCount,
   iconSize = 'inherit',
   sx,
-  useCountPill = false,
 }: GearDbDiffSummaryLineProps) {
   // Theme colors keep the icons aligned with existing success/error tones.
   const theme = useTheme()
-  // Success toasts need extra contrast so icon glyphs read on green.
-  const useHighContrast = useCountPill
-  // Precompute the palette for glyphs and separators so callers stay lightweight.
-  const addedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.success.main ?? theme.palette.success.main)
-  const removedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
-  const updatedColor = useHighContrast ? (theme.vars?.palette.common.white ?? theme.palette.common.white) : (theme.vars?.palette.info.main ?? theme.palette.info.main)
-  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, ALPHA.a70) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
+  // Glyphs and separators read against the neutral toast surface using the
+  // semantic success/error/info hues (no high-contrast on-fill variant needed).
+  const addedColor = theme.vars?.palette.success.main ?? theme.palette.success.main
+  const removedColor = theme.vars?.palette.error.main ?? theme.palette.error.main
+  const updatedColor = theme.vars?.palette.info.main ?? theme.palette.info.main
+  const separatorColor = theme.vars?.palette.text.secondary ?? theme.palette.text.secondary
   // Normalize the label to avoid accidental whitespace in tight layouts.
   const trimmedLabel = label.trim()
-  // Use a darker overlay so the pill reads against a green success toast.
+  // Count block stays a plain inline cluster — no pill backdrop on the neutral surface.
   const countBlockSx = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 0.5,
     flexShrink: 0,
-    ...(useCountPill
-      ? {
-        // Darken + outline so counts remain legible on the success fill.
-        bgcolor: alpha(theme.palette.common.black, ALPHA.a40),
-        border: `1px solid ${alpha(theme.palette.common.white, ALPHA.a40)}`,
-        borderRadius: '999px',
-        color: (theme.vars?.palette.common.white ?? theme.palette.common.white),
-        px: 0.6,
-        py: 0.15,
-      }
-      : null),
   }
 
   return (
@@ -126,14 +110,11 @@ export function GearDbDiffSummaryLine({
 export const buildGearDbDiffSummaryLineNodes = (
   lineSpecs: GearDbDiffHistoryLineSpec[],
   t: GearDbDiffHistoryLineTranslator,
-  options?: { useCountPill?: boolean },
 ): ReactNode[] => {
   // Localize the label once so each diff line reuses the same prefix.
   const diffLabel = t('toastGearDbDiffSummaryLabel')
   // Constrain the node union so type guards can be precise.
   type SummaryLineNode = JSX.Element | string
-  // Only enable the count pill when a caller explicitly requests it.
-  const useCountPill = options?.useCountPill ?? false
   // Map each spec to a UI-ready node, trimming empty text rows.
   // Track per-kind occurrence counts so composite keys stay unique
   // even when multiple specs share the same discriminant.
@@ -148,7 +129,6 @@ export const buildGearDbDiffSummaryLineNodes = (
           addedCount={spec.addedCount}
           removedCount={spec.removedCount}
           updatedCount={spec.updatedCount}
-          useCountPill={useCountPill}
         />
       )
     }

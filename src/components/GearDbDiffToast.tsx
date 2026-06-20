@@ -44,13 +44,10 @@ export function GearDbDiffToast({
   payload,
   substatColors,
   useStatButtonColors,
-  // Count pill is only used for the green success toast background.
-  useCountPill = false,
 }: {
   payload: GearDbDiffToastPayload
   substatColors: SubstatColorMap
   useStatButtonColors: boolean
-  useCountPill?: boolean
 }) {
   // Localize static copy inside the toast itself.
   const { t } = useI18n()
@@ -59,7 +56,7 @@ export function GearDbDiffToast({
   const headerLines = payload.headerLines.map((line) => line.trim()).filter((line) => line.length > 0)
   // Prefer structured line specs so diff summaries can render with icon glyphs.
   const headerLineNodes = payload.lineSpecs && payload.lineSpecs.length > 0
-    ? buildGearDbDiffSummaryLineNodes(payload.lineSpecs, t, { useCountPill })
+    ? buildGearDbDiffSummaryLineNodes(payload.lineSpecs, t)
     : headerLines
   // Added-only and removed-only batches do not need synthetic empty-side cards.
   const singleSidedKind = resolveSingleSidedDiffKind(payload.entries)
@@ -222,8 +219,10 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
       }}
     >
       {left}
-      {/* Use the shared arrow glyph so diff previews stay consistent. */}
-      <Typography variant="body2" sx={{ color: TINT.onDarkSecondaryText, fontWeight: 600 }}>
+      {/* Use the shared arrow glyph so diff previews stay consistent. The toast now
+          renders on a neutral paper surface, so the arrow tracks the theme's
+          secondary text colour (adapts per scheme) rather than a fixed on-dark white. */}
+      <Typography variant="body2" sx={{ color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary), fontWeight: 600 }}>
         {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}

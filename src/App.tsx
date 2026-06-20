@@ -142,6 +142,7 @@ import {
   type GearDbDiffToastEntry,
   type GearDbDiffToastPayload,
 } from './lib/gearDbDiffToast'
+import { GEAR_DB_UPDATE_TOAST_STYLE } from './lib/gearDbToastStyles'
 import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
@@ -2803,7 +2804,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const showGearDbDiffToast = useCallback((payload: GearDbDiffToastPayload) => {
     // Gear update toasts are not useful in express mode — suppress them.
     if (simpleMode) return
-    // Force success styling so the diff list stays readable.
+    // Severity stays 'success' so the diff list remains the success/update path; the
+    // shared style spec (below) decides the actual surface colour at render time.
     setGearDbCommandToast({ severity: 'success', diff: payload })
   }, [simpleMode])
   // Keep a single pending diff so rapid endpoint updates collapse into the latest toast.
@@ -9340,8 +9342,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         >
           <Alert
             icon={gearDbCommandToast.severity === 'success' ? <StorageIcon fontSize="inherit" /> : <ErrorOutlineIcon fontSize="inherit" />}
-            severity={gearDbCommandToast.severity}
-            variant="filled"
+            // Error toasts keep their filled-error look; success/update toasts adopt the
+            // shared neutral-surface style (severity/variant/surface) so the update toast
+            // reads as a calm notification rather than a green success banner.
+            severity={gearDbCommandToast.severity === 'error' ? 'error' : GEAR_DB_UPDATE_TOAST_STYLE.severity}
+            variant={gearDbCommandToast.severity === 'error' ? 'filled' : GEAR_DB_UPDATE_TOAST_STYLE.variant}
             onClose={dismissGearDbCommandToast}
             sx={{
               alignItems: gearDbCommandToast.diff ? 'flex-start' : 'center',
@@ -9354,6 +9359,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               whiteSpace: gearDbCommandToast.diff ? 'normal' : 'pre-line',
               // Diff toasts should clip overwide content instead of rendering a horizontal scrollbar.
               overflowX: 'hidden',
+              // The neutral-surface overrides (paper bg / neutralized icon+text) only apply on
+              // the success/update path; errors render with the default filled-error sx.
+              ...(gearDbCommandToast.severity === 'error' ? null : GEAR_DB_UPDATE_TOAST_STYLE.sx),
             }}
           >
             {gearDbCommandToast.diff
@@ -9362,8 +9370,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   payload={gearDbCommandToast.diff}
                   substatColors={substatColors}
                   useStatButtonColors={statButtonBorders}
-                  // Boost contrast for colored glyphs on the success toast background.
-                  useCountPill={gearDbCommandToast.severity === 'success'}
                 />
               )
               : gearDbCommandToast.message}
