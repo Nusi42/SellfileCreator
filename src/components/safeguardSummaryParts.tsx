@@ -30,6 +30,7 @@ import {
 } from '../lib/types'
 import {
   GLYPH_WEIGHT_BY_RANK,
+  GLYPH_IMPROVEMENT_CHANCE,
   NBSP,
 } from '../lib/constants'
 import { collapseRankRunToOperator } from '../lib/hsfTypes'
@@ -377,24 +378,20 @@ export function safeguardSummaryParts(
     const presetId = detectImprovementChancePresetId(thr)
     let label: string
     if (presetId === 'graduated') {
-      label = '25→65%'
+      label = `${GLYPH_IMPROVEMENT_CHANCE}${NBSP}25→65%`
     } else {
       const [l0, l4, l8, l12] = resolveImprovementChanceThresholds(thr)
       const allSame = l0 === l4 && l4 === l8 && l8 === l12
       const displayVal = allSame ? l0 : null
       if (presetId && displayVal !== null) {
         const [p0] = resolveImprovementChanceThresholds(IMPROVEMENT_CHANCE_PRESETS.find((p) => p.id === presetId)!.thresholds)
-        label = opts.t
-          ? opts.t('safeguardsImprovementChanceWithValue', { value: p0 })
-          : `Improvement chance ≥ ${p0}%`
+        label = `${GLYPH_IMPROVEMENT_CHANCE}${NBSP}≥${NBSP}${p0}%`
       } else if (allSame) {
-        label = opts.t
-          ? opts.t('safeguardsImprovementChanceWithValue', { value: l0 })
-          : `Improvement chance ≥ ${l0}%`
+        label = `${GLYPH_IMPROVEMENT_CHANCE}${NBSP}≥${NBSP}${l0}%`
       } else {
         const minVal = Math.min(l0, l4, l8, l12)
         const maxVal = Math.max(l0, l4, l8, l12)
-        label = `${minVal}–${maxVal}%`
+        label = `${GLYPH_IMPROVEMENT_CHANCE}${NBSP}${minVal}–${maxVal}%`
       }
     }
     addText(label)
