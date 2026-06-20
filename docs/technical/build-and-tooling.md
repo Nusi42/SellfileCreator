@@ -367,10 +367,10 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Sellfiles/_RECIPE_FOR_LATEGAME_AND_ENDGAME_.sfc` — copied from `presets/lategame.sfc` (with any `presets/lategame.patch.json` applied)
+  - `Sellfiles/Midgame_Lategame_Endgame_Sample.sfc` — copied from `presets/lategame.sfc` (with any `presets/lategame.patch.json` applied)
   - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `lategame` recipe-override preset applied
   - `Sellfiles/endgame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `endgame` recipe-override preset applied
-  - `Sellfiles/basic.sfc` — copied from `presets/beginner.sfc` as the minimal starter recipe
+  - `Sellfiles/Beginner_Sample.sfc` — copied from `presets/beginner.sfc` as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
 

@@ -215,7 +215,7 @@ try {
   $presets = @(
     @{
       SourceFile  = 'lategame.sfc'
-      StagedFile  = '_RECIPE_SAMPLE_.sfc'
+      StagedFile  = 'Midgame_Lategame_Endgame_Sample.sfc'
       HsfVariants = @(
         @{ Token = 'midgame';  OutputName = 'midgame-sellfile.hsf' },
         @{ Token = 'lategame'; OutputName = 'lategame-sellfile.hsf' },
@@ -224,7 +224,7 @@ try {
     },
     @{
       SourceFile  = 'beginner.sfc'
-      StagedFile  = 'basic.sfc'
+      StagedFile  = 'Beginner_Sample.sfc'
       HsfVariants = @()
     }
   )
