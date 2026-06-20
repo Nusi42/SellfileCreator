@@ -62,6 +62,12 @@ function chooseTier(
   return null
 }
 
+// A few px shaved off the budget so the hook shrinks the label JUST before CSS would wrap
+// the group. Without it, sub-pixel rounding / un-modelled margins put the full label "just
+// fits" per our math while flex-wrap disagrees — the group wraps with full text instead of
+// stepping down. Slightly conservative is the correct bias here.
+const FIT_SAFETY_PX = 12
+
 export function useFittingLabel({
   tiers,
   reservedPx,
@@ -106,12 +112,19 @@ export function useFittingLabel({
     const bcs = window.getComputedStyle(boundary)
     const rowContent =
       boundary.clientWidth - parseFloat(bcs.paddingLeft || '0') - parseFloat(bcs.paddingRight || '0')
-    // Level 1: the row's other groups + the gaps around them.
-    const rowOthers = sumOtherChildren(boundary)
-    const rowGaps = colGap(boundary) * rowOthers.count
-    // Level 2: the export group's row-child (the action group); subtract its fixed buttons.
+    // The export group's row-child (the action group), reached by walking up to the boundary.
     let groupChild: HTMLElement | null = el
     while (groupChild && groupChild.parentElement !== boundary) groupChild = groupChild.parentElement
+    // Budget is ALWAYS measured against the first-line free space: the row's content width
+    // minus the left control groups (level 1) and the action group's own fixed buttons +
+    // chevron (level 2). This makes the label SHRINK to keep the group on row 1 rather than
+    // wrapping eagerly — the group only wraps when even icon-only won't fit on the line. We
+    // deliberately do NOT widen the budget when the group has already wrapped: doing so would
+    // show the full label on row 2 even though a shorter label would have fit on row 1.
+    const rowOthers = sumOtherChildren(boundary)
+    // One gap PER other child: the gaps between them AND the gap separating the last from the
+    // action group.
+    const rowGaps = colGap(boundary) * rowOthers.count
     let actionOthers = 0
     let actionGaps = 0
     if (groupChild) {
@@ -121,8 +134,9 @@ export function useFittingLabel({
     }
     const freeForButton =
       rowContent - rowOthers.width - rowGaps - actionOthers - actionGaps - trailingReservedPx
-    // Available text budget = free button width minus icon/own-padding reserve.
-    const available = freeForButton - reservedPx
+    // Available text budget = free button width minus icon/own-padding reserve, minus a small
+    // safety margin so we step down a hair before CSS would wrap the group.
+    const available = freeForButton - reservedPx - FIT_SAFETY_PX
     const next = chooseTier(tiers, fontEl, available)
     // Ideal width = full tier's text width + the icon/padding reserve.
     const full = tiers[0] ? measureTextWidth(tiers[0], fontEl) + reservedPx : 0

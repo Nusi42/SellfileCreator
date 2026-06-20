@@ -2853,17 +2853,18 @@ export default function PreviewHeaderActions(props: {
 	            />
           </>
         )}
-        {/* The boundary row for useFittingLabel. Right-aligned via marginLeft:auto (it sits
-            after the left control groups). flex `0 1 auto` (content basis, shrinkable) is
-            deliberate: with flex-basis:0 the fixed action buttons would overflow the box and
-            OVERLAP the Diff group; auto basis lets flex-wrap measure the real content and
-            wrap the whole group to a clean new row when it truly can't fit. Until then the
-            hook shrinks the export label (full→short→min→icon) from the row's free space.
+        {/* The action group. flex `1 1 auto` grows it to fill whatever flex line it lands on
+            — so justifyContent:flex-end right-aligns its buttons on BOTH the first row and,
+            after wrapping, its own second row (margin-left:auto only right-aligns on a shared
+            line, so it left-sticks once wrapped — grow fixes that). The AUTO basis (not 0) is
+            deliberate: basis:0 let the fixed buttons overflow and OVERLAP the Diff group;
+            auto basis lets flex-wrap measure real content and wrap the whole group cleanly.
+            Until it wraps, the hook shrinks the export label (full→short→min→icon) to fit.
             nowrap keeps the buttons on one line; fixed siblings stay flexShrink:0. */}
         <Stack
           direction="row"
           spacing={1}
-          sx={{ flex: '0 1 auto', minWidth: 0, ml: 'auto', flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
+          sx={{ flex: '1 1 auto', minWidth: 0, flexWrap: 'nowrap', alignItems: 'center', justifyContent: 'flex-end' }}
         >
           {historyMenuEnabled ? (
             <>
