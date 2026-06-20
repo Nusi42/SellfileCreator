@@ -5613,7 +5613,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [selectedSafeguardRuleIdx, improvementChanceByArtifactId, safeguardItemKeyByArtifactId])
   // Safeguard rank overlay for the Gear Inspector: maps artifact id → best candidate rank + quota status.
   // Context-aware: one rule selected → that rule's rank; multiple selected → best among those; none → best across all.
-  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> }> | null>(() => {
+  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> }> | null>(() => {
     if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
     // selectedSafeguardRuleIndices are 0-based; detection entries use 1-based ordinals.
     const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
@@ -5632,7 +5632,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const result = new Map<number, RankRec>()
     // Track all other applicable rule ordinals per artifact (sorted by rank ascending) for tooltip extras.
     // groupRank is carried per entry so the tooltip can show each rule's own global · group ranks.
-    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; groupRank: number; ruleOrdinal: number | null }>>()
+    // isWithinQuota + inSelection are carried per entry so the chip can colour and dim by the rule
+    // it actually displays (the top-sorted row), keeping colour, number, dim, and click on one rule.
+    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean; ruleOrdinal: number | null }>>()
     for (const entry of activeEntries) {
       // Only entries with scored candidates carry rank data.
       if (!entry.candidates?.length) continue
@@ -5650,28 +5652,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (candWins) {
           if (existing) {
             const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-            others.push({ rank: existing.rank, groupRank: existing.groupRank, ruleOrdinal: existing.ruleOrdinal })
+            others.push({ rank: existing.rank, groupRank: existing.groupRank, isWithinQuota: existing.isWithinQuota, inSelection: existing.inSelection, ruleOrdinal: existing.ruleOrdinal })
             otherRulesPerArtifact.set(candidate.itemKey, others)
           }
           result.set(candidate.itemKey, candRec)
         } else {
           const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-          others.push({ rank: candidate.candidateRank, groupRank: candidate.bucketRank, ruleOrdinal: entry.ruleOrdinal })
+          others.push({ rank: candidate.candidateRank, groupRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, inSelection: entryInSelection, ruleOrdinal: entry.ruleOrdinal })
           otherRulesPerArtifact.set(candidate.itemKey, others)
         }
       }
     }
     // Merge otherRules (sorted by rank, deduplicated by ordinal, excluding primary) into the result.
-    const merged = new Map<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> }>()
+    const merged = new Map<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> }>()
     result.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection }, artifactId) => {
       const others = otherRulesPerArtifact.get(artifactId) ?? []
       const seen = new Set<number>()
-      const otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number }> = []
+      const otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> = []
       for (const o of others.sort((a, b) => a.rank - b.rank)) {
         if (typeof o.ruleOrdinal !== 'number' || o.ruleOrdinal === ruleOrdinal) continue
         if (seen.has(o.ruleOrdinal)) continue
         seen.add(o.ruleOrdinal)
-        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, groupRank: o.groupRank })
+        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, groupRank: o.groupRank, isWithinQuota: o.isWithinQuota, inSelection: o.inSelection })
         if (otherRules.length === 3) break
       }
       merged.set(artifactId, { rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules })
