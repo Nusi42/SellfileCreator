@@ -4144,9 +4144,15 @@ export default function NoteDialog({
     return Math.ceil(Math.max(...widths))
   }, [editNoteLabel, viewNoteLabel])
   const editCommitRef = useRef<() => void>(() => onClose())
+  // Always render the live note — never the deferred snapshot. Rendering the deferred
+  // value made the dialog paint the PREVIOUS document for one frame on load (the
+  // stale-content flash), since useDeferredValue lags behind the incoming `note`.
+  // The dialog unmounts when closed, so it always mounts fresh against the current
+  // note; App opens it inside the same transition that commits the new note, so the
+  // first paint is already correct. The deferred value is kept only to surface a brief
+  // pending indicator while React is still working through a large note transition.
   const deferredNote = useDeferredValue(note)
-  // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
-  const renderNote = mode === 'view' ? deferredNote : note
+  const renderNote = note
   const notePending = mode === 'view' && deferredNote !== note
 
   // ─── User-override epoch (dungeon-simulator restart signal) ─────────────────

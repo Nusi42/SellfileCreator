@@ -7398,9 +7398,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (importedNote !== null) {
       // Mark this as an auto-open so the view dialog hides the edit button.
-      // UI-only: stays outside startTransition so the dialog opens immediately.
       setNoteAutoOpenedFromSfc(true)
-      openNoteViewer()
     } else {
       handleCloseNote()
     }
@@ -7422,6 +7420,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // and the second render (customRecipes etc.) would land in a dirty state.
       // applyNoteChange with publish:false never calls describeNextChange, so loadDescriptor is safe.
       applyNoteChange(importedNote, { mode: 'import', publish: false })
+      // Open the viewer inside the SAME transition so the dialog mounts together with the
+      // freshly-committed sfcNote. Opening it urgently (outside the transition) made the
+      // dialog render once against the OLD sfcNote before this commit, flashing stale content.
+      if (importedNote !== null) openNoteViewer()
       // SFC files do not carry an HSF; clear any previously loaded base file.
       setHsf(null)
       setCustomRecipes(recipes)
