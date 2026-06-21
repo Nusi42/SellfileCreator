@@ -35,7 +35,7 @@ export const RSLH_PRESET: ThemeCustomization = {
   dividerColor: '#3C3C3C',
   successColor: '#81C784',
   warningColor: '#FFC107',        // adapted from skin's #F1960E (collision with orange primary)
-  errorColor: '#CC0000',
+  errorColor: '#ff7474',
   infoColor: '#64B5F6',
   textPrimaryColor: '#F7F8FA',
   textSecondaryColor: '#D6D6D6',
