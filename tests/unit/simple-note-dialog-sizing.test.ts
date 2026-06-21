@@ -1,12 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  NOTE_DIALOG_LG_WIDTH_PX,
   SIMPLE_NOTE_DIALOG_HEIGHT,
   SIMPLE_NOTE_DIALOG_MIN_WIDTH,
   SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX,
   SIMPLE_NOTE_DIALOG_WIDTH,
   SIMPLE_NOTE_VIEWPORT_INSET_PX,
 } from '../../src/lib/constants.js'
+import { APP_ZOOM_CSS_VAR, appZoomCompensatedLength } from '../../src/lib/sideBySideZoom.js'
 
 // Simple (express) mode fills the viewport via CSS calc rather than page zoom — guard the derived
 // width/height strings so the inset stays symmetric and the lengths stay viewport-relative.
@@ -27,4 +29,16 @@ test('simple-mode viewport inset is a small positive gap', () => {
 test('simple-mode min width clamps the px floor against the fill width', () => {
   assert.equal(SIMPLE_NOTE_DIALOG_MIN_WIDTH, `min(${SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX}px, ${SIMPLE_NOTE_DIALOG_WIDTH})`)
   assert.ok(SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX > 0)
+})
+
+// The simple-mode width floor reuses the shared lg width (SSOT — no duplicate 1200 literal).
+test('simple-mode width floor reuses the shared lg width', () => {
+  assert.equal(SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX, NOTE_DIALOG_LG_WIDTH_PX)
+})
+
+// The standard dialog pre-compensates viewport lengths by --app-zoom so the paper's own CSS zoom
+// (theme.ts) does not shrink an 84vh/lg dialog below its intended visual size.
+test('appZoomCompensatedLength divides the length by the app-zoom var', () => {
+  assert.equal(appZoomCompensatedLength('84vh'), `calc(84vh / var(${APP_ZOOM_CSS_VAR}, 1))`)
+  assert.equal(appZoomCompensatedLength('1200px'), `calc(1200px / var(${APP_ZOOM_CSS_VAR}, 1))`)
 })

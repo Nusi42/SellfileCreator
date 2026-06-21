@@ -7,6 +7,7 @@ import {
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../../lib/constants'
+import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
@@ -208,11 +209,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     setConfirmResetGearInspector(false)
     onResetGearInspector()
   }
-  // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
+  // Dialog follows the spec'd min width/height so both tabs have enough breathing room. The paper
+  // carries theme `zoom: var(--app-zoom)` (it's portaled outside #root), which would also scale these
+  // vw/vh lengths down under forced side-by-side zoom — leaving the tools dialog too small. Wrap each
+  // length in appZoomCompensatedLength so the visual size stays as specced at any zoom (no-op when
+  // --app-zoom is unset).
   const paperSx = {
-    width: 'min(960px, calc(100vw - 32px))',
-    maxWidth: 'min(960px, calc(100vw - 32px))',
-    height: 'min(800px, calc(100vh - 48px))',
+    width: appZoomCompensatedLength('min(960px, calc(100vw - 32px))'),
+    maxWidth: appZoomCompensatedLength('min(960px, calc(100vw - 32px))'),
+    height: appZoomCompensatedLength('min(800px, calc(100vh - 48px))'),
   }
   // Layout wrapper mirrors the placeholder padding and keeps the Gear Inspector content/actions vertically stacked.
   const renderGearInspectorLayout = useCallback(({ content, actions }: GearInspectorTabLayoutSlots) => (

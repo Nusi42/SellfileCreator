@@ -12,6 +12,23 @@ import { AUTO_SIDE_BY_SIDE_MIN_ZOOM, SIDE_BY_SIDE_TARGET_HEIGHT_PX, SIDE_BY_SIDE
 // outside #root) can read the live zoom. Keep this name in sync with that hook and theme.ts.
 export const APP_ZOOM_CSS_VAR = '--app-zoom'
 
+/**
+ * appZoomCompensatedLength
+ *
+ * SSOT for "a viewport-relative length that must survive the paper's own CSS `zoom`". Portal content
+ * (MUI Dialog/Popover papers) lives OUTSIDE #root, so it cannot inherit #root's `zoom: z`. The theme
+ * instead applies `zoom: var(--app-zoom)` directly to those papers (see theme.ts). That re-scales the
+ * paper — but a `vh`/`vw` length declared on the paper is computed against the (unzoomed) viewport
+ * FIRST and then multiplied by z, so an `84vh` paper actually renders at `84vh × z`: too short when
+ * the app is zoomed down. Dividing the length by the same var pre-compensates — `(L / z) × z = L` —
+ * so the visual size is the intended L at any zoom (and a no-op when --app-zoom is unset → 1).
+ *
+ * Same idiom the floating note panel uses for its `maxWidth: calc(100vw / var(--app-zoom, 1))`.
+ */
+export function appZoomCompensatedLength(length: string): string {
+  return `calc(${length} / var(${APP_ZOOM_CSS_VAR}, 1))`
+}
+
 export type SideBySideZoomDecision = {
   // Whether the forced side-by-side layout should be active at this viewport.
   forceSideBySide: boolean

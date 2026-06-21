@@ -21,8 +21,8 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH } from '../lib/constants'
-import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX } from '../lib/constants'
+import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -295,12 +295,22 @@ const NOTE_SUBSTAT_ORDER = new Map<number, number>(
 // Stable DOM id assigned to the shared DialogTitle so the floating-panel surface can
 // reference it via aria-labelledby (satisfies the role="dialog" accessible-name requirement).
 const NOTE_DIALOG_TITLE_ID = 'note-dialog-title'
-// Standard centered Dialog height — used in single-column mode.
-const NOTE_DIALOG_HEIGHT = '84vh'
+// Standard centered Dialog height — used in single-column mode. The MUI Dialog paper carries
+// `zoom: var(--app-zoom)` (theme.ts) because it is portaled outside #root and can't inherit the
+// page zoom. A raw `84vh` would then render at `84vh × zoom` (too short when the app is zoomed down),
+// so we pre-compensate the viewport length by the same var — see appZoomCompensatedLength. No-op when
+// --app-zoom is unset (single-column / non-SBS), correct under forced side-by-side zoom.
+const NOTE_DIALOG_HEIGHT = appZoomCompensatedLength('84vh')
+// The centered dialog requests MUI `maxWidth="lg"` (NOTE_DIALOG_LG_WIDTH_PX). That cap is also
+// multiplied by the paper's zoom, so pre-compensate it the same way to keep the visual width at lg
+// under page zoom.
+const NOTE_DIALOG_MAX_WIDTH = appZoomCompensatedLength(`${NOTE_DIALOG_LG_WIDTH_PX}px`)
 const NOTE_DIALOG_PAPER_SX = {
   height: NOTE_DIALOG_HEIGHT,
   minHeight: NOTE_DIALOG_HEIGHT,
   maxHeight: NOTE_DIALOG_HEIGHT,
+  // Override MUI's `lg` cap with the zoom-compensated width so it survives the paper's own zoom.
+  maxWidth: NOTE_DIALOG_MAX_WIDTH,
   display: 'flex',
   flexDirection: 'column',
 }

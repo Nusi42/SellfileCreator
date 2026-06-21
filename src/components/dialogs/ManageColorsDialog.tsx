@@ -5,6 +5,7 @@ import { useI18n } from '../../lib/i18n'
 import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../../lib/types'
 import ColorField from '../ColorField'
 import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
+import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
 
 // Parse with a fallback color, then a hardcoded light-blue default — wraps the SSOT
 // parseHexWithAlpha (which returns null on bad input) with this dialog's fallback policy.
@@ -42,7 +43,10 @@ export default function ManageColorsDialog(props: {
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      slotProps={{ paper: { sx: { width: { xs: '100%', sm: 640 }, maxWidth: 'calc(100vw - 32px)' } } }}
+      // maxWidth is viewport-relative; the paper carries theme `zoom: var(--app-zoom)` (portaled
+      // outside #root) so a raw calc(100vw …) would shrink under forced side-by-side zoom. Compensate
+      // it so the cap stays at the intended viewport width at any zoom (no-op when --app-zoom is unset).
+      slotProps={{ paper: { sx: { width: { xs: '100%', sm: 640 }, maxWidth: appZoomCompensatedLength('calc(100vw - 32px)') } } }}
     >
       <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>

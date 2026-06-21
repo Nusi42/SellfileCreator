@@ -38,6 +38,7 @@ import {
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { appZoomCompensatedLength } from '../lib/sideBySideZoom'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useSfcHistory'
 import { TINT } from '../lib/colorTints'
 
@@ -326,9 +327,11 @@ export default function MetasetsDialog({
   // Ephemeral celebration for playful metaset names: highlight the new row's Select
   const [legendaryMetaId, setLegendaryMetaId] = useState<string>('')
 
-  // Clamp list height so the dialog always reserves space for ten metasets while
-  // still shrinking on smaller viewports.
-  const metasetsListHeight = `min(${METASETS_DIALOG_LIST_HEIGHT_PX}px, 60vh)`
+  // Clamp list height so the dialog always reserves space for ten metasets while still shrinking on
+  // smaller viewports. The list sits inside the Dialog paper, which carries theme `zoom: var(--app-zoom)`
+  // (portaled outside #root), so the 60vh cap would shrink further under forced side-by-side zoom —
+  // compensate it so the cap stays at the intended viewport fraction at any zoom (no-op when unset).
+  const metasetsListHeight = `min(${METASETS_DIALOG_LIST_HEIGHT_PX}px, ${appZoomCompensatedLength('60vh')})`
 
   // Shared set entries for the current search terms. Icons view reuses the in-game order.
   const sortedSetEntries = useMemo<Record<'game' | 'az' | 'icons', Array<[string, string]>>>(() => {

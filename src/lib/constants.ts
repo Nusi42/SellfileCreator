@@ -273,11 +273,19 @@ export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP = 0.05
 // timings and by App's post-transition attention pulses so they stay in lock-step.
 export const SIMPLE_MODE_TRANSITION_MS = 220
 
+// The centered note Dialog requests MUI's `lg` width (1200px). Shared here so the default dialog's
+// zoom-compensated max-width and the simple-mode width floor reference one definition instead of each
+// hardcoding 1200. Matches MUI's default `lg` breakpoint.
+export const NOTE_DIALOG_LG_WIDTH_PX = 1200
+
 // Simple (express) mode shows ONLY the centered note Dialog — the builder/preview panels are
-// display:none behind it. Rather than scale the whole page (which fights MUI's lg/vh/centering math
-// and shrinks the dialog into the middle with big margins), the dialog fills the viewport directly
-// via its own CSS: width/height = viewport minus a fixed gap, overriding the lg cap. The page zoom
-// stays at 1 in this mode (see useAutoSideBySideZoom's suppressed branch).
+// display:none behind it. It fills the viewport directly via its own CSS (width/height = viewport
+// minus a fixed gap, overriding the lg cap) rather than via page zoom, and it SUPPRESSES the page
+// zoom (--app-zoom cleared — see useAutoSideBySideZoom's suppressed branch). Because the page zoom is
+// off here, these vw/vh lengths resolve 1:1 against the viewport and need no --app-zoom compensation
+// (unlike the standard centered dialog, whose 84vh/lg must survive a live page zoom via
+// appZoomCompensatedLength). Keeping page zoom off also keeps the express content at native size
+// instead of shrinking it on small screens.
 //
 // Symmetric inset (px) left between the dialog edge and the viewport on every side. Small so the
 // dialog nearly fills the screen while clearly reading as a floating surface, not edge-to-edge.
@@ -290,8 +298,8 @@ export const SIMPLE_NOTE_DIALOG_HEIGHT = `calc(100vh - ${SIMPLE_NOTE_VIEWPORT_IN
 // Lower bound on the simple-mode dialog width so it stays comfortably wide for the express cards even
 // as the viewport narrows. Clamped with min() against the viewport-minus-inset width so the floor can
 // never push the paper past the viewport edge on tiny windows (it would otherwise overflow/scroll).
-// 1200px ≈ MUI `lg`.
-export const SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX = 1200
+// Reuses the shared `lg` width so the floor tracks the standard dialog's natural width.
+export const SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX = NOTE_DIALOG_LG_WIDTH_PX
 export const SIMPLE_NOTE_DIALOG_MIN_WIDTH = `min(${SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX}px, ${SIMPLE_NOTE_DIALOG_WIDTH})`
 
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.

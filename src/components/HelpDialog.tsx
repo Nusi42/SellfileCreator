@@ -15,7 +15,8 @@ import ThemeEditorMenu from './ThemeEditorMenu'
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX, NOTE_DIALOG_LG_WIDTH_PX } from '../lib/constants'
+import { appZoomCompensatedLength } from '../lib/sideBySideZoom'
 import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { DEFAULT_LANGUAGE } from '../lib/i18n/types'
@@ -198,7 +199,14 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       fullWidth
       slotProps={{ paper: {
         sx: (theme) => ({
-          maxHeight: '84vh',
+          // The Dialog paper carries theme `zoom: var(--app-zoom)` (it's portaled outside #root), which
+          // also scales a raw `84vh` down under forced side-by-side zoom — leaving the help dialog too
+          // short. Pre-compensate the viewport length by the same var so the visual height stays 84vh at
+          // any zoom (no-op when --app-zoom is unset). See appZoomCompensatedLength.
+          maxHeight: appZoomCompensatedLength('84vh'),
+          // Same compensation for the `lg` (1200px) width cap so the dialog also keeps its visual width
+          // under page zoom instead of shrinking toward the centre.
+          maxWidth: appZoomCompensatedLength(`${NOTE_DIALOG_LG_WIDTH_PX}px`),
           overflow: 'hidden',
           position: 'relative',
           backgroundColor: 'background.paper',
