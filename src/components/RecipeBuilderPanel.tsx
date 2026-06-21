@@ -1619,7 +1619,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   })
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
-  const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
+  const { colorStatsAndSlots: colorStatTexts } = useDisplayPreferences()
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
   const mixedPatternColor = theme.custom.multiEditMixedBg

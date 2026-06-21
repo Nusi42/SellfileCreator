@@ -100,6 +100,8 @@ import PasteDialog from './components/PasteDialog'
 // If the deps are missing, the app will fail to compile; install them as above.
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
+import { useSlotTints, DEFAULT_SLOT_TINTS } from './lib/slotTints'
+import { SlotTintProvider } from './lib/slotTintContext'
 import {
   computeMergedRules,
   buildRulesForRecipe,
@@ -609,14 +611,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
   // Auto-push: when enabled and an endpoint is active, push the sellfile on every dirty-state change.
   const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
-  const { statButtonBorders, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  const { colorStatsAndSlots, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
   const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
   // Both panel hooks share the same underlying stores, so updates from the panels are
   // immediately visible here and vice-versa (imperative reset/restore also updates the panels).
   const [builderRecipeCollapsed] = useBuilderRecipeCollapsedPreference()
   const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
-  const { setStatButtonBorders } = useDisplayPreferenceActions()
+  const { setColorStatsAndSlots } = useDisplayPreferenceActions()
   // Normalize the note text so recipe overrides parsing never sees null.
   const recipeOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
   // Resolve recipe overrides tag actions based on the current note + answers.
@@ -1121,6 +1123,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatColors,
     resetColors,
   } = useManageColorsDialog()
+  // Slot glyph tints (armor/accessory) — gated by the same colorStatsAndSlots flag; fed to both the
+  // SlotTintProvider (renders the tint everywhere) and the Manage Colors dialog (edits them).
+  const [slotTints, setSlotTints] = useSlotTints()
   // Usage counts for sets and metasets across current recipes
   const setUsageCounts = useMemo(() => {
     const counts: Record<number, number> = {}
@@ -7019,7 +7024,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       editingRuleIndex={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
       metasets={metasets}
       substatColors={substatColors}
-      useStatButtonColors={statButtonBorders}
+      useStatButtonColors={colorStatsAndSlots}
       colorBlindMode={colorBlindMode}
       recipes={customRecipes}
       selectedIsDirty={safeguardBuilderIsDirty}
@@ -8912,8 +8917,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // panel width, context groups) are passed per call site.
   const gearGridSharedProps = useMemo(() => ({
     substatColors,
-    useStatButtonColors: statButtonBorders,
-    onToggleStatColors: setStatButtonBorders,
+    useStatButtonColors: colorStatsAndSlots,
+    onToggleStatColors: setColorStatsAndSlots,
     onOpenManageColors: openColors,
     colorBlindMode,
     onChangeColorBlindMode: setColorBlindMode,
@@ -8931,7 +8936,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     improvementChanceByArtifactId,
     safeguardRankByArtifactId,
   }), [
-    substatColors, statButtonBorders, setStatButtonBorders, openColors, colorBlindMode,
+    substatColors, colorStatsAndSlots, setColorStatsAndSlots, openColors, colorBlindMode,
     setColorBlindMode, colorIconSrc, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
     handleGearInspectorRuleView, handleGearInspectorRecipeMatchJump, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
     gearInspectorSubstatSortPrefs.state, gearInspectorSubstatSortSpec, resolvedSafeguardRules,
@@ -8972,6 +8977,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect, isSideBySide, liveRightWidthPx, splitterRightPx])
 
   return (
+    <SlotTintProvider enabled={colorStatsAndSlots} tints={slotTints}>
     <Container maxWidth={false} disableGutters sx={{
       pt: 1.5,
       // In SBS the papers fill to the viewport bottom — no bottom padding so the
@@ -9300,7 +9306,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
 	        gearInspectorSubstatSort={gearInspectorSubstatSortPrefs.state}
-	        useStatButtonColors={statButtonBorders}
+	        useStatButtonColors={colorStatsAndSlots}
 	        substatColors={substatColors}
 	        onClearGearInspectorSubstatSort={gearInspectorSubstatSortPrefs.clear}
 	        onSetGearInspectorSubstatSortState={setGearInspectorSubstatSortState}
@@ -9381,7 +9387,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               onCollapsedChange={setFilterCollapsed}
               gearInspectorChampionOptions={gearInspectorChampionOptions}
               substatColors={substatColors}
-              useStatButtonColors={statButtonBorders}
+              useStatButtonColors={colorStatsAndSlots}
               hasManualGearInspectorItems={hasManualGearInspectorRows}
               combinedScroll
             />
@@ -9546,7 +9552,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recipes={recipeOverridesRecipesForRules}
           metasets={metasets}
           safeguardRules={safeguardRules}
-          useStatButtonColors={statButtonBorders}
+          useStatButtonColors={colorStatsAndSlots}
           substatColors={substatColors}
           gearSummary={gearInspectorOutcomeSummary}
           summaryProgressRatio={workloadProgressRatio}
@@ -9626,7 +9632,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 <GearDiffPreview
                   payload={gearDbCommandToast.diff}
                   substatColors={substatColors}
-                  useStatButtonColors={statButtonBorders}
+                  useStatButtonColors={colorStatsAndSlots}
                   scrollMode="clip"
                 />
               </Box>
@@ -9931,7 +9937,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onClose={closeColors}
           substatColors={substatColors}
           setSubstatColors={setSubstatColors}
-          onReset={resetColors}
+          slotTints={slotTints}
+          setSlotTints={setSlotTints}
+          onReset={() => { resetColors(); setSlotTints(DEFAULT_SLOT_TINTS) }}
         />
       ) : null}
       {/* Logic Hub configuration */}
@@ -9950,7 +9958,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           activeTab={logicHubDialogTab}
           onChangeTab={setLogicHubDialogTab}
           substatColors={substatColors}
-          useStatButtonColors={statButtonBorders}
+          useStatButtonColors={colorStatsAndSlots}
           onJumpToRule={handleGearInspectorRuleView}
           customRecipes={customRecipes}
           gearInspectorItems={gearInspectorItems}
@@ -9998,5 +10006,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {/* Easter egg: Sellfall flyout — opened by 10 rapid clicks on the Recipes toggle button */}
       {sellfallOpen && <SellfallFlyout onClose={() => setSellfallOpen(false)} />}
     </Container>
+    </SlotTintProvider>
   )
 }

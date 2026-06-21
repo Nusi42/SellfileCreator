@@ -569,6 +569,9 @@ const overrides: Catalog = {
   msgChooseColors: "Escolha cores por substat.",
   labelText: "Texto",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Tons dos ícones de slot",
+  slotTintArmor: "Slots de armadura",
+  slotTintAccessory: "Slots de acessórios",
 
   titleManageSubstatTargets: "Gerir alvos de substats",
   msgSubstatTargetsHelp: "Defina os alvos de substats que o gerador assume enquanto calcula os limiares para cada marco de nível (0/4/8/12/16). Esses alvos indicam quanta [[stat:statACC]], [[stat:statSPD]], etc. uma peça precisa mostrar em cada passo de rolagem para que a regra se cumpra.\n\nCada linha representa um rank específico (1★, 2★, …, 6★). Introduza o valor que espera para esse rank e o gerador passa a aplicá-lo sempre que avaliar equipamento com o mesmo número de estrelas.\n\nSe uma regra ou a pré-visualização usar Rank = “Qualquer”, a coluna destacada funciona como fallback para que essas verificações mantenham alvos definidos.",
@@ -854,7 +857,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Slots como ícones",
   rulesMenuFactionsAsIcons: "Facções como ícones",
   rulesMenuSetsAsIcons: "Conjuntos como ícones",
-  rulesMenuColorStatTexts: "Colorir textos de stats",
+  rulesMenuColorStatsAndSlots: "Colorir stats e slots",
   rulesMenuColorBlindPalette: "Paleta para daltônicos",
   rulesMenuGridColumns: "Colunas da grelha",
   rulesMenuGridColumnsLarge: "Grande",

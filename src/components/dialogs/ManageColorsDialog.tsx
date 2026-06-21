@@ -3,6 +3,7 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider,
 import { alpha } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
 import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../../lib/types'
+import type { SlotTints } from '../../lib/slotTints'
 import ColorField from '../ColorField'
 import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
 import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
@@ -18,9 +19,12 @@ export default function ManageColorsDialog(props: {
   onClose: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   setSubstatColors: React.Dispatch<React.SetStateAction<Record<number, { fg: string; bg: string }>>>
+  // Slot glyph tints (armor/accessory) — single fg colour each, edited at the bottom of the flyout.
+  slotTints: SlotTints
+  setSlotTints: React.Dispatch<React.SetStateAction<SlotTints>>
   onReset: () => void
 }) {
-  const { open, onClose, substatColors, setSubstatColors, onReset } = props
+  const { open, onClose, substatColors, setSubstatColors, slotTints, setSlotTints, onReset } = props
   const { t } = useI18n()
   // draftAlphas: slider alpha dragged but not yet committed — same pattern as MUI Slider.
   const [draftAlphas, setDraftAlphas] = React.useState<Record<number, number>>({})
@@ -180,6 +184,28 @@ export default function ManageColorsDialog(props: {
             )
           })}
         </Stack>
+        {/* Slot icon tints — armor (top 6) and accessory (bottom 3). Single fg colour each: the slot
+            SVGs are single-fill, so there is no background/alpha to configure here. */}
+        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('slotTintsSectionTitle')}</Typography>
+          <Stack spacing={1.25}>
+            {([
+              { key: 'armor' as const, label: t('slotTintArmor') },
+              { key: 'accessory' as const, label: t('slotTintAccessory') },
+            ]).map(({ key, label }) => (
+              <Box key={`slot-tint-${key}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>
+                <Typography sx={{ minWidth: 136 }}>{label}</Typography>
+                <ColorField
+                  value={slotTints[key]}
+                  // Slot tints have no live-preview consumer here, so commit on change directly.
+                  onChange={(next) => setSlotTints((prev) => ({ ...prev, [key]: next }))}
+                  onChangeCommitted={(next) => setSlotTints((prev) => ({ ...prev, [key]: next }))}
+                  label={t('labelText')}
+                />
+              </Box>
+            ))}
+          </Stack>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button size="small" variant="outlined" color="error" onClick={onReset}>{t('resetToDefaults')}</Button>

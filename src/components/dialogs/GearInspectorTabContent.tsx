@@ -224,7 +224,7 @@ export function GearInspectorTabContent({
   const substatSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
-  const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
+  const { showFactionIcons, colorStatsAndSlots } = useDisplayPreferences()
   const gearInspectorMath = useMemo(() => createGearInspectorMath(substatTargets), [substatTargets])
   const {
     adjustSubValuesFor,
@@ -770,7 +770,7 @@ export function GearInspectorTabContent({
     const levelChipLabel = levelLabel
       ? (manualItem ? levelLabel : t('gearDialogLevelLabel', { level: levelLabel }))
       : t('any')
-    const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
+    const mainSummaryColor = (colorStatsAndSlots && mainColor) ? mainColor : undefined
     const factionChipLabel = factionLabel
     const factionIconNode = showFactionIcon
       ? <FactionIcon faction={factionValue as FactionId} size={GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
@@ -1113,7 +1113,7 @@ export function GearInspectorTabContent({
               }}
             >
               {substatSummaries.map((entry) => {
-                const subSummaryColor = statButtonBorders ? entry.color : undefined
+                const subSummaryColor = colorStatsAndSlots ? entry.color : undefined
                 return (
                   <Box key={`sub-${entry.variant}`} sx={{ minWidth: 0 }}>
                     <GearInspectorSummaryLabel label={entry.label} color={subSummaryColor} />
@@ -1204,7 +1204,7 @@ export function GearInspectorTabContent({
               updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, main: Number(variant) }))
             }}
             colorOverrides={substatColors}
-            showBorderColors={statButtonBorders}
+            showBorderColors={colorStatsAndSlots}
             size="small"
             sx={{
               width: GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX,
@@ -1564,12 +1564,12 @@ export function GearInspectorTabContent({
                       alignItems: 'center',
                       '& .MuiSelect-select': {
                         ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
-                        color: statButtonBorders ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
+                        color: colorStatsAndSlots ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
                       },
                     }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                      <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                      <MenuItem key={opt} value={opt} sx={{ color: colorStatsAndSlots ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
                   <Stack direction="row" spacing={0.25} sx={{ flex: 1, alignItems: 'center' }}>

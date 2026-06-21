@@ -249,6 +249,7 @@ http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
   - CRC detects corruption; invalid entries are cleared automatically.
   - On load, a valid entry prompts Restore vs Dismiss. Dismiss keeps the previous snapshot until the user edits state.
 - Substat color preferences: `sellfileCreator.substatColors.v6` (variant-keyed `{ fg, bg }`, default alpha 25%).
+- Slot glyph tints: `sellfileCreator.slotTints.v1` (`{ armor, accessory }` hex; armor = light yellow, accessory = light blue). Gated by the `colorStatsAndSlots` master flag and contrast-adapted to the runtime scheme.
 - Table settings:
   - Column layout key `rulesTableCols.v4` (array of column descriptors, persisted widths/order/visibility with optional `mode`).
   - Wrap toggle key `rulesTableWrapRows.v1` (boolean).

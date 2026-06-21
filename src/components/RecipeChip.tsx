@@ -172,7 +172,7 @@ function RecipeChip({
   onContextMenu: onContextMenuProp,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
-  const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const { showFactionIcons, colorStatsAndSlots, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
   const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
@@ -217,7 +217,7 @@ function RecipeChip({
   const restSummary = useMemo(
     () => summaryParts(recipe, metasets, {
       substatColors,
-      useStatButtonColors: statButtonBorders,
+      useStatButtonColors: colorStatsAndSlots,
       showFactionIcons,
       showSetIcons,
       showSlotIcons,
@@ -228,7 +228,7 @@ function RecipeChip({
       catalogVersion: gearSetCatalogVersion,
       surfacePaper: bgPaper,
     }),
-    [recipe, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper],
+    [recipe, metasets, substatColors, colorStatsAndSlots, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper],
   )
   const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden

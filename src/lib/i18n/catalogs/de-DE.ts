@@ -567,6 +567,9 @@ const overrides: Catalog = {
   msgChooseColors: "Farben pro Substat wählen.",
   labelText: "Text",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Slot-Symbol-Tönung",
+  slotTintArmor: "Rüstungsslots",
+  slotTintAccessory: "Schmuckstück-Slots",
 
   titleManageSubstatTargets: "Substat-Richtwerte verwalten",
   msgSubstatTargetsHelp: "Lege die Substat-Richtwerte pro Sternrang fest, die der Builder bei jeder Level-Schwelle (0/4/8/12/16) nutzt. Diese Richtwerte geben vor, wie viel [[stat:statACC]], [[stat:statSPD]] usw. ein Teil an jedem Roll-Schritt zeigen soll, damit die Regel erfüllt ist.\n\nJede Zeile steht für einen bestimmten Rang (1★, 2★, …, 6★). Trage die erwarteten Werte ein; der Builder verwendet sie automatisch, sobald Ausrüstung mit derselben Sternstufe bewertet wird.\n\nWenn eine Regel oder Vorschau Rang = „Beliebig“ verwendet, dient die markierte Spalte als Fallback, damit auch diese Prüfungen definierte Richtwerte besitzen.",
@@ -852,7 +855,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Slots als Symbole",
   rulesMenuFactionsAsIcons: "Fraktionen als Symbole",
   rulesMenuSetsAsIcons: "Sets als Symbole",
-  rulesMenuColorStatTexts: "Stat‑Texte färben",
+  rulesMenuColorStatsAndSlots: "Stats & Slots färben",
   rulesMenuColorBlindPalette: "Farbschwachen‑Palette",
   rulesMenuGridColumns: "Rasterspalten",
   rulesMenuGridColumnsLarge: "Groß",
