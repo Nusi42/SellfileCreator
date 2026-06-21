@@ -169,7 +169,10 @@ type GearInspectorItemsGridProps = {
   focusArtifactRequest?: { artifactId: number; token: number } | null
   // Optional callback when the requested artifact is hidden by active Gear Inspector filters.
   onFocusArtifactFilteredOut?: ((artifactId: number) => void) | undefined
-  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
+  // Primary match chip jump; artifactId lets a safeguard primary match seed the weights-flyout focus.
+  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null, artifactId?: number) => void) | undefined
+  // "Other matches" recipe chip jump — routes to THAT recipe, independent of the primary match.
+  onJumpToRecipeMatch?: ((recipeIdx: number) => void) | undefined
   // Navigate to the safeguard rule at this 0-based index in the Safeguard Builder.
   // artifactId (2nd arg) lets App seed the weights flyout's default focus group to the clicked gear.
   onJumpToSafeguardRule?: ((ruleIdx: number, artifactId?: number) => void) | undefined
@@ -321,6 +324,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     focusArtifactRequest = null,
     onFocusArtifactFilteredOut,
     onJumpToRule,
+    onJumpToRecipeMatch,
     onJumpToSafeguardRule,
     onCreateRuleTemplate,
     variant = 'gearInspector',
@@ -2509,6 +2513,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   recipeNames={recipeNames}
                   {...(recipeFgColors ? { recipeFgColors } : {})}
                   onJumpToRule={onJumpToRule}
+                  onJumpToRecipeMatch={onJumpToRecipeMatch}
                   onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}

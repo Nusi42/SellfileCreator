@@ -1288,6 +1288,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External scroll request for SafeguardChipsPanel (e.g. Gear Inspector jump). Token increments on each new request.
   const [safeguardFocusRequest, setSafeguardFocusRequest] = useState<{ ruleIdx: number; token: number } | null>(null)
   const safeguardFocusTokenRef = useRef(0)
+  // Monotonic token bumped whenever a Gear Inspector chip jump selects a safeguard. An effect pulses
+  // the substat-weights button on each change (after the panel re-renders) to point the user at it.
+  const [safeguardWeightsPulseToken, setSafeguardWeightsPulseToken] = useState(0)
 
   // Safeguard builder draft — separate from safeguardRules list so edits stay local until
   // the user explicitly inserts or applies, mirroring the recipe builder's draft model.
@@ -5931,6 +5934,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (typeof artifactId === 'number' && Number.isFinite(artifactId)) {
       setSafeguardCandidateFocusGroup({ ruleIdx, key: resolveSafeguardFocusGroupKey(ruleIdx, artifactId) })
     }
+    // Pulse the substat-weights button to point the user at the flyout for the focused group.
+    // Bumped on every qualifying jump so repeat clicks re-blink; the effect runs after the panel renders.
+    setSafeguardWeightsPulseToken((token) => token + 1)
     // Request SafeguardChipsPanel to scroll the targeted chip into view.
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleIdx, token })
@@ -5994,7 +6000,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Stable ref so handleGearInspectorRuleView can trigger chip scroll even though
   // scrollSelectedRecipeIntoView is declared later in the same component.
   const scrollSelectedRecipeIntoViewRef = useRef<() => void>(() => {})
-  const handleGearInspectorRuleView = useCallback((ruleIndex: number, recipeIdx: number | null) => {
+  const handleGearInspectorRuleView = useCallback((ruleIndex: number, recipeIdx: number | null, artifactId?: number) => {
     setGearInspectorArtifactFocusRequest(null)
     const targetRule = mergedRulesRef.current[ruleIndex]
     if (targetRule?.__source === RULE_SOURCE_SAFEGUARDS) {
@@ -6003,7 +6009,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ? targetRule.__safeguardRuleOrdinal
         : 0
       // Safeguard matches should switch to Safeguard Builder mode instead of opening LogicHub.
-      if (openLogicHubSafeguardRule(safeguardRuleOrdinal - 1)) return
+      // Forward the clicked card's artifactId so the jump seeds the weights-flyout focus group —
+      // making a primary safeguard-match chip behave like the rank / improvement-chance chips.
+      if (openLogicHubSafeguardRule(safeguardRuleOrdinal - 1, artifactId)) return
       // Malformed safeguard rows can miss ordinals; still route into Safeguard Builder.
       setBuilderMode('safeguard')
       return
@@ -6037,6 +6045,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
   }, [openLogicHubSafeguardRule, scrollSelectedRecipeIntoViewRef, setBuilder, setBuilderMode, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedRecipeIdx, setGearInspectorArtifactFocusRequest])
+  // Jump from an "other matches" recipe chip to THAT recipe (not the card's primary match). Matching
+  // chips are always recipe-source (safeguards never appear as other-matches), so this resolves the
+  // recipe's owning rule index and routes through handleGearInspectorRuleView's recipe branch.
+  const handleGearInspectorRecipeMatchJump = useCallback((recipeIdx: number) => {
+    if (!Number.isFinite(recipeIdx) || recipeIdx < 0) return
+    // Find the merged rule that belongs to this recipe so the rule-view focus (HSF table) lands right;
+    // the recipe branch only needs a non-safeguard ruleIndex, so the first owning rule is sufficient.
+    const ruleIndex = mergedRulesRef.current.findIndex((rule) => getRuleRecipeIndex(rule) === recipeIdx)
+    handleGearInspectorRuleView(ruleIndex, recipeIdx)
+  }, [handleGearInspectorRuleView])
   const handleGearInspectorRuleTemplateCreate = useCallback((row: GearInspectorPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -7883,6 +7901,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Number of pulse cycles that reads as a deliberate ~3s "look here" blink. Derived from the shared
   // cycle length so it stays correct if the pulse timing changes.
   const attentionPulseLongIterations = useMemo(() => attentionPulseIterationsForMs(3000), [])
+  // ~2.5s blink for the substat-weights button after a Gear Inspector chip jump — long enough to
+  // notice across the panel without feeling stuck.
+  const attentionPulseWeightsIterations = useMemo(() => attentionPulseIterationsForMs(2500), [])
 
   // Task: pulse the in-dialog "Simple Mode" toggle whenever it newly becomes visible, so the user
   // notices where the control is. It is visible exactly when simple+expert AND the dialog is open,
@@ -7920,6 +7941,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const anim = playAttentionPulse(btn, attentionPulseLongIterations)
     return () => { anim?.cancel() }
   }, [simpleMode, expertMode, noteOpen, attentionPulseLongIterations])
+
+  // Task: when a Gear Inspector chip jump selects a safeguard (openLogicHubSafeguardRule bumps
+  // safeguardWeightsPulseToken), pulse the substat-weights button so the user notices the flyout for
+  // the focused group. Reuses the shared attention pulse (same as the note toggle). The jump also
+  // sets builderMode='safeguard', so the panel mounts this render; a rAF defers the pulse until after
+  // the button paints. Skips the initial mount (token 0) and missing/disabled buttons.
+  const prevWeightsPulseTokenRef = useRef(safeguardWeightsPulseToken)
+  useEffect(() => {
+    const prev = prevWeightsPulseTokenRef.current
+    prevWeightsPulseTokenRef.current = safeguardWeightsPulseToken
+    // Only fire on an actual bump (not the initial mount or unrelated re-renders).
+    if (safeguardWeightsPulseToken === prev) return
+    let anim: Animation | null = null
+    const raf = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame(() => {
+          const btn = typeof document !== 'undefined'
+            ? (document.querySelector('[data-attention-id="safeguard.weights"]') as HTMLElement | null)
+            : null
+          // Disabled buttons carry the attribute too; skip them so a no-substat rule doesn't blink.
+          if (btn && btn.getAttribute('aria-disabled') !== 'true' && !(btn as HTMLButtonElement).disabled) {
+            anim = playAttentionPulse(btn, attentionPulseWeightsIterations)
+          }
+        })
+      : null
+    return () => { if (raf != null) cancelAnimationFrame(raf); anim?.cancel() }
+  }, [safeguardWeightsPulseToken, attentionPulseWeightsIterations])
 
   // Show the deferred first-run help dialog once the user is in expert mode AND
   // has closed the NoteDialog, so it never overlays the note dialog.
@@ -8656,6 +8703,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipeNames: gearInspectorRecipeNamesForGrid,
     recipeFgColors: gearInspectorRecipeFgColorsForGrid,
     onJumpToRule: handleGearInspectorRuleView,
+    onJumpToRecipeMatch: handleGearInspectorRecipeMatchJump,
     onJumpToSafeguardRule: openLogicHubSafeguardRule,
     onCreateRuleTemplate: handleGearInspectorRuleTemplateCreate,
     grouping: gearInspectorSubstatSortPrefs.state.grouping,
@@ -8667,7 +8715,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }), [
     substatColors, statButtonBorders, setStatButtonBorders, openColors, colorBlindMode,
     setColorBlindMode, colorIconSrc, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
-    handleGearInspectorRuleView, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
+    handleGearInspectorRuleView, handleGearInspectorRecipeMatchJump, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
     gearInspectorSubstatSortPrefs.state, gearInspectorSubstatSortSpec, resolvedSafeguardRules,
     improvementChanceByArtifactId, safeguardRankByArtifactId,
   ])

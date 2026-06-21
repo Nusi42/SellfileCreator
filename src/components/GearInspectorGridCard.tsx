@@ -305,6 +305,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   recipeNames,
   recipeFgColors,
   onJumpToRule,
+  onJumpToRecipeMatch,
   onCreateRuleTemplate,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
@@ -337,7 +338,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   gridColumnCount: number
   recipeNames: Array<string | null>
   recipeFgColors?: Array<string | null>
-  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null) => void) | undefined
+  // Primary match chip jump. artifactId lets a safeguard primary match seed the weights-flyout focus
+  // group (so it behaves like the rank / improvement-chance chips).
+  onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null, artifactId?: number) => void) | undefined
+  // "Other matches" recipe chip jump — routes to THAT recipe, independent of the primary match.
+  onJumpToRecipeMatch?: ((recipeIdx: number) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: GearInspectorPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
@@ -418,10 +423,24 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
   // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong recipe.
   const allowPrimaryMatchJump = Boolean(!matchDetailsFrozen && canJumpToPrimaryMatch)
+  // Recipe-match (other matches) chips navigate via onJumpToRecipeMatch, independent of the primary
+  // rule index; gated on the same freeze flag so stale matches never navigate.
+  const allowRecipeMatchJump = Boolean(!matchDetailsFrozen && typeof onJumpToRecipeMatch === 'function')
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
-    onJumpToRule?.(primaryRuleIndex, primaryRecipeIndex ?? null)
+    // Pass the card's artifactId so a safeguard primary match seeds the weights-flyout focus group.
+    const artifactId = Number(artifact?.id)
+    onJumpToRule?.(primaryRuleIndex, primaryRecipeIndex ?? null, Number.isFinite(artifactId) ? artifactId : undefined)
   }
+  // Wrapper for the primary GearInspectorRuleReferenceChip's onJump (signature has no artifactId):
+  // injects the card's artifactId so a safeguard primary match seeds the weights-flyout focus group,
+  // matching the rank / improvement-chance chips. undefined when no handler so the chip stays inert.
+  const handleRuleReferenceJump = onJumpToRule
+    ? (ruleIndex: number, recipeIdx: number | null) => {
+        const artifactId = Number(artifact?.id)
+        onJumpToRule(ruleIndex, recipeIdx, Number.isFinite(artifactId) ? artifactId : undefined)
+      }
+    : undefined
   // Template actions only appear when the parent supplies a handler.
   const canCreateRuleTemplate = typeof onCreateRuleTemplate === 'function'
   // Anchor state keeps the menu positioned relative to the gear button.
@@ -615,16 +634,17 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
     setMatchingPopoverAnchor(event.currentTarget)
   }
   const handleMatchingRecipeJump = (recipeIdx: number) => {
-    if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
+    // Match chips are recipe-source; jump to THAT recipe rather than the card's primary match rule.
+    if (!allowRecipeMatchJump) return
     if (!Number.isFinite(recipeIdx)) return
-    onJumpToRule?.(primaryRuleIndex, recipeIdx)
+    onJumpToRecipeMatch?.(recipeIdx)
   }
   const renderMatchingChip = (
     entry: MatchingRecipeEntry,
     options?: { onSelect?: () => void },
   ): React.ReactNode => {
     const key = `matching-chip-${entry.recipeIdx}`
-    const clickable = allowPrimaryMatchJump
+    const clickable = allowRecipeMatchJump
     // Blend the chip tint over the card base (paper + card outcome tint) to get the actual surface.
     const chipBg = typeof entry.keep === 'boolean'
       ? blendAlpha(cardChipBaseBg, entry.keep ? scheme.successMain : scheme.errorMain, scheme.alphas.matchSurfaceAlpha)
@@ -1760,7 +1780,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
             <GearInspectorRuleReferenceChip
               match={match}
               underlayBg={cardChipBaseBg}
-              {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
+              {...(!matchDetailsFrozen && handleRuleReferenceJump ? { onJump: handleRuleReferenceJump } : {})}
               showRecipeIndex={showMatchRecipeIndex}
               showLineNumber={showMatchLineNumber}
               sx={{ flex: 1, minWidth: 0 }}

@@ -2719,6 +2719,9 @@ export default function SafeguardBuilderPanel({
           <Box sx={{ position: 'relative' }}>
             <IconButton
               size="small"
+              // Attention target: App pulses this button after a gear-chip jump selects a safeguard,
+              // pointing the user at the weights flyout for the focused group. Mirrors note.toggle.
+              data-attention-id="safeguard.weights"
               aria-label={t('safeguardsSubstatWeightsLabel')}
               disabled={!hasSubstatSelection && !multiEditActive}
               onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
