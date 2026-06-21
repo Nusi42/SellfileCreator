@@ -15,21 +15,34 @@ export function renderColoredStatText(
   substatColors: SubstatColorMap,
   colorize: boolean,
   highlights?: HighlightSpec[],
+  // Optional rarity-word colorization: localized rarity label → already-adapted colour. When the
+  // master colour flag is off the caller passes nothing/empty, so rarity words stay un-tinted.
+  rarityLabelColors?: ReadonlyMap<string, string>,
 ): React.ReactNode {
   let parts: React.ReactNode[] = [text]
 
   if (colorize) {
-    const labelToVariant = new Map<string, StatVariant>()
+    // One unified label → colour map: stat-variant labels and rarity labels tokenize together so a
+    // single pass colours both (longest-match-first avoids partial overlaps).
+    const labelToColor = new Map<string, string | undefined>()
     for (const variant of COLORIZED_VARIANTS) {
       const label = t(statVariantI18nKey(variant))
       if (label && text.includes(label)) {
-        labelToVariant.set(label, variant)
+        labelToColor.set(label, substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant])
+      }
+    }
+    if (rarityLabelColors) {
+      for (const [label, color] of rarityLabelColors) {
+        // Don't clobber a stat label that happens to equal a rarity word; only add fresh tokens present in text.
+        if (label && color && !labelToColor.has(label) && text.includes(label)) {
+          labelToColor.set(label, color)
+        }
       }
     }
 
-    if (labelToVariant.size > 0) {
+    if (labelToColor.size > 0) {
       const escapeRegex = (raw: string) => raw.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-      const tokens = Array.from(labelToVariant.keys()).sort((a, b) => b.length - a.length).map(escapeRegex)
+      const tokens = Array.from(labelToColor.keys()).sort((a, b) => b.length - a.length).map(escapeRegex)
       if (tokens.length > 0) {
         const comparatorPattern = '(?:\\s*≥\\s*\\d+)?'
         const pattern = new RegExp(`(${tokens.join('|')})${comparatorPattern}`, 'g')
@@ -46,12 +59,9 @@ export function renderColoredStatText(
           if (start > lastIndex) {
             coloredParts.push(text.slice(lastIndex, start))
           }
-          const variant = label ? labelToVariant.get(label) : undefined
-          const color = variant !== undefined
-            ? substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
-            : undefined
+          const color = label ? labelToColor.get(label) : undefined
           coloredParts.push(
-            <Box component="span" key={`stat-${label}-${keyIndex++}`} sx={{ color }}>
+            <Box component="span" key={`tok-${label}-${keyIndex++}`} sx={{ color }}>
               {fullMatch}
             </Box>,
           )

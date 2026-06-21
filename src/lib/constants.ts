@@ -105,9 +105,10 @@ export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.gearInspect
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
 export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
-// Persisted master toggle for coloring stat texts (chips/preview) AND slot glyph tints.
-// Renamed from the former statButtonBorders flag; no migration from the old key (starts at default).
-export const COLOR_STATS_AND_SLOTS_KEY = 'sellfileCreator.colorStatsAndSlots.v1'
+// Persisted master toggle for coloring stat texts (chips/preview), slot glyph tints, AND rarity labels.
+// Renamed across iterations (statButtonBorders → colorStatsAndSlots → colorStatsSlotsRarity); no
+// migration from the old keys (starts at default).
+export const COLOR_STATS_SLOTS_RARITY_KEY = 'sellfileCreator.colorStatsSlotsRarity.v1'
 // Persisted auto side-by-side zoom preferences (theme flyout): whether the dynamic zoom is enabled
 // at all, and the user-tunable cutoff below which it gives up and reverts to the native layout.
 export const AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY = 'sellfileCreator.autoSideBySideZoom.enabled.v1'
@@ -219,8 +220,12 @@ export const GLYPH_KEEP_MODE_LATE = '☽'   // crescent moon — late-phase keep
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'
 
 // Persisted slot glyph tint colours — armor (top 6) and accessory (bottom 3) base hues.
-// Single fg colour each (slot SVGs are single-fill); gated by COLOR_STATS_AND_SLOTS_KEY.
+// Single fg colour each (slot SVGs are single-fill); gated by COLOR_STATS_SLOTS_RARITY_KEY.
 export const SLOT_TINT_STORAGE_KEY = 'sellfileCreator.slotTints.v1'
+
+// Persisted user-editable rarity palette (rarity 1–6). One palette feeds both raw accents
+// (borders/charts, verbatim) and contrast-adapted label text (gated by the master colour flag).
+export const RARITY_COLORS_STORAGE_KEY = 'sellfileCreator.rarityColors.v1'
 
 // UI sizing constants for roll indicators in the builder
 export const ROLL_BADGE_SIZE_PX = 16

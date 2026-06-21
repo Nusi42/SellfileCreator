@@ -574,6 +574,35 @@ export function rarityCodeToName(code?: RarityCode): string {
   return rarityNames[Number(code)] ?? String(code)
 }
 
+/**
+ * Decompose a RarityCode into its comparator glyph + the base rank (1–6) of the rarity word it
+ * names. SSOT used by the coloured rarity-label renderer so every comparator form (Common, ≥ Rare,
+ * ≤ Epic) tints the underlying rarity word in its colour. `rank` is null for Any (no word).
+ */
+export function rarityCodeParts(code?: RarityCode): { comparator: '' | '≥' | '≤'; rank: RankValue | null } {
+  const c = Number(code)
+  switch (c) {
+    case RarityCode.Any: return { comparator: '', rank: null }
+    case RarityCode.Common: return { comparator: '', rank: 1 }
+    case RarityCode.Uncommon: return { comparator: '', rank: 2 }
+    case RarityCode.Rare: return { comparator: '', rank: 3 }
+    case RarityCode.Epic: return { comparator: '', rank: 4 }
+    case RarityCode.Legendary: return { comparator: '', rank: 5 }
+    case RarityCode.Mythical: return { comparator: '', rank: 6 }
+    case RarityCode.GTE_Common: return { comparator: '≥', rank: 1 }
+    case RarityCode.GTE_Uncommon: return { comparator: '≥', rank: 2 }
+    case RarityCode.GTE_Rare: return { comparator: '≥', rank: 3 }
+    case RarityCode.GTE_Epic: return { comparator: '≥', rank: 4 }
+    case RarityCode.GTE_Legendary: return { comparator: '≥', rank: 5 }
+    case RarityCode.LTE_Uncommon: return { comparator: '≤', rank: 2 }
+    case RarityCode.LTE_Rare: return { comparator: '≤', rank: 3 }
+    case RarityCode.LTE_Epic: return { comparator: '≤', rank: 4 }
+    case RarityCode.LTE_Legendary: return { comparator: '≤', rank: 5 }
+    case RarityCode.LTE_Mythical: return { comparator: '≤', rank: 6 }
+    default: return { comparator: '', rank: null }
+  }
+}
+
 // Preferred artifact set order (game order) is the numeric ID order.
 // Provide a comparator to centralize sorting in UIs and formatters.
 export function compareArtifactSets(a: ArtifactSetId, b: ArtifactSetId): number {

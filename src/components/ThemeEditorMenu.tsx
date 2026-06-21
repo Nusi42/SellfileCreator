@@ -135,8 +135,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 
   // Any field set (non-null) counts as customization — drives the reset button visibility.
   const hasCustomization = Object.values(draft).some(v => v != null)
-  const { colorStatsAndSlots, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
-  const { setColorStatsAndSlots, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
+  const { colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  const { setColorStatsSlotsRarity, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
 
   return (
     <>
@@ -310,9 +310,9 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         <Divider />
         {/* Stat-text colorization + slot glyph tints — same On/Off + manage-colors pattern as gear inspector */}
         <MenuToggleRow
-          label={t('rulesMenuColorStatsAndSlots')}
-          checked={colorStatsAndSlots}
-          onChange={() => setColorStatsAndSlots(!colorStatsAndSlots)}
+          label={t('rulesMenuColorStatsSlotsRarity')}
+          checked={colorStatsSlotsRarity}
+          onChange={() => setColorStatsSlotsRarity(!colorStatsSlotsRarity)}
           trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
@@ -320,9 +320,9 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
                   size="small"
                   variant="outlined"
                   color="info"
-                  disabled={!colorStatsAndSlots}
+                  disabled={!colorStatsSlotsRarity}
                   sx={{ minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(e) => { e.stopPropagation(); if (colorStatsAndSlots) onOpenManageColors?.() }}
+                  onClick={(e) => { e.stopPropagation(); if (colorStatsSlotsRarity) onOpenManageColors?.() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />

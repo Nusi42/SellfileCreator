@@ -21,6 +21,7 @@ import {
   type ArtifactSetId,
   filterAndSortSetEntries,
   statVariantI18nKey,
+  rarityRankValueI18nKey,
   factionI18nKey,
   LEVEL_MILESTONES,
   type LevelMilestone,
@@ -93,6 +94,10 @@ import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { useRarityPalette } from '../lib/rarityColorContext'
+import { useStatTextColorMap } from '../lib/statColorContext'
+import { StatLabel } from './StatLabel'
+import { RarityLabel } from './RarityLabel'
 import { TINT } from '../lib/colorTints'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 
@@ -614,6 +619,10 @@ function RulesFilterPanel({
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const theme = useTheme()
+  // Active rarity palette so champion-option rarity borders reflect user-edited rarity colours.
+  const rarityPalette = useRarityPalette()
+  // Per-variant adapted stat-name colours for the stat/substat filter toggle labels (empty when off).
+  const statTextColors = useStatTextColorMap()
   // Contrast-correct colored roll-filter stat labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
   const gearInspectorRollsState: GearInspectorRollFilterState = state.gearInspectorRolls ?? DEFAULT_RULES_FILTER_STATE.gearInspectorRolls ?? createDefaultGearInspectorRollsState()
@@ -1771,7 +1780,11 @@ function RulesFilterPanel({
           <Typography
             component="span"
             noWrap
-            sx={(isMustNot ? [...toggleLabelSx, SUBSTAT_NOT_LABEL_SX] : toggleLabelSx) as SxProps<Theme>}
+            sx={[
+              ...(Array.isArray(toggleLabelSx) ? toggleLabelSx : [toggleLabelSx]),
+              ...(isMustNot ? [SUBSTAT_NOT_LABEL_SX] : []),
+              ...(statTextColors[variant] ? [{ color: statTextColors[variant] }] : []),
+            ] as SxProps<Theme>}
             data-ellipsis-target
           >
             {label}
@@ -2752,7 +2765,7 @@ function RulesFilterPanel({
 	                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
 	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
 	                        // Mirror the Gear Inspector grid rarity border so the dropdown signals overall quality at a glance.
-	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? (theme.vars?.palette.divider ?? theme.palette.divider)
+	                        const championBorderColor = resolveRarityAccentColor(option.rarity, rarityPalette) ?? (theme.vars?.palette.divider ?? theme.palette.divider)
                         const championTrimmed = championLabel.trim()
                         const championFallbackInitial = championTrimmed.length > 0 ? championTrimmed.charAt(0).toUpperCase() : '?'
                         return (
@@ -2937,7 +2950,7 @@ function RulesFilterPanel({
                       {/* EllipsisTooltip shows OS tooltip only when text is actually truncated. */}
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t(statVariantI18nKey(variant))}
+                          <StatLabel variant={variant} />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -2956,7 +2969,7 @@ function RulesFilterPanel({
                     <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t(statVariantI18nKey(variant))}
+                          <StatLabel variant={variant} />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3567,18 +3580,11 @@ function RulesFilterPanel({
                     },
                   }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                 >
-                  {[
-                    { value: '1', labelKey: 'rarityCommon' },
-                    { value: '2', labelKey: 'rarityUncommon' },
-                    { value: '3', labelKey: 'rarityRare' },
-                    { value: '4', labelKey: 'rarityEpic' },
-                    { value: '5', labelKey: 'rarityLegendary' },
-                    { value: '6', labelKey: 'rarityMythical' },
-                  ].map((option) => (
-                    <ToggleButton key={option.value} value={option.value}>
-                      <EllipsisTooltip title={t(option.labelKey)} wrap="block">
+                  {[1, 2, 3, 4, 5, 6].map((rarity) => (
+                    <ToggleButton key={rarity} value={String(rarity)}>
+                      <EllipsisTooltip title={t(rarityRankValueI18nKey(rarity))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          {t(option.labelKey)}
+                          <RarityLabel rarity={rarity} />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3656,7 +3662,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>
@@ -3672,7 +3678,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>

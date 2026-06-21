@@ -48,7 +48,7 @@ export function SubstatTargetsTabContent({
   const { t } = useI18n()
   const theme = useTheme()
   // colorStatTexts drives whether ACC/SPD tokens in help text render in stat colors.
-  const { colorStatsAndSlots: colorStatTexts } = useDisplayPreferences()
+  const { colorStatsSlotsRarity: colorStatTexts } = useDisplayPreferences()
   // Contrast-correct stat token colors for legible text on the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 

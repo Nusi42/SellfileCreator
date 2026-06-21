@@ -44,6 +44,7 @@ import {
   StatVariant,
 } from '../lib/types'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { useRarityPalette } from '../lib/rarityColorContext'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { isAccessorySlot, isDegenerateImprovChance } from '../lib/gearInspectorDomain'
@@ -366,6 +367,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
+  // Active rarity palette so grid rarity-accent chart fills reflect user-edited rarity colours.
+  const rarityPalette = useRarityPalette()
   // Extracted so useMemo dependency arrays can reference stable simple variables instead of complex expressions.
   // In CSS vars mode, theme.vars.palette.X returns a CSS var string (e.g. 'var(--mui-palette-error-main)').
   // parseCssColorToRgb cannot parse CSS var strings, so resolve to the computed hex via the DOM instead.
@@ -2070,9 +2073,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       slotLabel: slotLabel || fallback,
       rankLabel: rankLabel || fallback,
       rarityLabel: rarityLabel || fallback,
-      rarityAccentColor: resolveRarityAccentColor(artifact.rarity) ?? undefined,
+      rarityAccentColor: resolveRarityAccentColor(artifact.rarity, rarityPalette) ?? undefined,
     }
-  }, [effectiveScrollHintRowId, lang, rowLookup, t])
+  }, [effectiveScrollHintRowId, lang, rowLookup, t, rarityPalette])
   const measureScrollHintWidth = useCallback(() => {
     const node = scrollHintRef.current
     if (!node) return
@@ -2938,7 +2941,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuToggleRow
-          label={t('rulesMenuColorStatsAndSlots')}
+          label={t('rulesMenuColorStatsSlotsRarity')}
           checked={useStatButtonColors}
           onChange={() => onToggleStatColors(!useStatButtonColors)}
           trailing={

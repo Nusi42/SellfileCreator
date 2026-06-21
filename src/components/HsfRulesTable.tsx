@@ -33,6 +33,8 @@ import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
+import { renderColoredStatText } from '../lib/renderColoredStatText'
+import { useRarityLabelColorMap } from '../lib/rarityColorContext'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { resolveSafeguardRuleLabel } from '../lib/safeguards'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
@@ -167,14 +169,17 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   // memoization model; opt out of compilation for this component to silence the warning.
   'use no memo'
   const { t, lang } = useI18n()
+  // Rarity word → adapted colour, for tinting the rarity portion of the Rank·Rarity cell (and any
+  // other plain text run through the colorizer). Empty when the master colour flag is off.
+  const rarityLabelColors = useRarityLabelColorMap()
   const theme = useTheme()
   // Runtime scheme paper for contrast math — theme.palette.* is frozen to light with cssVariables.
   const { colorScheme } = useColorScheme()
   const previewSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Reuse the shared disabled opacity so rows dim consistently with chips.
   const disabledOpacity = resolveDisabledOpacity(theme)
-  const { showSlotIcons, showSetIcons, showFactionIcons, colorStatsAndSlots } = useDisplayPreferences()
-  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setColorStatsAndSlots } = useDisplayPreferenceActions()
+  const { showSlotIcons, showSetIcons, showFactionIcons, colorStatsSlotsRarity } = useDisplayPreferences()
+  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setColorStatsSlotsRarity } = useDisplayPreferenceActions()
   // Track which rule rows are newly added so they can play an enter animation.
   // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe
   // shifts all subsequent keys making them look "new".  Suppress enter animation on
@@ -380,7 +385,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       entry.source = rule.Substats
     }
     const normalized = getSubstatDetails(rule)
-    if (colorStatsAndSlots) {
+    if (colorStatsSlotsRarity) {
       if (entry.withButtons === undefined) {
         entry.withButtons = formatRuleSubstatSummary(rule.Substats, t, { normalized }) || ''
       }
@@ -390,7 +395,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       entry.plain = formatRuleSubstatPlain(rule.Substats, t, { normalized }) || ''
     }
     return entry.plain ?? ''
-  }, [colorStatsAndSlots, t, getSubstatDetails])
+  }, [colorStatsSlotsRarity, t, getSubstatDetails])
 
   const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithRecipe): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
@@ -1410,11 +1415,15 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                     substats={rule.Substats}
                     substatColors={substatColors}
                     wrap={wrapRows}
-                    colorize={colorStatsAndSlots}
+                    colorize={colorStatsSlotsRarity}
                     normalized={getSubstatDetails(rule)}
                   />
                 )
-                : (value || '')
+                // Tint the rarity word (Rank·Rarity) and main-stat name (MainStatName) via the shared
+                // inline colorizer — it colours stat words and rarity words from the same maps.
+                : ((c.key === 'RankRarity' || c.key === 'MainStatName') && value)
+                  ? renderColoredStatText((token) => t(token), value, substatColors, colorStatsSlotsRarity, undefined, rarityLabelColors)
+                  : (value || '')
               if (c.key === 'RecipeIdx' && recipeSpecialContent) {
                 content = recipeSpecialContent
               }
@@ -1917,9 +1926,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         <MenuToggleRow label={t('rulesMenuFactionsAsIcons')} checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} labelSx={HEADER_MENU_LABEL_SX} />
         <MenuToggleRow label={t('rulesMenuSetsAsIcons')} checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} labelSx={HEADER_MENU_LABEL_SX} />
         <MenuToggleRow
-          label={t('rulesMenuColorStatsAndSlots')}
-          checked={colorStatsAndSlots}
-          onChange={() => setColorStatsAndSlots(!colorStatsAndSlots)}
+          label={t('rulesMenuColorStatsSlotsRarity')}
+          checked={colorStatsSlotsRarity}
+          onChange={() => setColorStatsSlotsRarity(!colorStatsSlotsRarity)}
           labelSx={HEADER_MENU_LABEL_SX}
           trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
@@ -1928,9 +1937,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                   size="small"
                   variant="outlined"
                   color="info"
-                  disabled={!colorStatsAndSlots}
+                  disabled={!colorStatsSlotsRarity}
                   sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(e) => { e.stopPropagation(); if (!colorStatsAndSlots) return; onOpenManageColors() }}
+                  onClick={(e) => { e.stopPropagation(); if (!colorStatsSlotsRarity) return; onOpenManageColors() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />

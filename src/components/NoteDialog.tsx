@@ -68,7 +68,7 @@ import {
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,
 } from '../lib/safeguards'
-import { resolveRarityLabel } from '../lib/gearInspectorPreviewFormatting'
+import { RarityLabelList } from './RarityLabel'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
@@ -3814,12 +3814,8 @@ function SafeguardSummaryCard({
     return ranks.map((rank) => `${rank}★`)
   })()
 
-  const rarityLabels = (() => {
-    const rarities = Array.from(new Set<number>(rule.combination.rarities ?? []))
-    if (rarities.length === 0) return []
-    // Format discrete rarity values (1..6) so Mythical renders correctly instead of hitting ≥ Common.
-    return rarities.map((rarity) => resolveRarityLabel(t, rarity))
-  })()
+  // Discrete rarity values (1..6) for this rule — rendered as tinted RarityLabels below.
+  const rarityValues = Array.from(new Set<number>(rule.combination.rarities ?? []))
 
   const filters: Array<{ label: string; value: React.ReactNode }> = []
   if (slotLabels.length > 0) {
@@ -3897,12 +3893,12 @@ function SafeguardSummaryCard({
       ),
     })
   }
-  if (rarityLabels.length > 0) {
+  if (rarityValues.length > 0) {
     filters.push({
       label: t('noteSafeguardRaritiesLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-          {formatList(rarityLabels)}
+          <RarityLabelList values={rarityValues} />
         </Typography>
       ),
     })

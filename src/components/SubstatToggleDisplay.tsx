@@ -31,6 +31,8 @@ export interface SubstatToggleIndicatorState {
 
 export interface SubstatToggleDisplayProps {
   label: string
+  // Optional tint for the stat-name label (adapted substat colour); undefined ⇒ inherit theme colour.
+  labelColor?: string | undefined
   locked: boolean
   selected: boolean
   indicator?: SubstatToggleIndicatorState
@@ -53,6 +55,7 @@ export interface SubstatToggleDisplayProps {
 // layout consistent so references stay recognizable across the app.
 export function SubstatToggleDisplay({
   label,
+  labelColor,
   locked,
   selected,
   indicator,
@@ -118,6 +121,7 @@ export function SubstatToggleDisplay({
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           transition: 'padding-left 160ms ease, text-align 160ms ease',
+          ...(labelColor ? { color: labelColor } : {}),
         }}
       >
         {label}

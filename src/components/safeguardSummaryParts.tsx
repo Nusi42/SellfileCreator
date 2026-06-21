@@ -102,6 +102,9 @@ export type SafeguardSummaryOpts = {
   lang: string
   // When true, suppresses hover tooltips (e.g. substat weight values).
   tooltipsDisabled?: boolean
+  // Localized rarity word → adapted colour, for tinting rarity words in the summary (empty/omitted
+  // when the master colour flag is off). Gated together with useStatButtonColors by the caller.
+  rarityLabelColors?: ReadonlyMap<string, string>
 }
 
 
@@ -204,24 +207,38 @@ export function safeguardSummaryParts(
       if (opts.t) return opts.t(rarityRankValueI18nKey(rv))
       return rarityCodeToName(rarityCodeFromRankValue(rv)) || String(rv)
     }
-    const segmentParts: string[] = []
+    // Colour for a single rarity word from the (already adapted) map; undefined ⇒ inherit.
+    const rarityColorOf = (v: number): string | undefined => opts.rarityLabelColors?.get(rarityLabel(v))
+    // Render a rarity word as a tinted span (used when building the rarity node).
+    const rarityWordNode = (v: number, keySuffix: string): JSX.Element => {
+      const color = rarityColorOf(v)
+      return <Box component="span" key={`rw-${keySuffix}`} sx={color ? { color } : undefined}>{rarityLabel(v)}</Box>
+    }
+
+    // Rank part stays plain text. Emit it first so rank NBSP rarity ordering is preserved.
+    let rankText = ''
     if (c.ranks && c.ranks.length > 0) {
       // Collapse a gap-free run reaching an edge (e.g. 4/5/6 → "≥ 4★"); else list explicitly.
       const collapsed = collapseRankRunToOperator(c.ranks.map(Number))
-      segmentParts.push(collapsed
+      rankText = collapsed
         ? `${collapsed.op}${NBSP}${star(collapsed.boundary)}`
-        : c.ranks.map((r) => rankLabel(Number(r))).join('/'))
+        : c.ranks.map((r) => rankLabel(Number(r))).join('/')
     }
+    // Rarity part becomes a node so each rarity word can carry its colour.
+    let rarityNode: JSX.Element | null = null
     if (c.rarities && c.rarities.length > 0) {
       // Same edge-anchored collapse for rarities (e.g. Epic/Legendary/Mythical → "≥ Epic").
       const collapsed = collapseRankRunToOperator(c.rarities.map(Number))
-      segmentParts.push(collapsed
-        ? `${collapsed.op}${NBSP}${rarityLabel(collapsed.boundary)}`
-        : c.rarities.map((r) => rarityLabel(Number(r))).join('/'))
+      rarityNode = collapsed
+        ? <>{`${collapsed.op}${NBSP}`}{rarityWordNode(collapsed.boundary, 'c')}</>
+        : <>{c.rarities.map((r, i) => (
+            <Box component="span" key={`rg-${Number(r)}`}>{i > 0 ? '/' : null}{rarityWordNode(Number(r), `${Number(r)}`)}</Box>
+          ))}</>
     }
-    if (segmentParts.length > 0) {
-      addText(segmentParts.join(NBSP))
-    }
+    // Assemble: "rank rarity", "rank", or "rarity" — matching the previous NBSP-joined layout.
+    if (rankText && rarityNode) addNode(<>{rankText}{NBSP}{rarityNode}</>)
+    else if (rankText) addText(rankText)
+    else if (rarityNode) addNode(rarityNode)
   }
 
   // ── Factions ──────────────────────────────────────────────────────────────

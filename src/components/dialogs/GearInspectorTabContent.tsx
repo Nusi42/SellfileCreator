@@ -51,6 +51,7 @@ import {
 } from '../../lib/gearInspectorSession'
 import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
 import { GearInspectorSummaryLabel } from '../GearInspectorSummaryLabel'
+import { RarityLabel } from '../RarityLabel'
 import { GearInspectorRuleReferenceChip } from '../GearInspectorRuleReferenceChip'
 import GridIconBox, { GRID_ICON_BOX_SIZE_PX } from '../GridIconBox'
 import EllipsisTooltip from '../EllipsisTooltip'
@@ -224,7 +225,7 @@ export function GearInspectorTabContent({
   const substatSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
-  const { showFactionIcons, colorStatsAndSlots } = useDisplayPreferences()
+  const { showFactionIcons, colorStatsSlotsRarity } = useDisplayPreferences()
   const gearInspectorMath = useMemo(() => createGearInspectorMath(substatTargets), [substatTargets])
   const {
     adjustSubValuesFor,
@@ -509,14 +510,6 @@ export function GearInspectorTabContent({
     return t(starKey(Math.max(1, Math.min(6, Number(n)))))
   }, [t])
 
-  const rarityLabel = useCallback((n: 1|2|3|4|5|6): string => (
-    n === 1 ? t('rarityCommon')
-      : n === 2 ? t('rarityUncommon')
-        : n === 3 ? t('rarityRare')
-          : n === 4 ? t('rarityEpic')
-            : n === 5 ? t('rarityLegendary')
-              : t('rarityMythical')
-  ), [t])
 
   const compactColumnTemplate = 'max-content max-content max-content minmax(0, 1fr)'
 
@@ -770,7 +763,7 @@ export function GearInspectorTabContent({
     const levelChipLabel = levelLabel
       ? (manualItem ? levelLabel : t('gearDialogLevelLabel', { level: levelLabel }))
       : t('any')
-    const mainSummaryColor = (colorStatsAndSlots && mainColor) ? mainColor : undefined
+    const mainSummaryColor = (colorStatsSlotsRarity && mainColor) ? mainColor : undefined
     const factionChipLabel = factionLabel
     const factionIconNode = showFactionIcon
       ? <FactionIcon faction={factionValue as FactionId} size={GEAR_INSPECTOR_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
@@ -1055,7 +1048,7 @@ export function GearInspectorTabContent({
               <GearInspectorSummaryLabel label={rankLabel(it.rank)} />
             </Box>
             <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <GearInspectorSummaryLabel label={rarityLabel(it.rarity)} />
+              <GearInspectorSummaryLabel label={<RarityLabel rarity={it.rarity} />} />
             </Box>
             <Box
               sx={{
@@ -1113,7 +1106,7 @@ export function GearInspectorTabContent({
               }}
             >
               {substatSummaries.map((entry) => {
-                const subSummaryColor = colorStatsAndSlots ? entry.color : undefined
+                const subSummaryColor = colorStatsSlotsRarity ? entry.color : undefined
                 return (
                   <Box key={`sub-${entry.variant}`} sx={{ minWidth: 0 }}>
                     <GearInspectorSummaryLabel label={entry.label} color={subSummaryColor} />
@@ -1204,7 +1197,7 @@ export function GearInspectorTabContent({
               updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, main: Number(variant) }))
             }}
             colorOverrides={substatColors}
-            showBorderColors={colorStatsAndSlots}
+            showBorderColors={colorStatsSlotsRarity}
             size="small"
             sx={{
               width: GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX,
@@ -1564,12 +1557,12 @@ export function GearInspectorTabContent({
                       alignItems: 'center',
                       '& .MuiSelect-select': {
                         ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
-                        color: colorStatsAndSlots ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
+                        color: colorStatsSlotsRarity ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
                       },
                     }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                      <MenuItem key={opt} value={opt} sx={{ color: colorStatsAndSlots ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                      <MenuItem key={opt} value={opt} sx={{ color: colorStatsSlotsRarity ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
                   <Stack direction="row" spacing={0.25} sx={{ flex: 1, alignItems: 'center' }}>

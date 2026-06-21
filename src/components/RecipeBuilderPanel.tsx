@@ -7,7 +7,10 @@
  */
 // React drives the builder UI; hooks keep state localized while recipe flows from App.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
+import { rarityCodeToName, rarityCodeParts, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
+import { RarityCodeLabel } from './RarityLabel'
+import { StatLabel } from './StatLabel'
+import { useStatTextColorMap } from '../lib/statColorContext'
 import { variantToSub } from '../lib/hsfTypes'
 import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
@@ -1619,7 +1622,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   })
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
-  const { colorStatsAndSlots: colorStatTexts } = useDisplayPreferences()
+  const { colorStatsSlotsRarity: colorStatTexts } = useDisplayPreferences()
+  // Per-variant adapted stat-name colours for substat toggle labels (empty when the flag is off).
+  const statTextColors = useStatTextColorMap()
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
   const mixedPatternColor = theme.custom.multiEditMixedBg
@@ -2705,7 +2710,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              {t(statVariantI18nKey(variant))}
+              <StatLabel variant={variant} />
             </ToggleButton>
           )
         })}
@@ -2745,7 +2750,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              {t(statVariantI18nKey(variant))}
+              <StatLabel variant={variant} />
             </ToggleButton>
           )
         })}
@@ -3248,6 +3253,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         >
           <SubstatToggleDisplay
             label={t(statVariantI18nKey(variant))}
+            labelColor={statTextColors[variant]}
             locked={lockState !== 'none'}
             selected={displaySelected}
             {...(indicator ? { indicator } : {})}
@@ -6490,7 +6496,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     return t('headerMenuAuto')
                   }
                   const numeric = Number(selected)
-                  return rarityCodeToName(numeric) || t('any')
+                  // Tint the closed-select rarity word; Any (no rank) falls back to the plain label.
+                  return rarityCodeParts(numeric).rank != null
+                    ? <RarityCodeLabel code={numeric} />
+                    : (rarityCodeToName(numeric) || t('any'))
                 }}
               >
               <MenuItem
@@ -6532,12 +6541,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  {code === RarityCode.Common ? t('rarityCommon') :
-                    code === RarityCode.Uncommon ? t('rarityUncommon') :
-                    code === RarityCode.Rare ? t('rarityRare') :
-                    code === RarityCode.Epic ? t('rarityEpic') :
-                    code === RarityCode.Legendary ? t('rarityLegendary') :
-                    code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)}
+                  <RarityCodeLabel code={code} />
                 </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
@@ -6554,11 +6558,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  {code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
-                    code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
-                    code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
-                    code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
-                    code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)}
+                  <RarityCodeLabel code={code} />
                 </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
@@ -6575,11 +6575,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  {code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
-                    code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
-                    code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
-                    code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
-                    code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)}
+                  <RarityCodeLabel code={code} />
                 </MenuItem>
               ))}
               </Select>

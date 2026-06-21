@@ -10,7 +10,7 @@ import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, sta
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
-import { RARITY_ACCENT_COLORS } from '../../lib/rarityColors'
+import { useRarityPalette } from '../../lib/rarityColorContext'
 import { slotIconSvgAsset } from '../artifactTypeIcons'
 import { gearSetIconUrl } from '../../lib/iconMaps/gearsetIconMap'
 import { NO_SET_SPIDER_SRC } from '../NoGearSetIcon'
@@ -158,7 +158,9 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
-  const { showSetIcons, colorStatsAndSlots } = useDisplayPreferences()
+  const { showSetIcons, colorStatsSlotsRarity } = useDisplayPreferences()
+  // Active rarity palette so the rarity donut reflects user-edited rarity colours.
+  const rarityPalette = useRarityPalette()
   // Metasets for the GearSetsSelect quick-filter in the Sets treemap title row.
   const { metasets } = useAppState()
   // Catalog version gate: forces recompute of slot-aware set pools when new sets are registered.
@@ -694,10 +696,10 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const kpis = useMemo(() => computeGearAnalyticsKpis(rowsFiltered), [rowsFiltered])
 
   // ── Color and icon helpers for specific donuts ──────────────────────────────
-  // Rarity donut: use the app's canonical rarity accent palette.
+  // Rarity donut: use the app's active (possibly user-edited) rarity accent palette.
   const rarityColorById = useCallback(
-    (id: number | string): string | undefined => RARITY_ACCENT_COLORS[Number(id)],
-    [],
+    (id: number | string): string | undefined => rarityPalette[Number(id) as 1 | 2 | 3 | 4 | 5 | 6],
+    [rarityPalette],
   )
 
   // Outcome donut: map outcome strings to MUI theme semantic colors.
@@ -943,7 +945,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
           data={mainStatData}
           selected={dim.mainStats}
           onToggle={toggleMainStat}
-          {...(colorStatsAndSlots && { colorById: statColorById })}
+          {...(colorStatsSlotsRarity && { colorById: statColorById })}
           onEasterEgg={handleBarEgg}
           peerDanceTrigger={barPeer}
           collapsed={collapsed.mainStat}

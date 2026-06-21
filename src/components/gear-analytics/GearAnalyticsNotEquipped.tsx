@@ -37,7 +37,7 @@ import { PREFERRED_ARTIFACT_TYPE_ORDER } from '../../lib/types'
 import { artifactTypeI18nKey, rowOutcome } from '../../lib/gearAnalytics'
 import { EllipsisTooltip } from '../EllipsisTooltip'
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
-import { resolveRarityAccentColor } from '../../lib/rarityColors'
+import { useRarityAccentColor } from '../../lib/rarityColorContext'
 import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
   GEAR_DB_DIFF_TOAST_CARD_SCALE,
@@ -220,7 +220,7 @@ function ChampAvatar({ profile }: { profile: ChampionGearProfile }) {
   const theme = useTheme()
   // Use baseId for icon URL — alt-art champions share a base hero icon.
   const src = championIconUrl(profile.champion.baseHeroId ?? profile.champion.id)
-  const borderColor = resolveRarityAccentColor(profile.champion.rarity ?? 0) ?? theme.palette.divider
+  const borderColor = useRarityAccentColor(profile.champion.rarity ?? 0) ?? theme.palette.divider
   return (
     <Box sx={{
       width: AVATAR_SIZE, height: AVATAR_SIZE, flexShrink: 0,
@@ -508,7 +508,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   // useStatButtonColors drives substat chip coloring inside the gear preview card.
-  const { colorStatsAndSlots } = useDisplayPreferences()
+  const { colorStatsSlotsRarity } = useDisplayPreferences()
 
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
   const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)
@@ -620,7 +620,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     sortMode,
     rowByChampSlot,
     substatColors,
-    useStatButtonColors: colorStatsAndSlots,
+    useStatButtonColors: colorStatsSlotsRarity,
     soldSlotsByChamp,
     simulateSold,
     selectedArtifactIds,

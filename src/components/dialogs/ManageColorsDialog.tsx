@@ -2,8 +2,9 @@ import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
-import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../../lib/types'
+import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
 import type { SlotTints } from '../../lib/slotTints'
+import type { RarityColors } from '../../lib/rarityColors'
 import ColorField from '../ColorField'
 import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
 import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
@@ -22,9 +23,12 @@ export default function ManageColorsDialog(props: {
   // Slot glyph tints (armor/accessory) — single fg colour each, edited at the bottom of the flyout.
   slotTints: SlotTints
   setSlotTints: React.Dispatch<React.SetStateAction<SlotTints>>
+  // Rarity palette (rarity 1–6) — single fg colour each; one palette feeds labels AND borders/charts.
+  rarityColors: RarityColors
+  setRarityColors: React.Dispatch<React.SetStateAction<RarityColors>>
   onReset: () => void
 }) {
-  const { open, onClose, substatColors, setSubstatColors, slotTints, setSlotTints, onReset } = props
+  const { open, onClose, substatColors, setSubstatColors, slotTints, setSlotTints, rarityColors, setRarityColors, onReset } = props
   const { t } = useI18n()
   // draftAlphas: slider alpha dragged but not yet committed — same pattern as MUI Slider.
   const [draftAlphas, setDraftAlphas] = React.useState<Record<number, number>>({})
@@ -200,6 +204,25 @@ export default function ManageColorsDialog(props: {
                   // Slot tints have no live-preview consumer here, so commit on change directly.
                   onChange={(next) => setSlotTints((prev) => ({ ...prev, [key]: next }))}
                   onChangeCommitted={(next) => setSlotTints((prev) => ({ ...prev, [key]: next }))}
+                  label={t('labelText')}
+                />
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+        {/* Rarity colours — one editable palette per rarity (1–6). The same colour tints the rarity
+            WORD (contrast-adapted) and feeds borders/charts/frames (raw). Single fg colour each. */}
+        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('rarityColorsSectionTitle')}</Typography>
+          <Stack spacing={1.25}>
+            {([1, 2, 3, 4, 5, 6] as const).map((rank) => (
+              <Box key={`rarity-color-${rank}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>
+                <Typography sx={{ minWidth: 136 }}>{t(rarityRankValueI18nKey(rank))}</Typography>
+                <ColorField
+                  value={rarityColors[rank]}
+                  // No live-preview consumer here, so commit on change directly (mirror slot tints).
+                  onChange={(next) => setRarityColors((prev) => ({ ...prev, [rank]: next }))}
+                  onChangeCommitted={(next) => setRarityColors((prev) => ({ ...prev, [rank]: next }))}
                   label={t('labelText')}
                 />
               </Box>

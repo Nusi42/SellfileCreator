@@ -4,6 +4,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
+import { RarityLabel, RarityLabelList } from '../RarityLabel'
 
 const ANY_SENTINEL = '__rarity_any'
 
@@ -83,18 +84,9 @@ export function GearRaritySelect({
     const singleHandler = onChange as (next: number | null) => void
     singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString)))))
   }
-  // Reuse the existing translation keys so dialog + Safeguards stay localized identically.
-  const rarityLabel = (rarity: number): string => (
-    rarity === 1 ? t('rarityCommon')
-      : rarity === 2 ? t('rarityUncommon')
-        : rarity === 3 ? t('rarityRare')
-          : rarity === 4 ? t('rarityEpic')
-            : rarity === 5 ? t('rarityLegendary')
-              : t('rarityMythical')
-  )
   const renderSelected = (() => {
     if (singleValue == null) return <Typography variant="body2">{emptyDisplayText}</Typography>
-    return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
+    return <Typography variant="body2"><RarityLabel rarity={Number(singleValue)} /></Typography>
   })()
   // Keep multi-select defaults visible so Safeguards shows "Any" instead of empty badges.
   const renderMultiValue = (() => {
@@ -103,14 +95,13 @@ export function GearRaritySelect({
       if (multiValues.length === 0) {
         return <Typography variant="body2">{emptyDisplayText}</Typography>
       }
-      const summary = multiValues.map((rarity) => rarityLabel(Number(rarity))).join(', ')
       return (
         <Typography
           variant="body2"
           data-ellipsis-target
           sx={{ display: 'block', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
-          {summary}
+          <RarityLabelList values={multiValues.map((rarity) => Number(rarity))} />
         </Typography>
       )
     }
@@ -135,7 +126,7 @@ export function GearRaritySelect({
       ) : null}
       {[1, 2, 3, 4, 5, 6].map((rarity) => (
         <MenuItem key={rarity} value={String(rarity)}>
-          {rarityLabel(rarity)}
+          <RarityLabel rarity={rarity} />
         </MenuItem>
       ))}
     </Select>

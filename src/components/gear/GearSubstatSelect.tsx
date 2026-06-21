@@ -176,18 +176,25 @@ export function GearSubstatSelect({
       if (multiValues.length === 0) {
         return <Typography variant="body2">{anyText}</Typography>
       }
-      const summary = multiValues.map((variant) => t(statVariantI18nKey(variant))).join(', ')
       return (
         <Typography
           variant="body2"
           data-ellipsis-target
           sx={{ display: 'block', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
-          {summary}
+          {multiValues.map((variant, i) => {
+            // Tint each summarized stat name when colour is on; undefined ⇒ inherit.
+            const color = showBorderColors ? adaptStatFg(colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
+            return (
+              <Box component="span" key={`sum-${variant}`} sx={color ? { color } : undefined}>
+                {i > 0 ? ', ' : null}{t(statVariantI18nKey(variant))}
+              </Box>
+            )
+          })}
         </Typography>
       )
     }
-  }, [anyText, isMulti, multiValues, t])
+  }, [anyText, isMulti, multiValues, t, showBorderColors, colorOverrides, adaptStatFg])
   // Choose the renderer based on single vs multi mode.
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))

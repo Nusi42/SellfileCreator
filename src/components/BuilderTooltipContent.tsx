@@ -8,6 +8,7 @@ import { GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from '../lib/renderColoredStatText'
+import { useRarityLabelColorMap } from '../lib/rarityColorContext'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import { SetIcon, gearSetIconSrc } from './SetIcon'
 import { compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
@@ -39,10 +40,13 @@ function dedupKey(arr: string[], idx: number): string {
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t, lang } = useI18n()
-  const { colorStatsAndSlots: colorStatTexts, showSetIcons } = useDisplayPreferences()
+  const { colorStatsSlotsRarity: colorStatTexts, showSetIcons } = useDisplayPreferences()
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
   const theme = useTheme<Theme>()
+  // Rarity word → adapted colour, so the inline colorizer tints rarity labels in history lines the
+  // same way it tints stat labels. Empty when the master flag is off.
+  const rarityLabelColors = useRarityLabelColorMap()
 
   const lines = text
     .split('\n')
@@ -97,6 +101,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
               key: `${segKey}-L${dedupKey(segment.lines, lineIdx)}`,
               shouldColorize,
               colors,
+              rarityLabelColors,
               theme,
               translate: t,
               lang,
@@ -125,6 +130,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
                   key: `${segKey}-L${dedupKey(segment.lines, lineIdx)}`,
                   shouldColorize,
                   colors,
+                  rarityLabelColors,
                   theme,
                   translate: t,
                   asBlock: true,
@@ -295,6 +301,8 @@ type RenderStructuredLineParams = {
   key: string
   shouldColorize: boolean
   colors: SubstatColorMap
+  // Rarity word → adapted colour for inline tinting of plain history lines (empty when flag off).
+  rarityLabelColors: ReadonlyMap<string, string>
   theme: Theme
   translate: ReturnType<typeof useI18n>['t']
   asBlock?: boolean
@@ -303,7 +311,7 @@ type RenderStructuredLineParams = {
 }
 
 function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.Element {
-  const { line, key, shouldColorize, colors, theme, translate: t, asBlock = false, useSetIcons, lang } = params
+  const { line, key, shouldColorize, colors, rarityLabelColors, theme, translate: t, asBlock = false, useSetIcons, lang } = params
   const structured = parseStructuredDiff(line)
   if (structured) {
     return (
@@ -326,7 +334,7 @@ function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.E
       component={asBlock ? 'span' : 'p'}
       sx={{ whiteSpace: 'pre-wrap', m: asBlock ? 0 : undefined }}
     >
-      {renderColoredStatText((token) => t(token), line, colors, shouldColorize, arrowHighlights)}
+      {renderColoredStatText((token) => t(token), line, colors, shouldColorize, arrowHighlights, rarityLabelColors)}
     </Typography>
   )
 }

@@ -144,6 +144,7 @@ import { ColorField } from './ColorField'
 import SafeguardCandidateRankList, { computeSafeguardFocusGroupLabel, SafeguardFocusGroupChip } from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
+import { StatLabel } from './StatLabel'
 import { useTheme, useColorScheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
@@ -2430,7 +2431,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     )
                   })}
@@ -2462,7 +2463,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     )
                   })}
@@ -2580,7 +2581,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     )
                   })}
@@ -2613,7 +2614,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        {t(statVariantI18nKey(variant))}
+                        <StatLabel variant={variant} />
                       </ToggleButton>
                     )
                   })}
@@ -3481,7 +3482,7 @@ export default function SafeguardBuilderPanel({
               return (
                 <Box key={variant} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t(statVariantI18nKey(variant))}
+                    <StatLabel variant={variant} />
                     {/* Mixed indicator shown when weights differ across the selection */}
                     {weightMixed && (
                       <Box component="span" sx={{ ml: 0.5, color: 'text.disabled', fontSize: '0.7em' }}>

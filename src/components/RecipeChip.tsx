@@ -30,6 +30,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { useRarityLabelColorMap } from '../lib/rarityColorContext'
 import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
@@ -172,7 +173,9 @@ function RecipeChip({
   onContextMenu: onContextMenuProp,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
-  const { showFactionIcons, colorStatsAndSlots, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const { showFactionIcons, colorStatsSlotsRarity, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  // Rarity word → adapted colour for tinting the rarity word in the chip summary (empty when off).
+  const rarityLabelColors = useRarityLabelColorMap()
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
   const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
@@ -217,7 +220,7 @@ function RecipeChip({
   const restSummary = useMemo(
     () => summaryParts(recipe, metasets, {
       substatColors,
-      useStatButtonColors: colorStatsAndSlots,
+      useStatButtonColors: colorStatsSlotsRarity,
       showFactionIcons,
       showSetIcons,
       showSlotIcons,
@@ -227,8 +230,9 @@ function RecipeChip({
       tooltipsDisabled: tooltipSuppressed,
       catalogVersion: gearSetCatalogVersion,
       surfacePaper: bgPaper,
+      rarityLabelColors,
     }),
-    [recipe, metasets, substatColors, colorStatsAndSlots, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper],
+    [recipe, metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper, rarityLabelColors],
   )
   const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -603,6 +607,8 @@ export function summaryParts(
     catalogVersion?: number
     // Active-scheme paper surface for substat text contrast adjustment (both schemes).
     surfacePaper?: string
+    // Localized rarity word → adapted colour, for tinting the rarity word in the chip (empty when off).
+    rarityLabelColors?: ReadonlyMap<string, string>
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
@@ -671,8 +677,31 @@ export function summaryParts(
     // Multi-branch when Late+Auto and base is below Legendary: show +
     const multiRarity = (recipe.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
     if (multiRarity) rarity = `${rarity}${NBSP}+`
-    const combined = [rank, rarity].filter(Boolean).join(NBSP)
-    if (combined) addText(combined)
+    // Tint the rarity WORD when colours are on: the rarity string contains exactly one localized
+    // rarity word (around any ≥/≤ prefix or + suffix), so wrap that word in its adapted colour.
+    const rarityColors = opts.rarityLabelColors
+    const rarityNode: JSX.Element | string = (() => {
+      if (!rarity) return ''
+      if (!rarityColors || rarityColors.size === 0) return rarity
+      // Find the rarity word present in the string and split around it.
+      for (const [word, color] of rarityColors) {
+        const at = rarity.indexOf(word)
+        if (at === -1) continue
+        return (
+          <>
+            {rarity.slice(0, at)}
+            <Box component="span" sx={{ color }}>{word}</Box>
+            {rarity.slice(at + word.length)}
+          </>
+        )
+      }
+      return rarity
+    })()
+    // Assemble "rank rarity" / "rank" / "rarity", preserving the NBSP join and rarity colouring.
+    if (rank && rarityNode) addNode(<>{rank}{NBSP}{rarityNode}</>)
+    else if (rank) addText(rank)
+    else if (typeof rarityNode === 'string') addText(rarityNode)
+    else addNode(rarityNode)
   }
 
   // Keep mode indicator: ○ Early, ● Late. Hidden when Milestone Thresholds cannot go Late.

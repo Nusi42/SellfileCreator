@@ -29,7 +29,7 @@ import {
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
-import { resolveRarityAccentColor } from '../../lib/rarityColors'
+import { useRarityAccentColor } from '../../lib/rarityColorContext'
 import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
   GEAR_ANALYTICS_CHAMP_LOCATION_KEY,
@@ -68,7 +68,7 @@ type ChampAvatarProps = { champ: ChampionDisplayInfo }
 function ChampAvatar({ champ }: ChampAvatarProps) {
   const theme = useTheme()
   const src = championIconUrl(champ.baseId ?? champ.id)
-  const borderColor = resolveRarityAccentColor(champ.rarity) ?? theme.palette.divider
+  const borderColor = useRarityAccentColor(champ.rarity) ?? theme.palette.divider
   return (
     <Tooltip title={champ.name} placement="top" arrow>
       <Box
@@ -314,7 +314,7 @@ function readIncludeGlyphs(): boolean {
 export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCollapse }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
-  const { colorStatsAndSlots } = useDisplayPreferences()
+  const { colorStatsSlotsRarity } = useDisplayPreferences()
   // Contrast-correct stat range-row labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 
@@ -418,7 +418,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
               so that different stat magnitudes (e.g. SPD vs HP flat) are
               independently readable. */}
           {substatStats.map((entry) => (
-            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={colorStatsAndSlots ? adaptStatFg(substatColors[entry.variant]?.fg) : undefined} />
+            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={colorStatsSlotsRarity ? adaptStatFg(substatColors[entry.variant]?.fg) : undefined} />
           ))}
         </Box>
       )}

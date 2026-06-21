@@ -10,7 +10,8 @@ import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue } from '../lib/types'
 import { ArtifactSet } from '../lib/types'
-import { resolveRarityAccentColor, ASCENSION_STAR_FG, RANK_STAR_FG } from '../lib/rarityColors'
+import { ASCENSION_STAR_FG, RANK_STAR_FG } from '../lib/rarityColors'
+import { useRarityAccentColor } from '../lib/rarityColorContext'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 // MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
@@ -167,7 +168,7 @@ export default function GridIconBox({
   const normalizedSetLabel = typeof setLabel === 'string' && setLabel.trim().length > 0 ? setLabel : undefined
   const normalizedSetTooltipName = typeof setTooltipName === 'string' && setTooltipName.trim().length > 0 ? setTooltipName : undefined
   const setIconLabel = normalizedSetLabel ?? normalizedSetTooltipName ?? null
-  const borderColor = resolveRarityAccentColor(rarity) ?? theme.palette.divider
+  const borderColor = useRarityAccentColor(rarity) ?? theme.palette.divider
   const numericRank = Math.max(0, Math.min(6, Math.round(Number(rank) || 0)))
   const ascensionStars = Math.max(0, Math.min(numericRank, Math.round(Number(ascensionRolls) || 0)))
   const hasRealSet = Number.isFinite(Number(setId)) && Number(setId) > 0

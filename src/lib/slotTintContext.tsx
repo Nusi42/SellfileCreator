@@ -7,7 +7,7 @@
  *
  * The provider stores the *adapted* armor/accessory colours (contrast-corrected for the runtime
  * scheme via `useSubstatFgAdapter`, the same helper substat fg colours use), or `undefined` when
- * the global `colorStatsAndSlots` flag is off — in which case glyphs fall back to `inherit`
+ * the global `colorStatsSlotsRarity` flag is off — in which case glyphs fall back to `inherit`
  * (today's behaviour, no visual change).
  */
 import { createContext, use, useMemo } from 'react'
@@ -30,7 +30,7 @@ export function SlotTintProvider({
   tints,
   children,
 }: {
-  /** The global colorStatsAndSlots flag. */
+  /** The global colorStatsSlotsRarity flag. */
   enabled: boolean
   /** Raw (unadapted) tint hues; defaults applied when omitted. */
   tints?: SlotTints

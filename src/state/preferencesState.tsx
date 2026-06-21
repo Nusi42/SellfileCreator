@@ -17,7 +17,7 @@ import {
   RULES_TABLE_SHOW_FACTION_ICONS_KEY,
   RULES_TABLE_SHOW_SET_ICONS_KEY,
   RULES_TABLE_SHOW_SLOT_ICONS_KEY,
-  COLOR_STATS_AND_SLOTS_KEY,
+  COLOR_STATS_SLOTS_RARITY_KEY,
 } from '../lib/constants'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
@@ -25,8 +25,9 @@ export type DisplayPreferencesState = {
   showSlotIcons: boolean
   showSetIcons: boolean
   showFactionIcons: boolean
-  // Master switch: colorizes substat texts (chips/preview) AND tints slot glyphs (armor/accessory).
-  colorStatsAndSlots: boolean
+  // Master switch: colorizes substat texts (chips/preview), tints slot glyphs (armor/accessory),
+  // AND tints rarity labels.
+  colorStatsSlotsRarity: boolean
   // Auto side-by-side zoom: master switch + the force/stack cutoff (theme flyout).
   autoSideBySideZoomEnabled: boolean
   autoSideBySideMinZoom: number
@@ -38,7 +39,7 @@ export type DisplayPreferenceDispatchers = {
   setShowSlotIcons: (next: boolean) => void
   setShowSetIcons: (next: boolean) => void
   setShowFactionIcons: (next: boolean) => void
-  setColorStatsAndSlots: (next: boolean) => void
+  setColorStatsSlotsRarity: (next: boolean) => void
   setAutoSideBySideZoomEnabled: (next: boolean) => void
   setAutoSideBySideMinZoom: (next: number) => void
   setPsychedelic: (next: boolean) => void
@@ -85,8 +86,8 @@ const showFactionIconsStore = createLocalStorageStore<boolean>({
   serialize: serializeBooleanPref,
 })
 
-const colorStatsAndSlotsStore = createLocalStorageStore<boolean>({
-  key: COLOR_STATS_AND_SLOTS_KEY,
+const colorStatsSlotsRarityStore = createLocalStorageStore<boolean>({
+  key: COLOR_STATS_SLOTS_RARITY_KEY,
   fallback: true,
   parse: parseBooleanPref(true),
   serialize: serializeBooleanPref,
@@ -114,7 +115,7 @@ const autoSideBySideMinZoomStore = createLocalStorageStore<number>({
 export const useShowSlotIconsPreference = createLocalStorageStateHook(showSlotIconsStore)
 export const useShowSetIconsPreference = createLocalStorageStateHook(showSetIconsStore)
 export const useShowFactionIconsPreference = createLocalStorageStateHook(showFactionIconsStore)
-export const useColorStatsAndSlotsPreference = createLocalStorageStateHook(colorStatsAndSlotsStore)
+export const useColorStatsSlotsRarityPreference = createLocalStorageStateHook(colorStatsSlotsRarityStore)
 export const useAutoSideBySideZoomEnabledPreference = createLocalStorageStateHook(autoSideBySideZoomEnabledStore)
 export const useAutoSideBySideMinZoomPreference = createLocalStorageStateHook(autoSideBySideMinZoomStore)
 
@@ -128,21 +129,21 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   const showSlotIcons = showSlotIconsStore.useValue()
   const showSetIcons = showSetIconsStore.useValue()
   const showFactionIcons = showFactionIconsStore.useValue()
-  const colorStatsAndSlots = colorStatsAndSlotsStore.useValue()
+  const colorStatsSlotsRarity = colorStatsSlotsRarityStore.useValue()
   const autoSideBySideZoomEnabled = autoSideBySideZoomEnabledStore.useValue()
   const autoSideBySideMinZoom = autoSideBySideMinZoomStore.useValue()
   const [psychedelic, setPsychedelic] = useState(false)
 
   const prefs = useMemo<DisplayPreferencesState>(
-    () => ({ showSlotIcons, showSetIcons, showFactionIcons, colorStatsAndSlots, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic }),
-    [showSlotIcons, showSetIcons, showFactionIcons, colorStatsAndSlots, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic],
+    () => ({ showSlotIcons, showSetIcons, showFactionIcons, colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic }),
+    [showSlotIcons, showSetIcons, showFactionIcons, colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic],
   )
 
   const actions = useMemo<DisplayPreferenceDispatchers>(() => ({
     setShowSlotIcons: (next) => { showSlotIconsStore.set(next) },
     setShowSetIcons: (next) => { showSetIconsStore.set(next) },
     setShowFactionIcons: (next) => { showFactionIconsStore.set(next) },
-    setColorStatsAndSlots: (next) => { colorStatsAndSlotsStore.set(next) },
+    setColorStatsSlotsRarity: (next) => { colorStatsSlotsRarityStore.set(next) },
     setAutoSideBySideZoomEnabled: (next) => { autoSideBySideZoomEnabledStore.set(next) },
     setAutoSideBySideMinZoom: (next) => { autoSideBySideMinZoomStore.set(next) },
     setPsychedelic: (next) => { setPsychedelic((prev) => prev === next ? prev : next) },

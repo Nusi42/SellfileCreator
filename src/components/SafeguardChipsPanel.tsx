@@ -61,6 +61,7 @@ import { useChipListKeyboard } from '../hooks/useChipListKeyboard'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 import { resolveSafeguardActivationTextColor, safeguardSummaryParts } from './safeguardSummaryParts'
+import { useRarityLabelColorMap } from '../lib/rarityColorContext'
 import { ALPHA } from '../lib/colorTints'
 
 
@@ -149,7 +150,7 @@ type SafeguardChipProps = {
   hasActiveDrag: boolean
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
-  colorStatsAndSlots: boolean
+  colorStatsSlotsRarity: boolean
   showFactionIcons: boolean
   showSetIcons: boolean
   showSlotIcons: boolean
@@ -177,7 +178,7 @@ type SafeguardChipProps = {
 const SafeguardChip = React.memo(function SafeguardChip({
   rule, ruleIndex, isSelected, isFirst, isLast, isEditing, pendingName,
   dndEnabled, isGhostDragging, hasActiveDrag,
-  metasets, substatColors, colorStatsAndSlots, showFactionIcons, showSetIcons, showSlotIcons,
+  metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons,
   showTagsInChips,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
@@ -186,6 +187,8 @@ const SafeguardChip = React.memo(function SafeguardChip({
   // Derive display values from the rule; recomputed only when this chip's props change.
   const { colorScheme } = useColorScheme()
   const theme = useTheme()
+  // Rarity word → adapted colour for tinting rarity words in the chip summary (empty when flag off).
+  const rarityLabelColors = useRarityLabelColorMap()
   const rawName = (pendingName ?? rule.appearance?.name ?? '').trim()
   const fallbackName = `${t('gearInspectorRule')} ${ruleIndex + 1}`
   // Apply contrast adjustment to user-chosen colors; fall back to inherit when unset.
@@ -220,15 +223,16 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const summary = useMemo(
     () => safeguardSummaryParts(rule, metasets, {
       substatColors,
-      useStatButtonColors: colorStatsAndSlots,
+      useStatButtonColors: colorStatsSlotsRarity,
       showFactionIcons,
       showSetIcons,
       showSlotIcons,
       t,
       lang,
       surfacePaper: schemePalette.background.paper,
+      rarityLabelColors,
     }),
-    [rule, metasets, substatColors, colorStatsAndSlots, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper],
+    [rule, metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper, rarityLabelColors],
   )
 
   return (
@@ -434,7 +438,7 @@ export default function SafeguardChipsPanel({
   const effectiveSelectedIndicesRef = useRef<ReadonlySet<number>>(effectiveSelectedIndices)
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
-  const { showFactionIcons, colorStatsAndSlots, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const { showFactionIcons, colorStatsSlotsRarity, showSetIcons, showSlotIcons } = useDisplayPreferences()
   // Read the chips-list tag display preference — separate from the builder form inline display.
   const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
 
@@ -1074,7 +1078,7 @@ export default function SafeguardChipsPanel({
                 hasActiveDrag={hasActiveDrag}
                 metasets={metasets}
                 substatColors={substatColors}
-                colorStatsAndSlots={colorStatsAndSlots}
+                colorStatsSlotsRarity={colorStatsSlotsRarity}
                 showFactionIcons={showFactionIcons}
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}
