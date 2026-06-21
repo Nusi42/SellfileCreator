@@ -4130,6 +4130,7 @@ export default function NoteDialog({
   simplePresetMatch,
   simpleCustomAvailable,
   onLoadSimpleCustom,
+  simpleStartupSelection,
   drawerWidthPx,
   drawerTopPx,
   drawerLeftPx,
@@ -4190,6 +4191,11 @@ export default function NoteDialog({
   simpleCustomAvailable?: boolean
   // Restores the user's snapshotted custom SFC when the Old/Custom button is clicked.
   onLoadSimpleCustom?: () => void
+  // The selection the express startup restore is heading toward, resolved synchronously
+  // from autosave before the (async) SFC load commits a live preset match. Seeds the
+  // toggle's held value so it shows the eventual selection (e.g. 'custom') from the
+  // first paint instead of flashing the empty-SFC 'lategame' fallback while loading.
+  simpleStartupSelection?: 'beginner' | 'lategame' | 'custom' | null
   // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
   // the builder column, leaving the gear inspector visible on the right.
   drawerWidthPx?: number
@@ -4300,16 +4306,21 @@ export default function NoteDialog({
     simpleCustomAvailable && simplePresetMatch == null ? 'custom' : (simplePresetMatch ?? 'lategame')
   // Loading an SFC is async, so the derived value lags a frame behind a click and
   // the just-pressed button would visibly snap back. This transient override holds
-  // the clicked value until the real match catches up.
-  const [pendingSimpleSelection, setPendingSimpleSelection] = useState<SimpleToggleValue | null>(null)
+  // the clicked value until the real match catches up. Seeded at mount with the
+  // startup restore's resolved selection so a custom restore shows 'custom' from the
+  // first paint rather than the empty-SFC 'lategame' fallback while the load settles;
+  // the self-healing effect below clears it once the live match reaches it.
+  const [pendingSimpleSelection, setPendingSimpleSelection] = useState<SimpleToggleValue | null>(
+    () => simpleStartupSelection ?? null,
+  )
   const simpleToggleValue = pendingSimpleSelection ?? derivedSimpleValue
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler -- pendingSimpleSelection is a transient visual hold over an async load (App owns the real match prop); clear it the moment the derived value reaches it, which is a render-after-prop-change, not a discrete event. */
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler -- pendingSimpleSelection is a transient visual hold over an async load (App owns the real match prop), seeded once at mount from the startup selection: it intentionally diverges from props and is cleared by the effect the moment the derived value reaches it, which is a render-after-prop-change, not pure derived state. */
   // Drop the held value once the derived value reaches it (load committed). This also
   // self-heals a failed/aborted load: the next derived change clears the stale pending.
   useEffect(() => {
     if (pendingSimpleSelection && derivedSimpleValue === pendingSimpleSelection) setPendingSimpleSelection(null)
   }, [pendingSimpleSelection, derivedSimpleValue])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler */
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler */
   // Load the chosen preset (or restore the custom SFC) when the express toggle changes.
   const handleSimpleVariantChange = useCallback(
     (_: React.MouseEvent, value: SimpleToggleValue | null) => {
