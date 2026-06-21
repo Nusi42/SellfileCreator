@@ -192,14 +192,9 @@ accepts both:
 **Params**
 - `inboxArtifacts` (array of ArtifactLog rows **or** inbox-item envelopes)
 
-**Unwrapping**: `parseArtifactLogArray` in
-[`src/lib/externalCommands.ts`](../../src/lib/externalCommands.ts) flattens any entry it
-recognises as an inbox-item envelope (an object with an `artifacts` array and **no**
-top-level `kindId`) into its nested rows before parsing; flat rows pass through untouched.
-This is mandatory: an envelope has no top-level `id`/`kindId`/`rankId`/`rarityId`, so
-`parseArtifactLogRow` would reject it outright and the inbox gear would be **silently
-dropped** — the cause of a real pre-vs-post HSF divergence where missing inbox accessories
-left `anticipateGaps` safeguards emitting extra placeholder rules until the gear arrived.
+An inbox-item envelope is recognised as an object carrying an `artifacts` array and **no**
+top-level `kindId`; its nested rows are the gear. The app accepts both shapes — flat rows are
+used as-is, and envelopes are flattened to their nested rows.
 
 **Example — flat shape**
 ```json
@@ -263,7 +258,7 @@ Champion roster. Provides display names and equipped-slot context.
   | `grade` | `Champs.Rang` | current yellow-star count (1–6) — **not** the blessing grade |
   | `level` | `Champs.Lvl` | champion XP level 1–60 |
   | `empower` | `Champs.EmpLvl` | empowerment level 0–4 |
-  | `doubleAscend.grade` | `Champs.BGrade` | Double-Ascension / "Awakening" grade 0–6 (nested path; extracted by an explicit fallback in `parseChampionRow`) |
+  | `doubleAscend.grade` | `Champs.BGrade` | Double-Ascension / "Awakening" grade 0–6 (nested path) |
   | `inStorage` | `Champs.Vault` | `true` when in vault |
   | `artifacts` | (not a column) | object mapping slot `"1"`–`"9"` to the equipped artifact's instance id; resolves which artifact belongs to which champion |
 
@@ -287,7 +282,7 @@ Champion roster. Provides display names and equipped-slot context.
 ]}}
 ```
 
-**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. `upsertChampionRow` in `gearDbLookups.ts` merges field-by-field — when an incoming row leaves a column `undefined`, the previously-known value is preserved. This protects the first-send metadata (Name, Rarity) and also makes the importer forward-compatible: when `Affinity` arrives, it gets recorded; until then, any earlier-known Affinity is not nulled out by a follow-up packet that omits it. A one-shot dev-only `console.warn` in `parseChampionRow` flags when `Affinity` finally appears so the merge overhead can be simplified.
+**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Rows are merged field-by-field — when an incoming row leaves a field absent, the previously-known value is preserved. This protects the first-send metadata (Name, Rarity) and keeps the data forward-compatible: when a field such as `Affinity` arrives it is recorded, and until then any earlier-known value is not nulled out by a follow-up packet that omits it.
 
 See `docs/orig/sampleLog/` for a full captured session split into per-message files. Each file is one full JSON-RPC envelope, named `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json`; the zero-padded numeric `<index>` is the order in which RSL Helper emitted the packet. The current sample (captured 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6, `lastUsed` ×2, and `ArtifactByHeroID` ×1.
 
@@ -367,38 +362,3 @@ Use JSON-RPC standard codes where possible:
 - `-32603` Internal error
 
 Application-specific errors can use `-32000` to `-32099`.
-
-## Packet Capture (dev-only)
-
-To debug merge/restore behaviour against real, possibly out-of-order endpoint
-traffic, the dev build can record every inbound frame to disk as sampleLog-style
-fixtures.
-
-**How to enable**: run the dev server (`npm run dev`) and open the app with the
-`?capturePackets` query param alongside the usual `?endpoint=…`, e.g.
-`http://localhost:5173/?endpoint=ws://localhost:8080/&capturePackets`.
-
-**What happens**: each raw JSON-RPC frame received in `handleInboundMessage`
-([`src/hooks/useExternalCommands.ts`](../../src/hooks/useExternalCommands.ts)) is
-streamed via `capturePacket` ([`src/lib/packetCapture.ts`](../../src/lib/packetCapture.ts))
-to the dev-only Vite middleware
-([`scripts/vite/packetCapturePlugin.ts`](../../scripts/vite/packetCapturePlugin.ts)),
-which writes:
-
-```
-docs/orig/sampleLog/captures/<session>/packet_<NN>_<method>_<YYMMDD>_<HHMMSS.mmm>.json
-```
-
-Files are byte-compatible with the committed sample log (2-space pretty-printed
-JSON-RPC envelopes, send-order index, receive-time timestamp). The binary gear-DB
-push (`gearDbFileBinary`) is recorded as a metadata stub only — the raw SQLite bytes
-are not persisted.
-
-**Scope / safety**: the activation flag is gated on `import.meta.env.DEV`, and the
-plugin is `apply: 'serve'`, so capture can never run in a production build. With the
-param absent it is a complete no-op. The `captures/` directory is gitignored —
-promote a useful recording into `docs/orig/sampleLog/` (or feed it to the
-`endpoint-replay` harness) by hand if it should become a committed fixture.
-
-To turn it on/off at any time, just add or drop the `?capturePackets` param — no code
-change required.
