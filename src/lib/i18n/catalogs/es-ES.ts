@@ -572,6 +572,10 @@ const overrides: Catalog = {
   slotTintsSectionTitle: "Tintes de iconos de ranura",
   slotTintArmor: "Ranuras de armadura",
   slotTintAccessory: "Ranuras de accesorios",
+  colorScopeRowLabel: "Coloreado",
+  colorScopeOff: "Desactivado",
+  colorScopeLabels: "Etiquetas",
+  colorScopeEverything: "Todo",
   rarityColorsSectionTitle: "Colores de rareza",
 
   titleManageSubstatTargets: "Gestionar objetivos de substats",

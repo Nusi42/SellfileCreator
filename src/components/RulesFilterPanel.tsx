@@ -95,7 +95,7 @@ import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useRarityPalette } from '../lib/rarityColorContext'
-import { useStatTextColorMap } from '../lib/statColorContext'
+import { useStatButtonColorMap } from '../lib/statColorContext'
 import { StatLabel } from './StatLabel'
 import { RarityLabel } from './RarityLabel'
 import { TINT } from '../lib/colorTints'
@@ -621,8 +621,8 @@ function RulesFilterPanel({
   const theme = useTheme()
   // Active rarity palette so champion-option rarity borders reflect user-edited rarity colours.
   const rarityPalette = useRarityPalette()
-  // Per-variant adapted stat-name colours for the stat/substat filter toggle labels (empty when off).
-  const statTextColors = useStatTextColorMap()
+  // Button-scoped stat-name colours for the substat tri-state filter TOGGLE (empty unless 'everything').
+  const statTextColors = useStatButtonColorMap()
   // Contrast-correct colored roll-filter stat labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
   const gearInspectorRollsState: GearInspectorRollFilterState = state.gearInspectorRolls ?? DEFAULT_RULES_FILTER_STATE.gearInspectorRolls ?? createDefaultGearInspectorRollsState()
@@ -2950,7 +2950,7 @@ function RulesFilterPanel({
                       {/* EllipsisTooltip shows OS tooltip only when text is actually truncated. */}
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <StatLabel variant={variant} />
+                          <StatLabel variant={variant} inButton />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -2969,7 +2969,7 @@ function RulesFilterPanel({
                     <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <StatLabel variant={variant} />
+                          <StatLabel variant={variant} inButton />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3584,7 +3584,7 @@ function RulesFilterPanel({
                     <ToggleButton key={rarity} value={String(rarity)}>
                       <EllipsisTooltip title={t(rarityRankValueI18nKey(rarity))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <RarityLabel rarity={rarity} />
+                          <RarityLabel rarity={rarity} inButton />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3662,7 +3662,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        <StatLabel variant={variant} />
+                        <StatLabel variant={variant} inButton />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>
@@ -3678,7 +3678,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        <StatLabel variant={variant} />
+                        <StatLabel variant={variant} inButton />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>

@@ -29,6 +29,7 @@ import { useThemeCustomization } from '../state/themeCustomization'
 import { RSLH_PRESET } from '../lib/rslhPreset'
 import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
+import { DEFAULT_COLOR_SCOPE } from '../lib/colorScope'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ColorField from './ColorField'
@@ -135,8 +136,14 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 
   // Any field set (non-null) counts as customization — drives the reset button visibility.
   const hasCustomization = Object.values(draft).some(v => v != null)
-  const { colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
-  const { setColorStatsSlotsRarity, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
+  const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  const { setStatColorScope, setRarityColorScope, setSlotColorScope, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
+  // Master colour toggle: on ⇒ any group not off; toggling sets all three to everything / off.
+  const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
+  const setAllColorScopes = (on: boolean) => {
+    const next = on ? DEFAULT_COLOR_SCOPE : 'off'
+    setStatColorScope(next); setRarityColorScope(next); setSlotColorScope(next)
+  }
 
   return (
     <>
@@ -311,8 +318,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
         {/* Stat-text colorization + slot glyph tints — same On/Off + manage-colors pattern as gear inspector */}
         <MenuToggleRow
           label={t('rulesMenuColorStatsSlotsRarity')}
-          checked={colorStatsSlotsRarity}
-          onChange={() => setColorStatsSlotsRarity(!colorStatsSlotsRarity)}
+          checked={anyColorScopeOn}
+          onChange={() => setAllColorScopes(!anyColorScopeOn)}
           trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
@@ -320,9 +327,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
                   size="small"
                   variant="outlined"
                   color="info"
-                  disabled={!colorStatsSlotsRarity}
                   sx={{ minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(e) => { e.stopPropagation(); if (colorStatsSlotsRarity) onOpenManageColors?.() }}
+                  onClick={(e) => { e.stopPropagation(); onOpenManageColors?.() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />

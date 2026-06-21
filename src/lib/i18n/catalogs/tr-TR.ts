@@ -573,6 +573,10 @@ const overrides: Catalog = {
   slotTintsSectionTitle: "Slot simgesi tonları",
   slotTintArmor: "Zırh slotları",
   slotTintAccessory: "Aksesuar slotları",
+  colorScopeRowLabel: "Renklendirme",
+  colorScopeOff: "Kapalı",
+  colorScopeLabels: "Etiketler",
+  colorScopeEverything: "Her yer",
   rarityColorsSectionTitle: "Nadirlik renkleri",
 
   titleManageSubstatTargets: "Alt stat hedefleri",

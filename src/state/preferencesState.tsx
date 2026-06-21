@@ -17,17 +17,22 @@ import {
   RULES_TABLE_SHOW_FACTION_ICONS_KEY,
   RULES_TABLE_SHOW_SET_ICONS_KEY,
   RULES_TABLE_SHOW_SLOT_ICONS_KEY,
-  COLOR_STATS_SLOTS_RARITY_KEY,
+  COLOR_SCOPE_STAT_KEY,
+  COLOR_SCOPE_RARITY_KEY,
+  COLOR_SCOPE_SLOT_KEY,
 } from '../lib/constants'
+import { type ColorScope, DEFAULT_COLOR_SCOPE, parseColorScope, serializeColorScope } from '../lib/colorScope'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 export type DisplayPreferencesState = {
   showSlotIcons: boolean
   showSetIcons: boolean
   showFactionIcons: boolean
-  // Master switch: colorizes substat texts (chips/preview), tints slot glyphs (armor/accessory),
-  // AND tints rarity labels.
-  colorStatsSlotsRarity: boolean
+  // Per-group colour scopes (off / labels / everything). Each gates one colouring group; the
+  // theme-menu master toggle flips all three between off and everything.
+  statColorScope: ColorScope
+  rarityColorScope: ColorScope
+  slotColorScope: ColorScope
   // Auto side-by-side zoom: master switch + the force/stack cutoff (theme flyout).
   autoSideBySideZoomEnabled: boolean
   autoSideBySideMinZoom: number
@@ -39,7 +44,9 @@ export type DisplayPreferenceDispatchers = {
   setShowSlotIcons: (next: boolean) => void
   setShowSetIcons: (next: boolean) => void
   setShowFactionIcons: (next: boolean) => void
-  setColorStatsSlotsRarity: (next: boolean) => void
+  setStatColorScope: (next: ColorScope) => void
+  setRarityColorScope: (next: ColorScope) => void
+  setSlotColorScope: (next: ColorScope) => void
   setAutoSideBySideZoomEnabled: (next: boolean) => void
   setAutoSideBySideMinZoom: (next: number) => void
   setPsychedelic: (next: boolean) => void
@@ -86,11 +93,24 @@ const showFactionIconsStore = createLocalStorageStore<boolean>({
   serialize: serializeBooleanPref,
 })
 
-const colorStatsSlotsRarityStore = createLocalStorageStore<boolean>({
-  key: COLOR_STATS_SLOTS_RARITY_KEY,
-  fallback: true,
-  parse: parseBooleanPref(true),
-  serialize: serializeBooleanPref,
+// One store per colour group; all default to 'everything'.
+const statColorScopeStore = createLocalStorageStore<ColorScope>({
+  key: COLOR_SCOPE_STAT_KEY,
+  fallback: DEFAULT_COLOR_SCOPE,
+  parse: parseColorScope,
+  serialize: serializeColorScope,
+})
+const rarityColorScopeStore = createLocalStorageStore<ColorScope>({
+  key: COLOR_SCOPE_RARITY_KEY,
+  fallback: DEFAULT_COLOR_SCOPE,
+  parse: parseColorScope,
+  serialize: serializeColorScope,
+})
+const slotColorScopeStore = createLocalStorageStore<ColorScope>({
+  key: COLOR_SCOPE_SLOT_KEY,
+  fallback: DEFAULT_COLOR_SCOPE,
+  parse: parseColorScope,
+  serialize: serializeColorScope,
 })
 
 const autoSideBySideZoomEnabledStore = createLocalStorageStore<boolean>({
@@ -115,7 +135,9 @@ const autoSideBySideMinZoomStore = createLocalStorageStore<number>({
 export const useShowSlotIconsPreference = createLocalStorageStateHook(showSlotIconsStore)
 export const useShowSetIconsPreference = createLocalStorageStateHook(showSetIconsStore)
 export const useShowFactionIconsPreference = createLocalStorageStateHook(showFactionIconsStore)
-export const useColorStatsSlotsRarityPreference = createLocalStorageStateHook(colorStatsSlotsRarityStore)
+export const useStatColorScopePreference = createLocalStorageStateHook(statColorScopeStore)
+export const useRarityColorScopePreference = createLocalStorageStateHook(rarityColorScopeStore)
+export const useSlotColorScopePreference = createLocalStorageStateHook(slotColorScopeStore)
 export const useAutoSideBySideZoomEnabledPreference = createLocalStorageStateHook(autoSideBySideZoomEnabledStore)
 export const useAutoSideBySideMinZoomPreference = createLocalStorageStateHook(autoSideBySideMinZoomStore)
 
@@ -129,21 +151,25 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   const showSlotIcons = showSlotIconsStore.useValue()
   const showSetIcons = showSetIconsStore.useValue()
   const showFactionIcons = showFactionIconsStore.useValue()
-  const colorStatsSlotsRarity = colorStatsSlotsRarityStore.useValue()
+  const statColorScope = statColorScopeStore.useValue()
+  const rarityColorScope = rarityColorScopeStore.useValue()
+  const slotColorScope = slotColorScopeStore.useValue()
   const autoSideBySideZoomEnabled = autoSideBySideZoomEnabledStore.useValue()
   const autoSideBySideMinZoom = autoSideBySideMinZoomStore.useValue()
   const [psychedelic, setPsychedelic] = useState(false)
 
   const prefs = useMemo<DisplayPreferencesState>(
-    () => ({ showSlotIcons, showSetIcons, showFactionIcons, colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic }),
-    [showSlotIcons, showSetIcons, showFactionIcons, colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic],
+    () => ({ showSlotIcons, showSetIcons, showFactionIcons, statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic }),
+    [showSlotIcons, showSetIcons, showFactionIcons, statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom, psychedelic],
   )
 
   const actions = useMemo<DisplayPreferenceDispatchers>(() => ({
     setShowSlotIcons: (next) => { showSlotIconsStore.set(next) },
     setShowSetIcons: (next) => { showSetIconsStore.set(next) },
     setShowFactionIcons: (next) => { showFactionIconsStore.set(next) },
-    setColorStatsSlotsRarity: (next) => { colorStatsSlotsRarityStore.set(next) },
+    setStatColorScope: (next) => { statColorScopeStore.set(next) },
+    setRarityColorScope: (next) => { rarityColorScopeStore.set(next) },
+    setSlotColorScope: (next) => { slotColorScopeStore.set(next) },
     setAutoSideBySideZoomEnabled: (next) => { autoSideBySideZoomEnabledStore.set(next) },
     setAutoSideBySideMinZoom: (next) => { autoSideBySideMinZoomStore.set(next) },
     setPsychedelic: (next) => { setPsychedelic((prev) => prev === next ? prev : next) },

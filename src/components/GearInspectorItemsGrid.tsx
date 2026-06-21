@@ -159,6 +159,8 @@ type GearInspectorItemsGridProps = {
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
+  // Master colour toggle state (any colour group on) + setter that flips all groups on/off.
+  statColorsMasterOn?: boolean
   onToggleStatColors: (next: boolean) => void
   onOpenManageColors: () => void
   colorBlindMode: ColorBlindMode
@@ -315,6 +317,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
+    statColorsMasterOn = false,
     onToggleStatColors,
     onOpenManageColors,
     colorBlindMode,
@@ -2942,8 +2945,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuToggleRow
           label={t('rulesMenuColorStatsSlotsRarity')}
-          checked={useStatButtonColors}
-          onChange={() => onToggleStatColors(!useStatButtonColors)}
+          checked={statColorsMasterOn}
+          onChange={() => onToggleStatColors(!statColorsMasterOn)}
           trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
               <span>
@@ -2951,9 +2954,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                   size="small"
                   variant="outlined"
                   color="info"
-                  disabled={!useStatButtonColors}
                   sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(event) => { event.stopPropagation(); if (!useStatButtonColors) return; onOpenManageColors() }}
+                  onClick={(event) => { event.stopPropagation(); onOpenManageColors() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />

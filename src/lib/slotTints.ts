@@ -4,7 +4,7 @@
  * Single source of truth for the gear-slot glyph tints. The top 6 (armor) slots render with a
  * subtle light-yellow tint and the bottom 3 (accessory) slots with a subtle light-blue tint.
  * Both colours are user-editable (Manage Colors flyout) and gated by the global
- * `colorStatsSlotsRarity` flag — the same master switch that colorizes substat texts.
+ * `slotColorScope` (off / labels / everything) — the slot group's colour scope.
  *
  * The defaults below are the *unadapted* base hues; legibility against the runtime scheme is
  * handled at render time by the same contrast adapter substat fg colours use

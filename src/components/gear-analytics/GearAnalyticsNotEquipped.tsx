@@ -508,7 +508,8 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   // useStatButtonColors drives substat chip coloring inside the gear preview card.
-  const { colorStatsSlotsRarity } = useDisplayPreferences()
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
 
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
   const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)
@@ -620,7 +621,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
     sortMode,
     rowByChampSlot,
     substatColors,
-    useStatButtonColors: colorStatsSlotsRarity,
+    useStatButtonColors: colorStatTexts,
     soldSlotsByChamp,
     simulateSold,
     selectedArtifactIds,

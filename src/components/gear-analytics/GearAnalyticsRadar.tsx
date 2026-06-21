@@ -171,7 +171,8 @@ function applyRadarDance(
 export function GearAnalyticsRadar({ title, description, data, referenceData, selectedSubstat, onToggleSubstat, onClearSubstat, onEasterEgg, peerDanceTrigger, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
-  const { colorStatsSlotsRarity } = useDisplayPreferences()
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   const [substatColors] = useSubstatColors()
   // Contrast-correct stat axis-label colors for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
@@ -199,7 +200,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
       el.querySelectorAll<SVGElement>('text').forEach((node) => {
         const label = node.textContent?.trim() ?? ''
         if (!labelColorMap.has(label)) return
-        node.style.fill = (colorStatsSlotsRarity ? labelColorMap.get(label) : undefined) ?? ''
+        node.style.fill = (colorStatTexts ? labelColorMap.get(label) : undefined) ?? ''
       })
     }
 
@@ -207,7 +208,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
     const obs = new MutationObserver(applyColors)
     obs.observe(el, { childList: true, subtree: true })
     return () => obs.disconnect()
-  }, [colorStatsSlotsRarity, labelColorMap])
+  }, [colorStatTexts, labelColorMap])
 
   // Build a stable variant → count lookup; only recomputes when the data prop reference changes.
   const countByVariant = useMemo(

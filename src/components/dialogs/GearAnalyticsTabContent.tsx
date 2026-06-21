@@ -158,7 +158,8 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
-  const { showSetIcons, colorStatsSlotsRarity } = useDisplayPreferences()
+  const { showSetIcons, statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   // Active rarity palette so the rarity donut reflects user-edited rarity colours.
   const rarityPalette = useRarityPalette()
   // Metasets for the GearSetsSelect quick-filter in the Sets treemap title row.
@@ -945,7 +946,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
           data={mainStatData}
           selected={dim.mainStats}
           onToggle={toggleMainStat}
-          {...(colorStatsSlotsRarity && { colorById: statColorById })}
+          {...(colorStatTexts && { colorById: statColorById })}
           onEasterEgg={handleBarEgg}
           peerDanceTrigger={barPeer}
           collapsed={collapsed.mainStat}

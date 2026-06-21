@@ -572,6 +572,10 @@ const catalog: Catalog = {
   slotTintsSectionTitle: "Tons dos ícones de slot",
   slotTintArmor: "Slots de armadura",
   slotTintAccessory: "Slots de acessórios",
+  colorScopeRowLabel: "Coloração",
+  colorScopeOff: "Desligado",
+  colorScopeLabels: "Rótulos",
+  colorScopeEverything: "Tudo",
   rarityColorsSectionTitle: "Cores de raridade",
 
   titleManageSubstatTargets: "Gerenciar alvos de substats",

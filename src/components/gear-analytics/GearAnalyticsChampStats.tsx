@@ -314,7 +314,8 @@ function readIncludeGlyphs(): boolean {
 export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCollapse }: Props) {
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
-  const { colorStatsSlotsRarity } = useDisplayPreferences()
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   // Contrast-correct stat range-row labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 
@@ -418,7 +419,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
               so that different stat magnitudes (e.g. SPD vs HP flat) are
               independently readable. */}
           {substatStats.map((entry) => (
-            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={colorStatsSlotsRarity ? adaptStatFg(substatColors[entry.variant]?.fg) : undefined} />
+            <SubstatRangeRow key={entry.variant} entry={entry} labelColor={colorStatTexts ? adaptStatFg(substatColors[entry.variant]?.fg) : undefined} />
           ))}
         </Box>
       )}

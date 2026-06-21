@@ -5,8 +5,11 @@ import { useI18n } from '../../lib/i18n'
 import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
 import type { SlotTints } from '../../lib/slotTints'
 import type { RarityColors } from '../../lib/rarityColors'
+import { type ColorScope, COLOR_SCOPES } from '../../lib/colorScope'
 import ColorField from '../ColorField'
+import { CycleButton } from '../CycleButton'
 import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../../lib/constants'
 import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
 
 // Parse with a fallback color, then a hardcoded light-blue default — wraps the SSOT
@@ -26,10 +29,41 @@ export default function ManageColorsDialog(props: {
   // Rarity palette (rarity 1–6) — single fg colour each; one palette feeds labels AND borders/charts.
   rarityColors: RarityColors
   setRarityColors: React.Dispatch<React.SetStateAction<RarityColors>>
+  // Per-group colour scope (off / labels / everything) — a CycleButton at the top of each section.
+  statColorScope: ColorScope
+  setStatColorScope: (next: ColorScope) => void
+  rarityColorScope: ColorScope
+  setRarityColorScope: (next: ColorScope) => void
+  slotColorScope: ColorScope
+  setSlotColorScope: (next: ColorScope) => void
   onReset: () => void
 }) {
-  const { open, onClose, substatColors, setSubstatColors, slotTints, setSlotTints, rarityColors, setRarityColors, onReset } = props
+  const {
+    open, onClose, substatColors, setSubstatColors, slotTints, setSlotTints, rarityColors, setRarityColors,
+    statColorScope, setStatColorScope, rarityColorScope, setRarityColorScope, slotColorScope, setSlotColorScope, onReset,
+  } = props
   const { t } = useI18n()
+  // CycleButton options (Off / Labels / Everything) — order from the COLOR_SCOPES SSOT.
+  const scopeOptions = React.useMemo(() => COLOR_SCOPES.map((s) => ({
+    value: s,
+    label: s === 'off' ? t('colorScopeOff') : s === 'labels' ? t('colorScopeLabels') : t('colorScopeEverything'),
+  })), [t])
+  // A "Coloring: [Off|Labels|Everything]" row placed at the top of each colour section.
+  // Same 150px label column as the colour rows so the cycle button left-aligns under the Text buttons.
+  const renderScopeRow = (scope: ColorScope, setScope: (next: ColorScope) => void) => (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25, mb: 1 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 136 }}>{t('colorScopeRowLabel')}</Typography>
+      {/* CycleButton is intrinsically zero-sized (absolutely-positioned children) — give it an
+          explicit min-width/height so the label strip is visible, mirroring MenuCycleRow.
+          justifySelf:start keeps it left-aligned in the column instead of stretching. */}
+      <CycleButton
+        options={scopeOptions}
+        value={scope}
+        onChange={(v) => setScope(v as ColorScope)}
+        sx={{ justifySelf: 'start', minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX }}
+      />
+    </Box>
+  )
   // draftAlphas: slider alpha dragged but not yet committed — same pattern as MUI Slider.
   const [draftAlphas, setDraftAlphas] = React.useState<Record<number, number>>({})
   // draftColors: color picker dragged but not yet committed — mirrors draftAlphas for colors.
@@ -59,6 +93,8 @@ export default function ManageColorsDialog(props: {
       <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgChooseColors')}</Typography>
+        {/* Substat (stat-name) colouring scope. */}
+        {renderScopeRow(statColorScope, setStatColorScope)}
         <Stack spacing={1.25}>
           {STAT_VARIANTS_PRIORITY.map((vk) => {
             const defaultFg = (DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9') as string
@@ -192,6 +228,7 @@ export default function ManageColorsDialog(props: {
             SVGs are single-fill, so there is no background/alpha to configure here. */}
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('slotTintsSectionTitle')}</Typography>
+          {renderScopeRow(slotColorScope, setSlotColorScope)}
           <Stack spacing={1.25}>
             {([
               { key: 'armor' as const, label: t('slotTintArmor') },
@@ -214,6 +251,7 @@ export default function ManageColorsDialog(props: {
             WORD (contrast-adapted) and feeds borders/charts/frames (raw). Single fg colour each. */}
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('rarityColorsSectionTitle')}</Typography>
+          {renderScopeRow(rarityColorScope, setRarityColorScope)}
           <Stack spacing={1.25}>
             {([1, 2, 3, 4, 5, 6] as const).map((rank) => (
               <Box key={`rarity-color-${rank}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>

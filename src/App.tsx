@@ -106,6 +106,7 @@ import { SlotTintProvider } from './lib/slotTintContext'
 import { useRarityColors, DEFAULT_RARITY_COLORS } from './lib/rarityColors'
 import { RarityPaletteProvider } from './lib/rarityColorContext'
 import { StatColorProvider } from './lib/statColorContext'
+import { DEFAULT_COLOR_SCOPE } from './lib/colorScope'
 import {
   computeMergedRules,
   buildRulesForRecipe,
@@ -642,14 +643,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
   // Auto-push: when enabled and an endpoint is active, push the sellfile on every dirty-state change.
   const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
-  const { colorStatsSlotsRarity, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
+  // Stat-text coloring (chips/preview/summaries) is on whenever the stat group is not 'off'.
+  const colorStatTextsOn = statColorScope !== 'off'
   const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
   // Both panel hooks share the same underlying stores, so updates from the panels are
   // immediately visible here and vice-versa (imperative reset/restore also updates the panels).
   const [builderRecipeCollapsed] = useBuilderRecipeCollapsedPreference()
   const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
-  const { setColorStatsSlotsRarity } = useDisplayPreferenceActions()
+  const { setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()
+  // Master colour toggle (theme menu / table header): on ⇒ all three groups 'everything', off ⇒ all 'off'.
+  const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
+  const setAllColorScopes = useCallback((on: boolean) => {
+    const next = on ? DEFAULT_COLOR_SCOPE : 'off'
+    setStatColorScope(next)
+    setRarityColorScope(next)
+    setSlotColorScope(next)
+  }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
   // Normalize the note text so recipe overrides parsing never sees null.
   const recipeOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
   // Resolve recipe overrides tag actions based on the current note + answers.
@@ -1154,11 +1165,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatColors,
     resetColors,
   } = useManageColorsDialog()
-  // Slot glyph tints (armor/accessory) — gated by the same colorStatsSlotsRarity flag; fed to both the
-  // SlotTintProvider (renders the tint everywhere) and the Manage Colors dialog (edits them).
+  // Slot glyph tints (armor/accessory) — gated by slotColorScope; fed to both the SlotTintProvider
+  // (renders the tint everywhere) and the Manage Colors dialog (edits them).
   const [slotTints, setSlotTints] = useSlotTints()
-  // Rarity palette (rarity 1–6) — one editable palette feeds both raw accents (borders/charts) and
-  // contrast-adapted rarity labels (gated by colorStatsSlotsRarity). Fed to the provider + dialog.
+  // Rarity palette (rarity 1–6) — one editable palette feeds raw accents (borders/charts) and
+  // contrast-adapted rarity labels, gated by rarityColorScope. Fed to the provider + dialog.
   const [rarityColors, setRarityColors] = useRarityColors()
   // Usage counts for sets and metasets across current recipes
   const setUsageCounts = useMemo(() => {
@@ -7070,7 +7081,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       editingRuleIndex={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
       metasets={metasets}
       substatColors={substatColors}
-      useStatButtonColors={colorStatsSlotsRarity}
+      useStatButtonColors={colorStatTextsOn}
       colorBlindMode={colorBlindMode}
       recipes={customRecipes}
       selectedIsDirty={safeguardBuilderIsDirty}
@@ -9006,8 +9017,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // panel width, context groups) are passed per call site.
   const gearGridSharedProps = useMemo(() => ({
     substatColors,
-    useStatButtonColors: colorStatsSlotsRarity,
-    onToggleStatColors: setColorStatsSlotsRarity,
+    useStatButtonColors: colorStatTextsOn,
+    // Master colour toggle in the grid header menu: reflects "any group on" and flips all on/off.
+    statColorsMasterOn: anyColorScopeOn,
+    onToggleStatColors: setAllColorScopes,
     onOpenManageColors: openColors,
     colorBlindMode,
     onChangeColorBlindMode: setColorBlindMode,
@@ -9025,7 +9038,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     improvementChanceByArtifactId,
     safeguardRankByArtifactId,
   }), [
-    substatColors, colorStatsSlotsRarity, setColorStatsSlotsRarity, openColors, colorBlindMode,
+    substatColors, colorStatTextsOn, anyColorScopeOn, setAllColorScopes, openColors, colorBlindMode,
     setColorBlindMode, colorIconSrc, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
     handleGearInspectorRuleView, handleGearInspectorRecipeMatchJump, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
     gearInspectorSubstatSortPrefs.state, gearInspectorSubstatSortSpec, resolvedSafeguardRules,
@@ -9066,9 +9079,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect, isSideBySide, liveRightWidthPx, splitterRightPx])
 
   return (
-    <SlotTintProvider enabled={colorStatsSlotsRarity} tints={slotTints}>
-    <RarityPaletteProvider enabled={colorStatsSlotsRarity} colors={rarityColors}>
-    <StatColorProvider enabled={colorStatsSlotsRarity} substatColors={substatColors}>
+    <SlotTintProvider scope={slotColorScope} tints={slotTints}>
+    <RarityPaletteProvider scope={rarityColorScope} colors={rarityColors}>
+    <StatColorProvider scope={statColorScope} substatColors={substatColors}>
     <Container maxWidth={false} disableGutters sx={{
       pt: 1.5,
       // In SBS the papers fill to the viewport bottom — no bottom padding so the
@@ -9397,7 +9410,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
 	        gearInspectorSubstatSort={gearInspectorSubstatSortPrefs.state}
-	        useStatButtonColors={colorStatsSlotsRarity}
+	        useStatButtonColors={colorStatTextsOn}
 	        substatColors={substatColors}
 	        onClearGearInspectorSubstatSort={gearInspectorSubstatSortPrefs.clear}
 	        onSetGearInspectorSubstatSortState={setGearInspectorSubstatSortState}
@@ -9478,7 +9491,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               onCollapsedChange={setFilterCollapsed}
               gearInspectorChampionOptions={gearInspectorChampionOptions}
               substatColors={substatColors}
-              useStatButtonColors={colorStatsSlotsRarity}
+              useStatButtonColors={colorStatTextsOn}
               hasManualGearInspectorItems={hasManualGearInspectorRows}
               combinedScroll
             />
@@ -9643,7 +9656,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recipes={recipeOverridesRecipesForRules}
           metasets={metasets}
           safeguardRules={safeguardRules}
-          useStatButtonColors={colorStatsSlotsRarity}
+          useStatButtonColors={colorStatTextsOn}
           substatColors={substatColors}
           gearSummary={gearInspectorOutcomeSummary}
           summaryProgressRatio={workloadProgressRatio}
@@ -9724,7 +9737,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 <GearDiffPreview
                   payload={gearDbCommandToast.diff}
                   substatColors={substatColors}
-                  useStatButtonColors={colorStatsSlotsRarity}
+                  useStatButtonColors={colorStatTextsOn}
                   scrollMode="clip"
                 />
               </Box>
@@ -10033,6 +10046,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setSlotTints={setSlotTints}
           rarityColors={rarityColors}
           setRarityColors={setRarityColors}
+          statColorScope={statColorScope}
+          setStatColorScope={setStatColorScope}
+          rarityColorScope={rarityColorScope}
+          setRarityColorScope={setRarityColorScope}
+          slotColorScope={slotColorScope}
+          setSlotColorScope={setSlotColorScope}
           onReset={() => { resetColors(); setSlotTints(DEFAULT_SLOT_TINTS); setRarityColors(DEFAULT_RARITY_COLORS) }}
         />
       ) : null}
@@ -10052,7 +10071,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           activeTab={logicHubDialogTab}
           onChangeTab={setLogicHubDialogTab}
           substatColors={substatColors}
-          useStatButtonColors={colorStatsSlotsRarity}
+          useStatButtonColors={colorStatTextsOn}
           onJumpToRule={handleGearInspectorRuleView}
           customRecipes={customRecipes}
           gearInspectorItems={gearInspectorItems}

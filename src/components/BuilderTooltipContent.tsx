@@ -40,7 +40,8 @@ function dedupKey(arr: string[], idx: number): string {
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t, lang } = useI18n()
-  const { colorStatsSlotsRarity: colorStatTexts, showSetIcons } = useDisplayPreferences()
+  const { statColorScope, showSetIcons } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
   const theme = useTheme<Theme>()

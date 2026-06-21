@@ -47,7 +47,8 @@ function heatColor(intensity: number): string {
 export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainStat, collapsed, onToggleCollapse }: Props) {
   const theme = useTheme()
   const { t } = useI18n()
-  const { colorStatsSlotsRarity } = useDisplayPreferences()
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   // Contrast-correct stat axis-label colors for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
   const [substatColors] = useSubstatColors()
@@ -129,7 +130,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
                     fontSize: 10,
                     // Use the user-configured stat color; fall back to theme secondary.
                     // Respect the global "color stat texts" preference.
-                    color: colorStatsSlotsRarity ? (adaptStatFg(substatColors[variant]?.fg) ?? theme.palette.text.secondary) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
+                    color: colorStatTexts ? (adaptStatFg(substatColors[variant]?.fg) ?? theme.palette.text.secondary) : (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',

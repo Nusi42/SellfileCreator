@@ -2,43 +2,49 @@
  * rarityColorContext
  *
  * Provides the active (possibly user-edited) rarity palette to the whole app as one source of
- * truth. Editing a rarity colour updates BOTH uses from this single palette:
+ * truth. Editing a rarity colour updates every use from this single palette; the rarity SCOPE
+ * (off / labels / everything) decides which surfaces actually colour:
  *
- *  - Raw accent (borders / chart fills / gear-card frames) — verbatim, NO contrast adaptation,
- *    and NOT gated by the master colour flag (borders are always coloured today). Read via
- *    `useRarityAccentColor`.
- *  - Label text — contrast-adapted for legibility (same adapter substat fg colours use) and gated
- *    by the `colorStatsSlotsRarity` flag; `undefined` when off so labels inherit the theme colour.
- *    Read via `useRarityTextColor` (single rarity) or `useRarityTextColorMap` (all six, for the
- *    inline string colorizer).
+ *  - Label TEXT (rarity words) — contrast-adapted; coloured when scope ≥ 'labels'. Button-context
+ *    rarity words colour only when scope === 'everything'.
+ *  - Raw accents (borders / chart fills / gear-card frames) — verbatim, NO contrast adaptation;
+ *    coloured only when scope === 'everything' (a non-text "everything" use). When out of scope the
+ *    call sites fall back to their neutral divider colour.
  */
 import { createContext, use, useMemo } from 'react'
 import { useSubstatFgAdapter } from './themeContrastHooks'
 import { DEFAULT_RARITY_COLORS, resolveRarityAccentColor, type RarityColors } from './rarityColors'
 import { useI18n } from './i18n'
 import { rarityRankValueI18nKey } from './types'
+import { type ColorScope, scopeColorsButtons, scopeColorsLabels } from './colorScope'
 
 type RarityContextValue = {
-  // The active raw palette (defaults unless user-edited) — for borders/charts/frames.
+  // The active raw palette (defaults unless user-edited).
   palette: RarityColors
-  // Per-rarity contrast-adapted text colour, or undefined when the flag is off.
+  // Per-rarity adapted text colour for LABEL contexts (empty when scope is off).
   textColors: Record<number, string | undefined>
+  // Per-rarity adapted text colour for BUTTON contexts (empty unless scope === everything).
+  buttonTextColors: Record<number, string | undefined>
+  // Whether raw accents (borders/charts) should colour — true only when scope === everything.
+  accentEnabled: boolean
 }
 
 const RarityColorContext = createContext<RarityContextValue>({
   palette: DEFAULT_RARITY_COLORS,
   textColors: {},
+  buttonTextColors: {},
+  accentEnabled: false,
 })
 
 const RARITY_RANKS: readonly (1 | 2 | 3 | 4 | 5 | 6)[] = [1, 2, 3, 4, 5, 6]
 
 export function RarityPaletteProvider({
-  enabled,
+  scope,
   colors,
   children,
 }: {
-  /** The global colorStatsSlotsRarity flag — gates the label TEXT tint only. */
-  enabled: boolean
+  /** The rarity colour scope (off / labels / everything). */
+  scope: ColorScope
   /** Active raw palette; defaults applied when omitted. */
   colors?: RarityColors
   children: React.ReactNode
@@ -48,13 +54,14 @@ export function RarityPaletteProvider({
   const palette = colors ?? DEFAULT_RARITY_COLORS
 
   const value = useMemo<RarityContextValue>(() => {
-    // Flag off ⇒ no text tint (labels inherit theme colour); borders still read the raw palette.
+    const labels = scopeColorsLabels(scope)
+    const buttons = scopeColorsButtons(scope)
     const textColors: Record<number, string | undefined> = {}
-    if (enabled) {
+    if (labels) {
       for (const rank of RARITY_RANKS) textColors[rank] = adaptFg(palette[rank])
     }
-    return { palette, textColors }
-  }, [enabled, adaptFg, palette])
+    return { palette, textColors, buttonTextColors: buttons ? textColors : {}, accentEnabled: buttons }
+  }, [scope, adaptFg, palette])
 
   return <RarityColorContext value={value}>{children}</RarityColorContext>
 }
@@ -64,30 +71,35 @@ export function useRarityPalette(): RarityColors {
   return use(RarityColorContext).palette
 }
 
-/** Raw active palette colour for a rarity — borders/charts/frames (no flag gate, no adaptation). */
+/**
+ * Raw active palette colour for a rarity accent (borders/charts/frames). Returns undefined unless the
+ * rarity scope is 'everything', so out-of-scope call sites fall back to their neutral divider colour.
+ */
 export function useRarityAccentColor(rarity: number | null | undefined): string | undefined {
-  const { palette } = use(RarityColorContext)
+  const { palette, accentEnabled } = use(RarityColorContext)
+  if (!accentEnabled) return undefined
   return resolveRarityAccentColor(rarity, palette)
 }
 
-/** Contrast-adapted text colour for a rarity word, or undefined when the master flag is off. */
-export function useRarityTextColor(rarity: number | null | undefined): string | undefined {
-  const { textColors } = use(RarityColorContext)
+/**
+ * Contrast-adapted text colour for a rarity word, or undefined when out of scope. `inButton` reads
+ * the button-scoped colour (set only when scope === 'everything'); otherwise the label-scoped colour.
+ */
+export function useRarityTextColor(rarity: number | null | undefined, inButton = false): string | undefined {
+  const { textColors, buttonTextColors } = use(RarityColorContext)
   if (rarity == null) return undefined
-  return textColors[Math.max(1, Math.min(6, Math.round(Number(rarity))))]
+  const map = inButton ? buttonTextColors : textColors
+  return map[Math.max(1, Math.min(6, Math.round(Number(rarity))))]
 }
 
-/**
- * The full per-rarity adapted text-colour map (empty when the flag is off). For the inline string
- * colorizer (`renderColoredStatText`), which needs every rarity colour up front.
- */
+/** Full per-rarity LABEL-scoped adapted text-colour map (empty when scope is off). */
 export function useRarityTextColorMap(): Record<number, string | undefined> {
   return use(RarityColorContext).textColors
 }
 
 /**
  * Localized rarity WORD → adapted colour, for the inline string colorizer (`renderColoredStatText`),
- * which tokenizes plain text. Empty when the master flag is off so rarity words stay un-tinted.
+ * which tokenizes plain text (label contexts). Empty when the rarity scope is off.
  */
 export function useRarityLabelColorMap(): ReadonlyMap<string, string> {
   const { t } = useI18n()

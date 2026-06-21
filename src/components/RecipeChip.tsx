@@ -173,7 +173,8 @@ function RecipeChip({
   onContextMenu: onContextMenuProp,
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
-  const { showFactionIcons, colorStatsSlotsRarity, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const { showFactionIcons, statColorScope, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   // Rarity word → adapted colour for tinting the rarity word in the chip summary (empty when off).
   const rarityLabelColors = useRarityLabelColorMap()
   const theme = useTheme()
@@ -220,7 +221,7 @@ function RecipeChip({
   const restSummary = useMemo(
     () => summaryParts(recipe, metasets, {
       substatColors,
-      useStatButtonColors: colorStatsSlotsRarity,
+      useStatButtonColors: colorStatTexts,
       showFactionIcons,
       showSetIcons,
       showSlotIcons,
@@ -232,7 +233,7 @@ function RecipeChip({
       surfacePaper: bgPaper,
       rarityLabelColors,
     }),
-    [recipe, metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper, rarityLabelColors],
+    [recipe, metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion, bgPaper, rarityLabelColors],
   )
   const keepColor = recipe.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden

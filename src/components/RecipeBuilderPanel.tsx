@@ -10,7 +10,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, rarityCodeParts, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
 import { RarityCodeLabel } from './RarityLabel'
 import { StatLabel } from './StatLabel'
-import { useStatTextColorMap } from '../lib/statColorContext'
+import { SlotTintButtonScope } from '../lib/slotTintContext'
+import { useStatButtonColorMap } from '../lib/statColorContext'
 import { variantToSub } from '../lib/hsfTypes'
 import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
@@ -1622,9 +1623,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   })
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
-  const { colorStatsSlotsRarity: colorStatTexts } = useDisplayPreferences()
-  // Per-variant adapted stat-name colours for substat toggle labels (empty when the flag is off).
-  const statTextColors = useStatTextColorMap()
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
+  // Button-scoped stat-name colours for the substat TOGGLE labels (empty unless stat scope 'everything').
+  const statTextColors = useStatButtonColorMap()
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
   const mixedPatternColor = theme.custom.multiEditMixedBg
@@ -2710,7 +2712,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              <StatLabel variant={variant} />
+              <StatLabel variant={variant} inButton />
             </ToggleButton>
           )
         })}
@@ -2750,7 +2752,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              <StatLabel variant={variant} />
+              <StatLabel variant={variant} inButton />
             </ToggleButton>
           )
         })}
@@ -6865,6 +6867,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             ))}
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
+          {/* SlotTintButtonScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
+          <SlotTintButtonScope>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const slotState = multiEditActive ? getSlotState(id) : (displayArtifactTypes.includes(id) ? 'all' : 'none')
@@ -6980,6 +6984,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               )
             })}
           </Box>
+          </SlotTintButtonScope>
           </Collapse>
           </Box>{/* end slots override badge wrapper */}
         </FormControl>

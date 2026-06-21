@@ -575,6 +575,10 @@ const overrides: Catalog = {
   slotTintsSectionTitle: "Teintes des icônes d’emplacement",
   slotTintArmor: "Emplacements d’armure",
   slotTintAccessory: "Emplacements d’accessoires",
+  colorScopeRowLabel: "Coloration",
+  colorScopeOff: "Désactivé",
+  colorScopeLabels: "Étiquettes",
+  colorScopeEverything: "Partout",
   rarityColorsSectionTitle: "Couleurs de rareté",
 
   titleManageSubstatTargets: "Gérer les objectifs de sous-stats",

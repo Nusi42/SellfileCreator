@@ -15,10 +15,10 @@ import { rarityRankValueI18nKey, rarityCodeParts, type RarityCode } from '../lib
 import { NBSP } from '../lib/constants'
 import { useRarityTextColor } from '../lib/rarityColorContext'
 
-/** One tinted rarity word. `component` lets callers render it inline (default) or as a block span. */
-export function RarityLabel({ rarity }: { rarity: number }) {
+/** One tinted rarity word. `inButton` reads the button-scoped colour (scope === 'everything'). */
+export function RarityLabel({ rarity, inButton = false }: { rarity: number; inButton?: boolean }) {
   const { t } = useI18n()
-  const color = useRarityTextColor(rarity)
+  const color = useRarityTextColor(rarity, inButton)
   // color undefined ⇒ omit the sx colour entirely so the word inherits the theme text colour.
   return (
     <Box component="span" sx={color ? { color } : undefined}>
@@ -56,13 +56,13 @@ export function RarityLabelList({ values, separator = ', ' }: { values: readonly
  * glyph left in the surrounding colour. Any/empty codes render nothing. SSOT for the comparator forms
  * the builder/safeguard rarity selectors show.
  */
-export function RarityCodeLabel({ code }: { code: RarityCode | undefined }) {
+export function RarityCodeLabel({ code, inButton = false }: { code: RarityCode | undefined; inButton?: boolean }) {
   const { comparator, rank } = rarityCodeParts(code)
   if (rank == null) return null
   return (
     <>
       {comparator ? `${comparator}${NBSP}` : null}
-      <RarityLabel rarity={rank} />
+      <RarityLabel rarity={rank} inButton={inButton} />
     </>
   )
 }

@@ -150,7 +150,7 @@ type SafeguardChipProps = {
   hasActiveDrag: boolean
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
-  colorStatsSlotsRarity: boolean
+  colorStatTexts: boolean
   showFactionIcons: boolean
   showSetIcons: boolean
   showSlotIcons: boolean
@@ -178,7 +178,7 @@ type SafeguardChipProps = {
 const SafeguardChip = React.memo(function SafeguardChip({
   rule, ruleIndex, isSelected, isFirst, isLast, isEditing, pendingName,
   dndEnabled, isGhostDragging, hasActiveDrag,
-  metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons,
+  metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons,
   showTagsInChips,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
@@ -223,7 +223,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const summary = useMemo(
     () => safeguardSummaryParts(rule, metasets, {
       substatColors,
-      useStatButtonColors: colorStatsSlotsRarity,
+      useStatButtonColors: colorStatTexts,
       showFactionIcons,
       showSetIcons,
       showSlotIcons,
@@ -232,7 +232,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
       surfacePaper: schemePalette.background.paper,
       rarityLabelColors,
     }),
-    [rule, metasets, substatColors, colorStatsSlotsRarity, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper, rarityLabelColors],
+    [rule, metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper, rarityLabelColors],
   )
 
   return (
@@ -438,7 +438,8 @@ export default function SafeguardChipsPanel({
   const effectiveSelectedIndicesRef = useRef<ReadonlySet<number>>(effectiveSelectedIndices)
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
-  const { showFactionIcons, colorStatsSlotsRarity, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const { showFactionIcons, statColorScope, showSetIcons, showSlotIcons } = useDisplayPreferences()
+  const colorStatTexts = statColorScope !== 'off'
   // Read the chips-list tag display preference — separate from the builder form inline display.
   const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
 
@@ -1078,7 +1079,7 @@ export default function SafeguardChipsPanel({
                 hasActiveDrag={hasActiveDrag}
                 metasets={metasets}
                 substatColors={substatColors}
-                colorStatsSlotsRarity={colorStatsSlotsRarity}
+                colorStatTexts={colorStatTexts}
                 showFactionIcons={showFactionIcons}
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}

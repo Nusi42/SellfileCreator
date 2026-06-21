@@ -573,6 +573,10 @@ const overrides: Catalog = {
   slotTintsSectionTitle: "Відтінки значків слотів",
   slotTintArmor: "Слоти броні",
   slotTintAccessory: "Слоти аксесуарів",
+  colorScopeRowLabel: "Забарвлення",
+  colorScopeOff: "Вимк",
+  colorScopeLabels: "Підписи",
+  colorScopeEverything: "Усюди",
   rarityColorsSectionTitle: "Кольори рідкості",
 
   titleManageSubstatTargets: "Цілі підстатів",

@@ -105,10 +105,12 @@ export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.gearInspect
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
 export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
-// Persisted master toggle for coloring stat texts (chips/preview), slot glyph tints, AND rarity labels.
-// Renamed across iterations (statButtonBorders → colorStatsAndSlots → colorStatsSlotsRarity); no
-// migration from the old keys (starts at default).
-export const COLOR_STATS_SLOTS_RARITY_KEY = 'sellfileCreator.colorStatsSlotsRarity.v1'
+// Per-group colour SCOPE (off / labels / everything) for stat-name, rarity, and slot colouring.
+// Replaces the former single colorStatsSlotsRarity boolean; no migration from old keys (default
+// 'everything'). The theme-menu master toggle just flips all three between off and everything.
+export const COLOR_SCOPE_STAT_KEY = 'sellfileCreator.colorScope.stat.v1'
+export const COLOR_SCOPE_RARITY_KEY = 'sellfileCreator.colorScope.rarity.v1'
+export const COLOR_SCOPE_SLOT_KEY = 'sellfileCreator.colorScope.slot.v1'
 // Persisted auto side-by-side zoom preferences (theme flyout): whether the dynamic zoom is enabled
 // at all, and the user-tunable cutoff below which it gives up and reverts to the native layout.
 export const AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY = 'sellfileCreator.autoSideBySideZoom.enabled.v1'

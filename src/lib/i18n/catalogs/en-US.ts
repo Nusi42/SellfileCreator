@@ -598,6 +598,10 @@ const enUS: Catalog = {
   slotTintsSectionTitle: "Slot icon tints",
   slotTintArmor: "Armor slots",
   slotTintAccessory: "Accessory slots",
+  colorScopeRowLabel: "Coloring",
+  colorScopeOff: "Off",
+  colorScopeLabels: "Labels",
+  colorScopeEverything: "Everything",
   rarityColorsSectionTitle: "Rarity colors",
 
   titleManageSubstatTargets: "Manage Substat Targets",
