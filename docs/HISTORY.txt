@@ -1,6 +1,15 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.24 — 2026-06-21
+English:
+- **New: Gear slot icons now show a subtle color tint** — armor slots (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) appear in pale gold; accessory slots (Ring, Amulet, Banner) appear in pale blue. The tints adapt to the active theme and can be customized or reset in Manage Colors. They follow the "Color stats & slots" toggle in display settings.
+- **Fixed: Gear waiting in your RSL Helper inbox was not counted toward safeguard protection** — items delivered as in-game mail but not yet collected were quietly passed over, causing safeguard to generate extra placeholder keep rules until the gear appeared in a later sync.
+
+Deutsch:
+- **Neu: Gear-Slot-Icons zeigen jetzt eine subtile Farbtönung** — Rüstungs-Slots (Waffe, Helm, Schild, Handschuhe, Brustpanzer, Stiefel) erscheinen in hellem Gold; Accessoire-Slots (Ring, Amulett, Banner) in hellem Blau. Die Tönung passt sich dem aktiven Theme an und kann in „Farben verwalten" angepasst oder zurückgesetzt werden. Sie folgt dem Schalter „Stats & Slots einfärben" in den Anzeigeeinstellungen.
+- **Behoben: Gear im RSL-Helper-Posteingang wurde nicht für den Safeguard-Schutz berücksichtigt** — Gegenstände, die als In-Game-Post eingegangen, aber noch nicht abgeholt wurden, wurden stillschweigend übergangen; dadurch erzeugte der Safeguard zusätzliche Platzhalter-Keep-Regeln, bis das Gear bei einer späteren Synchronisierung ankam.
+
 ## v1.0.23 — 2026-06-20
 English:
 - **New: Load SFC and Export/Push buttons now have a dropdown chevron (▾)** — clicking the chevron opens the preset and options menu; clicking the main button area directly opens the file picker or exports. On the first click each session, the Load SFC button opens the menu automatically to help you discover presets. The nudge to right-click is gone.
