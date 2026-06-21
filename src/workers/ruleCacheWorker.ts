@@ -98,7 +98,20 @@ let lastSentMergedCount = -1
 // leak). The baseline merged rules are invariant while the rules-cache key + recipeModes
 // are unchanged, and the engine PRESERVES its BucketedRules across pushes, so we skip the
 // configure call entirely when this composite is unchanged. null = nothing configured yet.
+//
+// CRITICAL: this key tracks the BASELINE config. The matcher pass (buildPipelineMatches)
+// overwrites the engine with the FINAL ruleset, so it MUST call invalidateConfiguredKey()
+// afterward — otherwise the next pipeline run's detection sees configureKey === lastConfiguredKey,
+// skips the baseline reconfigure, and runs evaluate+collect base_match against the leftover FINAL
+// ruleset. The FINAL ruleset carries the injected safeguard keep-rules, which give
+// `ignore_by_safeguards` (e.g. Chaos Ore "kept for reroll") items a non-ignored keep — so they
+// are NOT flagged at-risk and the safeguard UNDER-protects (the intermittent ~285-rule drop:
+// 1554 → 1270). Forcing a baseline reconfigure before every detection makes the protected set
+// consistent (see tests/playwright/phantom-overprotection-repro.spec.ts).
 let lastConfiguredKey: string | null = null
+// Reset the configured-key sentinel so the next detection-phase configure runs unconditionally.
+// Called by buildPipelineMatches after it loads the FINAL ruleset into the engine.
+const invalidateConfiguredKey = (): void => { lastConfiguredKey = null }
 
 // O(N) element-wise comparison; no allocation.
 // V8 terminates at pointer equality for identical strings (common case for large fingerprints).
@@ -367,6 +380,11 @@ const buildPipelineMatches = async (
     rules: mergedRules,
     recipeModes: Array.isArray(recipeModes) ? recipeModes : [],
   })
+  // The engine now holds the FINAL ruleset, NOT the baseline. Invalidate the baseline
+  // configured-key sentinel so the NEXT run's detection reconfigures the baseline before
+  // computing base_match — otherwise it would detect against this leftover FINAL config and
+  // under-protect `ignore_by_safeguards` items (see invalidateConfiguredKey's definition).
+  invalidateConfiguredKey()
   if (!wasmVersionLogged) {
     await getWasmRuleEngineVersion()
     wasmVersionLogged = true
