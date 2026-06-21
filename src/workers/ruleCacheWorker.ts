@@ -692,9 +692,17 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     })
     logTalcCounters(`after-mergedRulesFinal id=${id} rules=${mergedRulesFinal.length}`)
 
-    // Optimisation: when detection found nothing to protect (no injected safeguard
-    // rules), the final merged rules are functionally identical to baseline and the
-    // baseline match map is already authoritative. Skip the second O(N×M) scan.
+    // The final ruleset differs from baseline ONLY by the injected safeguard keep-rules +
+    // anticipateGaps placeholders. An item's final gear-inspector verdict can therefore differ
+    // from its baseline verdict ONLY when a safeguard keep-override can fire for it — i.e. when
+    // the item is NOT already kept by a non-ignored recipe (`evaluate_item`'s allow_keep_override
+    // gate, matcher_evaluator.rs). So the verdict can only change for the CANDIDATE set:
+    //   baseline firstMatch is sold (or no match)  OR  kept by an `ignore_by_safeguards` recipe.
+    // Every other item (kept by a non-ignored recipe) is provably untouched by the injected rules,
+    // so its baseline verdict is already the final verdict. We therefore re-evaluate ONLY the
+    // candidate subset against the final ruleset and reuse baseline for the rest — instead of a
+    // second full O(N×M) scan. Verified (changedOutsideCandidate=0) across all example DBs ×
+    // 3 override tiers and gated by tests/repro/safeguard-verdict-golden.ts (per-item equivalence).
     const detectionFoundNothing = safeguardDetectionSnapshot != null
       && safeguardDetectionSnapshot.entries.length === 0
     let matches: GearInspectorMatchWorkerItemResult[]
@@ -710,7 +718,46 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       if (total > 0) {
         emitPipelineProgress?.({ completed: total, total })
       }
+    } else if (needsDetection) {
+      // Restructure (candidate-subset matcher). An item is a candidate when its BASELINE
+      // first-match is not a keep from a non-ignored recipe — only those can flip under the
+      // injected safeguard rules. Identical-by-construction for non-candidates.
+      const isCandidate = (itemId: number): boolean => {
+        const fm = baselineMatchMap.get(itemId)?.firstMatch
+        // Kept by a non-ignored recipe ⇒ allow_keep_override is false ⇒ verdict cannot change.
+        const keptByNonIgnored = fm != null && fm.keep === true
+          && fm.recipeIdx != null && !ignoreSafeguardRecipeIndices.has(fm.recipeIdx)
+        return !keptByNonIgnored
+      }
+      const candidateEntries = artifactEntries.filter(([itemId]) => isCandidate(itemId))
+      // Re-evaluate ONLY the candidates against the final ruleset.
+      const finalProgressRef = { value: completed }
+      const candidateMatches = await buildPipelineMatches(
+        mergedRulesFinal,
+        candidateEntries,
+        payload.recipeModes,
+        ignoreSafeguardRecipeIndices,
+        total,
+        finalProgressRef,
+        emitPipelineProgress,
+        hasActiveSafeguards,
+        runIsStale,
+      )
+      if (runIsStale()) return
+      // Merge: candidates take their freshly-evaluated final verdict; everyone else reuses the
+      // baseline verdict (already the final verdict for non-candidates).
+      const candidateById = new Map(candidateMatches.map((m) => [m.itemId, m]))
+      matches = artifactEntries.map(([itemId]) =>
+        candidateById.get(itemId)
+        ?? baselineMatchMap.get(itemId)
+        ?? { itemId, firstMatch: null, firstNonExcludedMatch: null, matchingRecipeIndices: [], matchingRecipeDecisions: [] },
+      )
+      if (total > 0 && finalProgressRef.value < total) {
+        finalProgressRef.value = total
+        emitPipelineProgress?.({ completed: total, total })
+      }
     } else {
+      // No detection (safeguards inactive): the final ruleset == baseline; full scan as before.
       const finalProgressRef = { value: completed }
       matches = await buildPipelineMatches(
         mergedRulesFinal,
