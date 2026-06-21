@@ -8,6 +8,7 @@ import type {
   RuleCachePipelineResponse,
 } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
+import { getCaptureSessionId } from '../lib/packetCapture'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type {
@@ -299,6 +300,22 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
                 data.payload.wasmLinearBytes / 1024 / 1024 | 0
             } catch { /* ignore */ }
           }
+          // TEST hook (?logWasmHeap): record the per-build safeguard PROTECTED itemKey count so a
+          // Playwright spec can replay captured endpoint packets through the REAL worker and assert
+          // the count stays correct — reproducing the phantom over-protection (1270 vs 1490/1555)
+          // in CI without manual capture. The protected set = the union of detection entries'
+          // itemKeys (same metric as the worker's [detect-io] protected=). Stored as a history
+          // array + the latest value. Tree-shaken out of DEV/release (ALLOW_TEST_HOOKS=false).
+          if (ALLOW_TEST_HOOKS && getLogWasmHeap()) {
+            try {
+              const snap = data.payload.safeguardDetection
+              const keys = new Set<number>()
+              for (const e of snap?.entries ?? []) for (const k of e.itemKeys ?? []) keys.add(k)
+              const w = window as unknown as { __protectedHistory?: number[]; __protectedCount?: number }
+              w.__protectedCount = keys.size
+              ;(w.__protectedHistory ??= []).push(keys.size)
+            } catch { /* ignore */ }
+          }
           if (abortedSet.delete(data.id)) return
           // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
           const entries = data.payload.improvementChanceEntries
@@ -413,7 +430,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // ensureWasmRuleEngineReady() resolves immediately after app-startup warmup.
       void ensureWasmRuleEngineReady().then(() => {
         const mod = getCompiledWasmRuleEngineModule()
-        if (mod) worker.postMessage({ kind: 'init-wasm', wasmModule: mod } satisfies RuleCacheWorkerRequest)
+        if (mod) {
+          // Dev-only: hand the worker the active capture session id so its console output
+          // (worker-context [detect-io]/[detect-keys]) tees into the same capture folder.
+          const captureSessionId = import.meta.env.DEV ? getCaptureSessionId() : null
+          worker.postMessage({ kind: 'init-wasm', wasmModule: mod, captureSessionId } satisfies RuleCacheWorkerRequest)
+        }
       })
     }
     const replaceWorkerAfterRuntimeError = () => {
