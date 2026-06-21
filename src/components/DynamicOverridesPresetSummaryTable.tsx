@@ -41,9 +41,10 @@ export function DynamicOverridesPresetSummaryTable({
     <Box
       sx={{
         display: 'grid',
-        // Titles run long, answers are usually short — give the title track more room so
-        // prompts wrap less and the answer column does not look stranded/empty.
-        gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)',
+        // Titles run long, answers are usually short, but an over-wide title track makes the
+        // whole popout balloon. Keep the title only slightly wider than the answer column so
+        // prompts wrap onto a couple of lines instead of stretching the card.
+        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)',
         columnGap: 2,
         rowGap: 1,
         alignItems: 'start',

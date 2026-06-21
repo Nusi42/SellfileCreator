@@ -356,7 +356,7 @@ export const FONT_FAMILY_MONO = 'var(--font-code, "JetBrains Mono", monospace)'
 // Popover (replacing the old hover tooltip, which could grow taller than the viewport
 // with no way to scroll). Width keeps the two-column table readable; the height cap
 // turns long sets into a scroll area instead of an off-screen overflow.
-export const DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX = 600
+export const DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX = 460
 export const DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX = 560
 // Hover-intent timings for the saved-set Popover: a short open delay so brushing past a
 // row does not flash it, and a short close grace so the pointer can cross the gap into

@@ -171,11 +171,15 @@ function ScrollShadowBody({
     zIndex: 1,
   })
   return (
-    <Box sx={{ position: 'relative' }}>
+    // minHeight:0 lets this wrapper shrink inside a flex parent so the scroll box can
+    // cap at 100% of the (clamped) available height rather than its content height.
+    <Box sx={{ position: 'relative', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <Box
         ref={scrollRef}
         sx={{
-          maxHeight: maxHeightPx,
+          // The smaller of the configured cap and the available height — so a flex parent
+          // that is clamped to the viewport squeezes the scroll area instead of overflowing.
+          maxHeight: `min(${maxHeightPx}px, 100%)`,
           overflowY: 'auto',
           overflowX: 'hidden',
           // Keep a thin, always-visible scrollbar as a second affordance alongside the fades.

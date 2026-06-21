@@ -9,6 +9,7 @@ import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import SendIcon from '@mui/icons-material/Send'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
@@ -21,7 +22,7 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -4351,6 +4352,28 @@ export default function NoteDialog({
     onEnableOverrides: handleEnableRecipeOverrides,
     onCloseMenu: closeViewRecipeOverridesMenu,
   })
+  // Anchor for the simple-mode (express) save/load override-set menu — opened by the
+  // chevron half of the split Reset button. Kept separate from the view-mode menu so
+  // closing one never tears down the other.
+  const [simpleOverridesPresetMenuAnchor, setSimpleOverridesPresetMenuAnchor] = useState<HTMLElement | null>(null)
+  const simpleOverridesPresetMenuOpen = Boolean(simpleOverridesPresetMenuAnchor)
+  const openSimpleOverridesPresetMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setSimpleOverridesPresetMenuAnchor(event.currentTarget)
+  }, [])
+  const closeSimpleOverridesPresetMenu = React.useCallback(() => {
+    setSimpleOverridesPresetMenuAnchor(null)
+  }, [])
+  // Controller for the express-mode save/load/delete override-set feature. Same live
+  // answers + setters as the view-mode controller; only the menu-close handler differs.
+  const simpleOverridesPresetController = useDynamicOverridesPresetController({
+    note: note ?? '',
+    recipeAnswers: recipeOverridesAnswers,
+    onRecipeAnswersChange: onRecipeOverridesAnswersChange,
+    safeguardAnswers: safeguardOverridesAnswers,
+    onSafeguardAnswersChange: onSafeguardOverridesAnswersChange,
+    onEnableOverrides: handleEnableRecipeOverrides,
+    onCloseMenu: closeSimpleOverridesPresetMenu,
+  })
   // Hold the disable dialog context so view + edit can share one confirm flow.
   const [disableRecipeOverridesContext, setDisableRecipeOverridesContext] = useState<DisableRecipeOverridesContext | null>(null)
   // Open the disable confirm dialog with the latest note snapshot.
@@ -4383,16 +4406,70 @@ export default function NoteDialog({
   // Layout: [Reset — left] [Connect · AutoPush — center] [Go Expert — right]
   const simpleActionsNode: React.ReactNode = isSimpleMode ? (
     <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-      {/* Left: Reset to Defaults */}
-      <Box sx={{ flex: 1 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          color="error"
-          onClick={handleResetRecipeOverridesAnswers}
+      {/* Left: Reset to Defaults. When there are override markers to save, it becomes a
+          split control — the main button resets, the attached chevron opens the same
+          save/load override-set menu used in the view/edit dialogs. A long localized
+          reset label truncates within LONG_LABEL_BUTTON_MAX_WIDTH_PX instead of pushing
+          the centre/right groups out of place. */}
+      {/* pr keeps a breathing gap between the chevron and the centre Connect button when
+          the left group's flex:1 stretches its right edge toward the centre. */}
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', pr: 1.5 }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            gap: '1px',
+            minWidth: 0,
+            maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
+          }}
         >
-          {t('noteDynamicOverridesResetDefaults')}
-        </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={handleResetRecipeOverridesAnswers}
+            sx={{
+              // Allow the button to shrink so the inner span can ellipsize.
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              ...(hasRecipeOverridesMarkers ? SPLIT_BUTTON_MAIN_SX : {}),
+            }}
+          >
+            {/* Inner span carries the ellipsis so the button's own paddings stay intact. */}
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t('noteDynamicOverridesResetDefaults')}
+            </Box>
+          </Button>
+          {/* Chevron only appears when there is an override selection worth saving/loading. */}
+          {hasRecipeOverridesMarkers ? (
+            <>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                aria-label={t('noteDynamicOverridesMenu')}
+                aria-haspopup="menu"
+                aria-controls={simpleOverridesPresetMenuOpen ? 'note-recipe-overrides-menu-simple' : undefined}
+                aria-expanded={simpleOverridesPresetMenuOpen ? 'true' : undefined}
+                onClick={openSimpleOverridesPresetMenu}
+                sx={SPLIT_BUTTON_CHEVRON_SX}
+              >
+                <ArrowDropDownIcon fontSize="small" />
+              </Button>
+              <Menu
+                id="note-recipe-overrides-menu-simple"
+                anchorEl={simpleOverridesPresetMenuAnchor}
+                open={simpleOverridesPresetMenuOpen}
+                onClose={closeSimpleOverridesPresetMenu}
+                slotProps={{ list: { dense: true } }}
+              >
+                {/* Express mode exposes only save/load/delete here; reset is the main button. */}
+                <DynamicOverridesPresetMenuItems controller={simpleOverridesPresetController} />
+              </Menu>
+              {/* Dialogs live outside the menu so they survive the menu closing. */}
+              <DynamicOverridesPresetDialogs controller={simpleOverridesPresetController} />
+            </>
+          ) : null}
+        </Box>
       </Box>
       {/* Center: connection notifier + auto-push */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>

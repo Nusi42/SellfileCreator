@@ -307,12 +307,15 @@ function DynamicOverridesPresetRow({
         open={anchorEl != null}
         anchorEl={anchorEl}
         placement="right-start"
-        // Keep the popout on-screen: shift along the cross axis and flip to the left when
-        // there is no room to the right.
+        // Keep the popout on-screen AND off the menu it springs from. When there is no
+        // room to the right (e.g. the near-fullscreen simple-mode dialog), flip to the
+        // TOP/BOTTOM of the row rather than to the left — a left flip would land the wide
+        // popout directly over the menu and cover the very row being hovered, blocking the
+        // click. `preventOverflow` then slides it back fully on-screen.
         modifiers={[
           { name: 'offset', options: { offset: [0, 8] } },
+          { name: 'flip', options: { fallbackPlacements: ['bottom-start', 'top-start', 'left-start'] } },
           { name: 'preventOverflow', options: { altAxis: true, padding: 8 } },
-          { name: 'flip', options: { fallbackPlacements: ['left-start'] } },
         ]}
         // Above the menu's Popper layer so the summary is not clipped behind it.
         sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
@@ -322,14 +325,25 @@ function DynamicOverridesPresetRow({
           // Re-arm/cancel the hover-close so the pointer can rest inside the popout to scroll it.
           onMouseEnter={clearTimers}
           onMouseLeave={scheduleClose}
-          sx={{
-            width: DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX,
-            maxWidth: '90vw',
-            p: 1.25,
-          }}
+          sx={(theme) => ({
+            // Width/height are viewport-bounded so the popout fits naturally at any zoom
+            // (the simple-mode dialog fills the viewport, where a fixed 600×560 box would
+            // swamp the whole screen). It never exceeds the usable area minus a small inset.
+            width: `min(${DYNAMIC_OVERRIDES_PRESET_POPOVER_WIDTH_PX}px, calc(100vw - 32px))`,
+            maxWidth: `calc(100vw - 32px)`,
+            maxHeight: `calc(100vh - 32px)`,
+            display: 'flex',
+            flexDirection: 'column',
+            p: 1.5,
+            borderRadius: 1.5,
+            // Subtle ring + soft shadow read as a floating card rather than a flat panel.
+            border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+            backgroundImage: 'none',
+          })}
         >
-          {/* Title row: which set this is + when it was saved, so the popout is self-identifying. */}
-          <Box sx={{ mb: 1 }}>
+          {/* Title row: which set this is + when it was saved, so the popout is self-identifying.
+              flexShrink: 0 keeps the header intact while the scroll body absorbs the squeeze. */}
+          <Box sx={{ mb: 1, flexShrink: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
               {preset.name}
             </Typography>
@@ -338,11 +352,15 @@ function DynamicOverridesPresetRow({
             </Typography>
           </Box>
           {/* A bolder rule (thicker + full-opacity divider colour) sets the header apart from the table. */}
-          <Divider sx={{ mb: 1.25, borderBottomWidth: 2, borderColor: 'divider', opacity: 1 }} />
-          {/* Cap the height and scroll; long sets become a scroll area instead of off-screen overflow. */}
-          <ClippedScrollBody maxHeightPx={DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX} overflowY="auto">
-            <DynamicOverridesPresetSummaryTable lines={lines} />
-          </ClippedScrollBody>
+          <Divider sx={{ mb: 1.25, borderBottomWidth: 2, borderColor: 'divider', opacity: 1, flexShrink: 0 }} />
+          {/* Scroll area fills the remaining card height (flex:1 + minHeight:0 so it can shrink
+              below the constant cap when the card is clamped to the viewport on a short/zoomed
+              screen). Its own maxHeight still caps it on tall screens. */}
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <ClippedScrollBody maxHeightPx={DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX} overflowY="auto">
+              <DynamicOverridesPresetSummaryTable lines={lines} />
+            </ClippedScrollBody>
+          </Box>
         </Paper>
       </Popper>
     </>
