@@ -22,6 +22,7 @@ import {
   getSimpleVariant,
   setSimpleVariant as persistSimpleVariant,
   AUTOSAVE_PRESET_ORIGIN_KEY,
+  AUTOSAVE_SIMPLE_EXPERT_MODE_KEY,
   getRslHelperConnectEnabled,
   getRslHelperPort,
   // Aliased so the React state setter can follow the setX naming convention without conflict.
@@ -39,7 +40,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
-import { loadAutosave } from './lib/autosave'
+import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset } from './lib/sfcPresetMatch'
 import type { SfcSetupFields } from './lib/sfcPresetMatch'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
@@ -561,6 +562,33 @@ function presetPayloadForMode(preset: FilterPreset, mode: RulesFilterPreviewMode
   const view = presetPayloadView(preset)
   if (!view) return null
   return projectFilterStateToMode(view.state, mode)
+}
+
+// Resolve the simple-mode expert choice at startup, preferring the durable autosave copy
+// over the standalone localStorage key. The standalone key is written once at click time;
+// the embedded WebView host kills the process without firing unload events, so that lone
+// write is not always flushed and the choice was lost (next launch re-opened the express
+// dialog). The autosave copy is rewritten continuously on a debounce during the session,
+// so it is reliably on disk by the time the host kills the WebView. Falls back to the
+// standalone key when no autosave copy exists (e.g. first session, or a normal browser).
+function resolveSimpleExpertModeAtStartup(): boolean {
+  // Prefer the durable autosave copy when present.
+  const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+  const fromAutosave = entry?.payload[AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]
+  if (typeof fromAutosave === 'boolean') return fromAutosave
+  // No autosave copy yet — fall back to the standalone key.
+  return getSimpleExpertMode()
+}
+
+// Synchronously stamp the expert choice into the existing autosave entry at click time, so
+// it is durably on disk immediately — independent of the 1s autosave debounce — for the case
+// where the WebView host kills the process right after the toggle. Patches only this one key
+// (leaving the rest of the saved payload intact) and no-ops when no autosave entry exists yet
+// (the debounced write will create one shortly, and the standalone key still covers startup).
+function stampSimpleExpertModeIntoAutosave(expert: boolean): void {
+  const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+  if (!entry) return
+  saveAutosave(AUTOSAVE_KEY, { ...entry.payload, [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expert })
 }
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -3813,8 +3841,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [setRslHelperConnectEnabled])
 
-  // Expert mode: restored from localStorage so the app skips express UI if the user was expert last time.
-  const [expertMode, setExpertMode] = useState(() => simpleMode ? getSimpleExpertMode() : false)
+  // Expert mode: restored on startup so the app skips express UI if the user was expert last
+  // time. Reads the durable autosave copy first (the standalone key is lost when the WebView
+  // host kills the process), falling back to the standalone key. See resolveSimpleExpertModeAtStartup.
+  const [expertMode, setExpertMode] = useState(() => simpleMode ? resolveSimpleExpertModeAtStartup() : false)
   // True when express UI should be shown (builder/preview/header hidden, dialog-only view).
   const isSimpleView = simpleMode && !expertMode
   // Captured once at startup — false when express was requested but expert was already persisted.
@@ -5272,6 +5302,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return {
       ...basePayload,
       ...(presetOrigin ? { [AUTOSAVE_PRESET_ORIGIN_KEY]: presetOrigin } : {}),
+      // Durable copy of the simple-mode expert choice (only meaningful for simple launches).
+      // Read back in preference to the standalone key, which the WebView host loses on kill.
+      ...(simpleMode ? { [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expertMode } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
@@ -5303,6 +5336,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     trimmedSfcNote,
     selectedRecipeIdx,
     selectedSafeguardRuleIdx,
+    simpleMode,
+    expertMode,
   ])
   // Mutable references are enough to trigger autosave scheduling; avoid expensive payload
   // serialization in render by passing this signal instead of an eagerly-built object.
@@ -5321,6 +5356,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
     gearInspectorSort: gearInspectorSubstatSortPrefs.state,
+    // Toggling Go Expert / Go Simple must schedule a write so the durable autosave copy of
+    // the flag is committed during the session (the WebView host kills the process without
+    // unload events, so a teardown flush never runs).
+    expertMode,
   }), [
     autosaveFiltersState,
     customRecipes,
@@ -5336,6 +5375,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     gearInspectorSubstatSortPrefs.state,
     trimmedSfcNote,
+    expertMode,
   ])
   useAutosave({
     key: AUTOSAVE_KEY,
@@ -7955,6 +7995,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteOverridesDisabled(saved.disabled)
   }, [setNoteRecipeOverridesAnswers, setNoteSafeguardOverridesAnswers, setNoteOverridesDisabled])
 
+  // Resolve once the freshly-loaded SFC's note has committed into sfcNoteRef, so callers
+  // that prune against the loaded note (applySavedSimpleOverrideAnswers) don't run against
+  // a stale/empty note. Polls per animation frame and resolves the moment the note is
+  // present, with a hard frame cap so an SFC that legitimately has no note can't spin —
+  // after the cap we resolve anyway and let the (empty-note) prune proceed as before.
+  const waitForLoadedNote = useCallback((): Promise<void> => {
+    // No rAF (non-browser/test): fall back to a microtask so behavior stays deterministic.
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      return Promise.resolve()
+    }
+    // ~30 frames (~0.5s at 60fps) is comfortably above the observed WebView commit lag
+    // while still bailing fast if the note never arrives.
+    const MAX_FRAMES = 30
+    return new Promise<void>((resolve) => {
+      let frames = 0
+      const tick = () => {
+        // Note has landed (the common case) — apply immediately.
+        if ((sfcNoteRef.current ?? '') !== '') { resolve(); return }
+        // Give up after the cap so a genuinely note-less SFC doesn't hang the restore.
+        if (frames >= MAX_FRAMES) { resolve(); return }
+        frames += 1
+        window.requestAnimationFrame(tick)
+      }
+      window.requestAnimationFrame(tick)
+    })
+  }, [])
+
   // Restore the user's last simple-mode session once when starting in express mode.
   // Skipped when expert mode was already on — the user gets the normal app.
   //
@@ -7977,18 +8044,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const loadPromise = source.kind === 'custom'
       ? loadSavedCustomSfc()
       : (handleLoadSimplePreset(source.variant), Promise.resolve())
-    // Re-apply saved override answers after the note has committed. requestAnimationFrame
-    // lets the load transition flush first so the answers prune/seed against the loaded note.
-    // A second rAF (or a microtask fallback) ensures we run after the React commit.
+    // Re-apply saved override answers AFTER the loaded note has actually committed.
+    // applySavedSimpleOverrideAnswers prunes the saved answers against sfcNoteRef.current,
+    // so it must not run until the load's note has landed in that ref (synced via a
+    // layout effect). The previous single-rAF guess flushed reliably on desktop Chromium
+    // but not inside the embedded WebView, where the commit lands a frame later — apply
+    // then pruned against an empty note and silently dropped every saved override. Instead
+    // wait for the note to become present before applying (bounded so we never spin).
     if (savedAnswers) {
-      void loadPromise.then(() => {
-        const apply = () => applySavedSimpleOverrideAnswers(savedAnswers)
-        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-          window.requestAnimationFrame(apply)
-        } else {
-          void Promise.resolve().then(apply)
-        }
-      })
+      void loadPromise.then(() => waitForLoadedNote().then(() => applySavedSimpleOverrideAnswers(savedAnswers)))
     }
   }, [
     isSimpleViewAtStart,
@@ -7997,6 +8061,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolveSimpleStartupSource,
     readSavedSimpleOverrideAnswers,
     applySavedSimpleOverrideAnswers,
+    waitForLoadedNote,
   ])
 
   // Keep the openNoteViewer ref stable so the auto-open effect can call it once.
@@ -8446,13 +8511,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Latch: once the live SFC is a real custom setup (non-preset, non-empty) in
   // simple view, the Old/Custom button stays available for the rest of the
   // session even after the user switches to a preset. Reset on entering expert.
-  const [customAvailable, setCustomAvailable] = useState(false)
+  //
+  // Seeded synchronously from autosave at startup: when express mode restores a
+  // custom setup (resolveSimpleStartupSource → 'custom'), the live SFC won't
+  // match a preset once it finishes loading, so the latch effect below WILL set
+  // this true — but only after the async load + commit settles. Seeding it here
+  // lets the toggle render 'custom' from the first paint instead of flashing the
+  // 'lategame' fallback, which is especially visible in the embedded-window tool.
+  const [customAvailable, setCustomAvailable] = useState(
+    () => isSimpleViewAtStart && resolveSimpleStartupSource().kind === 'custom',
+  )
+  // The toggle selection the express startup restore is heading toward, resolved once
+  // synchronously from autosave. Passed to NoteDialog so it can hold this value until
+  // the (async) SFC load commits a live preset match — preventing the first-paint flash
+  // of the 'lategame' fallback before a restored custom (or beginner) setup loads.
+  const [simpleStartupSelection] = useState<'beginner' | 'lategame' | 'custom' | null>(() => {
+    if (!isSimpleViewAtStart) return null
+    const source = resolveSimpleStartupSource()
+    return source.kind === 'custom' ? 'custom' : source.variant
+  })
   // Snapshot of the latest custom SFC text so the Old/Custom button can restore
   // it after the user tries a preset. Same serialization as save/autosave so the
   // restored File round-trips byte-faithfully.
   const customSfcSnapshotRef = useRef<string | null>(null)
 
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
   // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
   // custom state, so post-preset edits remain restorable.
   useEffect(() => {
@@ -8496,7 +8579,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       customSfcSnapshotRef.current = null
     }
   }, [expertMode, isSimpleView])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state */
 
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
@@ -9561,8 +9644,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets={effectiveSubstatTargets}
           simpleMode={simpleMode}
           expertMode={expertMode}
-          onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true) }}
-          onGoSimple={() => { setExpertMode(false); persistSimpleExpertMode(false) }}
+          onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true); stampSimpleExpertModeIntoAutosave(true) }}
+          onGoSimple={() => { setExpertMode(false); persistSimpleExpertMode(false); stampSimpleExpertModeIntoAutosave(false) }}
           autoPushExpressEnabled={autoPushEnabled}
           onToggleAutoPushExpress={setAutoPushEnabled}
           autoPushFlashSeq={autoPushFlashSeq}
@@ -9573,6 +9656,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           simplePresetMatch={simplePresetMatch}
           simpleCustomAvailable={customAvailable}
           onLoadSimpleCustom={handleLoadSimpleCustom}
+          simpleStartupSelection={simpleStartupSelection}
           {...(noteDrawerWidthPx != null ? { drawerWidthPx: noteDrawerWidthPx } : {})}
           {...(noteDrawerTopPx != null ? { drawerTopPx: noteDrawerTopPx } : {})}
           {...(noteDrawerLeftPx != null ? { drawerLeftPx: noteDrawerLeftPx } : {})}

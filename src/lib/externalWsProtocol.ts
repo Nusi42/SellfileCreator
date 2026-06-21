@@ -16,6 +16,15 @@ export const SIMPLE_VARIANT_KEY = 'sellfileCreator.simple.variant.v1'
 // name instead of the saved body, so users ride preset updates across app versions.
 export const AUTOSAVE_PRESET_ORIGIN_KEY = 'PresetOrigin'
 
+// Autosave payload key mirroring the simple-mode expert choice. The standalone
+// SIMPLE_EXPERT_MODE_KEY is written once at click time, which the embedded WebView host
+// (it kills the process without firing unload events) does not durably flush — so the
+// choice was lost and the next launch re-opened the express dialog. Autosave, by contrast,
+// is rewritten continuously on a debounce DURING the session, so it is already on disk
+// before the host kills the WebView. We therefore stamp the flag here too and PREFER this
+// value on simple-mode startup. Same durability path the override answers already ride.
+export const AUTOSAVE_SIMPLE_EXPERT_MODE_KEY = 'SimpleExpertMode'
+
 // The simple-mode toggle selections we persist. 'custom' means the user's own SFC.
 export type SimpleVariant = 'beginner' | 'lategame' | 'custom'
 // Guard a raw localStorage string against the known variant tokens.
