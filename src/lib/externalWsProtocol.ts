@@ -8,6 +8,30 @@ export const RSL_HELPER_PORT_STORAGE_KEY = 'sellfileCreator.rslHelper.port.v1'
 export const RSL_HELPER_CONNECT_ENABLED_KEY = 'sellfileCreator.rslHelper.connectEnabled.v1'
 // localStorage key that persists whether the user last chose Expert mode in a simple-mode session.
 export const SIMPLE_EXPERT_MODE_KEY = 'sellfileCreator.simple.expertMode.v1'
+// localStorage key that persists the toggle variant (preset or custom) the user last had in simple mode.
+export const SIMPLE_VARIANT_KEY = 'sellfileCreator.simple.variant.v1'
+
+// Autosave payload key marking that the saved setup is (still) an unmodified built-in
+// preset. When present, the simple-mode load path swaps in the CURRENT built-in of that
+// name instead of the saved body, so users ride preset updates across app versions.
+export const AUTOSAVE_PRESET_ORIGIN_KEY = 'PresetOrigin'
+
+// The simple-mode toggle selections we persist. 'custom' means the user's own SFC.
+export type SimpleVariant = 'beginner' | 'lategame' | 'custom'
+// Guard a raw localStorage string against the known variant tokens.
+const isSimpleVariant = (value: string | null): value is SimpleVariant =>
+  value === 'beginner' || value === 'lategame' || value === 'custom'
+
+// Read the variant the user last selected in simple mode, or null when none was stored.
+export const getSimpleVariant = (): SimpleVariant | null => {
+  const raw = localStorage.getItem(SIMPLE_VARIANT_KEY)
+  return isSimpleVariant(raw) ? raw : null
+}
+
+// Persist the last-selected simple-mode variant so it survives reloads.
+export const setSimpleVariant = (variant: SimpleVariant): void => {
+  localStorage.setItem(SIMPLE_VARIANT_KEY, variant)
+}
 
 // Read whether the user has previously toggled on the RSL Helper connection.
 export const getRslHelperConnectEnabled = (): boolean =>

@@ -19,6 +19,9 @@ import {
   buildRslHelperWsEndpoint,
   getSimpleExpertMode,
   setSimpleExpertMode as persistSimpleExpertMode,
+  getSimpleVariant,
+  setSimpleVariant as persistSimpleVariant,
+  AUTOSAVE_PRESET_ORIGIN_KEY,
   getRslHelperConnectEnabled,
   getRslHelperPort,
   // Aliased so the React state setter can follow the setX naming convention without conflict.
@@ -36,7 +39,9 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
-import { currentSfcMatchesAnyPreset } from './lib/sfcPresetMatch'
+import { loadAutosave } from './lib/autosave'
+import { currentSfcMatchesAnyPreset, matchedPreset } from './lib/sfcPresetMatch'
+import type { SfcSetupFields } from './lib/sfcPresetMatch'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
   loadRuntimeGearSetsFromStorage,
@@ -451,6 +456,7 @@ import {
   resolveRecipeOverridesTags,
   seedSafeguardAnswersFromRecipeDefaults,
   type RecipeOverridesInstructions,
+  type NoteRecipeOverridesAnswers,
 } from './lib/noteRecipeOverrides'
 import {
   applySafeguardOverrides,
@@ -458,6 +464,7 @@ import {
   pruneNoteSafeguardOverridesAnswers,
   NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
   type SafeguardOverridesResolution,
+  type NoteSafeguardOverridesAnswers,
 } from './lib/noteSafeguardOverrides'
 import {
   collectMetasetIds,
@@ -1389,6 +1396,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // them to the dep array — changes re-run the effect via effectiveSafeguardRules dependency.
   const noteSafeguardOverridesAnswersRef = useRef(noteSafeguardOverridesAnswers)
   useLayoutEffect(() => { noteSafeguardOverridesAnswersRef.current = noteSafeguardOverridesAnswers })
+  // Ref-shadowed note so the simple-mode startup restore can prune/seed saved override
+  // answers against the freshly-loaded note without a stale closure.
+  const sfcNoteRef = useRef(sfcNote)
+  useLayoutEffect(() => { sfcNoteRef.current = sfcNote })
   // Gear Inspector substat sorting is view-only but should persist across sessions like filters.
   // Declared here so the pipeline effect (below) can reference both sort prefs and the improvement-chance
   // flag without TDZ errors — their derived values are consumed inside the effect dep array.
@@ -5215,6 +5226,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Pass selectedRecipeIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
   const trimmedSfcNote = typeof sfcNote === 'string' ? sfcNote.trim() : ''
+  // Shadow of the current setup fields, populated by a useLayoutEffect far below (where
+  // currentSfcFields is memoized). Lets the debounced autosave-build stamp a preset-origin
+  // marker, computing the ~400k content match only when a write actually fires.
+  const currentSfcFieldsRef = useRef<SfcSetupFields | null>(null)
   // Keep autosave scheduling lightweight: only build the heavy SFC snapshot when the
   // debounced write actually executes, not on every render/update.
   const buildAutosavePayload = useCallback(() => {
@@ -5243,8 +5258,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : null
     // Persist recipe overrides disabled flag only when turned off.
     const overridesDisabledPayload = noteOverridesDisabled ? true : null
+    // Stamp the preset origin when the live setup still matches a built-in preset
+    // (ignoring dynamic overrides). The full body is still written for expert-mode
+    // restore; simple-mode load reads this marker to swap in the current built-in.
+    // Computed here (not in render) so the ~400k content match runs only on the
+    // debounced write, never on the hot path — matching the "treat it holy" intent.
+    const presetOrigin = currentSfcFieldsRef.current ? matchedPreset(currentSfcFieldsRef.current) : null
     return {
       ...basePayload,
+      ...(presetOrigin ? { [AUTOSAVE_PRESET_ORIGIN_KEY]: presetOrigin } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
@@ -7849,23 +7871,128 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
 
   // Loads the beginner or lategame preset SFC directly without a confirmation dialog.
-  // Used by the express-mode preset toggle in NoteDialog.
+  // Used by the express-mode preset toggle in NoteDialog. Persists the chosen
+  // variant so the selection survives reloads.
   const handleLoadSimplePreset = useCallback((variant: 'beginner' | 'lategame') => {
+    persistSimpleVariant(variant)
     const raw = variant === 'beginner' ? beginnerSfcRaw : lategameSfcRaw
     const filename = variant === 'beginner' ? 'beginner.sfc' : 'lategame.sfc'
     const file = new File([raw], filename, { type: 'application/json' })
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
-  // Auto-load the lategame preset SFC once when starting in express simple mode.
+  // Saved dynamic-override state for the simple-mode startup restore: the tuned
+  // recipe/safeguard answers and the overrides-disabled flag, read from autosave.
+  type SavedSimpleOverrides = {
+    recipeAnswers: NoteRecipeOverridesAnswers
+    safeguardAnswers: NoteSafeguardOverridesAnswers
+    disabled: boolean
+  }
+
+  // Read the user's saved override answers from the autosave payload, or null when
+  // none exist (fresh session / answers never tuned). Both restore branches re-apply
+  // these because an SFC load resets answers to the note's defaults.
+  const readSavedSimpleOverrideAnswers = useCallback((): SavedSimpleOverrides | null => {
+    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    if (!entry) return null
+    const payload = entry.payload
+    const recipeAnswers = (payload[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY] as NoteRecipeOverridesAnswers | undefined) ?? {}
+    const safeguardAnswers = (payload[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY] as NoteSafeguardOverridesAnswers | undefined) ?? {}
+    const disabled = Boolean(payload[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY])
+    // Nothing tuned and not disabled — let the freshly-loaded note's defaults stand.
+    if (Object.keys(recipeAnswers).length === 0 && Object.keys(safeguardAnswers).length === 0 && !disabled) return null
+    return { recipeAnswers, safeguardAnswers, disabled }
+  }, [])
+
+  // Load the autosaved custom SFC body through the normal SFC load path (same path the
+  // preset buttons use), so it parses/normalizes identically. Returns a promise that
+  // resolves after the load is dispatched so callers can sequence answer re-application.
+  const loadSavedCustomSfc = useCallback((): Promise<void> => {
+    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    // No saved custom body to restore — fall back to the lategame preset.
+    if (!entry) { handleLoadSimplePreset('lategame'); return Promise.resolve() }
+    // The autosave payload IS a superset of the readable SFC schema, so serializing it
+    // back to text yields a valid .sfc the loader understands (extra keys are ignored).
+    const text = JSON.stringify(entry.payload, null, 2)
+    const file = new File([text], 'custom.sfc', { type: 'application/json' })
+    return handleManualFileSelection(file, { shiftKey: false })
+  }, [handleLoadSimplePreset, handleManualFileSelection])
+
+  // Resolve what to load on simple-mode startup, authoritatively from autosave.
+  // The PresetOrigin marker (stamped at save time from the LIVE content match) wins:
+  // a saved setup that was still a built-in reloads the CURRENT built-in of that name,
+  // never the stale saved body — so users ride preset updates across app versions.
+  // Without a marker we treat the saved body as the user's own custom setup. The
+  // variant token is only a fallback when no autosave exists at all.
+  const resolveSimpleStartupSource = useCallback((): { kind: 'preset'; variant: 'beginner' | 'lategame' } | { kind: 'custom' } => {
+    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    if (entry) {
+      const origin = entry.payload[AUTOSAVE_PRESET_ORIGIN_KEY]
+      // Marker present and valid: reload the current built-in of that name.
+      if (origin === 'beginner' || origin === 'lategame') return { kind: 'preset', variant: origin }
+      // No marker but a saved body exists: it diverged from any preset — it's custom.
+      return { kind: 'custom' }
+    }
+    // First-ever launch: no autosave. Honor the persisted variant token, default Midgame+.
+    const token = getSimpleVariant()
+    return { kind: 'preset', variant: token === 'beginner' ? 'beginner' : 'lategame' }
+  }, [])
+
+  // Re-apply the saved override answers on top of the freshly-loaded note, mirroring the
+  // autosave-restore path: prune answers to the current note, re-seed missing forced
+  // safeguard sliders from the loaded recipe defaults, and restore the disabled flag.
+  const applySavedSimpleOverrideAnswers = useCallback((saved: SavedSimpleOverrides) => {
+    const note = sfcNoteRef.current ?? ''
+    const prunedRecipeAnswers = pruneNoteRecipeOverridesAnswers(note, saved.recipeAnswers)
+    setNoteRecipeOverridesAnswers(prunedRecipeAnswers)
+    const prunedSafeguardAnswers = pruneNoteSafeguardOverridesAnswers(note, saved.safeguardAnswers)
+    setNoteSafeguardOverridesAnswers(seedSafeguardAnswersFromRecipeDefaults(note, prunedRecipeAnswers, prunedSafeguardAnswers))
+    setNoteOverridesDisabled(saved.disabled)
+  }, [setNoteRecipeOverridesAnswers, setNoteSafeguardOverridesAnswers, setNoteOverridesDisabled])
+
+  // Restore the user's last simple-mode session once when starting in express mode.
   // Skipped when expert mode was already on — the user gets the normal app.
+  //
+  // Source of truth is resolveSimpleStartupSource (autosave PresetOrigin marker):
+  //  - preset origin: (re)load the CURRENT bundled preset of that name — never an old
+  //    saved body — so preset updates are picked up across app versions. Saved dynamic-
+  //    override answers are re-applied on top so the user's tuning sticks.
+  //  - custom: restore the autosaved SFC body (the user's own setup). Its note carries
+  //    the override DSL; saved answers are re-applied the same way.
   const simplePresetLoadDoneRef = useRef(false)
   useEffect(() => {
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!isSimpleViewAtStart || simplePresetLoadDoneRef.current) return
     simplePresetLoadDoneRef.current = true
-    handleLoadSimplePreset('lategame')
-  }, [isSimpleViewAtStart, handleLoadSimplePreset])
+    // An SFC load resets override answers to the note's defaults, so capture the
+    // user's saved answers up front and re-apply them after the load settles.
+    const savedAnswers = readSavedSimpleOverrideAnswers()
+    // Resolve the SFC source: the current built-in (preset origin) or the saved body.
+    const source = resolveSimpleStartupSource()
+    const loadPromise = source.kind === 'custom'
+      ? loadSavedCustomSfc()
+      : (handleLoadSimplePreset(source.variant), Promise.resolve())
+    // Re-apply saved override answers after the note has committed. requestAnimationFrame
+    // lets the load transition flush first so the answers prune/seed against the loaded note.
+    // A second rAF (or a microtask fallback) ensures we run after the React commit.
+    if (savedAnswers) {
+      void loadPromise.then(() => {
+        const apply = () => applySavedSimpleOverrideAnswers(savedAnswers)
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(apply)
+        } else {
+          void Promise.resolve().then(apply)
+        }
+      })
+    }
+  }, [
+    isSimpleViewAtStart,
+    handleLoadSimplePreset,
+    loadSavedCustomSfc,
+    resolveSimpleStartupSource,
+    readSavedSimpleOverrideAnswers,
+    applySavedSimpleOverrideAnswers,
+  ])
 
   // Keep the openNoteViewer ref stable so the auto-open effect can call it once.
   const openNoteViewerRef = useRef(openNoteViewer)
@@ -8259,24 +8386,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return `${n} ${word}`
   })()
 
-  // Suppress the "load a preset" arrows when the current setup already matches a
-  // bundled preset (ignoring dynamic overrides) — the nudge would be redundant.
-  // Only computed while the nudge is active so the payload build stays off the
-  // hot path for the common case.
-  const sfcMatchesPreset = useMemo(() => {
-    if (!tutorial.sfcLoadNudgeActive) return false
-    return currentSfcMatchesAnyPreset({
-      metasets,
-      substatTargets,
-      recipes: customRecipes,
-      finalSellRemainder,
-      ...(sfcNote ? { note: sfcNote } : {}),
-      safeguardRules,
-      safeguardsEnabled,
-      recipesEnabled,
-    })
-  }, [
-    tutorial.sfcLoadNudgeActive,
+  // Single assembly of the mutable slices that define the current setup, so the
+  // preset-nudge check and the simple-mode preset match canonicalize identical
+  // fields (SSOT — avoids the two call sites drifting).
+  const currentSfcFields = useMemo<SfcSetupFields>(() => ({
+    metasets,
+    substatTargets,
+    recipes: customRecipes,
+    finalSellRemainder,
+    ...(sfcNote ? { note: sfcNote } : {}),
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  }), [
     metasets,
     substatTargets,
     customRecipes,
@@ -8286,6 +8408,101 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardsEnabled,
     recipesEnabled,
   ])
+
+  // Suppress the "load a preset" arrows when the current setup already matches a
+  // bundled preset (ignoring dynamic overrides) — the nudge would be redundant.
+  // Only computed while the nudge is active so the payload build stays off the
+  // hot path for the common case.
+  const sfcMatchesPreset = useMemo(() => {
+    if (!tutorial.sfcLoadNudgeActive) return false
+    return currentSfcMatchesAnyPreset(currentSfcFields)
+  }, [tutorial.sfcLoadNudgeActive, currentSfcFields])
+
+  // An express SFC counts as "empty" when it has no note and no custom recipes —
+  // the fresh-start state before any preset loads. We resolve empty to the
+  // Midgame+ (lategame) selection and never surface the Old/Custom button for it.
+  const sfcIsEmpty = !notePresent && customRecipes.length === 0
+
+  // Which simple-mode preset the live SFC matches: 'beginner' | 'lategame' | null.
+  // Gated on simple view so the ~400k canonicalization stays off the hot path in
+  // normal/expert mode (mirrors the sfcMatchesPreset guard above). Empty resolves
+  // to 'lategame' so the toggle defaults to Midgame+ without showing Custom.
+  const simplePresetMatch = useMemo<'beginner' | 'lategame' | null>(() => {
+    if (!isSimpleView) return null
+    if (sfcIsEmpty) return 'lategame'
+    return matchedPreset(currentSfcFields)
+  }, [isSimpleView, sfcIsEmpty, currentSfcFields])
+
+  // Shadow the current setup fields so the debounced autosave-build callback (defined
+  // far above) can compute the preset-origin marker lazily — only when a write actually
+  // fires (1s debounce), never on the render hot path.
+  useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
+
+  // Latch: once the live SFC is a real custom setup (non-preset, non-empty) in
+  // simple view, the Old/Custom button stays available for the rest of the
+  // session even after the user switches to a preset. Reset on entering expert.
+  const [customAvailable, setCustomAvailable] = useState(false)
+  // Snapshot of the latest custom SFC text so the Old/Custom button can restore
+  // it after the user tries a preset. Same serialization as save/autosave so the
+  // restored File round-trips byte-faithfully.
+  const customSfcSnapshotRef = useRef<string | null>(null)
+
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
+  // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
+  // custom state, so post-preset edits remain restorable.
+  useEffect(() => {
+    if (!isSimpleView) return
+    if (simplePresetMatch !== null || sfcIsEmpty) return
+    // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)).
+    customSfcSnapshotRef.current = JSON.stringify(buildSfcPayload({
+      version: APP_VERSION,
+      metasets,
+      substatTargets,
+      recipes: customRecipes,
+      finalSellRemainder,
+      ...(sfcNote ? { note: sfcNote } : {}),
+      safeguardRules,
+      safeguardsEnabled,
+      recipesEnabled,
+    }), null, 2)
+    setCustomAvailable(true)
+    // A live custom setup (e.g. the user edited a preset) becomes the persisted
+    // selection so a reload restores it rather than a preset.
+    persistSimpleVariant('custom')
+  }, [
+    isSimpleView,
+    simplePresetMatch,
+    sfcIsEmpty,
+    metasets,
+    substatTargets,
+    customRecipes,
+    finalSellRemainder,
+    sfcNote,
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  ])
+
+  // Clear the latch and snapshot when leaving simple view (Go Expert / session
+  // restart) so a fresh session starts without a stale Old/Custom button.
+  useEffect(() => {
+    if (expertMode || !isSimpleView) {
+      setCustomAvailable(false)
+      customSfcSnapshotRef.current = null
+    }
+  }, [expertMode, isSimpleView])
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+
+  // Restore the snapshotted custom SFC through the normal load path used by the
+  // preset buttons, so it round-trips through parse/normalize identically.
+  const handleLoadSimpleCustom = useCallback(() => {
+    const text = customSfcSnapshotRef.current
+    if (!text) return
+    // Persist 'custom' so the next reload restores the custom SFC, not a preset.
+    persistSimpleVariant('custom')
+    const file = new File([text], 'custom.sfc', { type: 'application/json' })
+    void handleManualFileSelection(file, { shiftKey: false })
+  }, [handleManualFileSelection])
 
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
@@ -9347,6 +9564,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushEndpointReachable={pushEndpointReachable}
           onToggleRslHelperConnect={handleToggleRslHelperConnect}
           onLoadSimplePreset={handleLoadSimplePreset}
+          simplePresetMatch={simplePresetMatch}
+          simpleCustomAvailable={customAvailable}
+          onLoadSimpleCustom={handleLoadSimpleCustom}
           {...(noteDrawerWidthPx != null ? { drawerWidthPx: noteDrawerWidthPx } : {})}
           {...(noteDrawerTopPx != null ? { drawerTopPx: noteDrawerTopPx } : {})}
           {...(noteDrawerLeftPx != null ? { drawerLeftPx: noteDrawerLeftPx } : {})}

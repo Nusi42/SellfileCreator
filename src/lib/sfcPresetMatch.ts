@@ -100,11 +100,25 @@ const presetCanonicals = (): string[] => {
 }
 
 /**
+ * Reports *which* bundled preset the current setup matches, ignoring dynamic
+ * overrides — `'beginner'`, `'lategame'`, or `null` when it matches neither.
+ * Single canonicalization path so equality stays SSOT with the boolean check.
+ */
+export function matchedPreset(fields: SfcSetupFields): 'beginner' | 'lategame' | null {
+  // Canonicalize once, then compare against the cached preset canonicals.
+  const current = canonicalize(fields)
+  // presetCanonicals() is ordered [beginner, lategame] (see presetCanonicals()).
+  const [beginner, lategame] = presetCanonicals()
+  if (current === beginner) return 'beginner'
+  if (current === lategame) return 'lategame'
+  return null
+}
+
+/**
  * True when the current setup matches one of the bundled presets, ignoring
  * dynamic overrides. Used to suppress the "load a preset" nudge when it would
- * be redundant.
+ * be redundant. Expressed via matchedPreset so the match logic lives once.
  */
 export function currentSfcMatchesAnyPreset(fields: SfcSetupFields): boolean {
-  const current = canonicalize(fields)
-  return presetCanonicals().some((preset) => preset === current)
+  return matchedPreset(fields) !== null
 }

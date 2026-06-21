@@ -4127,6 +4127,9 @@ export default function NoteDialog({
   pushEndpointReachable,
   onToggleRslHelperConnect,
   onLoadSimplePreset,
+  simplePresetMatch,
+  simpleCustomAvailable,
+  onLoadSimpleCustom,
   drawerWidthPx,
   drawerTopPx,
   drawerLeftPx,
@@ -4179,6 +4182,14 @@ export default function NoteDialog({
   onToggleRslHelperConnect?: () => void
   // Called when the express preset toggle changes; loads the beginner or lategame preset SFC.
   onLoadSimplePreset?: (variant: 'beginner' | 'lategame') => void
+  // Which bundled preset the live SFC matches, or null when it matches neither.
+  // Drives the toggle's selected button (null → Old/Custom when one is available).
+  simplePresetMatch?: 'beginner' | 'lategame' | null
+  // True once the live SFC has been a real custom setup this session; surfaces the
+  // Old/Custom toggle button and gates the Go Expert confirmation.
+  simpleCustomAvailable?: boolean
+  // Restores the user's snapshotted custom SFC when the Old/Custom button is clicked.
+  onLoadSimpleCustom?: () => void
   // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
   // the builder column, leaving the gear inspector visible on the right.
   drawerWidthPx?: number
@@ -4268,17 +4279,47 @@ export default function NoteDialog({
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
 
-  // Express mode: tracks which preset note is currently shown in the toggle.
-  // Default to lategame — it is the richer, more flexible preset.
-  const [simpleSfcVariant, setSimpleSfcVariant] = useState<'beginner' | 'lategame'>('lategame')
-  // Load the chosen preset when the express SFC toggle changes.
+  // Going expert discards the custom SFC only when a preset is currently selected
+  // while a custom SFC exists to abandon — confirm in that case, go straight through
+  // otherwise (empty start, or Old/Custom already selected so nothing is lost).
+  const goExpertNeedsConfirm = Boolean(simpleCustomAvailable && simplePresetMatch != null)
+  // Controls the "Switch to Expert mode?" confirmation dialog.
+  const [goExpertConfirmOpen, setGoExpertConfirmOpen] = useState(false)
+  // Route Go Expert through the confirm dialog when leaving would discard the custom SFC.
+  const handleGoExpertClick = useCallback(() => {
+    if (goExpertNeedsConfirm) setGoExpertConfirmOpen(true)
+    else onGoExpert?.()
+  }, [goExpertNeedsConfirm, onGoExpert])
+
+  // Express mode toggle value type: the two presets plus the restorable custom SFC.
+  type SimpleToggleValue = 'beginner' | 'lategame' | 'custom'
+  // The selected toggle button is derived from the live preset match (App owns it):
+  // a matching preset selects itself; no match + a custom SFC selects Old/Custom;
+  // otherwise we fall back to lategame (Midgame+), the default for an empty SFC.
+  const derivedSimpleValue: SimpleToggleValue =
+    simpleCustomAvailable && simplePresetMatch == null ? 'custom' : (simplePresetMatch ?? 'lategame')
+  // Loading an SFC is async, so the derived value lags a frame behind a click and
+  // the just-pressed button would visibly snap back. This transient override holds
+  // the clicked value until the real match catches up.
+  const [pendingSimpleSelection, setPendingSimpleSelection] = useState<SimpleToggleValue | null>(null)
+  const simpleToggleValue = pendingSimpleSelection ?? derivedSimpleValue
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler -- pendingSimpleSelection is a transient visual hold over an async load (App owns the real match prop); clear it the moment the derived value reaches it, which is a render-after-prop-change, not a discrete event. */
+  // Drop the held value once the derived value reaches it (load committed). This also
+  // self-heals a failed/aborted load: the next derived change clears the stale pending.
+  useEffect(() => {
+    if (pendingSimpleSelection && derivedSimpleValue === pendingSimpleSelection) setPendingSimpleSelection(null)
+  }, [pendingSimpleSelection, derivedSimpleValue])
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler */
+  // Load the chosen preset (or restore the custom SFC) when the express toggle changes.
   const handleSimpleVariantChange = useCallback(
-    (_: React.MouseEvent, value: 'beginner' | 'lategame' | null) => {
+    (_: React.MouseEvent, value: SimpleToggleValue | null) => {
       if (!value) return
-      setSimpleSfcVariant(value)
-      onLoadSimplePreset?.(value)
+      // Hold the pressed value visually until the async load commits a fresh match.
+      setPendingSimpleSelection(value)
+      if (value === 'custom') onLoadSimpleCustom?.()
+      else onLoadSimplePreset?.(value)
     },
-    [onLoadSimplePreset],
+    [onLoadSimpleCustom, onLoadSimplePreset],
   )
 
   // Derived once so multiple render paths can read it without recomputing.
@@ -4511,7 +4552,7 @@ export default function NoteDialog({
       {/* Right: Go Expert */}
       <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
         <MarkdownTooltip markdown={t('simpleModeGoExpertTooltip')}>
-          <Button size="small" variant="outlined" onClick={onGoExpert}>
+          <Button size="small" variant="outlined" onClick={handleGoExpertClick}>
             {t('simpleModeGoExpert')}
           </Button>
         </MarkdownTooltip>
@@ -5142,7 +5183,7 @@ export default function NoteDialog({
             {t('simpleModePresetLabel')}
           </Typography>
           <ToggleButtonGroup
-            value={simpleSfcVariant}
+            value={simpleToggleValue}
             exclusive
             size="small"
             onChange={handleSimpleVariantChange}
@@ -5150,6 +5191,8 @@ export default function NoteDialog({
           >
             <ToggleButton value="beginner">{t('simpleModeBasicSfc')}</ToggleButton>
             <ToggleButton value="lategame">{t('simpleModeEndgameSfc')}</ToggleButton>
+            {/* Old/Custom restores the user's prior non-preset SFC; only shown once latched. */}
+            {simpleCustomAvailable && <ToggleButton value="custom">{t('simpleModeCustomSfc')}</ToggleButton>}
           </ToggleButtonGroup>
           <Box sx={{ flex: 1 }} />
           {showNoteSummaryChip && (
@@ -5428,6 +5471,20 @@ export default function NoteDialog({
           </Button>
           <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(true)}>
             {t('noteDynamicOverridesDisableConfirmApply')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Confirm before going expert when it would discard the user's custom SFC. */}
+      <Dialog open={goExpertConfirmOpen} onClose={() => setGoExpertConfirmOpen(false)}>
+        <DialogTitle>{t('simpleModeGoExpertConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('simpleModeGoExpertConfirmBody')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          {/* Uniform styling so color does not imply a preferred choice. */}
+          <Button {...disableConfirmButtonProps} onClick={() => setGoExpertConfirmOpen(false)}>{t('cancel')}</Button>
+          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); onGoExpert?.() }}>
+            {t('simpleModeGoExpertConfirmProceed')}
           </Button>
         </DialogActions>
       </Dialog>
