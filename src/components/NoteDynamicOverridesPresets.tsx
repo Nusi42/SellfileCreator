@@ -252,9 +252,6 @@ function DynamicOverridesPresetRow({
     <>
       <MenuItem
         onClick={() => onLoad(preset)}
-        // Hover the row to preview; leaving starts the grace close.
-        onMouseEnter={(event) => scheduleOpen(event.currentTarget)}
-        onMouseLeave={scheduleClose}
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.75 }}
       >
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1 }}>
@@ -292,26 +289,35 @@ function DynamicOverridesPresetRow({
         >
           <DeleteIcon fontSize="inherit" />
         </IconButton>
-        {/* Chevron hints that hovering opens a summary popout to the right. */}
-        <ChevronRightIcon
-          fontSize="small"
-          aria-hidden
-          sx={{ color: 'text.secondary', opacity: 0.6, alignSelf: 'center', flexShrink: 0 }}
-        />
+        {/* Only the chevron previews: hovering it opens the summary popout, anchored to the
+            chevron itself. The name + overwrite/delete buttons no longer trigger it, so they
+            stay clickable even after the popout opens. */}
+        <Box
+          onMouseEnter={(event) => scheduleOpen(event.currentTarget)}
+          onMouseLeave={scheduleClose}
+          sx={{ display: 'inline-flex', alignSelf: 'center', flexShrink: 0, p: 0.5, cursor: 'default' }}
+          aria-label={t('noteDynamicOverridesPresetsHeader')}
+        >
+          <ChevronRightIcon
+            fontSize="small"
+            aria-hidden
+            sx={{ color: 'text.secondary', opacity: anchorEl != null ? 1 : 0.6 }}
+          />
+        </Box>
       </MenuItem>
       {/* A Popper (NOT a Popover/Modal): no backdrop, no focus trap, so the underlying
           Dynamic Overrides menu keeps its own outside-click-to-dismiss backdrop. A modal
           Popover layered a second (invisible) backdrop that swallowed the menu's dismiss
-          click, leaving Escape as the only way out. Placement mirrors the old tooltip. */}
+          click, leaving Escape as the only way out. Anchored to the chevron (not the row),
+          so it opens just off the row's right edge. */}
       <Popper
         open={anchorEl != null}
         anchorEl={anchorEl}
         placement="right-start"
         // Keep the popout on-screen AND off the menu it springs from. When there is no
         // room to the right (e.g. the near-fullscreen simple-mode dialog), flip to the
-        // TOP/BOTTOM of the row rather than to the left — a left flip would land the wide
-        // popout directly over the menu and cover the very row being hovered, blocking the
-        // click. `preventOverflow` then slides it back fully on-screen.
+        // TOP/BOTTOM rather than to the left — a left flip would land the popout back over
+        // the menu's action buttons. `preventOverflow` then slides it fully on-screen.
         modifiers={[
           { name: 'offset', options: { offset: [0, 8] } },
           { name: 'flip', options: { fallbackPlacements: ['bottom-start', 'top-start', 'left-start'] } },
