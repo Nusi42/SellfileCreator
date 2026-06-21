@@ -1,6 +1,6 @@
 {
     "name":  "rsl-sellfile-creator",
-    "version":  "1.0.25",
+    "version":  "1.0.26-dev",
     "private":  true,
     "type":  "module",
     "scripts":  {
