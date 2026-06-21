@@ -3945,9 +3945,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCopyText,
     copyInputRef,
   } = sfcDialogs
-  // Suppress auto side-by-side zoom while simple mode shows only the note dialog: the builder/preview
-  // panels are display:none behind it, so scaling the page would only distort the dialog's framing.
-  // Keep the ref in sync and re-evaluate immediately whenever the condition flips.
+  // Suppress auto side-by-side page zoom while simple mode shows only the note dialog: the
+  // builder/preview panels are display:none behind it, and the dialog fills the viewport via its own
+  // CSS (NOTE_DIALOG_SIMPLE_PAPER_SX) rather than via page zoom. Keep the ref in sync and re-evaluate
+  // immediately whenever the condition flips.
   const suppressSideBySideZoom = isSimpleView && noteOpen
   useEffect(() => {
     sideBySideZoomSuppressedRef.current = suppressSideBySideZoom

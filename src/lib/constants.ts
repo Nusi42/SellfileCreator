@@ -263,7 +263,7 @@ export const PREVIEW_PAPER_PADDING_UNITS = 2
 // zoom, we stop forcing and fall back to the native breakpoint-gated layout instead of shrinking the
 // canvas into illegibility. This is the factory default for the user-tunable cutoff (theme flyout);
 // the live value is threaded in at runtime — see resolveSideBySideZoom's minZoom parameter.
-export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.4
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.3
 // Bounds for the user-tunable cutoff slider (theme flyout), shown as a percentage (30%–100%).
 export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN = 0.3
 export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX = 1
@@ -272,6 +272,27 @@ export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP = 0.05
 // Duration for all express↔expert mode transitions (ms). Shared by NoteDialog's Fade/Collapse
 // timings and by App's post-transition attention pulses so they stay in lock-step.
 export const SIMPLE_MODE_TRANSITION_MS = 220
+
+// Simple (express) mode shows ONLY the centered note Dialog — the builder/preview panels are
+// display:none behind it. Rather than scale the whole page (which fights MUI's lg/vh/centering math
+// and shrinks the dialog into the middle with big margins), the dialog fills the viewport directly
+// via its own CSS: width/height = viewport minus a fixed gap, overriding the lg cap. The page zoom
+// stays at 1 in this mode (see useAutoSideBySideZoom's suppressed branch).
+//
+// Symmetric inset (px) left between the dialog edge and the viewport on every side. Small so the
+// dialog nearly fills the screen while clearly reading as a floating surface, not edge-to-edge.
+export const SIMPLE_NOTE_VIEWPORT_INSET_PX = 12
+// Dialog width/height in simple mode: the full viewport minus the inset on both sides. Expressed as
+// calc() so they track the live viewport without JS. maxWidth is separately set to none so MUI's
+// `lg` cap (1200px) no longer constrains the width to the centre of wide screens.
+export const SIMPLE_NOTE_DIALOG_WIDTH = `calc(100vw - ${SIMPLE_NOTE_VIEWPORT_INSET_PX * 2}px)`
+export const SIMPLE_NOTE_DIALOG_HEIGHT = `calc(100vh - ${SIMPLE_NOTE_VIEWPORT_INSET_PX * 2}px)`
+// Lower bound on the simple-mode dialog width so it stays comfortably wide for the express cards even
+// as the viewport narrows. Clamped with min() against the viewport-minus-inset width so the floor can
+// never push the paper past the viewport edge on tiny windows (it would otherwise overflow/scroll).
+// 1200px ≈ MUI `lg`.
+export const SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX = 1200
+export const SIMPLE_NOTE_DIALOG_MIN_WIDTH = `min(${SIMPLE_NOTE_DIALOG_MIN_WIDTH_PX}px, ${SIMPLE_NOTE_DIALOG_WIDTH})`
 
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
 // Extremely broad recipes can explode into millions of permutations and stall the worker.

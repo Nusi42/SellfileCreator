@@ -14,11 +14,12 @@ export type AutoSideBySideZoomState = {
 }
 
 export type UseAutoSideBySideZoomOptions = {
-  // When this ref reads true, zoom/side-by-side are fully suppressed: the #root zoom is cleared and
-  // the hook reports forceSideBySide:false. Used to opt out in simple mode where only the note
-  // dialog is shown and scaling the (hidden) panels behind it serves no purpose. A ref (not a plain
-  // prop) keeps the suppression source decoupled from this hook's call-order in App.tsx — the caller
-  // updates the ref and invokes the returned reevaluate() when the condition flips.
+  // When this ref reads true, page zoom / side-by-side fit are fully suppressed: the #root zoom is
+  // cleared and the hook reports forceSideBySide:false. Used in simple (express) mode where only the
+  // centered note dialog is shown — it fills the viewport via its own CSS (NOTE_DIALOG_SIMPLE_PAPER_SX)
+  // rather than via page zoom, and the (hidden) builder/preview panels behind it need no scaling. A
+  // ref (not a plain prop) keeps the suppression source decoupled from this hook's call-order in
+  // App.tsx — the caller updates the ref and invokes the returned reevaluate() when the condition flips.
   suppressedRef?: MutableRefObject<boolean>
   // Live user settings (theme flyout): the enabled master switch and the tunable cutoff. Read through
   // a ref for the same call-order reason as suppressedRef; the caller mutates it and calls reevaluate()
@@ -75,10 +76,16 @@ export function useAutoSideBySideZoom({ suppressedRef, settingsRef }: UseAutoSid
     const initialZoom = root.style.zoom
 
     const evaluate = () => {
-      // Suppressed (e.g. simple mode with only the note dialog showing) → clear any zoom and report
-      // stacked, ignoring viewport width entirely. There are no visible panels to scale behind the
-      // dialog, so zooming would only distort the dialog's surroundings.
+      // Suppressed (e.g. simple mode with only the note dialog showing) → don't fit the side-by-side
+      // canvas (the builder/preview panels are display:none behind the dialog). Instead fit the page
+      // to the note dialog's OWN footprint so it fills the viewport with a small gap: shrink-only,
+      // capped at 1 (resolveSimpleNoteZoom). Publishing --app-zoom scales the portaled dialog paper.
+      // We still report forceSideBySide:false — only the note dialog is on screen, not the panels.
       if (suppressedRef?.current) {
+        // Clear any page zoom and report stacked. Simple mode does NOT scale the page: the note
+        // dialog sizes itself to fill the viewport via its own CSS (see NOTE_DIALOG_SIMPLE_PAPER_SX),
+        // so a uniform page `zoom` here would only re-introduce the lg/vh/centering artifacts (small
+        // box, large margins). There are no visible panels behind the dialog to scale anyway.
         applyZoom(null)
         const next: AutoSideBySideZoomState = { zoom: 1, forceSideBySide: false, canvasWidthPx: SIDE_BY_SIDE_TARGET_WIDTH_PX }
         if (stateRef.current.zoom !== next.zoom || stateRef.current.forceSideBySide !== next.forceSideBySide) {

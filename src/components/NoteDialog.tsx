@@ -21,7 +21,7 @@ import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL synta
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
 import { refractor } from 'refractor'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH } from '../lib/constants'
 import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -295,7 +295,7 @@ const NOTE_SUBSTAT_ORDER = new Map<number, number>(
 // Stable DOM id assigned to the shared DialogTitle so the floating-panel surface can
 // reference it via aria-labelledby (satisfies the role="dialog" accessible-name requirement).
 const NOTE_DIALOG_TITLE_ID = 'note-dialog-title'
-// Standard centered Dialog height — used in single-column or simple mode.
+// Standard centered Dialog height — used in single-column mode.
 const NOTE_DIALOG_HEIGHT = '84vh'
 const NOTE_DIALOG_PAPER_SX = {
   height: NOTE_DIALOG_HEIGHT,
@@ -303,6 +303,24 @@ const NOTE_DIALOG_PAPER_SX = {
   maxHeight: NOTE_DIALOG_HEIGHT,
   display: 'flex',
   flexDirection: 'column',
+}
+// Simple (express) mode: the dialog fills the viewport (minus a small inset) instead of sitting at
+// the centered `lg` width. We override MUI's default paper margin (32px), its `lg` maxWidth cap, and
+// pin width/height to the viewport-minus-inset calc so the surface nearly spans the screen. The page
+// is NOT zoomed in this mode (see useAutoSideBySideZoom) so these vw/vh lengths resolve 1:1.
+const NOTE_DIALOG_SIMPLE_PAPER_SX = {
+  ...NOTE_DIALOG_PAPER_SX,
+  // Override MUI's centred `lg` width cap so the paper can use the full viewport width.
+  maxWidth: 'none',
+  width: SIMPLE_NOTE_DIALOG_WIDTH,
+  // Hold a comfortably wide floor for the express cards; min() against the viewport-minus-inset width
+  // keeps the floor from overflowing the screen on tiny windows.
+  minWidth: SIMPLE_NOTE_DIALOG_MIN_WIDTH,
+  // Drop MUI's default 32px paper margin; the inset is already baked into the width/height calc.
+  margin: 0,
+  height: SIMPLE_NOTE_DIALOG_HEIGHT,
+  minHeight: SIMPLE_NOTE_DIALOG_HEIGHT,
+  maxHeight: SIMPLE_NOTE_DIALOG_HEIGHT,
 }
 // Full viewport height for the floating panel — only active in SBS + expert/normal mode.
 // drawerWidthPx / drawerTopPx are injected per-render by App so the panel aligns with the
@@ -2219,6 +2237,35 @@ function getNoteCardWidthStyles(preset: NoteCardWidthPreset) {
   return NOTE_CARD_WIDTHS[preset]
 }
 
+// SSOT for a note card's flex width SX. A `columns=N` (N>1) card wants to span N standard cards plus
+// the inter-card gaps so it lines up with its single-width neighbours; a single card uses the base
+// preset width. Both the recipe-overrides and safeguard-overrides cards (and their invisible spacer
+// twins) shared this exact expression — extracted here so the One Definition Rule holds and the
+// container clamp below lives in one place.
+//
+// Container clamp: the multi-column min/max are wrapped in `min(…, 100%)` so a wide card can never
+// exceed the dialog body. Without it, a 4-up card's intrinsic width (4×max + gaps ≈ 1360px) or hard
+// min (4×min + gaps ≈ 908px) overflows a narrower body and forces a horizontal scrollbar; clamped,
+// the card shrinks to the body and its inner auto-fit option grid wraps to fewer columns instead.
+function buildNoteCardWidthSx(layoutColumns: number): {
+  flex: string
+  minWidth: number | string
+  maxWidth: number | string
+} {
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  const cols = Math.max(1, layoutColumns)
+  // Single-width card: no clamp needed — the base preset already fits any reasonable body.
+  if (cols <= 1) return { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+  // Multi-column card: span N base widths plus the (N-1) gaps between them.
+  const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
+  return {
+    flex: `1 1 ${cols * flexBasis + gapPx}px`,
+    // Clamp both bounds to the body so the card fits instead of overflowing on narrow viewports.
+    minWidth: `min(${cols * minWidth + gapPx}px, 100%)`,
+    maxWidth: `min(${cols * maxWidth + gapPx}px, 100%)`,
+  }
+}
+
 function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
   // Shared wrapper keeps spacing identical across note card types.
   return (
@@ -2807,13 +2854,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   if (!question) return null
   // Body-less spacer marker: invisible flex placeholder with the same width as a columns=N card.
   if (question.isSpacer) {
-    const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
-    const cols = Math.max(1, question.layoutColumns)
-    const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
-    const spacerSx = cols > 1
-      ? { flex: `1 1 ${cols * flexBasis + gapPx}px`, minWidth: cols * minWidth + gapPx, maxWidth: cols * maxWidth + gapPx }
-      : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
-    return <Box sx={{ ...spacerSx, visibility: 'hidden' }} />
+    return <Box sx={{ ...buildNoteCardWidthSx(question.layoutColumns), visibility: 'hidden' }} />
   }
   // columns ≥ 1 enables horizontal (grid) option layout.
   const isHorizontal = question.layoutColumns > 0
@@ -2824,10 +2865,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
     onRecipeOverridesAnswerChange(question, next, preferredId, removedId)
   }
-  // Shared sizing keeps question cards in lockstep with safeguard cards.
-  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   // Reuse the non-horizontal min width as the grid's minimum column width.
-  const optionColumnMinWidth = minWidth
+  const optionColumnMinWidth = getNoteCardWidthStyles('note').minWidth
   // Pick the option group layout based on the marker-level layout mode.
   // Always pass 0 (auto-fit) — card width is the constraint, not a fixed column count.
   const optionGroupSx = isHorizontal
@@ -2838,17 +2877,10 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
       allHorizontalOptionsHaveLabels ? 'flex-start' : 'center',
     )
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
-  // When columns=X is given, scale the card to span X standard card widths plus
-  // the inter-card gaps so the card aligns naturally with its neighbours.
-  const cols = Math.max(1, question.layoutColumns)
-  const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
-  const cardWidthSx = isHorizontal && cols > 1
-    ? {
-      flex: `1 1 ${cols * flexBasis + gapPx}px`,
-      minWidth: cols * minWidth + gapPx,
-      maxWidth: cols * maxWidth + gapPx,
-    }
-    : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+  // When columns=X is given, scale the card to span X standard card widths plus the inter-card gaps
+  // so the card aligns naturally with its neighbours. A non-horizontal card falls back to the base
+  // width (layoutColumns 0 → single). Shared helper also clamps the bounds to the body width.
+  const cardWidthSx = buildNoteCardWidthSx(isHorizontal ? question.layoutColumns : 0)
   const cardOpacity = noteOverridesDisabled ? 0.55 : 1
   // Build per-option row styling so alignment can differ per label presence.
   const buildOptionRowSx = (): Record<string, unknown> => {
@@ -3302,13 +3334,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   if (!question) return null
   // Body-less spacer marker: invisible flex placeholder with the same width as a columns=N card.
   if (question.isSpacer) {
-    const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
-    const cols = Math.max(1, question.layoutColumns)
-    const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
-    const spacerSx = cols > 1
-      ? { flex: `1 1 ${cols * flexBasis + gapPx}px`, minWidth: cols * minWidth + gapPx, maxWidth: cols * maxWidth + gapPx }
-      : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
-    return <Box sx={{ ...spacerSx, visibility: 'hidden' }} />
+    return <Box sx={{ ...buildNoteCardWidthSx(question.layoutColumns), visibility: 'hidden' }} />
   }
   const isHorizontal = question.layoutColumns > 0
   const selected = Array.isArray(question.answer) ? question.answer : []
@@ -3316,18 +3342,10 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
     onSafeguardOverridesAnswerChange(question, next, preferredId, removedId)
   }
-  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
-  const cols = Math.max(1, question.layoutColumns)
-  const gapPx = NOTE_CARD_GAP_PX * (cols - 1)
-  const cardWidthSx = isHorizontal && cols > 1
-    ? {
-      flex: `1 1 ${cols * flexBasis + gapPx}px`,
-      minWidth: cols * minWidth + gapPx,
-      maxWidth: cols * maxWidth + gapPx,
-    }
-    : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
+  // Span N base widths when columns>1, else the base width; helper clamps the bounds to the body.
+  const cardWidthSx = buildNoteCardWidthSx(isHorizontal ? question.layoutColumns : 0)
   const optionGroupSx = isHorizontal
-    ? buildNoteQuestionOptionGridSx(minWidth, 0, 'center')
+    ? buildNoteQuestionOptionGridSx(getNoteCardWidthStyles('note').minWidth, 0, 'center')
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
   // Dim the card when dynamic overrides are disabled, matching the recipe overrides card behaviour.
   const cardOpacity = noteOverridesDisabled ? 0.55 : 1
@@ -3607,11 +3625,12 @@ function SafeguardBlock({ node }: SafeguardBlockProps): JSX.Element | null {
   }
   const entries = resolvedEntries ?? []
   if (entries.length === 0) return null
-  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  // Single-width cards (one summary per entry); helper returns the base preset width for columns≤1.
+  const singleCardWidthSx = buildNoteCardWidthSx(1)
   return (
     <NoteCardWrap>
       {entries.map(({ id, rule }) => (
-        <Box key={`note-ku-${id}`} sx={{ flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }}>
+        <Box key={`note-ku-${id}`} sx={singleCardWidthSx}>
           <SafeguardSummaryCard
             id={id}
             rule={rule}
@@ -5304,7 +5323,7 @@ export default function NoteDialog({
           fullWidth
           aria-labelledby={NOTE_DIALOG_TITLE_ID}
           transitionDuration={noteDialogProps.transitionDuration}
-          slotProps={{ paper: { ref: noteDialogProps.PaperProps.ref, sx: NOTE_DIALOG_PAPER_SX } }}
+          slotProps={{ paper: { ref: noteDialogProps.PaperProps.ref, sx: isSimpleMode ? NOTE_DIALOG_SIMPLE_PAPER_SX : NOTE_DIALOG_PAPER_SX } }}
         >
           {panelBody}
         </Dialog>
