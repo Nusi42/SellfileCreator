@@ -2938,7 +2938,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuToggleRow
-          label={t('rulesMenuColorStatTexts')}
+          label={t('rulesMenuColorStatsAndSlots')}
           checked={useStatButtonColors}
           onChange={() => onToggleStatColors(!useStatButtonColors)}
           trailing={

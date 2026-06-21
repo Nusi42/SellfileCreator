@@ -39,7 +39,7 @@ function dedupKey(arr: string[], idx: number): string {
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t, lang } = useI18n()
-  const { statButtonBorders: colorStatTexts, showSetIcons } = useDisplayPreferences()
+  const { colorStatsAndSlots: colorStatTexts, showSetIcons } = useDisplayPreferences()
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
   const theme = useTheme<Theme>()

@@ -570,6 +570,9 @@ const overrides: Catalog = {
   msgChooseColors: "Выберите цвета для каждого подстата.",
   labelText: "Текст",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Оттенки значков слотов",
+  slotTintArmor: "Слоты брони",
+  slotTintAccessory: "Слоты аксессуаров",
 
   titleManageSubstatTargets: "Целевые значения подстатов",
   msgSubstatTargetsHelp: "Задайте целевые значения подстатов, которые билдер использует при просчёте порогов для каждого уровня (0/4/8/12/16). Эти целевые значения показывают генератору, сколько [[stat:statACC]], [[stat:statSPD]] и т.п. должна показывать вещь на каждом шаге прокачки, чтобы правило считалось выполненным.\n\nКаждая строка соответствует конкретному рангу (1★, 2★, …, 6★). Введите значение, которое ожидаете для этого ранга, и билдер будет применять его всякий раз, когда проверяет предмет с тем же количеством звёзд.\n\nЕсли в правиле или предпросмотре выбран ранг = «Любой», выделенный столбец служит запасным значением, чтобы проверки всё равно имели чёткие целевые показатели.",
@@ -855,7 +858,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Слоты как иконки",
   rulesMenuFactionsAsIcons: "Фракции как иконки",
   rulesMenuSetsAsIcons: "Сеты как иконки",
-  rulesMenuColorStatTexts: "Цветной текст статов",
+  rulesMenuColorStatsAndSlots: "Цвет статов и слотов",
   rulesMenuColorBlindPalette: "Палитра для дальтоников",
   rulesMenuGridColumns: "Столбцы сетки",
   rulesMenuGridColumnsLarge: "Крупный",

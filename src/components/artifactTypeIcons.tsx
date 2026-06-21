@@ -10,6 +10,7 @@
 import type { JSX } from 'react'
 import type { ArtifactTypeId } from '../lib/types'
 import { ArtifactType, artifactTypeName, PREFERRED_ARTIFACT_TYPE_ORDER } from '../lib/types'
+import { useSlotTintColor } from '../lib/slotTintContext'
 
 type FontSizeProp = 'inherit' | 'small' | 'medium' | 'large' | undefined
 type LocalIcon = (props: { fontSize?: FontSizeProp }) => JSX.Element
@@ -56,9 +57,13 @@ const SLOT_ICON_BY_TYPE: Record<ArtifactType, SlotIconAsset> = {
   [ArtifactType.Banner]: SLOT_ICON_SVGS.Banner,
 }
 
-function makeSlotIcon(asset: SlotIconAsset): LocalIcon {
+// `slotId` lets the icon resolve its armor/accessory tint from SlotTintContext. The SVG path uses
+// fill="currentColor", so setting the svg `color` to the (already contrast-adapted) tint colours it;
+// `undefined` ⇒ fall back to the inherited theme colour (flag off — unchanged behaviour).
+function makeSlotIcon(asset: SlotIconAsset, slotId: ArtifactTypeId): LocalIcon {
   return ({ fontSize }) => {
     const { w, h } = sizeFor(fontSize)
+    const tint = useSlotTintColor(slotId)
     return (
       <svg
         width={w}
@@ -66,7 +71,7 @@ function makeSlotIcon(asset: SlotIconAsset): LocalIcon {
         viewBox={asset.viewBox}
         fill="none"
         aria-hidden
-        style={{ verticalAlign: '-0.15em' }}
+        style={{ verticalAlign: '-0.15em', color: tint ?? 'inherit' }}
       >
         <path fill="currentColor" d={asset.path} />
       </svg>
@@ -75,15 +80,15 @@ function makeSlotIcon(asset: SlotIconAsset): LocalIcon {
 }
 
 const SLOT_ICON_COMPONENT_BY_TYPE: Record<ArtifactType, LocalIcon> = {
-  [ArtifactType.Weapon]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Weapon]!),
-  [ArtifactType.Helmet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Helmet]!),
-  [ArtifactType.Shield]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Shield]!),
-  [ArtifactType.Gauntlets]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Gauntlets]!),
-  [ArtifactType.Chestplate]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Chestplate]!),
-  [ArtifactType.Boots]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Boots]!),
-  [ArtifactType.Ring]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Ring]!),
-  [ArtifactType.Amulet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Amulet]!),
-  [ArtifactType.Banner]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Banner]!),
+  [ArtifactType.Weapon]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Weapon]!, ArtifactType.Weapon),
+  [ArtifactType.Helmet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Helmet]!, ArtifactType.Helmet),
+  [ArtifactType.Shield]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Shield]!, ArtifactType.Shield),
+  [ArtifactType.Gauntlets]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Gauntlets]!, ArtifactType.Gauntlets),
+  [ArtifactType.Chestplate]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Chestplate]!, ArtifactType.Chestplate),
+  [ArtifactType.Boots]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Boots]!, ArtifactType.Boots),
+  [ArtifactType.Ring]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Ring]!, ArtifactType.Ring),
+  [ArtifactType.Amulet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Amulet]!, ArtifactType.Amulet),
+  [ArtifactType.Banner]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Banner]!, ArtifactType.Banner),
 }
 
 /** Ordered list used in the Builder slots grid and elsewhere. */

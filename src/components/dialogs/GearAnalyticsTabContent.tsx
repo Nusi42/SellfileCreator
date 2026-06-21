@@ -158,7 +158,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const { t, lang } = useI18n()
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
-  const { showSetIcons, statButtonBorders } = useDisplayPreferences()
+  const { showSetIcons, colorStatsAndSlots } = useDisplayPreferences()
   // Metasets for the GearSetsSelect quick-filter in the Sets treemap title row.
   const { metasets } = useAppState()
   // Catalog version gate: forces recompute of slot-aware set pools when new sets are registered.
@@ -943,7 +943,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
           data={mainStatData}
           selected={dim.mainStats}
           onToggle={toggleMainStat}
-          {...(statButtonBorders && { colorById: statColorById })}
+          {...(colorStatsAndSlots && { colorById: statColorById })}
           onEasterEgg={handleBarEgg}
           peerDanceTrigger={barPeer}
           collapsed={collapsed.mainStat}

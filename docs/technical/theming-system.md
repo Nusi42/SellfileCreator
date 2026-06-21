@@ -236,8 +236,10 @@ The effect reads `psychedelic` from the display preferences context. When turned
 | `showSlotIcons` | boolean | localStorage | Gear inspector slot icon display |
 | `showSetIcons` | boolean | localStorage | Gear inspector set icon display |
 | `showFactionIcons` | boolean | localStorage | Gear inspector faction icon display |
-| `statButtonBorders` | boolean | localStorage | Stat button border style |
+| `colorStatsAndSlots` | boolean | localStorage | Master switch: colorizes substat texts (chips/preview) **and** tints slot glyphs (armor/accessory). UI label "Color stats & slots". Renamed from the former `statButtonBorders`; no migration from the old key. |
 | `psychedelic` | boolean | session only | Resets on page reload; controls `PsychedelicEffect` |
+
+Slot glyph tints (top-6 armor = light yellow, bottom-3 accessory = light blue) are user-editable in the Manage Colors flyout and persisted under `sellfileCreator.slotTints.v1` (`{ armor, accessory }` hex). The SSOT lives in `src/lib/slotTints.ts` (defaults + `useSlotTints`) and `src/lib/slotTintContext.tsx` (`SlotTintProvider` + `useSlotTintColor`), which contrast-adapts each tint to the runtime scheme via `useSubstatFgAdapter`. The icon factory `makeSlotIcon` (in `src/components/artifactTypeIcons.tsx`) reads the context and colours the SVG's `currentColor`, so all slot-glyph render sites tint automatically. Armor-vs-accessory classification reuses `isAccessorySlot` (`src/lib/gearInspectorDomain.ts`).
 
 Access via `useDisplayPreferences()` (state) and `useDisplayPreferenceActions()` (setters).
 

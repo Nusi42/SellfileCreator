@@ -570,6 +570,9 @@ const overrides: Catalog = {
   msgChooseColors: "Her alt stat için renkleri seçin.",
   labelText: "Metin",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Slot simgesi tonları",
+  slotTintArmor: "Zırh slotları",
+  slotTintAccessory: "Aksesuar slotları",
 
   titleManageSubstatTargets: "Alt stat hedefleri",
   msgSubstatTargetsHelp: "Builderın her seviye dönüm noktasında (0/4/8/12/16) kullanacağı alt stat hedeflerini ayarlayın. Bu hedefler, kural devreye girmeden önce parçanın her rulo adımında ne kadar [[stat:statACC]], [[stat:statSPD]] vb. göstermesi gerektiğini belirtir.\n\nHer satır belirli bir rütbeyi temsil eder (1★, 2★, …, 6★). O rütbe için beklediğiniz değeri girin; builder aynı yıldız sayısına sahip eşyayı değerlendirirken bunu temel alır.\n\nBir kural veya önizleme Rütbe = “Herhangi” ise, vurgulanan sütun yedek hedef olur ve bu kontrollerin tanımlı değerleri kalır.",
@@ -855,7 +858,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Yuvalar simge olarak",
   rulesMenuFactionsAsIcons: "Fraksiyonlar simge olarak",
   rulesMenuSetsAsIcons: "Setler simge olarak",
-  rulesMenuColorStatTexts: "Stat metinlerini renklendir",
+  rulesMenuColorStatsAndSlots: "Stat ve slotları renklendir",
   rulesMenuColorBlindPalette: "Renk körü paleti",
   rulesMenuGridColumns: "Izgara sütunları",
   rulesMenuGridColumnsLarge: "Büyük",

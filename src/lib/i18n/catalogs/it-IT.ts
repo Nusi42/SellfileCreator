@@ -569,6 +569,9 @@ const overrides: Catalog = {
   msgChooseColors: "Scegli colori per ogni sotto-stat.",
   labelText: "Testo",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Tinte icone slot",
+  slotTintArmor: "Slot armatura",
+  slotTintAccessory: "Slot accessori",
 
   titleManageSubstatTargets: "Gestisci obiettivi di substat",
   msgSubstatTargetsHelp: "Imposta gli obiettivi di substat che il builder assume mentre calcola le soglie per ogni traguardo di livello (0/4/8/12/16). Questi obiettivi indicano al generatore quanta [[stat:statACC]], [[stat:statSPD]], ecc. deve mostrare un pezzo a ogni step di roll perché la regola si applichi.\n\nOgni riga rappresenta un rango specifico (1★, 2★, …, 6★). Inserisci il valore che ti aspetti per quel rango e il builder lo userà ogni volta che valuta equipaggiamento con la stessa quantità di stelle.\n\nSe una regola o l'anteprima usa Rango = “Qualsiasi”, la colonna evidenziata funge da fallback così che quei controlli abbiano sempre obiettivi definiti.",
@@ -854,7 +857,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Slot come icone",
   rulesMenuFactionsAsIcons: "Fazioni come icone",
   rulesMenuSetsAsIcons: "Set come icone",
-  rulesMenuColorStatTexts: "Colora testi statistiche",
+  rulesMenuColorStatsAndSlots: "Colora statistiche e slot",
   rulesMenuColorBlindPalette: "Palette daltonici",
   rulesMenuGridColumns: "Colonne griglia",
   rulesMenuGridColumnsLarge: "Grande",

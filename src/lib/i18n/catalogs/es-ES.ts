@@ -569,6 +569,9 @@ const overrides: Catalog = {
   msgChooseColors: "Elige colores por substat.",
   labelText: "Texto",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Tintes de iconos de ranura",
+  slotTintArmor: "Ranuras de armadura",
+  slotTintAccessory: "Ranuras de accesorios",
 
   titleManageSubstatTargets: "Gestionar objetivos de substats",
   msgSubstatTargetsHelp: "Define los objetivos de substats por rango que el generador asume mientras calcula los umbrales para cada hito de nivel (0/4/8/12/16). Estos objetivos indican cuánta [[stat:statACC]], [[stat:statSPD]], etc. debe tener una pieza en cada paso de tirada para que cumpla la regla.\n\nCada fila representa un rango específico (1★, 2★, …, 6★). Introduce el valor que esperas para ese rango y el generador lo aplicará siempre que evalúe equipo con la misma cantidad de estrellas.\n\nSi una regla o la vista previa usan Rango = “Cualquiera”, la columna resaltada actúa como valor de respaldo para que esas comprobaciones sigan teniendo objetivos definidos.",
@@ -854,7 +857,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Ranuras como iconos",
   rulesMenuFactionsAsIcons: "Facciones como iconos",
   rulesMenuSetsAsIcons: "Conjuntos como iconos",
-  rulesMenuColorStatTexts: "Colorear textos de stats",
+  rulesMenuColorStatsAndSlots: "Colorear stats y ranuras",
   rulesMenuColorBlindPalette: "Paleta daltónica",
   rulesMenuGridColumns: "Columnas de cuadrícula",
   rulesMenuGridColumnsLarge: "Grande",

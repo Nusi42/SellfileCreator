@@ -572,6 +572,9 @@ const overrides: Catalog = {
   msgChooseColors: "Choisissez des couleurs par sous‑stat.",
   labelText: "Texte",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Teintes des icônes d’emplacement",
+  slotTintArmor: "Emplacements d’armure",
+  slotTintAccessory: "Emplacements d’accessoires",
 
   titleManageSubstatTargets: "Gérer les objectifs de sous-stats",
   msgSubstatTargetsHelp: "Définissez les objectifs de sous-stats par rang que le générateur suppose lorsqu’il calcule les seuils pour chaque palier de niveau (0/4/8/12/16). Ces objectifs indiquent combien de [[stat:statACC]], [[stat:statSPD]], etc. une pièce doit afficher à chaque étape de jet pour que la règle s’applique.\n\nChaque ligne correspond à un rang précis (1★, 2★, …, 6★). Saisissez la valeur attendue pour ce rang ; le générateur l’appliquera dès qu’il évaluera un équipement avec le même nombre d’étoiles.\n\nSi une règle ou l’aperçu utilise Rang = « Peu importe », la colonne mise en évidence devient la valeur de repli afin que ces vérifications disposent toujours d’objectifs définis.",
@@ -857,7 +860,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Slots en icônes",
   rulesMenuFactionsAsIcons: "Factions en icônes",
   rulesMenuSetsAsIcons: "Sets en icônes",
-  rulesMenuColorStatTexts: "Colorer les textes des stats",
+  rulesMenuColorStatsAndSlots: "Colorer stats et emplacements",
   rulesMenuColorBlindPalette: "Palette daltonien",
   rulesMenuGridColumns: "Colonnes de grille",
   rulesMenuGridColumnsLarge: "Grand",

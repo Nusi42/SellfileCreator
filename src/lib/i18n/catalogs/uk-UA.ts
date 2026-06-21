@@ -570,6 +570,9 @@ const overrides: Catalog = {
   msgChooseColors: "Виберіть кольори для кожного підстату.",
   labelText: "Текст",
   labelBg: "Bg",
+  slotTintsSectionTitle: "Відтінки значків слотів",
+  slotTintArmor: "Слоти броні",
+  slotTintAccessory: "Слоти аксесуарів",
 
   titleManageSubstatTargets: "Цілі підстатів",
   msgSubstatTargetsHelp: "Задайте цільові значення підстатів, які білдер використовує, розраховуючи пороги для кожного рівневого рубежу (0/4/8/12/16). Ці цілі показують генератору, скільки [[stat:statACC]], [[stat:statSPD]] тощо має показувати річ на кожному кроці прокачування, щоби правило вважалося виконаним.\n\nКожен рядок відповідає конкретному рангу (1★, 2★, …, 6★). Вкажіть значення, яке очікуєте для цього рангу, і білдер застосує його щоразу, коли оцінюватиме екіпіровку з такою ж кількістю зірок.\n\nЯкщо в правилі або перегляді вибрано ранг = «Будь‑який», виділений стовпець стає запасною ціллю, тож ці перевірки також мають визначені значення.",
@@ -855,7 +858,7 @@ const overrides: Catalog = {
   rulesMenuSlotsAsIcons: "Слоти як значки",
   rulesMenuFactionsAsIcons: "Фракції як значки",
   rulesMenuSetsAsIcons: "Сети як значки",
-  rulesMenuColorStatTexts: "Кольоровий текст статів",
+  rulesMenuColorStatsAndSlots: "Колір статів і слотів",
   rulesMenuColorBlindPalette: "Палітра для дальтоніків",
   rulesMenuGridColumns: "Стовпці сітки",
   rulesMenuGridColumnsLarge: "Великий",

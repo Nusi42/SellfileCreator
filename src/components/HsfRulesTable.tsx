@@ -173,8 +173,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   const previewSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Reuse the shared disabled opacity so rows dim consistently with chips.
   const disabledOpacity = resolveDisabledOpacity(theme)
-  const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
-  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
+  const { showSlotIcons, showSetIcons, showFactionIcons, colorStatsAndSlots } = useDisplayPreferences()
+  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setColorStatsAndSlots } = useDisplayPreferenceActions()
   // Track which rule rows are newly added so they can play an enter animation.
   // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe
   // shifts all subsequent keys making them look "new".  Suppress enter animation on
@@ -380,7 +380,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       entry.source = rule.Substats
     }
     const normalized = getSubstatDetails(rule)
-    if (statButtonBorders) {
+    if (colorStatsAndSlots) {
       if (entry.withButtons === undefined) {
         entry.withButtons = formatRuleSubstatSummary(rule.Substats, t, { normalized }) || ''
       }
@@ -390,7 +390,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       entry.plain = formatRuleSubstatPlain(rule.Substats, t, { normalized }) || ''
     }
     return entry.plain ?? ''
-  }, [statButtonBorders, t, getSubstatDetails])
+  }, [colorStatsAndSlots, t, getSubstatDetails])
 
   const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithRecipe): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
@@ -1410,7 +1410,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                     substats={rule.Substats}
                     substatColors={substatColors}
                     wrap={wrapRows}
-                    colorize={statButtonBorders}
+                    colorize={colorStatsAndSlots}
                     normalized={getSubstatDetails(rule)}
                   />
                 )
@@ -1917,9 +1917,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         <MenuToggleRow label={t('rulesMenuFactionsAsIcons')} checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} labelSx={HEADER_MENU_LABEL_SX} />
         <MenuToggleRow label={t('rulesMenuSetsAsIcons')} checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} labelSx={HEADER_MENU_LABEL_SX} />
         <MenuToggleRow
-          label={t('rulesMenuColorStatTexts')}
-          checked={statButtonBorders}
-          onChange={() => setStatButtonBorders(!statButtonBorders)}
+          label={t('rulesMenuColorStatsAndSlots')}
+          checked={colorStatsAndSlots}
+          onChange={() => setColorStatsAndSlots(!colorStatsAndSlots)}
           labelSx={HEADER_MENU_LABEL_SX}
           trailing={
             <MarkdownTooltip markdown={t('manageColors')}>
@@ -1928,9 +1928,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                   size="small"
                   variant="outlined"
                   color="info"
-                  disabled={!statButtonBorders}
+                  disabled={!colorStatsAndSlots}
                   sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(e) => { e.stopPropagation(); if (!statButtonBorders) return; onOpenManageColors() }}
+                  onClick={(e) => { e.stopPropagation(); if (!colorStatsAndSlots) return; onOpenManageColors() }}
                   aria-label={t('manageColorsAria')}
                 >
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
