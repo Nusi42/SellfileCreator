@@ -1643,11 +1643,17 @@ export function evaluateAndCollectSafeguardProtection(params: {
   // only when a threshold rule is present. This prevents a second WASM computation (and
   // second peak-allocation for the result Vec) when the worker supplies entries for the
   // payload alongside this detection call.
+  const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
   let improvementChances: readonly ImprovementChanceWasmEntry[]
-  if (params.precomputedImprovementChances !== undefined) {
+  // Treat an EMPTY precomputed array as "not supplied" when a threshold rule is present:
+  // threshold-driven keep-list expansion needs real chances, and a caller that has a threshold
+  // but passes [] (the worker does this whenever its UI improvement-chance overlay/sort is off)
+  // must not silently disable expansion — that made the protected set depend on a display flag.
+  // Only a NON-empty precomputed array (or no threshold) skips the recompute.
+  if (params.precomputedImprovementChances !== undefined
+    && (params.precomputedImprovementChances.length > 0 || !hasThreshold)) {
     improvementChances = params.precomputedImprovementChances
   } else {
-    const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
     // Unwrap the { entries, diag } wrapper; diag is only used in the worker dev-tracing path.
     improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled })?.entries ?? []) : []
   }
