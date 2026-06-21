@@ -1,5 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /**
@@ -23,6 +23,10 @@ import { resolve } from 'node:path'
 // src/lib/packetCapture.ts (duplicated here only because Vite config cannot import
 // from the app's module graph without bundling concerns; both are simple literals).
 const CAPTURE_ENDPOINT = '/__capture-packet'
+
+// Route the browser client posts console-log lines to (appended to <session>/console.log).
+// Kept in sync with PACKET_CAPTURE_LOG_ENDPOINT in src/lib/packetCapture.ts.
+const CAPTURE_LOG_ENDPOINT = '/__capture-log'
 
 // Capture root, relative to the repo (= Vite project root). Mirrors the committed
 // sample-log location so fixtures live alongside the canonical reference set.
@@ -57,7 +61,10 @@ const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
   new Promise((resolveBody, rejectBody) => {
     const chunks: Buffer[] = []
     let size = 0
-    const MAX_BYTES = 64 * 1024 * 1024 // 64 MB ceiling guards against runaway posts.
+    // 256 MB ceiling. Inbound artifact frames are ~12 MB; the outbound uploadSellfile HSF
+    // push (compact-serialized, ~24 MB, double-encoded ~28 MB in the POST) needs well above
+    // the old 64 MB limit on large accounts — that limit silently dropped HSF-push captures.
+    const MAX_BYTES = 256 * 1024 * 1024
     req.on('data', (chunk: Buffer) => {
       size += chunk.length
       if (size > MAX_BYTES) {
@@ -119,6 +126,39 @@ export function packetCapturePlugin(): Plugin {
           server.config.logger.error(`[packet-capture] failed: ${String(err)}`)
           res.statusCode = 500
           res.end('capture failed')
+        }
+      })
+
+      // Console-log sink: the client forwards console.log/warn/error output here and we
+      // APPEND it to <session>/console.log, so a capture folder is fully self-contained —
+      // the inbound/outbound frames AND the diagnostic log (e.g. [detect-io]/[detect-keys])
+      // live together, no separate copy-paste of the browser console required.
+      server.middlewares.use(CAPTURE_LOG_ENDPOINT, async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('method not allowed')
+          return
+        }
+        try {
+          const raw = await readBody(req)
+          const record = JSON.parse(raw) as { session?: unknown; text?: unknown }
+          const session = safeToken(record.session)
+          if (!session || typeof record.text !== 'string') {
+            res.statusCode = 400
+            res.end('invalid log record')
+            return
+          }
+          const dir = resolve(root, CAPTURE_ROOT, session)
+          mkdirSync(dir, { recursive: true })
+          // Append (never overwrite) so the file accumulates across the session. The client
+          // batches lines and includes its own trailing newline per line.
+          appendFileSync(resolve(dir, 'console.log'), record.text, 'utf8')
+          res.statusCode = 204
+          res.end()
+        } catch (err) {
+          server.config.logger.error(`[packet-capture] log failed: ${String(err)}`)
+          res.statusCode = 500
+          res.end('log capture failed')
         }
       })
     },

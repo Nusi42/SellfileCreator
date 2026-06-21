@@ -14,7 +14,7 @@ import {
   type ExternalWsResponse,
 } from '../lib/externalWsProtocol'
 import { normalizeExternalEvent, type ExternalCommand } from '../lib/externalCommands'
-import { capturePacket } from '../lib/packetCapture'
+import { capturePacket, captureOutboundRequest } from '../lib/packetCapture'
 
 export type UseExternalCommandsOptions = {
   pushEndpoint: string | undefined
@@ -199,6 +199,7 @@ export function useExternalCommands({
           try {
             const id = nextIdRef.current++
             socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
+            if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, {})
           } catch {
             // Non-fatal — older RSL Helper versions that do not support requestSfcSync will simply not respond.
             if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on connect')
@@ -353,6 +354,10 @@ export function useExternalCommands({
       try {
         // Send the encoded JSON payload.
         socket.send(envelope)
+        // Dev-only: record the outbound request (incl. the exported HSF on uploadSellfile)
+        // into the active capture session so replay fixtures include what the app pushed.
+        // Guarded by import.meta.env.DEV so the whole call tree-shakes out of release/test.
+        if (import.meta.env.DEV) captureOutboundRequest(method, id, payload)
       } catch (err) {
         // Clean up the timeout when send fails immediately.
         window.clearTimeout(timeoutId)
@@ -370,6 +375,7 @@ export function useExternalCommands({
     try {
       const id = nextIdRef.current++
       socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
+      if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, {})
     } catch {
       if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on demand')
     }

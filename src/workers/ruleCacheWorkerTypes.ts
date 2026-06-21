@@ -149,6 +149,10 @@ export type RuleCacheWorkerResponse =
 export type RuleCacheWorkerInitWasmRequest = {
   kind: 'init-wasm'
   wasmModule: WebAssembly.Module
+  // Dev-only: the active packet-capture session id (null when capture is off). When set,
+  // the worker tees its console output into <session>/console.log so worker diagnostics
+  // (e.g. [detect-io]/[detect-keys]) land in the same capture folder as the frames.
+  captureSessionId?: string | null
 }
 
 export type RuleCacheWorkerRequest =

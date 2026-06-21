@@ -1,0 +1,20 @@
+{
+  "recipe": {
+    "q_2tq5i": ["q_2tq5i:`lategame`#1"],
+    "q_abpiug": ["q_abpiug:`keep 5★ limited sets`#1","q_abpiug:`keep 5★ accessories`#2","q_abpiug:`keep 5★ speed gear`#3","q_abpiug:`keep 5★ safeguards`#4"],
+    "q_bvx84c": ["q_bvx84c:`yes`#1"],
+    "q_w9j2cg": ["q_w9j2cg:`strict`#2"],
+    "q_3cyc3v": ["q_3cyc3v:`relaxed`#1"],
+    "q_9zmjwu": ["q_9zmjwu:`no`#0"],
+    "q_s37f1q": ["q_s37f1q:`no`#0"],
+    "q_2ye83x": ["q_2ye83x:`no`#0"],
+    "q_62mbb3": ["q_62mbb3:`no`#0"],
+    "q_wmwi89": ["q_wmwi89:keep **epic** pieces#0","q_wmwi89:keep **legendary** pieces#1","q_wmwi89:keep **mythical** pieces#2","q_wmwi89:keep only pieces already at **level 12–16**#3","q_wmwi89:ignore gauntlets, chestplates, and boots#4"],
+    "q_gs7912": ["q_gs7912:keep **epic** pieces#0","q_gs7912:keep **legendary** pieces#1","q_gs7912:keep **mythical** pieces#2","q_gs7912:ignore gauntlets, chestplates, and boots#4"],
+    "q_6df61p": ["q_6df61p:keep **legendary** pieces#1","q_6df61p:keep **mythical** pieces#2","q_6df61p:ignore gauntlets, chestplates, and boots#4"]
+  },
+  "safeguard": {
+    "q_ta25kl": ["12"], "q_bk3r8j": ["12"], "q_416mju": ["24"],
+    "q_tk0vqr": ["24"], "q_uiw6og": ["33"], "q_nfb217": ["50"]
+  }
+}

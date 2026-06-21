@@ -89,6 +89,13 @@ function AppShell() {
 }
 
 const bootstrap = async (): Promise<void> => {
+  // Dev-only: when ?capturePackets is active, tee console output to the capture session's
+  // console.log so a captured folder bundles its diagnostics with its frames. No-op when
+  // capture is off; the whole call tree-shakes out of release/test via import.meta.env.DEV.
+  if (import.meta.env.DEV) {
+    const { installConsoleLogCapture } = await import('./lib/packetCapture')
+    installConsoleLogCapture()
+  }
   await warmupWasmRuleEngine()
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
