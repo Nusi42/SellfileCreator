@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.25 — 2026-06-21
+English:
+- **Improved: Gear evaluation with safeguards active is now faster** — when safeguards are enabled, the app now skips re-checking gear that is already kept by your recipes, since those pieces cannot be affected by safeguard rules. Accounts with many safeguard rules and large gear collections will notice the biggest speedup. Results are unchanged.
+
+Deutsch:
+- **Verbessert: Gear-Auswertung mit aktiven Safeguards ist jetzt schneller** — bei aktiven Safeguards überspringt die App das erneute Prüfen von Gear, das bereits durch Rezepte behalten wird, da diese Teile nicht durch Safeguard-Regeln beeinflusst werden können. Konten mit vielen Safeguard-Regeln und großen Gear-Sammlungen werden die größte Verbesserung bemerken. Die Ergebnisse sind unverändert.
+
 ## v1.0.24 — 2026-06-21
 English:
 - **New: Gear slot icons now show a subtle color tint** — armor slots (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) appear in pale gold; accessory slots (Ring, Amulet, Banner) appear in pale blue. The tints adapt to the active theme and can be customized or reset in Manage Colors. They follow the "Color stats & slots" toggle in display settings.
