@@ -260,6 +260,21 @@ type ArtifactLogRow = {
   ascend?: unknown
 }
 
+// The `inboxArtifacts` notification has two observed shapes. The flat shape is an
+// array of ArtifactLog rows (same as `artifacts`). The nested shape — sent when the
+// inbox is delivered as mail items — wraps each row inside an inbox-item envelope:
+//   { inboxItemId, typeId, isRead, givenTimeTicks, ..., artifacts: [ <ArtifactLog row> ] }
+// An inbox-item envelope is recognised by carrying an `artifacts` array while lacking
+// a top-level `kindId` (a real artifact row always has `kindId` and never an
+// `artifacts` field). Unwrap such envelopes to their nested rows so the nested shape
+// parses identically to the flat one — otherwise parseArtifactLogRow rejects the
+// envelope (no id/kindId/rankId/rarityId) and the inbox gear is silently dropped.
+const isInboxItemEnvelope = (value: unknown): value is { artifacts: unknown[] } => (
+  isObject(value)
+  && Array.isArray((value as UnknownRecord).artifacts)
+  && toNumber((value as UnknownRecord).kindId) === null
+)
+
 const parseArtifactLogArray = (
   value: unknown,
   equippedByArtifact: Map<number, number> | null,
@@ -268,9 +283,14 @@ const parseArtifactLogArray = (
   if (!Array.isArray(parsed)) return []
   const rows: GearDbArtifactRow[] = []
   for (const entry of parsed) {
-    const row = parseArtifactLogRow(entry, equippedByArtifact)
-    if (!row) continue
-    rows.push(row)
+    // Flatten inbox-item envelopes into their nested ArtifactLog rows; pass flat
+    // rows through untouched. An envelope may carry zero or several nested rows.
+    const candidates = isInboxItemEnvelope(entry) ? entry.artifacts : [entry]
+    for (const candidate of candidates) {
+      const row = parseArtifactLogRow(candidate, equippedByArtifact)
+      if (!row) continue
+      rows.push(row)
+    }
   }
   return rows
 }

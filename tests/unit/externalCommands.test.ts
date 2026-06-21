@@ -61,6 +61,45 @@ test('inboxArtifacts event with ArtifactLog rows produces gearDbInboxArtifacts c
   assert.equal(row.type, 5)
 })
 
+// RSL Helper can deliver the inbox as mail items: each entry wraps its ArtifactLog
+// row(s) under an `artifacts` array inside an inbox-item envelope (inboxItemId/typeId/
+// …). The envelope itself has no kindId/rankId/rarityId, so it must be unwrapped or the
+// gear is silently dropped (the cause of pre/post-shard HSF divergence).
+test('inboxArtifacts event unwraps nested inbox-item envelopes', () => {
+  const envelope = {
+    inboxItemId: 166312,
+    typeId: 7,
+    isRead: true,
+    givenTimeTicks: 639174939276110000,
+    validTillTicks: 639261339276110000,
+    parentInboxId: null,
+    questPrototypeId: null,
+    artifacts: [baseArtifactLogRow],
+  }
+  const command = normalizeExternalEvent('inboxArtifacts', { inboxArtifacts: [envelope] })
+  assert(command, 'expected command for nested inboxArtifacts event')
+  assert.equal(command.kind, 'gearDbInboxArtifacts')
+  if (command.kind !== 'gearDbInboxArtifacts') return
+  assert.equal(command.inboxArtifacts.length, 1, 'nested envelope should yield its inner row')
+  const row = command.inboxArtifacts[0]
+  assert(row, 'expected normalized inbox artifact row from envelope')
+  assert.equal(row.ID, 1001)
+  assert.equal(row.type, 5)
+})
+
+// A single envelope may legitimately carry several artifacts; all must be flattened.
+test('inboxArtifacts event flattens multiple rows per envelope and mixed shapes', () => {
+  const second = { ...baseArtifactLogRow, id: 1002 }
+  const envelope = { inboxItemId: 1, typeId: 7, artifacts: [baseArtifactLogRow, second] }
+  // Mix a nested envelope with a flat row to confirm both shapes parse in one array.
+  const flat = { ...baseArtifactLogRow, id: 1003 }
+  const command = normalizeExternalEvent('inboxArtifacts', { inboxArtifacts: [envelope, flat] })
+  assert(command && command.kind === 'gearDbInboxArtifacts', 'expected inbox command')
+  if (!command || command.kind !== 'gearDbInboxArtifacts') return
+  assert.equal(command.inboxArtifacts.length, 3, 'two nested + one flat row = three')
+  assert.deepEqual(command.inboxArtifacts.map((r) => r.ID).sort((a, b) => a - b), [1001, 1002, 1003])
+})
+
 // ─── null / undefined / root-array param handling (resolveEventCollection) ──────
 // Regression for a captured session where RSL Helper sent { champions: null } etc. at
 // startup. The old `record[key] ?? payload` idiom fell through to the whole payload

@@ -178,10 +178,30 @@ Equipped and stored gear from the main inventory.
 
 Gear sitting in the inbox (not yet moved to inventory). Same row schema as `artifacts`.
 
-**Params**
-- `inboxArtifacts` (array of ArtifactLog rows)
+RSL Helper sends this notification in **two observed shapes**, and the importer
+accepts both:
 
-**Example**
+1. **Flat shape** — `inboxArtifacts` is a plain array of ArtifactLog rows (identical to
+   `artifacts`).
+2. **Nested inbox-item shape** — `inboxArtifacts` is an array of *inbox-item envelopes*
+   (mail entries), each carrying its ArtifactLog row(s) under a nested `artifacts` array
+   alongside mail metadata (`inboxItemId`, `typeId`, `isRead`, `givenTimeTicks`,
+   `validTillTicks`, `parentInboxId`, `questPrototypeId`). One envelope may wrap zero,
+   one, or several rows.
+
+**Params**
+- `inboxArtifacts` (array of ArtifactLog rows **or** inbox-item envelopes)
+
+**Unwrapping**: `parseArtifactLogArray` in
+[`src/lib/externalCommands.ts`](../../src/lib/externalCommands.ts) flattens any entry it
+recognises as an inbox-item envelope (an object with an `artifacts` array and **no**
+top-level `kindId`) into its nested rows before parsing; flat rows pass through untouched.
+This is mandatory: an envelope has no top-level `id`/`kindId`/`rankId`/`rarityId`, so
+`parseArtifactLogRow` would reject it outright and the inbox gear would be **silently
+dropped** — the cause of a real pre-vs-post HSF divergence where missing inbox accessories
+left `anticipateGaps` safeguards emitting extra placeholder rules until the gear arrived.
+
+**Example — flat shape**
 ```json
 {"jsonrpc":"2.0","method":"inboxArtifacts","params":{"inboxArtifacts":[
   {
@@ -196,6 +216,32 @@ Gear sitting in the inbox (not yet moved to inventory). Same row schema as `arti
       {"id":9,"level":0,"isAbsolute":0,"statValue":472446401,"mValue":0,"glyphValue":0}
     ],
     "ascend":null
+  }
+]}}
+```
+
+**Example — nested inbox-item shape**
+```json
+{"jsonrpc":"2.0","method":"inboxArtifacts","params":{"inboxArtifacts":[
+  {
+    "inboxItemId":166312,"typeId":7,"isRead":true,
+    "givenTimeTicks":639174939276110000,"validTillTicks":639261339276110000,
+    "parentInboxId":null,"questPrototypeId":null,
+    "artifacts":[
+      {
+        "id":255144,"revision":0,"sellPrice":79200,"price":792000,
+        "level":0,"upgradeTimeTicks":null,
+        "ascendLevel":null,"rerollsCount":null,"ascendRerollsCount":null,
+        "kindId":7,"rankId":6,"rarityId":4,"setKindId":66,
+        "requiredFraction":11,"failedUpgrades":0,
+        "isActivated":false,"isSeen":false,"readOnly":false,
+        "primary":{"id":2,"level":0,"isAbsolute":1,"statValue":137438953472,"mValue":0,"glyphValue":0},
+        "secondary":[
+          {"id":3,"level":0,"isAbsolute":1,"statValue":81604378624,"mValue":0,"glyphValue":0}
+        ],
+        "ascend":null
+      }
+    ]
   }
 ]}}
 ```
