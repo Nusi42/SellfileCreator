@@ -1059,7 +1059,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     { key: 'ArtifactTypeNames', label: 'Slot', width: 90, visible: true },
     { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
-    { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
+    { key: 'LevelLabel', label: 'Level', width: 78, visible: true },
     // Default to hidden; users can opt-in via the header menu or auto mode.
     { key: 'Faction', label: 'Faction', width: 50, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
