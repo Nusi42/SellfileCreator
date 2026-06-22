@@ -145,7 +145,7 @@ import SafeguardCandidateRankList, { computeSafeguardFocusGroupLabel, SafeguardF
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { StatLabel } from './StatLabel'
-import { SlotTintButtonScope } from '../lib/slotTintContext'
+import { SlotTintControlScope } from '../lib/slotTintContext'
 import { useTheme, useColorScheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
@@ -2432,7 +2432,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     )
                   })}
@@ -2464,7 +2464,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     )
                   })}
@@ -2582,7 +2582,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     )
                   })}
@@ -2615,7 +2615,7 @@ export default function SafeguardBuilderPanel({
                         {...(isMixed ? { 'data-mixed': 'true' } : {})}
                         {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
                       >
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     )
                   })}
@@ -2922,8 +2922,8 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
             {/* Slot grid and perSlot chip collapse together as a unit */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {/* SlotTintButtonScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
-              <SlotTintButtonScope>
+              {/* SlotTintControlScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
+              <SlotTintControlScope>
               <Box sx={multiEditActive ? [{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }, mixedToggleOverrides] : { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
                 {artifactTypeIconList.map(({ id, Icon }) => {
                   // Multi-edit: derive per-slot tri-state presence.
@@ -3043,7 +3043,7 @@ export default function SafeguardBuilderPanel({
                   )
                 })}
               </Box>
-              </SlotTintButtonScope>
+              </SlotTintControlScope>
               {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, redundantDimensions.perSlot, perScopeMixed.perSlot,
                 perSlotOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(

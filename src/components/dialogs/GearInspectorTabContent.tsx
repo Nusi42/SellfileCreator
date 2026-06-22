@@ -226,7 +226,9 @@ export function GearInspectorTabContent({
   useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  // TEXT scope colours card summaries; CONTROL scope colours the stat selects/menus.
+  const colorStatTexts = statColorScope === 'text' || statColorScope === 'everything'
+  const colorStatControls = statColorScope === 'controls' || statColorScope === 'everything'
   const gearInspectorMath = useMemo(() => createGearInspectorMath(substatTargets), [substatTargets])
   const {
     adjustSubValuesFor,
@@ -1198,7 +1200,7 @@ export function GearInspectorTabContent({
               updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, main: Number(variant) }))
             }}
             colorOverrides={substatColors}
-            showBorderColors={colorStatTexts}
+            showBorderColors={colorStatControls}
             size="small"
             sx={{
               width: GEAR_INSPECTOR_MAINSTAT_SELECT_MIN_WIDTH_PX,
@@ -1558,12 +1560,12 @@ export function GearInspectorTabContent({
                       alignItems: 'center',
                       '& .MuiSelect-select': {
                         ...GEAR_INSPECTOR_SELECT_VALUE_BASE_SX,
-                        color: colorStatTexts ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
+                        color: colorStatControls ? adaptSubstatFgOnSurface(substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v], substatSurfacePaper) : undefined,
                       },
                     }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                      <MenuItem key={opt} value={opt} sx={{ color: colorStatTexts ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                      <MenuItem key={opt} value={opt} sx={{ color: colorStatControls ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
                   <Stack direction="row" spacing={0.25} sx={{ flex: 1, alignItems: 'center' }}>

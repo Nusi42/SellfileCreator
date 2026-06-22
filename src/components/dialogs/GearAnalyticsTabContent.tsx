@@ -6,6 +6,7 @@
  * filter, and every other chart shows data filtered by the remaining active dimensions.
  * This is the BI-style Crossfilter pattern.
  */
+import { scopeColorsText } from '../../lib/colorScope'
 import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, startTransition, useDeferredValue } from 'react'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
@@ -159,7 +160,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const theme = useTheme()
   const [substatColors] = useSubstatColors()
   const { showSetIcons, statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Active rarity palette so the rarity donut reflects user-edited rarity colours.
   const rarityPalette = useRarityPalette()
   // Metasets for the GearSetsSelect quick-filter in the Sets treemap title row.

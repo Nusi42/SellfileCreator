@@ -7,6 +7,7 @@
  * An "Include Glyphs" toggle adds each substat's glyphValue to its totalValue
  * when computing min / avg / max — matching the sort-panel's glyph opt-in.
  */
+import { scopeColorsText } from '../../lib/colorScope'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
@@ -315,7 +316,7 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
   const { t } = useI18n()
   const [substatColors] = useSubstatColors()
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Contrast-correct stat range-row labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 

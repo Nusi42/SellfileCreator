@@ -97,16 +97,20 @@ export function resolveRarityAccentColor(
   return palette[Math.max(1, Math.min(6, Math.round(numeric)))]
 }
 
-// Rarity accent contrast-corrected for legible TEXT / icon glyphs on an opaque surface,
-// using the SAME WCAG pass as substat/appearance text. The dark accents (purple #7c3aed,
-// mythical dark-red #8b0000) are otherwise unreadable as text on dark surfaces.
-// Use ONLY when the color is rendered as text/an icon — borders and chart fills keep the
-// raw accent so the rarity hue stays exact.
+// Higher contrast floor for rarity TEXT than the 3:1 UI default: the dark rarity hues (Epic purple
+// #7c3aed, Mythical dark-red #8b0000) only reach a muted, hard-to-read tone at 3:1 on dark/RSLH
+// surfaces. 4.5:1 (WCAG AA normal text) lightens them enough to read clearly while LCH keeps the hue.
+export const RARITY_TEXT_MIN_CONTRAST = 4.5
+
+// Rarity accent contrast-corrected for legible TEXT / icon glyphs on an opaque surface.
+// The dark accents (purple #7c3aed, mythical dark-red #8b0000) are otherwise unreadable as text on
+// dark surfaces. Use ONLY when the color is rendered as text/an icon — borders and chart fills keep
+// the raw accent so the rarity hue stays exact.
 export function resolveRarityTextColor(
   rarity: number | null | undefined,
   surface: string,
   palette: Readonly<Record<number, string>> = RARITY_ACCENT_COLORS,
 ): string | undefined {
   const accent = resolveRarityAccentColor(rarity, palette)
-  return accent ? ensureContrastOnBg(accent, surface) : undefined
+  return accent ? ensureContrastOnBg(accent, surface, RARITY_TEXT_MIN_CONTRAST) : undefined
 }

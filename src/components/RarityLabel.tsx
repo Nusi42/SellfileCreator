@@ -15,10 +15,10 @@ import { rarityRankValueI18nKey, rarityCodeParts, type RarityCode } from '../lib
 import { NBSP } from '../lib/constants'
 import { useRarityTextColor } from '../lib/rarityColorContext'
 
-/** One tinted rarity word. `inButton` reads the button-scoped colour (scope === 'everything'). */
-export function RarityLabel({ rarity, inButton = false }: { rarity: number; inButton?: boolean }) {
+/** One tinted rarity word. `inControl` reads the control-scoped colour (toggles/selects), else text. */
+export function RarityLabel({ rarity, inControl = false }: { rarity: number; inControl?: boolean }) {
   const { t } = useI18n()
-  const color = useRarityTextColor(rarity, inButton)
+  const color = useRarityTextColor(rarity, inControl)
   // color undefined ⇒ omit the sx colour entirely so the word inherits the theme text colour.
   return (
     <Box component="span" sx={color ? { color } : undefined}>
@@ -31,7 +31,7 @@ export function RarityLabel({ rarity, inButton = false }: { rarity: number; inBu
  * A comma-separated run of tinted rarity words. Mirrors the existing `join(', ')` summaries but keeps
  * each word coloured. Renders nothing extra when the list is empty (caller handles the empty case).
  */
-export function RarityLabelList({ values, separator = ', ' }: { values: readonly number[]; separator?: string }) {
+export function RarityLabelList({ values, separator = ', ', inControl = false }: { values: readonly number[]; separator?: string; inControl?: boolean }) {
   // Stable keys without bare indices: suffix each rarity with its running occurrence count so
   // duplicate rarities still get unique, position-independent keys.
   const seen = new Map<number, number>()
@@ -43,7 +43,7 @@ export function RarityLabelList({ values, separator = ', ' }: { values: readonly
         return (
           <Box component="span" key={`rarity-${rarity}-${occ}`}>
             {i > 0 ? separator : null}
-            <RarityLabel rarity={rarity} />
+            <RarityLabel rarity={rarity} inControl={inControl} />
           </Box>
         )
       })}
@@ -56,13 +56,13 @@ export function RarityLabelList({ values, separator = ', ' }: { values: readonly
  * glyph left in the surrounding colour. Any/empty codes render nothing. SSOT for the comparator forms
  * the builder/safeguard rarity selectors show.
  */
-export function RarityCodeLabel({ code, inButton = false }: { code: RarityCode | undefined; inButton?: boolean }) {
+export function RarityCodeLabel({ code, inControl = false }: { code: RarityCode | undefined; inControl?: boolean }) {
   const { comparator, rank } = rarityCodeParts(code)
   if (rank == null) return null
   return (
     <>
       {comparator ? `${comparator}${NBSP}` : null}
-      <RarityLabel rarity={rank} inButton={inButton} />
+      <RarityLabel rarity={rank} inControl={inControl} />
     </>
   )
 }

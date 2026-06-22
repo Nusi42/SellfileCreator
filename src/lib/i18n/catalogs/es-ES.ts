@@ -574,7 +574,8 @@ const overrides: Catalog = {
   slotTintAccessory: "Ranuras de accesorios",
   colorScopeRowLabel: "Coloreado",
   colorScopeOff: "Desactivado",
-  colorScopeLabels: "Etiquetas",
+  colorScopeControls: "Controles",
+  colorScopeText: "Texto",
   colorScopeEverything: "Todo",
   rarityColorsSectionTitle: "Colores de rareza",
 

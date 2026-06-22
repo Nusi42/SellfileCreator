@@ -1,3 +1,4 @@
+import { scopeColorsText } from '../lib/colorScope'
 import { memo, useMemo, useState } from 'react'
 import type React from 'react'
 import type { JSX } from 'react'
@@ -174,7 +175,7 @@ function RecipeChip({
 }: RecipeChipProps) {
   const { t, lang } = useI18n()
   const { showFactionIcons, statColorScope, showSetIcons, showSlotIcons } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Rarity word → adapted colour for tinting the rarity word in the chip summary (empty when off).
   const rarityLabelColors = useRarityLabelColorMap()
   const theme = useTheme()

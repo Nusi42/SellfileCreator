@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Stack, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { useColorScheme, useTheme } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
 import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
 import type { SlotTints } from '../../lib/slotTints'
@@ -8,6 +8,7 @@ import type { RarityColors } from '../../lib/rarityColors'
 import { type ColorScope, COLOR_SCOPES } from '../../lib/colorScope'
 import ColorField from '../ColorField'
 import { CycleButton } from '../CycleButton'
+import { resolveSubstatChipPalette } from '../RuleSubstatChips'
 import { parseHexWithAlpha, formatHexWithAlpha } from '../../lib/colorUtils'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../../lib/constants'
 import { appZoomCompensatedLength } from '../../lib/sideBySideZoom'
@@ -43,10 +44,18 @@ export default function ManageColorsDialog(props: {
     statColorScope, setStatColorScope, rarityColorScope, setRarityColorScope, slotColorScope, setSlotColorScope, onReset,
   } = props
   const { t } = useI18n()
+  // Theme + runtime scheme so the preview chip can mirror the real Sellfile-preview chip exactly
+  // (resolveSubstatChipPalette adapts fg/bg to the actual rendered surface per scheme).
+  const theme = useTheme()
+  const { colorScheme } = useColorScheme()
+  const isLight = colorScheme === 'light'
   // CycleButton options (Off / Labels / Everything) — order from the COLOR_SCOPES SSOT.
   const scopeOptions = React.useMemo(() => COLOR_SCOPES.map((s) => ({
     value: s,
-    label: s === 'off' ? t('colorScopeOff') : s === 'labels' ? t('colorScopeLabels') : t('colorScopeEverything'),
+    label: s === 'off' ? t('colorScopeOff')
+      : s === 'controls' ? t('colorScopeControls')
+        : s === 'text' ? t('colorScopeText')
+          : t('colorScopeEverything'),
   })), [t])
   // A "Coloring: [Off|Labels|Everything]" row placed at the top of each colour section.
   // Same 150px label column as the colour rows so the cycle button left-aligns under the Text buttons.
@@ -114,8 +123,18 @@ export default function ManageColorsDialog(props: {
             const sliderAlpha = clampedPct / 100
             // During bg picker drag use the raw draft color; otherwise apply slider alpha.
             const displayHex = draftColors[vk]?.bg ?? formatHexWithAlpha(baseBg, sliderAlpha)
-            const previewBg = alpha(baseBg, draftColors[vk]?.bg ? alphaValue : sliderAlpha)
-            const previewBorder = previewBg
+            // Preview chip mirrors the real Sellfile-preview chip: resolve fg/bg/border through the
+            // SAME palette function (light-mode fg-tint branch, contrast-adapted label) so the dialog
+            // and the table agree in every theme. Feed the LIVE fg/bg as this variant's colours.
+            const previewPalette = resolveSubstatChipPalette(theme, {
+              variant: vk,
+              substatColors: { [vk]: { fg: liveFg, bg: displayHex } },
+              colorize: true,
+              isLight,
+            })
+            const previewBg = previewPalette.chipBg
+            const previewBorder = previewPalette.chipBorder
+            const previewLabelColor = previewPalette.labelColor
 
             // Fg color picker: onChange → draft, onChangeCommitted → setSubstatColors.
             const handleTextColorChange = (nextFg: string) => {
@@ -213,7 +232,7 @@ export default function ManageColorsDialog(props: {
                       bgcolor: previewBg,
                       border: '1px solid',
                       borderColor: previewBorder,
-                      color: liveFg,
+                      color: previewLabelColor,
                       fontSize: '0.85rem',
                     }}
                   >

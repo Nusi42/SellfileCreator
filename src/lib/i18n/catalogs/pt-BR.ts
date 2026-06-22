@@ -574,7 +574,8 @@ const catalog: Catalog = {
   slotTintAccessory: "Slots de acessórios",
   colorScopeRowLabel: "Coloração",
   colorScopeOff: "Desligado",
-  colorScopeLabels: "Rótulos",
+  colorScopeControls: "Controles",
+  colorScopeText: "Texto",
   colorScopeEverything: "Tudo",
   rarityColorsSectionTitle: "Cores de raridade",
 

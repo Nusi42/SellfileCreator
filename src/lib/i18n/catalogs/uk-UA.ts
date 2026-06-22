@@ -575,7 +575,8 @@ const overrides: Catalog = {
   slotTintAccessory: "Слоти аксесуарів",
   colorScopeRowLabel: "Забарвлення",
   colorScopeOff: "Вимк",
-  colorScopeLabels: "Підписи",
+  colorScopeControls: "Елементи",
+  colorScopeText: "Текст",
   colorScopeEverything: "Усюди",
   rarityColorsSectionTitle: "Кольори рідкості",
 

@@ -572,7 +572,8 @@ const overrides: Catalog = {
   slotTintAccessory: "Schmuckstück-Slots",
   colorScopeRowLabel: "Färbung",
   colorScopeOff: "Aus",
-  colorScopeLabels: "Beschriftungen",
+  colorScopeControls: "Steuerelemente",
+  colorScopeText: "Text",
   colorScopeEverything: "Überall",
   rarityColorsSectionTitle: "Seltenheitsfarben",
 

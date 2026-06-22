@@ -7,6 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
+import { scopeColorsText } from './lib/colorScope'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import beginnerSfcRaw from '../presets/beginner.sfc?raw'
@@ -645,7 +646,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [autoPushEnabled, setAutoPushEnabled] = useSellfileAutoPushPreference()
   const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
   // Stat-text coloring (chips/preview/summaries) is on whenever the stat group is not 'off'.
-  const colorStatTextsOn = statColorScope !== 'off'
+  const colorStatTextsOn = scopeColorsText(statColorScope)
   const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
   // Both panel hooks share the same underlying stores, so updates from the panels are

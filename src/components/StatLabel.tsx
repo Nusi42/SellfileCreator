@@ -14,10 +14,10 @@ import { useI18n } from '../lib/i18n'
 import { statVariantI18nKey } from '../lib/types'
 import { useStatTextColor } from '../lib/statColorContext'
 
-// `inButton` reads the button-scoped colour (only set when the stat scope is 'everything').
-export function StatLabel({ variant, inButton = false }: { variant: number; inButton?: boolean }) {
+// `inControl` reads the control-scoped colour (buttons/selects); else the text-scoped colour.
+export function StatLabel({ variant, inControl = false }: { variant: number; inControl?: boolean }) {
   const { t } = useI18n()
-  const color = useStatTextColor(variant, inButton)
+  const color = useStatTextColor(variant, inControl)
   // color undefined ⇒ omit the sx colour so the name inherits the theme text colour.
   return (
     <Box component="span" sx={color ? { color } : undefined}>

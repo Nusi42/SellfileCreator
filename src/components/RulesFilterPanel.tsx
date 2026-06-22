@@ -3,6 +3,7 @@ import { useI18n } from '../lib/i18n'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
+import { SlotTintControlScope } from '../lib/slotTintContext'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -95,7 +96,7 @@ import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { useRarityPalette } from '../lib/rarityColorContext'
-import { useStatButtonColorMap } from '../lib/statColorContext'
+import { useStatControlColorMap } from '../lib/statColorContext'
 import { StatLabel } from './StatLabel'
 import { RarityLabel } from './RarityLabel'
 import { TINT } from '../lib/colorTints'
@@ -622,7 +623,7 @@ function RulesFilterPanel({
   // Active rarity palette so champion-option rarity borders reflect user-edited rarity colours.
   const rarityPalette = useRarityPalette()
   // Button-scoped stat-name colours for the substat tri-state filter TOGGLE (empty unless 'everything').
-  const statTextColors = useStatButtonColorMap()
+  const statTextColors = useStatControlColorMap()
   // Contrast-correct colored roll-filter stat labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
   const gearInspectorRollsState: GearInspectorRollFilterState = state.gearInspectorRolls ?? DEFAULT_RULES_FILTER_STATE.gearInspectorRolls ?? createDefaultGearInspectorRollsState()
@@ -2950,7 +2951,7 @@ function RulesFilterPanel({
                       {/* EllipsisTooltip shows OS tooltip only when text is actually truncated. */}
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <StatLabel variant={variant} inButton />
+                          <StatLabel variant={variant} inControl />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -2969,7 +2970,7 @@ function RulesFilterPanel({
                     <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <StatLabel variant={variant} inButton />
+                          <StatLabel variant={variant} inControl />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3424,6 +3425,8 @@ function RulesFilterPanel({
               onCollapsedChange={onCollapsedChange}
             />
             <Collapse in={!collapsed.slots} timeout="auto" unmountOnExit>
+              {/* SlotTintControlScope: slot-filter toggle glyphs use the control-scoped slot tint. */}
+              <SlotTintControlScope>
               <ToggleButtonGroup
                 size="small"
                 value={Array.from(selectedSlots).map(String)}
@@ -3479,6 +3482,7 @@ function RulesFilterPanel({
                   )
                 })}
               </ToggleButtonGroup>
+              </SlotTintControlScope>
               {!isGearInspectorMode && (
                 <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
                   {anyChip(t('filterSlots'), state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSlots') }))}
@@ -3584,7 +3588,7 @@ function RulesFilterPanel({
                     <ToggleButton key={rarity} value={String(rarity)}>
                       <EllipsisTooltip title={t(rarityRankValueI18nKey(rarity))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                          <RarityLabel rarity={rarity} inButton />
+                          <RarityLabel rarity={rarity} inControl />
                         </Typography>
                       </EllipsisTooltip>
                     </ToggleButton>
@@ -3662,7 +3666,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>
@@ -3678,7 +3682,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
                       <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                        <StatLabel variant={variant} inButton />
+                        <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>

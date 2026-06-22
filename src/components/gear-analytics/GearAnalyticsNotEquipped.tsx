@@ -21,6 +21,7 @@
  *
  * Hovering a filled cell shows the equipped gear piece via GearInspectorGridCard.
  */
+import { scopeColorsText } from '../../lib/colorScope'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Box, Collapse, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
@@ -509,7 +510,7 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const [substatColors] = useSubstatColors()
   // useStatButtonColors drives substat chip coloring inside the gear preview card.
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
 
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
   const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)

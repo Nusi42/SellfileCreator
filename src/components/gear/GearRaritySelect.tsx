@@ -86,7 +86,7 @@ export function GearRaritySelect({
   }
   const renderSelected = (() => {
     if (singleValue == null) return <Typography variant="body2">{emptyDisplayText}</Typography>
-    return <Typography variant="body2"><RarityLabel rarity={Number(singleValue)} /></Typography>
+    return <Typography variant="body2"><RarityLabel rarity={Number(singleValue)} inControl /></Typography>
   })()
   // Keep multi-select defaults visible so Safeguards shows "Any" instead of empty badges.
   const renderMultiValue = (() => {
@@ -101,7 +101,7 @@ export function GearRaritySelect({
           data-ellipsis-target
           sx={{ display: 'block', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
-          <RarityLabelList values={multiValues.map((rarity) => Number(rarity))} />
+          <RarityLabelList values={multiValues.map((rarity) => Number(rarity))} inControl />
         </Typography>
       )
     }
@@ -126,7 +126,7 @@ export function GearRaritySelect({
       ) : null}
       {[1, 2, 3, 4, 5, 6].map((rarity) => (
         <MenuItem key={rarity} value={String(rarity)}>
-          <RarityLabel rarity={rarity} />
+          <RarityLabel rarity={rarity} inControl />
         </MenuItem>
       ))}
     </Select>

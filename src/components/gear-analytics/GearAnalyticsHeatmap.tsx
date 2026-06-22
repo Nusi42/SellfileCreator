@@ -6,6 +6,7 @@
  * Clicking a column header toggles its slot in the cross-filter.
  * Clicking a cell toggles both the slot (cross-filter) and the main stat (substat drill-down filter).
  */
+import { scopeColorsText } from '../../lib/colorScope'
 import React from 'react'
 import { Box, Collapse, Tooltip, useTheme } from '@mui/material'
 import { HEATMAP_SLOTS, HEATMAP_VARIANTS, artifactTypeI18nKey, statVariantI18nKey, type SlotMainMatrix } from '../../lib/gearAnalytics'
@@ -48,7 +49,7 @@ export function GearAnalyticsHeatmap({ matrix, dim, onToggleSlot, onToggleMainSt
   const theme = useTheme()
   const { t } = useI18n()
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Contrast-correct stat axis-label colors for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
   const [substatColors] = useSubstatColors()

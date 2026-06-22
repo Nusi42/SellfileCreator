@@ -5,12 +5,14 @@
  * star-header row, and input grid without any Dialog chrome. Used as a tab inside
  * the Tools (Logic Hub) dialog.
  */
+import { scopeColorsText } from '../lib/colorScope'
 import React, { useMemo, useRef } from 'react'
 import { Box, Chip, TextField, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n } from '../lib/i18n'
+import { StatLabel } from './StatLabel'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
@@ -49,7 +51,7 @@ export function SubstatTargetsTabContent({
   const theme = useTheme()
   // colorStatTexts drives whether ACC/SPD tokens in help text render in stat colors.
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Contrast-correct stat token colors for legible text on the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 
@@ -329,7 +331,8 @@ export function SubstatTargetsTabContent({
           const vKey = Number(variant)
           return (
             <React.Fragment key={`row-${variant}`}>
-              <Typography sx={{ pr: 1 }}>{label}</Typography>
+              {/* Row stat-name label — TEXT context (display, not a control). */}
+              <Typography sx={{ pr: 1 }}><StatLabel variant={variant} /></Typography>
               {substatTargetsStarColumns.map(({ key, label: starLabel }) => (
                 renderSubstatTargetInput(key, vKey, label, starLabel)
               ))}

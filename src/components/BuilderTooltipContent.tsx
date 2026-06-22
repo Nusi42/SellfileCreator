@@ -1,3 +1,4 @@
+import { scopeColorsText } from '../lib/colorScope'
 import type { JSX } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
@@ -41,7 +42,7 @@ function dedupKey(arr: string[], idx: number): string {
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t, lang } = useI18n()
   const { statColorScope, showSetIcons } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
   const theme = useTheme<Theme>()

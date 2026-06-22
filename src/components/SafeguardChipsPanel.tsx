@@ -10,6 +10,7 @@
  * selected styling and click events are forwarded to the parent hook so
  * shift/ctrl range selection is handled centrally.
  */
+import { scopeColorsText } from '../lib/colorScope'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Box,
@@ -439,7 +440,7 @@ export default function SafeguardChipsPanel({
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
   const { showFactionIcons, statColorScope, showSetIcons, showSlotIcons } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Read the chips-list tag display preference — separate from the builder form inline display.
   const [showTagsInChips, setShowTagsInChips] = useShowTagsInChipsPreference()
 

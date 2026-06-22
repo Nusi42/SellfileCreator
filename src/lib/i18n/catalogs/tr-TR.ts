@@ -575,7 +575,8 @@ const overrides: Catalog = {
   slotTintAccessory: "Aksesuar slotları",
   colorScopeRowLabel: "Renklendirme",
   colorScopeOff: "Kapalı",
-  colorScopeLabels: "Etiketler",
+  colorScopeControls: "Kontroller",
+  colorScopeText: "Metin",
   colorScopeEverything: "Her yer",
   rarityColorsSectionTitle: "Nadirlik renkleri",
 

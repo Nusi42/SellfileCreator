@@ -1,3 +1,4 @@
+import { scopeColorsText } from '../lib/colorScope'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
@@ -181,7 +182,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   const disabledOpacity = resolveDisabledOpacity(theme)
   const { showSlotIcons, showSetIcons, showFactionIcons, statColorScope, rarityColorScope, slotColorScope } = useDisplayPreferences()
   // Stat-text colouring (substat chips + rank/rarity & main-stat cells) is on when stat scope ≠ off.
-  const colorStatTextsOn = statColorScope !== 'off'
+  const colorStatTextsOn = scopeColorsText(statColorScope)
   // Master colour toggle for the header menu: reflects any group on, flips all on/off.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()

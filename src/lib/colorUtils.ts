@@ -231,12 +231,12 @@ const CONTRAST_CACHE_MAX = 32
  * Results are memoized in a 32-entry LRU cache keyed by the hex pair.
  * Returns the original textHex unchanged when it already passes, or on parse failure.
  */
-export function ensureContrastOnBg(textHex: string, bgHex: string): string {
-  const key = `${textHex}|${bgHex}`
+export function ensureContrastOnBg(textHex: string, bgHex: string, minContrast: number = WCAG_MIN_CONTRAST): string {
+  const key = `${textHex}|${bgHex}|${minContrast}`
   const cached = contrastCache.get(key)
   if (cached !== undefined) return cached
 
-  const result = computeContrastAdjustment(textHex, bgHex)
+  const result = computeContrastAdjustment(textHex, bgHex, minContrast)
 
   if (contrastCache.size >= CONTRAST_CACHE_MAX) {
     const oldest = contrastCache.keys().next().value
@@ -246,12 +246,12 @@ export function ensureContrastOnBg(textHex: string, bgHex: string): string {
   return result
 }
 
-function computeContrastAdjustment(textHex: string, bgHex: string): string {
+function computeContrastAdjustment(textHex: string, bgHex: string, minContrast: number): string {
   const text = parseColor(textHex), bg = parseColor(bgHex)
   // Unparseable input (e.g. a CSS var token or garbage) — leave the caller's value as-is.
   if (!text || !bg) return textHex
 
-  if (contrastRatio(text, bg) >= WCAG_MIN_CONTRAST) return textHex
+  if (contrastRatio(text, bg) >= minContrast) return textHex
 
   // Adjust only L* in LCH; keep C* (chroma/saturation) and H* (hue) constant.
   // LCH is perceptually uniform: equal L* steps look equally bright across all hues.
@@ -270,7 +270,7 @@ function computeContrastAdjustment(textHex: string, bgHex: string): string {
   let lo = L, hi = targetL
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2
-    if (contrastRatio(lchToRgb(mid, C, safeH), bg) >= WCAG_MIN_CONTRAST) {
+    if (contrastRatio(lchToRgb(mid, C, safeH), bg) >= minContrast) {
       hi = mid
     } else {
       lo = mid

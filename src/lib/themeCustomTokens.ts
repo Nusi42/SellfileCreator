@@ -9,7 +9,7 @@
  * as CSS custom properties once via GlobalStyles in main.tsx.
  */
 import type { Theme } from '@mui/material/styles'
-import { blendAlpha, ensureContrastOnBg } from './colorUtils'
+import { blendAlpha, compositeOnBase, ensureContrastOnBg } from './colorUtils'
 
 // ─── CSS variable names ───────────────────────────────────────────────────────
 export const APP_CSS_VAR = {
@@ -342,6 +342,20 @@ export function resolveSchemePalette(theme: Theme, mode: SchemeMode): Theme['pal
 // Convenience: the active scheme's paper color for the common single-surface case.
 export function resolveSchemePaper(theme: Theme, mode: SchemeMode): string {
   return resolveSchemePalette(theme, mode).background.paper
+}
+
+/**
+ * The opaque surface a SELECTED toggle/filter control renders over: the action.selected overlay
+ * (a semi-transparent rgba string) composited over the scheme paper. Stat-name text on controls is
+ * adapted against THIS surface (the harder-contrast case) so it stays legible whether the control is
+ * selected or not, in every scheme (the selection tint shifts the surface most under RSLH).
+ */
+export function resolveControlSurface(theme: Theme, mode: SchemeMode): string {
+  const palette = resolveSchemePalette(theme, mode)
+  const paper = palette.background.paper
+  // action.selected is `alpha(selColor, selOpacity)` per scheme; composite it to an opaque hex.
+  const selected = palette.action?.selected
+  return selected ? compositeOnBase(paper, selected) : paper
 }
 
 export type ContrastSurfaceScheme = {

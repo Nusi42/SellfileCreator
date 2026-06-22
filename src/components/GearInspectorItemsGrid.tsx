@@ -43,7 +43,8 @@ import {
   type FactionId,
   StatVariant,
 } from '../lib/types'
-import { resolveRarityAccentColor } from '../lib/rarityColors'
+import { resolveRarityAccentColor, resolveRarityTextColor } from '../lib/rarityColors'
+import { useSchemePaper } from '../lib/themeContrastHooks'
 import { useRarityPalette } from '../lib/rarityColorContext'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -372,6 +373,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const theme = useTheme()
   // Active rarity palette so grid rarity-accent chart fills reflect user-edited rarity colours.
   const rarityPalette = useRarityPalette()
+  // Active-scheme paper so the rarity WORD (e.g. "Mythical") is contrast-adapted for legible text;
+  // the raw accent stays for the avatar border but is unreadable as text (dark-red on dark surface).
+  const schemePaper = useSchemePaper()
   // Extracted so useMemo dependency arrays can reference stable simple variables instead of complex expressions.
   // In CSS vars mode, theme.vars.palette.X returns a CSS var string (e.g. 'var(--mui-palette-error-main)').
   // parseCssColorToRgb cannot parse CSS var strings, so resolve to the computed hex via the DOM instead.
@@ -2077,8 +2081,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       rankLabel: rankLabel || fallback,
       rarityLabel: rarityLabel || fallback,
       rarityAccentColor: resolveRarityAccentColor(artifact.rarity, rarityPalette) ?? undefined,
+      // Contrast-adapted colour for the rarity WORD so e.g. Mythical's dark-red stays legible.
+      rarityTextColor: resolveRarityTextColor(artifact.rarity, schemePaper, rarityPalette) ?? undefined,
     }
-  }, [effectiveScrollHintRowId, lang, rowLookup, t, rarityPalette])
+  }, [effectiveScrollHintRowId, lang, rowLookup, t, rarityPalette, schemePaper])
   const measureScrollHintWidth = useCallback(() => {
     const node = scrollHintRef.current
     if (!node) return
@@ -2679,7 +2685,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             <Box component="span" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
               <Box component="span">{scrollHintDetails.rankLabel}</Box>
               <Box component="span" sx={{ opacity: 0.8 }}>•</Box>
-              <Box component="span" sx={{ color: scrollHintDetails.rarityAccentColor ?? 'inherit' }}>
+              <Box component="span" sx={{ color: scrollHintDetails.rarityTextColor ?? 'inherit' }}>
                 {scrollHintDetails.rarityLabel}
               </Box>
             </Box>

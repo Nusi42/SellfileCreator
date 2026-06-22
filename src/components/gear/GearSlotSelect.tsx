@@ -6,6 +6,7 @@ import { useI18n } from '../../lib/i18n'
 import type { ArtifactTypeId } from '../../lib/types'
 import { artifactTypeI18nKey } from '../../lib/types'
 import { artifactTypeIconList } from '../artifactTypeIcons'
+import { SlotTintControlScope } from '../../lib/slotTintContext'
 import EllipsisTooltip from '../EllipsisTooltip'
 
 const SLOT_MENU_PROPS = {
@@ -167,6 +168,7 @@ export function GearSlotSelect({
     ? (renderMultiValue ?? (() => null))
     : (() => renderSingleValue)
   return (
+    <SlotTintControlScope>
     <Select
       size={size}
       value={selectValue}
@@ -204,5 +206,6 @@ export function GearSlotSelect({
         </MenuItem>
       ))}
     </Select>
+    </SlotTintControlScope>
   )
 }

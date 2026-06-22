@@ -2,74 +2,78 @@
  * statColorContext
  *
  * Provides the per-stat-variant TEXT colour (contrast-adapted, scope-gated) to the whole app so any
- * stat NAME rendered on screen can be tinted consistently — buttons, selects, labels, summaries.
+ * stat NAME rendered on screen can be tinted consistently — controls, chips, labels, summaries.
  *
  * The scope splits two surfaces:
- *  - LABEL contexts (chips, preview, selects, table cells, tooltips, summaries) colour when the stat
- *    scope is 'labels' or 'everything'.
- *  - BUTTON contexts (toggle/filter buttons) colour only when the scope is 'everything'.
+ *  - CONTROL contexts (toggle buttons, selects/menus, closed-select displays) colour when the stat
+ *    scope is 'controls' or 'everything'.
+ *  - TEXT contexts (substat chips, table cells, tooltips, summaries, preview) colour when the stat
+ *    scope is 'text' or 'everything'.
  *
  * The colour for a variant is the user's substat fg (or its default), adapted for legibility on the
  * runtime scheme via the same `useSubstatFgAdapter` substat chips use. `undefined` when the relevant
  * surface is not in scope, so the name inherits the surrounding theme colour.
  */
 import { createContext, use, useMemo } from 'react'
-import { useSubstatFgAdapter } from './themeContrastHooks'
+import { useControlFgAdapter, useSubstatFgAdapter } from './themeContrastHooks'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from './types'
-import { type ColorScope, scopeColorsButtons, scopeColorsLabels } from './colorScope'
+import { type ColorScope, scopeColorsControls, scopeColorsText } from './colorScope'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
 type ColorByVariant = Record<number, string | undefined>
 
-// Two adapted maps: one for label contexts, one for button contexts (button is a subset of label).
-const StatColorContext = createContext<{ label: ColorByVariant; button: ColorByVariant }>({ label: {}, button: {} })
+// Two adapted maps: one for control contexts, one for text contexts (independently gated).
+const StatColorContext = createContext<{ control: ColorByVariant; text: ColorByVariant }>({ control: {}, text: {} })
 
 export function StatColorProvider({
   scope,
   substatColors,
   children,
 }: {
-  /** This group's colour scope (off / labels / everything). */
+  /** This group's colour scope (off / controls / text / everything). */
   scope: ColorScope
   /** User substat colours (fg/bg per variant); defaults fill any gaps. */
   substatColors: SubstatColorMap
   children: React.ReactNode
 }) {
-  // Same contrast adapter substat fg colours use — recomputes only when the scheme changes.
-  const adaptFg = useSubstatFgAdapter()
+  // TEXT sites adapt against paper; CONTROL sites adapt against the selected-button surface so the
+  // name stays legible on toggle/filter buttons (esp. RSLH's warm selection tint).
+  const adaptText = useSubstatFgAdapter()
+  const adaptControl = useControlFgAdapter()
 
   const value = useMemo(() => {
-    const labels = scopeColorsLabels(scope)
-    const buttons = scopeColorsButtons(scope)
-    if (!labels) return { label: {}, button: {} }
-    const label: ColorByVariant = {}
+    const controls = scopeColorsControls(scope)
+    const text = scopeColorsText(scope)
+    if (!controls && !text) return { control: {}, text: {} }
+    const textColours: ColorByVariant = {}
+    const controlColours: ColorByVariant = {}
     for (const variant of STAT_VARIANTS_PRIORITY) {
       const fg = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
-      label[variant] = adaptFg(fg)
+      if (text) textColours[variant] = adaptText(fg)
+      if (controls) controlColours[variant] = adaptControl(fg)
     }
-    // Button map mirrors the label map only when the scope reaches buttons; otherwise empty.
-    return { label, button: buttons ? label : {} }
-  }, [scope, adaptFg, substatColors])
+    return { control: controlColours, text: textColours }
+  }, [scope, adaptText, adaptControl, substatColors])
 
   return <StatColorContext value={value}>{children}</StatColorContext>
 }
 
 /**
- * Contrast-adapted text colour for a stat variant, or undefined when out of scope. `inButton` reads
- * the button-scoped colour (set only when scope === 'everything'); otherwise the label-scoped colour.
+ * Contrast-adapted text colour for a stat variant, or undefined when out of scope. `inControl` reads
+ * the control-scoped colour (buttons/selects); otherwise the text-scoped colour (chips/cells/etc).
  */
-export function useStatTextColor(variant: number | null | undefined, inButton = false): string | undefined {
-  const { label, button } = use(StatColorContext)
+export function useStatTextColor(variant: number | null | undefined, inControl = false): string | undefined {
+  const { control, text } = use(StatColorContext)
   if (variant == null) return undefined
-  return (inButton ? button : label)[Number(variant)]
+  return (inControl ? control : text)[Number(variant)]
 }
 
-/** Full per-variant LABEL-scoped colour map (empty when stat scope is off). */
+/** Full per-variant TEXT-scoped colour map (empty unless stat scope ∈ {text, everything}). */
 export function useStatTextColorMap(): ColorByVariant {
-  return use(StatColorContext).label
+  return use(StatColorContext).text
 }
 
-/** Full per-variant BUTTON-scoped colour map (empty unless stat scope is 'everything'). */
-export function useStatButtonColorMap(): ColorByVariant {
-  return use(StatColorContext).button
+/** Full per-variant CONTROL-scoped colour map (empty unless stat scope ∈ {controls, everything}). */
+export function useStatControlColorMap(): ColorByVariant {
+  return use(StatColorContext).control
 }

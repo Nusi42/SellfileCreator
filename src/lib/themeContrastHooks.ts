@@ -12,6 +12,7 @@ import { useCallback } from 'react'
 import { useTheme, useColorScheme } from '@mui/material/styles'
 import {
   adaptSubstatFgOnSurface,
+  resolveControlSurface,
   resolveSchemePaper,
   schemeModeFromColorScheme,
 } from './themeCustomTokens'
@@ -32,4 +33,17 @@ export function useSubstatFgAdapter(): (fg: string | undefined) => string | unde
   const paper = useSchemePaper()
   // paper is a primitive string → the callback identity only changes when the scheme changes.
   return useCallback((fg: string | undefined) => adaptSubstatFgOnSurface(fg, paper), [paper])
+}
+
+/**
+ * Like `useSubstatFgAdapter`, but adapts for legible TEXT on a CONTROL surface (toggle / filter
+ * buttons, selects) — the selected-state overlay over paper — instead of plain paper. Use for
+ * stat/rarity NAMES rendered inside controls so they stay legible whether selected or not, in all
+ * schemes (notably RSLH, whose warm selection tint shifts the surface the most).
+ */
+export function useControlFgAdapter(): (fg: string | undefined) => string | undefined {
+  const theme = useTheme()
+  const { colorScheme } = useColorScheme()
+  const surface = resolveControlSurface(theme, schemeModeFromColorScheme(colorScheme))
+  return useCallback((fg: string | undefined) => adaptSubstatFgOnSurface(fg, surface), [surface])
 }

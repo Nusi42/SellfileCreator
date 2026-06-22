@@ -600,7 +600,8 @@ const enUS: Catalog = {
   slotTintAccessory: "Accessory slots",
   colorScopeRowLabel: "Coloring",
   colorScopeOff: "Off",
-  colorScopeLabels: "Labels",
+  colorScopeControls: "Controls",
+  colorScopeText: "Text",
   colorScopeEverything: "Everything",
   rarityColorsSectionTitle: "Rarity colors",
 

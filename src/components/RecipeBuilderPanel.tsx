@@ -6,12 +6,13 @@
  * local UI state; all persisted state lives in App.
  */
 // React drives the builder UI; hooks keep state localized while recipe flows from App.
+import { scopeColorsText } from '../lib/colorScope'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, rarityCodeParts, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
 import { RarityCodeLabel } from './RarityLabel'
 import { StatLabel } from './StatLabel'
-import { SlotTintButtonScope } from '../lib/slotTintContext'
-import { useStatButtonColorMap } from '../lib/statColorContext'
+import { SlotTintControlScope } from '../lib/slotTintContext'
+import { useStatControlColorMap } from '../lib/statColorContext'
 import { variantToSub } from '../lib/hsfTypes'
 import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
@@ -1624,9 +1625,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   // Button-scoped stat-name colours for the substat TOGGLE labels (empty unless stat scope 'everything').
-  const statTextColors = useStatButtonColorMap()
+  const statTextColors = useStatControlColorMap()
   // Mixed-state colors — use theme.custom tokens (CSS variable-backed, no alpha() needed).
   const mixedBorderColor = theme.custom.multiEditMixedBorder
   const mixedPatternColor = theme.custom.multiEditMixedBg
@@ -2712,7 +2713,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              <StatLabel variant={variant} inButton />
+              <StatLabel variant={variant} inControl />
             </ToggleButton>
           )
         })}
@@ -2752,7 +2753,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
               }}
               data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
             >
-              <StatLabel variant={variant} inButton />
+              <StatLabel variant={variant} inControl />
             </ToggleButton>
           )
         })}
@@ -6500,7 +6501,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   const numeric = Number(selected)
                   // Tint the closed-select rarity word; Any (no rank) falls back to the plain label.
                   return rarityCodeParts(numeric).rank != null
-                    ? <RarityCodeLabel code={numeric} />
+                    ? <RarityCodeLabel code={numeric} inControl />
                     : (rarityCodeToName(numeric) || t('any'))
                 }}
               >
@@ -6543,7 +6544,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  <RarityCodeLabel code={code} />
+                  <RarityCodeLabel code={code} inControl />
                 </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
@@ -6560,7 +6561,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  <RarityCodeLabel code={code} />
+                  <RarityCodeLabel code={code} inControl />
                 </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
@@ -6577,7 +6578,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     updateRaritySelection('code', Number(code))
                   }}
                 >
-                  <RarityCodeLabel code={code} />
+                  <RarityCodeLabel code={code} inControl />
                 </MenuItem>
               ))}
               </Select>
@@ -6867,8 +6868,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             ))}
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
-          {/* SlotTintButtonScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
-          <SlotTintButtonScope>
+          {/* SlotTintControlScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
+          <SlotTintControlScope>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const slotState = multiEditActive ? getSlotState(id) : (displayArtifactTypes.includes(id) ? 'all' : 'none')
@@ -6984,7 +6985,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               )
             })}
           </Box>
-          </SlotTintButtonScope>
+          </SlotTintControlScope>
           </Collapse>
           </Box>{/* end slots override badge wrapper */}
         </FormControl>

@@ -15,6 +15,7 @@
  * Easter egg: clicking the same radar mark 10 times within 10 seconds triggers a random
  * dance animation on the polygon.  10 distinct variants are available.
  */
+import { scopeColorsText } from '../../lib/colorScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
 import { RadarChart } from '@mui/x-charts/RadarChart'
@@ -172,7 +173,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   const theme = useTheme()
   const { t } = useI18n()
   const { statColorScope } = useDisplayPreferences()
-  const colorStatTexts = statColorScope !== 'off'
+  const colorStatTexts = scopeColorsText(statColorScope)
   const [substatColors] = useSubstatColors()
   // Contrast-correct stat axis-label colors for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
