@@ -33,8 +33,7 @@ import {
   type FactionId,
   StatVariant,
 } from '../lib/types'
-import { resolveRarityAccentColor, resolveRarityTextColor } from '../lib/rarityColors'
-import { useRarityPalette } from '../lib/rarityColorContext'
+import { useRarityAccentColor, useRarityGlyphColor } from '../lib/rarityColorContext'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import {
   formatStatNumber,
@@ -381,9 +380,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const { colorScheme } = useColorScheme()
   // Resolve the ACTUAL runtime-scheme surface colors (theme.palette.* is frozen to light).
   const scheme = resolveContrastSurfaceScheme(theme, schemeModeFromColorScheme(colorScheme))
-  // Active rarity palette so champion avatar frames + glyphs reflect user-edited rarity colours.
-  const rarityPalette = useRarityPalette()
   const artifact = row.artifact
+  // Champion avatar border + glyph are always-on rarity accents (like v1.0.26 — not scope-gated).
+  // Resolved here (before any early return) so the hooks run unconditionally.
+  const championRarityAccent = useRarityAccentColor(artifact?.equippedChampion?.rarity)
+  const championRarityText = useRarityGlyphColor(artifact?.equippedChampion?.rarity)
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
   const rawArtifactId = Number(artifact?.id)
@@ -954,13 +955,11 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const championIconSize = (isUltraDense || championIconMode === 'large')
     ? CHAMPION_ICON_LARGE_SIZE
     : CHAMPION_ICON_BASE_SIZE
-  // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
-  const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampion?.rarity, rarityPalette)
   // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
-  const championBorderColor = rarityAccentColor ?? (theme.vars?.palette.divider ?? theme.palette.divider)
+  const rarityAccentColor = championRarityAccent
+  const championBorderColor = championRarityAccent ?? (theme.vars?.palette.divider ?? theme.palette.divider)
   // Glyph-only source icons use the accent when available so missing champ icons are easier to spot.
-  // Contrast-correct it for text legibility (dark-red/purple accents on a dark card otherwise vanish).
-  const championGlyphColor = resolveRarityTextColor(artifact.equippedChampion?.rarity, scheme.paper, rarityPalette)
+  const championGlyphColor = championRarityText
     ?? (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary)
   // Mirror the champion dropdown fallback: render the first initial when an avatar image is missing.
   const missingChampionFallbackInitial = (() => {

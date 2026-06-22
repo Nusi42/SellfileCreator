@@ -94,8 +94,7 @@ import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
-import { resolveRarityAccentColor } from '../lib/rarityColors'
-import { useRarityPalette } from '../lib/rarityColorContext'
+import { useRarityAccentResolver } from '../lib/rarityColorContext'
 import { useStatControlColorMap } from '../lib/statColorContext'
 import { StatLabel } from './StatLabel'
 import { RarityLabel } from './RarityLabel'
@@ -620,8 +619,8 @@ function RulesFilterPanel({
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()
   const theme = useTheme()
-  // Active rarity palette so champion-option rarity borders reflect user-edited rarity colours.
-  const rarityPalette = useRarityPalette()
+  // Always-on rarity accent for champion-option borders (like v1.0.26 — not scope-gated).
+  const rarityAccentFor = useRarityAccentResolver()
   // Button-scoped stat-name colours for the substat tri-state filter TOGGLE (empty unless 'everything').
   const statTextColors = useStatControlColorMap()
   // Contrast-correct colored roll-filter stat labels for the active scheme's surface.
@@ -2766,7 +2765,7 @@ function RulesFilterPanel({
 	                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
 	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
 	                        // Mirror the Gear Inspector grid rarity border so the dropdown signals overall quality at a glance.
-	                        const championBorderColor = resolveRarityAccentColor(option.rarity, rarityPalette) ?? (theme.vars?.palette.divider ?? theme.palette.divider)
+	                        const championBorderColor = rarityAccentFor(option.rarity) ?? (theme.vars?.palette.divider ?? theme.palette.divider)
                         const championTrimmed = championLabel.trim()
                         const championFallbackInitial = championTrimmed.length > 0 ? championTrimmed.charAt(0).toUpperCase() : '?'
                         return (

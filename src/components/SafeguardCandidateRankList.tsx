@@ -38,8 +38,7 @@ import { FactionIcon, FACTION_ICON_HALO_PAD_PX } from './FactionIcon'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { CircledDigitBadge } from './CircledDigitBadge'
-import { resolveRarityTextColor } from '../lib/rarityColors'
-import { useRarityPalette } from '../lib/rarityColorContext'
+import { useRarityGlyphColor } from '../lib/rarityColorContext'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
@@ -516,8 +515,8 @@ function CandidateRow({
   // Runtime scheme paper for contrast math — theme.palette.* is frozen to light with cssVariables.
   const { colorScheme } = useColorScheme()
   const rowSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
-  // Active rarity palette so the slot-icon rarity tint reflects user edits.
-  const rarityPalette = useRarityPalette()
+  // Always-on rarity tint for the slot icon (glyph coloured by rarity, like v1.0.26 — not scope-gated).
+  const rarityIconColor = useRarityGlyphColor(artifact?.rarity)
   // Determine the actual outcome for this candidate.
   // When previewRow is available its match field is ground truth — use it to drive the icon.
   // Fall back to isWithinQuota only when no preview data exists (e.g. popover opened before
@@ -682,7 +681,7 @@ function CandidateRow({
         {showSlotIcons && (
           <Box
             sx={{
-              color: resolveRarityTextColor(artifact?.rarity, rowSurfacePaper, rarityPalette) ?? 'text.secondary',
+              color: rarityIconColor ?? 'text.secondary',
               lineHeight: 0,
               width: 16,
               height: 16,

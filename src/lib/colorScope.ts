@@ -24,15 +24,15 @@ export type ColorScope = 'off' | 'controls' | 'text' | 'everything'
 export const COLOR_SCOPES: readonly ColorScope[] = ['off', 'controls', 'text', 'everything']
 
 /**
- * Per-group factory defaults, chosen so the out-of-the-box effective colouring matches v1.0.26
- * (before the scope feature existed):
+ * Per-group factory defaults. Stats/slots reproduce v1.0.26's effective look (before the scope
+ * feature existed); rarity words default to 'text' (rarity accents/glyphs are always-on regardless):
  *  - Stats were coloured in chip/preview TEXT only, never on toggle buttons → 'text'.
  *  - Slot glyph tints applied uniformly to every slot icon incl. builder toggles → 'everything'.
- *  - Rarity was not coloured at all (rarity colouring is new) → 'off'.
+ *  - Rarity WORDS colour in text contexts by default (chips/cells/summaries) → 'text'.
  */
 export const DEFAULT_STAT_COLOR_SCOPE: ColorScope = 'text'
 export const DEFAULT_SLOT_COLOR_SCOPE: ColorScope = 'everything'
-export const DEFAULT_RARITY_COLOR_SCOPE: ColorScope = 'off'
+export const DEFAULT_RARITY_COLOR_SCOPE: ColorScope = 'text'
 
 /** True when the group colours CONTROL sites (buttons / selects / closed-select displays). */
 export function scopeColorsControls(scope: ColorScope): boolean {

@@ -25,19 +25,20 @@ import { type ColorScope, scopeColorsControls, scopeColorsText } from './colorSc
 type RarityContextValue = {
   // The active raw palette (defaults unless user-edited).
   palette: RarityColors
-  // Per-rarity adapted text colour for TEXT contexts (chips/cells/summaries).
+  // Per-rarity adapted WORD colour for TEXT contexts (chips/cells/summaries) — scope-gated.
   textColors: Record<number, string | undefined>
-  // Per-rarity adapted text colour for CONTROL contexts (toggles/selects/closed-selects).
+  // Per-rarity adapted WORD colour for CONTROL contexts (toggles/selects/closed-selects) — scope-gated.
   controlColors: Record<number, string | undefined>
-  // Whether raw accents (borders/charts) should colour — accents are TEXT-class display.
-  accentEnabled: boolean
+  // Per-rarity adapted GLYPH/icon colour (champion glyph, slot-icon-by-rarity) — ALWAYS on (like
+  // v1.0.26), contrast-adapted against paper at the rarity floor. NOT scope-gated.
+  glyphColors: Record<number, string | undefined>
 }
 
 const RarityColorContext = createContext<RarityContextValue>({
   palette: DEFAULT_RARITY_COLORS,
   textColors: {},
   controlColors: {},
-  accentEnabled: false,
+  glyphColors: {},
 })
 
 const RARITY_RANKS: readonly (1 | 2 | 3 | 4 | 5 | 6)[] = [1, 2, 3, 4, 5, 6]
@@ -68,17 +69,16 @@ export function RarityPaletteProvider({
     const text = scopeColorsText(scope)
     const textColors: Record<number, string | undefined> = {}
     const controlColors: Record<number, string | undefined> = {}
+    const glyphColors: Record<number, string | undefined> = {}
     for (const rank of RARITY_RANKS) {
       const raw = palette[rank]
-      if (text && raw) textColors[rank] = ensureContrastOnBg(raw, textSurface, RARITY_TEXT_MIN_CONTRAST)
-      if (controls && raw) controlColors[rank] = ensureContrastOnBg(raw, controlSurface, RARITY_TEXT_MIN_CONTRAST)
+      if (!raw) continue
+      // Glyph icons coloured by rarity are always on (v1.0.26) — adapt against paper at the rarity floor.
+      glyphColors[rank] = ensureContrastOnBg(raw, textSurface, RARITY_TEXT_MIN_CONTRAST)
+      if (text) textColors[rank] = glyphColors[rank]
+      if (controls) controlColors[rank] = ensureContrastOnBg(raw, controlSurface, RARITY_TEXT_MIN_CONTRAST)
     }
-    return {
-      palette,
-      textColors,
-      controlColors,
-      accentEnabled: text, // accents are non-control display → gated with TEXT
-    }
+    return { palette, textColors, controlColors, glyphColors }
   }, [scope, textSurface, controlSurface, palette])
 
   return <RarityColorContext value={value}>{children}</RarityColorContext>
@@ -90,14 +90,23 @@ export function useRarityPalette(): RarityColors {
 }
 
 /**
- * Raw active palette colour for a rarity accent (borders/charts/frames). Returns undefined unless the
- * rarity scope colours TEXT-class display (text/everything), so out-of-scope call sites fall back to
- * their neutral divider colour.
+ * Raw active palette colour for a rarity accent (borders / chart fills / gear-card frames / rarity
+ * glyph icons). NOT scope-gated — these accents are ALWAYS coloured (matching v1.0.26, where rarity
+ * borders rendered unconditionally). Only the editable palette flows through; the rarity SCOPE gates
+ * the rarity WORDS, not these accents. Call sites still fall back to a neutral colour for no rarity.
  */
 export function useRarityAccentColor(rarity: number | null | undefined): string | undefined {
-  const { palette, accentEnabled } = use(RarityColorContext)
-  if (!accentEnabled) return undefined
+  const { palette } = use(RarityColorContext)
   return resolveRarityAccentColor(rarity, palette)
+}
+
+/**
+ * Always-on rarity-accent resolver `(rarity) => colour | undefined` for per-item call sites
+ * (`.map` / memo bodies) that can't call a hook per row. Not scope-gated (see `useRarityAccentColor`).
+ */
+export function useRarityAccentResolver(): (rarity: number | null | undefined) => string | undefined {
+  const { palette } = use(RarityColorContext)
+  return (rarity) => resolveRarityAccentColor(rarity, palette)
 }
 
 /**
@@ -114,6 +123,17 @@ export function useRarityTextColor(rarity: number | null | undefined, inControl 
 /** Full per-rarity TEXT-scoped adapted colour map (empty unless scope ∈ {text, everything}). */
 export function useRarityTextColorMap(): Record<number, string | undefined> {
   return use(RarityColorContext).textColors
+}
+
+/**
+ * Contrast-adapted colour for a rarity GLYPH/icon (champion glyph, slot-icon-coloured-by-rarity).
+ * ALWAYS on (not scope-gated) — matches v1.0.26 where these glyphs were always coloured. Adapted
+ * against paper at the rarity contrast floor so the dark hues stay legible.
+ */
+export function useRarityGlyphColor(rarity: number | null | undefined): string | undefined {
+  const { glyphColors } = use(RarityColorContext)
+  if (rarity == null) return undefined
+  return glyphColors[Math.max(1, Math.min(6, Math.round(Number(rarity))))]
 }
 
 /**

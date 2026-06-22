@@ -43,9 +43,7 @@ import {
   type FactionId,
   StatVariant,
 } from '../lib/types'
-import { resolveRarityAccentColor, resolveRarityTextColor } from '../lib/rarityColors'
-import { useSchemePaper } from '../lib/themeContrastHooks'
-import { useRarityPalette } from '../lib/rarityColorContext'
+import { useRarityAccentResolver, useRarityTextColorMap } from '../lib/rarityColorContext'
 import { formatGearInspectorSetLabel } from '../lib/gearInspectorFormatters'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { isAccessorySlot, isDegenerateImprovChance } from '../lib/gearInspectorDomain'
@@ -371,11 +369,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
-  // Active rarity palette so grid rarity-accent chart fills reflect user-edited rarity colours.
-  const rarityPalette = useRarityPalette()
-  // Active-scheme paper so the rarity WORD (e.g. "Mythical") is contrast-adapted for legible text;
-  // the raw accent stays for the avatar border but is unreadable as text (dark-red on dark surface).
-  const schemePaper = useSchemePaper()
+  // Rarity accent (chart fills / borders) is always-on (like v1.0.26); the rarity WORD colour map is
+  // scope-gated (coloured only when the rarity scope is text/everything).
+  const rarityAccentFor = useRarityAccentResolver()
+  const rarityTextColors = useRarityTextColorMap()
   // Extracted so useMemo dependency arrays can reference stable simple variables instead of complex expressions.
   // In CSS vars mode, theme.vars.palette.X returns a CSS var string (e.g. 'var(--mui-palette-error-main)').
   // parseCssColorToRgb cannot parse CSS var strings, so resolve to the computed hex via the DOM instead.
@@ -2080,11 +2077,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       slotLabel: slotLabel || fallback,
       rankLabel: rankLabel || fallback,
       rarityLabel: rarityLabel || fallback,
-      rarityAccentColor: resolveRarityAccentColor(artifact.rarity, rarityPalette) ?? undefined,
-      // Contrast-adapted colour for the rarity WORD so e.g. Mythical's dark-red stays legible.
-      rarityTextColor: resolveRarityTextColor(artifact.rarity, schemePaper, rarityPalette) ?? undefined,
+      rarityAccentColor: rarityAccentFor(artifact.rarity) ?? undefined,
+      // Contrast-adapted, scope-gated colour for the rarity WORD (Mythical's dark-red stays legible).
+      rarityTextColor: rarityTextColors[Math.max(1, Math.min(6, Math.round(Number(artifact.rarity))))] ?? undefined,
     }
-  }, [effectiveScrollHintRowId, lang, rowLookup, t, rarityPalette, schemePaper])
+  }, [effectiveScrollHintRowId, lang, rowLookup, t, rarityAccentFor, rarityTextColors])
   const measureScrollHintWidth = useCallback(() => {
     const node = scrollHintRef.current
     if (!node) return
