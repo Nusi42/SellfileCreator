@@ -1,6 +1,15 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.26 — 2026-06-22
+English:
+- **Fixed: Switching to the full app from the simple view was forgotten every time the app restarted inside RSL Helper's built-in browser** — you now only need to switch once; the choice is remembered reliably across relaunches.
+- **Fixed: Saved note settings (such as improvement-chance overrides) were silently lost when restoring a session inside RSL Helper's built-in browser** — they are now reapplied correctly after your previous SFC finishes loading.
+
+Deutsch:
+- **Behoben: Die Wahl, vom einfachen Modus zur vollständigen App zu wechseln, wurde bei jedem Neustart im eingebetteten Browser von RSL Helper vergessen** — der Wechsel muss jetzt nur einmal vorgenommen werden; die Einstellung wird zuverlässig über Neustarts hinweg behalten.
+- **Behoben: Gespeicherte Notizeinstellungen (z. B. Verbesserungschance-Overrides) gingen beim Wiederherstellen einer Sitzung im eingebetteten Browser von RSL Helper still verloren** — sie werden jetzt korrekt angewendet, nachdem deine vorherige SFC vollständig geladen wurde.
+
 ## v1.0.25 — 2026-06-21
 English:
 - **Improved: Gear evaluation with safeguards active is now faster** — when safeguards are enabled, the app now skips re-checking gear that is already kept by your recipes, since those pieces cannot be affected by safeguard rules. Accounts with many safeguard rules and large gear collections will notice the biggest speedup. Results are unchanged.
