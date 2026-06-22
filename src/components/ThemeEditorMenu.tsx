@@ -29,7 +29,7 @@ import { useThemeCustomization } from '../state/themeCustomization'
 import { RSLH_PRESET } from '../lib/rslhPreset'
 import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
-import { DEFAULT_COLOR_SCOPE } from '../lib/colorScope'
+import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLOR_SCOPE } from '../lib/colorScope'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ColorField from './ColorField'
@@ -138,11 +138,12 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
   const hasCustomization = Object.values(draft).some(v => v != null)
   const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
   const { setStatColorScope, setRarityColorScope, setSlotColorScope, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
-  // Master colour toggle: on ⇒ any group not off; toggling sets all three to everything / off.
+  // Master colour toggle: on ⇒ restore each group to its factory default, off ⇒ all 'off'.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const setAllColorScopes = (on: boolean) => {
-    const next = on ? DEFAULT_COLOR_SCOPE : 'off'
-    setStatColorScope(next); setRarityColorScope(next); setSlotColorScope(next)
+    setStatColorScope(on ? DEFAULT_STAT_COLOR_SCOPE : 'off')
+    setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
+    setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
   }
 
   return (

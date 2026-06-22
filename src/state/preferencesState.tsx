@@ -21,7 +21,14 @@ import {
   COLOR_SCOPE_RARITY_KEY,
   COLOR_SCOPE_SLOT_KEY,
 } from '../lib/constants'
-import { type ColorScope, DEFAULT_COLOR_SCOPE, parseColorScope, serializeColorScope } from '../lib/colorScope'
+import {
+  type ColorScope,
+  DEFAULT_STAT_COLOR_SCOPE,
+  DEFAULT_RARITY_COLOR_SCOPE,
+  DEFAULT_SLOT_COLOR_SCOPE,
+  parseColorScope,
+  serializeColorScope,
+} from '../lib/colorScope'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 export type DisplayPreferencesState = {
@@ -93,23 +100,24 @@ const showFactionIconsStore = createLocalStorageStore<boolean>({
   serialize: serializeBooleanPref,
 })
 
-// One store per colour group; all default to 'everything'.
+// One store per colour group. Defaults reproduce v1.0.26's effective look: stats coloured in TEXT
+// only, slot tints everywhere (incl. builder toggles), rarity off until the user opts in.
 const statColorScopeStore = createLocalStorageStore<ColorScope>({
   key: COLOR_SCOPE_STAT_KEY,
-  fallback: DEFAULT_COLOR_SCOPE,
-  parse: parseColorScope,
+  fallback: DEFAULT_STAT_COLOR_SCOPE,
+  parse: (raw) => parseColorScope(raw, DEFAULT_STAT_COLOR_SCOPE),
   serialize: serializeColorScope,
 })
 const rarityColorScopeStore = createLocalStorageStore<ColorScope>({
   key: COLOR_SCOPE_RARITY_KEY,
-  fallback: DEFAULT_COLOR_SCOPE,
-  parse: parseColorScope,
+  fallback: DEFAULT_RARITY_COLOR_SCOPE,
+  parse: (raw) => parseColorScope(raw, DEFAULT_RARITY_COLOR_SCOPE),
   serialize: serializeColorScope,
 })
 const slotColorScopeStore = createLocalStorageStore<ColorScope>({
   key: COLOR_SCOPE_SLOT_KEY,
-  fallback: DEFAULT_COLOR_SCOPE,
-  parse: parseColorScope,
+  fallback: DEFAULT_SLOT_COLOR_SCOPE,
+  parse: (raw) => parseColorScope(raw, DEFAULT_SLOT_COLOR_SCOPE),
   serialize: serializeColorScope,
 })
 

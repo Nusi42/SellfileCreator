@@ -23,8 +23,16 @@ export type ColorScope = 'off' | 'controls' | 'text' | 'everything'
 /** Ordered list — also the CycleButton order (off → controls → text → everything). */
 export const COLOR_SCOPES: readonly ColorScope[] = ['off', 'controls', 'text', 'everything']
 
-/** Factory default for every group. */
-export const DEFAULT_COLOR_SCOPE: ColorScope = 'everything'
+/**
+ * Per-group factory defaults, chosen so the out-of-the-box effective colouring matches v1.0.26
+ * (before the scope feature existed):
+ *  - Stats were coloured in chip/preview TEXT only, never on toggle buttons → 'text'.
+ *  - Slot glyph tints applied uniformly to every slot icon incl. builder toggles → 'everything'.
+ *  - Rarity was not coloured at all (rarity colouring is new) → 'off'.
+ */
+export const DEFAULT_STAT_COLOR_SCOPE: ColorScope = 'text'
+export const DEFAULT_SLOT_COLOR_SCOPE: ColorScope = 'everything'
+export const DEFAULT_RARITY_COLOR_SCOPE: ColorScope = 'off'
 
 /** True when the group colours CONTROL sites (buttons / selects / closed-select displays). */
 export function scopeColorsControls(scope: ColorScope): boolean {
@@ -41,9 +49,9 @@ export function scopeColorsAnything(scope: ColorScope): boolean {
   return scope !== 'off'
 }
 
-/** Parse a persisted/raw value into a ColorScope, falling back to the default. */
-export function parseColorScope(raw: string | null): ColorScope {
-  return raw === 'off' || raw === 'controls' || raw === 'text' || raw === 'everything' ? raw : DEFAULT_COLOR_SCOPE
+/** Parse a persisted/raw value into a ColorScope, falling back to the group's default. */
+export function parseColorScope(raw: string | null, fallback: ColorScope): ColorScope {
+  return raw === 'off' || raw === 'controls' || raw === 'text' || raw === 'everything' ? raw : fallback
 }
 
 /** Serialize a ColorScope for localStorage. */

@@ -29,7 +29,7 @@ import MarkdownTooltip from './MarkdownTooltip'
   FONT_FAMILY_MONO,
 } from '../lib/constants'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
-import { DEFAULT_COLOR_SCOPE } from '../lib/colorScope'
+import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLOR_SCOPE } from '../lib/colorScope'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
@@ -186,10 +186,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   // Master colour toggle for the header menu: reflects any group on, flips all on/off.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()
-  // Flip all three colour groups on (everything) / off — drives the header-menu master toggle.
+  // Restore each colour group to its factory default (master on) / off — drives the header-menu toggle.
   const setAllColorScopes = useCallback((on: boolean) => {
-    const next = on ? DEFAULT_COLOR_SCOPE : 'off'
-    setStatColorScope(next); setRarityColorScope(next); setSlotColorScope(next)
+    setStatColorScope(on ? DEFAULT_STAT_COLOR_SCOPE : 'off')
+    setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
+    setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
   }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
   // Track which rule rows are newly added so they can play an enter animation.
   // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe

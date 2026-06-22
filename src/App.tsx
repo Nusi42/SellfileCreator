@@ -107,7 +107,7 @@ import { SlotTintProvider } from './lib/slotTintContext'
 import { useRarityColors, DEFAULT_RARITY_COLORS } from './lib/rarityColors'
 import { RarityPaletteProvider } from './lib/rarityColorContext'
 import { StatColorProvider } from './lib/statColorContext'
-import { DEFAULT_COLOR_SCOPE } from './lib/colorScope'
+import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLOR_SCOPE } from './lib/colorScope'
 import {
   computeMergedRules,
   buildRulesForRecipe,
@@ -654,13 +654,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [builderRecipeCollapsed] = useBuilderRecipeCollapsedPreference()
   const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
   const { setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()
-  // Master colour toggle (theme menu / table header): on ⇒ all three groups 'everything', off ⇒ all 'off'.
+  // Master colour toggle (theme menu / table header): on ⇒ restore each group to its factory default
+  // (reproduces v1.0.26's effective look), off ⇒ all 'off'.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const setAllColorScopes = useCallback((on: boolean) => {
-    const next = on ? DEFAULT_COLOR_SCOPE : 'off'
-    setStatColorScope(next)
-    setRarityColorScope(next)
-    setSlotColorScope(next)
+    setStatColorScope(on ? DEFAULT_STAT_COLOR_SCOPE : 'off')
+    setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
+    setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
   }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
   // Normalize the note text so recipe overrides parsing never sees null.
   const recipeOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
@@ -10053,7 +10053,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setRarityColorScope={setRarityColorScope}
           slotColorScope={slotColorScope}
           setSlotColorScope={setSlotColorScope}
-          onReset={() => { resetColors(); setSlotTints(DEFAULT_SLOT_TINTS); setRarityColors(DEFAULT_RARITY_COLORS) }}
+          onReset={() => {
+            resetColors()
+            setSlotTints(DEFAULT_SLOT_TINTS)
+            setRarityColors(DEFAULT_RARITY_COLORS)
+            // Also restore the per-group scopes to their factory defaults (v1.0.26 effective look).
+            setStatColorScope(DEFAULT_STAT_COLOR_SCOPE)
+            setRarityColorScope(DEFAULT_RARITY_COLOR_SCOPE)
+            setSlotColorScope(DEFAULT_SLOT_COLOR_SCOPE)
+          }}
         />
       ) : null}
       {/* Logic Hub configuration */}
