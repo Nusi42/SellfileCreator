@@ -341,6 +341,40 @@ exit /b
 '@
   Set-Content -LiteralPath $runBatPath -Value $runBat -Encoding ASCII
 
+  # Generate CRC.txt — one line per staged file: relative-path<TAB>CRC32 (hex, 8 uppercase digits).
+  # Uses an inline C# CRC32 helper (standard IEEE 802.3 polynomial) — no external dependencies.
+  Write-Host 'Generating CRC.txt...'
+  Add-Type -TypeDefinition @'
+using System;
+public static class Crc32Helper {
+    static readonly uint[] Table;
+    static Crc32Helper() {
+        Table = new uint[256];
+        for (uint i = 0; i < 256; i++) {
+            uint c = i;
+            for (int j = 0; j < 8; j++)
+                c = (c & 1) == 1 ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
+            Table[i] = c;
+        }
+    }
+    public static uint Compute(byte[] data) {
+        uint crc = 0xFFFFFFFF;
+        foreach (byte b in data)
+            crc = Table[(crc ^ b) & 0xFF] ^ (crc >> 8);
+        return crc ^ 0xFFFFFFFF;
+    }
+}
+'@
+  $crcLines = [System.Collections.Generic.List[string]]::new()
+  Get-ChildItem -LiteralPath $staging -Recurse -File | Sort-Object FullName | ForEach-Object {
+    $relativePath = $_.FullName.Substring($staging.Length).TrimStart('\', '/')
+    $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+    $crcHex = '{0:X8}' -f [Crc32Helper]::Compute($bytes)
+    $crcLines.Add("$relativePath`t$crcHex")
+  }
+  $crcText = $crcLines -join "`n"
+  Write-TextUtf8NoBom -Path (Join-Path $staging 'CRC.txt') -Text $crcText
+
   # Create archive in repo root. Use staging as cwd so entries have no subdir paths.
   Write-Host "Creating archive: $archivePath"
   Push-Location $staging
