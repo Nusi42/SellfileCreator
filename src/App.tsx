@@ -8081,6 +8081,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // but not inside the embedded WebView, where the commit lands a frame later — apply
     // then pruned against an empty note and silently dropped every saved override. Instead
     // wait for the note to become present before applying (bounded so we never spin).
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (savedAnswers) {
       void loadPromise.then(() => waitForLoadedNote().then(() => applySavedSimpleOverrideAnswers(savedAnswers)))
     }
