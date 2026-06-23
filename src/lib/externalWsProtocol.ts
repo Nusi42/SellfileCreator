@@ -1,4 +1,5 @@
 import type { ExternalCommand } from './externalCommands'
+import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 
 // Default port for a locally running RSL Helper WebSocket server.
 export const RSL_HELPER_DEFAULT_PORT = 8080
@@ -32,39 +33,43 @@ const isSimpleVariant = (value: string | null): value is SimpleVariant =>
   value === 'beginner' || value === 'lategame' || value === 'custom'
 
 // Read the variant the user last selected in simple mode, or null when none was stored.
+// safeGetItem so an opaque-origin/incognito file:// launch (storage access throws) degrades
+// to "no stored variant" instead of crashing the render that resolves the startup source.
 export const getSimpleVariant = (): SimpleVariant | null => {
-  const raw = localStorage.getItem(SIMPLE_VARIANT_KEY)
+  const raw = safeGetItem(SIMPLE_VARIANT_KEY)
   return isSimpleVariant(raw) ? raw : null
 }
 
 // Persist the last-selected simple-mode variant so it survives reloads.
 export const setSimpleVariant = (variant: SimpleVariant): void => {
-  localStorage.setItem(SIMPLE_VARIANT_KEY, variant)
+  safeSetItem(SIMPLE_VARIANT_KEY, variant)
 }
 
 // Read whether the user has previously toggled on the RSL Helper connection.
 export const getRslHelperConnectEnabled = (): boolean =>
-  localStorage.getItem(RSL_HELPER_CONNECT_ENABLED_KEY) === 'true'
+  safeGetItem(RSL_HELPER_CONNECT_ENABLED_KEY) === 'true'
 
 // Persist or clear the RSL Helper connection preference.
 export const setRslHelperConnectEnabled = (enabled: boolean): void => {
   if (enabled) {
-    localStorage.setItem(RSL_HELPER_CONNECT_ENABLED_KEY, 'true')
+    safeSetItem(RSL_HELPER_CONNECT_ENABLED_KEY, 'true')
   } else {
-    localStorage.removeItem(RSL_HELPER_CONNECT_ENABLED_KEY)
+    safeRemoveItem(RSL_HELPER_CONNECT_ENABLED_KEY)
   }
 }
 
 // Read whether the user was in Expert mode at the end of their last simple-mode session.
+// safeGetItem-guarded: this runs in the expertMode useState initializer at first render, so a
+// throwing localStorage (incognito file://) would otherwise take the whole app down to black.
 export const getSimpleExpertMode = (): boolean =>
-  localStorage.getItem(SIMPLE_EXPERT_MODE_KEY) === 'true'
+  safeGetItem(SIMPLE_EXPERT_MODE_KEY) === 'true'
 
 // Persist the expert mode preference for the next simple-mode session.
 export const setSimpleExpertMode = (enabled: boolean): void => {
   if (enabled) {
-    localStorage.setItem(SIMPLE_EXPERT_MODE_KEY, 'true')
+    safeSetItem(SIMPLE_EXPERT_MODE_KEY, 'true')
   } else {
-    localStorage.removeItem(SIMPLE_EXPERT_MODE_KEY)
+    safeRemoveItem(SIMPLE_EXPERT_MODE_KEY)
   }
 }
 
@@ -77,7 +82,7 @@ export const RSL_HELPER_DEFAULT_WS_ENDPOINT = `ws://localhost:${RSL_HELPER_DEFAU
 
 // Read the persisted port from localStorage, falling back to the default.
 export const getRslHelperPort = (): number => {
-  const raw = localStorage.getItem(RSL_HELPER_PORT_STORAGE_KEY)
+  const raw = safeGetItem(RSL_HELPER_PORT_STORAGE_KEY)
   if (!raw) return RSL_HELPER_DEFAULT_PORT
   const parsed = parseInt(raw, 10)
   // Reject anything outside the valid TCP port range.

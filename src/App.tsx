@@ -7952,11 +7952,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     disabled: boolean
   }
 
-  // Read the user's saved override answers from the autosave payload, or null when
+  // Snapshot the autosave entry ONCE at first render, before any effect can write to it.
+  // Why: on a fresh launch with no prior save, autosave is enabled from the first render,
+  // so useAutosave's writeOnEnable persists the EMPTY default state before the post-paint
+  // simple-startup restore effect runs. If the resolvers below re-read localStorage live,
+  // they pick up that empty draft (no PresetOrigin marker → treated as a note-less "custom"
+  // body), the SFC load closes the note dialog, and simple view — which hides all other UI —
+  // goes black. Capturing the PRE-write entry here keeps the restore authoritative: a genuine
+  // prior session restores; a truly fresh launch sees null and falls back to a preset.
+  const [simpleStartupAutosaveEntry] = useState<{ crc: string; payload: Record<string, unknown> } | null>(
+    () => loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY),
+  )
+
+  // Read the user's saved override answers from the captured autosave payload, or null when
   // none exist (fresh session / answers never tuned). Both restore branches re-apply
   // these because an SFC load resets answers to the note's defaults.
   const readSavedSimpleOverrideAnswers = useCallback((): SavedSimpleOverrides | null => {
-    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    const entry = simpleStartupAutosaveEntry
     if (!entry) return null
     const payload = entry.payload
     const recipeAnswers = (payload[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY] as NoteRecipeOverridesAnswers | undefined) ?? {}
@@ -7965,13 +7977,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Nothing tuned and not disabled — let the freshly-loaded note's defaults stand.
     if (Object.keys(recipeAnswers).length === 0 && Object.keys(safeguardAnswers).length === 0 && !disabled) return null
     return { recipeAnswers, safeguardAnswers, disabled }
-  }, [])
+  }, [simpleStartupAutosaveEntry])
 
   // Load the autosaved custom SFC body through the normal SFC load path (same path the
   // preset buttons use), so it parses/normalizes identically. Returns a promise that
   // resolves after the load is dispatched so callers can sequence answer re-application.
   const loadSavedCustomSfc = useCallback((): Promise<void> => {
-    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    const entry = simpleStartupAutosaveEntry
     // No saved custom body to restore — fall back to the lategame preset.
     if (!entry) { handleLoadSimplePreset('lategame'); return Promise.resolve() }
     // The autosave payload IS a superset of the readable SFC schema, so serializing it
@@ -7979,7 +7991,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const text = JSON.stringify(entry.payload, null, 2)
     const file = new File([text], 'custom.sfc', { type: 'application/json' })
     return handleManualFileSelection(file, { shiftKey: false })
-  }, [handleLoadSimplePreset, handleManualFileSelection])
+  }, [handleLoadSimplePreset, handleManualFileSelection, simpleStartupAutosaveEntry])
 
   // Resolve what to load on simple-mode startup, authoritatively from autosave.
   // The PresetOrigin marker (stamped at save time from the LIVE content match) wins:
@@ -7988,7 +8000,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Without a marker we treat the saved body as the user's own custom setup. The
   // variant token is only a fallback when no autosave exists at all.
   const resolveSimpleStartupSource = useCallback((): { kind: 'preset'; variant: 'beginner' | 'lategame' } | { kind: 'custom' } => {
-    const entry = loadAutosave<Record<string, unknown>>(AUTOSAVE_KEY)
+    const entry = simpleStartupAutosaveEntry
     if (entry) {
       const origin = entry.payload[AUTOSAVE_PRESET_ORIGIN_KEY]
       // Marker present and valid: reload the current built-in of that name.
@@ -7999,7 +8011,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // First-ever launch: no autosave. Honor the persisted variant token, default Midgame+.
     const token = getSimpleVariant()
     return { kind: 'preset', variant: token === 'beginner' ? 'beginner' : 'lategame' }
-  }, [])
+  }, [simpleStartupAutosaveEntry])
 
   // Re-apply the saved override answers on top of the freshly-loaded note, mirroring the
   // autosave-restore path: prune answers to the current note, re-seed missing forced
