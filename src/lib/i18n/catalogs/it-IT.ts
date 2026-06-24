@@ -223,6 +223,9 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: "1 regola",
   rulesCountMany: "{n} regole",
+  previewGroupSeparatorEntriesOne: "1 regola",
+  previewGroupSeparatorEntriesMany: "{n} regole",
+  previewGroupSeparatorBaseLabel: "Regole base importate",
   gearInspectorItemsCountOne: "1 oggetto",
   gearInspectorItemsCountMany: "{n} oggetti",
   helpOpenLabel: "Guida",

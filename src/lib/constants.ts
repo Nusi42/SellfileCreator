@@ -816,6 +816,10 @@ export const RULES_TABLE_OVERSCAN_IDLE = 20
 // can compute exact offsets without DOM measurement, even for very large index jumps.
 export const RULES_TABLE_FIXED_ROW_HEIGHT_PX = 34
 
+// Height of the unselectable group-separator rows that head each recipe/safeguard/group block.
+// Why: separators are slimmer than data rows so the heading reads as a divider, not a record.
+export const RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX = 26
+
 // Throttle for propagating hover from the preview table to the chips panel
 // Why: Rapid hover updates across thousands of rows can cause frequent
 // top-level re-renders (App) when linking chip highlights. We keep the

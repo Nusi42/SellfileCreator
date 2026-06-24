@@ -7,6 +7,10 @@ import { keyframes, useTheme, useColorScheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
+import StarIcon from '@mui/icons-material/Star'
+import LocalOfferIcon from '@mui/icons-material/LocalOffer'
+import SellIcon from '@mui/icons-material/Sell'
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
@@ -18,6 +22,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  MENU_CONTROL_MIN_WIDTH_PX,
 	  RULES_TABLE_OVERSCAN_IDLE,
 	  RULES_TABLE_FIXED_ROW_HEIGHT_PX,
+	  RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX,
 	  RULES_TABLE_HOVER_PROPAGATION_MS,
 	  RULES_TABLE_SCROLL_HINT_HIDE_MS,
 	  FONT_SIZE_BASE_PX,
@@ -33,7 +38,7 @@ import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLO
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
-import { useI18n } from '../lib/i18n'
+import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { renderColoredStatText } from '../lib/renderColoredStatText'
 import { useRarityLabelColorMap } from '../lib/rarityColorContext'
@@ -55,7 +60,7 @@ import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
-import { TINT } from '../lib/colorTints'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -124,6 +129,124 @@ function computeRuleAnimKey(rule: HsfRuleWithRecipe, fallbackIdx: number): strin
 const resolveDisplayRecipeIdx = (rule: HsfRuleWithRecipe | null | undefined): number | null => {
   const idx = getRuleRecipeIndex(rule ?? null)
   return idx !== null && idx >= 0 ? idx : null
+}
+
+// Which kind of group a preview separator heads — drives the leading glyph + index display.
+export type SeparatorGlyphKind = 'recipe' | 'safeguard' | 'finalSell' | 'base'
+
+// Render-only descriptor for an unselectable group-separator row in the preview table.
+export type PreviewGroupSeparator = {
+  kind: 'separator'
+  groupKey: string
+  glyphKind: SeparatorGlyphKind
+  // 1-based recipe index / safeguard ordinal; null for final-sell + base groups.
+  indexLabel: number | null
+  label: string
+  // Recipe fg color (raw, pre-contrast) when the group is a recipe; '' otherwise.
+  color: string
+  // How many rules (rows) this group generates.
+  count: number
+}
+
+// Map a group kind to its leading glyph. Chosen to match the app's existing glyph vocabulary
+// without clashing: tag = recipe (LocalOffer, used for named tags), star = safeguard (the
+// established safeguard = star concept), sell-tag = final sell, inventory box = imported base.
+function separatorGlyphFor(kind: SeparatorGlyphKind): React.ReactElement {
+  if (kind === 'safeguard') return <StarIcon fontSize="inherit" aria-hidden />
+  if (kind === 'finalSell') return <SellIcon fontSize="inherit" aria-hidden />
+  if (kind === 'base') return <Inventory2OutlinedIcon fontSize="inherit" aria-hidden />
+  return <LocalOfferIcon fontSize="inherit" aria-hidden />
+}
+
+// Unselectable separator row: a slim group heading (glyph → index + name → rule count).
+// It carries no index column value, no `data-row-index` / `data-recipe-idx` / `data-safeguard-ordinal`
+// (so it never participates in selection, hover, or the rule-height CSS), and ignores pointer events.
+function SeparatorRow({
+  separator,
+  colSpan,
+  surfacePaper,
+  wrapRows,
+  measureElement,
+  dataIndex,
+  t,
+}: {
+  separator: PreviewGroupSeparator
+  colSpan: number
+  surfacePaper: string
+  wrapRows: boolean
+  measureElement: (el: HTMLTableRowElement | null) => void
+  dataIndex: number
+  t: TranslateFn
+}): React.ReactElement {
+  // Contrast-adapt the recipe colour against the (neutral-tinted) header surface so it stays legible.
+  const accent = separator.color ? ensureContrastOnBg(separator.color, surfacePaper) : ''
+  // Entry-count suffix, singular/plural localized.
+  const countText = separator.count === 1
+    ? t('previewGroupSeparatorEntriesOne')
+    : t('previewGroupSeparatorEntriesMany', { n: separator.count })
+  // Compose "«index» «name»" — index is omitted for final-sell / base groups.
+  const heading = separator.indexLabel !== null
+    ? `${separator.indexLabel}. ${separator.label}`
+    : separator.label
+  return (
+    <TableRow
+      hover={false}
+      // TanStack measurement maps DOM nodes back to display items via data-index.
+      data-index={dataIndex}
+      // Tag for styling/testing; intentionally NOT data-row-index (keeps separators off the rule-height CSS + selection queries).
+      data-row-type="separator"
+      // Measure in wrap mode so dynamic heights stay accurate; fixed mode uses the estimate.
+      ref={(el) => {
+        if (!el) return
+        if (!wrapRows) return
+        measureElement(el)
+      }}
+      sx={{
+        // Neutral group-header surface (text-primary a06) — reads as a divider, not a record.
+        backgroundColor: TINT.neutralHeaderBg,
+        // Left accent in the recipe colour ties the heading to its chip; falls back to the divider.
+        borderLeft: '3px solid',
+        borderLeftColor: accent || 'divider',
+        // Separators are inert: no hover, no pointer interaction, no text selection.
+        cursor: 'default',
+        userSelect: 'none',
+        '& > td': { py: 0.25, borderBottom: 0 },
+      }}
+    >
+      <TableCell colSpan={colSpan}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            minWidth: 0,
+            // Glyph + index + name take the recipe colour; count stays muted.
+            color: accent || 'text.secondary',
+            fontWeight: 600,
+            lineHeight: 1.1,
+          }}
+        >
+          {/* Leading glyph: recipe vs safeguard vs final-sell vs base. */}
+          <Box component="span" sx={{ display: 'inline-flex', fontSize: '1rem', flex: '0 0 auto' }}>
+            {separatorGlyphFor(separator.glyphKind)}
+          </Box>
+          {/* Index + name, truncated to a single line. */}
+          <EllipsisTooltip title={heading}>
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+              {heading}
+            </Box>
+          </EllipsisTooltip>
+          {/* Trailing rule count, muted + lighter weight. */}
+          <Box
+            component="span"
+            sx={{ ml: 0.5, flex: '0 0 auto', color: 'text.secondary', fontWeight: 400, opacity: ALPHA.a90 }}
+          >
+            {countText}
+          </Box>
+        </Box>
+      </TableCell>
+    </TableRow>
+  )
 }
 
 export type SafeguardStarSelection = {
@@ -563,6 +686,109 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     return spans
   }, [rules])
 
+  // ---------------------------------------------------------------------------
+  // Display model: interleave unselectable group-separator rows between groups.
+  // ---------------------------------------------------------------------------
+  // Separators are a render-only concern: `rules[]`, the worker, merge and all
+  // selection/span math stay in *rule index* space. The virtualizer is driven
+  // off `displayItems` instead, and we translate rule⇄display indices at the
+  // (few) call sites that scroll or report ranges.
+  // Separator descriptor is the module-level PreviewGroupSeparator (shared with SeparatorRow).
+  type DisplayRule = { kind: 'rule'; ruleIdx: number }
+  type DisplayItem = PreviewGroupSeparator | DisplayRule
+
+  // Resolve a per-row group identity. Rows sharing an identity are one group and
+  // get a single leading separator. `null` means "no separator" (should not occur
+  // for known sources, but keeps the walk total).
+  const resolveRowGroupKey = useCallback((rule: HsfRuleWithRecipe): string => {
+    // Safeguard rows group by their 1-based ordinal so each authored safeguard is one block.
+    if (rule.__source === RULE_SOURCE_SAFEGUARDS) {
+      const ordinal = rule.__safeguardRuleOrdinal
+      return `sg:${typeof ordinal === 'number' ? ordinal : 'x'}`
+    }
+    // Final-sell rows are a single catch-all block regardless of count.
+    if (rule.__source === RULE_SOURCE_FINAL_SELL) return 'finalSell'
+    // SFC recipe rows group by recipe index.
+    const recipeIdx = resolveDisplayRecipeIdx(rule)
+    if (recipeIdx !== null) return `recipe:${recipeIdx}`
+    // Imported base (HSF) rows with no recipe identity fold into one base block.
+    return 'base'
+  }, [])
+
+  // Build the interleaved display list plus rule⇄display index translation tables.
+  const { displayItems, ruleToDisplayIndex } = useMemo(() => {
+    const items: DisplayItem[] = []
+    // ruleIdx → index into `displayItems` (for scroll targets coming from rule space).
+    const ruleToDisplay: number[] = new Array(rules.length)
+    let activeGroupKey: string | null = null
+    for (let i = 0; i < rules.length; i += 1) {
+      const rule = rules[i] as HsfRuleWithRecipe | undefined
+      if (!rule) continue
+      const groupKey = resolveRowGroupKey(rule)
+      // Emit a separator whenever the group identity changes from the previous row.
+      if (groupKey !== activeGroupKey) {
+        activeGroupKey = groupKey
+        // Count how many consecutive rows belong to this group (rules this group emits).
+        let count = 0
+        for (let j = i; j < rules.length; j += 1) {
+          const r = rules[j] as HsfRuleWithRecipe | undefined
+          if (!r || resolveRowGroupKey(r) !== groupKey) break
+          count += 1
+        }
+        // Reuse the row's own name/color resolution for the heading.
+        const isSafeguardRow = rule.__source === RULE_SOURCE_SAFEGUARDS
+        let label = resolvePreviewRuleName(rule, isSafeguardRow)
+        // Imported base / final-sell rows have no authored name — use a fixed group label.
+        if (!label) {
+          label = rule.__source === RULE_SOURCE_FINAL_SELL
+            ? t('finalSellToggleLabel')
+            : t('previewGroupSeparatorBaseLabel')
+        }
+        const color = resolvePreviewRuleFgColor(rule, isSafeguardRow)
+        // Classify the group for glyph + index display.
+        let glyphKind: SeparatorGlyphKind = 'base'
+        let indexLabel: number | null = null
+        if (isSafeguardRow) {
+          glyphKind = 'safeguard'
+          // Show the 1-based authored safeguard ordinal.
+          indexLabel = typeof rule.__safeguardRuleOrdinal === 'number' ? rule.__safeguardRuleOrdinal : null
+        } else if (rule.__source === RULE_SOURCE_FINAL_SELL) {
+          glyphKind = 'finalSell'
+        } else {
+          const recipeIdx = resolveDisplayRecipeIdx(rule)
+          if (recipeIdx !== null) {
+            glyphKind = 'recipe'
+            // resolveDisplayRecipeIdx is 0-based; display the 1-based recipe number.
+            indexLabel = recipeIdx + 1
+          }
+        }
+        items.push({ kind: 'separator', groupKey, glyphKind, indexLabel, label, color, count })
+      }
+      ruleToDisplay[i] = items.length
+      items.push({ kind: 'rule', ruleIdx: i })
+    }
+    return { displayItems: items, ruleToDisplayIndex: ruleToDisplay }
+  }, [rules, resolveRowGroupKey, resolvePreviewRuleName, resolvePreviewRuleFgColor, t])
+
+  // Translate a rule index into its display index (for scrollToIndex targets).
+  const displayIndexForRule = useCallback((ruleIdx: number): number => {
+    if (ruleIdx < 0 || ruleIdx >= ruleToDisplayIndex.length) return ruleIdx
+    const mapped = ruleToDisplayIndex[ruleIdx]
+    return typeof mapped === 'number' ? mapped : ruleIdx
+  }, [ruleToDisplayIndex])
+
+  // Translate a display index back to the rule index it represents (separators → nearest following rule).
+  const ruleIndexForDisplay = useCallback((displayIdx: number): number => {
+    const item = displayItems[displayIdx]
+    if (item?.kind === 'rule') return item.ruleIdx
+    // Separator: report the rule index of the row it precedes (for the visible-range overlay).
+    for (let i = displayIdx + 1; i < displayItems.length; i += 1) {
+      const next = displayItems[i]
+      if (next?.kind === 'rule') return next.ruleIdx
+    }
+    return Math.max(0, rules.length - 1)
+  }, [displayItems, rules.length])
+
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
   // DOM-based hover highlight to avoid re-rendering rows during hover.
@@ -786,12 +1012,21 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   // Virtualizer keys must be stable across filter/sort toggles so scroll position stays anchored.
   // Why: `__lineIdx` is assigned in `computeMergedRules`, and stays stable even when the view is filtered.
   const getRuleVirtualKey = useCallback((index: number): string => {
-    const rule = rules[index]
-    const lineIdx = typeof rule?.__lineIdx === 'number' ? rule.__lineIdx : index
+    // `index` is a *display* index — keys must be stable per display item across filter/sort toggles.
+    const item = displayItems[index]
+    // Separator keys are stable per group; rule keys reuse the durable `__lineIdx`.
+    const stable = item?.kind === 'separator'
+      ? `sep:${item.groupKey}`
+      : (() => {
+          const ruleIdx = item?.kind === 'rule' ? item.ruleIdx : index
+          const rule = rules[ruleIdx]
+          const lineIdx = typeof rule?.__lineIdx === 'number' ? rule.__lineIdx : ruleIdx
+          return `rule:${lineIdx}`
+        })()
     // Include wrap toggle in the key so TanStack does not reuse measured heights across modes.
     // Why: fixed-height mode is intentionally clamped, while wrap mode can grow/shrink per column width.
-    return `${wrapRows ? 'wrap' : 'fixed'}:${lineIdx}`
-  }, [rules, wrapRows])
+    return `${wrapRows ? 'wrap' : 'fixed'}:${stable}`
+  }, [displayItems, rules, wrapRows])
 
   const scrollAnimTokenRef = useRef<number | null>(null)
   const scrollToFn = useCallback<VirtualizerOptions<HTMLDivElement, HTMLTableRowElement>['scrollToFn']>((offset, options, instance) => {
@@ -828,15 +1063,19 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions incompatible with React Compiler memoization; 'use no memo' above opts this component out of compilation
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
-    // Virtualize the `rules[]` array directly.
-    // Why: all recipe span / selection math is expressed as indices into this array.
-    count: rules.length,
+    // Virtualize the `displayItems[]` list (rules interleaved with group separators).
+    // Why: separators occupy real virtual slots; rule-index math translates via displayIndexForRule.
+    count: displayItems.length,
     // Use the preview `<TableContainer>` as the scroll element.
     // Why: scroll must remain confined to the preview panel (not the window).
     getScrollElement: () => tableContainerRef.current,
     // Provide an initial height estimate per row.
     // Why: TanStack needs something to compute offsets before any DOM rows are measured.
-    estimateSize: () => (wrapRows ? DEFAULT_WRAP_ROW_ESTIMATE_PX : RULES_TABLE_FIXED_ROW_HEIGHT_PX),
+    estimateSize: (index) => {
+      // Separators are slimmer fixed-height dividers in both modes.
+      if (displayItems[index]?.kind === 'separator') return RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX
+      return wrapRows ? DEFAULT_WRAP_ROW_ESTIMATE_PX : RULES_TABLE_FIXED_ROW_HEIGHT_PX
+    },
     // Render extra rows above/below the viewport.
     // Why: reduces visible pop-in during fast scroll without changing UX-visible range math.
     overscan: RULES_TABLE_OVERSCAN_IDLE,
@@ -868,24 +1107,32 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     )
     const topItem = rowVirtualizer.getVirtualItemForOffset(viewportTopPx)
     const bottomItem = rowVirtualizer.getVirtualItemForOffset(Math.max(viewportTopPx, viewportBottomPx))
+    // TanStack reports *display* indices; translate back to rule indices so the
+    // scroll-range overlay keeps counting data rows (not separators).
     if (topItem && bottomItem) {
-      const first = Math.min(topItem.index, bottomItem.index)
-      const last = Math.max(topItem.index, bottomItem.index)
-      return { first, last }
+      const a = ruleIndexForDisplay(topItem.index)
+      const b = ruleIndexForDisplay(bottomItem.index)
+      return { first: Math.min(a, b), last: Math.max(a, b) }
     }
     // Fallback: use the rendered window when offsets are not resolvable yet (e.g. before first measurement).
     const virtualItems = rowVirtualizer.getVirtualItems()
     if (virtualItems.length === 0) return null
-    return { first: virtualItems[0]!.index, last: virtualItems[virtualItems.length - 1]!.index }
-  }, [headerHeightPx, rowVirtualizer, rules.length])
+    const firstRule = ruleIndexForDisplay(virtualItems[0]!.index)
+    const lastRule = ruleIndexForDisplay(virtualItems[virtualItems.length - 1]!.index)
+    return { first: Math.min(firstRule, lastRule), last: Math.max(firstRule, lastRule) }
+  }, [headerHeightPx, rowVirtualizer, rules.length, ruleIndexForDisplay])
 	  // Scroll an index into view (anchored to the top of the tbody rows).
 	  // Why: the sticky header is in-flow, so TanStack already lands body rows beneath it without extra alignment.
 	  const scrollRuleIndexToTop = useCallback((ruleIndex: number) => {
 	    if (ruleIndex < 0 || ruleIndex >= rules.length) return
+	    // Translate the rule index to its display index so the leading group separator is accounted for.
+	    const displayIndex = displayIndexForRule(ruleIndex)
+	    // Anchor on the group separator when present so its heading stays visible above the first row.
+	    const target = displayItems[displayIndex - 1]?.kind === 'separator' ? displayIndex - 1 : displayIndex
 	    // Use TanStack's own index-based scrolling, but render it smoothly via our `scrollToFn`.
 	    // Why: TanStack can recompute offsets as measurements arrive, which is critical for long jumps in wrap mode.
-	    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start', behavior: 'auto' })
-	  }, [rowVirtualizer, rules.length])
+	    rowVirtualizer.scrollToIndex(target, { align: 'start', behavior: 'auto' })
+	  }, [rowVirtualizer, rules.length, displayIndexForRule, displayItems])
 
   const clampRuleIndex = useCallback((index: number | null | undefined) => {
     if (typeof index !== 'number' || !Number.isFinite(index) || rules.length === 0) return null
@@ -1224,8 +1471,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     // Compute the range hint based on "actually visible" rows, not overscan.
     // Why: the overlay should reflect what the user can read, not what we pre-rendered.
     const visibleRange = getActuallyVisibleIndexRange()
-    const firstVisibleIndex = visibleRange?.first ?? virtualItems[0]!.index
-    const lastVisibleIndex = visibleRange?.last ?? virtualItems[virtualItems.length - 1]!.index
+    // visibleRange is already in rule space; translate the virtualItem fallbacks too.
+    const firstVisibleIndex = visibleRange?.first ?? ruleIndexForDisplay(virtualItems[0]!.index)
+    const lastVisibleIndex = visibleRange?.last ?? ruleIndexForDisplay(virtualItems[virtualItems.length - 1]!.index)
     // Populate the scroll-range overlay before returning JSX.
     // Why: the overlay box is rendered outside the table body and reads this value.
     scrollRangeOverlay = {
@@ -1241,7 +1489,27 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           </TableRow>
         )}
         {virtualItems.map((virtualItem) => {
-          const idx = virtualItem.index
+          // `virtualItem.index` indexes `displayItems` (rules interleaved with separators).
+          const displayIdx = virtualItem.index
+          const displayItem = displayItems[displayIdx]
+          if (!displayItem) return null
+          // Group-separator rows: unselectable, no index column, glyph + index + name + count.
+          if (displayItem.kind === 'separator') {
+            return (
+              <SeparatorRow
+                key={virtualItem.key}
+                separator={displayItem}
+                colSpan={colSpan}
+                surfacePaper={previewSurfacePaper}
+                wrapRows={wrapRows}
+                measureElement={rowVirtualizer.measureElement}
+                dataIndex={displayIdx}
+                t={t}
+              />
+            )
+          }
+          // Rule rows: map the display index back to the rule index, then render as before.
+          const idx = displayItem.ruleIdx
           const rule = rules[idx] as HsfRuleWithRecipe | undefined
           if (!rule) return null
           const recipeIdxNumber = resolveDisplayRecipeIdx(rule as HsfRuleWithRecipe)
@@ -1276,9 +1544,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
             <TableRow
               key={virtualItem.key}
               hover
-              // TanStack's `measureElement` requires `data-index` so it can map DOM nodes back to items.
+              // TanStack's `measureElement` requires `data-index` to equal the *display* index so it can map DOM nodes back to items.
               // Why: without it, measurements are ignored and scroll offsets drift.
-              data-index={idx}
+              data-index={displayIdx}
               data-row-index={idx}
               data-rule-source={resolvedSource}
               {...(recipeIdxNumber !== null && resolvedSource !== RULE_SOURCE_HSF ? { 'data-recipe-idx': String(recipeIdxNumber) } : {})}

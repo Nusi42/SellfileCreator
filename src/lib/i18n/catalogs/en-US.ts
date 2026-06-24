@@ -228,6 +228,12 @@ const enUS: Catalog = {
   // Generic
   rulesCountOne: "1 Rule",
   rulesCountMany: "{n} Rules",
+  // Preview-table group separator rows: one unselectable header per recipe/safeguard/group,
+  // showing the group name plus how many HSF rules it generates.
+  previewGroupSeparatorEntriesOne: "1 rule",
+  previewGroupSeparatorEntriesMany: "{n} rules",
+  // Group label shown on the separator for imported base (HSF) rows that carry no recipe identity.
+  previewGroupSeparatorBaseLabel: "Imported Base Rules",
   gearInspectorItemsCountOne: "1 Item",
   gearInspectorItemsCountMany: "{n} Items",
   helpOpenLabel: "Help",
