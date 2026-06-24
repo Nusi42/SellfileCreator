@@ -1594,13 +1594,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ): GearInspectorPreviewMatch | null => {
         if (!result) return null
         const rule = rules[result.ruleIndex]
-        const recipeIdx = result.recipeIdx ?? null
-        const recipeName = resolveMatchRecipeName(recipeIdx, recipeNamesForBuild, rule)
+        // Branch on source the same way HsfRulesTable does: a safeguard match is a safeguard,
+        // never a recipe — even though its injected HSF row inherits the originating recipe's
+        // RecipeID/RecipeName. Mixing the two produced chips that read as a recipe (name +
+        // recipe index) but behaved as a safeguard (tooltip, tint, jump target).
+        const isSafeguardRule = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        // Recipe identity is suppressed for safeguard matches so the chip shows the safeguard
+        // ordinal (not the inherited recipe number) and its label/colour come from the safeguard.
+        const recipeIdx = isSafeguardRule ? null : (result.recipeIdx ?? null)
+        const recipeName = isSafeguardRule
+          ? null
+          : resolveMatchRecipeName(recipeIdx, recipeNamesForBuild, rule)
         const recipeFgColor = (recipeIdx != null && recipeIdx >= 0 && recipeIdx < recipeFgColorsForBuild.length)
           ? (recipeFgColorsForBuild[recipeIdx] ?? null)
           : null
-        // Safeguards use rule ordinals instead of recipe names.
-        const isSafeguardRule = rule?.__source === RULE_SOURCE_SAFEGUARDS
+        // Safeguards use rule ordinals + their own appearance label instead of recipe names.
         const safeguardLabel = isSafeguardRule
           ? resolveSafeguardRuleLabel(rule)
           : null
@@ -1608,9 +1616,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const ruleLabelFgColor = (isSafeguardRule && rule?.__safeguardRuleOrdinal)
           ? (effectiveSafeguardRules[rule.__safeguardRuleOrdinal - 1]?.appearance?.fgColor ?? null)
           : null
-        const effectiveRecipeName = recipeName && recipeName.length > 0
-          ? recipeName
-          : safeguardLabel
+        // Recipe matches use the recipe name; safeguard matches use the safeguard label.
+        const effectiveRecipeName = isSafeguardRule
+          ? safeguardLabel
+          : (recipeName && recipeName.length > 0 ? recipeName : null)
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
