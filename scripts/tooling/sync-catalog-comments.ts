@@ -1,17 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import enUS from '../../src/lib/i18n/catalogs/en-US'
-import deDE from '../../src/lib/i18n/catalogs/de-DE'
-import esES from '../../src/lib/i18n/catalogs/es-ES'
-import frFR from '../../src/lib/i18n/catalogs/fr-FR'
-import itIT from '../../src/lib/i18n/catalogs/it-IT'
-import ptBR from '../../src/lib/i18n/catalogs/pt-BR'
-import ptPT from '../../src/lib/i18n/catalogs/pt-PT'
-import ruRU from '../../src/lib/i18n/catalogs/ru-RU'
-import trTR from '../../src/lib/i18n/catalogs/tr-TR'
-import ukUA from '../../src/lib/i18n/catalogs/uk-UA'
-import { DEFAULT_LANGUAGE, PRODUCTION_LANGUAGES, type Catalog, type ProductionLanguage } from '../../src/lib/i18n/types'
+import { DEFAULT_LANGUAGE, PRODUCTION_LANGUAGES, type ProductionLanguage } from '../../src/lib/i18n/types'
+import { auditStructure, extractKeys, extractCommentTexts } from './catalogAudit'
 
 // Describe a single comment line for later comparisons.
 type CommentEntry = {
@@ -46,20 +37,6 @@ type CatalogAuditResult = {
 // Resolve the repo root from cwd so compiled scripts still hit source files.
 const repoRoot = process.cwd()
 const catalogRoot = join(repoRoot, 'src', 'lib', 'i18n', 'catalogs')
-
-// Map production codes to their overrides so we can reason in one place.
-const CATALOG_SOURCES: Record<ProductionLanguage, Catalog> = {
-  'en-US': enUS,
-  'de-DE': deDE,
-  'fr-FR': frFR,
-  'es-ES': esES,
-  'it-IT': itIT,
-  'pt-BR': ptBR,
-  'pt-PT': ptPT,
-  'ru-RU': ruRU,
-  'uk-UA': ukUA,
-  'tr-TR': trTR,
-}
 
 // Path to the master English file we mirror everywhere else.
 const englishFilePath = join(catalogRoot, `${DEFAULT_LANGUAGE}.ts`)
@@ -163,26 +140,18 @@ const auditLocaleComments = (code: ProductionLanguage): CommentAudit => {
 }
 
 // Compare a locale’s key list to English so order/coverage drift cannot slip in.
-const auditCatalogKeys = (code: ProductionLanguage, englishKeys: string[]): CatalogAuditResult => {
-  const catalog = CATALOG_SOURCES[code]
-  const keys = Object.keys(catalog)
-  const missingKeys = englishKeys.filter((key) => !(key in catalog))
-  const extraKeys = keys.filter((key) => !(key in CATALOG_SOURCES[DEFAULT_LANGUAGE]))
-  const orderMismatches: Array<{ index: number; expected: string; actual: string }> = []
-
-  const limit = Math.min(keys.length, englishKeys.length)
-  for (let index = 0; index < limit; index += 1) {
-    const expected = englishKeys[index]
-    const actual = keys[index]
-    if (expected === undefined || actual === undefined) {
-      continue
-    }
-    if (expected !== actual) {
-      orderMismatches.push({ index, expected, actual })
-    }
-  }
-
-  return { code, missingKeys, extraKeys, orderMismatches }
+// Delegates to the shared text-based audit (scripts/tooling/catalogAudit.ts) so the
+// CLI and the catalog-structure-parity unit test apply the exact same rules.
+const auditCatalogKeys = (
+  code: ProductionLanguage,
+  englishKeys: string[],
+  englishComments: string[],
+): CatalogAuditResult => {
+  const drift = auditStructure(code, englishKeys, englishComments)
+  // Map the shared single-mismatch shape back to the CLI's array field (only the
+  // first divergence is actionable anyway — fixing it shifts the rest).
+  const orderMismatches = drift.orderMismatch ? [drift.orderMismatch] : []
+  return { code, missingKeys: drift.missingKeys, extraKeys: drift.extraKeys, orderMismatches }
 }
 
 // Orchestrate the extraction, syncing, and audits as a single CLI.
@@ -191,7 +160,10 @@ const run = (): void => {
   const englishComments = extractComments(englishContent)
   logEnglishComments(englishComments)
 
-  const englishKeys = Object.keys(CATALOG_SOURCES[DEFAULT_LANGUAGE])
+  // Key/comment order are checked against the English SOURCE TEXT (not the runtime
+  // object), because comment lines and key order only exist in the file.
+  const englishKeys = extractKeys(englishContent)
+  const englishCommentTexts = extractCommentTexts(englishContent)
   let hasFailures = false
 
   for (const code of PRODUCTION_LANGUAGES) {
@@ -206,7 +178,7 @@ const run = (): void => {
       hasFailures = true
     }
 
-    const keyAudit = auditCatalogKeys(code, englishKeys)
+    const keyAudit = auditCatalogKeys(code, englishKeys, englishCommentTexts)
     if (keyAudit.missingKeys.length > 0) {
       hasFailures = true
       console.error(`[${code}] Missing keys: ${keyAudit.missingKeys.join(', ')}`)

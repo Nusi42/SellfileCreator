@@ -12,6 +12,7 @@
   "include": [
     "src/lib/i18n/catalogs/*.ts",
     "scripts/tooling/export-catalogs.ts",
+    "scripts/tooling/catalogAudit.ts",
     "scripts/tooling/sync-catalog-comments.ts",
     "scripts/tooling/audit-l10n-widths.ts",
     "scripts/tooling/measure-rule-tester.ts",
