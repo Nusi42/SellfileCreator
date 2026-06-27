@@ -5,7 +5,9 @@
 // The export-dirty side previously omitted substatMatch + improvementChanceThreshold, so
 // changing either left the "needs export/push" badge falsely clean and the user could ship a
 // stale sell-file. These tests pin that EVERY output-affecting field flips the fingerprint
-// (so both consumers invalidate), and that display-only fields (appearance, tags) do NOT.
+// (so both consumers invalidate), and that display-only fields (appearance.fgColor, tags) do NOT.
+// appearance.name IS output-affecting: projectRuleForWasm maps it to the WASM `name` field,
+// which becomes RecipeName in the generated HsfRuleWithRecipe rows.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -63,6 +65,8 @@ test('output-affecting fields each flip the fingerprint', () => {
     { ...a, substats: [1] },
     { ...a, substatWeights: { 1: 2 } },
     { ...a, combination: { ...a.combination, slots: [1] } },
+    // appearance.name → WASM `name` → RecipeName in generated HSF rules: must flip.
+    { ...a, appearance: { name: 'Renamed' } },
   ]
   for (const v of variants) {
     assert.notEqual(safeguardRuleContentFingerprint(v), base)
@@ -72,11 +76,18 @@ test('output-affecting fields each flip the fingerprint', () => {
 test('display-only fields do NOT flip the fingerprint (avoid spurious dirty)', () => {
   const a = baseRule()
   const base = safeguardRuleContentFingerprint(a)
-  // appearance + tags are display/identification only — they must not mark the sell-file dirty.
+  // tags are identification-only — they must not mark the sell-file dirty.
   assert.equal(safeguardRuleContentFingerprint({ ...a, tags: ['anything'] }), base)
+  // fgColor is display-only (not sent to WASM) — changing it alone must not flip the fingerprint.
   assert.equal(
-    safeguardRuleContentFingerprint({ ...a, appearance: { name: 'X', fgColor: '#fff' } }),
+    safeguardRuleContentFingerprint({ ...a, appearance: { name: '', fgColor: '#fff' } }),
     base,
+  )
+  // fgColor change on a rule that already has a name must not flip (name is unchanged).
+  const withName: SafeguardRule = { ...a, appearance: { name: 'Keep' } }
+  assert.equal(
+    safeguardRuleContentFingerprint({ ...withName, appearance: { name: 'Keep', fgColor: '#fff' } }),
+    safeguardRuleContentFingerprint(withName),
   )
 })
 

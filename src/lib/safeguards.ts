@@ -508,9 +508,12 @@ export type SafeguardRule = {
 // makes both consumers track the same fields by construction.
 //
 // Every field that affects rule generation, safeguard detection, or candidate matching is
-// included. Excluded by design: `appearance` (display name/colour only) and `tags` (DSL
-// identification only) — neither changes the produced rules. Order-independent via
-// stableSerialize (sorts object keys; combination/weights maps serialize canonically).
+// included. `appearance.name` IS included: projectRuleForWasm maps it to the WASM `name`
+// field, which becomes RecipeName in the generated HsfRuleWithRecipe rows — a name change
+// must bust the worker's rulesUnchanged fast-path so mergedRules gets re-sent with the new
+// RecipeName. `appearance.fgColor` and `tags` are excluded (display/DSL only, no rule
+// output). Order-independent via stableSerialize (sorts object keys; combination/weights
+// maps serialize canonically).
 export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => stableSerialize({
   combination: rule.combination,
   requiredCount: rule.requiredCount,
@@ -524,6 +527,8 @@ export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => 
   substatWeights: rule.substatWeights,
   weightMainStatByRank: rule.weightMainStatByRank,
   improvementChanceThreshold: rule.improvementChanceThreshold,
+  // Empty string and absent name both produce RecipeName='' in WASM output — treat as equivalent.
+  name: rule.appearance?.name || null,
 })
 
 // Fingerprint of a full safeguard rule list (enabled flag + each rule's content). Stable

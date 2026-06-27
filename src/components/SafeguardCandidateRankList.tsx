@@ -923,16 +923,15 @@ function CandidateRow({
               noWrap
               sx={{
                 fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
-                color: cell.color ?? 'text.secondary',
+                // Dim substats fall back to text.disabled (not text.secondary at 0.3 opacity — that
+                // combination is near-invisible in dark themes where text.secondary is already faint).
+                color: cell.color ?? (cell.isDim ? 'text.disabled' : 'text.secondary'),
                 // Fixed width so every column is identically wide.
                 // flexGrow: 0 + flexShrink: 0 prevents flex from resizing the cell.
                 width: substatCellWidthPx,
                 flexGrow: 0,
                 flexShrink: 0,
                 textAlign: 'left',
-                // Non-rule substats: rendered in a neutral-tinted gray (computed in precomputedSubstatColors)
-                // at reduced opacity so they read as clearly secondary without disappearing.
-                ...(cell.isDim ? { opacity: ALPHA.a30 } : undefined),
                 // noWrap sets overflow:hidden which clips the child span's box-shadow.
                 // Override to visible for mythic cells — labels are short and won't overflow.
                 ...(cell.isMythic ? { overflow: 'visible' } : undefined),

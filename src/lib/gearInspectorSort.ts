@@ -275,7 +275,14 @@ export const normalizeGearInspectorSortWeight = (value: number): number => {
 // `normalizeGearInspectorSortWeight(current + deltaSteps * STEP)` to get the right step size.
 export const bumpGearInspectorSortWeight = (current: number, deltaSteps: number): number => {
   const step = current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX ? GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP : GEAR_INSPECTOR_SORT_WEIGHT_STEP
-  return normalizeGearInspectorSortWeight(current + deltaSteps * step)
+  const raw = current + deltaSteps * step
+  // Boundary: bumping UP from FINE_MAX (0.10) yields raw=0.11, which normalizeGearInspectorSortWeight
+  // rounds back to 0.10 (nearest 0.05 coarse step). Skip the rounding and jump directly to the
+  // first coarse step (FINE_MAX + STEP = 0.15) so the control is never stuck at the boundary.
+  if (deltaSteps > 0 && current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX && raw > GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX) {
+    return GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX + GEAR_INSPECTOR_SORT_WEIGHT_STEP
+  }
+  return normalizeGearInspectorSortWeight(raw)
 }
 
 export const isNeutralGearInspectorSortWeight = (value: number): boolean => (
