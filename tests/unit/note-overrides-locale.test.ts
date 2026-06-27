@@ -5,6 +5,7 @@ import {
   localizeDslDisplay,
   dslLocaleBase,
   localizeNoteProse,
+  localizeNoteProseWithSourceMap,
   tokenize,
   CONDITIONAL_BLOCK_OPEN_REGEX,
   CONDITIONAL_BLOCK_CLOSE_REGEX,
@@ -140,6 +141,54 @@ test('inline and line-split authoring of the same group render identically', () 
   }
   assert.equal(localizeNoteProse(split, 'de-DE'), 'A behalten B')
   assert.equal(localizeNoteProse(split, 'en-US'), 'A keep B')
+})
+
+// ── Localized→raw source map (editor scroll-sync anchors) ────────────────────
+// The edit-preview renders the LOCALIZED note, but the textarea shows the RAW draft. The
+// source map lets the scroll sync translate a preview block's localized source offset back
+// to a char offset in the raw draft, so prose blocks anchor at the right textarea line.
+
+test('source map text equals plain localizeNoteProse (SSOT delegation)', () => {
+  const note = 'Intro.\n<!-- lang -->\n## EN\nbody\n<!-- lang:de -->\n## DE\nKörper\n<!-- /lang -->\nTail.'
+  for (const lang of ['en-US', 'de-DE', 'it-IT']) {
+    assert.equal(localizeNoteProseWithSourceMap(note, lang).text, localizeNoteProse(note, lang))
+  }
+})
+
+test('every segment maps localized text back to the identical raw substring', () => {
+  const note = 'A.\n<!-- lang -->\n## What\nen\n<!-- lang:de -->\n## Was\nde\n<!-- /lang -->\nZ.'
+  for (const lang of ['en-US', 'de-DE']) {
+    const { text, segments } = localizeNoteProseWithSourceMap(note, lang)
+    assert.ok(segments.length > 0)
+    for (const s of segments) {
+      assert.equal(
+        text.slice(s.localStart, s.localStart + s.length),
+        note.slice(s.rawStart, s.rawStart + s.length),
+        `segment mismatch for ${lang}: ${JSON.stringify(s)}`,
+      )
+    }
+  }
+})
+
+test('a heading offset maps to the active language’s heading in the raw note', () => {
+  const note = 'Intro.\n<!-- lang -->\n## What is a Sellfile?\nen\n<!-- lang:de -->\n## Was ist ein Sellfile?\nde\n<!-- /lang -->'
+  const mapHeading = (lang: string): string => {
+    const { text, segments } = localizeNoteProseWithSourceMap(note, lang)
+    const local = text.indexOf('## ')
+    const seg = segments.find((s) => local >= s.localStart && local < s.localStart + s.length)!
+    const raw = seg.rawStart + (local - seg.localStart)
+    return note.slice(raw, raw + 5)
+  }
+  // English active → the offset lands on the EN heading; German → the DE heading.
+  assert.equal(mapHeading('en-US'), '## Wh')
+  assert.equal(mapHeading('de-DE'), '## Wa')
+})
+
+test('a note with no lang groups is one identity segment', () => {
+  const note = '# Title\n\nPlain prose, no markers.'
+  const { text, segments } = localizeNoteProseWithSourceMap(note, 'de-DE')
+  assert.equal(text, note)
+  assert.deepEqual(segments, [{ localStart: 0, rawStart: 0, length: note.length }])
 })
 
 // ── Conditional-block markers + legacy `end-if` reader ───────────────────────

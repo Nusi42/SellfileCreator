@@ -365,7 +365,7 @@ export const localizeDslDisplay = (raw: string, lang: string): string => {
  * route their language pick through this single function, so the fallback rules can
  * never drift between the two surfaces.
  */
-const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: string): string => {
+const pickLocaleFromMap = <T,>(byLang: Map<string, T>, base: T, lang: string): T => {
   if (byLang.size === 0) return base
   const lower = lang.toLowerCase()
   // Full code (`de-DE`) wins; then the bare prefix (`de`), so one `lang:de` block covers
@@ -433,13 +433,27 @@ export const CONDITIONAL_BLOCK_CLOSE_REGEX = /^\s*(?:\/if-no-endpoint|end-if)\s*
  * editing. The inline shape has no boundary newline, so this is a no-op there — existing
  * single-line notes (and marker-free notes) are unaffected.
  */
-const stripMarkerBoundaryNewlines = (slice: string): string =>
-  slice.replace(/^[^\S\n]*\n/, '').replace(/\n[^\S\n]*$/, '')
+const stripBoundaryNewlines = (slice: string): { text: string; lead: number } => {
+  // Leading strip = the horizontal whitespace + single newline a marker line contributes
+  // BEFORE the slice; its length is how far the trimmed text's raw start shifts forward.
+  const leadMatch = slice.match(/^[^\S\n]*\n/)
+  const lead = leadMatch ? leadMatch[0].length : 0
+  return { text: slice.slice(lead).replace(/\n[^\S\n]*$/, ''), lead }
+}
 
 /**
- * Resolve every `<!-- lang -->…<!-- /lang -->` prose group in `note` for `lang`,
- * leaving all other text (and unrelated markers) untouched. Pure string transform run
- * once at the render boundary, before markdown + override-marker parsing.
+ * One contiguous run of the localized output that came verbatim from the raw note: the
+ * localized text `[localStart, localStart+length)` equals the raw text `[rawStart, …)`.
+ * Lets the editor scroll-sync translate a preview block's source offset (measured against
+ * the LOCALIZED preview source) back to a char offset in the RAW draft the textarea shows.
+ */
+export type NoteProseSourceSegment = { localStart: number; rawStart: number; length: number }
+
+/**
+ * Resolve every `<!-- lang -->…<!-- /lang -->` prose group in `note` for `lang`, ALSO
+ * returning a localized→raw offset map. Every emitted chunk (untouched span, picked locale
+ * slice, tail) records where it started in the raw note, so a localized offset can be mapped
+ * back to the raw text. SSOT: the plain {@link localizeNoteProse} string form delegates here.
  *
  * For each group: the base is the text between the group open and the first
  * `<!-- lang:xx -->` variant marker (or the whole body when there are no variants);
@@ -447,24 +461,36 @@ const stripMarkerBoundaryNewlines = (slice: string): string =>
  * marker. The picked slice (active lang exact→prefix, else base) replaces the entire
  * group including its brackets.
  */
-export const localizeNoteProse = (note: string, lang: string): string => {
-  // Fast path: no group-open marker → nothing to resolve.
-  PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = 0
-  if (!PROSE_LANG_GROUP_OPEN_REGEX.test(note)) return note
+export const localizeNoteProseWithSourceMap = (
+  note: string,
+  lang: string,
+): { text: string; segments: NoteProseSourceSegment[] } => {
+  const segments: NoteProseSourceSegment[] = []
   let out = ''
+  // Record a raw→localized run, then append the same text to `out`.
+  const emit = (rawStart: number, text: string): void => {
+    if (text.length > 0) segments.push({ localStart: out.length, rawStart, length: text.length })
+    out += text
+  }
+  // Fast path: no group-open marker → the whole note is one identity run.
+  PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = 0
+  if (!PROSE_LANG_GROUP_OPEN_REGEX.test(note)) {
+    emit(0, note)
+    return { text: out, segments }
+  }
   let cursor = 0
   // Iterate group-open markers in document order.
   PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = 0
   let groupOpen = PROSE_LANG_GROUP_OPEN_REGEX.exec(note)
   while (groupOpen) {
     // Emit untouched text before this group, then locate the matching close marker.
-    out += note.slice(cursor, groupOpen.index)
+    emit(cursor, note.slice(cursor, groupOpen.index))
     const bodyStart = groupOpen.index + groupOpen[0].length
     PROSE_LANG_CLOSE_REGEX.lastIndex = bodyStart
     const close = PROSE_LANG_CLOSE_REGEX.exec(note)
     if (!close) {
       // Unterminated group: emit the open marker verbatim and stop resolving (degrade safe).
-      out += note.slice(groupOpen.index)
+      emit(groupOpen.index, note.slice(groupOpen.index))
       cursor = note.length
       break
     }
@@ -477,27 +503,34 @@ export const localizeNoteProse = (note: string, lang: string): string => {
       variants.push({ code: v[1]!.toLowerCase(), start: v.index, tagEnd: v.index + v[0].length })
       v = PROSE_LANG_VARIANT_REGEX.exec(note)
     }
-    // Base = body text up to the first variant marker (or the whole body when none).
+    // Base = body text up to the first variant marker (or the whole body when none). Each slice
+    // carries the raw start of its TRIMMED text (boundary newline shifts the start forward).
     const baseEnd = variants.length > 0 ? variants[0]!.start : bodyEnd
-    const base = stripMarkerBoundaryNewlines(note.slice(bodyStart, baseEnd))
+    const baseStrip = stripBoundaryNewlines(note.slice(bodyStart, baseEnd))
+    const base = { text: baseStrip.text, rawStart: bodyStart + baseStrip.lead }
     // code→variant: each variant slice runs to the next variant marker or to the close.
-    const byLang = new Map<string, string>()
+    const byLang = new Map<string, { text: string; rawStart: number }>()
     for (let i = 0; i < variants.length; i += 1) {
       const segStart = variants[i]!.tagEnd
       const segEnd = i + 1 < variants.length ? variants[i + 1]!.start : bodyEnd
+      const strip = stripBoundaryNewlines(note.slice(segStart, segEnd))
       // First definition wins, mirroring the inline resolver's duplicate policy.
-      if (!byLang.has(variants[i]!.code)) byLang.set(variants[i]!.code, stripMarkerBoundaryNewlines(note.slice(segStart, segEnd)))
+      if (!byLang.has(variants[i]!.code)) byLang.set(variants[i]!.code, { text: strip.text, rawStart: segStart + strip.lead })
     }
     // Replace the whole group (open marker → close marker) with the picked slice.
-    out += pickLocaleFromMap(byLang, base, lang)
+    const picked = pickLocaleFromMap(byLang, base, lang)
+    emit(picked.rawStart, picked.text)
     cursor = close.index + close[0].length
     PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = cursor
     groupOpen = PROSE_LANG_GROUP_OPEN_REGEX.exec(note)
   }
   // Tail: everything after the last group.
-  out += note.slice(cursor)
-  return out
+  emit(cursor, note.slice(cursor))
+  return { text: out, segments }
 }
+
+export const localizeNoteProse = (note: string, lang: string): string =>
+  localizeNoteProseWithSourceMap(note, lang).text
 
 /** Normalize tag-style tokens for id/exclusion usage. */
 export const normalizeQuestionToken = (raw: string): string | null => {

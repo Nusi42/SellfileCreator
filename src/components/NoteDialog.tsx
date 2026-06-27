@@ -114,7 +114,7 @@ import {
   DynamicOverridesPresetMenuItems,
   DynamicOverridesPresetDialogs,
 } from './NoteDynamicOverridesPresets'
-import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNoteTagSelector, localizeNoteProse, type NoteTagSelector } from '../lib/noteOverridesParser'
+import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNoteTagSelector, localizeNoteProse, localizeNoteProseWithSourceMap, type NoteProseSourceSegment, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -1419,6 +1419,30 @@ const rehypeConditionalEndpointComments: Pluggable = () => {
 // element carrying the title. Mirrors rehypeConditionalEndpointComments (sibling-level scan,
 // recurse into elements) but captures the per-range title from the open marker. Runs after the
 // override/question transforms so the wrapped children are already the rendered question cards.
+// Editor scroll-sync anchor source. Stamps each block-level element with its source
+// character offset (`data-src-offset`) so the split-pane sync can pair preview blocks to
+// positions in the textarea — giving DENSE anchors across the prose, not just at the override
+// cards (whose marker-index pairing leaves the long all-prose tail under-anchored). Block tags
+// only (headings/paragraphs/list items/etc.) to keep the anchor set meaningful.
+const SOURCE_OFFSET_ATTR = 'data-src-offset'
+const SOURCE_OFFSET_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'pre', 'hr', 'table'])
+const rehypeStampSourceOffset: Pluggable = () => {
+  return (tree: Root) => {
+    const walk = (node: Root | Element): void => {
+      for (const child of (node.children ?? []) as RootContent[]) {
+        if (child.type !== 'element') continue
+        const el = child as Element
+        const offset = el.position?.start?.offset
+        if (offset != null && SOURCE_OFFSET_TAGS.has(el.tagName)) {
+          el.properties = { ...(el.properties ?? {}), [SOURCE_OFFSET_ATTR]: String(offset) }
+        }
+        walk(el)
+      }
+    }
+    walk(tree)
+  }
+}
+
 const rehypeCollapseSectionComments: Pluggable = () => {
   return (tree: Root) => {
     const transform = (node: Root | Element): void => {
@@ -5024,10 +5048,15 @@ export default function NoteDialog({
     // Allow the conditional-wrapper marker on the <div> emitted by the rehype plugin.
     const divAttrs: SanitizeProp[] = Array.isArray(baseAttrs.div) ? baseAttrs.div : []
     const mergedDivAttrs = Array.from(new Set<SanitizeProp>([...divAttrs, NOTE_CONDITIONAL_ATTR]))
+    // Allow the scroll-sync source-offset stamp on every tag (rehypeStampSourceOffset adds it to
+    // block elements; whitelisting globally keeps the rule simple and tag-list-agnostic).
+    const starAttrs: SanitizeProp[] = Array.isArray(baseAttrs['*']) ? baseAttrs['*'] : []
+    const mergedStarAttrs = Array.from(new Set<SanitizeProp>([...starAttrs, SOURCE_OFFSET_ATTR]))
     return {
       ...defaultSchema,
       attributes: {
         ...defaultSchema.attributes,
+        '*': mergedStarAttrs,
         div: mergedDivAttrs,
         span: [...spanAttrs, 'data-color', 'dataColor', 'data-blink', 'dataBlink'],
         [RECIPE_ELEMENT_TAG]: mergedRecipeAttrs,
@@ -5055,6 +5084,9 @@ export default function NoteDialog({
   const noteConnected = (rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false)
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
+      // First: stamp source offsets on block elements (editor scroll-sync anchors) while the
+      // markdown positions are still original, before the comment transforms restructure nodes.
+      rehypeStampSourceOffset,
       rehypeRecipeComments,
       rehypeSafeguardComments,
       rehypeQuestionComments,
@@ -5792,6 +5824,9 @@ type ScrollAnchor = { editorY: number; previewY: number }
 function useEditorPreviewScrollSync(
   editWrapRef: React.RefObject<HTMLDivElement | null>,
   draft: string,
+  // Active language — the preview renders the LOCALIZED draft, so its source offsets are in
+  // localized space and must be mapped back to the raw draft the textarea shows.
+  lang: string,
   // External suppression: while .current is true, sync is paused. The reveal-on-click uses this
   // so its programmatic editor scroll isn't immediately overridden by the click's preview scroll.
   suppressRef: React.RefObject<boolean>,
@@ -5805,6 +5840,18 @@ function useEditorPreviewScrollSync(
   useEffect(() => {
     const root = editWrapRef.current
     if (!root) return undefined
+    // Localized→raw offset map: a preview block's `data-src-offset` is measured against the
+    // localized preview source; translate it back to a char offset in the raw draft (textarea).
+    const segments = localizeNoteProseWithSourceMap(draft, lang).segments
+    const mapLocalToRaw = (localOffset: number): number | null => {
+      for (const seg of segments) {
+        if (localOffset >= seg.localStart && localOffset < seg.localStart + seg.length) {
+          return seg.rawStart + (localOffset - seg.localStart)
+        }
+      }
+      const last: NoteProseSourceSegment | undefined = segments[segments.length - 1]
+      return last ? last.rawStart + last.length : null
+    }
     // The editor's scroll container is `.w-md-editor-area` (overflow:auto); `.w-md-editor-text`
     // itself only grows (min-height:100%) and the textarea is overflow:hidden — so listening on
     // those never sees a scroll. The preview scrolls on `.w-md-editor-preview`.
@@ -5841,12 +5888,38 @@ function useEditorPreviewScrollSync(
         const previewY = (card.getBoundingClientRect().top - previewRect.top) / (previewZoom || 1) + preview.scrollTop
         anchors.push({ editorY, previewY })
       })
+      // Dense prose anchors: every block stamped with `data-src-offset` (headings, paragraphs,
+      // list items…) pairs its localized source offset → raw draft offset → editor Y with its own
+      // preview Y. This fills the long all-prose tail the card anchors leave unconstrained, so the
+      // panes track through the prose (not just at the override cards) — the localized preview is
+      // far shorter than the bilingual source, so card-only anchors mapped the prose ~2× off.
+      const blocks = preview.querySelectorAll<HTMLElement>(`[${SOURCE_OFFSET_ATTR}]`)
+      blocks.forEach((block) => {
+        const raw = block.getAttribute(SOURCE_OFFSET_ATTR)
+        if (raw == null) return
+        const rawOffset = mapLocalToRaw(Number(raw))
+        if (rawOffset == null) return
+        const editorY = charOffsetEditorY(code, rawOffset)
+        if (editorY == null) return
+        const previewY = (block.getBoundingClientRect().top - previewRect.top) / (previewZoom || 1) + preview.scrollTop
+        anchors.push({ editorY, previewY })
+      })
       // Anchor both panes' tops together so editor-scroll 0 ↔ preview-scroll 0. Without this, content
       // before the first marker is extrapolated off the first segment's slope and the editor top maps
       // the preview ~250px down (the markers don't start at the very top of the note).
       anchors.push({ editorY: 0, previewY: 0 })
       anchors.sort((a, b) => a.editorY - b.editorY)
-      anchorsRef.current = anchors
+      // Enforce a monotonic map: both panes scroll the same direction, so previewY must be
+      // non-decreasing as editorY grows. Drop any anchor that would invert it (a measurement
+      // jittered mid-layout) so the piecewise interpolation never backtracks.
+      const monotonic: ScrollAnchor[] = []
+      for (const a of anchors) {
+        const prev = monotonic[monotonic.length - 1]
+        if (prev && a.editorY === prev.editorY) continue
+        if (prev && a.previewY < prev.previewY) continue
+        monotonic.push(a)
+      }
+      anchorsRef.current = monotonic
     }
 
     // Piecewise-linear map a value from one axis to the other across sorted anchors.
@@ -5855,7 +5928,7 @@ function useEditorPreviewScrollSync(
       if (anchors.length === 0) return null
       // Single anchor → constant offset shift.
       if (anchors.length === 1) return value - anchors[0]![from] + anchors[0]![to]
-      // Below the first / above the last anchor → extrapolate from the nearest segment.
+      // Find the bracketing segment (last anchor whose `from` is ≤ value).
       let lo = 0
       for (let i = 0; i < anchors.length - 1; i++) {
         if (value >= anchors[i]![from]) lo = i
@@ -5863,7 +5936,12 @@ function useEditorPreviewScrollSync(
       const a = anchors[lo]!
       const b = anchors[lo + 1]!
       const span = b[from] - a[from]
-      const t = span === 0 ? 0 : (value - a[from]) / span
+      const raw = span === 0 ? 0 : (value - a[from]) / span
+      // CLAMP, do NOT extrapolate (standard scroll-sync behaviour). A value past the last anchor
+      // would otherwise project beyond the other pane's mapped range; pinning t to [0,1] maps
+      // out-of-range scroll to the nearest anchor. With the dense prose anchors above spanning
+      // nearly the whole doc, the in-range map stays accurate and only the very edges clamp.
+      const t = Math.max(0, Math.min(1, raw))
       return a[to] + t * (b[to] - a[to])
     }
 
@@ -5901,7 +5979,7 @@ function useEditorPreviewScrollSync(
       ro.disconnect()
       cancelAnimationFrame(raf)
     }
-  }, [editWrapRef, draft, suppressRef])
+  }, [editWrapRef, draft, lang, suppressRef])
 }
 
 function NoteEditorContent({
@@ -6027,7 +6105,7 @@ function NoteEditorContent({
   const revealSuppressRef = useRef(false)
   // Keep the editor and preview panes scroll-synced by marker position (MDEditor's built-in
   // height-ratio sync is disabled below via enableScroll={false}, since the tall cards defeat it).
-  useEditorPreviewScrollSync(editWrapRef, draft, revealSuppressRef)
+  useEditorPreviewScrollSync(editWrapRef, draft, lang, revealSuppressRef)
 
   // Collect DSL diagnostics (error squiggles) once per draft change.
   const dslDiags = useMemo(() => collectOverridesDiagnostics(draft), [draft])
@@ -6724,6 +6802,12 @@ function NoteEditorContent({
               const target = e.target as HTMLElement | null
               const inToolbar = Boolean(target && target.closest('.w-md-editor-toolbar'))
               if (inToolbar) return
+              // CRITICAL: clicks in the PREVIEW pane must not steal focus to the textarea. This
+              // handler's purpose is "click the editor's blank backdrop → focus the textarea ready
+              // to type", but the preview lives in the same wrapper — focusing + snapping the caret
+              // to the end on a preview click is the "cursor jumps to end" bug. The preview has its
+              // own interactions (reveal-on-card, text selection); leave it alone.
+              if (target && target.closest('.w-md-editor-preview')) return
               window.setTimeout(() => {
                 if (document.activeElement !== ta) ta.focus()
                 if (!(e.target instanceof HTMLTextAreaElement)) {
