@@ -166,6 +166,21 @@ function renderPrismHighlighted(text: string, grammar: string, sx: Record<string
   }
 }
 
+// Like renderPrismHighlighted but uses <code> so the element is inline-block-capable,
+// suitable for grid cells where a block <pre> would break row alignment.
+function renderPrismHighlightedCode(text: string, grammar: string, sx: Record<string, unknown>): React.ReactNode {
+  try {
+    const tree = refractor.highlight(text, grammar)
+    return (
+      <Box component="code" sx={sx}>
+        {tree.children.map((child, i) => renderPrismNode(child as RootContent, i))}
+      </Box>
+    )
+  } catch {
+    return <Box component="code" sx={sx}>{text}</Box>
+  }
+}
+
 // ── DSL error overlay ───────────────────────────────────────────────────────
 // Renders a transparent pre element portaled into `.w-md-editor-text` (the
 // MDEditor text container). Non-error text is invisible; error spans carry a
@@ -2125,6 +2140,58 @@ const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
 // Keep EBNF tooltip styling consistent with recipe-overrides.
 const SAFEGUARD_OVERRIDES_TOOLTIP_WRAP_SX = RECIPE_OVERRIDES_TOOLTIP_WRAP_SX
 const SAFEGUARD_OVERRIDES_TOOLTIP_CODE_SX = RECIPE_OVERRIDES_TOOLTIP_CODE_SX
+
+// ── Other note markers reference ────────────────────────────────────────────
+const NOTE_MARKERS_REFERENCE_HEADER = 'Other note markers:'
+// Same visual style as the EBNF blocks but no-wrap and inline-block for grid alignment.
+const NOTE_MARKERS_REFERENCE_CODE_SX = {
+  ...RECIPE_OVERRIDES_TOOLTIP_CODE_SX,
+  whiteSpace: 'pre',
+  display: 'inline-block',
+} satisfies Record<string, unknown>
+// Reference entries for the marker cheat sheet.
+// `grammar` overrides the default 'markdown' used for comment markers; used for the span
+// entry which needs the dedicated 'note-html-span' grammar to get html-tag/attr colors.
+const NOTE_MARKERS_REFERENCE_ITEMS: ReadonlyArray<{ code: string; desc: string; grammar?: string }> = [
+  {
+    code: '<!-- recipes: 1, 0, 2 -->',
+    desc: 'embed recipe cards by 1-based index (0 = next after previous)',
+  },
+  {
+    code: '<!-- recipes-re: "speed" -->',
+    desc: 'embed recipe cards matching regex',
+  },
+  {
+    code: '<!-- safeguards: 1, 2 -->',
+    desc: 'embed safeguard cards by 1-based index',
+  },
+  {
+    code: '<!-- safeguards-re: "ring" -->',
+    desc: 'embed safeguard cards matching regex',
+  },
+  {
+    code: '<!-- dungeon-simulator -->',
+    desc: 'live keep-chance table (Fire Knight, Dragon, Ice Golem)',
+  },
+  {
+    code: '<!-- collapse --> … <!-- /collapse -->',
+    desc: 'collapsible section wrapper',
+  },
+  {
+    code: '<!-- if-no-endpoint --> … <!-- /if-no-endpoint -->',
+    desc: 'shown only without an RSL Helper connection',
+  },
+  {
+    code: '<!-- lang --> … <!-- lang:de --> … <!-- /lang -->',
+    desc: 'per-locale prose variants',
+  },
+  {
+    code: '<span data-color="red">text</span>',
+    desc: 'inline colored text (toolbar color palette)',
+    // note-html-span grammar produces html-tag / html-attr-name / html-attr-value tokens.
+    grammar: 'note-html-span',
+  },
+] as const
 
 // Toolbar command key for the safeguard-overrides sample insert.
 const SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-safeguardOverrides-sample'
@@ -6372,6 +6439,24 @@ function NoteEditorContent({
     </Box>
   ), [])
 
+  // Cheat sheet for non-DSL note markers — static content, no component deps.
+  const noteMarkersReferenceContent = useMemo(() => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+        {NOTE_MARKERS_REFERENCE_HEADER}
+      </Typography>
+      {/* Two-column grid: highlighted marker code on the left, description on the right. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', alignItems: 'baseline' }}>
+        {NOTE_MARKERS_REFERENCE_ITEMS.map(({ code, desc, grammar }) => (
+          <React.Fragment key={code}>
+            {renderPrismHighlightedCode(code, grammar ?? 'markdown', NOTE_MARKERS_REFERENCE_CODE_SX)}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{desc}</Typography>
+          </React.Fragment>
+        ))}
+      </Box>
+    </Box>
+  ), [])
+
   // Toolbar command that inserts a ready-to-edit safeguard-overrides sample block.
   const safeguardOverridesSampleCommand = useMemo<ICommand>(() => ({
     name: SAFEGUARD_OVERRIDES_SAMPLE_COMMAND_KEY,
@@ -6908,6 +6993,10 @@ function NoteEditorContent({
                 {t('noteInsertSafeguardOverridesSample')}
               </Button>
             </Box>
+          </Box>
+          {/* Other note markers — embed, structure, and inline-color syntax. */}
+          <Box sx={{ pt: 1.5, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
+            {noteMarkersReferenceContent}
           </Box>
         </Box>
       </Popover>

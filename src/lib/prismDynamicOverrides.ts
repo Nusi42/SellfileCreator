@@ -423,6 +423,47 @@ noteMarkers.aliases = [] as string[];
 // Register the grammar once.
 refractor.register(noteMarkers as Syntax);
 
+// ── note-html-span grammar ─────────────────────────────────────────────────
+// Minimal grammar for `<span data-color="color">text</span>` inline annotations.
+// Produces the html-tag / html-attr-name / html-attr-value / punctuation token
+// classes that already map to colours in RECIPE_OVERRIDES_TOKEN_COLORS, giving
+// the flyout reference entry the same highlight palette as the surrounding markers.
+
+function noteHtmlSpan(Prism: Refractor): void {
+    Prism.languages['note-html-span'] = {
+        // Opening tag `<span data-color="…">` — colored as html-tag with inner tokens.
+        'html-tag': {
+            pattern: /<span\b[^>]*>/,
+            inside: {
+                // Attribute name.
+                'html-attr-name': /\bdata-color\b/,
+                // Full `="value"` pair; `=` is punctuation, the quoted value inherits green.
+                'html-attr-value': {
+                    pattern: /="[^"]*"/,
+                    inside: {
+                        'punctuation': /^=/,
+                    },
+                },
+                // `<` and `>` delimiters.
+                'punctuation': /[<>]/,
+            },
+        },
+        // Closing `</span>` — aliased to html-tag so it shares the coral colour.
+        'html-end-tag': {
+            pattern: /<\/span>/,
+            alias: 'html-tag',
+            inside: {
+                'punctuation': /[<>/]/,
+            },
+        },
+    };
+}
+
+noteHtmlSpan.displayName = 'note-html-span';
+noteHtmlSpan.aliases = [] as string[];
+
+refractor.register(noteHtmlSpan as Syntax);
+
 // ── Inject into the markdown grammar ──────────────────────────────────────
 // Prepend both block rules to refractor's markdown grammar so that matching
 // comment blocks are sub-tokenized with our custom grammars rather than being
