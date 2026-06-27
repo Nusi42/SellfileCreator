@@ -248,8 +248,13 @@ export type GearInspectorSubstatSortSpec = {
 }
 
 // Weighting constants are exported so UI + persistence + sort logic share a single source of truth.
+// The range uses a two-tier step: 0.01 for values in [min, FINE_MAX] so users can assign very
+// small weights with fine control, and 0.05 above that where coarser resolution is plenty.
 export const GEAR_INSPECTOR_SORT_WEIGHT_STEP = 0.05 as const
-export const GEAR_INSPECTOR_SORT_WEIGHT_MIN = 0.1 as const
+export const GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP = 0.01 as const
+// Boundary where the fine step transitions to the coarse step.
+export const GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX = 0.10 as const
+export const GEAR_INSPECTOR_SORT_WEIGHT_MIN = 0.01 as const
 export const GEAR_INSPECTOR_SORT_WEIGHT_MAX = 3.0 as const
 export const GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT = 1.0 as const
 
@@ -258,10 +263,19 @@ export const normalizeGearInspectorSortWeight = (value: number): number => {
   if (!Number.isFinite(value)) return GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
   // Clamp to the advertised range so UI controls remain predictable.
   const clamped = Math.min(GEAR_INSPECTOR_SORT_WEIGHT_MAX, Math.max(GEAR_INSPECTOR_SORT_WEIGHT_MIN, value))
-  // Snap to the advertised step so +/- buttons always land on a stable decimal.
-  const stepped = Math.round(clamped / GEAR_INSPECTOR_SORT_WEIGHT_STEP) * GEAR_INSPECTOR_SORT_WEIGHT_STEP
-  // Normalize to 2 decimals so repeated math/persistence doesn't accumulate float noise with 0.05 steps.
+  // Two-tier step: fine (0.01) for low weights, coarse (0.05) above the boundary.
+  const step = clamped <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX ? GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP : GEAR_INSPECTOR_SORT_WEIGHT_STEP
+  const stepped = Math.round(clamped / step) * step
+  // Normalize to 2 decimals to prevent float noise accumulation.
   return Math.round(stepped * 100) / 100
+}
+
+// Bump a weight by deltaSteps (+1 or -1), using the correct step for the current weight value.
+// Step size switches at FINE_MAX: 0.01 below, 0.05 above. Callers should use this instead of
+// `normalizeGearInspectorSortWeight(current + deltaSteps * STEP)` to get the right step size.
+export const bumpGearInspectorSortWeight = (current: number, deltaSteps: number): number => {
+  const step = current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX ? GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP : GEAR_INSPECTOR_SORT_WEIGHT_STEP
+  return normalizeGearInspectorSortWeight(current + deltaSteps * step)
 }
 
 export const isNeutralGearInspectorSortWeight = (value: number): boolean => (

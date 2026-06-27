@@ -15,10 +15,10 @@
  * as the db-update-history view) when preview row data is available.
  *
  * Two modes:
- * - candidates provided: render ranked list (score/rank from WASM)
- * - no detection data + substats selected: render per-roll weight hints
+ * - candidates provided: render ranked list (score/rank from WASM) via TanStack Virtual
+ * - no detection data + substats selected: render skeleton rows (detection in progress)
  */
-import { Box, Chip, Divider, IconButton, Tooltip, Typography } from '@mui/material'
+import { Box, Chip, Divider, IconButton, Skeleton, Tooltip, Typography } from '@mui/material'
 import EllipsisTooltip from './EllipsisTooltip'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
@@ -29,6 +29,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM, FONT_FAMILY_MONO } from '../lib/constants'
 import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
 import { createElement, useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
 import { safeguardFocusGroupKeyFor } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
@@ -55,6 +56,8 @@ import { TINT, ALPHA } from '../lib/colorTints'
 
 // Scrollable container height — fits comfortably inside the 460px right column.
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
+// Number of skeleton rows shown while detection is running (no candidates yet).
+const SKELETON_ROW_COUNT = 6
 // Font size for the match-source (name) column — exported so SafeguardBuilderPanel can measure
 // the same size when computing the fixed column width from candidate names.
 export const FONT_SIZE_MATCH_SOURCE_REM = 0.68
@@ -118,9 +121,25 @@ const ROW_FACTION_ICON_SIZE_PX = 14
 // exact width so substat columns line up across rows with and without a faction icon.
 const ROW_FACTION_ICON_FOOTPRINT_PX = ROW_FACTION_ICON_SIZE_PX + FACTION_ICON_HALO_PAD_PX
 
+// Flat item type for the virtualizer — rows and section dividers in one array.
+type CandidateListItem =
+  | { type: 'row'; candidate: SafeguardCandidateOut }
+  | { type: 'divider-chance' }
+  | { type: 'divider-cutoff' }
+
+// Per-variant precomputed substat colors — computed once in the outer component so CandidateRow
+// does no color math per cell.  Both maps are keyed by StatVariant.
+// ruleByVariant: contrast-adapted stat-button color for rule-selected substats.
+// dimByVariant:  neutral gray tinted 20% toward the stat color for non-rule substats.
+// null entries mean "use text.secondary via sx fallback" (stat-button colors off or no color).
+export type PrecomputedSubstatColors = {
+  ruleByVariant: ReadonlyMap<StatVariant, string | null>
+  dimByVariant: ReadonlyMap<StatVariant, string | null>
+}
+
 export type SafeguardCandidateRankListProps = {
   // Scored candidates from detection snapshot or live preview, sorted by rank ascending.
-  // When undefined: show hint mode.
+  // When undefined: show skeleton rows (detection in progress or not yet run).
   candidates: SafeguardCandidateOut[] | undefined
   // Quota for the rule — used to draw the cutoff line and count kept items.
   quota: number
@@ -260,16 +279,15 @@ export default function SafeguardCandidateRankList({
   onFocusedGroupKeyChange,
   improvementChanceByItemKey,
 }: SafeguardCandidateRankListProps) {
+  // TanStack Virtual's useVirtualizer returns functions incompatible with the React Compiler's
+  // memoization model; opt out of compilation for this component to silence the warning.
+  'use no memo'
   const { t } = useI18n()
   const theme = useTheme()
 
   // Uniform fixed widths for mainstat and substat cells — measured once across ALL stat variants
   // so column widths are consistent regardless of which substats the current rule selects.
   const { mainstatCellWidthPx, substatCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
-
-  // Ref on the cutoff divider — scroll effect positions the view at the cutoff on first render.
-  // Must be before any early returns (React hooks rules of hooks).
-  const cutoffRef = useRef<HTMLDivElement | null>(null)
 
   // Focus state: when set, the list is scoped to a single count-group (the group of the candidate
   // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
@@ -284,47 +302,49 @@ export default function SafeguardCandidateRankList({
     else setInternalFocusedGroupKey(next)
   }
 
-  // On first render scroll the cutoff divider to center so both kept-near-cutoff and sold items are visible.
-  // Only fires when we actually have a scroll container (candidates present); ref is null otherwise.
-  useEffect(() => {
-    cutoffRef.current?.scrollIntoView({ behavior: 'instant', block: 'center' })
-  }, [])
+  // Runtime scheme paper — computed ONCE here and passed to every CandidateRow so the per-row
+  // useColorScheme() call (and its context subscription overhead) is eliminated.
+  const { colorScheme } = useColorScheme()
+  const rowSurfacePaper = useMemo(
+    () => resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme)),
+    [theme, colorScheme],
+  )
 
-  if (!candidates) {
-    // No detection data yet — show per-roll hints if substats are configured.
-    if (substats.length === 0) {
-      return <NoDataPlaceholder text={t('safeguardsCandidatesNoSubstats')} />
+  // Pre-compute substat colors once — eliminates adaptSubstatFgOnSurface + parseCssColorToRgb +
+  // mixRgb calls inside CandidateRow for every substat cell of every candidate row.
+  // ruleByVariant: contrast-adapted color for rule-selected substats.
+  // dimByVariant:  neutral gray tinted 20% toward the stat color for non-rule "ghost" substats.
+  const precomputedSubstatColors = useMemo((): PrecomputedSubstatColors => {
+    const neutral = parseCssColorToRgb(theme.palette.text.secondary)
+    const ruleByVariant = new Map<StatVariant, string | null>()
+    const dimByVariant = new Map<StatVariant, string | null>()
+    const effectiveColors = (useStatButtonColors ?? false) ? (substatColors ?? {}) : {}
+    for (const [variantStr, { fg }] of Object.entries(effectiveColors)) {
+      const variant = Number(variantStr) as StatVariant
+      const adapted = adaptSubstatFgOnSurface(fg, rowSurfacePaper) ?? null
+      ruleByVariant.set(variant, adapted)
+      const statRgb = adapted ? parseCssColorToRgb(adapted) : null
+      dimByVariant.set(variant, (statRgb && neutral) ? rgbToCss(mixRgb(neutral, statRgb, 0.2)) : null)
     }
-    if (noMatchesYet) {
-      return <NoDataPlaceholder text={t('safeguardsCandidatesNoData')} />
-    }
-    // Render per-roll contribution estimate for each selected substat.
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {substats.map((variant) => {
-          const rawWeight = Number(weights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
-          const weight = normalizeGearInspectorSortWeight(rawWeight)
-          // Contribution of one max-6-star roll; uses normalization constant from domain (display hint only).
-          const perRoll = normalizeSubstatByMax6(variant, weight)
-          return (
-            <Typography key={variant} variant="caption" color="text.secondary" sx={{ fontFamily: FONT_FAMILY_MONO }}>
-              {t('safeguardsCandidateWeightHint', { pts: perRoll.toFixed(2) })}
-            </Typography>
-          )
-        })}
-      </Box>
-    )
-  }
+    return { ruleByVariant, dimByVariant }
+  }, [useStatButtonColors, substatColors, rowSurfacePaper, theme.palette.text.secondary])
 
-  if (candidates.length === 0) {
-    return <NoDataPlaceholder text={t('safeguardsCandidatesNoData')} />
-  }
+  // Pre-compute improvement chance gradient endpoints once for the scheme.
+  const improvChanceLowRgb = useMemo(
+    () => parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 },
+    [theme.palette.error.main],
+  )
+  const improvChanceHighRgb = useMemo(
+    () => parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 },
+    [theme.palette.success.main],
+  )
 
   // Resolve substat column count — use parent-computed value (max across candidates) when available,
   // fall back to the rule's selection length so the layout is still valid before detection runs.
   // Now that non-rule substats are rendered (dim), the column budget must cover all artifact
   // substats, not just the rule-selected ones.  Scan the candidate list for the widest artifact.
-  const maxArtifactSubstats = candidates.reduce((m, c) => {
+  const effectiveCandidates = candidates ?? []
+  const maxArtifactSubstats = effectiveCandidates.reduce((m, c) => {
     const n = artifactsByItemKey.get(c.itemKey)?.substats.length ?? 0
     return n > m ? n : m
   }, 0)
@@ -365,7 +385,7 @@ export default function SafeguardCandidateRankList({
   // Drop a stale focus once the active group vanishes (e.g. weights changed and re-ranked the list,
   // or the user edited the count mode) so the list never renders empty with no way back.
   const focusStillPresent = focusedGroupKey != null
-    && candidates.some((c) => groupKeyFor(c.itemKey) === focusedGroupKey)
+    && effectiveCandidates.some((c) => groupKeyFor(c.itemKey) === focusedGroupKey)
   const activeFocusKey = focusStillPresent ? focusedGroupKey : null
 
   // When focused, keep only the candidates in the focused group; the kept/sold split and the cutoff
@@ -373,8 +393,8 @@ export default function SafeguardCandidateRankList({
   const inFocus = (c: SafeguardCandidateOut): boolean =>
     activeFocusKey == null || groupKeyFor(c.itemKey) === activeFocusKey
   // Split into kept (isWithinQuota) and sold (outside quota) preserving rank order.
-  const kept = candidates.filter((c) => c.isWithinQuota && inFocus(c))
-  const sold = candidates.filter((c) => !c.isWithinQuota && inFocus(c))
+  const kept = effectiveCandidates.filter((c) => c.isWithinQuota && inFocus(c))
+  const sold = effectiveCandidates.filter((c) => !c.isWithinQuota && inFocus(c))
   // Within kept, separate rank-protected (bucketRank ≤ quota) from chance-protected (bucketRank
   // exceeds quota but isWithinQuota was set by the improvement-chance threshold).
   const keptByRank = kept.filter((c) => c.bucketRank > 0 && c.bucketRank <= quota)
@@ -393,7 +413,7 @@ export default function SafeguardCandidateRankList({
   // columns shift left relative to accessory rows, breaking vertical alignment. Only matters when
   // faction icons are actually shown AND at least one accessory is present to create the asymmetry.
   const reserveFactionIconSpace = showFactionIcons
-    && candidates.some((c) => {
+    && effectiveCandidates.some((c) => {
       const art = artifactsByItemKey.get(c.itemKey)
       return art != null && isAccessorySlot(art.slot)
     })
@@ -416,77 +436,155 @@ export default function SafeguardCandidateRankList({
     groupRankMode: activeFocusKey != null,
     quota,
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
+    rowSurfacePaper,
+    precomputedSubstatColors,
+    improvChanceLowRgb,
+    improvChanceHighRgb,
     t,
     theme,
   }
 
+  // Build flat item list for the virtualizer — rows and dividers in a single array so the
+  // virtualizer sees one contiguous sequence and can window across all sections.
+  const flatItems = useMemo((): CandidateListItem[] => {
+    if (!candidates || candidates.length === 0) return []
+    const items: CandidateListItem[] = keptByRank.map((c) => ({ type: 'row', candidate: c }))
+    if (keptByChance.length > 0) items.push({ type: 'divider-chance' })
+    for (const c of keptByChance) items.push({ type: 'row', candidate: c })
+    items.push({ type: 'divider-cutoff' })
+    for (const c of sold) items.push({ type: 'row', candidate: c })
+    return items
+  }, [candidates, keptByRank, keptByChance, sold])
+
+  // Virtual list refs and instance.
+  const parentRef = useRef<HTMLDivElement | null>(null)
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions incompatible with React Compiler memoization; 'use no memo' above opts this component out of compilation
+  const virtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 24,
+    overscan: 3,
+    // On the first render the scroll-container ref is null, so the virtualizer measures a 0-height
+    // container and renders nothing. Seeding initialRect with the max-height lets it compute the
+    // correct visible window immediately; ResizeObserver corrects it after first paint if the list
+    // is shorter than the max.
+    initialRect: { width: 400, height: CANDIDATE_LIST_MAX_HEIGHT_PX },
+  })
+
+  // Scroll to the cutoff divider on first render so both the last kept and first sold items
+  // are visible without the user having to scroll. Uses rAF to ensure the virtualizer has
+  // painted at least one frame before scrollToIndex runs.
+  const cutoffIndex = useMemo(
+    () => flatItems.findIndex((it) => it.type === 'divider-cutoff'),
+    [flatItems],
+  )
+  // On mount: scroll the cutoff divider into view so both the last kept item and the first sold
+  // item are visible without manual scrolling. rAF lets the virtualizer complete its first paint
+  // before scrollToIndex fires. Intentionally runs once — deps omitted so the view doesn't
+  // jump back on every re-render when the user has scrolled away from the cutoff.
+  useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- intentional mount-only scroll, not an event handler
+    if (cutoffIndex < 0) return
+    requestAnimationFrame(() => virtualizer.scrollToIndex(cutoffIndex, { align: 'center' }))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+
+  // ── Early returns (after all hooks) ───────────────────────────────────────────
+
+  if (!candidates) {
+    // No detection data yet — show placeholders keyed on what we know.
+    if (substats.length === 0) {
+      return <NoDataPlaceholder text={t('safeguardsCandidatesNoSubstats')} />
+    }
+    if (noMatchesYet) {
+      return <NoDataPlaceholder text={t('safeguardsCandidatesNoData')} />
+    }
+    // Detection is (presumably) in progress — show skeletons so the popover has immediate content.
+    return <CandidateSkeletonRows />
+  }
+
+  if (candidates.length === 0) {
+    return <NoDataPlaceholder text={t('safeguardsCandidatesNoData')} />
+  }
+
+  // ── Virtual list render ───────────────────────────────────────────────────────
+  // Uses the padding-spacer approach (not position:absolute) so rows are in normal
+  // flow and the container expands to natural content width without explicit sizing.
+
+  const virtualItems = virtualizer.getVirtualItems()
+  const totalSize = virtualizer.getTotalSize()
+  const padTop = virtualItems[0]?.start ?? 0
+  const padBottom = totalSize - (virtualItems[virtualItems.length - 1]?.end ?? totalSize)
+
   return (
-    <Box sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* The focus chip lives beside the "Candidates" header (rendered by SafeguardBuilderPanel) so it
-          stays visible while this list scrolls — see SafeguardFocusGroupChip. */}
-      {/* Rank-protected kept candidates (bucketRank ≤ quota). */}
-      {keptByRank.map((candidate) => (
-        <CandidateRow
-          key={candidate.itemKey}
-          candidate={candidate}
-          artifact={artifactsByItemKey.get(candidate.itemKey)}
-          previewRow={previewRowByItemKey?.get(candidate.itemKey)}
-          isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
-          {...(onSelectCandidate ? { onSelectCandidate } : {})}
-          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
-          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
-          {...rowCommonProps}
-        />
-      ))}
-      {/* Chance-protected divider — only rendered when improvement-chance threshold keeps items
-          beyond the rank quota. Dotted + warning colour distinguishes it from the dashed
-          text.disabled quota-cutoff below. */}
-      {keptByChance.length > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
-          <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
-          <Typography variant="caption" color="warning.main" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
-            {t('safeguardsCandidateChanceCutoff')}
-          </Typography>
-          <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
-        </Box>
-      )}
-      {/* Chance-protected kept candidates (bucketRank > quota, kept by improvement-chance threshold). */}
-      {keptByChance.map((candidate) => (
-        <CandidateRow
-          key={candidate.itemKey}
-          candidate={candidate}
-          artifact={artifactsByItemKey.get(candidate.itemKey)}
-          previewRow={previewRowByItemKey?.get(candidate.itemKey)}
-          isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
-          {...(onSelectCandidate ? { onSelectCandidate } : {})}
-          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
-          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
-          {...rowCommonProps}
-        />
-      ))}
-      {/* Cutoff divider — scroll target on mount.
-          Label lists active countMode dimensions so users understand why non-consecutive
-          global ranks appear on the same side of the line (e.g. "quota: 2 per set · faction"). */}
-      <Box ref={cutoffRef} sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
-        <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
-        <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
-          {cutoffLabel}
-        </Typography>
-        <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
+    <Box
+      ref={parentRef}
+      sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto' }}
+    >
+      {/* The focus chip lives beside the "Candidates" header (rendered by SafeguardBuilderPanel)
+          so it stays visible while this list scrolls — see SafeguardFocusGroupChip. */}
+      <Box sx={{ paddingTop: `${padTop}px`, paddingBottom: `${Math.max(0, padBottom)}px` }}>
+        {virtualItems.map((vi) => {
+          const item = flatItems[vi.index]!
+          return (
+            <Box
+              key={vi.key}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+            >
+              {item.type === 'divider-chance' && (
+                // Dotted amber divider separating rank-protected from chance-protected kept candidates.
+                <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
+                  <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
+                  <Typography variant="caption" color="warning.main" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
+                    {t('safeguardsCandidateChanceCutoff')}
+                  </Typography>
+                  <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
+                </Box>
+              )}
+              {item.type === 'divider-cutoff' && (
+                // Dashed quota cutoff divider — label lists active countMode dimensions.
+                <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
+                  <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
+                  <Typography variant="caption" color="text.disabled" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
+                    {cutoffLabel}
+                  </Typography>
+                  <Divider sx={{ flex: 1, borderStyle: 'dashed', borderColor: 'text.disabled' }} />
+                </Box>
+              )}
+              {item.type === 'row' && (
+                <CandidateRow
+                  candidate={item.candidate}
+                  artifact={artifactsByItemKey.get(item.candidate.itemKey)}
+                  previewRow={previewRowByItemKey?.get(item.candidate.itemKey)}
+                  isFiltered={visibleItemKeys != null && !visibleItemKeys.has(item.candidate.itemKey)}
+                  {...(onSelectCandidate ? { onSelectCandidate } : {})}
+                  {...(focusable ? { onToggleFocus: () => toggleFocusFor(item.candidate.itemKey) } : {})}
+                  isFocused={activeFocusKey != null && groupKeyFor(item.candidate.itemKey) === activeFocusKey}
+                  {...rowCommonProps}
+                />
+              )}
+            </Box>
+          )
+        })}
       </Box>
-      {/* All sold candidates */}
-      {sold.map((candidate) => (
-        <CandidateRow
-          key={candidate.itemKey}
-          candidate={candidate}
-          artifact={artifactsByItemKey.get(candidate.itemKey)}
-          previewRow={previewRowByItemKey?.get(candidate.itemKey)}
-          isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
-          {...(onSelectCandidate ? { onSelectCandidate } : {})}
-          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
-          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
-          {...rowCommonProps}
-        />
+    </Box>
+  )
+}
+
+// Skeleton placeholder shown while detection is in progress (candidates not yet available).
+// Mirrors the visual structure of a real candidate row so the popover has instant content.
+function CandidateSkeletonRows() {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
+        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.2, px: 0.25 }}>
+          <Skeleton variant="text" width={38} sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, flexShrink: 0 }} />
+          <Skeleton variant="text" width={72} sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, flexShrink: 0 }} />
+          <Skeleton variant="text" sx={{ flex: 1, fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }} />
+          <Skeleton variant="text" width={36} sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, flexShrink: 0 }} />
+          <Skeleton variant="text" width={44} sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, flexShrink: 0 }} />
+          <Skeleton variant="circular" width={14} height={14} sx={{ flexShrink: 0 }} />
+        </Box>
       ))}
     </Box>
   )
@@ -519,6 +617,10 @@ function CandidateRow({
   groupRankMode,
   quota,
   improvementChanceByItemKey,
+  rowSurfacePaper,
+  precomputedSubstatColors,
+  improvChanceLowRgb,
+  improvChanceHighRgb,
   t,
   theme,
 }: {
@@ -557,12 +659,16 @@ function CandidateRow({
   quota: number
   // Improvement chance percent (current rule) keyed by item key — rendered left of the score.
   improvementChanceByItemKey: ReadonlyMap<number, number> | null
+  // Runtime scheme paper color — hoisted from outer component (was per-row useColorScheme call).
+  rowSurfacePaper: string
+  // Pre-computed substat colors — eliminates per-cell adaptSubstatFgOnSurface + color math.
+  precomputedSubstatColors: PrecomputedSubstatColors
+  // Improvement chance gradient endpoints — pre-computed once in outer component.
+  improvChanceLowRgb: { r: number; g: number; b: number }
+  improvChanceHighRgb: { r: number; g: number; b: number }
   t: ReturnType<typeof useI18n>['t']
   theme: Theme
 }) {
-  // Runtime scheme paper for contrast math — theme.palette.* is frozen to light with cssVariables.
-  const { colorScheme } = useColorScheme()
-  const rowSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Always-on rarity tint for the slot icon (glyph coloured by rarity, like v1.0.26 — not scope-gated).
   const rarityIconColor = useRarityGlyphColor(artifact?.rarity)
   // Determine the actual outcome for this candidate.
@@ -636,28 +742,23 @@ function CandidateRow({
 
   // Improvement chance for the current rule on this artifact (absent → blank cell). Graded on an
   // absolute 0→100 scale from error (low) to success (high), mirroring the grid overlay's palette.
-  // Uses theme.palette.* (not theme.vars.palette.*) for JS-level RGB mixing — CSS-var strings
-  // returned by theme.vars are not parseable by parseCssColorToRgb and fall through to hardcoded
-  // light-mode fallbacks regardless of scheme.
+  // Gradient endpoints are pre-computed in the outer component to avoid parseCssColorToRgb per row.
   const improvementChance = improvementChanceByItemKey?.get(candidate.itemKey) ?? null
-  const improvementChanceColor = ((): string | null => {
-    if (improvementChance == null) return null
-    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
-    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
-    const ratio = Math.max(0, Math.min(1, improvementChance / 100))
-    return ensureContrastOnBg(rgbToCss(mixRgb(lowRgb, highRgb, ratio)), rowSurfacePaper)
-  })()
+  const improvementChanceColor = improvementChance != null
+    ? ensureContrastOnBg(
+        rgbToCss(mixRgb(improvChanceLowRgb, improvChanceHighRgb, Math.max(0, Math.min(1, improvementChance / 100)))),
+        rowSurfacePaper,
+      )
+    : null
 
   // Mainstat: label + color (follows the same stat-button-color flag as substats).
   const mainStatLabel = artifact ? t(statVariantI18nKey(artifact.mainStat)) : null
   const mainStatColor = (useStatButtonColors && artifact)
-    ? (adaptSubstatFgOnSurface(substatColors[artifact.mainStat]?.fg, rowSurfacePaper) ?? null)
+    ? (precomputedSubstatColors.ruleByVariant.get(artifact.mainStat) ?? null)
     : null
 
-  // Build cells for present rule substats only, sorted by weighted impact descending.
-  // Impact = normalised weight × per-unit contribution for the artifact's actual substat value.
   // Build substat cells: rule-selected substats first (sorted by weighted impact descending),
-  // then the artifact's remaining substats in canonical STAT_VARIANTS_PRIORITY order (dim/crossed-out).
+  // then the artifact's remaining substats in canonical STAT_VARIANTS_PRIORITY order (dim).
   // Prefer previewRow (NormalizedStat: totalValue + rolls + mythValue) over the detection snapshot
   // (SafeguardDetectionSubstat: value only, BigInt variant — coerce with Number()).
   const ruleSubstatSet = new Set(substats)
@@ -675,29 +776,16 @@ function CandidateRow({
           rolls: null,
           mythValue: 0,
         }))
-  // Neutral gray used as the base for dim cell blending.  Parsed once so all dim cells share it.
-  const dimNeutralRgb = parseCssColorToRgb(theme.palette.text.secondary)
+
   const buildSubstatCell = (variant: StatVariant, value: number, rolls: number | null, mythValue: number, isDim: boolean) => {
     const rawWeight = Number(weights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
     const weight = normalizeGearInspectorSortWeight(rawWeight)
     const impact = weight * normalizeSubstatByMax6(variant, value)
     const rollCount = (rolls !== null && rolls > 0) ? rolls : null
-    let color: string | null
-    if (!isDim) {
-      // Rule-selected: full stat-button color (or null → text.secondary via sx).
-      color = (useStatButtonColors && substatColors[variant]?.fg)
-        ? (adaptSubstatFgOnSurface(substatColors[variant].fg, rowSurfacePaper) ?? null)
-        : null
-    } else if (useStatButtonColors && substatColors[variant]?.fg) {
-      // Dim non-rule: neutral gray tinted 20% toward the stat color for a "barely-there hue".
-      const adaptedStatColor = adaptSubstatFgOnSurface(substatColors[variant].fg, rowSurfacePaper)
-      const statRgb = adaptedStatColor ? parseCssColorToRgb(adaptedStatColor) : null
-      color = (statRgb && dimNeutralRgb)
-        ? rgbToCss(mixRgb(dimNeutralRgb, statRgb, 0.2))
-        : null
-    } else {
-      color = null  // → text.secondary via sx
-    }
+    // Use pre-computed color maps — no per-cell color math needed.
+    const color = isDim
+      ? (precomputedSubstatColors.dimByVariant.get(variant) ?? null)
+      : (precomputedSubstatColors.ruleByVariant.get(variant) ?? null)
     const isMythic = mythValue >= MYTHIC_BONUS_MIN
     return { variant, label: t(statVariantI18nKey(variant)), rollCount, color, impact, isMythic, isDim }
   }
@@ -795,7 +883,7 @@ function CandidateRow({
           <Typography
             variant="caption"
             noWrap
-            sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, maxWidth: 88, color: 'text.secondary' }}
+            sx={{ fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, width: 88, flexShrink: 0, overflow: 'hidden', color: 'text.secondary' }}
           >
             {identifierText}
           </Typography>
@@ -842,7 +930,7 @@ function CandidateRow({
                 flexGrow: 0,
                 flexShrink: 0,
                 textAlign: 'left',
-                // Non-rule substats: rendered in a neutral-tinted gray (computed in buildSubstatCell)
+                // Non-rule substats: rendered in a neutral-tinted gray (computed in precomputedSubstatColors)
                 // at reduced opacity so they read as clearly secondary without disappearing.
                 ...(cell.isDim ? { opacity: ALPHA.a30 } : undefined),
                 // noWrap sets overflow:hidden which clips the child span's box-shadow.
@@ -887,7 +975,6 @@ function CandidateRow({
       >
         {improvementChance != null ? `${Math.round(improvementChance)}%` : ''}
       </Typography>
-      {/* Score */}
       {/* Score: fixed width + right-align so the column stays consistent across all rows.
           Always rendered (empty when unranked) so badge/match don't shift. */}
       <Typography
@@ -918,11 +1005,10 @@ function CandidateRow({
           // Use parsed directive color (white fallback) instead of muted text.disabled.
           color: matchSourceDecoration.resolvedColor,
           fontWeight: 400,
-          // Fills remaining row space, capped at 4× the substat cell width so
-          // the column never dwarfs the stat columns on wide rows.
-          flex: 1,
-          minWidth: 0,
-          maxWidth: substatCellWidthPx * 4,
+          // Fixed width (4× substat cell) so every row is the same total width —
+          // prevents the flyout from jumping when scrolling reveals different name lengths.
+          width: substatCellWidthPx * 4,
+          flexShrink: 0,
         }]}
       >
         {matchSourceDecoration.displayName}
@@ -1001,16 +1087,14 @@ function CandidateCardPreview({
         ...theme.applyStyles('light', { filter: 'brightness(0.92)' }),
       }}
     >
-      <Box
-        sx={{
-          width: cardSizing.minWidthPx,
-          height: cardSizing.cardHeightPx,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
+      {/* Inner box carries the full un-scaled dimensions so the CSS transform has the right origin. */}
+      <Box sx={{ width: cardSizing.minWidthPx, height: cardSizing.cardHeightPx, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         <GearInspectorGridCard
           row={row}
+          gridColumnCount={CANDIDATE_CARD_COLUMN_COUNT}
+          cardPriority={{ base: CARD_PRIORITY_BASE, order: 0 }}
+          cardHeightPx={cardSizing.cardHeightPx}
+          recipeNames={EMPTY_RECIPE_NAMES}
           substatColors={substatColors}
           useStatButtonColors={useStatButtonColors}
           suppressMatchDetails={false}
@@ -1019,23 +1103,17 @@ function CandidateCardPreview({
           showMatchRecipeIndex={false}
           showMatchLineNumber={false}
           showChampionIcons={true}
-          cardHeightPx={cardSizing.cardHeightPx}
-          gridColumnCount={CANDIDATE_CARD_COLUMN_COUNT}
-          recipeNames={EMPTY_RECIPE_NAMES}
-          cardPriority={{ base: CARD_PRIORITY_BASE, order: 0 }}
         />
       </Box>
     </Box>
   )
 }
 
-// Simple centered placeholder text for empty states.
+// Minimal "no data" placeholder that renders a single muted caption line.
 function NoDataPlaceholder({ text }: { text: string }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 1 }}>
-      <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
-        {text}
-      </Typography>
-    </Box>
+    <Typography variant="caption" color="text.disabled">
+      {text}
+    </Typography>
   )
 }

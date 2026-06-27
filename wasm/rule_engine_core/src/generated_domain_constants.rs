@@ -126,7 +126,7 @@ pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = false;
 pub const SAFEGUARD_REASON_GLOBAL: &str = "global";
 pub const SAFEGUARD_REASON_GROUP: &str = "group";
 pub const SAFEGUARD_WEIGHT_STEP: f64 = 0.05;
-pub const SAFEGUARD_WEIGHT_MIN: f64 = 0.1;
+pub const SAFEGUARD_WEIGHT_MIN: f64 = 0.01;
 pub const SAFEGUARD_WEIGHT_MAX: f64 = 3.0;
 pub const SAFEGUARD_WEIGHT_DEFAULT: f64 = 1.0;
 

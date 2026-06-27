@@ -83,9 +83,6 @@ import {
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT as SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT_CONST,
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
   SAFEGUARD_WEIGHT_DEFAULT,
-  SAFEGUARD_WEIGHT_MAX,
-  SAFEGUARD_WEIGHT_MIN,
-  SAFEGUARD_WEIGHT_STEP,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT,
   SAFEGUARD_SUBSTAT_ALL,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
@@ -857,12 +854,12 @@ const parseSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
 }
 
 // Normalized weight helper keeps legacy values clamped to the canonical range.
+// Delegates to normalizeGearInspectorSortWeight (already imported) so the two-tier step
+// (0.01 for ≤ 0.10, 0.05 above) and minimum (0.01) stay in sync with the UI controls.
 const normalizeSubstatWeight = (value: unknown): number => {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return SAFEGUARD_WEIGHT_DEFAULT
-  const clamped = Math.max(SAFEGUARD_WEIGHT_MIN, Math.min(SAFEGUARD_WEIGHT_MAX, numeric))
-  const stepped = Math.round(clamped / SAFEGUARD_WEIGHT_STEP) * SAFEGUARD_WEIGHT_STEP
-  return Math.round(stepped * 100) / 100
+  return normalizeGearInspectorSortWeight(numeric)
 }
 
 // Parse optional substat weighting maps from readable or legacy rule payloads.

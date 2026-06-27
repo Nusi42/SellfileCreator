@@ -35,11 +35,9 @@ import {
 } from './safeguards'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
-  SAFEGUARD_WEIGHT_MIN,
-  SAFEGUARD_WEIGHT_MAX,
-  SAFEGUARD_WEIGHT_STEP,
   SAFEGUARD_WEIGHT_DEFAULT,
 } from './generated/domainConstants'
+import { normalizeGearInspectorSortWeight } from './gearInspectorSort'
 import {
   type DiagnosticSpan,
   type NoteQuestionGroupType,
@@ -514,11 +512,8 @@ const parseOperations = (
       if (variant == null) continue
       const numeric = Number.parseFloat(valueLc)
       if (!Number.isFinite(numeric)) continue
-      // Clamp to the allowed weight range (step precision is a UI concern).
-      const clamped = Math.max(
-        SAFEGUARD_WEIGHT_MIN,
-        Math.min(SAFEGUARD_WEIGHT_MAX, Math.round(numeric / SAFEGUARD_WEIGHT_STEP) * SAFEGUARD_WEIGHT_STEP),
-      )
+      // Clamp to the allowed weight range with the same two-tier step as the UI (SSOT: normalizeGearInspectorSortWeight).
+      const clamped = normalizeGearInspectorSortWeight(numeric)
       operations.push({ kind: 'substatWeight', stat: variant, value: clamped })
       continue
     }

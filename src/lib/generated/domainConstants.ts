@@ -125,7 +125,7 @@ export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = false
 export const SAFEGUARD_REASON_GLOBAL = "global"
 export const SAFEGUARD_REASON_GROUP = "group"
 export const SAFEGUARD_WEIGHT_STEP = 0.05
-export const SAFEGUARD_WEIGHT_MIN = 0.1
+export const SAFEGUARD_WEIGHT_MIN = 0.01
 export const SAFEGUARD_WEIGHT_MAX = 3
 export const SAFEGUARD_WEIGHT_DEFAULT = 1
 

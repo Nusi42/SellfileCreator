@@ -136,7 +136,7 @@ import {
 import { KeepOverrideScopeChip } from './keepOverrides/KeepOverrideScopeChip'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, pruneImplicitAnyExclusions } from '../lib/gearSets/selection'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
-import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from '../lib/gearInspectorSort'
+import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton from './ClearIconButton'
@@ -3518,7 +3518,7 @@ export default function SafeguardBuilderPanel({
                         if (multiEditActive && multiEdit) {
                           // Stage a full weight-map replacement with the new value for this variant.
                           const current = normalizeGearInspectorSortWeight(rawWeight)
-                          const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+                          const nextValue = bumpGearInspectorSortWeight(current, deltaSteps)
                           const nextWeights = { ...stagedWeights }
                           if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                             delete nextWeights[variant]
@@ -3534,7 +3534,7 @@ export default function SafeguardBuilderPanel({
                             const rawWeights = prev.substatWeights ?? {}
                             const currentRaw = Number(rawWeights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
                             const current = normalizeGearInspectorSortWeight(currentRaw)
-                            const nextValue = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+                            const nextValue = bumpGearInspectorSortWeight(current, deltaSteps)
                             const nextWeights = { ...rawWeights }
                             if (nextValue === GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT) {
                               delete nextWeights[variant]
@@ -3575,7 +3575,7 @@ export default function SafeguardBuilderPanel({
           </Box>
           {/* Right column: candidate rank list — width computed from measured cell widths so it
               fits the list content without wasted space or clipping. */}
-          <Box sx={{ flexShrink: 0, borderLeft: 1, borderColor: 'divider', pl: 1.5 }}>
+          <Box sx={{ flexShrink: 0, pl: 1.5 }}>
             {/* Header row: "Candidates" label plus the focus-group chip. The chip sits here (outside
                 the list's scroll container) so it stays visible while the candidate list scrolls;
                 clearing it routes through the controlled focus handler. */}

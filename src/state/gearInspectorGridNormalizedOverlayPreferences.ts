@@ -11,8 +11,8 @@
 import { useCallback } from 'react'
 import { GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY } from '../lib/constants'
 import {
+  bumpGearInspectorSortWeight,
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
-  GEAR_INSPECTOR_SORT_WEIGHT_STEP,
   isNeutralGearInspectorSortWeight,
   normalizeGearInspectorSortWeight,
 } from '../lib/gearInspectorSort'
@@ -320,7 +320,7 @@ export function useGearInspectorGridNormalizedOverlayPreferences() {
       const selected = preset.variants.some((v) => Number(v) === Number(variant))
       if (!selected) return prev
       const current = preset.weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
-      const next = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+      const next = bumpGearInspectorSortWeight(current, deltaSteps)
       const weights = { ...preset.weights }
       if (isNeutralGearInspectorSortWeight(next)) {
         delete weights[variant]

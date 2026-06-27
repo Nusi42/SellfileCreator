@@ -15,8 +15,8 @@ import {
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
+  bumpGearInspectorSortWeight,
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
-  GEAR_INSPECTOR_SORT_WEIGHT_STEP,
   isGearInspectorSyntheticSortKey,
   isNeutralGearInspectorSortWeight,
   normalizeGearInspectorSortWeight,
@@ -419,7 +419,7 @@ export function useGearInspectorSubstatSortPreferences() {
       const selected = prev.priorities.some((v) => Number(v) === Number(variant))
       if (!selected) return prev
       const current = prev.weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT
-      const next = normalizeGearInspectorSortWeight(current + (deltaSteps * GEAR_INSPECTOR_SORT_WEIGHT_STEP))
+      const next = bumpGearInspectorSortWeight(current, deltaSteps)
       const weights = { ...prev.weights }
       if (isNeutralGearInspectorSortWeight(next)) {
         delete weights[Number(variant) as StatVariant]
