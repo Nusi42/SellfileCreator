@@ -20,7 +20,7 @@
  *    so they survive the menu unmounting on close (the menu's children unmount with it).
  */
 import React from 'react'
-import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Popper, Stack, TextField, Typography, Button, Divider } from '@mui/material'
+import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Popper, Stack, TextField, Tooltip, Typography, Button, Divider } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SaveAsIcon from '@mui/icons-material/SaveAs'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
@@ -46,6 +46,7 @@ import {
   resolveDynamicOverridesPresetApply,
   snapshotDynamicOverridesFullSelection,
 } from '../lib/dynamicOverridesPresetSummary'
+import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import type { NoteRecipeOverridesAnswers } from '../lib/noteRecipeOverrides'
 import type { NoteSafeguardOverridesAnswers } from '../lib/noteSafeguardOverrides'
 
@@ -220,8 +221,8 @@ function DynamicOverridesPresetRow({
   onRequestOverwrite: (preset: DynamicOverridesPreset) => void
 }) {
   const { t } = useI18n()
-  // Resolve the per-set summary against the current note (display text only).
-  const lines = React.useMemo(
+  // Resolve the per-set summary against the current note (display text + fallback flags).
+  const { lines, hasAnyFallback } = React.useMemo(
     () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers),
     [note, preset],
   )
@@ -263,6 +264,24 @@ function DynamicOverridesPresetRow({
             {formatLocalDateTime(preset.savedAt) ?? preset.savedAt}
           </Typography>
         </Box>
+        {/* Warning icon: some saved answers are unavailable for this note (question gone or
+            options removed). Inline rather than absolute so it fits naturally in the flex row. */}
+        {hasAnyFallback ? (
+          <Tooltip title={t('noteDynamicOverridesPresetsFallbackRowTooltip')} placement="top">
+            <Box
+              component="span"
+              aria-label={t('noteDynamicOverridesPresetsFallbackRowTooltip')}
+              sx={(theme) => ({
+                ...buildWarningBadgeBase(theme),
+                flexShrink: 0,
+                alignSelf: 'center',
+                cursor: 'default',
+              })}
+            >
+              !
+            </Box>
+          </Tooltip>
+        ) : null}
         {/* Overwrite: replace this set's stored selection with the current one (confirmed). */}
         <IconButton
           size="small"

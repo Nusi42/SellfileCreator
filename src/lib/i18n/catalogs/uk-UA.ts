@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Замінити збережений набір перевизначень \"{name}\" поточним вибором? Цю дію не можна скасувати.",
   noteDynamicOverridesPresetsTooltipEmpty: "Жоден збережений вибір не застосовний до цієї нотатки.",
   noteDynamicOverridesPresetsDefaultTag: "(за замовчуванням)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Деякі збережені відповіді недоступні для цього запису",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Збережена відповідь недоступна — відображається значення за замовчуванням",
   recipeClearTagsConfirmTitle: "Очистити теги?",
   recipeClearTagsConfirmBody: "До цього рецепта через нотатки застосовано значення динамічного перевизначення. Застосувати ці значення перед очищенням тегів чи очистити без застосування?",
   safeguardClearTagsConfirmTitle: "Очистити теги?",

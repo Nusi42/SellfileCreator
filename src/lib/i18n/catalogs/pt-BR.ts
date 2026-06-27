@@ -1603,6 +1603,8 @@ const catalog: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Substituir o conjunto de substituições salvo \"{name}\" pela seleção atual? Isso não pode ser desfeito.",
   noteDynamicOverridesPresetsTooltipEmpty: "Nenhuma seleção salva se aplica a esta nota.",
   noteDynamicOverridesPresetsDefaultTag: "(padrão)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Algumas respostas salvas não estão disponíveis para esta nota",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Resposta salva não disponível — exibindo valor padrão",
   recipeClearTagsConfirmTitle: "Limpar tags?",
   recipeClearTagsConfirmBody: "Esta receita tem valores de substituição dinâmica aplicados via notas. Aplicar esses valores antes de limpar as tags ou limpar sem aplicar?",
   safeguardClearTagsConfirmTitle: "Limpar tags?",

@@ -61,6 +61,28 @@ export type DynamicOverridesSummaryLine = {
   title: string
   // The question's selected answers (including ones at their default).
   answers: DynamicOverridesSummaryAnswer[]
+  // True when the preset stored an answer for this question but some or all of those
+  // answers are no longer available in the current note (question gone or options removed).
+  // Only set when the preset explicitly stored an answer — questions left at their note
+  // default when saving are NOT flagged even though they also show the default.
+  hasPresetFallback: boolean
+}
+
+/**
+ * True when any answer in `presetAnswers` is not fully reflected in `appliedAnswers`:
+ * either the question ID is missing entirely (question gone from the note) or some of
+ * its stored option values were dropped (options removed from the note's question).
+ * Used both for the per-line flag and for the row-level summary indicator.
+ */
+const hasFallbackInDomain = (presetAnswers: AnswerMap, appliedAnswers: AnswerMap): boolean => {
+  for (const [qId, saved] of Object.entries(presetAnswers)) {
+    const applied = appliedAnswers[qId]
+    // Question gone from note entirely.
+    if (applied === undefined) return true
+    // Some option values were filtered out (option IDs no longer in the note's question).
+    if (saved.some((v) => !applied.includes(v))) return true
+  }
+  return false
 }
 
 /**
@@ -70,9 +92,15 @@ export type DynamicOverridesSummaryLine = {
  * `isDefault` by comparing against the question's `defaultAnswer`. A question whose
  * resolved selection is empty (e.g. an unchecked multi with no default) contributes
  * no line. Title/label text is the display text (never internal ids), markdown verbatim.
+ *
+ * `presetAnswers` is the raw stored map; `appliedAnswers` is the intersection result.
+ * Together they let us mark which lines show a fallback because the preset's stored
+ * answer was unavailable (vs. questions that were left at their default when saving).
  */
 const summarizeQuestions = (
   questions: SummarizableQuestion[],
+  presetAnswers: AnswerMap,
+  appliedAnswers: AnswerMap,
 ): DynamicOverridesSummaryLine[] => {
   const lines: DynamicOverridesSummaryLine[] = []
   for (const question of questions) {
@@ -103,8 +131,16 @@ const summarizeQuestions = (
     }
     // A question whose selection resolves to nothing contributes nothing.
     if (answers.length === 0) continue
+    // The preset stored an answer for this question but some/all of its values are gone.
+    // Only flagged when the preset explicitly included this question — questions the user
+    // left at their default when saving are not flagged even when showing the default.
+    const savedOptions = presetAnswers[question.id]
+    const appliedOptions = appliedAnswers[question.id]
+    const hasPresetFallback =
+      savedOptions !== undefined &&
+      (appliedOptions === undefined || savedOptions.some((v) => !appliedOptions.includes(v)))
     // Drop the subtext so the tooltip header matches the card title; keep its markdown verbatim.
-    lines.push({ title: normalizeOptionLabelText(splitQuestionPrompt(question.prompt).title), answers })
+    lines.push({ title: normalizeOptionLabelText(splitQuestionPrompt(question.prompt).title), answers, hasPresetFallback })
   }
   return lines
 }
@@ -139,24 +175,47 @@ const intersectAnswers = (
   return next
 }
 
+/** Return type of buildDynamicOverridesPresetSummary, including the row-level fallback flag. */
+export type DynamicOverridesPresetSummaryResult = {
+  lines: DynamicOverridesSummaryLine[]
+  // True when at least one answer stored in the preset is unavailable for the current note
+  // (question gone or some option IDs removed). Drives the warning icon on the preset row.
+  hasAnyFallback: boolean
+}
+
 /**
  * Build the full summary lines for a saved dynamic-overrides set against the current
  * note. Recipe lines come first, then safeguard lines. Every question present in the
  * note appears (defaults included, flagged); questions absent from the note do not
  * appear because the resolver only emits the note's own questions.
+ *
+ * Also computes `hasAnyFallback`: whether any stored answer — including for questions
+ * entirely absent from the current note — was unavailable. Questions not in the note
+ * don't produce summary lines, so this flag covers losses the line array can't surface.
  */
 export const buildDynamicOverridesPresetSummary = (
   note: string,
   recipeAnswers: NoteRecipeOverridesAnswers,
   safeguardAnswers: NoteSafeguardOverridesAnswers,
-): DynamicOverridesSummaryLine[] => {
+): DynamicOverridesPresetSummaryResult => {
   // Resolve questions for both domains using the SAVED answers so each `.answer` reflects the set.
   const { questions: recipeQuestions } = resolveRecipeOverridesTags(note, recipeAnswers)
   const { questions: safeguardQuestions } = resolveNoteSafeguardOverridesTags(note, safeguardAnswers)
-  return [
-    ...summarizeQuestions(recipeQuestions),
-    ...summarizeQuestions(safeguardQuestions),
+  // Intersect to find which stored answers survive — passed to summarizeQuestions for per-line
+  // fallback detection and used directly for the aggregate hasAnyFallback flag.
+  const appliedRecipe = intersectAnswers(recipeQuestions, recipeAnswers)
+  const appliedSafeguard = intersectAnswers(safeguardQuestions, safeguardAnswers)
+  const lines = [
+    ...summarizeQuestions(recipeQuestions, recipeAnswers, appliedRecipe),
+    ...summarizeQuestions(safeguardQuestions, safeguardAnswers, appliedSafeguard),
   ]
+  return {
+    lines,
+    // Check both domains independently so a loss in either (including questions entirely
+    // absent from the note, which produce no summary lines) is caught.
+    hasAnyFallback: hasFallbackInDomain(recipeAnswers, appliedRecipe)
+      || hasFallbackInDomain(safeguardAnswers, appliedSafeguard),
+  }
 }
 
 /**

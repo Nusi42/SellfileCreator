@@ -12,9 +12,10 @@
  * scrolling, so this component is layout-only.
  */
 import React from 'react'
-import { Box, Divider, Typography } from '@mui/material'
+import { Box, Divider, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import { parseInlineMarkdown } from './MarkdownTooltip'
+import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import type { DynamicOverridesSummaryLine } from '../lib/dynamicOverridesPresetSummary'
 
 /** A saved set's resolved summary, laid out as an aligned title | answers grid. */
@@ -57,12 +58,31 @@ export function DynamicOverridesPresetSummaryTable({
           {index > 0 ? (
             <Divider sx={{ gridColumn: '1 / -1', opacity: 0.5 }} />
           ) : null}
-          {/* Question title (left): normal weight by default; inline markdown (plainCode) keeps one
-              font — any explicit bold/italic markers in the prompt still apply, but backtick tokens
-              render as plain text rather than mono chips. */}
-          <Typography variant="body2" component="div" sx={{ minWidth: 0, wordBreak: 'break-word' }}>
-            {parseInlineMarkdown(line.title, { plainCode: true })}
-          </Typography>
+          {/* Question title (left): inline markdown in plainCode mode. When the preset's stored
+              answer for this question is unavailable (option/question gone from the note), a small
+              warning badge trails the title so the user can spot stale entries at a glance. */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, minWidth: 0 }}>
+            <Typography variant="body2" component="div" sx={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+              {parseInlineMarkdown(line.title, { plainCode: true })}
+            </Typography>
+            {line.hasPresetFallback ? (
+              <Tooltip title={t('noteDynamicOverridesPresetsFallbackLineTooltip')} placement="top">
+                <Box
+                  component="span"
+                  aria-label={t('noteDynamicOverridesPresetsFallbackLineTooltip')}
+                  sx={(theme) => ({
+                    ...buildWarningBadgeBase(theme),
+                    flexShrink: 0,
+                    // Vertically centre against the first line of the title text.
+                    mt: '1px',
+                    cursor: 'default',
+                  })}
+                >
+                  !
+                </Box>
+              </Tooltip>
+            ) : null}
+          </Box>
           {/* Selected answers (right) stacked vertically in the same body font as the titles. */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
             {line.answers.map((answer) => (

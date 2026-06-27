@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Заменить сохранённый набор переопределений \"{name}\" текущим выбором? Это действие нельзя отменить.",
   noteDynamicOverridesPresetsTooltipEmpty: "Ни один сохранённый выбор не применим к этой заметке.",
   noteDynamicOverridesPresetsDefaultTag: "(по умолчанию)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Некоторые сохранённые ответы недоступны для этой заметки",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Сохранённый ответ недоступен — отображается значение по умолчанию",
   recipeClearTagsConfirmTitle: "Очистить теги?",
   recipeClearTagsConfirmBody: "К этому рецепту через заметки применены значения динамического переопределения. Применить эти значения перед очисткой тегов или очистить без применения?",
   safeguardClearTagsConfirmTitle: "Очистить теги?",

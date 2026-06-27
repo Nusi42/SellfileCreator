@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Kayıtlı geçersiz kılma seti \"{name}\" mevcut seçimlerle değiştirilsin mi? Bu işlem geri alınamaz.",
   noteDynamicOverridesPresetsTooltipEmpty: "Bu nota uygulanan kayıtlı seçim yok.",
   noteDynamicOverridesPresetsDefaultTag: "(varsayılan)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Bazı kaydedilen yanıtlar bu not için mevcut değil",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Kaydedilen yanıt mevcut değil — varsayılan gösteriliyor",
   recipeClearTagsConfirmTitle: "Etiketler temizlensin mi?",
   recipeClearTagsConfirmBody: "Bu reçetenin, notlar aracılığıyla uygulanmış dinamik geçersiz kılma değerleri var. Etiketleri temizlemeden önce bu değerleri uygula mı yoksa uygulamadan temizle mi?",
   safeguardClearTagsConfirmTitle: "Etiketler temizlensin mi?",

@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Substituir o conjunto de substituições guardado \"{name}\" pela seleção atual? Esta ação não pode ser anulada.",
   noteDynamicOverridesPresetsTooltipEmpty: "Nenhuma seleção guardada se aplica a esta nota.",
   noteDynamicOverridesPresetsDefaultTag: "(predefinição)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Algumas respostas guardadas não estão disponíveis para esta nota",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Resposta guardada não disponível — a mostrar valor padrão",
   recipeClearTagsConfirmTitle: "Limpar tags?",
   recipeClearTagsConfirmBody: "Esta receita tem valores de substituição dinâmica aplicados através de notas. Aplicar esses valores antes de limpar as etiquetas ou limpar sem aplicar?",
   safeguardClearTagsConfirmTitle: "Limpar tags?",

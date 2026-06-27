@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "¿Reemplazar el conjunto de anulaciones guardado \"{name}\" con la selección actual? Esto no se puede deshacer.",
   noteDynamicOverridesPresetsTooltipEmpty: "Ninguna selección guardada se aplica a esta nota.",
   noteDynamicOverridesPresetsDefaultTag: "(predeterminado)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Algunas respuestas guardadas no están disponibles para esta nota",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Respuesta guardada no disponible — mostrando valor predeterminado",
   recipeClearTagsConfirmTitle: "¿Borrar etiquetas?",
   recipeClearTagsConfirmBody: "Esta receta tiene valores de anulación dinámica aplicados mediante notas. ¿Aplicar esos valores antes de borrar las etiquetas o borrarlas sin aplicar?",
   safeguardClearTagsConfirmTitle: "¿Borrar etiquetas?",

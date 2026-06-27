@@ -1603,6 +1603,8 @@ const enUS: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Replace the saved override set \"{name}\" with the current selections? This cannot be undone.",
   noteDynamicOverridesPresetsTooltipEmpty: "No saved selections apply to this note.",
   noteDynamicOverridesPresetsDefaultTag: "(default)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Some saved answers are not available for this note",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Saved answer not available — showing fallback",
   recipeClearTagsConfirmTitle: "Clear Tags?",
   recipeClearTagsConfirmBody: "This recipe has dynamic override values applied via notes. Apply those values before clearing the tags, or clear without applying?",
   safeguardClearTagsConfirmTitle: "Clear Tags?",

@@ -1603,6 +1603,8 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsOverwriteDialogMessage: "Das gespeicherte Überbrückungs-Set \"{name}\" durch die aktuelle Auswahl ersetzen? Dies kann nicht rückgängig gemacht werden.",
   noteDynamicOverridesPresetsTooltipEmpty: "Keine gespeicherten Auswahlen treffen auf diese Notiz zu.",
   noteDynamicOverridesPresetsDefaultTag: "(Standard)",
+  noteDynamicOverridesPresetsFallbackRowTooltip: "Einige gespeicherte Antworten sind für diese Notiz nicht verfügbar",
+  noteDynamicOverridesPresetsFallbackLineTooltip: "Gespeicherte Antwort nicht verfügbar — Standardwert wird angezeigt",
   recipeClearTagsConfirmTitle: "Tags löschen?",
   recipeClearTagsConfirmBody: "Für dieses Rezept gelten dynamische Überbrückungswerte aus der Notiz. Diese Werte übernehmen, bevor die Tags gelöscht werden, oder ohne Übernahme löschen?",
   safeguardClearTagsConfirmTitle: "Tags löschen?",
