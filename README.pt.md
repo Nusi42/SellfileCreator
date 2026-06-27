@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper — defina filtros de equipamento por set, slot, stat principal, substats e mais, visualize os resultados em tempo real e exporte ficheiros de venda prontos a usar em segundos.
+O Sellfile Creator facilita a criação de Sellfiles para o RSL Helper — defina filtros de equipamento por set, slot, stat principal, substats e mais, visualize os resultados em tempo real e exporte Sellfiles prontos a usar em segundos.
 
 > Ferramenta criada por fãs. Não tem ligação com a Plarium, Raid: Shadow Legends ou RSL Helper. Todas as marcas mencionadas pertencem aos respetivos proprietários.
 
@@ -9,8 +9,8 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - **Construtor de receitas** — crie receitas de manter/vender com filtros por slot,
   set, rank, raridade, stat principal, substats (com mínimos de rolagens e
   objetivos), facção e marcos de nível. Construa uma biblioteca reutilizável e exporte-a
-  como ficheiro de venda RSL Helper (`.hsf`) com um clique.
-- **Prévia Sellfile** — pré-visualize o ficheiro de venda RSL Helper
+  como Sellfile do RSL Helper (`.hsf`) com um clique.
+- **Prévia Sellfile** — pré-visualize o Sellfile do RSL Helper
   gerado no separador Pré-visualização antes de exportar.
 - **Metasets** — agrupe sets de equipamento (ex. Velocidade + Percepção) em
   coleções com nome e reutilize-os em receitas e salvaguardas.
@@ -18,9 +18,9 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - **Comparação de equipamento** — ative uma vista de antes/depois para ver exatamente quais peças mudam entre *manter* e *vender* enquanto ajusta receitas ou experimenta as substituições dinâmicas. Um chip mostra os totais atuais; uma lista lado a lado mostra cada peça que mudou.
 - **Simulador de masmorras** — consulte as percentagens de probabilidade de manter para o
   Cavaleiro do Fogo, o Dragão e o Golem de Gelo em níveis de dificuldade e atualização
-  para confirmar o efeito do seu ficheiro de venda ao farmar ou melhorar equipamento.
+  para confirmar o efeito do seu Sellfile ao farmar ou melhorar equipamento.
 - **Salvaguardas** — defina combinações de slot/set/stat que nunca quer perder; o
-  scanner injeta automaticamente regras de manter no ficheiro de venda quando a sua
+  scanner injeta automaticamente regras de manter no Sellfile quando a sua
   configuração reduziria uma combinação protegida abaixo da sua quota.
 - **Análise de Equipamento** — painel analítico com cartões KPI, gráficos de filtro cruzado
   (slot, rank, raridade, fonte, nível), um mapa de árvore de sets, barras de

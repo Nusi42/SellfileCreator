@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator eases building sell files for RSL Helper — define gear filters by set, slot, main stat, substats, and more, preview matching results live, and export ready-to-use sell files in seconds.
+Sellfile Creator eases building Sellfiles for RSL Helper — define gear filters by set, slot, main stat, substats, and more, preview matching results live, and export ready-to-use Sellfiles in seconds.
 
 > This is an independent, fan‑made tool. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
@@ -8,9 +8,9 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
 
 - **Recipe builder** — create named keep/sell recipes with filters for slot, set, rank,
   rarity, main stat, substats (with roll minimums and targets), faction, and level
-  milestones. Build a reusable library and export it as an RSL Helper sell file (`.hsf`)
+  milestones. Build a reusable library and export it as an RSL Helper Sellfile (`.hsf`)
   in one click.
-- **Sellfile preview** — preview the generated RSL Helper sell file in the Preview tab
+- **Sellfile preview** — preview the generated RSL Helper Sellfile in the Preview tab
   before exporting.
 - **Metasets** — group gear sets (e.g. Speed + Perception) into named collections and
   reuse them across recipes and safeguards.
@@ -20,10 +20,10 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
   *keep* and *sell* as you tune recipes or try the dynamic overrides. A chip shows the
   running totals; a side-by-side list shows every piece that changed.
 - **Dungeon Simulator** — see keep-chance percentages for Fire Knight, Dragon, and Ice
-  Golem across difficulty stages and upgrade levels to confirm the effect of your sellfile
+  Golem across difficulty stages and upgrade levels to confirm the effect of your Sellfile
   when farming or leveling gear.
 - **Safeguards** — define slot/set/stat combinations you never want to lose; the scanner
-  automatically injects keep rules into the sellfile whenever your setup would deplete a
+  automatically injects keep rules into the Sellfile whenever your setup would deplete a
   protected combination below its quota.
 - **Gear Analytics** — analytics dashboard with KPI cards, crossfilter charts (slot, rank,
   rarity, source, level), a sets treemap, main stat bars, and a substat radar. Click any
@@ -330,7 +330,7 @@ Examples below assume 6★ Substat Target Values (per roll unit): SPD=5, CR%=5, 
 ## Acknowledgements
 
 Many thanks to **[STBL] Nasgor** for his invaluable contributions,  
-to **[SP] Panda** for his sellfiles,  
+to **[SP] Panda** for his Sellfiles,  
 to **KruYseN** for his gear cleanse videos,  
 and of course thanks to **Farbstoff** for RSL Helper!
 

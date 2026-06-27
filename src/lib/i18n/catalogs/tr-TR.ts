@@ -31,8 +31,8 @@ const overrides: Catalog = {
   previewModeAria: "Önizleme modunu değiştir",
   previewModeRules: "Sellfile önizlemesi",
   previewModeGearInspector: "Ekipman Denetçisi",
-  previewModeRulesTooltip: "**Sellfile Önizleme** — Mevcut reçetelerinize göre sellfile'ınıza dahil edilecek ekipmanları gösterir.\n\nKendi ekipmanlarınızı yüklemek ve her parçanın hangi reçeteye uyduğunu tam olarak görmek için **Kural Testi**'ne geçin.",
-  previewModeGearInspectorTooltip: "**Ekipman Denetçisi** — Gerçek ekipman envanterinizi yükleyin ve reçetelerinize karşı gerçek zamanlı olarak test edin. Her parça hangi reçetenin eşleştiğini ve nedenini gösterir.\n\nBirleşik sellfile çıktısını görmek için **Sellfile Önizleme**'ye geçin.",
+  previewModeRulesTooltip: "**Sellfile Önizleme** — Mevcut reçetelerinize göre Sellfile'ınıza dahil edilecek ekipmanları gösterir.\n\nKendi ekipmanlarınızı yüklemek ve her parçanın hangi reçeteye uyduğunu tam olarak görmek için **Kural Testi**'ne geçin.",
+  previewModeGearInspectorTooltip: "**Ekipman Denetçisi** — Gerçek ekipman envanterinizi yükleyin ve reçetelerinize karşı gerçek zamanlı olarak test edin. Her parça hangi reçetenin eşleştiğini ve nedenini gösterir.\n\nBirleşik Sellfile çıktısını görmek için **Sellfile Önizleme**'ye geçin.",
   manageColors: "Renkleri yönet…",
   titleLogicHub: "Araçlar",
   optionalLoadSellfile: "İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi'nde incelemek için bir ekipman veritabanı (.db) yükleyin.",
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   filterTooltip: "Tabloyu filtreler (yalnızca görüntüleme). **Dışa aktarma** filtreleri yok sayar.",
   filterTooltipPush: "Tabloyu filtreler (yalnızca görüntüleme). **Gönderme** filtreleri yok sayar.",
   finalSellToggleLabel: "Nihai satış",
-  finalSellToggleTooltip: "**Nihai satış** — Reçeteleriniz ve korumalarınız çalıştıktan sonra kalan her ekipmanı satar.\n\nBu yakala-hepsini satış kurallarını sellfile'ınıza eklemek için açın. Hangi ekipman tiplerini ve nadirlik seviyelerini kapsayacaklarını seçmek için dişli simgesine tıklayın.",
+  finalSellToggleTooltip: "**Nihai satış** — Reçeteleriniz ve korumalarınız çalıştıktan sonra kalan her ekipmanı satar.\n\nBu yakala-hepsini satış kurallarını Sellfile'ınıza eklemek için açın. Hangi ekipman tiplerini ve nadirlik seviyelerini kapsayacaklarını seçmek için dişli simgesine tıklayın.",
   finalSellConfigureTooltip: "Nihai satışın hangi ekipmanı kapsadığını seçmek için **Araçlar** iletişim kutusunu **Nihai satış** sekmesinde açın.",
   safeguardsToggleLabel: "Korumalar",
   safeguardsToggleTooltip: "**Korumalar** — Reçetelerinizden bağımsız olarak belirli eşyaları satıştan korur.\n\nKorumaları etkinleştirmek için açın.",
@@ -262,13 +262,13 @@ const overrides: Catalog = {
   simpleModeGoExpertTooltip: "Sellfile Creator'ın tam arayüzüne geç",
   simpleModeCustomSfc: "Özel",
   simpleModeGoExpertConfirmTitle: "Uzman moduna geçilsin mi?",
-  simpleModeGoExpertConfirmBody: "Bir hazır ayar seçili, bu yüzden şimdi geçmek eski özel satış kurallarınızın yerine geçer. Yine de uzman moduna geçilsin mi?",
+  simpleModeGoExpertConfirmBody: "Bir ön ayar seçili, bu yüzden şimdi geçmek eski özel satış kurallarınızın yerine geçer. Yine de uzman moduna geçilsin mi?",
   simpleModeGoExpertConfirmProceed: "Uzman modu",
   simpleModeGoSimple: "Basit mod",
   simpleModeGoSimpleTooltip: "Basitleştirilmiş görünüme geri dön",
   simpleModeAutoPush: "Otomatik gönder",
-  simpleModeAutoPushOnTooltip: "**Otomatik gönderme açık** — sellfile her değişiklikte RSL Helper'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
-  simpleModeAutoPushOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte sellfile'ı RSL Helper'a otomatik göndermek için tıklayın.",
+  simpleModeAutoPushOnTooltip: "**Otomatik gönderme açık** — Sellfile her değişiklikte RSL Helper'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
+  simpleModeAutoPushOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte Sellfile'ı RSL Helper'a otomatik göndermek için tıklayın.",
 
   counting: "Sayılıyor…",
 
@@ -647,7 +647,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: "Yüklemek için dosyayı bırak",
-  fileDropSubtitle: ".sfc (reçeteler + meta setler), .hsf (sellfile) ve .db (ekipman veritabanı) kabul edilir",
+  fileDropSubtitle: ".sfc (reçeteler + meta setler), .hsf (Sellfile) ve .db (ekipman veritabanı) kabul edilir",
   fileDropShiftHint: "Ne içe aktarılacağını seçmek için .sfc bırakırken Shift'i basılı tut",
 
   // Sets section labels
@@ -1337,7 +1337,7 @@ const overrides: Catalog = {
   presetLabelColor: "Etiket rengi",
   // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Simge",
-  presetIconPickerAria: "Hazır ayar simgesini seç",
+  presetIconPickerAria: "Ön ayar simgesini seç",
   presetPinToHeader: "Başlığa sabitle",
   presetPin: "Düğme olarak sabitle",
   presetUnpin: "Düğmeyi kaldır",

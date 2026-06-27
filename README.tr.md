@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştırır — set, yuva, ana stat, alt statlar ve daha fazlasına göre ekipman filtreleri tanımlayın, eşleşen sonuçları canlı önizleyin ve hazır satış dosyalarını saniyeler içinde dışa aktarın.
+Sellfile Creator, RSL Helper için Sellfile'lar oluşturmayı kolaylaştırır — set, yuva, ana stat, alt statlar ve daha fazlasına göre ekipman filtreleri tanımlayın, eşleşen sonuçları canlı önizleyin ve hazır Sellfile'ları saniyeler içinde dışa aktarın.
 
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 
@@ -9,14 +9,14 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
 - **Reçete oluşturucu** — yuva, set, yıldız, nadirlik, ana stat, alt statlar (minimum rulo
   sayıları ve hedef değerler), fraksiyon ve seviye kilometre taşları filtreli adlandırılmış
   sakla/sat reçeteleri oluşturun. Yeniden kullanılabilir bir kütüphane oluşturun ve tek
-  tıkla RSL Helper satış dosyası (`.hsf`) olarak dışa aktarın.
-- **Sellfile önizlemesi** — dışa aktarmadan önce oluşturulan RSL Helper satış dosyasını
+  tıkla RSL Helper Sellfile'ı (`.hsf`) olarak dışa aktarın.
+- **Sellfile önizlemesi** — dışa aktarmadan önce oluşturulan RSL Helper Sellfile'ını
   Önizleme sekmesinde görüntüleyin.
 - **Metasetler** — ekipman setlerini (örn. Hız + Algı) adlandırılmış koleksiyonlarda
   gruplandırın ve reçetelerde ve korumalarda yeniden kullanın.
 - **Ekipman denetçisi** — gerçek zamanlı senkronizasyon için RSL Helper'a bağlanın veya her reçetenin hangi öğelerle eşleştiğini görmek için bir `.db` dosyası yükleyin.
 - **Ekipman Farkı** — reçeteleri ayarlarken veya dinamik geçersiz kılmaları denerken hangi parçaların *sakla* ile *sat* arasında geçtiğini tam olarak görmek için bir önce/sonra görünümü açın. Bir çip güncel toplamları gösterir; yan yana bir liste değişen her parçayı gösterir.
-- **Zindan simülatörü** — ekipman toplarken veya geliştirirken satış dosyanızın
+- **Zindan simülatörü** — ekipman toplarken veya geliştirirken Sellfile'ınızın
   etkisini doğrulamak için çeşitli zorluk ve yükseltme seviyelerinde Ateş Şövalyesi,
   Ejderha ve Buz Golemi için saklama olasılığı yüzdelerini görün.
 - **Korumalar** — asla kaybetmek istemediğiniz yuva/set/stat kombinasyonlarını tanımlayın;

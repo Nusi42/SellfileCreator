@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — definisci filtri per l'equipaggiamento per set, slot, stat principale, sotto-stat e altro, visualizza in anteprima i risultati in tempo reale ed esporta file di vendita pronti all'uso in pochi secondi.
+Sellfile Creator semplifica la creazione di Sellfile per RSL Helper — definisci filtri per l'equipaggiamento per set, slot, stat principale, sotto-stat e altro, visualizza in anteprima i risultati in tempo reale ed esporta Sellfile pronti all'uso in pochi secondi.
 
 > Strumento indipendente creato dai fan. Non è affiliato con Plarium, Raid: Shadow Legends o RSL Helper. I marchi appartengono ai rispettivi proprietari.
 
@@ -9,8 +9,8 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - **Generatore di ricette** — crea ricette di conserva/vendi con nome e filtri per slot,
   set, rango, rarità, stat principale, sotto-stat (con minimi di roll e obiettivi),
   fazione e traguardi di livello. Costruisci una libreria riutilizzabile ed esportala come
-  file di vendita RSL Helper (`.hsf`) in un clic.
-- **Anteprima Sellfile** — visualizza in anteprima il file di vendita RSL Helper
+  Sellfile RSL Helper (`.hsf`) in un clic.
+- **Anteprima Sellfile** — visualizza in anteprima il Sellfile RSL Helper
   generato nella scheda Anteprima prima di esportare.
 - **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
   collezioni con nome e riutilizzali nelle ricette e nelle salvaguardie.
@@ -18,10 +18,10 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - **Confronto equipaggiamento** — attiva una vista prima/dopo per vedere esattamente quali pezzi passano tra *tieni* e *vendi* mentre regoli le ricette o provi le sostituzioni dinamiche. Un chip mostra i totali correnti; un elenco affiancato mostra ogni pezzo cambiato.
 - **Simulatore dungeon** — consulta le percentuali di probabilità di conservare per il
   Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
-  potenziamento per confermare l'effetto del tuo file di vendita durante il farming o il
+  potenziamento per confermare l'effetto del tuo Sellfile durante il farming o il
   potenziamento dell'equipaggiamento.
 - **Salvaguardie** — definisci combinazioni di slot/set/stat che non vuoi mai perdere; lo
-  scanner inietta automaticamente regole di conserva nel file di vendita quando la tua
+  scanner inietta automaticamente regole di conserva nel Sellfile quando la tua
   configurazione ridurrebbe una combinazione protetta al di sotto della sua quota.
 - **Analisi Equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro
   incrociato (slot, rango, rarità, fonte, livello), una mappa ad albero dei set, barre

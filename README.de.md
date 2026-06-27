@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — definiere Ausrüstungsfilter nach Set, Slot, Hauptwert, Unterwerte und mehr, sieh dir die Treffer live an und exportiere fertige Sell-Dateien in Sekunden.
+Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — definiere Ausrüstungsfilter nach Set, Slot, Hauptwert, Unterwerte und mehr, sieh dir die Treffer live an und exportiere fertige Sellfiles in Sekunden.
 
 > Dies ist ein unabhängiges Fan-Projekt. Es besteht keine Verbindung zu Plarium, Raid: Shadow Legends oder RSL Helper. Alle Marken gehören ihren jeweiligen Eigentümern.
 
@@ -9,18 +9,18 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - **Rezept-Builder** — erstelle benannte Behalten/Verkaufen-Rezepte mit Filtern für Slot,
   Set, Rang, Seltenheit, Hauptwert, Unterwerte (mit Roll-Minima und Zielwerten), Fraktion
   und Stufenmeilensteinen. Baue eine wiederverwendbare Bibliothek auf und exportiere sie
-  mit einem Klick als RSL-Helper-Verkaufsdatei (`.hsf`).
-- **Sellfile-Vorschau** — sieh dir die generierte RSL-Helper-Verkaufsdatei im
+  mit einem Klick als RSL-Helper-Sellfile (`.hsf`).
+- **Sellfile-Vorschau** — sieh dir das generierte RSL-Helper-Sellfile im
   Vorschau-Tab an, bevor du exportierst.
 - **Metasets** — fasse Ausrüstungssets (z. B. Geschwindigkeit + Wahrnehmung) in benannten
   Sammlungen zusammen und verwende sie in Rezepten und Schutzregeln wieder.
 - **Ausrüstungs-Inspektor** — verbinde RSL Helper für Live-Synchronisation oder lade eine `.db`-Datei, um zu sehen, welche Items auf jedes Rezept passen und wie viele behalten oder verkauft würden.
 - **Ausrüstungs-Diff** — schalte eine Vorher/Nachher-Ansicht ein, um genau zu sehen, welche Ausrüstungsteile beim Anpassen von Rezepten oder beim Ausprobieren der dynamischen Überbrückungen zwischen *Behalten* und *Verkaufen* wechseln. Ein Chip zeigt die laufenden Summen; eine Seite-an-Seite-Liste zeigt jedes geänderte Teil.
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
-  und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deiner
-  Verkaufsdatei beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
+  und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deines
+  Sellfiles beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
 - **Schutzregeln** — definiere Slot/Set/Wert-Kombinationen, die du nie verlieren willst;
-  der Scanner fügt automatisch Behalten-Regeln in die Verkaufsdatei ein, wenn deine
+  der Scanner fügt automatisch Behalten-Regeln in das Sellfile ein, wenn deine
   Einstellung eine geschützte Kombination unter ihre Quote senken würde.
 - **Ausrüstungsanalyse** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
   (Slot, Rang, Seltenheit, Quelle, Level), einer Sets-Baumkarte, Hauptwert-Balken und
@@ -42,7 +42,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 - Fülle den Rezept-Builder aus und gib deinem Rezept einen eindeutigen „Rezept-Namen“.
 - Klicke auf „Als neues Rezept hinzufügen“, um es zu speichern. Wähle das gespeicherte Rezept in der Liste unter dem Builder aus, um es zu bearbeiten, und sichere Änderungen mit „Ausgewähltes Rezept aktualisieren“.
 - Laden/Speichern: Nutze „Rezepte laden“ und „Rezepte speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
-  - Über den Chevron (▾) neben **SFC-Datei laden** öffnest du das Menü: **Aus Datei laden…** öffnet wie gewohnt den Datei-Auswahldialog; **Voreinstellung laden: Anfänger** oder **Voreinstellung laden: Midgame bis Endgame** lädt eine der mitgelieferten Voreinstellungen nach einer Bestätigungsabfrage (das aktuelle Setup wird ersetzt).
+  - Über den Chevron (▾) neben **SFC-Datei laden** öffnest du das Menü: **Aus Datei laden…** öffnet wie gewohnt den Datei-Auswahldialog; **Preset laden: Anfänger** oder **Preset laden: Midgame bis Endgame** lädt eine der mitgelieferten Presets nach einer Bestätigungsabfrage (das aktuelle Setup wird ersetzt).
 - Reset/Einfügen/Anwenden-Menüs: Rechtsklick auf „Reset“, „Als Rezept einfügen“ oder „Rezept anwenden“ öffnet ein gemeinsames Optionsmenü. Speichere den aktuellen Builder-Zustand als neue Standardvorlage, springe auf die Werkseinstellungen zurück, aktiviere „Auto nach Einfügen zurücksetzen“ (räumt den Builder direkt nach dem Einfügen) oder „Auto auf ausgewähltes Rezept anwenden“ (schiebt Änderungen nach ca. 400 ms Inaktivität in das markierte Rezept). Auto-Reset und Auto-Apply schließen sich gegenseitig aus – das Aktivieren des einen schaltet das andere aus – und beide Einstellungen bleiben zwischen Sitzungen erhalten.
 - Notiz: Über „Notiz hinzufügen…” (oder „Notiz bearbeiten…”) kannst du deiner Rezept-Datei eine Notiz anhängen. Beim Laden einer Rezept-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- recipes:1,0 -->`, um bestimmte Rezept-Chips einzufügen (0 nimmt das nächste Rezept). Mit `<!-- recipes-re:”speed” -->` erscheinen alle Rezepte, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert). Füge `<!-- dungeon-simulator -->` ein, um eine Live-Keep-Chance-Tabelle für Feuerritter, Drachen und Eisgolem über drei Schwierigkeitsstufen (N20/N25/H10) und zwei Boost-Modi anzuzeigen, mit Keep-Raten bei +0/+4/+8/+12/+16. Füge `<!-- recipe-overrides [columns=N] -->` ein, um interaktive Fragekarten (Radio-/Checkbox-Gruppen) einzubetten, die Rezept-Exportmodi und -Einstellungen zur Laufzeit überbrücken – gespeicherte Rezepte werden nie geändert. Füge `<!-- safeguard-overrides [columns=N] -->` ein, um interaktive Schieberegler- und Optionskarten einzubetten, die Schutzregel-Eigenschaften (Anzahl, Aktivierung, Unterwerte, Verbesserungschance u. v. m.) zur Laufzeit überbrücken – gespeicherte Schutzregeln werden nie geändert. Sobald einer dieser Marker vorhanden ist, erscheinen im Notiz-Footer ein **Dynamische Überbrückungen deaktivieren / aktivieren**-Schalter und eine Schaltfläche **Optionen auf Standardwerte zurücksetzen**. Über **Aktuelle Auswahl speichern…** (im Menü „Dynamische Überbrückungen") lassen sich die aktuellen Antworten unter einem Namen ablegen — gespeicherte Überbrückungs-Sets erscheinen im selben Menü und können per Klick wieder geladen werden. Es werden nur Auswahlen gespeichert, die in der aktuellen Notiz vorhanden sind; beim Laden eines Sets werden Fragen, die nicht mehr vorkommen, übersprungen.
 - Autosave-Wiederherstellung: Beim Start listet der Dialog jede gespeicherte Sektion mit eigener Checkbox auf. Lade nur, was du brauchst – Rezepte (inklusive gewähltem Chip), Metasets, Unterwert-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Offen/Zu, Chips, eingeklappte Bereiche) und Ausrüstungsinspektor-Importe. Alles, was du abwählst, bleibt unangetastet. Autosave merkt sich außerdem, welche Final-Sell-Schalter (Artefakte, Schmuckstücke sowie die Levelbereiche) aktiv waren, damit der Tools-Dialog exakt den Exportzustand von zuletzt widerspiegelt.
@@ -270,7 +270,7 @@ Hinweise:
 
 ### Ausrüstungsinspektor
 - Klicke auf „Tools” im Header der Sellfile-Vorschau, um den Dialog „Ausrüstung” zu öffnen. Erstelle Beispielausrüstung. Die Einträge landen sofort in der Vorschau, daher bleibt dein Raster im Ausrüstungsinspektor auch bei geschlossenem Dialog erhalten.
-- Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Slot, Set, Level, Hauptwert, Unterwerte (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die der Sellfile unverändert lassen würde.
+- Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Slot, Set, Level, Hauptwert, Unterwerte (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die das Sellfile unverändert lassen würde.
 - Die Header-Zähler zeigen Behalten/Verkaufen/Bereich/Kein Treffer. Die vier Ergebnisfilter-Buttons — **Behalten**, **Verkaufen**, **Bereich** und **Kein Treffer** — funktionieren als unabhängige Schalter: jede Kombination lässt sich aktivieren, um die Liste einzugrenzen. **Bereich** dunkelt Items ab (hält sie aber sichtbar), die denselben Set+Slot wie ein zum Verkauf stehendes Stück teilen – so kannst du einen Kandidaten direkt im Vergleich zu seiner Konkurrenz sehen, ohne zwei Filterdurchläufe. Sind zusätzlich eine oder mehrere **Quellen** ausgewählt, fungieren diese als Referenzgruppe – nur als Verkauf markierte Items aus den gewählten Quellen werden zu Haupttreffern, während Begleiter aus *allen* Quellen stammen und du so jedes Exemplar dieser Ausrüstung unabhängig von seinem Standort siehst. **Kein Treffer** zeigt Ausrüstung, die von keiner Regel erfasst wird – nützlich, um Lücken in deinen Rezepten aufzudecken. Kombiniere dies mit dem `First-Match-Auswertung`/`Nach Treffer`-Schalter, um vor dem Export gezielt auf Randfälle zu fokussieren.
 - Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
 

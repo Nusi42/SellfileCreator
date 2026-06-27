@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper — définissez des filtres par set, emplacement, stat principale, sous-stats et plus encore, prévisualisez les résultats en direct et exportez des fichiers de vente prêts à l'emploi en quelques secondes.
+Sellfile Creator simplifie la création de Sellfiles pour RSL Helper — définissez des filtres par set, emplacement, stat principale, sous-stats et plus encore, prévisualisez les résultats en direct et exportez des Sellfiles prêts à l'emploi en quelques secondes.
 
 > Projet de fans indépendant. Aucune affiliation avec Plarium, Raid: Shadow Legends ou RSL Helper. Toutes les marques citées appartiennent à leurs propriétaires.
 
@@ -9,8 +9,8 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - **Générateur de recettes** — créez des recettes de conservation/vente nommées avec des
   filtres par emplacement, set, rang, rareté, stat principale, sous-stats (avec
   minimums de rolls et cibles), faction et paliers de niveau. Constituez une bibliothèque
-  réutilisable et exportez-la en fichier de vente RSL Helper (`.hsf`) en un clic.
-- **Aperçu du Sellfile** — prévisualisez le fichier de vente RSL Helper généré
+  réutilisable et exportez-la en Sellfile RSL Helper (`.hsf`) en un clic.
+- **Aperçu du Sellfile** — prévisualisez le Sellfile RSL Helper généré
   dans l'onglet Aperçu avant d'exporter.
 - **Métasets** — regroupez des sets d'équipement (ex. Vitesse + Perception) en
   collections nommées et réutilisez-les dans vos recettes et garde-fous.
@@ -18,11 +18,11 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 - **Comparaison d'équipement** — activez une vue avant/après pour voir exactement quelles pièces basculent entre *garder* et *vendre* lorsque vous ajustez des recettes ou essayez les surcharges dynamiques. Une puce affiche les totaux en cours ; une liste côte à côte montre chaque pièce modifiée.
 - **Simulateur de donjon** — consultez les pourcentages de chance de conservation pour le
   Chevalier du Feu, le Dragon et le Golem de Glace selon les niveaux de difficulté et de
-  mise à niveau pour confirmer l'effet de votre fichier de vente lors du farming ou de
+  mise à niveau pour confirmer l'effet de votre Sellfile lors du farming ou de
   l'amélioration d'équipements.
 - **Garde-fous** — définissez des combinaisons emplacement/set/stat que vous ne
   voulez jamais perdre ; le scanner injecte automatiquement des règles de conservation dans
-  le fichier de vente lorsque votre configuration risquerait d'épuiser une combinaison
+  le Sellfile lorsque votre configuration risquerait d'épuiser une combinaison
   protégée en dessous de son quota.
 - **Analyse d'équipement** — tableau de bord analytique avec indicateurs clés, graphiques
   à filtre croisé (emplacement, rang, rareté, source, niveau), une arborescence des
@@ -40,14 +40,14 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 
 ### Fichier de recettes
 - SFC (`.sfc`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement SFC.
-- HSF (`.hsf`) : la Sellfile consommée par RSL Helper. Exportez-la ici puis chargez-la dans RSL Helper.
+- HSF (`.hsf`) : le Sellfile consommé par RSL Helper. Exportez-le ici puis chargez-le dans RSL Helper.
 - Nom par défaut lors de l’enregistrement : `SellfileCreatorRecipes_AAAA MM JJ_HHMM.sfc`.
 
 ### Recettes Builder
 - Renseignez les champs du Recettes Builder et attribuez un nom clair à votre recette.
 - Cliquez sur « Ajouter comme nouvelle recette » pour l’enregistrer. Sélectionnez ensuite la recette dans la liste sous le builder pour l’éditer, puis validez avec « Mettre à jour la recette sélectionnée ».
 - Charger/Enregistrer : utilisez « Charger des recettes » et « Enregistrer des recettes » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
-  - Cliquez sur le chevron (▾) à côté de **Charger fichier SFC** pour ouvrir son menu : **Charger depuis un fichier…** ouvre le sélecteur de fichiers habituel ; **Charger un préréglage : Débutant** ou **Charger un préréglage : Midgame à Endgame** charge l’un des préréglages intégrés après une confirmation (votre configuration actuelle sera remplacée).
+  - Cliquez sur le chevron (▾) à côté de **Charger un fichier SFC** pour ouvrir son menu : **Charger depuis un fichier…** ouvre le sélecteur de fichiers habituel ; **Charger un préréglage : Débutant** ou **Charger un préréglage : Midgame à Endgame** charge l’un des préréglages intégrés après une confirmation (votre configuration actuelle sera remplacée).
 - Menus Réinitialiser/Insérer/Appliquer : clic droit sur Réinitialiser, Insérer comme recette ou Appliquer à la recette pour ouvrir le menu partagé. Sauvegardez l’état actuel du builder comme modèle par défaut, retournez aux réglages d’usine, activez Réinitialisation auto après insertion (vide immédiatement le builder après l’insertion d’une recette) ou activez Application auto à la recette sélectionnée (pousse les modifications vers la recette en surbrillance automatiquement après ~400 ms d’inactivité). Réinitialisation auto et Application auto ne peuvent pas coexister : activer l’une désactive l’autre, et ces préférences persistent entre les sessions.
 - Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de recettes. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- recipes:1,0 -->` pour insérer des puces de recettes précises (0 prend la suivante). Utilisez `<!-- recipes-re:"speed" -->` pour afficher toutes les recettes dont le nom correspond au motif (insensible à la casse). Ajoutez `<!-- dungeon-simulator -->` pour afficher un tableau en direct des probabilités de conservation pour le Chevalier du Feu, le Dragon et le Golem de Glace sur trois niveaux de difficulté (N20/N25/H10) et deux modes de boost, avec les taux de conservation à +0/+4/+8/+12/+16. Ajoutez `<!-- recipe-overrides [columns=N] -->` pour intégrer des cartes de questions interactives (groupes radio/case à cocher) qui surchargent les modes d'exportation et les paramètres des recettes pour la session — les recettes stockées ne sont jamais modifiées. Ajoutez `<!-- safeguard-overrides [columns=N] -->` pour intégrer des cartes de curseurs et d'options qui surchargent les propriétés des garde-fous (quantité, activation, sous-stats, probabilité d'amélioration, etc.) pour la session — les garde-fous stockés ne sont jamais modifiés. Lorsque l'un ou l'autre de ces marqueurs est présent, le pied de la note affiche un bouton **Désactiver / Activer les surcharges dynamiques** et un bouton **Réinitialiser les options**. Utilisez **Enregistrer la sélection actuelle…** (dans le menu « Surcharges dynamiques ») pour enregistrer les réponses actuelles sous un nom — les ensembles de surcharges enregistrés apparaissent dans ce même menu et peuvent être rechargés en un clic. Seules les sélections présentes dans la note actuelle sont enregistrées ; au chargement d'un ensemble, les questions qui n'existent plus sont ignorées.
 - Restauration Autosave : au lancement, le dialogue liste chaque section sauvegardée avec sa propre case. Restaurez uniquement ce dont vous avez besoin — recettes (y compris la puce sélectionnée), méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, panneau de filtres (état ouvert, puces, sections repliées) et importations de l'Inspecteur d'équipement. Laissez une case décochée pour conserver votre travail. Autosave mémorise également quels interrupteurs de Vente finale (Artefacts, Accessoires et plages de niveau) étaient actifs, donc rouvrir le dialogue Outils reflète exactement ce que vous avez exporté la dernière fois.
@@ -256,10 +256,10 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 - Bascule Recettes activées/désactivées : le bouton dans l’en-tête du builder désactive globalement toutes les recettes sans les supprimer, mettant en pause la pipeline d’aperçu — utile pour vérifier rapidement un export avec Garde-fous seulement ou confirmer ce que la Vente finale produit seule.
 
 ### Aperçu du Sellfile (Règles & Inspecteur d’équipement)
-- L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Inspecteur d’équipement`, le bouton « Outils » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement ».
+- L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Inspecteur d’équipement`, le bouton « Outils » et « Charger le Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement ».
 - Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Emplacements/Rang/Rareté/Niveau et expose désormais les deux boutons `Recettes` côte à côte : `Recettes aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre recettes` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour l’Inspecteur d’équipement).
 - Vue `Inspecteur d’équipement` : bascule la table sur la liste importée afin d’examiner les objets importés ou créés sans rouvrir le dialogue Outils. Les compteurs passent en Conserver/Vendre/Portée/Sans règle selon la règle « la première recette correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Recettes` (`Recettes aperçu` + `Filtre recettes`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre recettes` applique le tri-état (`Off` → `Première` → `Par correspondance`) pour isoler les lignes de l’Inspecteur d’équipement et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
-- Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’Inspecteur d’équipement (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
+- Le bouton « Charger le Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’Inspecteur d’équipement (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
 - En vue Règles, les colonnes « Idx » et « Recette » restent en place (vides pour les lignes du fichier de base). En vue Inspecteur d’équipement, le même espace affiche emplacement/set, stats de l’objet et la puce de la première recette qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
 
@@ -277,7 +277,7 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 ### Aperçu de l’Inspecteur d’équipement
 - Cliquez sur « Outils » dans l’en-tête de l’aperçu pour ouvrir le dialogue « Équipement ». Créez un équipement d’exemple. Les objets se synchronisent aussitôt avec l’aperçu, donc fermer le dialogue ne vide pas la grille de l’Inspecteur d’équipement.
-- Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche emplacement, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
+- Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger le Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche emplacement, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que le Sellfile laisserait intact.
 - Les compteurs de l’en-tête affichent les totaux Conserver/Vendre/Portée/Sans règle. Les quatre boutons du filtre de résultat — **Conserver**, **Vendre**, **Portée** et **Sans règle** — fonctionnent comme des bascules indépendantes : activez n’importe quelle combinaison pour affiner la liste. **Portée** atténue (mais garde visibles) les objets qui partagent le même set+emplacement qu’une pièce que vos règles vendraient, afin de comparer un candidat avec ses concurrents en une seule vue sans avoir à faire deux passes de filtre. Lorsqu'une ou plusieurs **Sources** sont également sélectionnées, elles servent de référence — seuls les objets estampillés Vendre des sources sélectionnées deviennent des éléments principaux, tandis que les compagnons sont trouvés dans *toutes* les sources, ce qui vous permet de voir chaque exemplaire de la pièce quel que soit son emplacement. **Sans règle** affiche l’équipement qu’aucune règle ne touche — utile pour repérer les lacunes de vos recettes. Combinez avec le sélecteur `Première`/`Par correspondance` des Recettes pour vous concentrer sur les cas limites avant l’export.
 - Utilisez l’interrupteur d’aperçu pour alterner entre les tables Règles et Inspecteur d’équipement sans rouvrir le dialogue Outils — idéal pour comparer les lignes générées et l’équipement qui les a déclenchées.
 

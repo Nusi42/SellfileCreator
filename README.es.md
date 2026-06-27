@@ -1,6 +1,6 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator simplifica la creación de archivos de venta para RSL Helper — define filtros de equipo por set, ranura, stat principal, substats y más, previsualiza los resultados en vivo y exporta archivos de venta listos para usar en segundos.
+Sellfile Creator simplifica la creación de Sellfiles para RSL Helper — define filtros de equipo por set, ranura, stat principal, substats y más, previsualiza los resultados en vivo y exporta Sellfiles listos para usar en segundos.
 
 > Herramienta creada por fans. No está afiliada a Plarium, Raid: Shadow Legends ni RSL Helper. Todas las marcas mencionadas pertenecen a sus dueños.
 
@@ -9,8 +9,8 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Generador de recetas** — crea recetas de conservar/vender con nombre y filtros por
   ranura, set, rango, rareza, stat principal, substats (con mínimos de
   tiradas y objetivos), facción e hitos de nivel. Construye una biblioteca reutilizable y
-  expórtala como archivo de venta de RSL Helper (`.hsf`) con un clic.
-- **Vista Sellfile** — previsualiza el archivo de venta de RSL Helper
+  expórtala como Sellfile de RSL Helper (`.hsf`) con un clic.
+- **Vista Sellfile** — previsualiza el Sellfile de RSL Helper
   generado en la pestaña Vista previa antes de exportar.
 - **Metasets** — agrupa sets de equipo (p. ej. Velocidad + Percepción) en
   colecciones con nombre y reutilízalos en recetas y salvaguardas.
@@ -18,9 +18,9 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - **Comparación de equipo** — activa una vista de antes/después para ver exactamente qué piezas cambian entre *conservar* y *vender* mientras ajustas recetas o pruebas las anulaciones dinámicas. Un chip muestra los totales actuales; una lista en paralelo muestra cada pieza que cambió.
 - **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
   el Caballero de Fuego, el Dragón y el Gólem de Hielo en distintos niveles de dificultad
-  y mejora para confirmar el efecto de tu archivo de venta al farmear o mejorar equipo.
+  y mejora para confirmar el efecto de tu Sellfile al farmear o mejorar equipo.
 - **Salvaguardas** — define combinaciones de ranura/set/stat que nunca quieras
-  perder; el escáner inyecta automáticamente reglas de conservar en el archivo de venta
+  perder; el escáner inyecta automáticamente reglas de conservar en el Sellfile
   cuando tu configuración reduciría una combinación protegida por debajo de su cuota.
 - **Análisis de Equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
   (ranura, rango, rareza, fuente, nivel), un mapa de árbol de sets, barras de
@@ -42,7 +42,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - Completa el Constructor de recetas y da un nombre claro a tu receta.
 - Pulsa «Agregar como nueva receta» para guardarla. Después selecciónala en la lista debajo del constructor para editarla y guarda los cambios con «Actualizar receta seleccionada».
 - Cargar/Guardar: usa «Cargar recetas» y «Guardar recetas» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
-  - Haz clic en el chevrón (▾) junto a **Cargar archivo SFC** para abrir su menú: **Cargar desde archivo…** abre el selector de archivos del sistema como de costumbre; **Cargar preset: Principiante** o **Cargar preset: Midgame a Endgame** carga uno de los presets incluidos tras una confirmación (tu configuración actual será reemplazada).
+  - Haz clic en el chevrón (▾) junto a **Cargar archivo SFC** para abrir su menú: **Cargar desde archivo…** abre el selector de archivos del sistema como de costumbre; **Cargar preajuste: Principiante** o **Cargar preajuste: Midgame a Endgame** carga uno de los preajustes incluidos tras una confirmación (tu configuración actual será reemplazada).
 - Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as receta» o «Apply as receta» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una receta) o «Auto apply to selected receta» (envía los cambios a la receta seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
 - Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas). Añade `<!-- dungeon-simulator -->` para mostrar una tabla en vivo de probabilidad de conservación para el Caballero de Fuego, el Dragón y el Gólem de Hielo en tres niveles de dificultad (N20/N25/H10) y dos modos de mejora, con las tasas de conservación en +0/+4/+8/+12/+16. Añade `<!-- recipe-overrides [columns=N] -->` para insertar tarjetas de preguntas interactivas (grupos de radio/casilla) que sobreescriben los modos de exportación y ajustes de recetas durante la sesión — las recetas almacenadas nunca se modifican. Añade `<!-- safeguard-overrides [columns=N] -->` para insertar tarjetas de controles deslizantes y opciones que sobreescriben propiedades de las salvaguardas (cantidad, activación, substats, oportunidad de mejora y más) durante la sesión — las reglas almacenadas nunca se modifican. Cuando alguno de estos marcadores está presente, el pie de la nota muestra un botón **Desactivar / Activar anulaciones dinámicas** y un botón **Restablecer opciones**. Usa **Guardar selección actual…** (en el menú «Anulaciones dinámicas») para guardar las respuestas actuales con un nombre — los conjuntos de anulaciones guardados aparecen en ese mismo menú y se pueden cargar con un clic. Solo se guardan las selecciones presentes en la nota actual; al cargar un conjunto se omiten las preguntas que ya no existen.
 - Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Inspector de Equipo. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir el diálogo Herramientas refleja exactamente lo que exportaste la última vez.
