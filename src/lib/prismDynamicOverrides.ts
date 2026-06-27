@@ -114,6 +114,9 @@ function recipeOverrides(Prism: Refractor): void {
             pattern: /"(?:\\[\s\S]|[^"\\])*"/,
             greedy: true,
             inside: {
+                // Locale-segment markers (`[[de]]`, `[[pt-BR]]`) — translations travel inline
+                // in the string; highlight the tag so authors can spot language boundaries.
+                'string-locale': /\[\[[a-z]{2,3}(?:-[a-z0-9]{2,8})?\]\]/i,
                 // Bold/emphasis spans (**text**) – rendered with label style.
                 'string-bold': /\*\*(?:[^*]|\*(?!\*))*\*\*/,
                 // Chip/option-label references in backticks, including `\N` numeric refs.

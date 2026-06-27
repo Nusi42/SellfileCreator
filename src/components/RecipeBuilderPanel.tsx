@@ -1274,15 +1274,20 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     })
   }, [recipe.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.patch])
   const keepMixed = multiEditActive && (multiKeepField?.status === 'mixed')
-  const keepValue: 'keep' | 'sell' | null = multiEditActive
-    ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
-    : (recipe.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
   // Resolve recipe overrides for the active recipe.
   const effectiveRecipe = useMemo(
     () => resolveRecipeOverridesEffectiveRecipe(recipe, recipeOverridesInstructions),
     [recipe, recipeOverridesInstructions],
   )
+  // Keep/Sell value: single-edit shows the override-resolved (effective) flag so an active
+  // `action=…` override is reflected in the control, mirroring exportModeValue below.
+  const keepValue: 'keep' | 'sell' | null = multiEditActive
+    ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
+    : (effectiveRecipe.keep ? 'keep' : 'sell')
+  // True when a recipe override flips the stored Keep/Sell flag (distinct from the
+  // keepOverrideActive timing field below). Drives the override badge on the Keep/Sell control.
+  const keepBooleanOverrideActive = !multiEditActive && Boolean(effectiveRecipe.keep) !== Boolean(recipe.keep)
   // Read the effective export mode from the resolved recipe.
   const effectiveExportMode = effectiveRecipe.exportMode
   // Only mark an override when the recipe overrides flip the stored selection.
@@ -1353,6 +1358,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const exportModeOverrideTarget = exportModeOverrideActive && recipe.exportMode !== 'separator'
     ? recipe.exportMode
     : null
+  // Surface the stored Keep/Sell selection when a recipe override flips the effective flag.
+  const keepActionOverrideTarget: 'keep' | 'sell' | null = keepBooleanOverrideActive
+    ? (recipe.keep ? 'keep' : 'sell')
+    : null
+  // Localized Keep/Sell label for the override badge tooltip (in sync with the toggle text).
+  const keepActionLabel = React.useCallback(
+    (value: 'keep' | 'sell'): string => (value === 'keep' ? t('keepValueKeep') : t('keepValueSell')),
+    [t],
+  )
   // Map export modes to their localized labels for tooltip messaging.
   const exportModeLabel = React.useCallback((mode: SellfileExportMode): string => {
     // Keep the labels in sync with the toggle button text.
@@ -1808,6 +1822,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (exportModeValue !== mode) return
     updateExportMode(mode)
   }, [exportModeOverrideActive, exportModeValue, multiEditActive, updateExportMode])
+  // Clicking the override-resolved Keep/Sell value accepts it into the stored recipe.
+  // Plain function (mirrors the inline keep-timing accept handler) so it doesn't pull the
+  // non-memoized `update` into a useCallback dependency list.
+  const handleKeepActionOverrideClick = (value: 'keep' | 'sell') => {
+    if (multiEditActive) return
+    if (!keepBooleanOverrideActive) return
+    if (keepValue !== value) return
+    update('keep', value === 'keep')
+  }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   // Dialog open state for the "Clear tags?" confirmation (shown when overrides are active).
@@ -5976,6 +5999,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <ToggleButton
                   value="keep"
                   data-tour-id="builder.action.keep"
+                  onClick={() => handleKeepActionOverrideClick('keep')}
                   sx={(muiTheme) => {
                     const selected = keepValue === 'keep'
                     const successMain = muiTheme.vars?.palette.success.main ?? muiTheme.palette.success.main
@@ -5984,6 +6008,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       ? successMain
                       : TINT.neutralActiveBg
                     return {
+                      // relative so the absolutely-positioned override badge anchors here.
+                      position: 'relative',
                       borderColor: baseBorder,
                       // Default (light) outer color when selected; dark overrides below.
                       color: selected ? successMain : (muiTheme.vars?.palette.text.primary ?? muiTheme.palette.text.primary),
@@ -6009,11 +6035,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   }}
                 >
                   {t('keepValueKeep')}
+                  {keepActionOverrideTarget === 'keep'
+                    ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                        keepActionLabel('keep'),
+                        keepActionLabel(effectiveRecipe.keep ? 'keep' : 'sell'),
+                      ))
+                    : null}
                 </ToggleButton>
                 <ToggleButton
                   value="sell"
                   data-tour-id="builder.action.sell"
+                  onClick={() => handleKeepActionOverrideClick('sell')}
                   sx={(theme) => ({
+                    // relative so the absolutely-positioned override badge anchors here.
+                    position: 'relative',
                     '&.Mui-selected': { borderColor: theme.vars?.palette.error.main ?? theme.palette.error.main },
                     ...theme.applyStyles('light', {
                       '&.Mui-selected': {
@@ -6032,6 +6067,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   })}
                 >
                   {t('keepValueSell')}
+                  {keepActionOverrideTarget === 'sell'
+                    ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                        keepActionLabel('sell'),
+                        keepActionLabel(effectiveRecipe.keep ? 'keep' : 'sell'),
+                      ))
+                    : null}
                 </ToggleButton>
                 </ToggleButtonGroup>
               </Box>

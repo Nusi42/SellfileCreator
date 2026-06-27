@@ -1657,13 +1657,13 @@ function buildSafeguardMarkerBlock(ids: number[]): { block: string; cursorIndex:
   return { block, cursorIndex: marker.length + 1 }
 }
 
-function buildRecipeOverridesMarkerResolutions(text: string, answers: NoteRecipeOverridesAnswers): Map<number, NoteQuestionDefinition> {
+function buildRecipeOverridesMarkerResolutions(text: string, answers: NoteRecipeOverridesAnswers, lang: string): Map<number, NoteQuestionDefinition> {
   // Map marker indices to parsed question definitions.
   const result = new Map<number, NoteQuestionDefinition>()
   // Short-circuit when no note text exists.
   if (!text) return result
-  // Resolve questions with the current answers merged in.
-  const { questions } = resolveRecipeOverridesTags(text, answers)
+  // Resolve questions with the current answers merged in (display text in the active language).
+  const { questions } = resolveRecipeOverridesTags(text, answers, undefined, undefined, lang)
   for (const question of questions) {
     // Use the marker index so the Markdown renderer can map markers.
     result.set(question.index, question)
@@ -2383,6 +2383,9 @@ function buildOptionSliderInfo(
 // so a constraint reference reads as plain prose rather than raw markup.
 function cleanOptionRefLabel(raw: string): string {
   return raw
+    // Defensive: drop any locale segments so a raw multi-locale label never leaks `[[de]]…`.
+    // Resolved labels are already localized, but the id-fallback path may carry base text.
+    .replace(/\[\[[a-z]{2,3}(?:-[a-z0-9]{2,8})?\]\][\s\S]*$/i, '')
     .replace(/`([^`]*)`/g, '$1')        // chip backticks → bare text
     .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bare text
     .replace(/\\n|\r?\n|\r/g, ' ')        // literal/real newlines → space
@@ -2872,6 +2875,18 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   // Resolve the selected answers into a set for fast checks.
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
+  // Selected option ids across ALL questions — `needs` gates may reference options that
+  // live in other questions (e.g. the Chaos Ore master toggle gating on the per-rarity
+  // keeps), so the gate check resolves against this global set, not the per-question one.
+  const globalSelectedSet = new Set<string>()
+  recipeOverridesResolutions.forEach((q) => {
+    (Array.isArray(q.answer) ? q.answer : []).forEach((id) => globalSelectedSet.add(id))
+  })
+  // True when an option's `needs` gate is unmet (requires ids, none selected anywhere).
+  const isOptionNeedsUnmet = (option: { requiresOptionIds: string[] }): boolean => (
+    option.requiresOptionIds.length > 0
+    && !option.requiresOptionIds.some((id) => globalSelectedSet.has(id))
+  )
   // Wrap answer updates so callers can track changes.
   const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
     onRecipeOverridesAnswerChange(question, next, preferredId, removedId)
@@ -2987,10 +3002,26 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
             // Lookup the selected option in this group.
             const selectedOption = group.options.find((option) => selectedSet.has(option.id))
             if (group.type === 'single') {
+              // `needs` gate per option: unmet when it requires ids and none are selected
+              // anywhere (cross-question). Radios honor needs=/needs=on|off like checkboxes.
+              const isNeedsUnmet = isOptionNeedsUnmet
+              // Displayed selection: while a gate is unmet, an explicit `needs=on|off` forces
+              // that option to show selected ('on') or not ('off') — display only, the stored
+              // value is untouched. `off` on the stored option lets the group fall to a sibling
+              // that is forced 'on', else the first ungated option.
+              const forcedOnId = group.options.find(
+                (option) => isNeedsUnmet(option) && option.requiresDisabledState === 'on',
+              )?.id
+              const storedHiddenOff = selectedOption
+                && isNeedsUnmet(selectedOption)
+                && selectedOption.requiresDisabledState === 'off'
+              const fallbackWhenHidden = group.options.find((option) => !isNeedsUnmet(option))?.id ?? ''
+              const displaySelectedId = forcedOnId
+                ?? (storedHiddenOff ? fallbackWhenHidden : (selectedOption?.id ?? ''))
               return (
                 <FormControl key={group.id} component="fieldset" variant="standard">
                   <RadioGroup
-                    value={selectedOption?.id ?? ''}
+                    value={displaySelectedId}
                     onChange={(_, value) => {
                       // Ignore changes when the question is read-only.
                       if (!recipeOverridesEditable) return
@@ -3025,13 +3056,15 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                           {option.isDefault && <NoteOptionDefaultChip />}
                         </Box>
                       ) : labelNode
+                      // A gated option is disabled until its required options are selected.
+                      const optionDisabled = !recipeOverridesEditable || isNeedsUnmet(option)
                       const row = (
                         <FormControlLabel
                           key={option.id}
                           value={option.id}
-                          control={<Radio size="small" disabled={!recipeOverridesEditable} />}
+                          control={<Radio size="small" disabled={optionDisabled} />}
                           label={label}
-                          disabled={!recipeOverridesEditable}
+                          disabled={optionDisabled}
                           sx={rowSx}
                         />
                       )
@@ -3050,9 +3083,9 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                 {group.options.map((option) => {
                   // `needs` gate: keep this option disabled until at least one of its
                   // required options is selected (e.g. the level-cap / ignore-slots boxes
-                  // only matter once a rarity is being kept). Empty list = always enabled.
-                  const needsUnmet = option.requiresOptionIds.length > 0
-                    && !option.requiresOptionIds.some((id) => selectedSet.has(id))
+                  // only matter once a rarity is being kept). Cross-question via the global
+                  // set; same-question gates resolve identically. Empty list = always enabled.
+                  const needsUnmet = isOptionNeedsUnmet(option)
                   const optionDisabled = !recipeOverridesEditable || needsUnmet
                   // While the gate is unmet, an optional `needs=on|off` forces the displayed
                   // state (display only — the stored value is untouched and returns on enable).
@@ -4351,8 +4384,8 @@ export default function NoteDialog({
   const hasRecipeOverridesMarkers = recipeOverridesSignature !== '[]'
   // Resolve recipe overrides markers so disabled state can still render dimmed cards.
   const recipeOverridesResolutions = useMemo(
-    () => buildRecipeOverridesMarkerResolutions(renderNote ?? '', recipeOverridesAnswers),
-    [recipeOverridesAnswers, renderNote],
+    () => buildRecipeOverridesMarkerResolutions(renderNote ?? '', recipeOverridesAnswers, lang),
+    [recipeOverridesAnswers, renderNote, lang],
   )
   // Reset answers by clearing stored overrides back to defaults and re-enabling parsing.
   // This must reproduce the SFC/preset LOAD state exactly: clearing recipe answers to {}
@@ -4593,8 +4626,8 @@ export default function NoteDialog({
   // and instructions (passed to App.tsx via onSafeguardOverridesResolutionChange). Declared before
   // the recipe handler because that handler reads it to resolve cross-domain `setval` slider writes.
   const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers),
-    [renderNote, safeguardOverridesAnswers],
+    () => resolveNoteSafeguardOverridesTags(renderNote ?? '', safeguardOverridesAnswers, undefined, undefined, lang),
+    [renderNote, safeguardOverridesAnswers, lang],
   )
   const handleRecipeOverridesAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
@@ -5876,8 +5909,8 @@ function NoteEditorContent({
   )
   // Resolve recipe overrides markers without making them interactive.
   const editorRecipeOverridesResolutions = useMemo(
-    () => buildRecipeOverridesMarkerResolutions(draft ?? '', recipeOverridesAnswers),
-    [recipeOverridesAnswers, draft],
+    () => buildRecipeOverridesMarkerResolutions(draft ?? '', recipeOverridesAnswers, lang),
+    [recipeOverridesAnswers, draft, lang],
   )
   // Track whether the draft still contains recipe overrides markers.
   const recipeOverridesSignature = useMemo(
@@ -5926,8 +5959,8 @@ function NoteEditorContent({
   ) => {}, [])
   // Resolve safeguard overrides markers from the draft for the editor preview.
   const editorSafeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(draft ?? '', safeguardOverridesAnswers),
-    [draft, safeguardOverridesAnswers],
+    () => resolveNoteSafeguardOverridesTags(draft ?? '', safeguardOverridesAnswers, undefined, undefined, lang),
+    [draft, safeguardOverridesAnswers, lang],
   )
   const editorSafeguardOverridesResolutions = useMemo(() => {
     const map = new Map<number, SafeguardNoteQuestionDefinition>()

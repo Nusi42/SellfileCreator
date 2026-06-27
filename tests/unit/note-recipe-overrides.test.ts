@@ -1108,4 +1108,97 @@ test('minimaField selector gates per-recipe operations via star-keyed SubstatTar
   assert.equal(notMatched[0]!.exportMode, 'disabled', 'expected disabled when five.SPD=50 does not satisfy >=100')
 })
 
+// ── action= op (Keep/Sell flag) ─────────────────────────────────────────────
+
+test('action=sell flips recipe.keep to false on a matching recipe', () => {
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Sell chaos?"',
+    'cb "Keep" * id=mk {}',
+    'cb "Sell" id=ms { @tag=ignore_by_safeguards { action=sell } }',
+    '-->',
+  ].join('\n')
+  const q = resolveRecipeOverridesTags(note).questions[0]!
+  const sellId = q.options.find((o) => o.token === 'ms')!.id
+  const { instructions } = resolveRecipeOverridesTags(note, { [q.id]: [sellId] }, sellId)
+  // rarityMode:'code' keeps the resolver off the WASM auto-rarity path.
+  const chaos = { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, tags: ['ignore_by_safeguards'] }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(chaos, instructions).keep, false)
+  // A recipe without the tag is untouched.
+  const other = { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, tags: ['other'] }
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(other, instructions).keep, true)
+})
+
+test('action=keep / action=toggle behave like the export-mode toggle shape', () => {
+  const mk = (action: string) => {
+    const note = [
+      '<!-- recipe-overrides', 'q "q"',
+      `cb "o" * id=o { @all { action=${action} } }`, '-->',
+    ].join('\n')
+    const q = resolveRecipeOverridesTags(note).questions[0]!
+    const oid = q.options[0]!.id
+    return resolveRecipeOverridesTags(note, { [q.id]: [oid] }, oid).instructions
+  }
+  const base = (keep: boolean) => ({ ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep })
+  // action=keep forces keep regardless of starting value.
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(base(false), mk('keep')).keep, true)
+  // action=toggle inverts the current value.
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(base(true), mk('toggle')).keep, false)
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(base(false), mk('toggle')).keep, true)
+})
+
+test('action=<bogus> emits a diagnostic', () => {
+  const note = '<!-- recipe-overrides q "q" cb "o" id=o { @all { action=maybe } } -->'
+  const ds: { from: number; to: number; message: string }[] = []
+  collectRecipeOverridesDiagnostics(note, 0, ds)
+  assert.ok(ds.some((d) => /action/.test(d.message)), 'expected an action= enum diagnostic')
+})
+
+// ── Inline DSL localization ([[xx]] segments) ───────────────────────────────
+
+test('[[de]] localizes display text while identity stays language-invariant', () => {
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Keep it?[[de]]Behalten?"',
+    'cb "Yes[[de]]Ja" "Detail.[[de]]Detail DE." * id=y {}',
+    '-->',
+  ].join('\n')
+  const en = resolveRecipeOverridesTags(note, {}, undefined, undefined, 'en-US').questions[0]!
+  const de = resolveRecipeOverridesTags(note, {}, undefined, undefined, 'de-DE').questions[0]!
+  // Identity (question + option ids) must match across languages.
+  assert.equal(en.id, de.id)
+  assert.equal(en.options[0]!.id, de.options[0]!.id)
+  // Display localizes per active language.
+  assert.equal(en.prompt, 'Keep it?')
+  assert.equal(de.prompt, 'Behalten?')
+  assert.equal(de.options[0]!.label, 'Ja')
+  assert.equal(de.options[0]!.detail, 'Detail DE.')
+  // A language with no segment falls back to the English base (id unchanged).
+  const fr = resolveRecipeOverridesTags(note, {}, undefined, undefined, 'fr-FR').questions[0]!
+  assert.equal(fr.prompt, 'Keep it?')
+  assert.equal(fr.id, en.id)
+})
+
+test('a single (radio) keep/sell question with needs= gates the keep option', () => {
+  // Two mutually-exclusive radios; Keep is the default but UI-gated on a prior keep
+  // (needs=off): when the gate is unmet the keep option displays off, so the radio
+  // surfaces Sell — matching gear that would fall through to final-sell anyway.
+  const note = [
+    '<!-- recipe-overrides',
+    'q "Master?"',
+    'single "Keep" id=mk * needs=off prior_keep {}',
+    'single "Sell" id=ms { @tag=t { action=sell } }',
+    'cb "Prior keep" id=prior_keep { @tag=t { export=active } }',
+    '-->',
+  ].join('\n')
+  const q = resolveRecipeOverridesTags(note).questions[0]!
+  // Mutually exclusive (single group), not independent checkboxes.
+  assert.equal(q.groups[0]!.type, 'single')
+  const keep = q.options.find((o) => o.token === 'mk')!
+  // Keep is the stored default and carries the UI gate + off display state.
+  assert.equal(keep.isDefault, true)
+  assert.equal(keep.requiresOptionIds.length, 1)
+  assert.equal(keep.requiresDisabledState, 'off')
+})
+
 export {}

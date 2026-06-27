@@ -61,6 +61,7 @@ import {
   buildQuestionImplicitTokenMap,
   parseOverridesBooleanValue,
   reportInvalidEnumValue,
+  localizeDslDisplay,
 } from './noteOverridesParser'
 
 // Backward-compatible alias for external callers.
@@ -970,6 +971,8 @@ const buildResolvedQuestion = (
   entry: ParsedSgEntry,
   answers: NoteSafeguardOverridesAnswers | null | undefined,
   globalExplicitTokenMap: Map<string, string>,
+  // Display language for the localized prompt/label/detail text (ids stay invariant).
+  lang: string,
 ): SafeguardNoteQuestionDefinition => {
   const { question, index } = entry
   const implicitTokenMap = buildQuestionImplicitTokenMap(question.options)
@@ -983,8 +986,9 @@ const buildResolvedQuestion = (
     const excludedOptionIds = resolveTokens(option.excludedTokens)
     const result: SafeguardNoteQuestionOption = {
       id: option.id,
-      label: option.label,
-      detail: option.detail,
+      // Localize human-facing text; id stays language-invariant.
+      label: localizeDslDisplay(option.label, lang),
+      detail: option.detail == null ? null : localizeDslDisplay(option.detail, lang),
       blocks: option.blocks,
       fallbackBlocks: option.fallbackBlocks,
       recipeFallbackBlocks: option.crossFallbackBlocks as RecipeOverridesSelectorBlock[],
@@ -1007,9 +1011,18 @@ const buildResolvedQuestion = (
       result.sliderMax     = option.sliderParams.max
       result.sliderStep    = option.sliderParams.step
       result.sliderDefault = option.sliderParams.default
-      if (option.sliderParams.marks) result.sliderMarks = option.sliderParams.marks
-      if (option.sliderParams.toggle) result.sliderToggle = option.sliderParams.toggle
-      if (option.sliderParams.unit) result.sliderUnit = option.sliderParams.unit
+      // Localize the human-facing slider text (mark labels, toggle label, unit suffix).
+      if (option.sliderParams.marks) {
+        result.sliderMarks = option.sliderParams.marks.map((mark) => ({
+          ...mark,
+          label: localizeDslDisplay(mark.label, lang),
+          ...(mark.subtext != null ? { subtext: localizeDslDisplay(mark.subtext, lang) } : {}),
+        }))
+      }
+      if (option.sliderParams.toggle) {
+        result.sliderToggle = { ...option.sliderParams.toggle, label: localizeDslDisplay(option.sliderParams.toggle.label, lang) }
+      }
+      if (option.sliderParams.unit) result.sliderUnit = localizeDslDisplay(option.sliderParams.unit, lang)
     }
     return result
   })
@@ -1045,7 +1058,7 @@ const buildResolvedQuestion = (
   const fallback = question.fallback
     ? { blocks: question.fallback.blocks, recipeBlocks: question.fallback.crossBlocks as RecipeOverridesSelectorBlock[] }
     : null
-  return { id, index, prompt: question.prompt, layoutColumns: question.layoutColumns, groups, options, fallback, defaultAnswer, answer }
+  return { id, index, prompt: localizeDslDisplay(question.prompt, lang), layoutColumns: question.layoutColumns, groups, options, fallback, defaultAnswer, answer }
 }
 
 // Resolve stored or default answers against the current option set.
@@ -1109,6 +1122,8 @@ export const parseNoteSafeguardOverrides = (
   answers?: NoteSafeguardOverridesAnswers | null,
   preferredId?: string,
   removedId?: string,
+  // Display language; identity stays language-invariant, only strings localize.
+  lang = 'en-US',
 ): SafeguardNoteQuestionDefinition[] => {
   if (!note) return []
   const parsedEntries: ParsedSgEntry[] = []
@@ -1158,7 +1173,7 @@ export const parseNoteSafeguardOverrides = (
     markerIndex += 1
   }
   const globalExplicitTokenMap = buildGlobalExplicitTokenMap(parsedEntries)
-  const resolved = parsedEntries.map((entry) => buildResolvedQuestion(entry, answers, globalExplicitTokenMap))
+  const resolved = parsedEntries.map((entry) => buildResolvedQuestion(entry, answers, globalExplicitTokenMap, lang))
   // Apply cross-question cascade so exclusions/directives propagate across markers.
   const cascaded = applyGlobalSgOptionExclusions(resolved, preferredId, removedId)
   // Merge spacers into the resolved list in note order.
@@ -1248,8 +1263,10 @@ export const resolveNoteSafeguardOverridesTags = (
   answers?: NoteSafeguardOverridesAnswers | null,
   preferredId?: string,
   removedId?: string,
+  // Display language threaded to the resolved questions.
+  lang = 'en-US',
 ): SafeguardOverridesResolution => {
-  const questions = parseNoteSafeguardOverrides(note, answers, preferredId, removedId)
+  const questions = parseNoteSafeguardOverrides(note, answers, preferredId, removedId, lang)
   // Build a token → current slider value map used by cross-slider $count.TOKEN references.
   // Only sliders with an explicit id=TOKEN marker contribute to this map.
   const sliderValueByToken = new Map<string, number>()

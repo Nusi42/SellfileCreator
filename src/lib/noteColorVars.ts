@@ -47,6 +47,7 @@ export const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'string':            '#98c379',
   'string-bold':       '#c3e88d',
   'string-chip':       '#7ec8e3',
+  'string-locale':     '#c678dd',  // [[de]] locale-segment markers – purple, distinct from chips
   // marker-option outer span intentionally has no color; inner tokens are colored individually.
   'marker-option-kw':  '#56b6c2',  // columns – teal, same family as field names
   'default-kw':        '#e06c75',  // same as selector-at (@) – both are sigil-level markers

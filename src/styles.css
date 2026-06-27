@@ -40,6 +40,7 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string                     { color: var(--note-tok-string, #98c379); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-bold  { color: var(--note-tok-string-bold, #c3e88d); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-chip  { color: var(--note-tok-string-chip, #7ec8e3); }
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-locale { color: var(--note-tok-string-locale, #c678dd); font-weight: 600; }
 /* marker-option [columns=N]: inner tokens carry colors; no flat outer color.
    marker-option-kw (columns) – teal, same family as field names.
    operator (=) and number (N) pick up the general operator/number rules below. */

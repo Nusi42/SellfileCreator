@@ -43,6 +43,7 @@ import {
   parseOverridesBooleanValue,
   reportInvalidEnumValue,
   NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
+  localizeDslDisplay,
 } from './noteOverridesParser'
 import { normalizeRollTargetEntry } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
@@ -108,6 +109,8 @@ export const NOTE_RECIPE_OVERRIDES_RARITY_NAMES = [
 export const NOTE_RECIPE_OVERRIDES_EXPORT_VALS = ['active', 'disabled', 'toggle'] as const
 /** Accepted `keep=` values (per-field SSOT for parse + diagnostics). */
 export const NOTE_RECIPE_OVERRIDES_KEEP_VALS = ['early', 'late'] as const
+/** Accepted `action=` values — flips the recipe's Keep/Sell flag (mirrors `export=`'s toggle shape). */
+export const NOTE_RECIPE_OVERRIDES_ACTION_VALS = ['keep', 'sell', 'toggle'] as const
 /** Accepted `autolate=` rarity-threshold values (per-field SSOT for parse + diagnostics). */
 export const NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS = ['uncommon', 'rare', 'epic'] as const
 /** Enumerated string values for non-numeric fields (export=, keep=, flex=), composed from
@@ -115,6 +118,7 @@ export const NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS = ['uncommon', 'rare', 'epic'] 
 export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
   ...NOTE_RECIPE_OVERRIDES_EXPORT_VALS,  // export=
   ...NOTE_RECIPE_OVERRIDES_KEEP_VALS,    // keep=
+  ...NOTE_RECIPE_OVERRIDES_ACTION_VALS,  // action=  (keep/sell/toggle; 'keep'/'toggle' shared with above)
   ...NOTE_OVERRIDES_BOOLEAN_KEYWORDS,    // flex=
 ] as const
 /** Artifact slot names accepted by the DSL `slots=` assignment field (SSOT from ArtifactType). */
@@ -136,7 +140,7 @@ const TERM_AND_ASSIGNMENT_FIELDS = [
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
   'export',
   ...TERM_AND_ASSIGNMENT_FIELDS,
-  'lvl', 'keep', 'autolate', 'rolltarget',
+  'lvl', 'keep', 'action', 'autolate', 'rolltarget',
   // List-valued fields for slot, substat, main-stat, and artifact-set/metaset filtering (comma-separated).
   'slots', 'substats', 'mainstats', 'gearsets', 'metasets',
 ] as const
@@ -174,6 +178,8 @@ export type RecipeOverridesOperation =
   | { kind: 'rarity'; mode: 'auto' | 'code'; code?: RarityCode }
   | { kind: 'level'; min: LevelMilestone; max: LevelMilestone }
   | { kind: 'keep'; mode: 'early' | 'late' }
+  // Flips the recipe's Keep/Sell flag (recipe.keep). 'toggle' inverts the current value.
+  | { kind: 'keepAction'; action: 'keep' | 'sell' | 'toggle' }
   | { kind: 'autoLate'; threshold: AutoRaritySupplementsThreshold }
   | { kind: 'minRequiredRolls'; value: number | null; ast?: NoteCountAstNode }
   | { kind: 'lockedMinRequiredRolls'; value: number | null; ast?: NoteCountAstNode }
@@ -214,6 +220,7 @@ export const RECIPE_OVERRIDES_OP_FIELD: Record<RecipeOverridesOperation['kind'],
   rarity: 'rarity',
   level: 'lvl',
   keep: 'keep',
+  keepAction: 'action',
   autoLate: 'autolate',
   minRequiredRolls: 'minrolls',
   lockedMinRequiredRolls: 'lockedminrolls',
@@ -293,6 +300,7 @@ export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): stri
     case 'rarity': return op.mode === 'auto' ? 'auto' : rarityCodeToName(op.code).replace(/\s/g, '') || 'any'
     case 'level': return `${op.min}..${op.max}`
     case 'keep': return op.mode
+    case 'keepAction': return op.action
     case 'autoLate': return op.threshold
     case 'minRequiredRolls':
     case 'lockedMinRequiredRolls':
@@ -1322,6 +1330,16 @@ const parseOperations = (
       operations.push({ kind: 'keep', mode: mode as 'early' | 'late' })
       continue
     }
+    if (field === 'action') {
+      if (op !== 'eq') continue
+      // action=keep|sell|toggle flips the recipe's Keep/Sell flag (recipe.keep).
+      const action = valueRaw.trim().toLowerCase()
+      if (!(NOTE_RECIPE_OVERRIDES_ACTION_VALS as readonly string[]).includes(action)) {
+        reportInvalidEnumValue('action', valueToken, NOTE_RECIPE_OVERRIDES_ACTION_VALS, diags, absoluteOffset); continue
+      }
+      operations.push({ kind: 'keepAction', action: action as 'keep' | 'sell' | 'toggle' })
+      continue
+    }
     if (field === 'autolate') {
       if (op !== 'eq') continue
       const raw = valueRaw.trim().toLowerCase()
@@ -1831,6 +1849,8 @@ const buildResolvedQuestion = (
   answers: NoteRecipeOverridesAnswers | null | undefined,
   globalExplicitTokenMap: Map<string, string>,
   onlyExclusionsById: Map<string, string[]>,
+  // Display language for the localized prompt/label/detail text.
+  lang: string,
 ): NoteQuestionDefinition => {
   const { question, index } = entry
   // Build the implicit numeric token map for this question.
@@ -1870,8 +1890,9 @@ const buildResolvedQuestion = (
     )
     return {
       id: option.id,
-      label: option.label,
-      detail: option.detail,
+      // Localize the human-facing text; the id above stays language-invariant.
+      label: localizeDslDisplay(option.label, lang),
+      detail: option.detail == null ? null : localizeDslDisplay(option.detail, lang),
       blocks: option.blocks,
       safeguardBlocks: option.crossBlocks as SafeguardOverridesSelectorBlock[],
       elseBlocks: option.fallbackBlocks,
@@ -1934,7 +1955,7 @@ const buildResolvedQuestion = (
   return {
     id,
     index,
-    prompt: question.prompt,
+    prompt: localizeDslDisplay(question.prompt, lang),
     layoutColumns: question.layoutColumns,
     groups,
     options,
@@ -2294,6 +2315,10 @@ export const parseNoteRecipeOverrides = (
   answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
   removedId?: string,
+  // Display language for prompt/label/detail text. Identity (ids) stays language-invariant;
+  // only the human-facing strings are localized. Defaults to English so non-UI callers
+  // (signatures, pruning) are unaffected.
+  lang = 'en-US',
 ): NoteQuestionDefinition[] => {
   // Short-circuit when no note is present.
   if (!note) return []
@@ -2346,7 +2371,7 @@ export const parseNoteRecipeOverrides = (
   const onlyExclusionsById = buildOnlyExclusionMap(parsedEntries, globalExplicitTokenMap)
   // Resolve each parsed question into a fully-typed definition.
   const resolved = parsedEntries.map((entry) => (
-    buildResolvedQuestion(entry, answers, globalExplicitTokenMap, onlyExclusionsById)
+    buildResolvedQuestion(entry, answers, globalExplicitTokenMap, onlyExclusionsById, lang)
   ))
   // Merge spacers into the resolved list in note order and apply global exclusions.
   return applyGlobalOptionExclusions(
@@ -2448,8 +2473,10 @@ export const resolveRecipeOverridesTags = (
   answers?: NoteRecipeOverridesAnswers | null,
   preferredId?: string,
   removedId?: string,
+  // Display language threaded to the resolved questions (labels/prompts/details).
+  lang = 'en-US',
 ): RecipeOverridesResolution => {
-  const questions = parseNoteRecipeOverrides(note, answers, preferredId, removedId)
+  const questions = parseNoteRecipeOverrides(note, answers, preferredId, removedId, lang)
   const instructions: RecipeOverridesInstructions = []
   const safeguardInstructions: SafeguardOverridesInstruction[] = []
   for (const question of questions) {
@@ -2751,6 +2778,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let nextMinLevel: LevelMilestone | undefined = recipe.minLevel
   let nextMaxLevel: LevelMilestone | undefined = recipe.maxLevel
   let nextKeepMode: 'early' | 'late' = (recipe.earlyKeepMode ?? 'early')
+  // Keep/Sell flag (recipe.keep): tracked separately from the early/late keep-timing above.
+  let nextKeep: boolean = recipe.keep ?? true
   let nextAutoLate: AutoRaritySupplementsThreshold | undefined = recipe.autoRaritySupplementsThreshold
   let nextMinRequiredRolls: number | undefined = recipe.minRequiredRolls
   let nextLockedMinRequiredRolls: number | undefined = recipe.lockedMinRequiredRolls
@@ -2763,6 +2792,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedRarity = false
   let appliedLevel = false
   let appliedKeep = false
+  let appliedKeepAction = false
   let appliedAutoLate = false
   let appliedMinRequired = false
   let appliedLockedMin = false
@@ -2815,6 +2845,12 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       if (op.kind === 'keep') {
         nextKeepMode = op.mode
         appliedKeep = true
+        return
+      }
+      if (op.kind === 'keepAction') {
+        // Mirror the export-mode toggle shape: 'toggle' inverts, else set explicitly.
+        nextKeep = op.action === 'toggle' ? !nextKeep : op.action === 'keep'
+        appliedKeepAction = true
         return
       }
       if (op.kind === 'autoLate') {
@@ -2877,6 +2913,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   const rarityChanged = rarityModeChanged || rarityCodeChanged
   const levelChanged = appliedLevel && (nextMinLevel !== recipe.minLevel || nextMaxLevel !== recipe.maxLevel)
   const keepChanged = appliedKeep && nextKeepMode !== (recipe.earlyKeepMode ?? 'early')
+  // Keep/Sell flag flip — independent of keep-timing normalizers, which key on earlyKeepMode only.
+  const keepActionChanged = appliedKeepAction && nextKeep !== (recipe.keep ?? true)
   const autoLateChanged = appliedAutoLate && nextAutoLate !== recipe.autoRaritySupplementsThreshold
   const minRequiredChanged = appliedMinRequired && nextMinRequiredRolls !== recipe.minRequiredRolls
   const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== recipe.lockedMinRequiredRolls
@@ -2893,6 +2931,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     && !rarityChanged
     && !levelChanged
     && !keepChanged
+    && !keepActionChanged
     && !autoLateChanged
     && !minRequiredChanged
     && !lockedMinChanged
@@ -2922,6 +2961,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     next = normalizeLevelWindow(next)
   }
   if (appliedKeep) next.earlyKeepMode = nextKeepMode
+  // Apply the Keep/Sell flip. No keep-timing normalizer depends on this boolean.
+  if (appliedKeepAction) next.keep = nextKeep
   if (appliedAutoLate) next.autoRaritySupplementsThreshold = nextAutoLate!
   if (appliedMinRequired) {
     next.minRequiredRolls = clampAggregateRollValue(nextMinRequiredRolls ?? 0)

@@ -270,6 +270,61 @@ export const normalizeQuestionText = (value: string): string => (
   value.trim().replace(/\s+/g, ' ')
 )
 
+// ── DSL string localization ─────────────────────────────────────────────────
+// Prompts/labels/details embed locale variants inline so translations travel with
+// the preset file. Syntax: text before the first `[[xx]]` tag is the English base;
+// each `[[xx]]` starts a segment for BCP-47 code `xx` running to the next tag or end.
+//   e.g. `"Keep them[[de]]Behalten"` → base "Keep them", de "Behalten".
+// The English base is the canonical identity source (it feeds questionId/option.id),
+// so adding/removing translations never shifts a question's stable id.
+
+/** Matches a `[[xx]]` / `[[xx-YY]]` locale tag (BCP-47-ish: lang + optional region). */
+const DSL_LOCALE_TAG = /\[\[([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\]\]/gi
+
+/** Split a localized DSL string into its English base + per-locale segments. */
+export const splitDslLocaleSegments = (raw: string): { base: string; byLang: Map<string, string> } => {
+  const byLang = new Map<string, string>()
+  // Fast path: no tag at all → the whole string is the English base.
+  DSL_LOCALE_TAG.lastIndex = 0
+  const first = DSL_LOCALE_TAG.exec(raw)
+  if (!first) return { base: raw, byLang }
+  // Everything before the first tag is the English base.
+  const base = raw.slice(0, first.index)
+  // Walk each tag, capturing the text up to the next tag (or end-of-string).
+  let match: RegExpExecArray | null = first
+  while (match) {
+    const code = match[1]!.toLowerCase()
+    const segStart = match.index + match[0].length
+    const next = DSL_LOCALE_TAG.exec(raw)
+    const segEnd = next ? next.index : raw.length
+    // First definition wins so a duplicate tag can't silently clobber the earlier one.
+    if (!byLang.has(code)) byLang.set(code, raw.slice(segStart, segEnd))
+    match = next
+  }
+  return { base, byLang }
+}
+
+/** English base text only (identity source) — strips all locale tags + segments. */
+export const dslLocaleBase = (raw: string): string => splitDslLocaleSegments(raw).base
+
+/**
+ * Resolve the display text for a language code, falling back to the English base.
+ * Resolution order: exact code (`de-DE`) → language prefix (`de`; `pt-BR`→`pt`) → base.
+ */
+export const localizeDslDisplay = (raw: string, lang: string): string => {
+  const { base, byLang } = splitDslLocaleSegments(raw)
+  if (byLang.size === 0) return base
+  const lower = lang.toLowerCase()
+  // Try the full code first, then the bare language prefix (so one `[[de]]` covers de-DE,
+  // and `[[pt]]` covers pt-PT/pt-BR while a more specific `[[pt-BR]]` still wins above).
+  const prefix = lower.split('-')[0]!
+  const exact = byLang.get(lower)
+  if (exact !== undefined) return exact
+  const byPrefix = byLang.get(prefix)
+  if (byPrefix !== undefined) return byPrefix
+  return base
+}
+
 /** Normalize tag-style tokens for id/exclusion usage. */
 export const normalizeQuestionToken = (raw: string): string | null => {
   const trimmed = raw.trim()
@@ -1058,7 +1113,7 @@ export function parseOverridesOptionBlock<S, O>(
     // If no params were parsed, apply defaults.
     if (!sliderParams) sliderParams = { min: 0, max: 10, step: 1, default: 1 }
     const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock, diags, blockOffset)
-    const baseLabel = normalizeQuestionText(label).toLowerCase()
+    const baseLabel = normalizeQuestionText(dslLocaleBase(label)).toLowerCase()
     const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
     return {
       id, legacyId: id, label, detail, blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks,
@@ -1168,10 +1223,11 @@ export const buildQuestionKey = (
   prompt: string,
   options: Array<{ label: string; groupType: NoteQuestionGroupType }>,
 ): string => {
+  // Hash the English base only so adding/removing `[[xx]]` translations never shifts the id.
   const key = {
-    prompt: normalizeQuestionText(prompt),
+    prompt: normalizeQuestionText(dslLocaleBase(prompt)),
     options: options.map((opt) => ({
-      label: normalizeQuestionText(opt.label),
+      label: normalizeQuestionText(dslLocaleBase(opt.label)),
       group: opt.groupType,
     })),
   }
@@ -1234,7 +1290,8 @@ export function parseOverridesMarkerBody<S, O>(
   )
   // Scope option ids to the question so cross-question exclusions stay unique.
   parsedOptions.forEach((option, index) => {
-    const baseLabel = normalizeQuestionText(option.label).toLowerCase()
+    // English base only so the scoped id is stable regardless of translations on the label.
+    const baseLabel = normalizeQuestionText(dslLocaleBase(option.label)).toLowerCase()
     option.id = baseLabel ? `${questionId}:${baseLabel}#${index}` : `${questionId}:option-${index}`
   })
   return {
