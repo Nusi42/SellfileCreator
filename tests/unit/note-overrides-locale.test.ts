@@ -5,6 +5,7 @@ import {
   localizeDslDisplay,
   dslLocaleBase,
   localizeNoteProse,
+  tokenize,
 } from '../../src/lib/noteOverridesParser.js'
 
 // The inline `[[xx]]` localization primitive used by recipe/safeguard override
@@ -137,6 +138,39 @@ test('inline and line-split authoring of the same group render identically', () 
   }
   assert.equal(localizeNoteProse(split, 'de-DE'), 'A behalten B')
   assert.equal(localizeNoteProse(split, 'en-US'), 'A keep B')
+})
+
+// ── DSL string `[[xx]]` continuation merge (diff-friendly line-split authoring) ──
+// A string token that opens with `[[xx]]` is folded onto the preceding string so the
+// compact inline form and the line-split form tokenize identically.
+
+const sig = (s: string) => tokenize(s).map((t) => `${t.kind}:${t.value}`)
+
+test('split DSL string (EN then [[de]]…) tokenizes identically to inline EN[[de]]DE', () => {
+  const inline = 'q "Account level?[[de]]Account-Level?"'
+  const split = 'q "Account level?"\n  "[[de]]Account-Level?"'
+  assert.deepEqual(sig(split), sig(inline))
+  // The folded string carries the inline value, so localizeDslDisplay still resolves it.
+  const [, q] = tokenize(split)
+  assert.equal(localizeDslDisplay(q!.value, 'de-DE'), 'Account-Level?')
+  assert.equal(localizeDslDisplay(q!.value, 'en-US'), 'Account level?')
+})
+
+test('each positional string + its [[de]] split fold back to the same two strings', () => {
+  // A `cb` with a localized label AND a localized description, fully line-split.
+  const inline = 'cb "`Lbl`[[de]]`Bez`" "Desc.[[de]]Beschr." id=x'
+  const split =
+    'cb "`Lbl`"\n   "[[de]]`Bez`"\n   "Desc."\n   "[[de]]Beschr." id=x'
+  assert.deepEqual(sig(split), sig(inline))
+  const strings = tokenize(split).filter((t) => t.kind === 'string').map((t) => t.value)
+  assert.deepEqual(strings, ['`Lbl`[[de]]`Bez`', 'Desc.[[de]]Beschr.'])
+})
+
+test('a string NOT starting with [[xx]] is never folded (stays a separate token)', () => {
+  // Adjacent plain strings (label + description) remain two distinct string tokens.
+  assert.deepEqual(sig('cb "label" "description"'), [
+    'word:cb', 'string:label', 'string:description',
+  ])
 })
 
 export {}

@@ -25,6 +25,36 @@ export type Token = {
 
 // ── Tokenizer ─────────────────────────────────────────────────────────────────
 
+/** A string value that opens with a `[[xx]]` / `[[xx-YY]]` locale tag (anchored). */
+const LOCALE_CONTINUATION_HEAD = /^\[\[[a-z]{2,3}(?:-[a-z0-9]{2,8})?\]\]/i
+
+/**
+ * Merge "localization continuation" string tokens back onto the string they belong to.
+ * A string token whose value *begins* with a `[[xx]]` locale tag carries one locale's
+ * translation of the immediately preceding string; concatenating it reconstructs the single
+ * `English[[xx]]Localized` value the rest of the parser (and `localizeDslDisplay`) expects.
+ *
+ * This lets a localized DSL string be authored across lines — the English base on one line,
+ * each `[[xx]]` variant on its own line — so a single locale's edit touches one line instead
+ * of a line shared with every other locale. Because the tokenizer treats newlines as plain
+ * whitespace, the split and compact-inline forms produce the same token stream after this
+ * pass. Inline strings never start with `[[xx]]`, so existing single-line notes are
+ * unaffected (no-op).
+ */
+const mergeLocaleContinuationStrings = (tokens: Token[]): Token[] => {
+  const merged: Token[] = []
+  for (const tok of tokens) {
+    const prev = merged[merged.length - 1]
+    // Fold a `[[xx]]…` string onto the preceding string; keep the earlier token's index.
+    if (tok.kind === 'string' && prev?.kind === 'string' && LOCALE_CONTINUATION_HEAD.test(tok.value)) {
+      prev.value += tok.value
+      continue
+    }
+    merged.push(tok)
+  }
+  return merged
+}
+
 /** Tokenize a recipe-overrides or safeguard-overrides block body. */
 export const tokenize = (input: string): Token[] => {
   const tokens: Token[] = []
@@ -102,7 +132,9 @@ export const tokenize = (input: string): Token[] => {
     tokens.push({ kind: 'word', value: input.slice(idx, end), index: idx })
     idx = end
   }
-  return tokens
+  // Fold per-locale string continuations (`"EN"` `"[[de]]DE"`) back into one string token so
+  // every downstream consumer sees the same `EN[[de]]DE` value as the compact inline form.
+  return mergeLocaleContinuationStrings(tokens)
 }
 
 // ── TokenCursor ───────────────────────────────────────────────────────────────
