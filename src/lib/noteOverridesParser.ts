@@ -325,6 +325,114 @@ export const localizeDslDisplay = (raw: string, lang: string): string => {
   return base
 }
 
+/**
+ * Resolve one locale from a map of `code → text`, honoring the same precedence the
+ * inline `[[xx]]` resolver uses (exact full code → bare language prefix → base).
+ *
+ * SSOT: both the inline DSL resolver above and the block-level prose resolver below
+ * route their language pick through this single function, so the fallback rules can
+ * never drift between the two surfaces.
+ */
+const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: string): string => {
+  if (byLang.size === 0) return base
+  const lower = lang.toLowerCase()
+  // Full code (`de-DE`) wins; then the bare prefix (`de`), so one `lang:de` block covers
+  // de-DE while a more specific `lang:pt-BR` still beats a generic `lang:pt`.
+  const prefix = lower.split('-')[0]!
+  return byLang.get(lower) ?? byLang.get(prefix) ?? base
+}
+
+// ── Block-level prose localization (`<!-- lang -->…<!-- end-lang -->`) ────────────
+// Companion to the inline `[[xx]]` DSL localizer, but for whole prose regions in the
+// Note markdown. A *group* is bracketed by an opening `<!-- lang -->` and a closing
+// `<!-- end-lang -->`. Inside, the text before the first `<!-- lang:xx -->` marker is
+// the English BASE; each `<!-- lang:xx -->` marker starts a localized variant running
+// to the next variant marker or to end-lang. At render time exactly one slice survives
+// — the active language (exact→prefix) or, when none matches, the base.
+//
+// Authoring shape (base first, then variants; explicit open + close brackets):
+//   <!-- lang -->
+//   English paragraph(s).
+//   <!-- lang:de -->
+//   Deutscher Absatz / Absätze.
+//   <!-- end-lang -->
+//
+// The explicit `<!-- lang -->` open + `<!-- end-lang -->` close make the group a
+// self-contained unit: it answers the "which paragraphs belong together for fallback"
+// question the preset author raised — a whole group falls back to its base together,
+// never interleaving languages. Markers are plain HTML comments, so legacy renderers /
+// raw .sfc text degrade to base + every variant shown inline (harmless, untranslated).
+
+/** Opens a prose-localization group; English base text follows: `<!-- lang -->`. */
+const PROSE_LANG_GROUP_OPEN_REGEX = /<!--\s*lang\s*-->/gi
+/** Opens a localized variant inside a group: `<!-- lang:de -->`. */
+const PROSE_LANG_VARIANT_REGEX = /<!--\s*lang:([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\s*-->/gi
+/** Closes a prose-localization group: `<!-- end-lang -->`. */
+const PROSE_LANG_CLOSE_REGEX = /<!--\s*end-lang\s*-->/gi
+
+/**
+ * Resolve every `<!-- lang -->…<!-- end-lang -->` prose group in `note` for `lang`,
+ * leaving all other text (and unrelated markers) untouched. Pure string transform run
+ * once at the render boundary, before markdown + override-marker parsing.
+ *
+ * For each group: the base is the text between the group open and the first
+ * `<!-- lang:xx -->` variant marker (or the whole body when there are no variants);
+ * each variant marker starts a slice running to the next variant marker or to the close
+ * marker. The picked slice (active lang exact→prefix, else base) replaces the entire
+ * group including its brackets.
+ */
+export const localizeNoteProse = (note: string, lang: string): string => {
+  // Fast path: no group-open marker → nothing to resolve.
+  PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = 0
+  if (!PROSE_LANG_GROUP_OPEN_REGEX.test(note)) return note
+  let out = ''
+  let cursor = 0
+  // Iterate group-open markers in document order.
+  PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = 0
+  let groupOpen = PROSE_LANG_GROUP_OPEN_REGEX.exec(note)
+  while (groupOpen) {
+    // Emit untouched text before this group, then locate the matching close marker.
+    out += note.slice(cursor, groupOpen.index)
+    const bodyStart = groupOpen.index + groupOpen[0].length
+    PROSE_LANG_CLOSE_REGEX.lastIndex = bodyStart
+    const close = PROSE_LANG_CLOSE_REGEX.exec(note)
+    if (!close) {
+      // Unterminated group: emit the open marker verbatim and stop resolving (degrade safe).
+      out += note.slice(groupOpen.index)
+      cursor = note.length
+      break
+    }
+    const bodyEnd = close.index
+    // Collect variant markers strictly inside the body.
+    PROSE_LANG_VARIANT_REGEX.lastIndex = bodyStart
+    const variants: Array<{ code: string; start: number; tagEnd: number }> = []
+    let v = PROSE_LANG_VARIANT_REGEX.exec(note)
+    while (v && v.index < bodyEnd) {
+      variants.push({ code: v[1]!.toLowerCase(), start: v.index, tagEnd: v.index + v[0].length })
+      v = PROSE_LANG_VARIANT_REGEX.exec(note)
+    }
+    // Base = body text up to the first variant marker (or the whole body when none).
+    const baseEnd = variants.length > 0 ? variants[0]!.start : bodyEnd
+    const base = note.slice(bodyStart, baseEnd)
+    // code→variant: each variant slice runs to the next variant marker or to the close.
+    const byLang = new Map<string, string>()
+    for (let i = 0; i < variants.length; i += 1) {
+      const segStart = variants[i]!.tagEnd
+      const segEnd = i + 1 < variants.length ? variants[i + 1]!.start : bodyEnd
+      // First definition wins, mirroring the inline resolver's duplicate policy.
+      if (!byLang.has(variants[i]!.code)) byLang.set(variants[i]!.code, note.slice(segStart, segEnd))
+    }
+    // Replace the whole group (open marker → close marker) with the picked slice.
+    out += pickLocaleFromMap(byLang, base, lang)
+    cursor = close.index + close[0].length
+    PROSE_LANG_GROUP_OPEN_REGEX.lastIndex = cursor
+    groupOpen = PROSE_LANG_GROUP_OPEN_REGEX.exec(note)
+  }
+  // Tail: everything after the last group.
+  out += note.slice(cursor)
+  return out
+}
+
 /** Normalize tag-style tokens for id/exclusion usage. */
 export const normalizeQuestionToken = (raw: string): string | null => {
   const trimmed = raw.trim()

@@ -114,7 +114,7 @@ import {
   DynamicOverridesPresetMenuItems,
   DynamicOverridesPresetDialogs,
 } from './NoteDynamicOverridesPresets'
-import { formatNoteTagSelector, type NoteTagSelector } from '../lib/noteOverridesParser'
+import { formatNoteTagSelector, localizeNoteProse, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -4278,7 +4278,12 @@ export default function NoteDialog({
   // first paint is already correct. The deferred value is kept only to surface a brief
   // pending indicator while React is still working through a large note transition.
   const deferredNote = useDeferredValue(note)
-  const renderNote = note
+  // Resolve `<!-- lang -->…<!-- end-lang -->` prose groups for the active language before
+  // any markdown / override-marker parsing. Pure text transform: the editor still saves the
+  // raw multi-language source (`note`); only this view-side derived string is localized, so
+  // persisted data is never touched. Memoized on (note, lang) so the downstream marker memos
+  // (which key off `renderNote`) only recompute when the source or language actually changes.
+  const renderNote = useMemo(() => (note == null ? note : localizeNoteProse(note, lang)), [note, lang])
   const notePending = mode === 'view' && deferredNote !== note
 
   // ─── User-override epoch (dungeon-simulator restart signal) ─────────────────

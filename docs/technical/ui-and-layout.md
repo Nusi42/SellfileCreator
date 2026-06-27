@@ -41,6 +41,61 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
 - All `Recipe`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
 - Locale-specific notes should live as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`).
+- **Whenever you do translation/terminology work, update this doc in the same change.** A pass that resolves new terms, settles a loanword, or localizes preset prose for a language must leave its findings behind — extend the glossary below (adding a per-language table when none exists) and the catalog loanword comment — so the next pass starts from the decisions, not from scratch.
+
+### Canonical terminology — the catalog is the source of truth
+
+- **Always resolve a term against the catalog before translating it, never from intuition.** Every gear/RSL keyword already has a fixed rendering in `src/lib/i18n/catalogs/<lang>.ts`; reusing it is mandatory, not a preference. When in doubt, grep the catalog (`rg '\bstatSPD\s*:' src/lib/i18n/catalogs/de-DE.ts`) and copy what it uses.
+- **One English word can map to several catalog terms — disambiguate by meaning, not spelling.** The recurring trap is `Speed`: as a **substat** it is `statSPD` → `SPD` (de-DE keeps `SPD`, not "Geschwindigkeit"); as the **gear set** it is `setSpeed` → `Geschwindigkeit`; as the plain word it is the everyday translation. Pick the variant by context, then use that key's value. The same applies to `Shield` (the *Shield* slot `slotShield` → "Schild" vs. the *Crit Shield* mechanic, which stays English).
+- **Per-language scope — extend this section as you go.** Only **de-DE** has been analyzed so far; the glossary and loanword list below exist for that locale only. Before localizing preset prose (or any large copy) into another language, **build the same artifacts for that locale first**: derive its canonical terms from its catalog, decide its intentional loanwords, and (a) add a glossary table here under its own heading and (b) drop a loanword comment at the top of its `src/lib/i18n/catalogs/<lang>.ts`. Treat "no glossary for this language yet" as a blocker to be cleared, not a detail to skip — that is how this section stays the single reference instead of being re-discovered each time. fr-FR, es-ES, it-IT, pt-BR, pt-PT, ru-RU, uk-UA, and tr-TR are still **TODO**.
+- **de-DE reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | de-DE (catalog key) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | Teil / Teile | not "Stück" |
+  | gear | Gear | loanword (README uses it) |
+  | gear set / set | Set | loanword |
+  | stat (bare) | Wert / Werte | translated, not the loanword "Stat". Whole family shares "-wert": **Wert / Unterwert / Hauptwert**. Dative plural takes -n ("auf gesperrten Werten"). |
+  | substat(s) | Unterwert / Unterwerte | not "Substat"/"Nebenwert" — translated (the TS key `statSubstat` etc. stay English) |
+  | main stat | Hauptwert | not "Mainstat"/"Hauptstat"/"Main-Stat". Masculine (der Hauptwert) → "jeder Hauptwert", genitive "des Hauptwerts" |
+  | SPD (the stat) | SPD (`statSPD`) | also the gloss "SPD (Geschwindigkeit)" once on first mention |
+  | Speed (the set) | Geschwindigkeit (`setSpeed`) | only when the literal *Speed* set is meant |
+  | rank | Rang | keep "Sternstufe" distinct — that is the **star rank**, not the upgrade level |
+  | rarity | Seltenheit | |
+  | level (gear upgrade 0–16) | Level | **always "Level", never "Stufe"** — including control labels; das Level (neuter) → "auf **jedem** Level". Do not confuse with "Sternstufe" (star rank). |
+  | faction | Fraktion | |
+  | slot (the concept/word) | Slot | loanword (README uses "pro Slot") |
+  | slot **names** | Waffe / Helm / Schild / Handschuhe / Brustplatte / Stiefel / Ring(e) / Amulett(e) / Banner | from `slot*` keys |
+  | artifacts | Artefakte | the 6 upper slots; never "Rüstung"/"armor" |
+  | accessories | Schmuckstücke | rings/amulets/banners |
+  | keep / sell / protect | behalten / verkaufen / schützen | |
+  | safeguards | Schutzregeln (`safeguardsTabLabel`) | English keeps "Safeguards"; de-DE translates |
+  | (dynamic) overrides | Überbrückungen (`noteDynamicOverrides*`) | English keeps "overrides"; de-DE translates |
+  | Chaos Ore | Chaos-Erz (`filterChaosOre`) | |
+  | sell file (the file) | Sellfile | one word, no space — never "Sell File"/"Sell-Datei" |
+  | rolls / drops | Rolls / Drops | **intentional loanwords** |
+
+  de-DE **intentional loanwords** (do NOT "correct" to German): Gear, Set, SPD, Banner, Slot, Rolls, Drops. The whole **stat** family is translated, not a loanword: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` etc. TS keys stay English; `[[stat:…]]` tokens are untouched).
+
+- **Reserve "rules"/"Regeln" for HSF rules.** User-facing keep/sell logic is *recipes* (`recipeMany` → "Rezepte"); calling those "rules"/"Regeln" confuses them with the engine's HSF rules. The same applies inside preset prose.
+- **Keep terminology notes here, not in the catalogs.** Catalog files must stay structurally identical across locales (same key order, count, indentation, and comment blocks — `sync-catalog-comments` enforces this), so do **not** add a glossary/loanword comment to `<lang>.ts`. Record per-language decisions in this doc instead.
+
+### Preset Note localization (`presets/*.sfc`)
+
+The bundled preset Notes (e.g. `presets/lategame.sfc`) are localized **inside the `.sfc`**, not via the catalog, because the Note is portable user data that must travel with the file. Two primitives, both resolved before markdown render, both routing their language pick through one SSOT (`pickLocaleFromMap` in `src/lib/noteOverridesParser.ts`, precedence exact code → bare language prefix → English base). See `docs/technical/app-behavior.md` ("Note localization") for the runtime wiring; the **authoring + translation rules** live here:
+
+- **Inline DSL segments `[[xx]]`** — inside any quoted override-DSL string (`q`/`cb`/`rb`/`single` labels, details, slider `unit`/`toggle`/`marks`). Text **before** the first `[[xx]]` is the English base and the identity source; each `[[xx]]` runs to the next `[[` or the string's closing quote.
+- **Block prose groups `<!-- lang -->…<!-- lang:de -->…<!-- end-lang -->`** — for whole markdown regions (paragraphs, headings, colored/`data-blink` spans). Base (English) first, then one `<!-- lang:xx -->` variant per language; the whole group falls back to its base together.
+- **Highlighting convention (keep consistent across the whole Note):**
+  - **Exact** recipe/safeguard names (as they appear in the builder) → backtick chips, verbatim, **not** localized.
+  - **Group / rule-family** names (conceptual; they span several recipes — e.g. *Any Set recipes*) → *italic*, and localizable. Verify against the recipe data whether a phrase is an exact recipe or a group: groups map to `SellfileVisibility: "Separator"` header rows, exact recipes to `"Active"` rows.
+  - **Gear-set names** and other in-game terms → **bold**. Set names stay English even in translated prose (Stoneskin, Savage …), but the surrounding words localize.
+- **Translation-pass pitfalls (each one bit us at least once):**
+  - **Never let a German edit touch English text.** Operate per-region: only inside `<!-- lang:de -->…<!-- end-lang -->` or a precisely-bounded `[[de]]` segment. A naive `[[de]]…`-to-next-`[[` capture **overruns** into the following field's English base or the trailing DSL `{ … }` block — re-check English bases after any scripted replace, and revert leaks (we corrupted English "Chaos Ore"/"Safeguards" values this way).
+  - **DSL code is not prose.** `slots=Weapon,Helmet,…`, `keep=early`, `rank=6`, `@tag=…` are engine tokens — leave them English regardless of language.
+  - **Mind German gender/agreement when swapping a noun.** `Level` (neuter) → `Stufe` (feminine) breaks `jedem Stufe` → must become `jeder Stufe`. Re-scan article agreement after a term swap.
+  - **Verify, don't assume, factual claims.** Read the actual recipe defaults and the override that changes them before describing behavior (we had the Utility group's default level window backwards). Match the tone of the other override-aware paragraphs.
+  - **Markup parity:** EN and DE variants must carry the same count of `**bold**`, backtick chips, and `<span>` open/close tags. After edits, assert `(**count) % 2 === 0` and that override markers (`recipe-overrides`, `safeguard-overrides`, `dungeon-simulator`, `if-no-endpoint`) survive resolution unchanged in every language.
 
 ## Tooltips and Context Hints
 
