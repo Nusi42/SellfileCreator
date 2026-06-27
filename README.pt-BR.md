@@ -1,20 +1,20 @@
 ﻿# Sellfile Creator for RSL Helper
 
-O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper — defina filtros de equipamento por conjunto, slot, estatística principal, subestatísticas e mais, visualize os resultados ao vivo e exporte arquivos de venda prontos para uso em segundos.
+O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper — defina filtros de equipamento por conjunto, slot, stat principal, substats e mais, visualize os resultados ao vivo e exporte arquivos de venda prontos para uso em segundos.
 
 > Ferramenta criada por fãs. Não tem ligação com a Plarium, Raid: Shadow Legends ou RSL Helper. Todas as marcas mencionadas pertencem aos respectivos proprietários.
 
 ## Funcionalidades
 
 - **Construtor de receitas** — crie receitas de manter/vender com filtros por slot,
-  conjunto, rank, raridade, estatística principal, subestatísticas (com mínimos de rolls e
+  conjunto, rank, raridade, stat principal, substats (com mínimos de rolagens e
   objetivos), facção e marcos de nível. Construa uma biblioteca reutilizável e exporte como
   arquivo de venda RSL Helper (`.hsf`) com um clique.
 - **Prévia Sellfile** — pré-visualize o arquivo de venda RSL Helper
   gerado na aba Pré-visualização antes de exportar.
 - **Metaconjuntos** — agrupe conjuntos de equipamentos (ex. Velocidade + Percepção) em
   coleções nomeadas e reutilize-os em receitas e salvaguardas.
-- **Inspetor de equipamentos** — conecte-se ao RSL Helper para sincronização ao vivo ou carregue um arquivo `.db` para pré-visualizar quais itens correspondem a cada receita e quantos seriam mantidos ou vendidos.
+- **Inspetor de Equipamento** — conecte-se ao RSL Helper para sincronização ao vivo ou carregue um arquivo `.db` para pré-visualizar quais itens correspondem a cada receita e quantos seriam mantidos ou vendidos.
 - **Comparação de equipamento** — ative uma visão de antes/depois para ver exatamente quais peças mudam entre *manter* e *vender* enquanto você ajusta receitas ou testa as substituições dinâmicas. Um chip mostra os totais atuais; uma lista lado a lado mostra cada peça que mudou.
 - **Simulador de masmorras** — veja os percentuais de chance de manter para o Cavaleiro do
   Fogo, o Dragão e o Golem de Gelo nos níveis de dificuldade e aprimoramento para confirmar
@@ -24,8 +24,8 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
   reduziria uma combinação protegida abaixo de sua cota.
 - **Análise de Equipamentos** — painel analítico com cards KPI, gráficos de filtro cruzado
   (slot, rank, raridade, fonte, nível), um mapa de árvore de conjuntos, barras de
-  estatísticas principais e um radar de subestatísticas. Clique em qualquer gráfico para
-  filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de equipamentos.
+  stats principais e um radar de substats. Clique em qualquer gráfico para
+  filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de Equipamento.
 - **Venda final** — um único toggle adiciona regras de venda coringa para equipamentos não
   correspondidos em intervalos de nível configuráveis, para que nada escape.
 - **Temas** — alterne entre o modo escuro e o claro, personalize cores e raio de borda com
@@ -66,9 +66,9 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - Facção: Restrinja regras de acessórios a uma facção específica ao montar uma equipe. Anéis, Amuletos e Estandartes respeitam o filtro; os artefatos ignoram a facção, então `Qualquer` é a escolha segura.
 - Slots: Foque a regra em peças específicas (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
 - Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando quiser apenas essas combinações. Vazio = todos os sets.
-- Mainstats: Defina quais os mainstats aceitos.
-  - Pode selecionar vários; sem seleção = qualquer mainstat.
-  - Ao escolher vários mainstats, o export gera uma linha por mainstat para manter tudo explícito.
+- Stats principais: Defina quais os stats principais aceitos.
+  - Pode selecionar vários; sem seleção = qualquer stat principal.
+  - Ao escolher vários stats principais, o export gera uma linha por stat principal para manter tudo explícito.
 - Substats: Indique quais contam.
   - Clique para ativar ou desativar um substat. Os bloqueados sempre aparecem nas linhas geradas.
   - Use o cadeado (🔒) ao lado do rótulo para tornar o stat obrigatório; o clique direito abre as ações rápidas de bloqueio e limites de rolagem.
@@ -95,7 +95,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - Limiares cedo: Quando as exigências podem ser cumpridas, as linhas caem nos seus Alvos de substats e estabilizam. Antes disso, Cedo mostra apenas combinações viáveis.
 - Soma de rolagens (Σ): As rolagens mínimas referem-se à soma total sobre os substats selecionados no nível alvo.
 - Curingas com soma mínima: Com apenas substats ★ e uma soma mínima > 0, Cedo apresenta apenas as divisões mínimas por marco. Tarde repete essas divisões nos marcos iniciais e em +16.
-- Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
+- Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta a rolagem extra logo em +0.
 
 ### Alvos de substats
 - O botão «Alvos de substats…» no canto superior direito do construtor abre a aba **Alvos de substats** no diálogo Ferramentas.
@@ -115,15 +115,15 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
 - Sem `Venda final`, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o arquivo exportado lista os sets um a um.
 
-### Manter únicos
-- Mude o construtor para o modo **Salvaguardas** usando o botão de alternância acima do painel do construtor para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma salvaguarda também ativa automaticamente).
-- As regras de Manter únicos não “consomem” itens—cada regra avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias regras, conta para todas.
-- Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
+### Salvaguardas
+- Mude o construtor para o modo **Salvaguardas** usando o botão de alternância acima do painel do construtor para marcar as combinações que não quer vender nunca. Ative `Ativar Salvaguardas` para deixar o scanner adicionar linhas de manter (editar uma salvaguarda também ativa automaticamente).
+- As regras de Salvaguardas não “consomem” itens—cada regra avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias regras, conta para todas.
+- Cada salvaguarda permite escolher slot, sets ou meta-sets, ranks, raridades, stats principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a regra é emitida: `Desativada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações que ainda faltam para proteger novos drops até a próxima atualização da BD.
 - Substats são opcionais: escolha um ou mais para contar somente itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam estar todos ou se cada substat tem sua própria quota. Deixar vazio permite qualquer substat.
-- As substats selecionadas sempre são ranqueadas pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todas as Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
-- `Ponderar por rank` (a chip ao lado de `Por atributo principal`) dá vantagem de pontuação ao equipamento de rank maior — apenas no **atributo principal**: um 6★ conta cheio, um 5★ cerca de 85 %. Assim um 6★ supera um 5★ de mesmo atributo principal com substats só um pouco melhores. Só refina a ordem dentro do mesmo atributo principal (não é um bônus geral para toda peça de rank maior) e usa o atributo principal no nível máximo, então subir de nível nunca muda a pontuação. Requer ao menos um substat selecionado; ligado por padrão em regras novas. Cada peça é comparada com a melhor do seu próprio slot e atributo principal.
-- `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por salvaguarda`.
+- Os substats selecionados sempre são ranqueados pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todas as Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
+- `Ponderar por rank` (a chip ao lado de `Por stat principal`) dá vantagem de pontuação ao equipamento de rank maior — apenas no **stat principal**: um 6★ conta cheio, um 5★ cerca de 85 %. Assim um 6★ supera um 5★ de mesmo stat principal com substats só um pouco melhores. Só refina a ordem dentro do mesmo stat principal (não é um bônus geral para toda peça de rank maior) e usa o stat principal no nível máximo, então subir de nível nunca muda a pontuação. Requer ao menos um substat selecionado; ligado por padrão em regras novas. Cada peça é comparada com a melhor do seu próprio slot e stat principal.
+- `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por stat principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por salvaguarda`.
 - O tooltip de `Quantidade necessária` mostra a divisão ativa de escopo (`X por slot × por conjunto × ...`) e uma linha simples de faltantes (`({missing} faltando)`).
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
 - **Opções ignorar** (chips ao lado do interruptor de ativação da regra) afinam o que cada regra conta:
@@ -170,7 +170,7 @@ O Sellfile Creator facilita a criação de arquivos de venda para o RSL Helper �
   - Evite **100 %**: só coincide com peças completamente melhoradas já mantidas pelo top-N padrão, então não adiciona nada além do modo padrão.
 
 #### Escopos de quota em resumo
-Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salvaguarda» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.
+Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salvaguarda» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por stat principal` para impor misturas Slot × Set × Facção × Stat principal de forma independente.
 
 | Botão de escopo | Comportamento da cota | Quando brilha |
 | --- | --- | --- |
@@ -178,19 +178,19 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salv
 | `Por slot` | Duplica a cota por slot. | Trava dois anéis, dois amuletos e dois estandartes separadamente. |
 | `Por conjunto` | Duplica a cota por set/metaset. | Acompanha Stoneskin e Protection sem misturar os drops. |
 | `Por facção` | Duplica a cota por facção. | Garante três anéis Merciless para cada facção. |
-| `Por atributo principal` | Duplica a cota por mainstat. | Mantém ACC e RES em banners separados. |
+| `Por stat principal` | Duplica a cota por stat principal. | Mantém ACC e RES em banners separados. |
 
 #### Exemplos do mundo real
 | Cenário | Filtros | Quantidade necessária | Botões de escopo | O que o scanner garante |
 | --- | --- | --- | --- | --- |
-| Acabando as botas SPD | Slot = Botas, Atributo principal = SPD, Sets vazios | `5` | `Por salvaguarda` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
-| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Atributo principal = CDMG% | `3` | `Por salvaguarda` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
+| Acabando as botas SPD | Slot = Botas, Stat principal = SPD, Sets vazios | `5` | `Por salvaguarda` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
+| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Stat principal = CDMG% | `3` | `Por salvaguarda` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
 | Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `3` | `Por facção` | Cada facção mantém três anéis Merciless próprios. |
-| Anéis HP% por facção | Slot = Anel, Atributo principal = HP%, Sets vazios | `2` | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
-| Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Atributo principal vazios | `5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
-| Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Atributo principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda dois Stoneskin e dois Protection para cada slot de acessório. |
-| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
-| Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
+| Anéis HP% por facção | Slot = Anel, Stat principal = HP%, Sets vazios | `2` | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
+| Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Stat principal vazios | `5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
+| Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda dois Stoneskin e dois Protection para cada slot de acessório. |
+| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém as cinco melhores rolagens de SPD entre os acessórios (empates incluídos). |
+| Estandartes de ACC com SPD | Slot = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
 
 Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de ativar o modo Salvaguardas para que o scanner veja equipamentos reais. Clique numa salvaguarda para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
 
@@ -199,22 +199,22 @@ Abra «Ferramentas» e vá para **Drops de masmorra**. Ele simula o farm em masm
 
 - Escolha uma masmorra e um estágio.
 - Modo de simulação:
-  - `Subida de nível`: os rolls param assim que o item seria vendido, então reflete o up real.
-  - `Instantâneo`: os rolls sempre vão até +16, mesmo se o item teria sido vendido antes.
+  - `Subida de nível`: as rolagens param assim que o item seria vendido, então reflete o up real.
+  - `Instantâneo`: as rolagens sempre vão até +16, mesmo se o item teria sido vendido antes.
 - A tabela mostra drops mantidos divididos por todos os drops daquele estágio em +0 / +4 / +8 / +12 / +16.
-- Clique em uma célula para o detalhamento de slot + stat principal, depois abra **Chances de subatributos específicos** para ver chances exatas e estimativas de execuções.
+- Clique em uma célula para o detalhamento de slot + stat principal, depois abra **Chances de substats específicos** para ver chances exatas e estimativas de execuções.
 
 Notas:
-- Usa suas regras atuais de Manter/Vender, incluindo Venda final e Manter únicos.
+- Usa suas regras atuais de Manter/Vender, incluindo Venda final e Salvaguardas.
 - Roda cerca de 100.000 drops por estágio e atualiza enquanto roda.
-- Taxas de drop e rolls são simulados; trate os números como estimativas.
+- Taxas de drop e rolagens são simuladas; trate os números como estimativas.
 
 ### Análise de Equipamentos
 Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma visão analítica do seu equipamento importado.
 
 **Cartões KPI (linha superior):** Oito cartões de porcentagem — **Taxa 6★**, **Lendária+**, **Maxed (+16)**, **Equipada**, **Bloqueada no cofre**, **Chaos'd**, **Glyphed**, **Ascendida** — cada um com um tooltip.
 
-**Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Grau**, **Raridade**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
+**Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Rank**, **Raridade**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
 - Clique em um segmento para adicioná-lo como filtro dessa dimensão; todos os outros gráficos se restringem imediatamente ao equipamento correspondente. Cada gráfico exclui sua própria dimensão para sempre mostrar seu intervalo completo.
 - Duplo clique em um segmento do donut **Slots** para selecionar um grupo inteiro de uma vez: qualquer peça de artefato (Arma, Elmo, Escudo, Luvas, Couraça, Botas) seleciona os seis slots de artefato; qualquer acessório (Anel, Amuleto, Estandarte) seleciona os três.
 - Os donuts **Slots** e **Fonte** exibem ícones de categoria. O donut **Nível** rotula cada arco com o texto do nível.
@@ -222,19 +222,19 @@ Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma vis�
 
 **Treemap de Sets:** Exibido abaixo dos donuts. Cada bloco representa um set de equipamento; a área do bloco é proporcional ao número de itens. O fundo do bloco é dividido da esquerda para a direita em faixas coloridas por resultado (Vender / Protegido / Guardar / Sem correspondência). Clique em um bloco para adicionar aquele set como filtro cruzado.
 
-**Chips de filtro:** As seleções ativas para cada dimensão aparecem como chips abaixo dos donuts; clique no ícone de excluir em um chip para remover apenas aquele filtro. As seleções de mainstat também aparecem como chips. O botão **Limpar filtros** redefine todas as dimensões de uma vez.
+**Chips de filtro:** As seleções ativas para cada dimensão aparecem como chips abaixo dos donuts; clique no ícone de excluir em um chip para remover apenas aquele filtro. As seleções de stat principal também aparecem como chips. O botão **Limpar filtros** redefine todas as dimensões de uma vez.
 
-**Barra de Mainstats:** Mostra a frequência de cada mainstat no equipamento filtrado. Clique em uma barra para detalhar — o gráfico de frequência de substats se atualiza para mostrar apenas substats do equipamento com aquele mainstat selecionado. Clique novamente para desmarcar.
+**Barra de Stats principais:** Mostra a frequência de cada stat principal no equipamento filtrado. Clique em uma barra para detalhar — o gráfico de frequência de substats se atualiza para mostrar apenas substats do equipamento com aquele stat principal selecionado. Clique novamente para desmarcar.
 
 **Chance de melhoria:** Quão provável é que seu equipamento melhore, agrupado em faixas de 10%. O número à direita indica quantos itens caem em cada faixa. Equipamentos sem salvaguarda e equipamentos maximizados em +16 ficam de fora. Clique em uma faixa para mostrar apenas aquele equipamento.
 
-**Radar de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por mainstat) como gráfico de radar. Clique em uma marca de eixo para selecioná-la como pivô de co-ocorrência — o radar se restringe então ao equipamento que contém todos os substats selecionados ao mesmo tempo (até 4 pivôs). Os pivôs ativos aparecem como chips abaixo do gráfico; × remove um, **Limpar filtros** remove todos.
+**Radar de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por stat principal) como gráfico de radar. Clique em uma marca de eixo para selecioná-la como pivô de co-ocorrência — o radar se restringe então ao equipamento que contém todos os substats selecionados ao mesmo tempo (até 4 pivôs). Os pivôs ativos aparecem como chips abaixo do gráfico; × remove um, **Limpar filtros** remove todos.
 
-**Mapa de calor Slot × Mainstat:** Contagem de itens por slot (colunas) × mainstat (linhas). Clique em um cabeçalho de coluna ou em uma célula para filtrar por aquele slot.
+**Mapa de calor Slot × Stat principal:** Contagem de itens por slot (colunas) × stat principal (linhas). Clique em um cabeçalho de coluna ou em uma célula para filtrar por aquele slot.
 
 **Aba Estatísticas de campeões:** Totais de substats somados nas peças equipadas por campeão. Filtre por localização (**Todos** / **Coleção** / **Cofre**), ative apenas **Totalmente equipado** e inclua ou exclua os glifos. Exibe séries Min/Média/Mediana/Máx.
 
-**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grade 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique em um slot preenchido para selecionar essa peça — a seleção é compartilhada com o Inspetor de equipamento. Ative **Simular venda** para pintar de vermelho os slots cuja peça seria vendida e contá-los como ausentes, ou **Mostrar completos** para também listar campeões totalmente equipados.
+**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grade 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique em um slot preenchido para selecionar essa peça — a seleção é compartilhada com o Inspetor de Equipamento. Ative **Simular venda** para pintar de vermelho os slots cuja peça seria vendida e contá-los como ausentes, ou **Mostrar completos** para também listar campeões totalmente equipados.
 
 **Botões:**
 - **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e a copia para a área de transferência. Nota: o Equipamento de campeões não é incluído no instantâneo.

@@ -1,18 +1,18 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper — définissez des filtres par ensemble, emplacement, stat principale, sous-stats et plus encore, prévisualisez les résultats en direct et exportez des fichiers de vente prêts à l'emploi en quelques secondes.
+Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper — définissez des filtres par set, emplacement, stat principale, sous-stats et plus encore, prévisualisez les résultats en direct et exportez des fichiers de vente prêts à l'emploi en quelques secondes.
 
 > Projet de fans indépendant. Aucune affiliation avec Plarium, Raid: Shadow Legends ou RSL Helper. Toutes les marques citées appartiennent à leurs propriétaires.
 
 ## Fonctionnalités
 
 - **Générateur de recettes** — créez des recettes de conservation/vente nommées avec des
-  filtres par emplacement, ensemble, rang, rareté, stat principale, sous-stats (avec
+  filtres par emplacement, set, rang, rareté, stat principale, sous-stats (avec
   minimums de rolls et cibles), faction et paliers de niveau. Constituez une bibliothèque
   réutilisable et exportez-la en fichier de vente RSL Helper (`.hsf`) en un clic.
 - **Aperçu du Sellfile** — prévisualisez le fichier de vente RSL Helper généré
   dans l'onglet Aperçu avant d'exporter.
-- **Métasets** — regroupez des ensembles d'équipements (ex. Vitesse + Perception) en
+- **Métasets** — regroupez des sets d'équipement (ex. Vitesse + Perception) en
   collections nommées et réutilisez-les dans vos recettes et garde-fous.
 - **Inspecteur d'équipement** — connectez RSL Helper pour une synchronisation en direct ou chargez un fichier `.db` pour prévisualiser les objets correspondant à chaque recette et combien seraient conservés ou vendus.
 - **Comparaison d'équipement** — activez une vue avant/après pour voir exactement quelles pièces basculent entre *garder* et *vendre* lorsque vous ajustez des recettes ou essayez les surcharges dynamiques. Une puce affiche les totaux en cours ; une liste côte à côte montre chaque pièce modifiée.
@@ -20,13 +20,13 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   Chevalier du Feu, le Dragon et le Golem de Glace selon les niveaux de difficulté et de
   mise à niveau pour confirmer l'effet de votre fichier de vente lors du farming ou de
   l'amélioration d'équipements.
-- **Garde-fous** — définissez des combinaisons emplacement/ensemble/stat que vous ne
+- **Garde-fous** — définissez des combinaisons emplacement/set/stat que vous ne
   voulez jamais perdre ; le scanner injecte automatiquement des règles de conservation dans
   le fichier de vente lorsque votre configuration risquerait d'épuiser une combinaison
   protégée en dessous de son quota.
 - **Analyse d'équipement** — tableau de bord analytique avec indicateurs clés, graphiques
   à filtre croisé (emplacement, rang, rareté, source, niveau), une arborescence des
-  ensembles, des barres de stats principales et un radar de sous-stats. Cliquez sur un
+  sets, des barres de stats principales et un radar de sous-stats. Cliquez sur un
   graphique pour filtrer tous les autres ; envoyez le filtre actif directement dans
   l'Inspecteur d'équipement.
 - **Vente finale** — un seul bouton ajoute des règles de vente fourre-tout pour les
@@ -69,7 +69,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
     - Exemple : Bannière SPD/ATQ% avec 2 jets sur ATQ%. Rareté = Auto, Seuils = Tard, Auto ≥ Épique. Résultat : lignes Épiques à chaque palier et ≥ Légendaire à +8/+12 pour garder les pièces rares admissibles.
   - Avant +16, le builder s’aligne sur le nombre de sous-stats réellement possible pour la rareté. À +16, votre objectif complet s’applique.
 - Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; les artefacts l’ignorent, donc `Peu importe` reste le choix sûr.
-- Slots : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les slots.
+- Emplacements : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors emplacement ne correspondent pas. Laissez vide pour couvrir tous les emplacements.
 - Sets & Méta-sets : Filtrez sur des sets explicites ou des méta-sets nommés quand seules certaines combinaisons sont autorisées. Vide = tous les sets.
 - Stat principale : Définissez les stats principales acceptées.
   - Sélection multiple autorisée ; aucune sélection = tout est valide.
@@ -80,27 +80,27 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   - `Peu importe` réinitialise la sélection et signifie « aucune restriction ». Dès que vous choisissez des sous-stats précis, `Peu importe` se désactive.
   - Chaque ligne applique `max(Obligatoires, verrouillés)` avec un maximum de quatre sous-stats. Verrouiller réserve donc la place.
 - Bascule Flex : Si vous avez plus d’options que de sous-stats requis, Flex répartit ces options sur toutes les permutations valides pour générer chaque combinaison. Les verrouillés restent fixés et la bascule se désactive seule lorsqu’il n’y a plus rien à faire tourner.
-- Indicateur de jets : Chaque sous-stat sélectionné affiche un cercle pour les améliorations.
+- Indicateur de jets : Chaque sous-stat sélectionnée affiche un cercle pour les améliorations.
   - Clic gauche augmente l’exigence ; clic droit la réduit.
 - Depuis ★ : gauche passe sur un minimum vert (0→1→…→5), droite sur une limite supérieure rouge (0→1→…→4).
 - Avec une limite supérieure rouge, gauche réduit le plafond (1→0→★) et droite l’augmente (0→1→…→4→★). Minimum et limite supérieure s’excluent mutuellement.
 - Objectifs de jets (Base/+1…+5) : Clique droit sur une sous-stat sélectionnée pour ouvrir la grille des objectifs. « Base » capture la valeur à +0 et chaque champ +N suit la valeur après N jets supplémentaires. Laisse un champ vide pour réutiliser tes Objectifs de sous-stats ou clique sur « Utiliser les objectifs globaux de sous-stats » pour effacer l’override. Les puces de l’aperçu se mettent à jour instantanément pour vérifier les valeurs avant l’export.
-- Sous-stats obligatoires : Définissez combien de vos sous-stats sélectionnés doivent être présents.
+- Sous-stats obligatoires : Définissez combien de vos sous-stats sélectionnées doivent être présentes.
   - `Auto` reste aligné sur votre sélection (max. quatre).
   - Les sous-stats verrouillés (🔒) comptent toujours et des avertissements apparaissent en cas de combinaison impossible.
-- Jets minimaux (global) : Fixez le nombre total de jets que doivent partager vos sous-stats sélectionnés ou verrouillés. `0` saute le contrôle global. Tôt n’affiche que les divisions capables d’atteindre l’objectif à +16.
+- Jets minimaux (global) : Fixez le nombre total de jets que doivent partager vos sous-stats sélectionnées ou verrouillées. `0` saute le contrôle global. Tôt n’affiche que les divisions capables d’atteindre l’objectif à +16.
 - Jets minimaux verrouillés (🔒) apparaissent dès qu’au moins une sous-stat est verrouillée. Cliquez sur un nombre dans la ligne du cadenas pour réserver ce nombre de jets aux stats verrouillées uniquement ; le reste du builder continue de suivre le minimum global. Si la valeur verrouillée atteint ou dépasse le nombre global surligné, le badge global disparaît pour laisser le cadenas comme seul plancher. Déverrouiller la sous-stat (ou appuyer sur Auto) efface les deux badges ; choisir ensuite une valeur globale plus faible rallume le badge global à côté du cadenas pour identifier le plancher appliqué à chaque stat.
 - Exemple : verrouillez SPD et TRC, mettez Jets minimaux = 3 puis réglez la ligne 🔒 sur 2. Le builder exige maintenant 3 jets totaux sur toutes les sous-stats sélectionnées, dont au moins 2 doivent tomber sur SPD/TRC verrouillés. Placer le cadenas sur 3 efface automatiquement le badge global car les deux planchers deviendraient identiques.
 - Seuils par jalons : Contrôlez la façon dont les minima par stat s’appliquent avant +16 lorsque vous exigez des jets minimum.
   - `Tôt` suit les jets déjà acquis à chaque palier.
   - `Tard` demande uniquement ce qui doit exister maintenant pour que l’objectif +16 reste atteignable.
-  - Le basculement ne compte que si un sous-stat a Min > 0 ou si le minimum global est > 0.
+  - Le basculement ne compte que si une sous-stat a Min > 0 ou si le minimum global est > 0.
 
 ### Niveaux & jets : mémo rapide
 - Seuils Tôt : dès que vos exigences sont réalisables, les lignes retombent sur vos Objectifs de sous-stats et se stabilisent. Avant cela, Tôt n’affiche que des combinaisons valides.
-- Somme Σ : les jets minimum s’appliquent à la somme totale des jets sur les sous-stats sélectionnés au niveau cible.
+- Somme Σ : les jets minimum s’appliquent à la somme totale des jets sur les sous-stats sélectionnées au niveau cible.
 - Jokers et somme minimale : Avec uniquement des sous-stats ★ et une somme minimale > 0, Tôt n’affiche que les divisions minimales par palier. Tard répète ces divisions aux paliers précoces et à +16.
-- Mythique (5 jets) : La rareté Mythique peut atteindre cinq jets sur un sous-stat à +16 (contre quatre sinon). Lorsqu’elle est autorisée, le générateur tient compte du jet supplémentaire dès +0.
+- Mythique (5 jets) : La rareté Mythique peut atteindre cinq jets sur une sous-stat à +16 (contre quatre sinon). Lorsqu’elle est autorisée, le générateur tient compte du jet supplémentaire dès +0.
 
 ### Objectifs de sous-stats
 - Le bouton « Objectifs de sous-stats… » en haut à droite du builder ouvre l’onglet **Objectifs de sous-stats** dans la fenêtre Outils.
@@ -123,12 +123,12 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
 ### Garde-fous
 - Basculez le builder en mode **Garde-fous** à l’aide du bouton de basculement au-dessus du panneau builder pour marquer les combinaisons que vous refusez de vendre. Activez `Garde-fous` pour laisser le scanner ajouter des lignes de conservation (les modifications l’activent aussi automatiquement).
 - Les garde-fous ne « consomment » pas les objets — chaque garde-fou évalue le même pool de candidats. Si une pièce correspond à plusieurs garde-fous, elle compte pour tous.
-- Chaque garde-fou vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
+- Chaque garde-fou vous permet de choisir emplacement, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
 - Le `Mode` décide comment le garde-fou est émis : `Désactivée` le coupe, `Protéger l’existant` ajoute des lignes de conservation pour les correspondances qui seraient vendues jusqu’à atteindre la quota, et `Prévoir les manques` ajoute des règles fictives pour les combinaisons manquantes afin que les nouveaux drops restent protégés jusqu’à la prochaine mise à jour de la base.
-- Les sous-stats sont optionnels : choisissez-en un ou plusieurs pour ne compter que les objets qui possèdent ces sous‑stats. La puce de correspondance (`N’importe quel sous-stat` / `Tous les sous-stats` / `Par sous-stat`) décide s’il en faut un, tous, ou si chaque sous‑stat a sa propre quota. Laisser vide signifie : aucun filtre de sous-stats.
-- Les sous-stats sélectionnés sont toujours classés avec le score normalisé (glyphes ignorés) ; les poids apparaissent avec `N’importe quel sous-stat` et `Tous les sous-stats`, `Par sous-stat` garde un poids égal (les égalités au seuil restent protégées).
-- `Pondérer par rang` (la puce à côté de `Par stat principale`) donne un avantage de score aux pièces de rang supérieur — uniquement sur le **stat principal** : un 6★ compte plein, un 5★ environ 85 %. Ainsi un 6★ l'emporte sur un 5★ de même stat principal aux substats à peine meilleurs. Cela affine seulement le classement au sein d'un même stat principal (ce n'est pas un bonus général pour toute pièce de rang supérieur) et utilise le stat principal au niveau max, donc monter une pièce ne change jamais son score. Au moins un substat doit être sélectionné ; activé par défaut sur les nouvelles règles. Chaque pièce est comparée à la meilleure de son propre slot et stat principal.
-- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par garde-fou » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par garde-fou »).
+- Les sous-stats sont optionnelles : choisissez-en un ou plusieurs pour ne compter que les objets qui possèdent ces sous‑stats. La puce de correspondance (`N’importe quelle sous-stat` / `Toutes les sous-stats` / `Par sous-stat`) décide s’il en faut un, tous, ou si chaque sous‑stat a sa propre quota. Laisser vide signifie : aucun filtre de sous-stats.
+- Les sous-stats sélectionnées sont toujours classées avec le score normalisé (glyphes ignorés) ; les poids apparaissent avec `N’importe quelle sous-stat` et `Toutes les sous-stats`, `Par sous-stat` garde un poids égal (les égalités au seuil restent protégées).
+- `Pondérer par rang` (la puce à côté de `Par stat principale`) donne un avantage de score aux pièces de rang supérieur — uniquement sur la **stat principale** : un 6★ compte plein, un 5★ environ 85 %. Ainsi un 6★ l'emporte sur un 5★ de même stat principale aux sous-stats à peine meilleures. Cela affine seulement le classement au sein d'une même stat principale (ce n'est pas un bonus général pour toute pièce de rang supérieur) et utilise la stat principale au niveau max, donc monter une pièce ne change jamais son score. Au moins une sous-stat doit être sélectionnée ; activé par défaut sur les nouvelles règles. Chaque pièce est comparée à la meilleure de son propre emplacement et stat principale.
+- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par garde-fou » garde une seule quote-part, et les boutons « Par emplacement », « Par set », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par garde-fou »).
 - L’info-bulle de `Quantité requise` affiche la portée active (`X par emplacement × par ensemble × ...`) et une ligne simple des manquants (`({missing} manquants)`).
 - Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées au garde-fou actuellement surligné ; tant qu’aucun garde-fou n’est choisi, le mode reste aligné sur `Tous`.
 - L’analyse n’ajoute des lignes de conservation que pour les correspondances qui seraient vendues, et seulement si le quota n’est pas atteint. En `Prévoir les manques`, des règles fictives couvrent aussi les combinaisons manquantes.
@@ -138,7 +138,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   - `Ignorer les équipés (Coffre)` – même idée mais pour les champions du coffre. Par défaut : désactivé.
 - **`Chance d’amélioration ≥ N%`** (éclaireur de talents optionnel) : élargit le filet de sécurité au-delà du top-N standard. Le scanner conserve toujours en priorité les pièces du top-N selon leur valeur de sous-stat **actuelle** — celles-là ne risquent jamais rien. Il protège ensuite toute pièce *hors* de ce top-N dont la chance d’amélioration atteint le seuil. L’idée : « garder les drops bruts qui ont de bonnes chances d’être compétitifs une fois nivelés. »
 
-  **Qu’est-ce que la chance d’amélioration ?** L’app simule toutes les façons dont une pièce pourrait roller lors du passage à +16 — certains jets touchent le sous-stat voulu, d’autres non — et compte combien de fois la pièce finit dans votre top N sur l’ensemble de ces futuros. Une pièce avec 68 % de chance d’amélioration finit dans le top N dans environ deux chemins simulés sur trois.
+  **Qu’est-ce que la chance d’amélioration ?** L’app simule toutes les façons dont une pièce pourrait roller lors du passage à +16 — certains jets touchent la sous-stat voulue, d’autres non — et compte combien de fois la pièce finit dans votre top N sur l’ensemble de ces futuros. Une pièce avec 68 % de chance d’amélioration finit dans le top N dans environ deux chemins simulés sur trois.
 
   **La chance d’amélioration est une *prédiction*, pas la règle qui conserve votre équipement — ce sont deux systèmes distincts.** Cela prête souvent à confusion, alors soyons clairs :
 
@@ -176,13 +176,13 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
   - Évitez **100 %** : cela ne correspond qu’aux pièces entièrement nivelées déjà conservées par le top-N standard, donc cela n’ajoute rien au mode standard.
 
 #### Portées de quota en un coup d’œil
-Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par garde-fou » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.
+Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par garde-fou » actif pour partager un seul pool, puis activez `Par emplacement`, `Par set`, `Par faction` et `Par stat principale` pour suivre chaque mélange Emplacement × Set × Faction × Stat principale séparément.
 
 | Bouton de portée | Comportement du quota | Quand l’utiliser |
 | --- | --- | --- |
 | `Par garde-fou` | Un pool commun pour tout le garde-fou. | Conserver cinq bottes SPD quels que soient les sets. |
-| `Par emplacement` | Duplique la quote-part pour chaque slot. | Protéger deux anneaux, deux amulettes et deux bannières indépendamment. |
-| `Par ensemble` | Duplique la quote-part pour chaque set/méta-set. | Suivre deux drops Stoneskin et deux Protection séparément. |
+| `Par emplacement` | Duplique la quote-part pour chaque emplacement. | Protéger deux anneaux, deux amulettes et deux bannières indépendamment. |
+| `Par set` | Duplique la quote-part pour chaque set/méta-set. | Suivre deux drops Stoneskin et deux Protection séparément. |
 | `Par faction` | Duplique la quote-part pour chaque faction. | Garantir trois anneaux Merciless pour chaque faction. |
 | `Par stat principale` | Duplique la quote-part pour chaque stat principale. | Séparer les réserves d’étendards ACC vs RES. |
 
@@ -190,14 +190,14 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 
 | Scénario | Filtres | Quantité requise | Puces de portée | Ce que garantit l’analyse |
 | --- | --- | --- | --- | --- |
-| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `5` | `Par garde-fou` | Au moins cinq bottes SPD survivent, peu importe le set. |
-| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `3` | `Par garde-fou` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
-| Anneaux Merciless par faction | Slot = Anneau, Set = Merciless, Faction vide | `3` | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
-| Anneaux PV% par faction | Slot = Anneau, Stat principale = PV%, Sets vides | `2` | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
+| Les bottes SPD disparaissent | Emplacement = Bottes, Stat principale = SPD, Sets vides | `5` | `Par garde-fou` | Au moins cinq bottes SPD survivent, peu importe le set. |
+| Mélanger gants Savage et Lethal | Emplacement = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `3` | `Par garde-fou` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
+| Anneaux Merciless par faction | Emplacement = Anneau, Set = Merciless, Faction vide | `3` | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
+| Anneaux PV% par faction | Emplacement = Anneau, Stat principale = PV%, Sets vides | `2` | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
 | Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides | `5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
-| Séries Stoneskin/Protection par faction | Slot = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `2` | `Par ensemble` + `Par faction` + `Par emplacement` | Chaque faction garde deux Stoneskin et deux Protection par slot d’accessoire. |
-| Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par garde-fou` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
-| Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
+| Séries Stoneskin/Protection par faction | Emplacement = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `2` | `Par set` + `Par faction` + `Par emplacement` | Chaque faction garde deux Stoneskin et deux Protection par emplacement d’accessoire. |
+| Accessoires SPD les plus rapides | Emplacement = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par garde-fou` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
+| Bannières ACC avec SPD | Emplacement = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
 
 Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant de passer en mode Garde-fous pour fournir de vrais items à l’analyse. Cliquez sur un garde-fou pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
 
@@ -209,7 +209,7 @@ Ouvrez « Outils » et passez sur **Butin de donjon**. Il simule le farm de donj
   - `Montée de niveau` : les rolls s’arrêtent dès que l’objet serait vendu, donc ça reflète le leveling réel.
   - `Instantané` : les rolls vont toujours jusqu’à +16, même si l’objet aurait été vendu avant.
 - Le tableau affiche les drops conservés divisés par tous les drops de ce palier à +0 / +4 / +8 / +12 / +16.
-- Cliquez sur une cellule pour le détail slot + stat principale, puis ouvrez **Chances de sous-statistiques spécifiques** pour les chances exactes et les estimations de passages.
+- Cliquez sur une cellule pour le détail emplacement + stat principale, puis ouvrez **Chances de sous-statistiques spécifiques** pour les chances exactes et les estimations de passages.
 
 Notes :
 - Utilise vos règles actuelles Conserver/Vendre, y compris Vente finale et Garde-fous.
@@ -223,7 +223,7 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 **Donuts à filtre croisé :** Six graphiques — **Emplacements**, **Rang**, **Rareté**, **Résultat**, **Source**, **Niveau** — se mettent à jour mutuellement lors d'un clic.
 - Cliquez sur un segment pour l'ajouter comme filtre de cette dimension ; chaque autre graphique se restreint immédiatement à l'équipement correspondant. Chaque graphique exclut sa propre dimension pour toujours afficher sa plage complète.
-- Double-cliquez sur un segment du donut **Slots** pour sélectionner tout un groupe d'un coup : tout artefact (Arme, Casque, Bouclier, Gants, Plastron, Bottes) sélectionne les six emplacements d'artefact ; tout accessoire (Anneau, Amulette, Bannière) sélectionne les trois.
+- Double-cliquez sur un segment du donut **Emplacements** pour sélectionner tout un groupe d'un coup : tout artefact (Arme, Casque, Bouclier, Gants, Plastron, Bottes) sélectionne les six emplacements d'artefact ; tout accessoire (Anneau, Amulette, Bannière) sélectionne les trois.
 - Les donuts **Emplacements** et **Source** affichent des icônes de catégorie. Le donut **Niveau** libelle chaque arc avec son texte de niveau.
 
 
@@ -235,9 +235,9 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 **Chance d'amélioration :** Probabilité que votre équipement s'améliore, regroupée par tranches de 10 %. Le nombre à droite indique combien d'objets se trouvent dans chaque groupe. L'équipement sans garde-fou et l'équipement +16 au maximum sont exclus. Cliquez sur un groupe pour n'afficher que cet équipement.
 
-**Radar Fréquence des sous-stats :** Indique la fréquence d'apparition de chaque sous-stat dans l'équipement filtré (et éventuellement limité à une stat principale) sous forme de graphique radar. Cliquez sur une marque d'axe pour la sélectionner comme pivot de co-occurrence — le radar se restreint alors aux pièces contenant tous les sous-stats sélectionnés à la fois (jusqu'à 4 pivots). Les pivots actifs apparaissent en puces sous le graphique ; × en retire un, **Effacer les filtres** les retire tous.
+**Radar Fréquence des sous-stats :** Indique la fréquence d'apparition de chaque sous-stat dans l'équipement filtré (et éventuellement limité à une stat principale) sous forme de graphique radar. Cliquez sur une marque d'axe pour la sélectionner comme pivot de co-occurrence — le radar se restreint alors aux pièces contenant toutes les sous-stats sélectionnées à la fois (jusqu'à 4 pivots). Les pivots actifs apparaissent en puces sous le graphique ; × en retire un, **Effacer les filtres** les retire tous.
 
-**Carte de chaleur Slot × Stat principale :** Nombre d'objets par slot (colonnes) × stat principale (lignes). Cliquez sur un en-tête de colonne ou une cellule pour filtrer par ce slot.
+**Carte de chaleur Emplacement × Stat principale :** Nombre d'objets par emplacement (colonnes) × stat principale (lignes). Cliquez sur un en-tête de colonne ou une cellule pour filtrer par cet emplacement.
 
 **Onglet Statistiques des champions :** Totaux de sous-stats cumulés sur les pièces équipées par champion. Filtrez par emplacement (**Tous** / **Collection** / **Coffre**), activez **Entièrement équipé** uniquement, et incluez ou excluez les glyphes. Affiche les séries Min/Moy/Médiane/Max.
 
@@ -257,11 +257,11 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 ### Aperçu du Sellfile (Règles & Inspecteur d’équipement)
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Inspecteur d’équipement`, le bouton « Outils » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement ».
-- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Recettes` côte à côte : `Recettes aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre recettes` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour l’Inspecteur d’équipement).
+- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Emplacements/Rang/Rareté/Niveau et expose désormais les deux boutons `Recettes` côte à côte : `Recettes aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre recettes` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour l’Inspecteur d’équipement).
 - Vue `Inspecteur d’équipement` : bascule la table sur la liste importée afin d’examiner les objets importés ou créés sans rouvrir le dialogue Outils. Les compteurs passent en Conserver/Vendre/Portée/Sans règle selon la règle « la première recette correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Recettes` (`Recettes aperçu` + `Filtre recettes`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre recettes` applique le tri-état (`Off` → `Première` → `Par correspondance`) pour isoler les lignes de l’Inspecteur d’équipement et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
 - Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’Inspecteur d’équipement (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
-- En vue Règles, les colonnes « Idx » et « Recette » restent en place (vides pour les lignes du fichier de base). En vue Inspecteur d’équipement, le même espace affiche slot/set, stats de l’objet et la puce de la première recette qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
+- En vue Règles, les colonnes « Idx » et « Recette » restent en place (vides pour les lignes du fichier de base). En vue Inspecteur d’équipement, le même espace affiche emplacement/set, stats de l’objet et la puce de la première recette qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
 
 ### Contrôles de l’aperçu
 - Gérer les couleurs : cliquez sur l’icône palette au-dessus de la table pour personnaliser les couleurs, puis utilisez « Restaurer par défaut » pour revenir aux recommandations.
@@ -277,7 +277,7 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 ### Aperçu de l’Inspecteur d’équipement
 - Cliquez sur « Outils » dans l’en-tête de l’aperçu pour ouvrir le dialogue « Équipement ». Créez un équipement d’exemple. Les objets se synchronisent aussitôt avec l’aperçu, donc fermer le dialogue ne vide pas la grille de l’Inspecteur d’équipement.
-- Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
+- Connectez RSL Helper pour une synchronisation en direct (le bouton Connect dans l’en-tête de l’aperçu) ou déposez un fichier `.db` dans l’app ou utilisez « Charger Sellfile RSL Helper ».- Chaque ligne de l’Inspecteur d’équipement affiche emplacement, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
 - Les compteurs de l’en-tête affichent les totaux Conserver/Vendre/Portée/Sans règle. Les quatre boutons du filtre de résultat — **Conserver**, **Vendre**, **Portée** et **Sans règle** — fonctionnent comme des bascules indépendantes : activez n’importe quelle combinaison pour affiner la liste. **Portée** atténue (mais garde visibles) les objets qui partagent le même set+emplacement qu’une pièce que vos règles vendraient, afin de comparer un candidat avec ses concurrents en une seule vue sans avoir à faire deux passes de filtre. Lorsqu'une ou plusieurs **Sources** sont également sélectionnées, elles servent de référence — seuls les objets estampillés Vendre des sources sélectionnées deviennent des éléments principaux, tandis que les compagnons sont trouvés dans *toutes* les sources, ce qui vous permet de voir chaque exemplaire de la pièce quel que soit son emplacement. **Sans règle** affiche l’équipement qu’aucune règle ne touche — utile pour repérer les lacunes de vos recettes. Combinez avec le sélecteur `Première`/`Par correspondance` des Recettes pour vous concentrer sur les cas limites avant l’export.
 - Utilisez l’interrupteur d’aperçu pour alterner entre les tables Règles et Inspecteur d’équipement sans rouvrir le dialogue Outils — idéal pour comparer les lignes générées et l’équipement qui les a déclenchées.
 
@@ -372,7 +372,7 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 | Tôt (3 sous-stats) | SPD min = 2, TRC min = 1, DCC sélectionné, Obligatoires = 3 | `+0 :` [SPD, TRC, DCC] ≥ [5,5,5]<br>`+4 :` permutations à un jet (10/5/5, 5/10/5, 5/5/10)<br>`+8 :` permutations à deux jets (limites supérieures respectées)<br>`+12/+16 :` [15,10,5] |
 | Tard (3 sous-stats) | Même stats que ci-dessus | `+0/+4 :` [5,5,5]<br>`+8 :` [10,5,5] ou [5,10,5]<br>`+12 :` [15,5,5] ou [10,10,5]<br>`+16 :` [15,10,5] |
 | Verrouiller un stat, en exiger deux | Sous-stats SPD/PV/ATQ ; SPD verrouillé (🔒) ; Sous-stats requis = 2 | Le builder émet SPD+PV et SPD+ATQ ; PV+ATQ est exclu car SPD verrouillé doit apparaître. |
-| Concentrer les jets sur 3 stats et figer le slot flexible | Sous-stats SPD/TRC/DCC/PV%/ATQ%/DEF% ; Sous-stats requis = 4 ; SPD/TRC/DCC Min jet = 1 ; PV%/ATQ%/DEF% Limite sup = 0 | SPD/TRC/DCC reçoivent toujours les jets tandis que le 4ᵉ stat (PV%/ATQ%/DEF%) reste à la valeur de base. |
+| Concentrer les jets sur 3 stats et figer l’emplacement flexible | Sous-stats SPD/TRC/DCC/PV%/ATQ%/DEF% ; Sous-stats requis = 4 ; SPD/TRC/DCC Min jet = 1 ; PV%/ATQ%/DEF% Limite sup = 0 | SPD/TRC/DCC reçoivent toujours les jets tandis que le 4ᵉ stat (PV%/ATQ%/DEF%) reste à la valeur de base. |
 | Tôt avec un joker | Sous-stats SPD (Min = 2) et PRÉ (★ joker) ; Sous-stats requis = Auto ; Niveaux +0..+16 | Les jalons Tôt mettent en évidence toute pièce qui peut encore atteindre SPD(2) à +16 ; dès que deux jets SPD sont possibles, la ligne SPD ≥ apparaît. |
 | Somme des jets avec jokers | Sous-stats SPD et PRÉ sur ★ ; Sous-stats requis = 2 ; Jets minimum = 1 | **Tôt :** +4/+8/+12/+16 montrent les deux répartitions minimales (SPD ≥ 10 & PRÉ ≥ 9, ou SPD ≥ 5 & PRÉ ≥ 18).<br>**Tard :** +0/+4/+8/+12 restent sur les lignes de base ; +16 affiche ces deux répartitions. Des cibles plus élevées obligent Tard à réclamer ces répartitions plus tôt. |
 

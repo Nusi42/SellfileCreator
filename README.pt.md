@@ -1,31 +1,31 @@
 ﻿# Sellfile Creator for RSL Helper
 
-O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper — defina filtros de equipamento por conjunto, slot, estatística principal, subestatísticas e mais, visualize os resultados em tempo real e exporte ficheiros de venda prontos a usar em segundos.
+O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper — defina filtros de equipamento por set, slot, stat principal, substats e mais, visualize os resultados em tempo real e exporte ficheiros de venda prontos a usar em segundos.
 
 > Ferramenta criada por fãs. Não tem ligação com a Plarium, Raid: Shadow Legends ou RSL Helper. Todas as marcas mencionadas pertencem aos respetivos proprietários.
 
 ## Funcionalidades
 
 - **Construtor de receitas** — crie receitas de manter/vender com filtros por slot,
-  conjunto, rank, raridade, estatística principal, subestatísticas (com mínimos de rolls e
+  set, rank, raridade, stat principal, substats (com mínimos de rolagens e
   objetivos), facção e marcos de nível. Construa uma biblioteca reutilizável e exporte-a
   como ficheiro de venda RSL Helper (`.hsf`) com um clique.
 - **Prévia Sellfile** — pré-visualize o ficheiro de venda RSL Helper
   gerado no separador Pré-visualização antes de exportar.
-- **Metaconjuntos** — agrupe conjuntos de equipamento (ex. Velocidade + Perceção) em
+- **Metasets** — agrupe sets de equipamento (ex. Velocidade + Percepção) em
   coleções com nome e reutilize-os em receitas e salvaguardas.
-- **Inspetor de equipamento** — ligue ao RSL Helper para sincronização em tempo real ou carregue um ficheiro `.db` para pré-visualizar quais os itens que correspondem a cada receita e quantos seriam mantidos ou vendidos.
+- **Inspetor de Equipamento** — ligue ao RSL Helper para sincronização em tempo real ou carregue um ficheiro `.db` para pré-visualizar quais os itens que correspondem a cada receita e quantos seriam mantidos ou vendidos.
 - **Comparação de equipamento** — ative uma vista de antes/depois para ver exatamente quais peças mudam entre *manter* e *vender* enquanto ajusta receitas ou experimenta as substituições dinâmicas. Um chip mostra os totais atuais; uma lista lado a lado mostra cada peça que mudou.
 - **Simulador de masmorras** — consulte as percentagens de probabilidade de manter para o
   Cavaleiro do Fogo, o Dragão e o Golem de Gelo em níveis de dificuldade e atualização
   para confirmar o efeito do seu ficheiro de venda ao farmar ou melhorar equipamento.
-- **Salvaguardas** — defina combinações de slot/conjunto/estatística que nunca quer perder; o
+- **Salvaguardas** — defina combinações de slot/set/stat que nunca quer perder; o
   scanner injeta automaticamente regras de manter no ficheiro de venda quando a sua
   configuração reduziria uma combinação protegida abaixo da sua quota.
 - **Análise de Equipamento** — painel analítico com cartões KPI, gráficos de filtro cruzado
-  (slot, rank, raridade, fonte, nível), um mapa de árvore de conjuntos, barras de
-  estatísticas principais e um radar de subestatísticas. Clique em qualquer gráfico para
-  filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de equipamento.
+  (slot, rank, raridade, fonte, nível), um mapa de árvore de sets, barras de
+  stats principais e um radar de substats. Clique em qualquer gráfico para
+  filtrar todos os outros; envie o filtro ativo diretamente para o Inspetor de Equipamento.
 - **Venda final** — um único botão adiciona regras de venda catch-all para equipamento não
   correspondente em intervalos de nível configuráveis, para que nada escape.
 - **Temas** — alterne entre o modo escuro e o claro, personalize cores e raio dos cantos
@@ -44,8 +44,8 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - Carregar/Guardar: use «Carregar receitas» e «Guardar receitas» para reutilizar as regras. Estas ações mantêm tudo o que é necessário para reconstruir a prévia.
   - Clique no chevron (▾) junto a **Carregar ficheiro SFC** para abrir o respetivo menu: **Carregar do ficheiro…** abre o seletor de ficheiros do sistema como de costume; **Carregar predefinição: Principiante** ou **Carregar predefinição: Midgame ao Endgame** carrega uma das predefinições integradas após uma confirmação (a sua configuração atual será substituída).
 - Menus de Reset/Insert/Apply: clique com o botão direito em «Reset», «Insert as receita» ou «Apply as receita» para abrir o menu partilhado. Guarde o estado atual do builder como modelo predefinido, volte às definições de fábrica, ative «Auto reset after Insert» (limpa o builder imediatamente após inserir uma receita) ou ative «Auto apply to selected receita» (envia as edições para a receita destacada automaticamente após ~400 ms de inatividade). Auto reset e Auto apply não podem ficar ativos ao mesmo tempo — ligar um desliga o outro — e ambas as preferências mantêm-se entre sessões.
-- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de receitas. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- recipes:1,0 -->` para inserir chips de receitas específicas (0 escolhe a seguinte). Use `<!-- recipes-re:"speed" -->` para mostrar todas as receitas cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas). Adiciona `<!-- dungeon-simulator -->` para mostrar uma tabela em direto de probabilidade de retenção para o Cavaleiro do Fogo, o Dragão e o Golem de Gelo em três níveis de dificuldade (N20/N25/H10) e dois modos de boost, com as taxas de retenção a +0/+4/+8/+12/+16. Adiciona `<!-- recipe-overrides [columns=N] -->` para incorporar cartões de perguntas interativas (grupos de rádio/caixa de seleção) que substituem os modos de exportação e definições de receitas na sessão — as receitas armazenadas nunca são modificadas. Adiciona `<!-- safeguard-overrides [columns=N] -->` para incorporar cartões de controlos deslizantes e opções que substituem propriedades das salvaguardas (contagem, ativação, substatísticas, probabilidade de melhoria e mais) na sessão — as salvaguardas armazenadas nunca são modificadas. Quando algum destes marcadores estiver presente, o rodapé da nota mostra um botão **Desativar / Ativar substituições dinâmicas** e um botão **Repor opções**. Use **Guardar seleção atual…** (no menu «Substituições dinâmicas») para guardar as respostas atuais com um nome — os conjuntos de substituições guardados aparecem no mesmo menu e podem ser recarregados com um clique. Apenas as seleções presentes na nota atual são guardadas; ao carregar um conjunto, as perguntas que já não existem são ignoradas.
-- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — receitas (incluindo o chip selecionado), meta-sets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e importações do Inspetor de Equipamento. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir Ferramentas reflete exatamente o que exportou da última vez.
+- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de receitas. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- recipes:1,0 -->` para inserir chips de receitas específicas (0 escolhe a seguinte). Use `<!-- recipes-re:"speed" -->` para mostrar todas as receitas cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas). Adiciona `<!-- dungeon-simulator -->` para mostrar uma tabela em direto de probabilidade de retenção para o Cavaleiro do Fogo, o Dragão e o Golem de Gelo em três níveis de dificuldade (N20/N25/H10) e dois modos de boost, com as taxas de retenção a +0/+4/+8/+12/+16. Adiciona `<!-- recipe-overrides [columns=N] -->` para incorporar cartões de perguntas interativas (grupos de rádio/caixa de seleção) que substituem os modos de exportação e definições de receitas na sessão — as receitas armazenadas nunca são modificadas. Adiciona `<!-- safeguard-overrides [columns=N] -->` para incorporar cartões de controlos deslizantes e opções que substituem propriedades das salvaguardas (contagem, ativação, substats, probabilidade de melhoria e mais) na sessão — as salvaguardas armazenadas nunca são modificadas. Quando algum destes marcadores estiver presente, o rodapé da nota mostra um botão **Desativar / Ativar substituições dinâmicas** e um botão **Repor opções**. Use **Guardar seleção atual…** (no menu «Substituições dinâmicas») para guardar as respostas atuais com um nome — os conjuntos de substituições guardados aparecem no mesmo menu e podem ser recarregados com um clique. Apenas as seleções presentes na nota atual são guardadas; ao carregar um conjunto, as perguntas que já não existem são ignoradas.
+- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — receitas (incluindo o chip selecionado), metasets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e importações do Inspetor de Equipamento. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir Ferramentas reflete exatamente o que exportou da última vez.
 
 ### Estrutura do builder (de cima para baixo)
 - Ação e Ativo: Defina o que acontece quando um item coincide.
@@ -63,12 +63,12 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
     - Só fica ativo quando Raridade = Auto e Limiar por marcos = Tarde. Caso contrário vê uma barra diagonal.
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.
   - Antes de +16 o builder usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
-- Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; os artefactos ignoram a fação, pelo que `Qualquer` é a opção segura.
+- Facção: Restrinja regras de acessórios a uma facção específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; os artefactos ignoram a facção, pelo que `Qualquer` é a opção segura.
 - Slots: Foque a regra em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
-- Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando só pretende essas combinações. Vazio = todos os sets.
-- Mainstats: Defina quais os mainstats aceites.
-  - Pode selecionar vários; sem seleção = qualquer mainstat.
-  - Ao escolher vários mainstats, o export gera uma linha por mainstat para manter tudo explícito.
+- Sets e Metasets: Filtre para sets específicos ou metasets nomeados quando só pretende essas combinações. Vazio = todos os sets.
+- Stats principais: Defina quais os stats principais aceites.
+  - Pode selecionar vários; sem seleção = qualquer stat principal.
+  - Ao escolher vários stats principais, o export gera uma linha por stat principal para manter tudo explícito.
 - Substats: Indique quais contam.
   - Clique para ativar ou desativar um substat. Os bloqueados aparecem sempre nas linhas geradas.
   - Use o cadeado (🔒) junto ao rótulo para o tornar obrigatório; o clique direito abre as ações rápidas de bloqueio e limites de rolagem.
@@ -95,7 +95,7 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - Limiares cedo: Quando as exigências podem ser cumpridas, as linhas ficam pelos seus Alvos de substats e estabilizam. Antes disso, Cedo mostra apenas combinações viáveis.
 - Soma de rolagens (Σ): As rolagens mínimas referem-se à soma total sobre os substats selecionados no nível alvo.
 - Curingas com soma mínima: Com apenas substats ★ e uma soma mínima > 0, Cedo apresenta apenas as divisões mínimas por marco. Tarde repete essas divisões nos marcos iniciais e em +16.
-- Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
+- Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta a rolagem extra logo em +0.
 
 ### Alvos de substats
 - O botão «Alvos de substats…» no canto superior direito do builder abre o separador **Alvos de substats** no diálogo Ferramentas.
@@ -103,11 +103,11 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - Estes alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem de fallback na grelha de Alvos de rolagem.
 - Use «Repor predefinições» dentro da janela para voltar aos alvos recomendados.
 
-### Meta-sets
-- Clique em «Gerir meta-sets…» para abrir o diálogo.
-- Crie ou renomeie meta-sets e escolha os sets que contêm. A interface usa a mesma pesquisa do seletor de sets.
-- Existem meta-sets iniciais prontos a usar; pode editá-los ou removê-los.
-- «Repor predefinições» oferece opções seguras quando um meta-set está em uso (remover, substituir por sets explícitos ou por outro meta-set).
+### Metasets
+- Clique em «Gerir metasets…» para abrir o diálogo.
+- Crie ou renomeie metasets e escolha os sets que contêm. A interface usa a mesma pesquisa do seletor de sets.
+- Existem metasets iniciais prontos a usar; pode editá-los ou removê-los.
+- «Repor predefinições» oferece opções seguras quando um metaset está em uso (remover, substituir por sets explícitos ou por outro metaset).
 
 ### Venda final
 - Use o interruptor `Venda final` no cabeçalho da pré-visualização para ativar regras de venda para os itens restantes. A etiqueta não muda; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada.
@@ -115,16 +115,16 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
 - Sem `Venda final`, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
-### Manter únicos
-- Muda o builder para o modo **Salvaguardas** usando o botão de alternância acima do painel do builder para marcar as combinações que nunca queres perder. Ativa `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma salvaguarda também ativa automaticamente).
+### Salvaguardas
+- Muda o builder para o modo **Salvaguardas** usando o botão de alternância acima do painel do builder para marcar as combinações que nunca queres perder. Ativa `Ativar Salvaguardas` para deixar o scanner adicionar linhas de manter (editar uma salvaguarda também ativa automaticamente).
 - As salvaguardas não «consomem» itens—cada salvaguarda avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias salvaguardas, conta para todas.
-- Cada salvaguarda permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
+- Cada salvaguarda permite escolher slot, sets ou metasets, ranks, raridades, stats principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a salvaguarda é emitida: `Desligada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite salvaguardas fictícias para combinações em falta para proteger novos drops até a BD ser atualizada.
-- Os substats são opcionais: escolhe um ou mais para contar apenas itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam de estar todos ou se cada substat tem a sua própria quota. Deixar vazio permite qualquer substat.
-- As substats selecionadas são sempre ordenadas pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todas as Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
-- `Ponderar por rank` (a chip ao lado de `Por atributo principal`) dá vantagem de pontuação ao equipamento de rank superior — apenas no **atributo principal**: um 6★ conta por inteiro, um 5★ cerca de 85 %. Assim um 6★ supera um 5★ do mesmo atributo principal com substats apenas ligeiramente melhores. Só refina a ordem dentro do mesmo atributo principal (não é um bónus geral para qualquer peça de rank superior) e usa o atributo principal no nível máximo, por isso subir de nível nunca altera a pontuação. Requer pelo menos um substat selecionado; ligado por predefinição em regras novas. Cada peça é comparada com a melhor do seu próprio slot e atributo principal.
-- `≥ Quantidade necessária` é a promessa que queres manter. Os chips de âmbito logo abaixo de cada seletor (tudo exceto `Rank` e `Raridade`) decidem como a quota é dividida: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por salvaguarda`.
-- A dica de `Quantidade necessária` mostra a divisão ativa de âmbito (`X por slot × por conjunto × ...`) e uma linha simples de falta (`({missing} em falta)`).
+- Os substats são opcionais: escolhe um ou mais para contar apenas itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todos os Substats` / `Por Substat`) decide se basta um, se precisam de estar todos ou se cada substat tem a sua própria quota. Deixar vazio permite qualquer substat.
+- Os substats selecionados são sempre ordenados pela fórmula normalizada (glifos ignorados); os pesos aparecem com `Qualquer Substat` e `Todos os Substats`, `Por Substat` mantém a ponderação igual (empates no corte continuam protegidos).
+- `Ponderar por rank` (a chip ao lado de `Por stat principal`) dá vantagem de pontuação ao equipamento de rank superior — apenas no **stat principal**: um 6★ conta por inteiro, um 5★ cerca de 85 %. Assim um 6★ supera um 5★ do mesmo stat principal com substats apenas ligeiramente melhores. Só refina a ordem dentro do mesmo stat principal (não é um bónus geral para qualquer peça de rank superior) e usa o stat principal no nível máximo, por isso subir de nível nunca altera a pontuação. Requer pelo menos um substat selecionado; ligado por predefinição em regras novas. Cada peça é comparada com a melhor do seu próprio slot e stat principal.
+- `≥ Quantidade necessária` é a promessa que queres manter. Os chips de âmbito logo abaixo de cada seletor (tudo exceto `Rank` e `Raridade`) decidem como a quota é dividida: `Por slot`, `Por set`, `Por facção` e `Por stat principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por salvaguarda`.
+- A dica de `Quantidade necessária` mostra a divisão ativa de âmbito (`X por slot × por set × ...`) e uma linha simples de falta (`({missing} em falta)`).
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, salvaguardas fictícias cobrem as combinações em falta.
 - **Opções ignorar** (chips ao lado do interruptor de ativação da salvaguarda) afinam o que cada salvaguarda conta:
   - `Ignorar salvaguardas anteriores` – quando a salvaguarda classifica candidatos por substats, descarta do seu pool as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as seguintes melhores por pontuação. Útil quando empilhas uma segunda salvaguarda de SPD/CR depois de uma genérica e queres que vá mais fundo no ranking em vez de proteger redundantemente as mesmas peças. Salvaguardas sem substats não são afetadas. Padrão: desligado.
@@ -170,51 +170,51 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
   - Evita **100 %**: só coincide com peças totalmente melhoradas já mantidas pelo top-N padrão, pelo que não acrescenta nada além do modo padrão.
 
 #### Âmbitos de quota num relance
-Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por salvaguarda` ligado para partilhar um único pool e ativa `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.
+Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por salvaguarda` ligado para partilhar um único pool e ativa `Por slot`, `Por set`, `Por facção` e `Por stat principal` para impor misturas Slot × Set × Facção × Stat principal de forma independente.
 
 | Botão de âmbito | Comportamento da quota | Quando usar |
 | --- | --- | --- |
 | `Por salvaguarda` | Um único pool para toda a salvaguarda. | Mantém cinco botas SPD independentemente do set. |
 | `Por slot` | Duplica a quota para cada slot. | Protege dois anéis, dois amuletos e dois estandartes em separado. |
-| `Por conjunto` | Duplica a quota para cada set/metaset da salvaguarda. | Acompanha duas quedas de Stoneskin e duas de Protection individualmente. |
+| `Por set` | Duplica a quota para cada set/metaset da salvaguarda. | Acompanha duas quedas de Stoneskin e duas de Protection individualmente. |
 | `Por facção` | Duplica a quota para cada facção. | Garante três anéis Merciless para cada facção. |
-| `Por atributo principal` | Duplica a quota para cada atributo principal selecionado. | Mantém pools separados para estandartes ACC vs. RES. |
+| `Por stat principal` | Duplica a quota para cada stat principal selecionado. | Mantém pools separados para estandartes ACC vs. RES. |
 
 #### Exemplos reais
 | Cenário | Filtros | Quantidade necessária | Botões de âmbito | O que o scanner garante |
 | --- | --- | --- | --- | --- |
-| A faltar botas SPD | Slot = Botas, Atributo principal = SPD, Sets vazios | `5` | `Por salvaguarda` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
-| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Atributo principal = CDMG% | `3` | `Por salvaguarda` | Três luvas de dano continuam seguras mesmo quando a mistura de sets muda. |
+| A faltar botas SPD | Slot = Botas, Stat principal = SPD, Sets vazios | `5` | `Por salvaguarda` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
+| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Stat principal = CDMG% | `3` | `Por salvaguarda` | Três luvas de dano continuam seguras mesmo quando a mistura de sets muda. |
 | Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `3` | `Por facção` | Cada facção guarda três anéis Merciless próprios. |
-| Anéis de HP% por facção | Slot = Anel, Atributo principal = HP%, Sets vazios | `2` | `Por facção` | Permanecem dois anéis de HP% por facção. |
-| Acessórios básicos por facção | Três regras (Anel, Amuleto, Estandarte), Sets/Atributo principal vazios | `5` | `Por facção` | Cada facção conserva cinco anéis, amuletos e estandartes. |
-| Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Atributo principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda duas peças Stoneskin e duas Protection em cada slot de acessório. |
-| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
-| Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD mais alto | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD conta mais. |
+| Anéis de HP% por facção | Slot = Anel, Stat principal = HP%, Sets vazios | `2` | `Por facção` | Permanecem dois anéis de HP% por facção. |
+| Acessórios básicos por facção | Três regras (Anel, Amuleto, Estandarte), Sets/Stat principal vazios | `5` | `Por facção` | Cada facção conserva cinco anéis, amuletos e estandartes. |
+| Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal vazio | `2` | `Por set` + `Por facção` + `Por slot` | Cada facção guarda duas peças Stoneskin e duas Protection em cada slot de acessório. |
+| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém as cinco melhores rolagens de SPD entre os acessórios (empates incluídos). |
+| Estandartes de ACC com SPD | Slot = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD mais alto | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD conta mais. |
 
 Dica: importa a tua `.db` ou cola itens no diálogo Equipamento antes de ativar o modo Salvaguardas para que o scanner veja equipamento real. Clica numa salvaguarda para realçar o equipamento correspondente; muda `Filtro` para `Seleção` para veres apenas essas correspondências.
 
 ### Drops de masmorra (Simulador)
-Abra «Ferramentas» e mude para **Drops de masmorra**. Simula o farm em masmorras com as suas regras atuais do Sellfile para ver quanto equipamento manteria por conjunto e nível de melhoria.
+Abra «Ferramentas» e mude para **Drops de masmorra**. Simula o farm em masmorras com as suas regras atuais do Sellfile para ver quanto equipamento manteria por set e nível de melhoria.
 
 - Escolha uma masmorra e uma etapa.
 - Modo de simulação:
-  - `Subida de nível`: os rolls param assim que o item seria vendido, por isso reflete o nível real.
-  - `Instantâneo`: os rolls vão sempre até +16, mesmo que o item fosse vendido antes.
+  - `Subida de nível`: as rolagens param assim que o item seria vendido, por isso reflete o nível real.
+  - `Instantâneo`: as rolagens vão sempre até +16, mesmo que o item fosse vendido antes.
 - A tabela mostra drops mantidos divididos por todos os drops dessa etapa em +0 / +4 / +8 / +12 / +16.
-- Clique numa célula para o detalhe de slot + estat principal e depois abra **Probabilidades de subatributos específicos** para ver chances exatas e estimativas de execuções.
+- Clique numa célula para o detalhe de slot + stat principal e depois abra **Probabilidades de substats específicos** para ver chances exatas e estimativas de execuções.
 
 Notas:
-- Usa as suas regras atuais de Manter/Vender, incluindo Venda final e Manter únicos.
+- Usa as suas regras atuais de Manter/Vender, incluindo Venda final e Salvaguardas.
 - Corre cerca de 100.000 drops por etapa e atualiza enquanto corre.
-- As taxas de drop e os rolls são simulados, por isso os números são estimativas.
+- As taxas de drop e as rolagens são simuladas, por isso os números são estimativas.
 
 ### Análise de Equipamento
 Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para uma visão analítica do seu equipamento importado.
 
 **Cartões KPI (linha superior):** Oito cartões de percentagem — **Taxa 6★**, **Lendária+**, **Maxed (+16)**, **Equipada**, **Bloqueada no cofre**, **Chaos'd**, **Glyphed**, **Ascendida** — cada um com um tooltip.
 
-**Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Grau**, **Raridade**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
+**Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Rank**, **Raridade**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
 - Clique num segmento para o adicionar como filtro dessa dimensão; todos os outros gráficos restringem-se imediatamente ao equipamento correspondente. Cada gráfico exclui a sua própria dimensão para mostrar sempre o intervalo completo.
 - Duplo clique num segmento do donut **Slots** para selecionar um grupo inteiro de uma vez: qualquer peça de artefacto (Arma, Elmo, Escudo, Luvas, Couraça, Botas) seleciona os seis slots de artefacto; qualquer acessório (Anel, Amuleto, Estandarte) seleciona os três.
 - Os donuts **Slots** e **Fonte** mostram ícones de categoria. O donut **Nível** etiqueta cada arco com o texto do nível.
@@ -222,19 +222,19 @@ Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para um
 
 **Treemap de Sets:** Apresentado abaixo dos donuts. Cada mosaico representa um set de equipamento; a área do mosaico é proporcional ao número de itens. O fundo do mosaico está dividido da esquerda para a direita em bandas de cor por resultado (Vender / Salvaguardado / Guardar / Sem correspondência). Clique num mosaico para adicionar esse set como filtro cruzado.
 
-**Chips de filtro:** As seleções ativas para cada dimensão aparecem como chips abaixo dos donuts; clique no ícone de eliminar num chip para remover apenas esse filtro. As seleções de mainstat também aparecem como chips. O botão **Limpar filtros** repõe todas as dimensões de uma vez.
+**Chips de filtro:** As seleções ativas para cada dimensão aparecem como chips abaixo dos donuts; clique no ícone de eliminar num chip para remover apenas esse filtro. As seleções de stat principal também aparecem como chips. O botão **Limpar filtros** repõe todas as dimensões de uma vez.
 
-**Barra de Mainstats:** Mostra a frequência de cada mainstat no equipamento filtrado. Clique numa barra para aprofundar — o gráfico de frequência de substats atualiza-se para mostrar apenas substats do equipamento com esse mainstat selecionado. Clique novamente para desselecionar.
+**Barra de Stats principais:** Mostra a frequência de cada stat principal no equipamento filtrado. Clique numa barra para aprofundar — o gráfico de frequência de substats atualiza-se para mostrar apenas substats do equipamento com esse stat principal selecionado. Clique novamente para desselecionar.
 
 **Hipótese de melhoria:** Probabilidade de o seu equipamento melhorar, agrupada em intervalos de 10 %. O número à direita indica quantos itens pertencem a cada grupo. O equipamento sem salvaguarda e o equipamento +16 totalmente melhorado ficam de fora. Clique num grupo para mostrar apenas esse equipamento.
 
-**Radar de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por mainstat) como gráfico de radar. Clique numa marca de eixo para a selecionar como pivô de co-ocorrência — o radar restringe-se então ao equipamento que contém todos os substats selecionados ao mesmo tempo (até 4 pivôs). Os pivôs ativos aparecem como chips abaixo do gráfico; × remove um, **Limpar filtros** remove todos.
+**Radar de Frequência de Substats:** Mostra a frequência de cada substat no equipamento filtrado (e opcionalmente limitado por stat principal) como gráfico de radar. Clique numa marca de eixo para a selecionar como pivô de co-ocorrência — o radar restringe-se então ao equipamento que contém todos os substats selecionados ao mesmo tempo (até 4 pivôs). Os pivôs ativos aparecem como chips abaixo do gráfico; × remove um, **Limpar filtros** remove todos.
 
-**Mapa de calor Slot × Mainstat:** Contagem de itens por slot (colunas) × mainstat (linhas). Clique num cabeçalho de coluna ou numa célula para filtrar por esse slot.
+**Mapa de calor Slot × Stat principal:** Contagem de itens por slot (colunas) × stat principal (linhas). Clique num cabeçalho de coluna ou numa célula para filtrar por esse slot.
 
 **Separador Estatísticas de campeões:** Totais de substats somados nas peças equipadas por campeão. Filtre por localização (**Todos** / **Coleção** / **Cofre**), ative apenas **Totalmente equipado** e inclua ou exclua os glifos. Mostra séries Min/Média/Mediana/Máx.
 
-**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grelha 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique num slot preenchido para selecionar essa peça — a seleção é partilhada com o Inspetor de equipamento. Ative **Simular venda** para pintar a vermelho os slots cuja peça seria vendida e contá-los como em falta, ou **Mostrar completos** para também listar campeões totalmente equipados.
+**Equipamento de campeões:** Cobertura de slots de equipamento por campeão em duas tabelas compactas (**Coleção** / **Cofre**). Cada linha mostra uma grelha 3×3 (preenchido = equipado, contorno = vazio, tracejado = bloqueado até ascender). Clique num slot preenchido para selecionar essa peça — a seleção é partilhada com o Inspetor de Equipamento. Ative **Simular venda** para pintar a vermelho os slots cuja peça seria vendida e contá-los como em falta, ou **Mostrar completos** para também listar campeões totalmente equipados.
 
 **Botões:**
 - **Copiar instantâneo:** Renderiza a vista analítica completa como PNG e copia-a para o porta-papéis. Nota: o Equipamento de campeões não é incluído no instantâneo.
@@ -242,23 +242,23 @@ Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para um
 
 ### Gestão de receitas
 - As receitas guardadas aparecem como etiquetas sob o builder. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
-- «Delete Receitas» remove todas (com confirmação).
+- «Eliminar todas as receitas» remove todas (com confirmação).
 - Ligação por hover: passar o cursor sobre uma etiqueta destaca as linhas associadas na prévia e vice-versa.
 - Ligação por clique: clicar uma linha da tabela seleciona a receita de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, abre-se um diálogo com o texto já selecionado para copiar manualmente.
 - Ativar/desativar receitas: o botão no cabeçalho do builder desativa globalmente todas as receitas sem as eliminar, pausando a pipeline de prévia — útil para verificar rapidamente uma exportação apenas com salvaguardas ou confirmar o que a Venda Final produz sozinha.
 
 ### Prévia Sellfile (Regras e Inspetor de Equipamento)
-- O cabeçalho da prévia mantém o interruptor «Rules»/«Inspetor de Equipamento», o botão «Ferramentas» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento.
-- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Qualquer/Apenas (`Any/Only`) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Receitas em paralelo: «Restringir» decide se as etiquetas fora dos filtros atuais ficam ocultas e a «Seleção» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o Inspetor de Equipamento).
-- Vista «Inspetor de Equipamento»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir Ferramentas. Os contadores passam a Manter/Vender/Âmbito/Sem regra segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Receitas («Restringir» + «Seleção»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto a «Seleção» aplica o triestado (`Off` → `Primeira` → `Por correspondência`) para isolar as linhas do Inspetor de Equipamento e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
-- O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.sfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para o Inspetor de Equipamento sem tocar em receitas ou export. «Limpar» remove o `.hsf` base quando existir.
+- O cabeçalho da prévia mantém o interruptor «Prévia Sellfile»/«Inspetor de Equipamento», o botão «Ferramentas» e o botão “Carregar Sellfile do RSL Helper” juntos para saber sempre onde alternar de tabela ou abrir o diálogo Equipamento.
+- Vista «Prévia Sellfile» (predefinição): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Qualquer/Apenas para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Receitas em paralelo: «Restringir» decide se as etiquetas fora dos filtros atuais ficam ocultas e a «Seleção» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o Inspetor de Equipamento).
+- Vista «Inspetor de Equipamento»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir Ferramentas. Os contadores passam a Manter/Vender/Âmbito/Sem regra segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Receitas («Restringir» + «Seleção»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto a «Seleção» aplica o triestado (`Desativado` → `Primeira` → `Por correspondência`) para isolar as linhas do Inspetor de Equipamento e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Prévia Sellfile». Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Prévia Sellfile» a qualquer momento.
+- O botão “Carregar Sellfile do RSL Helper” comporta-se da mesma forma que o arrastar-e-largar: `.sfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para o Inspetor de Equipamento sem tocar em receitas ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
-- Na vista «Rules» a tabela continua a mostrar «Idx» e «Receita» (linhas do ficheiro base deixam «Receita» em branco). Na vista «Inspetor de Equipamento», o mesmo espaço lista slot/set, estatísticas e o chip da primeira receita correspondente para veres diretamente o que acontece a cada artefacto.
+- Na vista «Prévia Sellfile» a tabela continua a mostrar «Idx» e «Receita» (linhas do ficheiro base deixam «Receita» em branco). Na vista «Inspetor de Equipamento», o mesmo espaço lista slot/set, stats e o chip da primeira receita correspondente para veres diretamente o que acontece a cada artefacto.
 
 ### Controlos da prévia
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
-- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de receitas. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Restringir` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Seleção` decide quais as receitas permitidas na tabela: em «Rules» funciona como um simples interruptor Ligado/Desligado, e no Inspetor de Equipamento alterna por `Off` → `Primeira` → `Por correspondência` para controlares também como respondem as linhas do Inspetor de Equipamento.
+- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de receitas. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Restringir` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Seleção` decide quais as receitas permitidas na tabela: em «Prévia Sellfile» funciona como um simples interruptor Ligado/Desligado, e no Inspetor de Equipamento alterna por `Desativado` → `Primeira` → `Por correspondência` para controlares também como respondem as linhas do Inspetor de Equipamento.
 - Menu de colunas (clique direito na cabeça da tabela):
   - Repor colunas: restaura colunas e larguras padrão.
   - Ajustar largura: adapta as colunas à janela.
@@ -270,11 +270,11 @@ Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para um
 
 ### Inspetor de Equipamento
 - Clique em «Ferramentas» no cabeçalho da Prévia Sellfile para abrir o diálogo Equipamento. Crie equipamento de exemplo. Os itens sincronizam imediatamente com a prévia, por isso fechar o diálogo não limpa a grelha do Inspetor de Equipamento.
-- Ligue ao RSL Helper para sincronização em tempo real (o botão Connect no cabeçalho da prévia) ou arraste um ficheiro `.db` para a aplicação ou use o botão “Load RSL Helper Sellfile”.- Cada linha do Inspetor de Equipamento mostra slot, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira receita/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
+- Ligue ao RSL Helper para sincronização em tempo real (o botão Ligar no cabeçalho da prévia) ou arraste um ficheiro `.db` para a aplicação ou use o botão “Carregar Sellfile do RSL Helper”.- Cada linha do Inspetor de Equipamento mostra slot, set, nível, stat principal, substats (com glifos e rolagens), a origem (inventário vs entrada) e os chips Manter/Vender + a primeira receita/regra correspondente. Regras desativadas nunca correspondem, portanto `Sem acerto` identifica peças que o Sellfile deixaria passar.
 - Os contadores no cabeçalho mostram os totais de Manter/Vender/Âmbito/Sem regra. Os quatro botões de filtro de resultado — **Manter**, **Vender**, **Âmbito** e **Sem regra** — funcionam como interruptores independentes: activa qualquer combinação para reduzir a lista. **Âmbito** esvanece (mas mantém visíveis) os itens que partilham o mesmo set+slot que uma peça que as tuas regras venderiam, para poderes comparar um candidato com a sua concorrência numa só vista sem precisar de duas passagens de filtro. Quando também estão selecionadas uma ou mais **Fontes**, essas fontes funcionam como conjunto de referência — apenas os itens marcados para venda das fontes selecionadas tornam-se itens principais, enquanto os acompanhantes são recolhidos de *todas* as fontes, permitindo ver cada exemplar dessa peça independentemente de onde esteja. **Sem regra** mostra equipamento que nenhuma regra toca — útil para detetar lacunas nas tuas receitas. Combina com o seletor `Primeira`/`Por correspondência` de Receitas para te focares nos casos limite antes de exportar.
 - Usa o interruptor da prévia para alternar entre a tabela de Regras e o Inspetor de Equipamento sem reabrir Ferramentas — ideal para comparar as linhas geradas com o equipamento que as ativou.
 
-- **Sobreposição de Posição da Salvaguarda:** o menu da grelha tem um botão **Posição da Salvaguarda** que alterna o que o chip de posição de cada peça mostra (pelo valor de substat atual; **#1** é a melhor; verde = mantida, vermelho = seria vendida). **Desligado** oculta-o; **Grupo** mostra a posição dentro do próprio grupo da peça — o âmbito de slot / set / facção / estatística principal que a regra mantém separadamente (ex.: **#2**); **Salvaguarda** mostra a posição em toda a salvaguarda (ex.: **#7**); **Ambos** mostra grupo e depois salvaguarda como **#2 · #7** (2.ª no grupo, 7.ª no total). O chip e a dica são ordenados pela posição exibida, o chip reflete a regra correspondente mais bem posicionada da peça, e clicar vai até essa regra. Com regras selecionadas, o chip reflete essas regras; uma peça classificada só por *outra* regra mostra ainda a sua melhor posição, ligeiramente esbatida. Requer Salvaguardas ativadas.
+- **Sobreposição de Posição da Salvaguarda:** o menu da grelha tem um botão **Posição da Salvaguarda** que alterna o que o chip de posição de cada peça mostra (pelo valor de substat atual; **#1** é a melhor; verde = mantida, vermelho = seria vendida). **Desligado** oculta-o; **Grupo** mostra a posição dentro do próprio grupo da peça — o âmbito de slot / set / facção / stat principal que a regra mantém separadamente (ex.: **#2**); **Salvaguarda** mostra a posição em toda a salvaguarda (ex.: **#7**); **Ambos** mostra grupo e depois salvaguarda como **#2 · #7** (2.ª no grupo, 7.ª no total). O chip e a dica são ordenados pela posição exibida, o chip reflete a regra correspondente mais bem posicionada da peça, e clicar vai até essa regra. Com regras selecionadas, o chip reflete essas regras; uma peça classificada só por *outra* regra mostra ainda a sua melhor posição, ligeiramente esbatida. Requer Salvaguardas ativadas.
 
 ### Comparação de equipamento (Antes / Depois)
 - O botão **Diff** no cabeçalho do Inspetor de Equipamento ativa uma comparação que mostra quais peças mudam entre **Manter** e **Vender** quando muda algo — útil ao ajustar receitas ou experimentar as substituições dinâmicas na caixa de diálogo Nota.

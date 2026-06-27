@@ -47,7 +47,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - **Always resolve a term against the catalog before translating it, never from intuition.** Every gear/RSL keyword already has a fixed rendering in `src/lib/i18n/catalogs/<lang>.ts`; reusing it is mandatory, not a preference. When in doubt, grep the catalog (`rg '\bstatSPD\s*:' src/lib/i18n/catalogs/de-DE.ts`) and copy what it uses.
 - **One English word can map to several catalog terms — disambiguate by meaning, not spelling.** The recurring trap is `Speed`: as a **substat** it is `statSPD` → `SPD` (de-DE keeps `SPD`, not "Geschwindigkeit"); as the **gear set** it is `setSpeed` → `Geschwindigkeit`; as the plain word it is the everyday translation. Pick the variant by context, then use that key's value. The same applies to `Shield` (the *Shield* slot `slotShield` → "Schild" vs. the *Crit Shield* mechanic, which stays English).
-- **Per-language scope — extend this section as you go.** Only **de-DE** has been analyzed so far; the glossary and loanword list below exist for that locale only. Before localizing preset prose (or any large copy) into another language, **build the same artifacts for that locale first**: derive its canonical terms from its catalog, decide its intentional loanwords, and (a) add a glossary table here under its own heading and (b) drop a loanword comment at the top of its `src/lib/i18n/catalogs/<lang>.ts`. Treat "no glossary for this language yet" as a blocker to be cleared, not a detail to skip — that is how this section stays the single reference instead of being re-discovered each time. fr-FR, es-ES, it-IT, pt-BR, pt-PT, ru-RU, uk-UA, and tr-TR are still **TODO**.
+- **Per-language scope — extend this section as you go.** All ten production locales now have a glossary below (de-DE, en-US is the source, plus es-ES, fr-FR, it-IT, pt-BR, pt-PT, ru-RU, tr-TR, uk-UA). When you do further terminology work in a locale, **extend its existing table — do not contradict it**. If a new concept appears, resolve it from that locale's catalog, add a row, and decide/record any new loanword here (not in a `<lang>.ts` comment). Keep glossaries terse; the catalog remains the runtime source of truth.
 - **de-DE reference glossary (derived from the catalog; extend, do not contradict):**
 
   | English | de-DE (catalog key) | Notes |
@@ -77,8 +77,195 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
   de-DE **intentional loanwords** (do NOT "correct" to German): Set, SPD, Banner, Slot, Rolls, Drops. **"Gear" is NOT a loanword in de-DE** — it is translated to "Ausrüstung" everywhere (catalog, README, preset prose); the lone exception is the proper-noun series title "Gear-Cleanse-Videos". The whole **stat** family is also translated: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` / `gear*` etc. TS **keys** stay English; `[[stat:…]]` tokens are untouched).
 
+- **it-IT reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | it-IT (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | pezzo / pezzi | |
+  | gear | equipaggiamento | translated, **not** the loanword "Gear". The *Gear Inspector* mode is **"Ispettore Equipaggiamento"** (both words capitalized, proper noun) — used everywhere; collapsed the prior mix of bare "Gear Inspector" and "Tester regole". |
+  | gear set / set | set | loanword (lowercase in prose, Title Case as a label/chip) |
+  | stat (bare) | stat | loanword, feminine ("la stat", "le stat"); also "valore/valori" generically |
+  | substat(s) | sotto-stat | translated, **feminine** ("una sotto-stat", "le sotto-stat", "tutte le sotto-stat"). Collapsed the heavy catalog/README mix of "substat"/"Substat" → unified to "sotto-stat". TS keys (`statSubstat`, `safeguardsSubstat*`, `tabSubstatTargets`…) stay English. |
+  | main stat | stat principale | not "statistica principale" — collapsed that variant. Plural label "Stat principali". |
+  | SPD (the stat) | SPD (`statSPD`) | loanword |
+  | Speed (the set) | Speed (`setSpeed`) | set names stay English |
+  | rank | rango / Rango | not "grado" — collapsed the 4 "grado" slips (chart label, dungeon how-it-works, substat-target tooltips). Keep distinct from star count. |
+  | rarity | rarità | |
+  | level | livello | |
+  | faction | fazione | |
+  | slot | slot | loanword; slot **names** are translated (Arma / Elmo / Scudo / Guanti / Corazza / Stivali / Anello / Amuleto / Vessillo) |
+  | artifacts / accessories | artefatti / accessori | |
+  | keep / sell / protect | mantieni (tieni) / vendi / proteggi | |
+  | safeguards | Salvaguardie (`safeguardsTabLabel`) | English keeps "Safeguards"; it-IT translates. Collapsed the README heading/feature "Mantieni unici" → "Salvaguardie" / "Attiva Salvaguardie". |
+  | (dynamic) overrides | sostituzioni (dinamiche) | |
+  | Chaos Ore | Chaos Ore | loanword (kept English); reroll states → "Rerollato" / "Mai rerollato" (matching `gearInspectorRerollLabel`) |
+  | Vault | Deposito | not "Vault"/"Forziere" — collapsed both (RSL's Italian game term is "Deposito"). |
+  | Inbox | Posta | unified `gearAnalyticsSourceInbox` to match `gearInspectorSourceInbox`. |
+  | Custom (source) | Personalizzato | unified `gearInspectorSourceManual` ("Manuale") → "Personalizzato". |
+  | sell file | Sellfile | one word |
+  | rolls / drops | roll / drop | loanwords (used singular+plural invariant) |
+  | rules (HSF) | regole | engine rules; the `Rules`/`Gear Inspector` preview toggle reads `Regole`/`Ispettore Equipaggiamento`. |
+
+  it-IT **intentional loanwords** (do NOT "correct" to Italian): Set, SPD, Slot, Roll(s), Drop(s), Chaos Ore, Sellfile, Metaset, Flex. **"Gear" is translated** to "equipaggiamento" (the *Gear Inspector* mode → "Ispettore Equipaggiamento"). The **substat** family is translated to **feminine "sotto-stat"**; "main stat" → "stat principale"; "stat" stays the loanword "stat". it-IT addresses the user informally (**tu**, not voi) — collapsed the few formal-voi slips ("Passate"/"vostre" → "Passa"/"tue").
+
+- **pt-BR reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | pt-BR (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | peça / peças | |
+  | gear | equipamento | translated, **not** the loanword "gear"; mass/singular ("seu equipamento"). "gear DB" → "banco de dados de equipamento". The TS `gear*` keys and `[[stat:…]]` tokens stay English. |
+  | gear set / set | conjunto | canonical full word; **"set" / "Sets"** is an accepted loanword for compact labels (analytics chart `gearAnalyticsChartSet`, the set/meta-set selector domain, `meta-set`). Keep the scope token (`safeguardsCountModeScopeSet`) and its chip (`Por conjunto`) on the SAME word — both "conjunto". |
+  | stat / substat / main stat | stat / substat / stat principal | whole family uses the **loanword "stat"** (masculine — "um stat", "esse substat"; collapsed the feminine "uma substat"/"essa stat" slips). **substat** → "substat/substats" (never "subatributo"/"sub-atributo"/"subestatística"). **main stat** → "stat principal" everywhere — catalog *and* README quota tables/chips (never "atributo principal"/"status principal"/"mainstat"/"estatística principal"). Plural chart/section labels use "Stats principais". |
+  | SPD (the stat) | SPD (`statSPD`) | |
+  | Speed (the set) | Velocidade (`setSpeed`) | |
+  | rank | rank | loanword; never "Grau". (`Rank` chart axis fixed from "Grau".) |
+  | rarity | Raridade | |
+  | level | Nível | "Nv {level}" only as the compact badge (en "Lv"). Never "Level". |
+  | faction | Facção | |
+  | slot | slot / Slots | loanword (kept everywhere). |
+  | slot names | Arma / Elmo / Escudo / Manoplas / Peitoral / Botas / Anel / Amuleto / Estandarte | from `slot*` keys. |
+  | artifacts / accessories | Artefatos / Acessórios | |
+  | keep / sell / protect | manter / vender / proteger | |
+  | safeguards | Salvaguardas (`safeguardsTabLabel`) | README heading + toggle unified to "Salvaguardas" / "Ativar Salvaguardas" (eliminated the invented "Manter únicos"). |
+  | (dynamic) overrides | substituições (dinâmicas) | |
+  | Chaos Ore | Chaos Ore (`filterChaosOre`) | loanword kept; the verb is "rerrolado" / "Sem rerrolagem" (filter values translated from "Rerolled"/"Not rerolled"; `gearInspectorRerollLabel` normalized "Rerolado"→"Rerrolado"). |
+  | sell file | Sellfile | one word; the preview mode label is "Prévia Sellfile". |
+  | Gear Inspector | Inspetor de Equipamento | ONE rendering (collapsed the "Gear Inspector" loanword and "Teste de Regras"). Title Case, singular. |
+  | rolls / drops | rolagem(ns) / drop(s) | **rolls is TRANSLATED** to "rolagem/rolagens" (dominant; collapsed the stray "roll/rolls"/"quad-rolls" loanwords). **drop(s)** stays the loanword. |
+  | vault / inbox / custom | Cofre / Entrada / Personalizado | Gear-Analytics source labels unified to the Gear-Inspector source set (was "Vault"/"Inbox"; `gearInspectorSourceManual` "Manual"→"Personalizado" to match en "Custom"). |
+
+  pt-BR **intentional loanwords** (do NOT "correct" to Portuguese): set/Sets (alongside "conjunto"), SPD, Slot, stat/substat, Chaos Ore, Sellfile, Drops, Flex, RSL Helper. **"Gear" is translated** to "equipamento"; the *Gear Inspector* mode is "Inspetor de Equipamento". **"rolls" is translated** to "rolagem/rolagens" (unlike de-DE which keeps "Rolls"). pt-BR is a SEPARATE locale from pt-PT — keep them distinct.
+
+- **es-ES reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | es-ES (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | pieza / piezas | |
+  | gear | equipo | translated, **not** the loanword "gear". The *Gear Inspector* mode → "Inspector de Equipo"; *Gear Lens* → "Análisis de Equipo". |
+  | gear set / set | set / Sets | **loanword**, canonical for the game concept (collapsed the prior "conjunto/Conjuntos" mix). Generic "a set/pool of X" (override set, candidate pool, reference set) stays "conjunto". |
+  | stat / substat / main stat | stat / substat / stat principal | **loanwords** "stat"/"substat" (collapsed "estadística"/"subestadísticas"); "main stat" → "stat principal" (masculine; collapsed "estadística principal"/"mainstat"). |
+  | slot | ranura | translated, canonical (collapsed stray "slot"/"casilla"). Names: Arma / Yelmo / Escudo / Guantes / Peto / Botas / Anillo / Amuleto / Estandarte. |
+  | rank / rarity / level / faction | rango / rareza / nivel / facción | |
+  | artifacts / accessories | artefactos / accesorios | |
+  | keep / sell / protect | conservar / vender / proteger | collapsed stray "retener"/"retención" → "conservar". |
+  | safeguards | Salvaguardas (`safeguardsTabLabel`) | translated. |
+  | (dynamic) overrides | anulaciones (dinámicas) | collapsed "sustituciones dinámicas"/"ajustes dinámicos". |
+  | Chaos Ore | Mena de Caos / Chaos | per `filterChaosOre`. |
+  | sell file | Sellfile | one word, masculine ("el Sellfile"). |
+  | rolls / drops | rolls / drops / tiradas | "tiradas" for the count; "rolls"/"drops" loanwords where idiomatic. |
+
+  es-ES **intentional loanwords:** set, metaset, stat, substat, SPD/CR%/CDMG%/ACC/RES (stat codes), rolls, drops, Sellfile, Normalized, Diff, KPI. **"gear" is translated** to "equipo"; **slot → "ranura"**. Disambiguation: the gear-set game concept = "set"; generic set/pool = "conjunto".
+
+- **fr-FR reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | fr-FR (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | pièce / pièces | |
+  | gear | équipement | translated (mass noun). Compounds: « Inspecteur d'équipement », « base de données d'équipement », « set d'équipement ». |
+  | gear set / set | set | loanword (masculine, « le set »); collapsed stray « ensemble ». |
+  | stat / substat / main stat | stat / sous-stat / stat principale | **feminine** throughout (abbreviates *statistique*); eliminated English « substat » in prose. |
+  | slot | emplacement | translated, canonical (away from loanword « slot »); « Empl. » as column abbr. Names: Arme / Casque / Bouclier / Gantelets / Plastron / Bottes / Bague / Amulette / Bannière. |
+  | rank / rarity / level / faction | rang / rareté / niveau / faction | |
+  | artifacts / accessories | artefacts / accessoires | |
+  | keep / sell / protect | garder (conserver) / vendre / protéger | |
+  | safeguards | garde-fous | translated. |
+  | (dynamic) overrides | surcharges | « ensemble de surcharges » = override-set (kept, not a gear set). |
+  | Chaos Ore | Chaos Ore | kept English; filter values translated (Tout / Non relancé / Relancé). |
+  | sell file | Sellfile | one word. |
+  | rolls / drops | rolls (jets / lancers) / drops | loanwords in prose; « jets »/« lancers » also native. |
+
+  fr-FR **intentional loanwords:** Set, SPD, Rolls, Drops, Glyphed/Chaos'd (KPI badges), Vault, Inbox. **"Gear" is translated** to « équipement »; **slot → « emplacement »**.
+
+- **pt-PT reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | pt-PT (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | peça / peças | |
+  | gear | equipamento | translated, **not** "gear". |
+  | gear set / set | set / Sets | loanword (collapsed the "Conjunto" mix); generic *override answer set* stays "conjunto de substituições". |
+  | stat / substat / main stat | stat / substat(s) / stat principal | "substat" loanword (collapsed "subatributo"); main stat = "stat principal"; substat masculine ("o substat"). |
+  | level | nível / Nível (Nv) | not "Level" except the fixed KPI badge "Level +16". |
+  | rank | Rank | loanword; killed lone "Grau". |
+  | rarity / faction | raridade / facção | European spelling ("facção", not "fação"). |
+  | safeguards | Salvaguardas | translated; fixed README's "Manter únicos" → "Salvaguardas". |
+  | (dynamic) overrides | substituições (dinâmicas) | |
+  | accessories / artifacts | acessórios / artefactos | |
+  | Chaos Ore | Chaos Ore | label English; states translated (Qualquer / Não relançado / Relançado). |
+  | metaset | metaset | loanword, **no hyphen**. |
+  | Vault / Inbox | Cofre / Entrada | unified across analytics + inspector. |
+  | sell file | Sellfile | one word. |
+  | rolls / drops | rolagens / drops | "rolagens" translated (not loanword); "drops" kept. |
+
+  pt-PT **intentional loanwords:** Set, SPD (+stat tokens), Slot, Rank, drops, Flex, metaset, Sellfile, Chaos Ore (label), Normalized. **"gear" → "equipamento"**, **"rolls" → "rolagens"**, **"substat" kept as loanword**. **European Portuguese** spelling throughout (ficheiro, ecrã, predefinição, facção). pt-PT is a SEPARATE locale from pt-BR.
+
+- **ru-RU reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | ru-RU (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | предмет / предметы | |
+  | gear | снаряжение | **canonical**; eliminated экипировка / шмот / вещь as gear synonyms (verb "экипирован" = *equipped* kept). |
+  | gear set / set | сет | **canonical over "набор"** for the gear-set concept; "набор" kept only for non-set meanings (набор настроек, наборы переопределений). |
+  | stat / substat / main stat | стат / подстат / основной стат | substat = **подстат** (collapsed субстат/сабстат/подхарактеристика). |
+  | rank / rarity / level / faction | ранг / редкость / уровень / фракция | |
+  | slot | слот | names Оружие/Шлем/Щит/Перчатки/Нагрудник/Сапоги/Кольцо/Амулет/Знамя. |
+  | artifacts / accessories | артефакты / аксессуары | |
+  | keep / sell / protect | оставить / продать / защитить | |
+  | safeguards | Защиты | **canonical**; eliminated "Правило сохранения"/"Сохранение уникальных комбинаций" (feminine agreement: Защита добавлена/обновлена/удалена). |
+  | Gear Inspector | Инспектор снаряжения | **canonical**; eliminated "Тестер"/"Тестер правил". |
+  | (dynamic) overrides | переопределения | |
+  | Chaos Ore | Chaos Ore | loanword; reroll → Переброшено (was Перековано). Chip values keep English originals. |
+  | sell file | Sellfile | one word. |
+  | rolls / drops | ролл / дропы | **rolls canonicalized to "ролл"** (eliminated "роль"-style forms and "прок"). |
+
+  ru-RU **intentional loanwords:** сет, Sellfile, ролл, дроп, SPD/ATK/DEF/HP/ACC/RES/CR/CDMG, Flex. **"Gear" → снаряжение**, **"substat" → подстат** (translated, not loanwords).
+
+- **tr-TR reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | tr-TR (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | parça / parçalar | not "öğe" for physical gear pieces. |
+  | gear | ekipman | translated everywhere — **not** "gear". |
+  | gear set / set | set | loanword. |
+  | stat / substat / main stat | stat / alt stat / ana stat | compound forms; bare loanword "stat" kept (idiomatic). |
+  | level / rank / rarity | seviye / rütbe / nadirlik | star rank = "yıldız rütbesi". |
+  | faction | Fraksiyon | **canonical** (collapsed the "Faksiyon"/"Fraksiyon" split). |
+  | slot | Yuva / Yuvalar | **canonical** (collapsed the "Slot"/"Yuva" mix; scope chip "Yuva başına"). Names: Silah, Miğfer, Kalkan, Eldivenler, Zırh, Botlar, Yüzük, Tılsım, Sancak. |
+  | recipe | Reçete / Reçeteler | **canonical** (collapsed the "Tarif"/"Reçete" split); "kural" reserved for HSF rules. |
+  | safeguards | Korumalar | catalog canonical; fixed README's "Benzersizleri Koru" → "Korumalar". |
+  | (dynamic) overrides | geçersiz kılmalar | |
+  | accessories / artifacts | aksesuarlar / eserler | |
+  | Vault | Kasa | **canonical** (translated analytics "Vault" leftovers). |
+  | Chaos Ore | Kaos Cevheri | translated `filterChaosOre*` + tooltip; reroll → "yeniden atma". (KPI "Chaos'd"/"Chaos Orb" kept.) |
+  | sell file | Sellfile | one word. |
+  | rolls / drops | rulo / düşüş | translated. |
+
+  tr-TR **intentional loanwords:** SPD/ATK/DEF/HP/RES/ACC/CR/CDMG, Set, Flex, Sellfile, Glyph/glif, RSL Helper, Chaos'd/Chaos Orb. **"gear" → ekipman**, **slot → Yuva**, **recipe → Reçete**, **Vault → Kasa**, **faction → Fraksiyon**.
+
+- **uk-UA reference glossary (derived from the catalog; extend, do not contradict):**
+
+  | English | uk-UA (catalog) | Notes |
+  | --- | --- | --- |
+  | piece / pieces | предмет / предмети | |
+  | gear | спорядження | translated, **not** loanword (neuter). Collapsed *екіпіровка/екіпірування*; verb *екіпіровано* ("equipped") kept distinct. |
+  | gear set / set | сет / сети | **canonical** (collapsed *набір/набор/комплект* for the gear-set sense). "набір перевизначень" (batch of overrides) / "стандартний набір колонок" stay *набір*. |
+  | stat / substat / main stat | стат / підстат / основний стат | **substat = підстат** (collapsed сабстат/субстат/підхарактеристики and the wrong *статус*=status); main stat masculine *основний стат*. |
+  | rank / rarity / level / faction | ранг / рідкість / рівень / фракція | |
+  | slot | слот | names Зброя/Шолом/Щит/Рукавиці/Нагрудник/Черевики/Кільце/Амулет/Прапор. |
+  | artifacts / accessories | артефакти / аксесуари | |
+  | keep / sell / protect | зберегти / продати / захистити | **Keep = зберегти** (collapsed the outcome rendering *залишити*); *залишок* = "remainder" (final sell) kept distinct. |
+  | safeguards | захисти | translated. |
+  | (dynamic) overrides | перевизначення | |
+  | Chaos Ore | Chaos Ore | kept English (KPI "Chaos'd"/"Glyphed" also English). |
+  | Vault | Сховище | canonicalized (collapsed *Vault*/*У Vault*). |
+  | sell file | Sellfile | one word. |
+  | rolls / drops | роли / дропи | loanwords (collapsed *рулон* and *проки*). |
+
+  uk-UA **intentional loanwords:** Sellfile, SPD/ATK/DEF/HP/CR/CDMG/ACC/RES, роли (rolls), дропи (drops), сет (gear set), Chaos Ore, Chaos'd, Glyphed, Flex. **"gear" → спорядження**, **"substat" → підстат** (translated). Catalog strings use DOUBLE quotes (U+2019 apostrophe trap).
+
 - **Reserve "rules"/"Regeln" for HSF rules.** User-facing keep/sell logic is *recipes* (`recipeMany` → "Rezepte"); calling those "rules"/"Regeln" confuses them with the engine's HSF rules. The same applies inside preset prose.
-- **Keep terminology notes here, not in the catalogs.** Catalog files must stay structurally identical across locales (same key order, count, indentation, and comment blocks — `sync-catalog-comments` enforces this), so do **not** add a glossary/loanword comment to `<lang>.ts`. Record per-language decisions in this doc instead.
+- **Keep terminology notes here, not in the catalogs.** Catalog files must stay structurally identical across locales (same key order, count, indentation, and comment blocks), so do **not** add a glossary/loanword comment to `<lang>.ts`. Record per-language decisions in this doc instead.
+- **Catalog keys are identical across all production locales — test-enforced.** Every `<lang>.ts` defines exactly the en-US key set: no missing keys (which silently fall back to English at runtime via the `{ ...en, ...locale }` spread) and no extra/dead keys (which nothing consumes). `tests/unit/catalog-key-parity.test.ts` locks this in `test:unit`; it is the guard that catches a value-side rename accidentally applied to a key identifier (e.g. `main stat`→`Mainstat` turning `gearAnalyticsChartMainStat` into a dead key). When you add a key to en-US, add it to all 9 translated catalogs in the same position.
+- **Comments in translated catalogs are verbatim English.** Comment *text* is not localized — every `//` line in a `<lang>.ts` is byte-for-byte the en-US comment for that anchor. This keeps the catalogs diffable against en-US and lets `scripts/tooling/sync-catalog-comments.ts` (a **manual** audit, not wired into a gate) re-sync them. The tool still reports a residual gap (translations carry ~86 of en-US's 113 comment lines, and one pre-existing key-order swap at `finalSellToggleTooltip`/`safeguardsToggleLabel`); closing that is a separate structural-alignment task, not part of key/comment-language parity.
 
 ### Preset Note localization (`presets/*.sfc`)
 

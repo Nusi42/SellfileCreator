@@ -4,8 +4,8 @@ const overrides: Catalog = {
   // App / Panels
   builderModeRecipe: "Constructor de recetas",
   builderModeSafeguard: "Constructor de salvaguardas",
-  builderModeRecipeTooltip: "**Constructor de recetas** — Crea y gestiona tus reglas de venta/conservación. Cada receta define los criterios de equipo que Raid conservará; todo lo demás se vende.\n\nCambia al **Constructor de salvaguardas** para proteger también conjuntos específicos de equipo de ser vendidos, independientemente de tus recetas.",
-  builderModeSafeguardTooltip: "**Constructor de salvaguardas** — Protege conjuntos de equipo de ser vendidos, de forma independiente a tus recetas de venta/conservación.\n\nCada salvaguarda reserva un número de piezas coincidentes para que nunca se incluyan en la lista de venta, incluso si ninguna receta las contempla.\n\nCambia al **Constructor de recetas** para editar tus reglas de venta/conservación.",
+  builderModeRecipeTooltip: "**Constructor de recetas** — Crea y gestiona tus reglas de venta/conservación. Cada receta define los criterios de equipo que Raid conservará; todo lo demás se vende.\n\nCambia al **Constructor de salvaguardas** para proteger también sets específicos de equipo de ser vendidos, independientemente de tus recetas.",
+  builderModeSafeguardTooltip: "**Constructor de salvaguardas** — Protege sets de equipo de ser vendidos, de forma independiente a tus recetas de venta/conservación.\n\nCada salvaguarda reserva un número de piezas coincidentes para que nunca se incluyan en la lista de venta, incluso si ninguna receta las contempla.\n\nCambia al **Constructor de recetas** para editar tus reglas de venta/conservación.",
   loadRecipes: "Cargar archivo SFC",
   loadRecipesTooltip: "Carga un archivo SFC para restaurar tu configuración completa — recetas, conservaciones, metasets, notas y más.",
   loadSfcFromFile: "Cargar desde archivo…",
@@ -25,17 +25,17 @@ const overrides: Catalog = {
   addNote: "Añadir nota y anulaciones dinámicas…",
   noteOpen: "Nota y anulaciones dinámicas…",
   saveAllRecipes: "Guardar archivo SFC",
-  saveAllRecipesTooltip: "Guarda tu configuración completa — recetas, conservaciones, metasets, notas y más — en un archivo SFC para recargarla más adelante. Las ajustes dinámicos no se guardan.",
+  saveAllRecipesTooltip: "Guarda tu configuración completa — recetas, conservaciones, metasets, notas y más — en un archivo SFC para recargarla más adelante. Las anulaciones de receta no se guardan.",
   deleteRecipes: "Eliminar todas las recetas",
 
   previewModeAria: "Cambiar modo de vista",
   previewModeRules: "Vista Sellfile",
   previewModeGearInspector: "Inspector de Equipo",
-  previewModeRulesTooltip: "**Vista previa del Sellfile** — Muestra el equipo que se incluirá en tu sellfile según tus recetas actuales.\n\nCambia al **Probador de reglas** para cargar tu propio equipo y ver exactamente qué receta coincide con cada pieza.",
-  previewModeGearInspectorTooltip: "**Inspector de Equipo** — Carga tu inventario de equipo real y pruébalo contra tus recetas en tiempo real. Cada pieza muestra qué receta la identificó y por qué.\n\nCambia a la **Vista previa del Sellfile** para ver la salida combinada del sellfile.",
+  previewModeRulesTooltip: "**Vista previa del Sellfile** — Muestra el equipo que se incluirá en tu Sellfile según tus recetas actuales.\n\nCambia al **Probador de reglas** para cargar tu propio equipo y ver exactamente qué receta coincide con cada pieza.",
+  previewModeGearInspectorTooltip: "**Inspector de Equipo** — Carga tu inventario de equipo real y pruébalo contra tus recetas en tiempo real. Cada pieza muestra qué receta la identificó y por qué.\n\nCambia a la **Vista previa del Sellfile** para ver la salida combinada del Sellfile.",
   manageColors: "Gestionar colores…",
   titleLogicHub: "Herramientas",
-  optionalLoadSellfile: "Opcional: carga un Sellfile existente para previsualizar la fusión o una base de datos de gear (.db) para revisarla en el Probador.",
+  optionalLoadSellfile: "Opcional: carga un Sellfile existente para previsualizar la fusión o una base de datos de equipo (.db) para revisarla en el Probador.",
   fileFormatErrorTitle: "Formato no compatible",
   fileFormatErrorUnknownName: "el archivo seleccionado",
   fileFormatErrorMessage: "No pudimos detectar ninguno de los formatos compatibles en {fileName}. Sellfile Creator acepta .sfc (recetas + meta‑sets), .hsf (Sellfile) y .db (base de datos de equipo).",
@@ -53,11 +53,11 @@ const overrides: Catalog = {
   filterTooltipPush: "Filtra la tabla (solo vista). El **envío** ignora los filtros.",
   finalSellToggleLabel: "Venta final",
   safeguardsToggleLabel: "Salvaguardas",
-  finalSellToggleTooltip: "**Venta final** — Barrido final que vende el equipo restante después de ejecutar recetas y salvaguardas.\n\nActiva para incluir un barrido de venta final en tu sellfile. Haz clic en el icono de engranaje para configurar qué tipos de equipo y niveles de rareza aplica.",
+  finalSellToggleTooltip: "**Venta final** — Barrido final que vende el equipo restante después de ejecutar recetas y salvaguardas.\n\nActiva para incluir un barrido de venta final en tu Sellfile. Haz clic en el icono de engranaje para configurar qué tipos de equipo y niveles de rareza aplica.",
   finalSellConfigureTooltip: "Abre el diálogo **Herramientas** en la pestaña **Venta final** para configurar el barrido final.",
   safeguardsToggleTooltip: "**Salvaguardas** — Protege equipo específico de ser vendido independientemente de tus recetas.\n\nActiva para activar las salvaguardas. Usa el **Safeguard Builder** para gestionar reglas individuales.",
   recipesToggleLabel: "Recetas",
-  recipesToggleTooltip: "**Recetas** — Activa o desactiva todas las reglas de venta/retención.\n\nCuando está desactivado, no se evalúan recetas y no se añade nada al sellfile desde recetas.",
+  recipesToggleTooltip: "**Recetas** — Activa o desactiva todas las reglas de venta/conservación.\n\nCuando está desactivado, no se evalúan recetas y no se añade nada al Sellfile desde recetas.",
   edit: "Configurar",
   openLogicHubAria: "Abrir Herramientas",
   exportIgnoresFilters: "La **exportación** ignora los filtros",
@@ -94,6 +94,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmTitle: "¿Eliminar el equipo de \"{source}\"?",
   gearDialogDeleteSourceConfirmBody: "Esto quita todo el equipo de \"{source}\" de la vista previa del Probador.",
   noSetAccessories: "Sin set de equipo",
+  noSetAccessoriesDesc: "Accesorios que sueltan en la mazmorra de la Araña.",
   gearInspectorTableEmpty: "Añade equipo personalizado para ver entradas aquí.",
   gearInspectorGridEmpty: "Añade equipo personalizado o carga una base de datos de RSL Helper para ver entradas aquí.",
   gearInspectorTableEmptySafeguardsDisabled: "«Salvaguardas» está desactivado; actívalo para escanear tu equipo.",
@@ -122,7 +123,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Substats seleccionados ya presentes: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "por-substat",
   gearInspectorGridSafeguardChanceUnknownRule: "(salvaguarda sin nombre)",
-  gearInspectorGridNormalizedTooltip: "**Mostrar valoración de substats** superpone la misma puntuación normalizada usada por **Normalized**:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si a un ítem le falta un substat seleccionado, aporta **0**.\n- Si se seleccionan varios preajustes, la valoración usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Conjunto, ranura, rango, rareza y stat principal se ignoran.\n\nEl color del overlay es relativo a la vista actual: **rojo = más bajo**, **verde = más alto**.",
+  gearInspectorGridNormalizedTooltip: "**Mostrar valoración de substats** superpone la misma puntuación normalizada usada por **Normalized**:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si a un ítem le falta un substat seleccionado, aporta **0**.\n- Si se seleccionan varios preajustes, la valoración usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Set, ranura, rango, rareza y stat principal se ignoran.\n\nEl color del overlay es relativo a la vista actual: **rojo = más bajo**, **verde = más alto**.",
   gearInspectorGridShowRuleTemplates: "Mostrar botón Añadir receta",
   gearInspectorGridNormalizedPresetTitle: "Preajuste normalizado {n}",
   gearInspectorGridNormalizedPresetHelp: "Selecciona substats para incluir; ajusta pesos para sesgar la suma normalizada.",
@@ -134,7 +135,7 @@ const overrides: Catalog = {
   gearInspectorGridNormalizedSortSourceTooltip: "**Fuente de ordenación** usa la fuente de ordenación **Normalized** actual para el overlay.\n\n- Es **exclusiva** con seleccionar preajustes aquí.\n- Si Normalized usa varias fuentes, el overlay usa la **mejor (máx)** puntuación.",
   gearDialogLevelLabel: "Nv {level}",
   gearInspectorMainStatInline: "{stat} {value}",
-  gearInspectorSubstatsNone: "Sin subestadísticas",
+  gearInspectorSubstatsNone: "Sin substats",
   gearInspectorRollsLabel: "Mejoras ×{rolls}",
   gearInspectorEquippedLabel: "Equipado #{id}",
   gearInspectorSourceInventory: "Inventario",
@@ -256,8 +257,8 @@ const overrides: Catalog = {
   simpleModeGoSimple: "Modo simple",
   simpleModeGoSimpleTooltip: "Volver a la vista simplificada",
   simpleModeAutoPush: "Envío automático",
-  simpleModeAutoPushOnTooltip: "**Envío automático activado** — el sellfile se envía a RSL Helper automáticamente con cada cambio. Haz clic para desactivar.",
-  simpleModeAutoPushOffTooltip: "**Envío automático desactivado** — haz clic para enviar el sellfile a RSL Helper automáticamente con cada cambio.",
+  simpleModeAutoPushOnTooltip: "**Envío automático activado** — el Sellfile se envía a RSL Helper automáticamente con cada cambio. Haz clic para desactivar.",
+  simpleModeAutoPushOffTooltip: "**Envío automático desactivado** — haz clic para enviar el Sellfile a RSL Helper automáticamente con cada cambio.",
 
   counting: "Contando…",
 
@@ -277,7 +278,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: "El navegador bloqueó el acceso al portapapeles. Selecciona y copia manualmente.",
 
   msgFinalSellExplainer: "Agrega reglas de venta final para elementos no cubiertos por tus reglas de Conservar.\nSin venta final, los elementos no coincidentes se conservan. La venta solo ocurre cuando una regla de venta coincide.",
-  msgFinalSellExplicitSetsWarning: "Las reglas de Venta final se amplían para enumerar explícitamente todos los conjuntos conocidos (sin comodín de “Cualquiera”). Si más adelante el juego añade un conjunto nuevo, quedará sin listar y el Sellfile exportado no venderá automáticamente ese equipo reciente.",
+  msgFinalSellExplicitSetsWarning: "Las reglas de Venta final se amplían para enumerar explícitamente todos los sets conocidos (sin comodín de “Cualquiera”). Si más adelante el juego añade un set nuevo, quedará sin listar y el Sellfile exportado no venderá automáticamente ese equipo reciente.",
   msgFinalSellAnySetsWarning: "Las reglas de Venta final tratan cada set como coincidencia. Los sets nuevos que aún no cubras en otras reglas también se venderán en cuanto lleguen aquí.",
   labelFinalSellSetsMode: "Cobertura de sets",
   finalSellSetsModeAny: "Cualquier set",
@@ -301,20 +302,23 @@ const overrides: Catalog = {
   tabDungeonDrops: "Simulador de botín de mazmorra",
   // Gear Lens tab label and UI strings.
   tabGearAnalytics: "Análisis de Equipo",
-  gearAnalyticsEmptyState: "Carga una base de datos de equipo (.db) en el Gear Inspector para ver el análisis de inventario.",
+  gearAnalyticsEmptyState: "Carga una base de datos de equipo (.db) en el Inspector de Equipo para ver el análisis de inventario.",
+  gearAnalyticsKpiSixStarLegendary: "6★ Legendaria+",
   gearAnalyticsKpiMaxed: "Level +16",
   gearAnalyticsKpiVaultLocked: "Bloqueado en Vault",
   gearAnalyticsKpiChaos: "Chaos'd",
   gearAnalyticsKpiGlyphed: "Glyphed",
   gearAnalyticsKpiAscended: "Ascendido",
   gearAnalyticsKpiEquipped: "Equipado",
+  gearAnalyticsKpiSixStarLegendaryTip: "Porcentaje de objetos que son a la vez de rango 6 estrellas y de rareza Legendaria o Mítica.",
   gearAnalyticsKpiMaxedTip: "Porcentaje de objetos completamente mejorados a +16.",
   gearAnalyticsKpiEquippedTip: "Porcentaje de objetos equipados en algún campeón (incluidos los del Vault).",
   gearAnalyticsKpiVaultLockedTip: "Porcentaje de objetos bloqueados a campeones en el Vault. Valores altos indican que equipo valioso puede estar sin uso.",
   gearAnalyticsKpiChaosTip: "Porcentaje de objetos que han recibido un Chaos Orb.",
   gearAnalyticsKpiGlyphedTip: "Porcentaje de objetos con al menos un substat glyphed.",
   gearAnalyticsKpiAscendedTip: "Porcentaje de objetos con al menos un nivel de ascensión aplicado.",
-  gearAnalyticsKpiItemCounts: "Artefactos + Accesorios",
+  gearAnalyticsKpiArtifacts: "Artefactos",
+  gearAnalyticsKpiAccessories: "Accesorios",
   gearAnalyticsKpiItemCountsTip: "Número de piezas de artefacto (izquierda) y piezas de accesorio (derecha) en la vista actual.",
   gearAnalyticsKpiEquippedVaultTip: "Porcentaje equipado a cualquier campeón (izquierda) y bloqueado en campeones en bóveda (derecha).",
   gearAnalyticsCopySnapshotTip: "Renderizar la vista analítica actual como PNG y copiarla al portapapeles.",
@@ -323,10 +327,10 @@ const overrides: Catalog = {
   gearAnalyticsDownloadSnapshot: "Descargar instantánea",
   gearAnalyticsDownloadSnapshotTip: "Renderizar la vista analítica actual como PNG y descargarla como archivo.",
   gearAnalyticsDownloaded: "¡Descargado!",
-  gearAnalyticsApplyToInspectorTip: "Aplicar las selecciones de filtro cruzado activas a la lista del Gear Inspector. Requiere al menos un filtro activo.",
-  gearAnalyticsApplyToInspector: "Aplicar al Gear Inspector",
-  gearAnalyticsCopyFromInspectorTip: "Reemplaza el filtro cruzado actual con el filtro activo del Gear Inspector. Solo activo cuando el Gear Inspector tiene al menos una dimensión de filtro activa.",
-  gearAnalyticsCopyFromInspector: "Copiar del Gear Inspector",
+  gearAnalyticsApplyToInspectorTip: "Aplicar las selecciones de filtro cruzado activas a la lista del Inspector de Equipo. Requiere al menos un filtro activo.",
+  gearAnalyticsApplyToInspector: "Aplicar al Inspector de Equipo",
+  gearAnalyticsCopyFromInspectorTip: "Reemplaza el filtro cruzado actual con el filtro activo del Inspector de Equipo. Solo activo cuando el Inspector de Equipo tiene al menos una dimensión de filtro activa.",
+  gearAnalyticsCopyFromInspector: "Copiar del Inspector de Equipo",
   gearAnalyticsTotal: "Total",
   gearAnalyticsChartSlot: "Ranuras",
   gearAnalyticsChartRank: "Rango",
@@ -368,7 +372,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: "Prom",
   gearAnalyticsSeriesMedian: "Mediana",
   gearAnalyticsSeriesMax: "Máx",
-  // Not Fully Equipped section.
+  // Champion Equipment section (formerly "Not Fully Equipped" — i18n keys kept stable so
+  // localStorage and snapshot identifiers do not have to migrate).
   gearAnalyticsNotEquippedTitle: "Equipo de campeones",
   gearAnalyticsNotEquippedTitleDesc: "Cobertura de equipo por campeón. Rejilla: lleno = equipado, contorno = vacío, discontinuo = bloqueado (asciende al campeón). Conmutadores para simular venta e incluir campeones totalmente equipados.",
   gearAnalyticsSlotNotUnlocked: "Aún no desbloqueado — asciende al campeón para desbloquearlo",
@@ -380,8 +385,8 @@ const overrides: Catalog = {
   gearAnalyticsSimulateSoldLabel: "Simular venta",
   gearAnalyticsSimulateSoldDesc: "Cuando está activado, los espacios cuya pieza equipada se vendería con las reglas actuales se muestran en rojo y se cuentan como faltantes.",
   gearAnalyticsShowFullyEquippedLabel: "Mostrar completos",
-  gearAnalyticsShowFullyEquippedDesc: "Cuando está activado, también se listan los campeones cuyas casillas disponibles están todas llenas (se ordenan al final en los modos por casillas faltantes).",
-  // Botón de colapso — clic derecho alterna todos los gráficos a la vez.
+  gearAnalyticsShowFullyEquippedDesc: "Cuando está activado, también se listan los campeones cuyas ranuras disponibles están todas llenas (se ordenan al final en los modos por ranuras faltantes).",
+  // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Contraer gráfico\n\n_Clic derecho para alternar todos los gráficos._",
   dungeonDropsIntro: "Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.",
   dungeonDropsExplanation: "Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.",
@@ -431,9 +436,13 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Contraer tabla de mazmorra",
   dungeonDropsExpandLabel: "Expandir tabla de mazmorra",
-  // Fragmentos de sugerencia para colapso y ciclo de nivel en la tabla de mazmorra.
+  // Collapsed row controls.
+  dungeonDropsRotateLevelLabel: "Rotar el rango de niveles",
+  // Right-click hint fragments for collapse chevron and level cycle in the dungeon table.
   dungeonDropsCollapseAllHint: "_Clic derecho para contraer/expandir todas las tablas._",
   dungeonDropsRotateLevelRightClickHint: "_Clic derecho para ir hacia atrás._",
+  // Simulation refresh control.
+  dungeonDropsResimulateLabel: "Volver a ejecutar la simulación de mazmorra",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Se conserva {percent} de todos los drops ({kept}/{total}).",
@@ -461,7 +470,7 @@ const overrides: Catalog = {
   dungeonEvent: "Evento",
   noteSimKeepChanceAtLevel: "Conservado en +{level}: {pct}",
   safeguardsTabLabel: "Salvaguardas",
-  safeguardsTabIntro: "Añade salvaguardas por ranura/conjunto/estadística para que tus reglas de venta actualmente activas nunca eliminen todas las copias de esa combinación.",
+  safeguardsTabIntro: "Añade salvaguardas por ranura/set/stat para que tus reglas de venta actualmente activas nunca eliminen todas las copias de esa combinación.",
   safeguardsEnableLabel: "Activar Salvaguardas",
   safeguardsFinalSellCoverageWarning: "**Salvaguardas** funciona mejor si **venta final** está activada y cubre todo el rango de niveles (0–16).",
   safeguardsNoGearInspectorData: "Carga una base de datos de equipo para ver las combinaciones en riesgo.",
@@ -507,8 +516,8 @@ const overrides: Catalog = {
   safeguardsImprovementChanceLevelLabel12: "Nivel 12+",
   safeguardsCountModePerSlot: "Por ranura",
   safeguardsCountModePerSlotHint: "**Por ranura**\nConserva ≥N por ranura de forma independiente — cada tipo de ranura se protege por separado, sin compartir un único recuento. Sin restricción de ranura, esto se aplica a cada tipo de ranura en tu inventario.",
-  safeguardsCountModePerSet: "Por conjunto",
-  safeguardsCountModePerSetHint: "**Por conjunto**\nConserva ≥N por conjunto de forma independiente — cada conjunto se protege por separado, sin compartir un único recuento. Sin restricción de conjunto, esto se aplica a cada conjunto en tu inventario.",
+  safeguardsCountModePerSet: "Por set",
+  safeguardsCountModePerSetHint: "**Por set**\nConserva ≥N por set de forma independiente — cada set se protege por separado, sin compartir un único recuento. Sin restricción de set, esto se aplica a cada set en tu inventario.",
   safeguardsCountModePerFaction: "Por facción",
   safeguardsCountModePerFactionHint: "**Por facción**\nConserva ≥N por facción de forma independiente — cada facción se protege por separado, sin compartir un único recuento. Sin restricción de facción, esto se aplica a cada facción en tu inventario.",
   safeguardsCountModePerMain: "Por stat principal",
@@ -516,11 +525,9 @@ const overrides: Catalog = {
   safeguardsWeightByRankHint: "**Ponderar por rango**\nDa ventaja al equipo de mayor rango — solo en su **stat principal**: un 6★ cuenta completo, un 5★ alrededor del 85 %. Así un 6★ supera a un 5★ del mismo stat principal con substats apenas mejores. Solo afina el orden dentro de un mismo stat principal — no es un bonus general para toda pieza de mayor rango, y los substats no se tocan. Requiere al menos un substat seleccionado. Cada pieza se compara con la mejor de su propia ranura y stat principal.",
   safeguardsCountModePerMainHint: "**Por stat principal**\nConserva ≥N por stat principal de forma independiente — cada stat principal se protege por separado, sin compartir un único recuento. Sin restricción de stat principal, esto se aplica a cada stat principal en tu inventario.",
   safeguardsCountModePerRule: "Por salvaguarda",
-  safeguardsCountModeHint: "**Chips de cuota**\nPor defecto (**Por salvaguarda**), todo el equipo coincidente comparte un único recuento. Cada chip divide ese recuento en grupos independientes:\n- **Por ranura**: cada tipo de ranura se cuenta por separado\n- **Por conjunto**: cada conjunto o metaconjunto se cuenta por separado\n- **Por facción**: cada facción se cuenta por separado\n- **Por stat principal**: cada stat principal se cuenta por separado\nCombina los chips libremente. Sin selección de filtro, la cuota cubre cada valor en tu inventario. Los chips aparecen bajo todos los selectores excepto Rango y Rareza. **Por Substat** (sección substats) divide cada grupo por substat.",
+  safeguardsCountModeHint: "**Chips de cuota**\nPor defecto (**Por salvaguarda**), todo el equipo coincidente comparte un único recuento. Cada chip divide ese recuento en grupos independientes:\n- **Por ranura**: cada tipo de ranura se cuenta por separado\n- **Por set**: cada set o metaset se cuenta por separado\n- **Por facción**: cada facción se cuenta por separado\n- **Por stat principal**: cada stat principal se cuenta por separado\nCombina los chips libremente. Sin selección de filtro, la cuota cubre cada valor en tu inventario. Los chips aparecen bajo todos los selectores excepto Rango y Rareza. **Por Substat** (sección substats) divide cada grupo por substat.",
   safeguardsSubstatLabel: "Substats",
   safeguardsSubstatRequirementLabel: "Requisito de substats",
-  safeguardsSubstatRequirementAny: "Cualquier Substat",
-  safeguardsSubstatRequirementAll: "Todos los Substats",
   safeguardsSubstatRequirementPer: "Por Substat",
   safeguardsSubstatRequirementHint: "**Requisito de coincidencia**\n- **Cualquier Substat**: debe existir al menos un substat elegido.\n- **Todos los Substats**: deben existir todos los substats elegidos.\n- **Por Substat**: aplica la cuota por separado a cada substat elegido.",
   safeguardsSubstatModeHint: "**Coincidencia de substats**\n- **Cualquier Substat**: debe existir al menos un substat elegido.\n- **Todos los Substats**: deben existir todos los substats elegidos.\n- **Por Substat**: aplica la cuota por separado a cada substat elegido.\n\n**Ranking y pesos**\n- Las substats elegidas siempre se clasifican por su puntuación.\n- Los controles de peso están disponibles solo con **Todos los Substats**; **Cualquier Substat** y **Por Substat** usan la ponderación estándar.",
@@ -557,6 +564,8 @@ const overrides: Catalog = {
   safeguardOne: "Regla de conservación",
   safeguardMany: "Reglas de conservación",
   safeguardBuilderRuleName: "Nombre de la salvaguarda",
+  safeguardBuilderRuleColor: "Color de salvaguarda",
+  builderClearSafeguardColor: "Borrar color de salvaguarda",
   safeguardsDeleteAllTitle: "Eliminar todas las salvaguardas",
   safeguardsDeleteAllMessage: "Esto eliminará permanentemente todas las salvaguardas. Esta acción no se puede deshacer.",
   safeguardsDeleteAll: "Eliminar todas las salvaguardas",
@@ -621,16 +630,16 @@ const overrides: Catalog = {
   fileDropShiftHint: "Mantén Shift al soltar un .sfc para elegir qué importar",
 
   // Sets section labels
-  setsTitle: "Conjuntos",
+  setsTitle: "Sets",
   setsUsageInRecipes: "({n} uso(s) en recetas)",
   setsInNames: "en: {names}",
 
   // Set tooltip bits
   setPieceCount: "{n} pieza",
-  setTooltipNamed: "{name} – {count} conjunto",
+  setTooltipNamed: "{name} – {count} Set",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Artifact (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "[[stat:statACC]] +40",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% de probabilidad de convertir un golpe débil en crítico",
   setDesc_setAvenging_text: "45% de probabilidad de contraatacar cuando se aplica un perjuicio al portador",
@@ -705,7 +714,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% de probabilidad de aplicar {debuff:Provoke} durante 1 turno al atacar",
 
-  // Artifact (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "[[stat:statRES]] +20",
   setDesc_setChronophage_by_2: "[[stat:statSPD]] +10%",
@@ -838,7 +847,7 @@ const overrides: Catalog = {
   colRecipeIdxMenu: "Índice de receta",
   colKeep: "Conservar",
   colUse: "Usar",
-  colSets: "Conjuntos",
+  colSets: "Sets",
   colSlot: "Ranura",
   colRankRarity: "Rango/Rareza",
   colMain: "Principal",
@@ -853,7 +862,7 @@ const overrides: Catalog = {
   keepValueKeep: "Conservar",
   keepValueSell: "Vender",
   setAllKnownShorthand: "Todos los conocidos",
-  // Receta chip labels
+  // Recipe chip labels
   chipSubs: "Substats",
   chipSubsMin: "Substats ≥{n}",
   chipSubsEach: "Substats c/u",
@@ -865,7 +874,7 @@ const overrides: Catalog = {
   rulesMenuWrapRows: "Filas multi‑línea",
   rulesMenuSlotsAsIcons: "Ranuras como iconos",
   rulesMenuFactionsAsIcons: "Facciones como iconos",
-  rulesMenuSetsAsIcons: "Conjuntos como iconos",
+  rulesMenuSetsAsIcons: "Sets como iconos",
   rulesMenuColorStatsSlotsRarity: "Colorear stats, ranuras y rareza",
   rulesMenuColorBlindPalette: "Paleta daltónica",
   rulesMenuGridColumns: "Columnas de cuadrícula",
@@ -903,7 +912,7 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritán",
 
   // Builder panel
-  // Toggle de sección — clic derecho colapsa/expande todas las secciones.
+  // Section collapse toggle — right-click collapses/expands all sections at once.
   builderSectionToggleTooltip: "Contraer sección\n\n_Clic derecho para contraer/expandir todas las secciones._",
   builderRecipeName: "Nombre de receta",
   builderClearRecipeName: "Borrar nombre de receta",
@@ -1031,7 +1040,7 @@ const overrides: Catalog = {
   historyMetasetConflictCountLine: "Conflictos: {count}",
   historyMetasetConflictNewIdsLine: "Se generaron {count} ID nuevas de meta‑set",
   builderHelpOpen: "Información del builder",
-  builderInfoTooltip: "**Constructor de recetas**\nCada receta se convierte en una regla de Conservar. El equipo que no coincide con ninguna receta se vende, salvo que una Salvaguarda lo proteja.\n\n**Salvaguardas**\nUsa el panel de Salvaguardas para retener equipo específico independientemente de tus recetas — con o sin filtros de substats.",
+  builderInfoTooltip: "**Constructor de recetas**\nCada receta se convierte en una regla de Conservar. El equipo que no coincide con ninguna receta se vende, salvo que una Salvaguarda lo proteja.\n\n**Salvaguardas**\nUsa el panel de Salvaguardas para conservar equipo específico independientemente de tus recetas — con o sin filtros de substats.",
   builderRank: "Rango",
   builderRankHelp: "Restringe la regla a ciertos rangos de estrellas para tratar las piezas de 6★ distinto a 5★.\n• “Cualquiera” deja que todos los rangos sean válidos.",
   any: "Cualquiera",
@@ -1071,11 +1080,15 @@ const overrides: Catalog = {
   builderSubstatMenuRollTargetsWarning: "Este valor ({current}) es inferior al roll anterior ({previous}). La anulación sigue aplicándose, pero normalmente las expectativas deberían mantenerse o subir.",
   builderClearSubstats: "Borrar selección de substats",
   builderSlots: "Ranuras",
-  builderSlotsHelp: "Centra la receta en piezas concretas (Arma, Botas, etc.) para que las piezas fuera de slot no coincidan.\n• Deja vacío para cubrir todas las ranuras.",
+  builderSlotsHelp: "Centra la receta en piezas concretas (Arma, Botas, etc.) para que las piezas fuera de ranura no coincidan.\n• Deja vacío para cubrir todas las ranuras.",
   builderClearSlots: "Borrar selección de ranuras",
   builderSetsHelp: "Filtra la receta a sets específicos o meta-sets con nombre para que solo esas colecciones coincidan.\n• Deja vacío para incluir todos los sets.",
   builderLevelWindow: "Nivel",
   builderMultiMixedValue: "Mezclado",
+  builderMultiEditMixedShort: "mezclado",
+  builderMultiEditMixedPlaceholder: "Varios valores",
+  builderEditingMultiple: "Editando {n} recetas",
+  builderMultiEditDiscard: "Descartar cambios",
   builderApplyToRecipes: "Aplicar a {n} recetas",
   builderApplyToSafeguards: "Aplicar a {n} salvaguardas",
   builderMultiNamePlaceholder: "Varios nombres",
@@ -1133,7 +1146,7 @@ const overrides: Catalog = {
 
 
   // Metasets dialog
-  metasetsHeaderBlurb: "Grupos con nombre de conjuntos. Aparecen en la parte superior del selector de sets.",
+  metasetsHeaderBlurb: "Grupos con nombre de sets. Aparecen en la parte superior del selector de sets.",
   metasetsMoveUp: "Subir",
   metasetsMoveDown: "Bajar",
   metasetsHiddenFromMenus: "Oculto en menús",
@@ -1156,13 +1169,13 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Reemplazar referencias por meta‑set",
   metasetIconPickerLabel: "Seleccionar icono",
   // Filter panel
-  // Toggle de sección y sugerencias de variante para el panel de filtros.
+  // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Contraer sección\n\n_Clic derecho para contraer/expandir todas las secciones._",
   rulesFilterVariantRightClickHintExclude: "_Clic derecho para excluir._",
   rulesFilterVariantRightClickHintRemove: "_Clic derecho para quitar._",
   filterRule: "Regla",
   filterGearInspectorResult: "Resultado",
-  filterGearInspectorResultTooltip: "**Conservar** / **Vender** — filtra por resultado de regla. Uno activo: mostrar solo el equipo marcado como conservar o vender. Ambos activos: mostrar todo el equipo que coincide con una regla.\n\n**Ámbito** — modo contexto. El equipo marcado para vender se resalta; los objetos del mismo conjunto y ranura que cualquier pieza vendida se atenúan a su lado para comparación. Todo lo demás se oculta.\nAñadir **Conservar**: invierte el foco — los objetos conservados del mismo espacio se resaltan; la pieza vendida se atenúa en su lugar.\nAñadir **Sin regla**: muestra el equipo no cubierto por ninguna regla con opacidad reducida en la misma vista.\n\n**Sin regla** solo — filtro simple: mostrar solo el equipo que no coincide con ninguna regla.",
+  filterGearInspectorResultTooltip: "**Conservar** / **Vender** — filtra por resultado de regla. Uno activo: mostrar solo el equipo marcado como conservar o vender. Ambos activos: mostrar todo el equipo que coincide con una regla.\n\n**Ámbito** — modo contexto. El equipo marcado para vender se resalta; los objetos del mismo set y ranura que cualquier pieza vendida se atenúan a su lado para comparación. Todo lo demás se oculta.\nAñadir **Conservar**: invierte el foco — los objetos conservados del mismo espacio se resaltan; la pieza vendida se atenúa en su lugar.\nAñadir **Sin regla**: muestra el equipo no cubierto por ninguna regla con opacidad reducida en la misma vista.\n\n**Sin regla** solo — filtro simple: mostrar solo el equipo que no coincide con ninguna regla.",
   filterSets: "Sets",
   filterSource: "Source",
   filterMainstat: "Stat principal",
@@ -1188,12 +1201,12 @@ const overrides: Catalog = {
   filterRollsWildcardTitle: "Requisito de comodín",
   filterRollsValueLabel: "Recuento de tiradas",
   filterRollsSelectNone: "Ninguno",
-  filterRollsPerStatTitle: "Requisitos por estadística",
+  filterRollsPerStatTitle: "Requisitos por stat",
   filterRollsChipPerStatJoiner: " y ",
   filterRollsChipSeparator: " • ",
   filterRollsChipAria: "Filtros de tiradas: {summary}",
-  filterRollsSummaryAnyStat: "Cualquier estadística con tiradas {counts}",
-  filterRollsSummaryPerStat: "Por estadística: {entries}",
+  filterRollsSummaryAnyStat: "Cualquier stat con tiradas {counts}",
+  filterRollsSummaryPerStat: "Por stat: {entries}",
   filterRollsSummaryNone: "No hay filtros de tiradas activos",
   filterAscension: "Ascension",
   filterRecipeName: "Nombre de receta",
@@ -1239,7 +1252,7 @@ const overrides: Catalog = {
   gearInspectorSortGlyphsExclude: "Excluir",
   gearInspectorSortGlyphsInclude: "Incluir",
   gearInspectorSortNormalized: "Normalizado",
-  gearInspectorSortNormalizedTooltip: "**Normalized** ignora el orden de prioridad y ordena por una única puntuación:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si se seleccionan varios preajustes, la ordenación usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Conjunto, ranura, rango, rareza y stat principal se ignoran.\n- Si un item no tiene un substat seleccionado, aporta **0**.\n- `Last Used` se ignora mientras Normalized esté activado.\n\n**Ejemplo (seleccionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n**(n)** muestra el **número de rolls de mejora** en ese substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tiene un **triple malo**: `5 + 3×5 = 20`\n  - Puntuación = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tiene un **doble bueno**: `7 + 2×7 = 21`\n  - Puntuación = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nAunque Item B tenga menos rolls de [[stat:statCR]], puede quedar más arriba porque los rolls son mejores, y la puntuación también tiene en cuenta los otros stats seleccionados.",
+  gearInspectorSortNormalizedTooltip: "**Normalized** ignora el orden de prioridad y ordena por una única puntuación:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si se seleccionan varios preajustes, la ordenación usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Set, ranura, rango, rareza y stat principal se ignoran.\n- Si un item no tiene un substat seleccionado, aporta **0**.\n- `Last Used` se ignora mientras Normalized esté activado.\n\n**Ejemplo (seleccionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n**(n)** muestra el **número de rolls de mejora** en ese substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tiene un **triple malo**: `5 + 3×5 = 20`\n  - Puntuación = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tiene un **doble bueno**: `7 + 2×7 = 21`\n  - Puntuación = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nAunque Item B tenga menos rolls de [[stat:statCR]], puede quedar más arriba porque los rolls son mejores, y la puntuación también tiene en cuenta los otros stats seleccionados.",
   gearInspectorSortNormalizedUseActive: "Activo",
   gearInspectorSortNormalizedUseActiveTooltip: "**Activo** usa la selección de preajustes de la cuadrícula del Probador en **Mostrar valoración de substats** como fuente de puntuación Normalized.\n\n- Si hay varios preajustes activados en la cuadrícula, la ordenación usa la **mejor (máx)** puntuación.\n- Se desactiva cuando el overlay de la cuadrícula está en **Fuente de ordenación** para evitar puntuación circular.",
   gearInspectorSortNormalizedPresetActionsOverwrite: "Sobrescribir desde el actual",
@@ -1315,6 +1328,7 @@ const overrides: Catalog = {
   gearInspectorResultMatched: "Ámbito",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
+  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Común",
   rarityUncommon: "Poco común",
@@ -1347,7 +1361,7 @@ const overrides: Catalog = {
   restoreAutosaveRecipesLabel: "Recetas ({count})",
   restoreAutosaveRecipesHelper: "Sustituye la lista de recetas.",
   restoreAutosaveMetasetsLabel: "Metasets ({count})",
-  restoreAutosaveMetasetsHelper: "Restaura los nombres, conjuntos, iconos y visibilidad guardados.",
+  restoreAutosaveMetasetsHelper: "Restaura los nombres, sets, iconos y visibilidad guardados.",
   restoreAutosaveTargetsLabel: "Valores objetivo de substats",
   restoreAutosaveTargetsHelper: "Restaura todas las tablas por rango del autoguardado.",
   restoreAutosaveNoteLabel: "Nota fijada",
@@ -1361,8 +1375,8 @@ const overrides: Catalog = {
   restoreAutosaveGearInspectorLabel: "Inspector de Equipo ({count})",
   restoreAutosaveGearInspectorHelper: "Carga el equipo autoguardado.",
   restoreAutosaveGearInspectorSupersededHelper: "Se cargó equipo más reciente desde los datos en vivo, por lo que ya no se puede restaurar la copia autoguardada.",
-  restoreAutosaveGearSetsLabel: "Conjuntos personalizados ({count})",
-  restoreAutosaveGearSetsHelper: "Carga los parches de gear-set enviados por colaboradores.",
+  restoreAutosaveGearSetsLabel: "Sets personalizados ({count})",
+  restoreAutosaveGearSetsHelper: "Carga los parches de sets enviados por colaboradores.",
   restoreAutosaveRestoreSelected: "Restaurar selección",
   sfcImportDialogTitle: "Importar archivo de recetas (.sfc)",
   sfcImportDialogSubtitle: "Elige qué secciones importar desde {fileName}.",
@@ -1415,6 +1429,9 @@ const overrides: Catalog = {
   themeFontDefault: "Default",
   themeCorners: "Esquinas",
   themeSelectionOpacity: "Selección %",
+  themeAutoZoom: "Zoom automático lado a lado",
+  themeAutoZoomTooltip: "Reduce la app para que el constructor y la vista previa se muestren lado a lado en pantallas más estrechas. Si está desactivado, la vista lado a lado solo aparece a ancho completo.",
+  themeAutoZoomCutoff: "Zoom mín.",
   themePsychedelic: "Psicodélico",
   themePsychedelicTooltip: "Solo por diversión — alterna continuamente todos los colores del tema a través del espectro de matices. No está diseñado para uso normal.",
 
@@ -1457,7 +1474,7 @@ const overrides: Catalog = {
   factionDwarves: "Enanos",
   factionShadowkin: "Shadowkin",
   factionSylvanWatchers: "Vigilantes Silvanos",
-  // Argonites se mantiene como nombre propio.
+  // Argonites is a newly supported faction; keep the proper name.
   factionArgonites: "Argonites",
 
   // Stat labels (UI)
@@ -1494,8 +1511,8 @@ const overrides: Catalog = {
   toastGearDbReceivedAt: "Recibido: {timestamp}.",
   toastL10nLoaded: "Localización cargada: {lang}",
   toastL10nLoadFailed: "Error al cargar el archivo de localización",
-  toastGearSetsLoaded: "Se cargaron {count} conjuntos personalizados",
-  toastGearSetsLoadFailed: "No se pudo cargar el archivo de conjuntos",
+  toastGearSetsLoaded: "Se cargaron {count} sets personalizados",
+  toastGearSetsLoadFailed: "No se pudo cargar el archivo de sets",
   toastGearInspectorFocusArtifactFiltered: "El objeto objetivo está oculto por los filtros activos del Inspector de Equipo.",
 
   // Tutorial section labels
@@ -1659,7 +1676,7 @@ const overrides: Catalog = {
   tutSaveExplainTitle: "Guardar recetas (.sfc)",
   tutSaveExplainBody: "Guarda `Recetas, Meta‑sets, Nota` en Descargas. Los nombres incluyen marca temporal — guardar a menudo es seguro.",
   tutExportExplainTitle: "Exportar Sellfile de RSL Helper",
-  tutExportExplainBody: "Haz clic en `Exportar Sellfile de RSL Helper` para guardar tu `.hsf` — cada exportación lleva marca temporal para que puedas revertir si es necesario. Usa `Guardar recetas (.sfc)` para guardar tu proyecto (Recetas, Meta-sets, Nota) por separado.\n\nTambién puedes `Cargar` un sellfile existente para prefijar sus reglas. Las reglas cargadas se ejecutan primero — ten en cuenta ese orden.\n\nConsejo: 💡 Puedes reiniciar este tutorial en cualquier momento desde el botón de ayuda.\n\nConsejo: 💡 Haz clic en el chevrón (▾) junto a `Cargar archivo SFC` en cualquier momento para cargar la configuración de muestra incluida — un punto de partida real para explorar o adaptar.",
+  tutExportExplainBody: "Haz clic en `Exportar Sellfile de RSL Helper` para guardar tu `.hsf` — cada exportación lleva marca temporal para que puedas revertir si es necesario. Usa `Guardar recetas (.sfc)` para guardar tu proyecto (Recetas, Meta-sets, Nota) por separado.\n\nTambién puedes `Cargar` un Sellfile existente para prefijar sus reglas. Las reglas cargadas se ejecutan primero — ten en cuenta ese orden.\n\nConsejo: 💡 Puedes reiniciar este tutorial en cualquier momento desde el botón de ayuda.\n\nConsejo: 💡 Haz clic en el chevrón (▾) junto a `Cargar archivo SFC` en cualquier momento para cargar la configuración de muestra incluida — un punto de partida real para explorar o adaptar.",
   tutPreviewHeaderMenuTitle: "Menú de cabecera de la vista previa",
   tutPreviewHeaderMenuBody: "Haz clic con el botón derecho en la cabecera de `Vista Sellfile` para abrir las opciones de visualización — columnas de iconos, filas multilínea, texto de stats en color y paletas para daltonismo.",
   tutPreviewFinishTitle: "Previsualizar y finalizar",
@@ -1683,9 +1700,9 @@ const overrides: Catalog = {
   tutGearDialogOpenTitle: "Equipo",
   tutGearDialogOpenBody: "Usa `Herramientas` para abrir el diálogo directamente en la pestaña `Equipo`. Allí puedes importar una base de datos de ~~RSL Helper~~ o crear entradas manuales sin salir de la vista previa.",
   tutGearDialogAddTitle: "Añadir equipo personalizado",
-  tutGearDialogAddBody: "Conecta RSL Helper para sincronización en vivo, o arrastra un archivo `.db` de ~~RSL Helper~~ a la app o haz clic en `Cargar` para importarlo desde `%APPDATA%\\RslHelper\\Config`. También puedes ejecutar `Stream-Helper-DB-to-Creator.bat` para transmitir equipo desde esa carpeta.\n\nEl equipo creado manualmente convive con el de ~~RSL Helper~~. Acabamos de añadir un estandarte `Refresh` Raro de 5★ de los Banner Lords y un amuleto Poco común 4★ de Knight Revenant como piezas de ejemplo. Usa este botón cada vez que quieras simular drops hipotéticos, creaciones manuales o estadísticas reajustadas.",
-  tutGearDialogPreviewTitle: "Previsualizar el Gear Inspector",
-  tutGearDialogPreviewBody: "Cierra el diálogo `Herramientas` y cambia la vista previa al modo `Gear Inspector` para ver solo la lista de equipo. Las dos piezas de ejemplo son las únicas filas por ahora, así que la cuadrícula deja claro cuándo coinciden las recetas, la Venta final o Salvaguardas.",
+  tutGearDialogAddBody: "Conecta RSL Helper para sincronización en vivo, o arrastra un archivo `.db` de ~~RSL Helper~~ a la app o haz clic en `Cargar` para importarlo desde `%APPDATA%\\RslHelper\\Config`. También puedes ejecutar `Stream-Helper-DB-to-Creator.bat` para transmitir equipo desde esa carpeta.\n\nEl equipo creado manualmente convive con el de ~~RSL Helper~~. Acabamos de añadir un estandarte `Refresh` Raro de 5★ de los Banner Lords y un amuleto Poco común 4★ de Knight Revenant como piezas de ejemplo. Usa este botón cada vez que quieras simular drops hipotéticos, creaciones manuales o stats reajustados.",
+  tutGearDialogPreviewTitle: "Previsualizar el Inspector de Equipo",
+  tutGearDialogPreviewBody: "Cierra el diálogo `Herramientas` y cambia la vista previa al modo `Inspector de Equipo` para ver solo la lista de equipo. Las dos piezas de ejemplo son las únicas filas por ahora, así que la cuadrícula deja claro cuándo coinciden las recetas, la Venta final o Salvaguardas.",
   tutSafeguardsIntroTitle: "Resumen de Salvaguardas",
   tutSafeguardsIntroBody: "Cambia al `Constructor de salvaguardas` usando el selector en la parte superior de la columna del builder. Protege equipo específico de `Venta final` — cualquier objeto que coincida con una salvaguarda obtiene una fila `Conservar` añadida antes de que se ejecuten las reglas de venta.\n\nNota: esta vista solo muestra las salvaguardas — tus recetas no aparecen aquí, pero siguen activas.",
   tutSafeguardsRuleTitle: "Protege los accesorios Refresh",

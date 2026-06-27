@@ -82,7 +82,7 @@ const overrides: Catalog = {
   pushSellfileMin: "Senden",
   pushSellfileTooltip: "Sendet das Sellfile an {endpoint}",
   manageColorsAria: "Farben verwalten",
-  // Ausrüstungsinspektor
+  // Gear Inspector
   gearDialogOpenTooltip: "Öffne den `Tools`-Dialog im Tab „Ausrüstung”, um eine RSL-Helper-Datenbank zu laden oder Beispielgear zu erstellen, ohne die Vorschau zu verlassen.",
   gearDialogIntro: "Nutze diesen Tab Ausrüstung, um Beispielgear zu bauen und zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Verbinde RSL Helper für Live-Synchronisation oder lade/ziehe eine .db-Datei aus %APPDATA%\\RslHelper\\Config.",
   gearDialogManualOnlyNotice: "Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Höhle und Posteingang bleiben im Ausrüstungsinspektor sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.",
@@ -94,6 +94,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmTitle: "Ausrüstung aus „{source}“ löschen?",
   gearDialogDeleteSourceConfirmBody: "Dadurch wird alle Ausrüstung aus „{source}” aus der Ausrüstungsinspektor-Vorschau entfernt.",
   noSetAccessories: "Kein Ausrüstungsset",
+  noSetAccessoriesDesc: "Schmuckstücke aus dem Spinnen-Dungeon.",
   gearInspectorTableEmpty: "Füge benutzerdefinierte Ausrüstung hinzu, um hier Einträge zu sehen.",
   gearInspectorGridEmpty: "Füge benutzerdefinierte Ausrüstung hinzu oder lade eine RSL Helper-DB, um hier Einträge zu sehen.",
   gearInspectorTableEmptySafeguardsDisabled: "„Schutzregeln“ sind deaktiviert; aktiviere sie, um deine Ausrüstung zu scannen.",
@@ -133,7 +134,7 @@ const overrides: Catalog = {
   gearInspectorNormalizedPresetTooltipRightClickHint: "_Rechtsklick, um dieses Preset zu bearbeiten._",
   gearInspectorGridNormalizedSortSourceTooltip: "**Sortierquelle** verwendet die aktuelle **Normalisiert**-Quelle für das Overlay.\n\n- Es ist **nicht kombinierbar** mit der Preset-Auswahl hier.\n- Wenn Normalisiert mehrere Quellen nutzt, verwendet das Overlay die **beste (max)** Punktzahl.",
   gearDialogLevelLabel: "Level {level}",
-  gearInspectorMainstatInline: "{stat} {value}",
+  gearInspectorMainStatInline: "{stat} {value}",
   gearInspectorSubstatsNone: "Keine Unterwerte",
   gearInspectorRollsLabel: "Rolls ×{rolls}",
   gearInspectorEquippedLabel: "Ausgerüstet #{id}",
@@ -302,19 +303,22 @@ const overrides: Catalog = {
   // Gear Lens tab label and UI strings.
   tabGearAnalytics: "Ausrüstungsanalyse",
   gearAnalyticsEmptyState: "Lade eine Ausrüstungsdatenbank (.db) im Ausrüstungsinspektor, um Inventaranalysen zu sehen.",
+  gearAnalyticsKpiSixStarLegendary: "6★ Legendär+",
   gearAnalyticsKpiMaxed: "Level +16",
   gearAnalyticsKpiVaultLocked: "Vault-Gesperrt",
   gearAnalyticsKpiChaos: "Chaos'd",
   gearAnalyticsKpiGlyphed: "Glyphed",
   gearAnalyticsKpiAscended: "Aufgestiegen",
   gearAnalyticsKpiEquipped: "Angelegt",
+  gearAnalyticsKpiSixStarLegendaryTip: "Anteil der Gegenstände, die sowohl 6-Sterne-Rang als auch legendäre oder mythische Seltenheit besitzen.",
   gearAnalyticsKpiMaxedTip: "Anteil der Gegenstände, die vollständig auf +16 aufgewertet wurden.",
   gearAnalyticsKpiEquippedTip: "Anteil der Gegenstände, die einem Champion angelegt sind (einschließlich Vault-benannter Champions).",
   gearAnalyticsKpiVaultLockedTip: "Anteil der Gegenstände, die an Vault-benannte Champions gebunden sind. Hohe Werte deuten darauf hin, dass nützliche Ausrüstung ungenutzt bleibt.",
   gearAnalyticsKpiChaosTip: "Anteil der Gegenstände, die mit einem Chaos Orb bearbeitet wurden.",
   gearAnalyticsKpiGlyphedTip: "Anteil der Gegenstände mit mindestens einem geglyph­ten Unterwert.",
   gearAnalyticsKpiAscendedTip: "Anteil der Gegenstände mit mindestens einer angewandten Aufstiegsstufe.",
-  gearAnalyticsKpiItemCounts: "Artefakte + Schmuckstücke",
+  gearAnalyticsKpiArtifacts: "Artefakte",
+  gearAnalyticsKpiAccessories: "Schmuckstücke",
   gearAnalyticsKpiItemCountsTip: "Anzahl der Artefakte (links) und Schmuckstücke (rechts) in der aktuellen Ansicht.",
   gearAnalyticsKpiEquippedVaultTip: "Anteil der bei einem Champion ausgerüsteten Gegenstände (links) und der in der Höhle gesperrten (rechts).",
   gearAnalyticsCopySnapshotTip: "Aktuelle Analyseansicht als PNG rendern und in die Zwischenablage kopieren.",
@@ -333,8 +337,8 @@ const overrides: Catalog = {
   gearAnalyticsChartRarity: "Seltenheit",
   gearAnalyticsChartSet: "Sets",
   gearAnalyticsChartOutcome: "Ergebnis",
-  gearAnalyticsChartMainstat: "Hauptwerte",
-  gearAnalyticsChartMainstatDesc: "Häufigkeit jedes Hauptwerts über die gefilterte Ausrüstung. Nutze das Slot-Donut-Diagramm, um auf einen bestimmten Typ zu fokussieren.",
+  gearAnalyticsChartMainStat: "Hauptwerte",
+  gearAnalyticsChartMainStatDesc: "Häufigkeit jedes Hauptwerts über die gefilterte Ausrüstung. Nutze das Slot-Donut-Diagramm, um auf einen bestimmten Typ zu fokussieren.",
   gearAnalyticsChartSubstats: "Unterwert-Häufigkeit",
   gearAnalyticsChartSubstatsDesc: "Wie oft jeder Unterwert in der gefilterten Ausrüstung vorkommt. Ein Gegenstand kann bis zu 4 Unterwerte beitragen.",
   gearAnalyticsChartHeatmap: "Slot × Hauptwert-Abdeckung",
@@ -368,7 +372,8 @@ const overrides: Catalog = {
   gearAnalyticsSeriesAvg: "Mittel",
   gearAnalyticsSeriesMedian: "Median",
   gearAnalyticsSeriesMax: "Max",
-  // Not Fully Equipped section.
+  // Champion Equipment section (formerly "Not Fully Equipped" — i18n keys kept stable so
+  // localStorage and snapshot identifiers do not have to migrate).
   gearAnalyticsNotEquippedTitle: "Champion-Ausrüstung",
   gearAnalyticsNotEquippedTitleDesc: "Ausrüstungsabdeckung pro Champion. Raster: gefüllt = ausgerüstet, Umriss = leer, gestrichelt = gesperrt (Champion aszendieren). Schalter zum Simulieren von Verkauf und zum Einblenden voll ausgerüsteter Champions.",
   gearAnalyticsSlotNotUnlocked: "Noch nicht freigeschaltet — Champion aufsteigen lassen",
@@ -381,7 +386,7 @@ const overrides: Catalog = {
   gearAnalyticsSimulateSoldDesc: "Wenn aktiv: Slots, deren angelegte Ausrüstung von den aktuellen Regeln verkauft würde, werden rot dargestellt und als fehlend gezählt.",
   gearAnalyticsShowFullyEquippedLabel: "Voll ausgerüstete zeigen",
   gearAnalyticsShowFullyEquippedDesc: "Wenn aktiv: Champions, bei denen alle verfügbaren Slots bereits gefüllt sind, werden ebenfalls aufgelistet (in den fehlt-Zählmodi an das Ende sortiert).",
-  // Einklapp-Schaltfläche — Rechtsklick klappt alle Diagramme gleichzeitig ein/aus.
+  // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Diagramm einklappen\n\n_Rechtsklick: alle Diagramme umschalten._",
   dungeonDropsIntro: "Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.",
   dungeonDropsExplanation: "Tabellen-Prozente sind behaltene Drops geteilt durch alle Drops dieser Level; geboostete Sets ändern nur die Set-Gewichte.",
@@ -431,9 +436,13 @@ const overrides: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: "Dungeon-Tabelle einklappen",
   dungeonDropsExpandLabel: "Dungeon-Tabelle ausklappen",
-  // Tipp-Fragmente für Einklappen und Levelwechsel in der Dungeon-Tabelle.
+  // Collapsed row controls.
+  dungeonDropsRotateLevelLabel: "Levelbereich wechseln",
+  // Right-click hint fragments for collapse chevron and level cycle in the dungeon table.
   dungeonDropsCollapseAllHint: "_Rechtsklick: alle Tabellen ein-/ausklappen._",
   dungeonDropsRotateLevelRightClickHint: "_Rechtsklick: rückwärts wechseln._",
+  // Simulation refresh control.
+  dungeonDropsResimulateLabel: "Dungeon-Simulation erneut ausführen",
   // Popover header and summary.
   dungeonDropsPopoverHeader: "{set} • {level}",
   dungeonDropsPopoverSummary: "Behalten wurden {percent} aller Drops ({kept}/{total}).",
@@ -555,6 +564,8 @@ const overrides: Catalog = {
   safeguardOne: "Schutzregel",
   safeguardMany: "Schutzregeln",
   safeguardBuilderRuleName: "Name der Schutzregel",
+  safeguardBuilderRuleColor: "Farbe der Schutzregel",
+  builderClearSafeguardColor: "Farbe der Schutzregel löschen",
   safeguardsDeleteAllTitle: "Alle Schutzregeln löschen",
   safeguardsDeleteAllMessage: "Alle Schutzregeln werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
   safeguardsDeleteAll: "Alle Schutzregeln löschen",
@@ -901,10 +912,13 @@ const overrides: Catalog = {
   colorBlindTritan: "Tritan",
 
   // Builder panel
-  // Abschnitt-Toggle — Rechtsklick klappt alle Abschnitte ein/aus.
+  // Section collapse toggle — right-click collapses/expands all sections at once.
   builderSectionToggleTooltip: "Abschnitt einklappen\n\n_Rechtsklick: alle Abschnitte ein-/ausklappen._",
   builderRecipeName: "Rezept-Name",
   builderClearRecipeName: "Rezept-Name löschen",
+  builderRecipeColor: "Rezept-Farbe",
+  builderClearRecipeColor: "Rezept-Farbe löschen",
+  colorFieldNoColor: "Keine Farbe",
   builderTagsLabel: "Tags",
   builderClearTags: "Tags löschen",
   builderTagsPlaceholder: "Tag hinzufügen",
@@ -1034,13 +1048,13 @@ const overrides: Catalog = {
   anySet: "Beliebiges Set",
   anyRank: "Beliebiger Rang",
   anyRarity: "Beliebige Seltenheit",
-  anyMainstat: "Beliebiger Hauptwert",
+  anyMainStat: "Beliebiger Hauptwert",
   anySubstat: "Beliebige Unterwert",
   anyFaction: "Beliebige Fraktion",
   substatTargetsRecipeOverridesOverrideHint: "Rezeptvorgaben-Überbrückungen sind aktiv. Vorschau und Exporte verwenden die überbrückten Minima, bis diese Vorgaben zurückgesetzt werden.",
   builderMain: "Hauptwert",
   builderMainHelp: "Verlange bestimmte Hauptwerte, damit nur Builds matchen, die dich interessieren.\n• Wähle mehrere Werte, um beliebige davon zu akzeptieren.\n• Leer lassen, um jeden Hauptwert zu erlauben.",
-  builderClearMainstats: "Hauptwert-Auswahl löschen",
+  builderClearMainStats: "Hauptwert-Auswahl löschen",
   builderSubstats: "Unterwerte",
   builderSubstatsPickHelp: "Sag dem Builder, welche Unterwerte für diese Rezept wichtig sind. Sie speisen Erforderliche Unterwerte und Roll-Ziele.",
   builderSubstatsClickHint: "Klick zum Ein-/Ausschalten. Über das Schloss-Badge (🔒) neben dem Label machst du den Wert verpflichtend; Rechtsklick öffnet Roll-Optionen.",
@@ -1071,6 +1085,10 @@ const overrides: Catalog = {
   builderSetsHelp: "Filtere die Rezept auf bestimmte Sets oder benannte Metasets, sodass nur diese Kombinationen matchen.\n• Leer lassen, um jedes Set einzuschließen.",
   builderLevelWindow: "Level",
   builderMultiMixedValue: "Gemischt",
+  builderMultiEditMixedShort: "gemischt",
+  builderMultiEditMixedPlaceholder: "Mehrere Werte",
+  builderEditingMultiple: "{n} Rezepte bearbeiten",
+  builderMultiEditDiscard: "Änderungen verwerfen",
   builderApplyToRecipes: "Auf {n} Rezepte anwenden",
   builderApplyToSafeguards: "Auf {n} Schutzregeln anwenden",
   builderMultiNamePlaceholder: "Mehrere Namen",
@@ -1151,7 +1169,7 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: "Verweise durch Metaset ersetzen",
   metasetIconPickerLabel: "Symbol auswählen",
   // Filter panel
-  // Abschnitt-Toggle und Varianten-Tipp für den Filterbereich.
+  // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Abschnitt einklappen\n\n_Rechtsklick: alle Abschnitte ein-/ausklappen._",
   rulesFilterVariantRightClickHintExclude: "_Rechtsklick: ausschließen._",
   rulesFilterVariantRightClickHintRemove: "_Rechtsklick: entfernen._",
@@ -1310,6 +1328,7 @@ const overrides: Catalog = {
   gearInspectorResultMatched: "Bereich",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
+  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Gewöhnlich",
   rarityUncommon: "Ungewöhnlich",
@@ -1411,6 +1430,9 @@ const overrides: Catalog = {
   themeFontDefault: "Default",
   themeCorners: "Ecken",
   themeSelectionOpacity: "Auswahl %",
+  themeAutoZoom: "Automatischer Nebeneinander-Zoom",
+  themeAutoZoomTooltip: "Verkleinert die App, damit Builder und Vorschau auf schmaleren Bildschirmen nebeneinander angezeigt werden. Wenn aus, erscheint die Nebeneinander-Ansicht nur bei voller Breite.",
+  themeAutoZoomCutoff: "Min. Zoom",
   themePsychedelic: "Psychedelisch",
   themePsychedelicTooltip: "Nur zum Spaß — rotiert alle Themenfarben kontinuierlich durch das Farbspektrum. Nicht für den normalen Einsatz gedacht.",
 
@@ -1453,7 +1475,7 @@ const overrides: Catalog = {
   factionDwarves: "Zwerge",
   factionShadowkin: "Schattenwesen",
   factionSylvanWatchers: "Waldwächter",
-  // Argoniten is the localized German name.
+  // Argonites is a newly supported faction; keep the proper name.
   factionArgonites: "Argoniten",
 
   // Stat labels (UI)

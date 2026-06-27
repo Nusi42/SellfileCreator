@@ -1,31 +1,31 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator simplifica la creación de archivos de venta para RSL Helper — define filtros de equipo por conjunto, ranura, estadística principal, subestadísticas y más, previsualiza los resultados en vivo y exporta archivos de venta listos para usar en segundos.
+Sellfile Creator simplifica la creación de archivos de venta para RSL Helper — define filtros de equipo por set, ranura, stat principal, substats y más, previsualiza los resultados en vivo y exporta archivos de venta listos para usar en segundos.
 
 > Herramienta creada por fans. No está afiliada a Plarium, Raid: Shadow Legends ni RSL Helper. Todas las marcas mencionadas pertenecen a sus dueños.
 
 ## Características
 
 - **Generador de recetas** — crea recetas de conservar/vender con nombre y filtros por
-  ranura, conjunto, rango, rareza, estadística principal, subestadísticas (con mínimos de
+  ranura, set, rango, rareza, stat principal, substats (con mínimos de
   tiradas y objetivos), facción e hitos de nivel. Construye una biblioteca reutilizable y
   expórtala como archivo de venta de RSL Helper (`.hsf`) con un clic.
 - **Vista Sellfile** — previsualiza el archivo de venta de RSL Helper
   generado en la pestaña Vista previa antes de exportar.
-- **Metaconjuntos** — agrupa conjuntos de equipo (p. ej. Velocidad + Percepción) en
+- **Metasets** — agrupa sets de equipo (p. ej. Velocidad + Percepción) en
   colecciones con nombre y reutilízalos en recetas y salvaguardas.
-- **Inspector de equipo** — conecta RSL Helper para sincronización en vivo o carga un archivo `.db` para previsualizar qué objetos coinciden con cada receta y cuántos se conservarían o venderían.
-- **Comparación de equipo** — activa una vista de antes/después para ver exactamente qué piezas cambian entre *conservar* y *vender* mientras ajustas recetas o pruebas las sustituciones dinámicas. Un chip muestra los totales actuales; una lista en paralelo muestra cada pieza que cambió.
+- **Inspector de Equipo** — conecta RSL Helper para sincronización en vivo o carga un archivo `.db` para previsualizar qué objetos coinciden con cada receta y cuántos se conservarían o venderían.
+- **Comparación de equipo** — activa una vista de antes/después para ver exactamente qué piezas cambian entre *conservar* y *vender* mientras ajustas recetas o pruebas las anulaciones dinámicas. Un chip muestra los totales actuales; una lista en paralelo muestra cada pieza que cambió.
 - **Simulador de mazmorras** — consulta los porcentajes de probabilidad de conservar para
   el Caballero de Fuego, el Dragón y el Gólem de Hielo en distintos niveles de dificultad
   y mejora para confirmar el efecto de tu archivo de venta al farmear o mejorar equipo.
-- **Salvaguardas** — define combinaciones de ranura/conjunto/estadística que nunca quieras
+- **Salvaguardas** — define combinaciones de ranura/set/stat que nunca quieras
   perder; el escáner inyecta automáticamente reglas de conservar en el archivo de venta
   cuando tu configuración reduciría una combinación protegida por debajo de su cuota.
 - **Análisis de Equipo** — panel de análisis con tarjetas KPI, gráficos de filtro cruzado
-  (ranura, rango, rareza, fuente, nivel), un mapa de árbol de conjuntos, barras de
-  estadística principal y un radar de subestadísticas. Haz clic en cualquier gráfico para
-  filtrar todos los demás; envía el filtro activo directamente al Inspector de equipo.
+  (ranura, rango, rareza, fuente, nivel), un mapa de árbol de sets, barras de
+  stat principal y un radar de substats. Haz clic en cualquier gráfico para
+  filtrar todos los demás; envía el filtro activo directamente al Inspector de Equipo.
 - **Venta final** — un botón añade reglas de venta comodín para el equipo no coincidente
   en rangos de nivel configurables, para que nada se escape.
 - **Temas** — alterna entre el modo oscuro y el claro, personaliza los colores y el radio
@@ -44,7 +44,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - Cargar/Guardar: usa «Cargar recetas» y «Guardar recetas» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
   - Haz clic en el chevrón (▾) junto a **Cargar archivo SFC** para abrir su menú: **Cargar desde archivo…** abre el selector de archivos del sistema como de costumbre; **Cargar preset: Principiante** o **Cargar preset: Midgame a Endgame** carga uno de los presets incluidos tras una confirmación (tu configuración actual será reemplazada).
 - Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as receta» o «Apply as receta» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una receta) o «Auto apply to selected receta» (envía los cambios a la receta seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
-- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas). Añade `<!-- dungeon-simulator -->` para mostrar una tabla en vivo de probabilidad de conservación para el Caballero de Fuego, el Dragón y el Gólem de Hielo en tres niveles de dificultad (N20/N25/H10) y dos modos de mejora, con las tasas de conservación en +0/+4/+8/+12/+16. Añade `<!-- recipe-overrides [columns=N] -->` para insertar tarjetas de preguntas interactivas (grupos de radio/casilla) que sobreescriben los modos de exportación y ajustes de recetas durante la sesión — las recetas almacenadas nunca se modifican. Añade `<!-- safeguard-overrides [columns=N] -->` para insertar tarjetas de controles deslizantes y opciones que sobreescriben propiedades de las salvaguardas (cantidad, activación, subestadísticas, oportunidad de mejora y más) durante la sesión — las reglas almacenadas nunca se modifican. Cuando alguno de estos marcadores está presente, el pie de la nota muestra un botón **Desactivar / Activar anulaciones dinámicas** y un botón **Restablecer opciones**. Usa **Guardar selección actual…** (en el menú «Anulaciones dinámicas») para guardar las respuestas actuales con un nombre — los conjuntos de anulaciones guardados aparecen en ese mismo menú y se pueden cargar con un clic. Solo se guardan las selecciones presentes en la nota actual; al cargar un conjunto se omiten las preguntas que ya no existen.
+- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas). Añade `<!-- dungeon-simulator -->` para mostrar una tabla en vivo de probabilidad de conservación para el Caballero de Fuego, el Dragón y el Gólem de Hielo en tres niveles de dificultad (N20/N25/H10) y dos modos de mejora, con las tasas de conservación en +0/+4/+8/+12/+16. Añade `<!-- recipe-overrides [columns=N] -->` para insertar tarjetas de preguntas interactivas (grupos de radio/casilla) que sobreescriben los modos de exportación y ajustes de recetas durante la sesión — las recetas almacenadas nunca se modifican. Añade `<!-- safeguard-overrides [columns=N] -->` para insertar tarjetas de controles deslizantes y opciones que sobreescriben propiedades de las salvaguardas (cantidad, activación, substats, oportunidad de mejora y más) durante la sesión — las reglas almacenadas nunca se modifican. Cuando alguno de estos marcadores está presente, el pie de la nota muestra un botón **Desactivar / Activar anulaciones dinámicas** y un botón **Restablecer opciones**. Usa **Guardar selección actual…** (en el menú «Anulaciones dinámicas») para guardar las respuestas actuales con un nombre — los conjuntos de anulaciones guardados aparecen en ese mismo menú y se pueden cargar con un clic. Solo se guardan las selecciones presentes en la nota actual; al cargar un conjunto se omiten las preguntas que ya no existen.
 - Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Inspector de Equipo. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir el diálogo Herramientas refleja exactamente lo que exportaste la última vez.
 
 ### Diseño del constructor (de arriba hacia abajo)
@@ -64,11 +64,11 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
     - Ejemplo: Estandarte con SPD y ATK%, donde ATK% necesita 2 tiradas. Rareza = Auto, Umbrales = Tardío, Auto ≥ Épico. Obtienes filas épicas en todos los niveles y ≥ Legendaria en +8 y +12, de modo que las piezas más raras siguen contando.
   - Antes de +16 el constructor usa el número de substats que la rareza puede tener en ese momento. A +16 aplica tu objetivo completo.
 - Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; los artefactos lo ignoran, así que `Cualquiera` es la opción segura para ellos.
-- Ranuras: Centra la regla en piezas concretas (Arma, Botas, etc.) para evitar que coincidan objetos fuera de slot. Déjalo vacío para abarcar todas las ranuras.
-- Sets y Metasets: Filtra por conjuntos concretos o metasets nombrados cuando solo quieres esas combinaciones. Vacío = todos los sets.
-- Mainstats: Define qué mainstats son aceptables.
-  - Se pueden seleccionar varios. Sin selección = cualquier mainstat.
-  - Al elegir varios mainstats se genera una fila por mainstat para mantenerlas explícitas en la exportación.
+- Ranuras: Centra la regla en piezas concretas (Arma, Botas, etc.) para evitar que coincidan objetos fuera de ranura. Déjalo vacío para abarcar todas las ranuras.
+- Sets y Metasets: Filtra por sets concretos o metasets nombrados cuando solo quieres esas combinaciones. Vacío = todos los sets.
+- Stats principales: Define qué stats principales son aceptables.
+  - Se pueden seleccionar varios. Sin selección = cualquier stat principal.
+  - Al elegir varios stats principales se genera una fila por stat principal para mantenerlas explícitas en la exportación.
 - Substats: Indica qué substats importan.
   - Haz clic para activar o desactivar un substat. Los bloqueados siempre aparecen en las filas generadas.
   - Usa el candado (🔒) junto a la etiqueta para exigirlo; con clic derecho abres las opciones rápidas de bloqueo y límites de tiradas.
@@ -123,8 +123,8 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 - Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan esos substats. El chip de coincidencia (`Cualquier Substat` / `Todos los Substats` / `Por Substat`) decide si basta con uno, si deben estar todos o si cada substat tiene su propia cuota. Dejarlo vacío permite cualquier substat.
 - Las substats seleccionadas siempre se clasifican con la fórmula normalizada (glifos ignorados); los pesos aparecen con `Cualquier Substat` y `Todos los Substats`, `Por Substat` usa la ponderación estándar (los empates en el corte se mantienen).
 - `Ponderar por rango` (la ficha junto a `Por stat principal`) da ventaja de puntuación al equipo de mayor rango — solo en su **stat principal**: un 6★ cuenta completo, un 5★ alrededor del 85 %. Así un 6★ supera a un 5★ del mismo stat principal con substats apenas mejores. Solo afina el orden dentro de un mismo stat principal (no es un bonus general para toda pieza de mayor rango) y usa el stat principal a nivel máximo, así que subir de nivel nunca cambia la puntuación. Requiere al menos un substat seleccionado; activado por defecto en reglas nuevas. Cada pieza se compara con la mejor de su propia ranura y stat principal.
-- `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la salvaguarda vuelve automáticamente a `Por salvaguarda`.
-- El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por conjunto × ...`) y una línea simple de faltantes (`({missing} faltan)`).
+- `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por set`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la salvaguarda vuelve automáticamente a `Por salvaguarda`.
+- El tooltip de `Cantidad necesaria` muestra la división activa de ámbitos (`X por ranura × por set × ...`) y una línea simple de faltantes (`({missing} faltan)`).
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
 - **Conmutadores ignorar** (chips junto al interruptor de activación de la salvaguarda) afinan qué cuenta cada salvaguarda:
   - `Ignorar salvaguardas anteriores` – cuando la salvaguarda clasifica candidatos por substats, descarta de su pool las piezas que las salvaguardas anteriores ya conservaron y escoge a cambio las siguientes mejores. Útil cuando apilas una segunda salvaguarda de SPD/CR tras una genérica y quieres que profundice en el ranking de puntuación en vez de proteger redundantemente las mismas piezas. Las salvaguardas sin substats no se ven afectadas. Por defecto: desactivado.
@@ -175,7 +175,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 | --- | --- | --- |
 | `Por salvaguarda` | Un único cupo para toda la salvaguarda. | Conserva cinco botas SPD sin importar el set. |
 | `Por ranura` | Duplica la cuota por cada ranura. | Mantiene dos anillos, dos amuletos y dos estandartes por separado. |
-| `Por conjunto` | Duplica la cuota por cada set/metaset de la tarjeta. | Sigue por separado dos caídas de Stoneskin y dos de Protection. |
+| `Por set` | Duplica la cuota por cada set/metaset de la tarjeta. | Sigue por separado dos caídas de Stoneskin y dos de Protection. |
 | `Por facción` | Duplica la cuota por facción. | Garantiza tres anillos Merciless por facción. |
 | `Por stat principal` | Duplica la cuota por cada stat principal seleccionado. | Divide los pools para estandartes de ACC y RES. |
 
@@ -188,7 +188,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
 | Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `3` | `Por facción` | Cada facción guarda tres anillos propios antes de que la salvaguarda se dé por cumplida. |
 | Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `2` | `Por facción` | Se aseguran dos anillos de HP% por facción. |
 | Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `5` | `Por facción` | Cada facción conserva cinco anillos, amuletos y estandartes. |
-| Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por conjunto` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
+| Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por set` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
 | Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
 | Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
@@ -202,7 +202,7 @@ Abre «Herramientas» y cambia a **Botín de mazmorra**. Simula el farmeo de maz
   - `Subida de nivel`: los rolls paran en cuanto el objeto se vendería, así refleja el leveo real.
   - `Instantánea`: los rolls siempre llegan hasta +16, aunque el objeto se habría vendido antes.
 - La tabla muestra drops conservados divididos por todos los drops de esa etapa en +0 / +4 / +8 / +12 / +16.
-- Haz clic en una celda para ver el desglose por slot + stat principal, luego abre **Probabilidades de substats específicas** para ver chances exactas y estimaciones de ejecuciones.
+- Haz clic en una celda para ver el desglose por ranura + stat principal, luego abre **Probabilidades de substats específicas** para ver chances exactas y estimaciones de ejecuciones.
 
 Notas:
 - Usa tus reglas actuales de Conservar/Vender, incluyendo Venta final y Salvaguardas.
@@ -222,19 +222,19 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 
 **Treemap de Sets:** Se muestra debajo de los donuts. Cada mosaico representa un set de equipamiento; el área del mosaico es proporcional al número de objetos. El fondo del mosaico se divide de izquierda a derecha en bandas de color por resultado (Vender / Protegido / Conservar / Sin coincidencia). Haz clic en un mosaico para añadir ese set como filtro cruzado.
 
-**Chips de filtro:** Las selecciones activas para cada dimensión aparecen como chips bajo los donuts; haz clic en el icono de eliminar de un chip para quitar solo ese filtro. Las selecciones de mainstat también aparecen como chips. El botón **Borrar filtros** restablece todas las dimensiones a la vez.
+**Chips de filtro:** Las selecciones activas para cada dimensión aparecen como chips bajo los donuts; haz clic en el icono de eliminar de un chip para quitar solo ese filtro. Las selecciones de stat principal también aparecen como chips. El botón **Borrar filtros** restablece todas las dimensiones a la vez.
 
-**Barra de Mainstats:** Muestra la frecuencia de cada mainstat en el equipamiento filtrado. Haz clic en una barra para profundizar — el gráfico de frecuencia de substats se actualiza mostrando solo los substats del equipamiento con ese mainstat seleccionado. Haz clic de nuevo para deseleccionar.
+**Barra de Stats principales:** Muestra la frecuencia de cada stat principal en el equipamiento filtrado. Haz clic en una barra para profundizar — el gráfico de frecuencia de substats se actualiza mostrando solo los substats del equipamiento con ese stat principal seleccionado. Haz clic de nuevo para deseleccionar.
 
 **Probabilidad de mejora:** Probabilidad de que tu equipo mejore, agrupada en tramos del 10 %. El número de la derecha indica cuántos objetos caen en cada grupo. Se excluye el equipo sin salvaguarda y el equipo +16 al máximo. Haz clic en un grupo para mostrar solo ese equipo.
 
-**Radar de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por mainstat) como gráfico de araña. Haz clic en una marca de eje para seleccionarla como pivote de coocurrencia — el radar se restringe entonces al equipamiento que contiene todos los substats seleccionados a la vez (hasta 4 pivotes). Los pivotes activos aparecen como chips debajo del gráfico; × elimina uno, **Borrar filtros** los elimina todos.
+**Radar de Frecuencia de Substats:** Muestra la frecuencia de cada substat en el equipamiento filtrado (y opcionalmente limitado por stat principal) como gráfico de araña. Haz clic en una marca de eje para seleccionarla como pivote de coocurrencia — el radar se restringe entonces al equipamiento que contiene todos los substats seleccionados a la vez (hasta 4 pivotes). Los pivotes activos aparecen como chips debajo del gráfico; × elimina uno, **Borrar filtros** los elimina todos.
 
-**Mapa de calor Ranura × Mainstat:** Recuento de objetos por ranura (columnas) × mainstat (filas). Haz clic en un encabezado de columna o una celda para filtrar por esa ranura.
+**Mapa de calor Ranura × Stat principal:** Recuento de objetos por ranura (columnas) × stat principal (filas). Haz clic en un encabezado de columna o una celda para filtrar por esa ranura.
 
-**Pestaña Estadísticas de campeones:** Totales de substats sumados de las piezas equipadas por campeón. Filtra por ubicación (**Todos** / **Colección** / **Cofre**), activa solo **Totalmente equipado** e incluye o excluye los glifos. Muestra series Min/Prom/Mediana/Máx.
+**Pestaña Stats de campeones:** Totales de substats sumados de las piezas equipadas por campeón. Filtra por ubicación (**Todos** / **Colección** / **Cofre**), activa solo **Totalmente equipado** e incluye o excluye los glifos. Muestra series Min/Prom/Mediana/Máx.
 
-**Equipo de campeones:** Cobertura de espacios de equipo por campeón en dos tablas compactas (**Colección** / **Cofre**). Cada fila muestra una rejilla 3×3 (lleno = equipado, contorno = vacío, discontinuo = bloqueado hasta ascender). Haz clic en una casilla llena para seleccionar esa pieza — la selección se comparte con el Inspector de equipo. Activa **Simular venta** para pintar de rojo los espacios cuya pieza se vendería y contarlos como faltantes, o **Mostrar completos** para listar también los campeones totalmente equipados.
+**Equipo de campeones:** Cobertura de espacios de equipo por campeón en dos tablas compactas (**Colección** / **Cofre**). Cada fila muestra una rejilla 3×3 (lleno = equipado, contorno = vacío, discontinuo = bloqueado hasta ascender). Haz clic en una casilla llena para seleccionar esa pieza — la selección se comparte con el Inspector de Equipo. Activa **Simular venta** para pintar de rojo los espacios cuya pieza se vendería y contarlos como faltantes, o **Mostrar completos** para listar también los campeones totalmente equipados.
 
 **Botones:**
 - **Copiar captura:** Renderiza la vista analítica completa como PNG y la copia al portapapeles. Nota: la sección Equipo de campeones no se incluye en la captura.
@@ -252,9 +252,9 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 - El encabezado reúne el interruptor `Reglas`/`Inspector de Equipo`, el botón «Herramientas» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo».
 - Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ahora muestra los dos botones de Recetas en paralelo: `Reducir` decide si se ocultan los chips fuera de los filtros actuales y la nueva `Selección` funciona como un interruptor Activado/Desactivado que limita las filas del Sellfile a tus chips seleccionados (dejando al mismo tiempo el filtro preparado para el Inspector de Equipo).
 - Vista `Inspector de Equipo`: cambia la tabla al listado del Inspector de Equipo para que revises piezas importadas o creadas sin reabrir el diálogo Herramientas. Los contadores y chips pasan a Conservar/Vender/Ámbito/Sin regla (según la regla «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Recetas lado a lado (`Reducir` + `Selección`). El primero sigue controlando la visibilidad de chips, mientras que la `Selección` se expande al triestado (`Off` → `Primera` → `Por coincidencia`) para aislar las filas del Inspector de Equipo y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
-- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfc` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente al Inspector de Equipo (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
+- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfc` reemplaza el estado del constructor, `.hsf` añade el Sellfile base opcional y `.db` envían piezas directamente al Inspector de Equipo (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
 - El icono de paleta abre Gestionar colores para personalizar texto y fondo de los substats.
-- En la vista `Reglas` las columnas «Idx» y «Receta» se mantienen (las filas de la `.hsf` base dejan «Receta» vacío). En la vista `Inspector de Equipo`, ese espacio muestra slot/set, estadísticas del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
+- En la vista `Reglas` las columnas «Idx» y «Receta» se mantienen (las filas de la `.hsf` base dejan «Receta» vacío). En la vista `Inspector de Equipo`, ese espacio muestra ranura/set, stats del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
 
 ### Controles de Vista Sellfile
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
@@ -270,7 +270,7 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 
 ### Inspector de Equipo
 - Haz clic en «Herramientas» en el encabezado de la vista previa para abrir el diálogo «Equipo». Crea equipo de ejemplo. Los objetos se sincronizan al instante con la vista previa, así que cerrar el diálogo no borra la cuadrícula del Inspector de Equipo.
-- Conecta RSL Helper para sincronización en vivo (el botón Connect en el encabezado de la vista previa) o importa archivos `.db` arrastrándolos a la app o usando el botón «Cargar Sellfile de RSL Helper».- Cada fila del Inspector de Equipo muestra slot, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera receta/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que la Sellfile dejaría intacto.
+- Conecta RSL Helper para sincronización en vivo (el botón Connect en el encabezado de la vista previa) o importa archivos `.db` arrastrándolos a la app o usando el botón «Cargar Sellfile de RSL Helper».- Cada fila del Inspector de Equipo muestra ranura, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera receta/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que el Sellfile dejaría intacto.
 - Los contadores del encabezado muestran los totales de Conservar/Vender/Ámbito/Sin regla. Los cuatro botones de filtro de resultado — **Conservar**, **Vender**, **Ámbito** y **Sin regla** — funcionan como conmutadores independientes: activa cualquier combinación para reducir la lista. **Ámbito** atenúa (pero mantiene visibles) los objetos que comparten el mismo set+ranura que una pieza que tus reglas venderían, para que puedas comparar un candidato con su competencia en una sola vista sin necesidad de dos pasadas de filtro. Cuando también se seleccionan una o más **Fuentes**, estas actúan como conjunto de referencia — solo los objetos marcados para vender de las fuentes seleccionadas se convierten en elementos principales, mientras que los acompañantes se extraen de *todas* las fuentes, lo que permite ver cada copia de esa pieza de equipo independientemente de dónde esté. **Sin regla** muestra el equipo que ninguna regla toca: útil para detectar huecos en tus recetas. Combínalos con el selector `Primera`/`Por coincidencia` de Recetas para centrarte en los casos límite antes de exportar.
 - Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Inspector de Equipo sin volver a abrir el diálogo Herramientas, ideal para comparar el resultado de cada regla con la pieza que la activó.
 - La tabla del Inspector de Equipo está virtualizada, de modo que incluso con más de 7000 filas importadas sigue respondiendo con fluidez.
@@ -278,14 +278,14 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 - **Superposición de Rango de Salvaguarda:** el menú de la cuadrícula tiene un botón **Rango de Salvaguarda** que alterna lo que muestra el chip de rango de cada pieza (por valor de substat actual; **#1** es la mejor; verde = conservada, rojo = se vendería). **Apagado** lo oculta; **Grupo** muestra el rango dentro del propio grupo de la pieza — el ámbito de ranura / set / facción / stat principal que la regla conserva por separado (p. ej. **#2**); **Salvaguarda** muestra el rango en toda la salvaguarda (p. ej. **#7**); **Ambos** muestra grupo y luego salvaguarda como **#2 · #7** (2.º en su grupo, 7.º en total). El chip y la información se ordenan por el rango mostrado, el chip refleja la regla coincidente mejor clasificada de la pieza, y al hacer clic se va a esa regla. Con reglas seleccionadas, el chip refleja esas reglas; una pieza clasificada solo por *otra* regla aún muestra su mejor rango, ligeramente atenuado. Requiere Salvaguardas activadas.
 
 ### Comparación de equipo (Antes / Después)
-- El botón **Diff** en la cabecera del Inspector de Equipo activa una comparación que muestra qué piezas cambian entre **Conservar** y **Vender** cuando cambias algo — útil al ajustar recetas o probar las sustituciones dinámicas en el diálogo de Nota.
+- El botón **Diff** en la cabecera del Inspector de Equipo activa una comparación que muestra qué piezas cambian entre **Conservar** y **Vender** cuando cambias algo — útil al ajustar recetas o probar las anulaciones dinámicas en el diálogo de Nota.
 - Un pequeño chip junto al botón muestra el cambio actual respecto a tu punto de referencia: cuántas piezas más (o menos) están ahora **Vendidas**, **Conservadas** y protegidas por **Salvaguardas**.
 - Clic izquierdo en **Diff** abre una vista **en paralelo de antes/después** de las piezas que cambiaron (izquierda = antes, derecha = después) con desplazamiento sincronizado. Clic de nuevo para cerrar.
 - Clic derecho en el botón para opciones:
   - **Fijar referencia** — congela el estado actual como el «antes» con el que comparas.
   - **Seguir referencia automáticamente** (activado por defecto) — mantiene el «antes» en tu última edición de receta/salvaguarda, de modo que la comparación siempre refleja tu cambio más reciente.
 - Dos cosas que conviene saber:
-  - Alternar las **sustituciones dinámicas** en el diálogo de Nota **se acumula** — varias sustituciones muestran su efecto combinado, no solo la última.
+  - Alternar las **anulaciones dinámicas** en el diálogo de Nota **se acumula** — varias anulaciones muestran su efecto combinado, no solo la última.
   - Editar una receta o salvaguarda en el constructor mueve la referencia a esa edición (mientras «Seguir referencia automáticamente» esté activado). Desactívalo (o usa «Fijar referencia») para comparar todo contra un punto fijo.
 - Tus filtros habituales del Inspector de Equipo siguen aplicándose: una pieza aparece si coincide con el filtro antes o después del cambio.
 
@@ -311,7 +311,7 @@ Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=
 | Temprano (3 substats) | SPD mín = 2, CR% mín = 1, CDMG% seleccionado, Requeridos = 3 | `+0:` [SPD,CR,CDMG] ≥ [5,5,5]<br>`+4:` divisiones de una tirada (permutaciones 10/5/5)<br>`+8:` todas las permutaciones de dos tiradas (respetando límites superiores)<br>`+12/+16:` [15,10,5] |
 | Tardío (3 substats) | Mismos stats que arriba | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] o [5,10,5]<br>`+12:` [15,5,5] o [10,10,5]<br>`+16:` [15,10,5] |
 | Bloquear uno, exigir dos | Substats SPD/HP/ATK; bloquea SPD (🔒); Substats requeridos = 2 | Se generan filas SPD+HP y SPD+ATK; HP+ATK queda fuera porque SPD bloqueado debe aparecer en todas. |
-| Tiradas en 3 stats y slot flexible congelado | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%; Substats requeridos = 4; SPD/CR%/CDMG% con Tiradas mín = 1; HP%/ATK%/DEF% con límite superior de tiradas = 0 | SPD/CR%/CDMG% reciben siempre las tiradas y el cuarto stat (cualquiera de HP%/ATK%/DEF%) se queda en base. Usa límites superiores (clic derecho desde ★) cuando un stat no debe mejorar. |
+| Tiradas en 3 stats y ranura flexible congelada | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%; Substats requeridos = 4; SPD/CR%/CDMG% con Tiradas mín = 1; HP%/ATK%/DEF% con límite superior de tiradas = 0 | SPD/CR%/CDMG% reciben siempre las tiradas y el cuarto stat (cualquiera de HP%/ATK%/DEF%) se queda en base. Usa límites superiores (clic derecho desde ★) cuando un stat no debe mejorar. |
 | Temprano con comodín | Substats SPD (mín = 2) y ACC (comodín ★); Substats requeridos = Auto; Niveles +0..+16 | Los hitos tempranos resaltan piezas que aún pueden alcanzar SPD(2) en +16 (filas donde SPD o ACC reciben tirada). Cuando ya son posibles dos tiradas en SPD, aparece la fila SPD ≥. |
 | Suma de tiradas con comodines | Substats SPD y ACC como comodines ★; Substats requeridos = 2; Tiradas mínimas = 1 | **Temprano:** en +4/+8/+12/+16 muestra las dos divisiones mínimas (SPD ≥ 10 y ACC ≥ 9, además de SPD ≥ 5 y ACC ≥ 18).<br>**Tardío:** +0/+4/+8/+12 muestran filas base y +16 repite esas dos divisiones. Con objetivos mayores, Tardío exige antes la suma necesaria (p. ej. con mínimo = 2, +12 muestra divisiones de una tirada y +16 las de dos). |
 

@@ -1,20 +1,20 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — definisci filtri per l'equipaggiamento per set, slot, statistica principale, sottostatistiche e altro, visualizza in anteprima i risultati in tempo reale ed esporta file di vendita pronti all'uso in pochi secondi.
+Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — definisci filtri per l'equipaggiamento per set, slot, stat principale, sotto-stat e altro, visualizza in anteprima i risultati in tempo reale ed esporta file di vendita pronti all'uso in pochi secondi.
 
 > Strumento indipendente creato dai fan. Non è affiliato con Plarium, Raid: Shadow Legends o RSL Helper. I marchi appartengono ai rispettivi proprietari.
 
 ## Funzionalità
 
 - **Generatore di ricette** — crea ricette di conserva/vendi con nome e filtri per slot,
-  set, rango, rarità, stat principale, sottostatistiche (con minimi di roll e obiettivi),
+  set, rango, rarità, stat principale, sotto-stat (con minimi di roll e obiettivi),
   fazione e traguardi di livello. Costruisci una libreria riutilizzabile ed esportala come
   file di vendita RSL Helper (`.hsf`) in un clic.
 - **Anteprima Sellfile** — visualizza in anteprima il file di vendita RSL Helper
   generato nella scheda Anteprima prima di esportare.
 - **Metaset** — raggruppa i set di equipaggiamento (es. Velocità + Percezione) in
   collezioni con nome e riutilizzali nelle ricette e nelle salvaguardie.
-- **Ispettore equipaggiamento** — connetti RSL Helper per la sincronizzazione in tempo reale o carica un file `.db` per vedere quali oggetti corrispondono a ogni ricetta e quanti verrebbero conservati o venduti.
+- **Ispettore Equipaggiamento** — connetti RSL Helper per la sincronizzazione in tempo reale o carica un file `.db` per vedere quali oggetti corrispondono a ogni ricetta e quanti verrebbero conservati o venduti.
 - **Confronto equipaggiamento** — attiva una vista prima/dopo per vedere esattamente quali pezzi passano tra *tieni* e *vendi* mentre regoli le ricette o provi le sostituzioni dinamiche. Un chip mostra i totali correnti; un elenco affiancato mostra ogni pezzo cambiato.
 - **Simulatore dungeon** — consulta le percentuali di probabilità di conservare per il
   Cavaliere del Fuoco, il Drago e il Golem di Ghiaccio su livelli di difficoltà e
@@ -25,8 +25,8 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
   configurazione ridurrebbe una combinazione protetta al di sotto della sua quota.
 - **Analisi Equipaggiamento** — dashboard analitica con schede KPI, grafici a filtro
   incrociato (slot, rango, rarità, fonte, livello), una mappa ad albero dei set, barre
-  delle stat principali e un radar delle sottostatistiche. Clicca su qualsiasi grafico per
-  filtrare tutti gli altri; invia il filtro attivo direttamente all'Ispettore equipaggiamento.
+  delle stat principali e un radar delle sotto-stat. Clicca su qualsiasi grafico per
+  filtrare tutti gli altri; invia il filtro attivo direttamente all'Ispettore Equipaggiamento.
 - **Vendita finale** — un solo toggle aggiunge regole di vendita catch-all per
   l'equipaggiamento non abbinato su fasce di livello configurabili, in modo che nulla sfugga.
 - **Temi** — passa dalla modalità scura a quella chiara, personalizza colori e raggio dei
@@ -67,24 +67,24 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - Fazione: restringi le regole accessori a una fazione specifica quando stai puntando una squadra. Anelli, Amuleti e Vessilli rispettano questo filtro; i pezzi artefatto lo ignorano, quindi `Qualsiasi` mantiene gli artefatti sicuri.
 - Slot: concentrare la regola su pezzi precisi (Armi, Stivali, ecc.) per evitare corrispondenze fuori slot. Lascialo vuoto per coprire ogni slot.
 - Set e Metaset: filtra la regola a set specifici o a Metaset nominati così solo quelle collezioni passano. Lascialo vuoto per accettare tutti i set.
-- Riga Stat principale: richiedi determinate statistiche principali.
-  - Seleziona più voci per accettare una qualsiasi tra esse. Lasciala vuota per permettere ogni statistica principale.
-  - Scegliere più statistiche principali genera una regola per ciascuna così restano esplicite nell'esportazione.
+- Riga Stat principale: richiedi determinate stat principali.
+  - Seleziona più voci per accettare una qualsiasi tra esse. Lasciala vuota per permettere ogni stat principale.
+  - Scegliere più stat principali genera una regola per ciascuna così restano esplicite nell'esportazione.
 - Riga Sotto-stat: indica quali sotto-stat contano.
   - Clicca per attivare o disattivare una sotto-stat. Le sotto-stat bloccate compaiono sempre nelle righe generate.
   - Usa il badge con lucchetto (🔒) accanto all’etichetta per renderla obbligatoria; il clic destro apre le azioni rapide per bloccare/sbloccare e gestire i roll.
   - `Qualsiasi` è un collegamento per tornare alle "nessuna restrizione". Se selezioni sotto-stat specifiche, `Qualsiasi` si disattiva automaticamente.
   - Il totale di sotto-stat per riga è `max(conteggio richiesto, conteggio bloccato)` con un massimo di quattro, quindi bloccare una statistica le riserva sempre uno slot.
 - Interruttore Flex: se hai più scelte facoltative del conteggio richiesto, Flex ruota quelle extra nelle righe così ogni combinazione valida viene coperta senza esplodere il numero di righe.
-- Obiettivi di roll (Base/+1…+5): Fai clic destro su una sotto-stat selezionata per aprire la griglia degli obiettivi di roll. Base indica il valore a +0 e ogni campo +N rappresenta il valore dopo quel numero di roll aggiuntivi. Lascia un campo vuoto per riutilizzare i tuoi Obiettivi di substat oppure premi «Usa gli obiettivi globali di substat» per azzerarlo. Le etichette dell’anteprima si aggiornano subito così puoi verificare i numeri prima dell’export.
+- Obiettivi di roll (Base/+1…+5): Fai clic destro su una sotto-stat selezionata per aprire la griglia degli obiettivi di roll. Base indica il valore a +0 e ogni campo +N rappresenta il valore dopo quel numero di roll aggiuntivi. Lascia un campo vuoto per riutilizzare i tuoi Obiettivi di sotto-stat oppure premi «Usa gli obiettivi globali di sotto-stat» per azzerarlo. Le etichette dell’anteprima si aggiornano subito così puoi verificare i numeri prima dell’export.
 - Roll minimi (sommatoria Σ): il minimo richiesto si applica alla somma dei roll sulle sotto-stat selezionate entro il livello obiettivo.
 - Roll minimi bloccati (🔒) appare quando blocchi almeno una sotto-stat. Clicca un numero nella riga del lucchetto per riservare quel conteggio di roll alle statistiche bloccate; il resto del builder continua a seguire il minimo globale. Se il valore bloccato eguaglia o supera il numero globale evidenziato, il badge globale si spegne così la soglia del lucchetto diventa l'unico vincolo aggregato. Sbloccare la sotto-stat (o toccare Auto) cancella entrambi; scegliere un numero globale più piccolo riaccende il badge globale accanto al lucchetto così capisci quale soglia si applica a ciascuna statistica.
 - Esempio: blocca SPD e CR%, imposta Roll minimi = 3 e poi imposta la riga 🔒 a 2. Il builder ora richiede 3 roll totali sulle sotto-stat selezionate, almeno 2 dei quali devono cadere sulle SPD/CR% bloccate. Portare il lucchetto a 3 spegne automaticamente il badge globale perché i due valori coinciderebbero.
 - Jolly con Minimo richiesto (somma roll): con sole sotto-stat stellate (★) e Minimo richiesto > 0, Anticipato mostra solo le ripartizioni minime a ogni traguardo (liste corte e stabili). Tardivo ripete le stesse ripartizioni minime ai traguardi iniziali e di nuovo a +16.
 - Mitica (5 roll): la rarità Mitica può raggiungere 5 roll su una sotto-stat a +16 (contro 4 delle altre). Quando la tua selezione di Rarità include Mitica, il generatore considera il pre-roll. Con Rarità = Qualsiasi, impostare Minimo richiesto a 5 (o minimi per statistica che sommano a 5) viene trattato come compatibile con Mitica e considera anche un pre-roll a +0.
 
-### Obiettivi di substat
-- Il pulsante «Obiettivi di substat…» in alto a destra del builder apre la scheda **Obiettivi di substat** nella finestra Strumenti.
+### Obiettivi di sotto-stat
+- Il pulsante «Obiettivi di sotto-stat…» in alto a destra del builder apre la scheda **Obiettivi di sotto-stat** nella finestra Strumenti.
 - Gli obiettivi sono globali: si applicano a tutte le ricette, non solo a quella selezionata.
 - Vengono usati per calcolare le soglie per ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) e come fallback nella griglia degli Obiettivi di roll.
 - Usa «Ripristina predefiniti» per tornare agli obiettivi consigliati.
@@ -104,15 +104,15 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 - Senza `Vendita finale` gli oggetti che non corrispondono a nessuna regola vengono mantenuti automaticamente da RSL Helper. La vendita avviene solo quando una regola Vendi si attiva.
 - Quando `Vendita finale` è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell’anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
-### Mantieni unici
-- Porta il builder in modalità **Salvaguardie** usando il pulsante di alternanza sopra il pannello builder per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
-- Le regole “Mantieni unici” non “consumano” gli oggetti—ogni regola valuta lo stesso pool di candidati. Se un pezzo corrisponde a più regole, conta per tutte.
-- Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
+### Salvaguardie
+- Porta il builder in modalità **Salvaguardie** usando il pulsante di alternanza sopra il pannello builder per segnare le combinazioni che non vuoi vendere mai. Attiva `Attiva Salvaguardie` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
+- Le regole di salvaguardia non “consumano” gli oggetti—ogni regola valuta lo stesso pool di candidati. Se un pezzo corrisponde a più regole, conta per tutte.
+- Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, stat principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
 - La `Modalità` decide come viene emessa la salvaguardia: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
-- I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno quei substat. La chip di corrispondenza (`Qualsiasi Substat` / `Tutte le Substat` / `Per Substat`) decide se basta uno, se devono esserci tutti o se ogni substat ha la propria quota. Lasciare vuoto significa: nessun filtro substat.
-- I substat selezionati sono sempre classificati con il punteggio normalizzato (glifi ignorati); i pesi compaiono con `Qualsiasi Substat` e `Tutte le Substat`, `Per Substat` mantiene la ponderazione uguale (i pareggi al limite restano protetti).
-- `Pesa per rango` (la chip accanto a `Per statistica principale`) dà un vantaggio di punteggio all'equipaggiamento di rango superiore — solo sulla **statistica principale**: un 6★ conta pieno, un 5★ circa l'85 %. Così un 6★ batte un 5★ con la stessa statistica principale e substat solo leggermente migliori. Affina solo l'ordine all'interno della stessa statistica principale (non è un bonus generale per ogni pezzo di rango superiore) e usa la statistica principale al livello massimo, quindi potenziare un pezzo non ne cambia mai il punteggio. Richiede almeno un substat selezionato; attivo di default sulle nuove regole. Ogni pezzo è confrontato con il migliore del proprio slot e statistica principale.
-- `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per salvaguardia» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per salvaguardia»).
+- Le sotto-stat sono opzionali: scegline una o più per contare solo gli oggetti che hanno quelle sotto-stat. La chip di corrispondenza (`Qualsiasi Sotto-stat` / `Tutte le Sotto-stat` / `Per Sotto-stat`) decide se basta una, se devono esserci tutte o se ogni sotto-stat ha la propria quota. Lasciare vuoto significa: nessun filtro sotto-stat.
+- Le sotto-stat selezionate sono sempre classificate con il punteggio normalizzato (glifi ignorati); i pesi compaiono con `Qualsiasi Sotto-stat` e `Tutte le Sotto-stat`, `Per Sotto-stat` mantiene la ponderazione uguale (i pareggi al limite restano protetti).
+- `Pesa per rango` (la chip accanto a `Per stat principale`) dà un vantaggio di punteggio all'equipaggiamento di rango superiore — solo sulla **stat principale**: un 6★ conta pieno, un 5★ circa l'85 %. Così un 6★ batte un 5★ con la stessa stat principale e sotto-stat solo leggermente migliori. Affina solo l'ordine all'interno della stessa stat principale (non è un bonus generale per ogni pezzo di rango superiore) e usa la stat principale al livello massimo, quindi potenziare un pezzo non ne cambia mai il punteggio. Richiede almeno una sotto-stat selezionata; attivo di default sulle nuove regole. Ogni pezzo è confrontato con il migliore del proprio slot e stat principale.
+- `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per salvaguardia» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per stat principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per salvaguardia»).
 - Il tooltip di `Quantità richiesta` mostra la suddivisione attiva degli ambiti (`X per slot × per set × ...`) e una semplice riga dei mancanti (`({missing} mancanti)`).
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
 - Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
@@ -167,7 +167,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 | `Per slot` | Duplica la quota per ogni slot. | Mantiene due anelli, due amuleti e due vessilli separatamente. |
 | `Per set` | Duplica la quota per ogni set/metaset sulla scheda. | Tiene distinti due drop Stoneskin e due Protection. |
 | `Per fazione` | Duplica la quota per ogni fazione. | Garantisce tre anelli Merciless per ogni fazione. |
-| `Per statistica principale` | Duplica la quota per ogni statistica principale selezionata. | Divide i pool per vessilli ACC e RES. |
+| `Per stat principale` | Duplica la quota per ogni stat principale selezionata. | Divide i pool per vessilli ACC e RES. |
 
 #### Esempi concreti
 
@@ -179,8 +179,8 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
-| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD | `5` | `Per salvaguardia` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
-| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
+| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Sotto-stat = SPD | `5` | `Per salvaguardia` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
+| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Sotto-stat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
 Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di passare alla modalità Salvaguardie, così lo scanner analizza oggetti reali. Clicca una salvaguardia per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
 
@@ -192,17 +192,17 @@ Apri "Strumenti" e passa a **Drop dei dungeon**. Simula il farming dei dungeon c
   - `Livellamento`: i roll si fermano appena l'oggetto verrebbe venduto, quindi rispecchia il livellamento reale.
   - `Istantanea`: i roll arrivano sempre fino a +16, anche se l'oggetto sarebbe stato venduto prima.
 - La tabella mostra i drop tenuti divisi per tutti i drop di quella fase a +0 / +4 / +8 / +12 / +16.
-- Clicca una cella per il dettaglio slot + statistica principale, poi apri **Probabilità di sotto-stat specifiche** per le chance esatte e le stime di esecuzioni.
+- Clicca una cella per il dettaglio slot + stat principale, poi apri **Probabilità di sotto-stat specifiche** per le chance esatte e le stime di esecuzioni.
 
 Note:
-- Usa le tue regole attuali di Mantieni/Vendi, incluso Vendita finale e Mantieni unici.
+- Usa le tue regole attuali di Mantieni/Vendi, incluse Vendita finale e Salvaguardie.
 - Circa 100.000 drop per fase e si aggiorna mentre gira.
 - Tassi di drop e roll sono simulati, quindi i numeri sono stime.
 
 ### Analisi Equipaggiamento
 Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoramica analitica del tuo equipaggiamento importato.
 
-**Schede KPI (riga superiore):** Otto schede percentuale — **Tasso 6★**, **Leggendaria+**, **Maxed (+16)**, **Equipaggiata**, **Bloccata nel forziere**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip.
+**Schede KPI (riga superiore):** Otto schede percentuale — **Tasso 6★**, **Leggendaria+**, **Maxed (+16)**, **Equipaggiata**, **Bloccata in Deposito**, **Chaos'd**, **Glyphed**, **Ascesa** — ciascuna con tooltip.
 
 **Donut a filtro incrociato:** Sei grafici — **Slot**, **Grado**, **Rarità**, **Risultato**, **Fonte**, **Livello** — si aggiornano a vicenda quando si clicca.
 - Clicca un segmento per aggiungerlo come filtro per quella dimensione; ogni altro grafico si restringe immediatamente all'equipaggiamento corrispondente. Ogni grafico esclude la propria dimensione per mostrare sempre l'intera gamma.
@@ -222,9 +222,9 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 **Heatmap Slot × Stat principale:** Numero di oggetti per slot (colonne) × stat principale (righe). Clicca un'intestazione di colonna o una cella per filtrare per slot.
 
-**Scheda Statistiche campioni:** Totali delle sotto-stat sommati sui pezzi equipaggiati per campione. Filtra per posizione (**Tutti** / **Collezione** / **Forziere**), attiva solo **Completamente equipaggiato** e includi o escludi i glifi. Mostra le serie Min/Media/Mediana/Max.
+**Scheda Statistiche campioni:** Totali delle sotto-stat sommati sui pezzi equipaggiati per campione. Filtra per posizione (**Tutti** / **Collezione** / **Deposito**), attiva solo **Completamente equipaggiato** e includi o escludi i glifi. Mostra le serie Min/Media/Mediana/Max.
 
-**Equipaggiamento campioni:** Copertura degli slot di equipaggiamento per campione in due tabelle compatte (**Collezione** / **Forziere**). Ogni riga mostra una griglia 3×3 (pieno = equipaggiato, contorno = vuoto, tratteggiato = bloccato finché il campione non ascende). Clicca uno slot pieno per selezionare quel pezzo — la selezione è condivisa con l’Ispettore equipaggiamento. Attiva **Simula vendita** per colorare di rosso gli slot la cui pezza verrebbe venduta e contarli come mancanti, o **Mostra completi** per elencare anche i campioni completamente equipaggiati.
+**Equipaggiamento campioni:** Copertura degli slot di equipaggiamento per campione in due tabelle compatte (**Collezione** / **Deposito**). Ogni riga mostra una griglia 3×3 (pieno = equipaggiato, contorno = vuoto, tratteggiato = bloccato finché il campione non ascende). Clicca uno slot pieno per selezionare quel pezzo — la selezione è condivisa con l’Ispettore Equipaggiamento. Attiva **Simula vendita** per colorare di rosso gli slot la cui pezza verrebbe venduta e contarli come mancanti, o **Mostra completi** per elencare anche i campioni completamente equipaggiati.
 
 **Pulsanti:**
 - **Copia istantanea:** Renderizza l'intera vista analitica come PNG e la copia negli appunti. Nota: la sezione Equipaggiamento campioni non è inclusa nell’istantanea.
@@ -239,10 +239,10 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 - Interruttore Ricette on/off: il pulsante nell'intestazione del builder disabilita globalmente tutte le ricette senza eliminarle, mettendo in pausa la pipeline di anteprima — utile per controllare rapidamente un export con sole salvaguardie o verificare cosa produce la Vendita Finale da sola.
 
 ### Anteprima Sellfile (Regole e Ispettore Equipaggiamento)
-- L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Ispettore Equipaggiamento`, il pulsante “Strumenti” e il pulsante “Load RSL Helper Sellfile”, così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento.
-- Vista `Rules` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e ora offre entrambi i pulsanti Ricette in parallelo: `Restringi` decide se nascondere i chip fuori dai filtri correnti, mentre la `Selezione` funziona come un interruttore On/Off che limita le righe del Sellfile ai chip selezionati (e mantiene pronta la stessa selezione per l'Ispettore Equipaggiamento).
-- Vista `Ispettore Equipaggiamento`: ribalta la tabella sulla lista importata così puoi scorrere gli import senza riaprire Strumenti. I contatori/indicatori passano a Mantieni/Vendi/Ambito/Senza regola secondo la regola “vince la prima ricetta corrispondente”, e la riga dei filtri mantiene entrambi i pulsanti Ricette (`Restringi` + `Selezione`). Il primo continua a governare la visibilità dei chip, mentre la `Selezione` applica il tri-stato (`Off` → `Prima` → `Per corrispondenza`) per isolare le righe dell'Ispettore Equipaggiamento e continua a limitare le righe del Sellfile alla tua selezione quando torni su `Rules`. Importare un `.db` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
-- Il pulsante “Load RSL Helper Sellfile” si comporta esattamente come il drag & drop: `.sfc` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nell'Ispettore Equipaggiamento senza toccare il builder. Il pulsante “Svuota” scollega il `.hsf` base opzionale.
+- L'intestazione dell'anteprima tiene insieme l'interruttore `Regole`/`Ispettore Equipaggiamento`, il pulsante “Strumenti” e il pulsante “Carica Sellfile di RSL Helper”, così sai sempre dove cambiare tabella o aprire il dialogo Equipaggiamento.
+- Vista `Regole` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e ora offre entrambi i pulsanti Ricette in parallelo: `Restringi` decide se nascondere i chip fuori dai filtri correnti, mentre la `Selezione` funziona come un interruttore On/Off che limita le righe del Sellfile ai chip selezionati (e mantiene pronta la stessa selezione per l'Ispettore Equipaggiamento).
+- Vista `Ispettore Equipaggiamento`: ribalta la tabella sulla lista importata così puoi scorrere gli import senza riaprire Strumenti. I contatori/indicatori passano a Mantieni/Vendi/Ambito/Senza regola secondo la regola “vince la prima ricetta corrispondente”, e la riga dei filtri mantiene entrambi i pulsanti Ricette (`Restringi` + `Selezione`). Il primo continua a governare la visibilità dei chip, mentre la `Selezione` applica il tri-stato (`Off` → `Prima` → `Per corrispondenza`) per isolare le righe dell'Ispettore Equipaggiamento e continua a limitare le righe del Sellfile alla tua selezione quando torni su `Regole`. Importare un `.db` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
+- Il pulsante “Carica Sellfile di RSL Helper” si comporta esattamente come il drag & drop: `.sfc` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db` accodano gli oggetti nell'Ispettore Equipaggiamento senza toccare il builder. Il pulsante “Svuota” scollega il `.hsf` base opzionale.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
 - In vista Regole la tabella mantiene le colonne “N.” e “Ricetta” (vuota per le righe del file base). In vista Ispettore Equipaggiamento nello stesso spazio vedi slot/set, statistiche dell'oggetto e il badge della prima ricetta corrispondente per capire subito cosa accadrà a ogni artefatto.
 
@@ -260,7 +260,7 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 ### Ispettore Equipaggiamento
 - Clicca "Strumenti" nell'intestazione dell'anteprima per aprire il dialogo Equipaggiamento. Crea equipaggiamento di esempio. Gli oggetti si sincronizzano subito con l'anteprima, quindi chiudere il dialogo non svuota la griglia dell'Ispettore Equipaggiamento.
-- Connetti RSL Helper per la sincronizzazione in tempo reale (il pulsante Connect nell'intestazione dell'anteprima) o trascina file `.db` sull'app o usa il pulsante "Load RSL Helper Sellfile".- Ogni riga dell'Ispettore Equipaggiamento mostra slot, set, livello, statistica principale, sotto-stat (con glifi e roll), provenienza (inventario vs inbox) e i chip Mantieni/Vendi + la prima ricetta/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "No match" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
+- Connetti RSL Helper per la sincronizzazione in tempo reale (il pulsante Connetti nell'intestazione dell'anteprima) o trascina file `.db` sull'app o usa il pulsante "Carica Sellfile di RSL Helper".- Ogni riga dell'Ispettore Equipaggiamento mostra slot, set, livello, stat principale, sotto-stat (con glifi e roll), provenienza (inventario vs posta) e i chip Mantieni/Vendi + la prima ricetta/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "Nessuna corrispondenza" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
 - I contatori dell'intestazione mostrano i totali Mantieni/Vendi/Ambito/Senza regola. I quattro pulsanti del filtro risultato — **Mantieni**, **Vendi**, **Ambito** e **Senza regola** — funzionano come interruttori indipendenti: attiva qualsiasi combinazione per restringere la lista. **Ambito** attenua (ma mantiene visibili) gli oggetti che condividono lo stesso set+slot di un pezzo che le tue regole venderebbero, così puoi confrontare un candidato con la sua concorrenza in un'unica vista senza dover fare due passaggi di filtro. Quando sono selezionate anche una o più **Sorgenti**, queste fungono da insieme di riferimento — solo gli oggetti contrassegnati per la vendita provenienti dalle sorgenti selezionate diventano elementi principali, mentre i compagni vengono ricercati in *tutte* le sorgenti, permettendoti di vedere ogni copia di quell'equipaggiamento indipendentemente da dove si trovi. **Senza regola** mostra l'equipaggiamento che nessuna regola tocca — utile per individuare lacune nelle ricette. Combinali con il selettore `Prima`/`Per corrispondenza` delle Ricette per concentrarti sui casi limite prima di esportare.
 - Usa l'interruttore dell'anteprima per passare tra la tabella Regole e l'Ispettore Equipaggiamento senza riaprire Strumenti — perfetto per confrontare le righe generate con gli oggetti che le attivano.
 
@@ -285,7 +285,7 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 ## Esempi
 
-Gli esempi seguenti assumono obiettivi di substat 6★ (unità per roll): SPD=5, CR%=5, CDMG%=5.
+Gli esempi seguenti assumono obiettivi di sotto-stat 6★ (unità per roll): SPD=5, CR%=5, CDMG%=5.
 
 Anticipato vs Tardivo
 - Anticipato: le soglie riflettono i roll già ottenuti. Con jolly + Minimo richiesto, mostra solo le ripartizioni minime a ogni traguardo (lista stabile). Altrimenti, prima del controllo di fattibilità, elenca il progresso con sole statistiche selezionate e poi collassa sui tuoi obiettivi per statistica (a meno che un minimo Σ globale richieda di più).
