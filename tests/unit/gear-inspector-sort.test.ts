@@ -163,10 +163,10 @@ const makeGearInspectorRow = (overrides: Partial<NormalizedGearArtifact> = {}): 
   }
 }
 
-test('sortGearInspectorRows keeps armor before accessories', () => {
-  const armor = makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed })
+test('sortGearInspectorRows keeps artifact before accessories', () => {
+  const artifact = makeGearInspectorRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed })
   const accessory = makeGearInspectorRow({ slot: ArtifactType.Ring, set: ArtifactSet.Refresh, faction: 123 })
-  const sorted = sortGearInspectorRows([accessory, armor])
+  const sorted = sortGearInspectorRows([accessory, artifact])
   assert.deepEqual(sorted.map((row) => row.artifact.slot), [ArtifactType.Weapon, ArtifactType.Ring])
 })
 

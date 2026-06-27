@@ -75,7 +75,7 @@ type Props = {
   onMetaSetNamesChange?: (next: string[]) => void
   /**
    * When provided, limits the GearSetsSelect to compatible sets for the currently-selected slots.
-   * Undefined = no restriction (all slots selected or mixed armor + accessory).
+   * Undefined = no restriction (all slots selected or mixed artifact + accessory).
    */
   allowedSetIds?: readonly ArtifactSetId[]
 }

@@ -37,7 +37,7 @@ import {
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
-import { isAccessorySlot, slotPatchIntroducesArmor } from './gearInspectorDomain'
+import { isAccessorySlot, slotPatchIntroducesArtifact } from './gearInspectorDomain'
 
 // ── editable field projection ─────────────────────────────────────────────────
 
@@ -714,12 +714,12 @@ function applyPatchForKey(
 // ── array patch helpers ───────────────────────────────────────────────────────
 
 function applySlotsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<ArtifactTypeId>): SafeguardRule {
-  // Mutual exclusivity guard: introducing an armor slot on a rule that already has
+  // Mutual exclusivity guard: introducing an artifact slot on a rule that already has
   // a faction selected would create an internally inconsistent combination (the
   // single-edit sanitizeCombinationForSlots would never emit). Skip per-rule so
   // mixed-state multi-edit clicks only apply to compatible rules.
   if ((rule.combination.factions?.length ?? 0) > 0
-    && slotPatchIntroducesArmor(patch as { add?: readonly number[]; replace?: readonly number[] })) {
+    && slotPatchIntroducesArtifact(patch as { add?: readonly number[]; replace?: readonly number[] })) {
     return rule
   }
   const current = Array.isArray(rule.combination.slots) ? rule.combination.slots.map(Number) : []
@@ -754,11 +754,11 @@ function applyFactionsPatch(rule: SafeguardRule, patch: MultiEditArrayPatch<Fact
   const next = applyNumberArrayPatch(current, patch)
   if (arraysNumEqual(current, next)) return rule
   // Symmetric guard: if applying the patch would yield a non-empty factions list on
-  // a rule whose slot scope includes any armor piece, skip — the rule keeps both
-  // its armor slot(s) and its existing factions instead of one silently overwriting
+  // a rule whose slot scope includes any artifact piece, skip — the rule keeps both
+  // its artifact slot(s) and its existing factions instead of one silently overwriting
   // the other.
-  const hasArmorSlot = (rule.combination.slots ?? []).some((s) => !isAccessorySlot(s))
-  if (hasArmorSlot && next.length > 0) return rule
+  const hasArtifactSlot = (rule.combination.slots ?? []).some((s) => !isAccessorySlot(s))
+  if (hasArtifactSlot && next.length > 0) return rule
   return { ...rule, combination: { ...rule.combination, factions: next as FactionId[] } }
 }
 

@@ -93,7 +93,7 @@ A `GearSetsSelect` control is rendered in the treemap title row (right-aligned, 
 
 `dim.sets` is always `dimIndividualSets ∪ expand(dimMetaSetNames)`. When metasets change (`handleMetaSetNamesChange`), a delta update is applied inside a functional `setDim` call: subtract the sets that were contributed by the *previous* metaset selection, then add those contributed by the *next* selection. This avoids reading any potentially-stale ref when both `onChange` and `onChangeMetasetIds` fire in the same synchronous event (e.g. the GearSetsSelect "Clear" button).
 
-**Slot-aware allowed set pool.** When the `slots` dimension is non-empty and all active slots belong to the same category (all armor OR all accessories), the treemap receives an `allowedSetIds` prop computed by `treemapAllowedSetIds` (a useMemo in `GearAnalyticsTabContent`). Sets outside the allowed pool are shown as disabled in the picker so incompatible combinations cannot be selected. When slots span both categories, `allowedSetIds` is `undefined` (no restriction).
+**Slot-aware allowed set pool.** When the `slots` dimension is non-empty and all active slots belong to the same category (all artifact OR all accessories), the treemap receives an `allowedSetIds` prop computed by `treemapAllowedSetIds` (a useMemo in `GearAnalyticsTabContent`). Sets outside the allowed pool are shown as disabled in the picker so incompatible combinations cannot be selected. When slots span both categories, `allowedSetIds` is `undefined` (no restriction).
 
 ### Treemap layout
 
@@ -115,7 +115,7 @@ Six donut charts are rendered in a 6-column grid. Each owns one `GearAnalyticsDi
 
 | Chart | Dimension key | Counter | Special behavior |
 |---|---|---|---|
-| Slot | `slots` | `countBySlot` | SVG slot icons on arcs; double-click selects whole armor/accessory group |
+| Slot | `slots` | `countBySlot` | SVG slot icons on arcs; double-click selects whole artifact/accessory group |
 | Rank | `ranks` | `countByRank` | Text arc labels (`1★`–`6★`) via `ArcTextLabel` |
 | Rarity | `rarities` | `countByRarity` | Per-slice color from `RARITY_ACCENT_COLORS` |
 | Result | `outcomes` | `countByOutcome` | String IDs (`sell`/`keep`/`safe`/`none`) |
@@ -133,7 +133,7 @@ Six donut charts are rendered in a 6-column grid. Each owns one `GearAnalyticsDi
 
 ### Slot group double-click
 
-`slotGroupIds(id)` in `gearAnalytics.ts` returns `SLOT_ARMOR_GROUP` (Weapon/Helmet/Shield/Gauntlets/Chestplate/Boots) or `SLOT_ACCESSORY_GROUP` (Ring/Amulet/Banner), derived at module load from `PREFERRED_ARTIFACT_TYPE_ORDER` + `isAccessorySlot`. The Slot donut passes `onDoubleClickItem={selectSlotGroup}` so double-clicking any armor slot selects all armor slots, and any accessory slot selects all accessory slots.
+`slotGroupIds(id)` in `gearAnalytics.ts` returns `SLOT_ARTIFACT_GROUP` (Weapon/Helmet/Shield/Gauntlets/Chestplate/Boots) or `SLOT_ACCESSORY_GROUP` (Ring/Amulet/Banner), derived at module load from `PREFERRED_ARTIFACT_TYPE_ORDER` + `isAccessorySlot`. The Slot donut passes `onDoubleClickItem={selectSlotGroup}` so double-clicking any artifact slot selects all artifact slots, and any accessory slot selects all accessory slots.
 
 ## KPI cards
 
@@ -148,7 +148,7 @@ All ratio values are 0–1; `null` means the row set is empty (avoids 0/0 confus
 
 | Card | Type | Definition |
 |---|---|---|
-| Artifacts + Accessories | Double (counts) | Raw count of armor pieces (left) and accessory pieces (right); split by `isAccessorySlot` |
+| Artifacts + Accessories | Double (counts) | Raw count of artifact pieces (left) and accessory pieces (right); split by `isAccessorySlot` |
 | Equipped + Vault | Double (rates) | % equipped to any champion (left) · % on vault-benched champions (right); label composes `gearAnalyticsKpiEquipped` + `gearInspectorSourceEquippedVault` at runtime |
 | 6★ Legendary+ | Wide single | % of items that are **both** 6-star rank **and** Legendary or Mythical rarity |
 | Level +16 | Single | % at max level milestone |
@@ -261,7 +261,7 @@ Three grouped controls sit above the tables, persisted to `localStorage`:
 
 `BaseHeroID` is intentionally not promoted to a primary key — it has no in-game-visible meaning on its own; step 8 is an empirical tail tiebreaker for unique-hero ties. Gear-level / average-gear-rank / ascentionCount are excluded — the in-game order does not depend on equipped gear. `Affinity` is not yet sent over WebSocket (planned, SQL encoding); WS-only imports lose that sub-sort until then.
 
-The remaining three modes (`'all'`, `'artifacts'`, `'accessories'`) sort by missing-count descending within their slot group (`SORT_SLOTS`: all 9 slots / 6 main armor / 3 accessory), with `champProfileRankComparator` as the tail tiebreaker. Legacy `'off'` values in `localStorage` migrate to `'rank'`.
+The remaining three modes (`'all'`, `'artifacts'`, `'accessories'`) sort by missing-count descending within their slot group (`SORT_SLOTS`: all 9 slots / 6 main artifact / 3 accessory), with `champProfileRankComparator` as the tail tiebreaker. Legacy `'off'` values in `localStorage` migrate to `'rank'`.
 
 **Simulate sold toggle.** Builds `soldSlotsByChamp: Map<championId, Set<slotId>>` by classifying each row with `rowOutcome` (from `gearAnalytics.ts`). When on, `effectiveFilledSlots(p, soldSlotsByChamp, true)` returns `slotsFilled \ soldSlots` per champion, so `missingCount` rises and previously-fully-equipped champions can enter the list. The visual is a slot-color swap to `error.main`. The toggle does not mutate `slotsFilled` — the simulation only flows through the derived "effectively filled" set.
 

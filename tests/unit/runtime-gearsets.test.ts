@@ -17,7 +17,7 @@ test('registerRuntimeGearSetsPayload stores custom sets', () => {
       {
         id: 5001,
         name: 'Test Set',
-        pieceGroup: 'armorFixed',
+        pieceGroup: 'artifactFixed',
         pieces: 2,
         text: 'SPD +10%',
         icon: 'data:image/png;base64,AA==',
@@ -28,7 +28,7 @@ test('registerRuntimeGearSetsPayload stores custom sets', () => {
   const entry = getRuntimeGearSet(5001)
   assert.ok(entry, 'runtime set should be stored')
   assert.equal(entry?.canonicalName, 'Test Set')
-  assert.equal(entry?.pieceGroup, 'armorFixed')
+  assert.equal(entry?.pieceGroup, 'artifactFixed')
 })
 
 test('registerRuntimeGearSetsPayload accepts entries without icons', () => {
@@ -39,7 +39,7 @@ test('registerRuntimeGearSetsPayload accepts entries without icons', () => {
       {
         id: 5002,
         name: 'Nameless Aegis',
-        pieceGroup: 'armorFixed',
+        pieceGroup: 'artifactFixed',
         pieces: 2,
         text: 'DEF +10%',
       },
@@ -62,7 +62,7 @@ test('serializeRuntimeGearSets emits stored entries with fallback art', () => {
       {
         id: 9000,
         name: 'Ephemeral Ward',
-        pieceGroup: 'armorFixed',
+        pieceGroup: 'artifactFixed',
         pieces: 2,
         text: 'HP +10%',
       },
@@ -77,4 +77,19 @@ test('serializeRuntimeGearSets emits stored entries with fallback art', () => {
 test('normalizeRuntimeGearSetFilePayload rejects mismatched versions', () => {
   const normalized = normalizeRuntimeGearSetFilePayload({ version: 2, sets: [] })
   assert.equal(normalized, null)
+})
+
+test('legacy armorFixed/armorVariable pieceGroup values are accepted and normalized', () => {
+  __dangerous__resetRuntimeGearSets_forTests()
+  // Files exported before the armor→artifact rename must still import.
+  const result = registerRuntimeGearSetsPayload({
+    version: 1,
+    sets: [
+      { id: 5101, name: 'Legacy Fixed', pieceGroup: 'armorFixed', pieces: 2, text: 'SPD +10%' },
+      { id: 5102, name: 'Legacy Variable', pieceGroup: 'armorVariable', pieces: 4, text: 'HP +15%' },
+    ],
+  })
+  assert.deepEqual(result, { appliedIds: [5101, 5102], total: 2, rejected: 0 })
+  assert.equal(getRuntimeGearSet(5101)?.pieceGroup, 'artifactFixed')
+  assert.equal(getRuntimeGearSet(5102)?.pieceGroup, 'artifactVariable')
 })

@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Відсоток предметів із хоча б одним гліфованим сабстатом.",
   gearAnalyticsKpiAscendedTip: "Відсоток предметів із хоча б одним рівнем піднесення.",
   gearAnalyticsKpiItemCounts: "Артефакти + Аксесуари",
-  gearAnalyticsKpiItemCountsTip: "Кількість броньових артефактів (ліворуч) та аксесуарів (праворуч) у поточному вигляді.",
+  gearAnalyticsKpiItemCountsTip: "Кількість артефактів (ліворуч) та аксесуарів (праворуч) у поточному вигляді.",
   gearAnalyticsKpiEquippedVaultTip: "Відсоток предметів, вдягнених на будь-якого чемпіона (ліворуч), і заблокованих у чемпіонів зі сховища (праворуч).",
   gearAnalyticsCopySnapshotTip: "Зберегти поточний аналітичний вигляд як PNG і скопіювати в буфер обміну.",
   gearAnalyticsCopySnapshot: "Копіювати знімок",
@@ -574,7 +574,7 @@ const overrides: Catalog = {
   labelText: "Текст",
   labelBg: "Bg",
   slotTintsSectionTitle: "Відтінки значків слотів",
-  slotTintArmor: "Слоти броні",
+  slotTintArtifact: "Слоти артефактів",
   slotTintAccessory: "Слоти аксесуарів",
   colorScopeRowLabel: "Забарвлення",
   colorScopeOff: "Вимк",
@@ -631,7 +631,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} — {count}",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% ймовірність перетворити слабкий удар на критичний",
   setDesc_setAvenging_text: "45% ймовірність контратакувати, коли на носія накладають дебафф",
@@ -706,7 +706,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% шанс накласти {debuff:Provoke} на 1 хід під час атаки",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "[[stat:statRES]] +20",
   setDesc_setChronophage_by_2: "[[stat:statSPD]] +10%",
@@ -1080,7 +1080,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Багатовибір: «Змішано» означає, що вибрані рецепти відрізняються. Виберіть значення, щоб синхронізувати їх.",
   builderMultiMixedTriStateHint: "• Багатовибір: підсвітка «Змішано» показує, що вибір відрізняється. Натисніть, щоб синхронізувати всі рецепти.",
   builderFaction: "Фракція",
-  builderFactionHelp: "Обмежте правила для аксесуарів певною фракцією, якщо потрібне спорядження для конкретної команди.\n• Кільця, амулети й прапори дотримуються цього фільтра.\n• Броня фракцію ігнорує, тож для неї безпечніше «Будь‑який».",
+  builderFactionHelp: "Обмежте правила для аксесуарів певною фракцією, якщо потрібне спорядження для конкретної команди.\n• Кільця, амулети й прапори дотримуються цього фільтра.\n• Артефакти фракцію ігнорують, тож для них безпечніше «Будь‑який».",
   builderRarityExact: "Точно",
   builderRarityGte: "Діапазони ≥",
   builderRarityLte: "Діапазони ≤",

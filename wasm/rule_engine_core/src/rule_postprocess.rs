@@ -90,8 +90,8 @@ pub fn build_final_sell_rules_core(
         .unwrap_or_else(|| FINAL_SELL_SETS_MODE_ANY.to_string());
     let explicit_sets = final_sell_explicit_set_ids(all_known_set_ids);
 
-    // Slot combos mirror merge.ts (armor-only, accessory-only, or combined).
-    // Reuse generated slot order constants so armor/accessory partitions are SSOT.
+    // Slot combos mirror merge.ts (artifact-only, accessory-only, or combined).
+    // Reuse generated slot order constants so artifact/accessory partitions are SSOT.
     let art_types = PREFERRED_ARTIFACT_TYPE_ORDER[..6].to_vec();
     let acc_types = PREFERRED_ARTIFACT_TYPE_ORDER[6..].to_vec();
     let type_combos = if final_sell.artifacts && final_sell.accessories {

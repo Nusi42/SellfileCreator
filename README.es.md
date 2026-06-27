@@ -63,7 +63,7 @@ Sellfile Creator simplifica la creación de archivos de venta para RSL Helper �
     - Solo está activo cuando Rareza = Auto y Umbrales por hitos = Tardío. En caso contrario verás una barra diagonal.
     - Ejemplo: Estandarte con SPD y ATK%, donde ATK% necesita 2 tiradas. Rareza = Auto, Umbrales = Tardío, Auto ≥ Épico. Obtienes filas épicas en todos los niveles y ≥ Legendaria en +8 y +12, de modo que las piezas más raras siguen contando.
   - Antes de +16 el constructor usa el número de substats que la rareza puede tener en ese momento. A +16 aplica tu objetivo completo.
-- Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; la armadura lo ignora, así que `Cualquiera` es la opción segura para ella.
+- Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; los artefactos lo ignoran, así que `Cualquiera` es la opción segura para ellos.
 - Ranuras: Centra la regla en piezas concretas (Arma, Botas, etc.) para evitar que coincidan objetos fuera de slot. Déjalo vacío para abarcar todas las ranuras.
 - Sets y Metasets: Filtra por conjuntos concretos o metasets nombrados cuando solo quieres esas combinaciones. Vacío = todos los sets.
 - Mainstats: Define qué mainstats son aceptables.
@@ -216,7 +216,7 @@ Abre «Herramientas» y cambia a la pestaña **Análisis de Equipo** para una vi
 
 **Donuts de filtro cruzado:** Seis gráficos — **Ranuras**, **Rango**, **Rareza**, **Resultado**, **Fuente**, **Nivel** — se actualizan mutuamente al hacer clic.
 - Haz clic en un segmento para añadirlo como filtro de esa dimensión; todos los demás gráficos se estrechan de inmediato al equipamiento coincidente. Cada gráfico excluye su propia dimensión para mostrar siempre su rango completo.
-- Doble clic en un segmento del donut **Ranuras** para seleccionar un grupo entero de una vez: cualquier pieza de armadura (Arma, Yelmo, Escudo, Guantes, Peto, Botas) selecciona las seis ranuras de armadura; cualquier accesorio (Anillo, Amuleto, Estandarte) selecciona los tres.
+- Doble clic en un segmento del donut **Ranuras** para seleccionar un grupo entero de una vez: cualquier pieza de artefacto (Arma, Yelmo, Escudo, Guantes, Peto, Botas) selecciona las seis ranuras de artefacto; cualquier accesorio (Anillo, Amuleto, Estandarte) selecciona los tres.
 - Los donuts **Ranuras** y **Fuente** muestran iconos de categoría. El donut **Nivel** etiqueta cada arco con su texto de nivel.
 
 

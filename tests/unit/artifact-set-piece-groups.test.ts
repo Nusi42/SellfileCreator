@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import {
   ArtifactSet,
   ArtifactSetPieceGroup,
-  ARMOR_FIXED_SET_IDS,
-  ARMOR_VARIABLE_SET_IDS,
+  ARTIFACT_FIXED_SET_IDS,
+  ARTIFACT_VARIABLE_SET_IDS,
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   getArtifactSetPieceGroup,
 } from '../../src/lib/types.js'
@@ -15,9 +15,9 @@ test('Swift Parry and Deflection are treated as variable 1-9 sets', () => {
   const migratedSetIds = [ArtifactSet.SwiftParry, ArtifactSet.Deflection]
 
   for (const setId of migratedSetIds) {
-    assert.equal(getArtifactSetPieceGroup(setId), ArtifactSetPieceGroup.ArmorVariable)
-    assert.ok(ARMOR_VARIABLE_SET_IDS.includes(setId))
+    assert.equal(getArtifactSetPieceGroup(setId), ArtifactSetPieceGroup.ArtifactVariable)
+    assert.ok(ARTIFACT_VARIABLE_SET_IDS.includes(setId))
     assert.ok(ACCESSORY_SLOTS_COMPATIBLE_SET_IDS.includes(setId))
-    assert.equal(ARMOR_FIXED_SET_IDS.includes(setId), false)
+    assert.equal(ARTIFACT_FIXED_SET_IDS.includes(setId), false)
   }
 })

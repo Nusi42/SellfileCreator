@@ -63,7 +63,7 @@ Sellfile Creator, RSL Helper için satış dosyaları oluşturmayı kolaylaştı
     - Yalnızca Nadirlik = Oto ve Eşikler = Geç iken aktiftir; diğer durumda çip üzerinde eğik çizgi görünür.
     - Örnek: SPD ve ATK% alt statlı bir sancak, ATK% için 2 rulo istiyor. Nadirlik = Oto, Eşikler = Geç, Oto ≥ Destansı. Sonuç: Her seviyede Destansı satırlar ve +8/+12’de ≥ Efsanevi dallar; nadir droplar elenmez.
   - +16’ya kadar oluşturucu, nadirliğin o anda izin verdiği alt stat sayısını kullanır. +16’da hedefiniz tam olarak uygulanır.
-- Faksiyon: Belirli bir takım için aksesuar topluyorsanız kuralı o faksiyonla sınırlandırın. Yüzük, Muska ve Sancak filtreye uyar; zırh faksiyon görmez, bu yüzden `Herhangi` güvenlidir.
+- Faksiyon: Belirli bir takım için aksesuar topluyorsanız kuralı o faksiyonla sınırlandırın. Yüzük, Muska ve Sancak filtreye uyar; eserler faksiyon görmez, bu yüzden `Herhangi` güvenlidir.
 - Yuvalar: Kuralları belirli ekipman parçalarına (Silah, Çizme vb.) odaklayın. Boş bırakırsanız tüm yuvaları kapsar.
 - Setler ve metasetler: Belirli setleri veya isimlendirilmiş metasetleri hedefleyin. Boş = tüm setler.
 - Ana stat: Kabul edilen ana statları tanımlar.
@@ -216,7 +216,7 @@ Araçlar'ı açıp **Ekipman Analizi** sekmesine geçin — içe aktarılan ekip
 
 **Çapraz filtreli donutlar:** Altı grafik — **Yuvalar**, **Derece**, **Nadirlik**, **Sonuç**, **Kaynak**, **Seviye** — tıklandığında birbirini günceller.
 - Bir dilime tıklayarak o boyut için filtre ekleyin; diğer tüm grafikler anında eşleşen ekipmanı gösterir. Her grafik kendi boyutunu dışarıda bırakır; bu sayede her zaman tam aralığını gösterir.
-- **Yuvalar** donutundaki bir dilime çift tıklamak tüm bir grubu seçer: herhangi bir zırh parçası (Silah, Miğfer, Kalkan, Eldiven, Zırh, Çizme) altı zırh yuvasını seçer; herhangi bir aksesuar (Yüzük, Muska, Sancak) üçünü birden seçer.
+- **Yuvalar** donutundaki bir dilime çift tıklamak tüm bir grubu seçer: herhangi bir eser parçası (Silah, Miğfer, Kalkan, Eldiven, Zırh, Çizme) altı eser yuvasını seçer; herhangi bir aksesuar (Yüzük, Muska, Sancak) üçünü birden seçer.
 - **Yuvalar** ve **Kaynak** donutları kategori ikonları gösterir. **Seviye** donutu her arkı seviye metniyle etiketler.
 
 

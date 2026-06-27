@@ -253,9 +253,9 @@ export function countByImprovementChanceBin(
 
 // ── Slot groups ───────────────────────────────────────────────────────────────
 
-// Armor and accessory groups derived from the canonical slot ordering.
+// Artifact and accessory groups derived from the canonical slot ordering.
 // Keeps the definition in sync with domain changes without duplicating slot IDs.
-const SLOT_ARMOR_GROUP:     ReadonlySet<number> = new Set(PREFERRED_ARTIFACT_TYPE_ORDER.filter((s) => !isAccessorySlot(s)))
+const SLOT_ARTIFACT_GROUP:     ReadonlySet<number> = new Set(PREFERRED_ARTIFACT_TYPE_ORDER.filter((s) => !isAccessorySlot(s)))
 const SLOT_ACCESSORY_GROUP: ReadonlySet<number> = new Set(PREFERRED_ARTIFACT_TYPE_ORDER.filter((s) =>  isAccessorySlot(s)))
 
 /**
@@ -264,7 +264,7 @@ const SLOT_ACCESSORY_GROUP: ReadonlySet<number> = new Set(PREFERRED_ARTIFACT_TYP
  * Used by the Gear Analytics slot donut: double-clicking a slice selects all group members.
  */
 export function slotGroupIds(id: number): ReadonlySet<number> | null {
-  if (SLOT_ARMOR_GROUP.has(id))     return SLOT_ARMOR_GROUP
+  if (SLOT_ARTIFACT_GROUP.has(id))     return SLOT_ARTIFACT_GROUP
   if (SLOT_ACCESSORY_GROUP.has(id)) return SLOT_ACCESSORY_GROUP
   return null
 }
@@ -603,7 +603,7 @@ export type GearAnalyticsKpis = {
   ascendedRate: number | null
   /** % of items equipped to any champion (including vault-benched). */
   equippedRate: number | null
-  /** Raw count of non-accessory armor pieces in the current view. */
+  /** Raw count of non-accessory artifact pieces in the current view. */
   artifactCount: number | null
   /** Raw count of accessory pieces in the current view. */
   accessoryCount: number | null

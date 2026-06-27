@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Процент предметов хотя бы с одним глифованным субстатом.",
   gearAnalyticsKpiAscendedTip: "Процент предметов хотя бы с одним уровнем вознесения.",
   gearAnalyticsKpiItemCounts: "Артефакты + Аксессуары",
-  gearAnalyticsKpiItemCountsTip: "Количество артефактов брони (слева) и аксессуаров (справа) в текущем виде.",
+  gearAnalyticsKpiItemCountsTip: "Количество артефактов (слева) и аксессуаров (справа) в текущем виде.",
   gearAnalyticsKpiEquippedVaultTip: "Процент надетых на любого чемпиона предметов (слева) и заблокированных у чемпионов в хранилище (справа).",
   gearAnalyticsCopySnapshotTip: "Сохранить текущий аналитический вид как PNG и скопировать в буфер обмена.",
   gearAnalyticsCopySnapshot: "Копировать снимок",
@@ -574,7 +574,7 @@ const overrides: Catalog = {
   labelText: "Текст",
   labelBg: "Bg",
   slotTintsSectionTitle: "Оттенки значков слотов",
-  slotTintArmor: "Слоты брони",
+  slotTintArtifact: "Слоты артефактов",
   slotTintAccessory: "Слоты аксессуаров",
   colorScopeRowLabel: "Окраска",
   colorScopeOff: "Выкл",
@@ -631,7 +631,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} — {count}",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% шанс превратить слабый удар в критический",
   setDesc_setAvenging_text: "45% шанс контратаковать, когда на владельца накладывают дебафф",
@@ -706,7 +706,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% шанс наложить {debuff:Provoke} на 1 ход при атаке",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1080,7 +1080,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Множественный выбор: «Смешанное» означает, что выбранные рецепты отличаются. Выберите значение, чтобы синхронизировать их.",
   builderMultiMixedTriStateHint: "• Множественный выбор: подсветка «Смешанное» показывает, что выбор отличается. Нажмите, чтобы синхронизировать все рецепты.",
   builderFaction: "Фракция",
-  builderFactionHelp: "Ограничьте правила для аксессуаров конкретной фракцией, если нужен лут для определённой команды.\n• Кольца, амулеты и знамёна учитывают этот фильтр.\n• Броня фракции не различает, поэтому «Любой» для неё самый безопасный выбор.",
+  builderFactionHelp: "Ограничьте правила для аксессуаров конкретной фракцией, если нужен лут для определённой команды.\n• Кольца, амулеты и знамёна учитывают этот фильтр.\n• Артефакты фракцию не различают, поэтому «Любой» для них самый безопасный выбор.",
   builderRarityExact: "Точно",
   builderRarityGte: "Диапазоны ≥",
   builderRarityLte: "Диапазоны ≤",

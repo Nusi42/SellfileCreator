@@ -4,7 +4,7 @@
     {
       "id": 9001,
       "name": "Harmonic Charge",
-      "pieceGroup": "armorFixed",
+      "pieceGroup": "artifactFixed",
       "pieces": 2,
       "text": "ATK +15%\n20% chance to boost +10% Turn Meter when placing buffs",
       "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKklEQVR42mOQ6n9MU8QwasGoBaMWjFowasGoBaMWjFowasGoBaMWDBULABq+MFuGA75zAAAAAElFTkSuQmCC"
@@ -24,7 +24,7 @@
     {
       "id": 9003,
       "name": "Celestial Vanguard",
-      "pieceGroup": "armorFixed",
+      "pieceGroup": "artifactFixed",
       "pieces": 4,
       "text": "+20% SPD, +25% DEF",
       "byPieces": {
@@ -36,7 +36,7 @@
     {
       "id": 9004,
       "name": "Prismatic Storm",
-      "pieceGroup": "armorVariable",
+      "pieceGroup": "artifactVariable",
       "pieces": "1-9",
       "text": "Flexible bonus ladder scaling with each equipped piece",
       "byPieces": {

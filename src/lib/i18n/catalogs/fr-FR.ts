@@ -317,7 +317,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Pourcentage d'objets avec au moins un sous-stat glyphed.",
   gearAnalyticsKpiAscendedTip: "Pourcentage d'objets avec au moins un niveau d'ascension appliqué.",
   gearAnalyticsKpiItemCounts: "Artefacts + Accessoires",
-  gearAnalyticsKpiItemCountsTip: "Nombre de pièces d'artefact d'armure (gauche) et de pièces d'accessoire (droite) dans la vue actuelle.",
+  gearAnalyticsKpiItemCountsTip: "Nombre de pièces d'artefact (gauche) et de pièces d'accessoire (droite) dans la vue actuelle.",
   gearAnalyticsKpiEquippedVaultTip: "Pourcentage équipé à n'importe quel champion (gauche) et bloqué sur des champions en coffre (droite).",
   gearAnalyticsCopySnapshotTip: "Rendre la vue analytique actuelle en PNG et la copier dans le presse-papiers.",
   gearAnalyticsCopySnapshot: "Copier le snapshot",
@@ -576,7 +576,7 @@ const overrides: Catalog = {
   labelText: "Texte",
   labelBg: "Bg",
   slotTintsSectionTitle: "Teintes des icônes d’emplacement",
-  slotTintArmor: "Emplacements d’armure",
+  slotTintArtifact: "Emplacements d’artefact",
   slotTintAccessory: "Emplacements d’accessoires",
   colorScopeRowLabel: "Coloration",
   colorScopeOff: "Désactivé",
@@ -633,7 +633,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – {count}",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% de chances de convertir un coup faible en coup critique",
   setDesc_setAvenging_text: "45% de chances de contre-attaquer lorsqu’un debuff est appliqué au porteur",
@@ -708,7 +708,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% de chances d’appliquer {debuff:Provoke} pendant 1 tour en attaquant",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1082,7 +1082,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Multisélection : « Mixte » signifie que les recettes sélectionnées diffèrent. Choisissez une valeur pour les synchroniser toutes.",
   builderMultiMixedTriStateHint: "• Multisélection : le surlignage \"Mixte\" indique que la sélection diffère. Cliquez pour synchroniser toutes les recettes.",
   builderFaction: "Faction",
-  builderFactionHelp: "Limitez les règles d’accessoires à une faction précise quand vous ne voulez que l’équipement d’une équipe donnée.\n• Bagues, amulettes et bannières respectent ce filtre.\n• L’armure ignore les factions ; « Peu importe » reste le choix le plus sûr.",
+  builderFactionHelp: "Limitez les règles d’accessoires à une faction précise quand vous ne voulez que l’équipement d’une équipe donnée.\n• Bagues, amulettes et bannières respectent ce filtre.\n• Les artefacts ignorent les factions ; « Peu importe » reste le choix le plus sûr.",
   builderRarityExact: "Exact",
   builderRarityGte: "Plages ≥",
   builderRarityLte: "Plages ≤",

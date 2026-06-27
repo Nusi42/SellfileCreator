@@ -47,13 +47,13 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - SFC tuples no longer mirror the first entry via a `mainStat` field; downstream consumers must read the `mainStats` array (or handle it being empty for Any).
 - Optional substat focus is stored as `substats?: string[]` (readable labels). Match behavior serializes `substatMatch?: 'any' | 'all' | 'perSubstat'` only when a non-default match is chosen; missing defaults to `any`. Substat scoring always uses the **current** (observed) substat value — normalized for cross-stat comparison — and is never projected forward to +16; weights apply when `substatMatch` is `any` or `all`, while `perSubstat` ignores weights. Per-stat weights are stored as `substatWeights?: Record<string, number>` using the same labels and only include non-default weights for the selected substats.
 - Multiple substats follow the match: `any` accepts items that have at least one selected substat, `all` requires every selected substat, and `perSubstat` applies the quota separately for each selected substat.
-- Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
+- Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an artifact slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
 - Exporters write the combinations exactly as stored in app state. Detection snapshots (`safeguardDetection`) are runtime-only and never serialized; they rebuild automatically once the gear queue stabilizes.
 - Each `SafeguardDetectionEntry` now includes a `candidates?: SafeguardCandidateOut[]` array produced by the WASM detection pass. Each entry carries `{ itemKey, score, candidateRank, isWithinQuota }`: `candidateRank` is 1-based (1 = highest-scoring item); `isWithinQuota` is `true` for all top-N candidates (kept and sold alike), not only the sold ones. The field is absent on older cached snapshots and treated as an empty array. Artifacts in the detection entry also now cover the full ranked candidate pool (all matched items), not only the sold subset.
 - `score_safeguard_candidates_value` (WASM) / `scoreSafeguardCandidatesWithLoadedWasm` (TS) — live preview scoring for the weight-configuration popover. Accepts a `SafeguardWasmScorePreviewIn` payload (`{ artifacts, substats, weights, keepCount }`) and returns a sorted `SafeguardWasmCandidateOut[]` with 1-based ranks and quota flags, without re-running the full detection pass. Used by `scoreSafeguardCandidates` in `safeguards.ts`.
 - Downstream merge helpers label every emitted safeguard rule with `RULE_SOURCE_SAFEGUARDS` and assign a negative `RecipeID` (≤ `KEEP_UNIQUE_CONFIG_ID_BASE`) so Sellfile previews can highlight them without letting selection logic treat them as builder recipes. The exported `RecipeName` mirrors the Safeguard rule label so HSF uploads now carry the same metadata as regular recipes.
 - New sessions seed a default Safeguard rule that protects 5★/6★ rings, amulets, and banners across every accessory-friendly set (1–9 families plus single-piece accessories) with `Per slot`, `Per set`, `Per faction`, and `Per main stat` scopes enabled so each combination preserves at least one item.
-- A second rule (disabled by default) guards 5★/6★ weapons and armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) for the stun, toxic, cursed, provoke, and destroy sets with `Per slot` and `Per set` scopes (per-faction/per-main are off) so you can enable it later when those rare sets become important.
+- A second rule (disabled by default) guards 5★/6★ weapons and artifact pieces (weapon, helmet, shield, gauntlets, chestplate, boots) for the stun, toxic, cursed, provoke, and destroy sets with `Per slot` and `Per set` scopes (per-faction/per-main are off) so you can enable it later when those rare sets become important.
 
 ### NativeInput / NativeOutput (native DLL)
 
@@ -77,7 +77,7 @@ and require no JavaScript runtime.
       "rank":  5,              // 1–6 (null = unknown)
       "rarity": 4,             // 1=Common 2=Uncommon 3=Rare 4=Epic 5=Legendary 6=Mythical (null = unknown)
       "lvl":   16,             // level milestone 0/4/8/12/16 (null = 0)
-      "aset":  10,             // armor set id (slot ≤ 6; null = no set)
+      "aset":  10,             // artifact set id (slot ≤ 6; null = no set)
       "accset": null,          // accessory set id (slot ≥ 7; null = no set)
       "mid":   1, "mfl": 0,    // main stat id + flat flag (0=percent, 1=flat)
       "s1id":  4, "s1lvl": 2, "s1fl": 1,  // substat 1: id, roll count, flat flag
@@ -234,7 +234,7 @@ always check for the `error` key before reading `rules` or `improvementChances`.
       {
         "id": 999,
         "name": "Celestial",
-        "pieceGroup": "armorFixed", // 'accessories' | 'armorFixed' | 'armorVariable'
+        "pieceGroup": "artifactFixed", // 'accessories' | 'artifactFixed' | 'artifactVariable'
         "pieces": 2,               // number or string (e.g., "1–9")
         "text": "SPD +15%",
         "byPieces": { "4": "extra turn" },      // optional
@@ -244,10 +244,10 @@ always check for the `error` key before reading `rules` or `improvementChances`.
   }
   ```
 - The app accepts drag‑and‑drop or manual file selection for `*.gearsets.json` files. All imagery must be embedded data URLs; no external fetches are allowed in the runtime sandbox.
-- `examples/custom.gearsets.json` includes four reference entries (2-piece armor, accessory-only single piece, 4-piece armor, and a 1–9 flexible set) with inline PNG data so contributors can copy known-good structures.
+- `examples/custom.gearsets.json` includes four reference entries (2-piece artifact, accessory-only single piece, 4-piece artifact, and a 1–9 flexible set) with inline PNG data so contributors can copy known-good structures.
 - Validation:
   - `id` must be a positive integer.
-  - `pieceGroup` must match the exported enum (`accessories`, `armorFixed`, `armorVariable`).
+  - `pieceGroup` must match the exported enum (`accessories`, `artifactFixed`, `artifactVariable`). Legacy values `armorFixed`/`armorVariable` (pre-rename exports) are still accepted on import and normalized via `normalizePieceGroupValue` (`src/lib/gearSets/groups.ts`).
   - `pieces` and `text` are required; `byPieces` uses numeric keys.
   - `icon` is optional; when supplied it must be a `data:` URL (SVG, PNG, WebP, etc.). When omitted or invalid the UI falls back to a generated badge that displays the set ID.
 - Persistence: accepted sets are merged into the in-memory catalogs immediately and saved to `localStorage` (`sellfileCreator.runtimeGearSets.v1`). SFC files do not embed runtime sets; contributors should share the `.gearsets.json` alongside any `.sfc` they distribute. On startup, stored sets remain dormant until the user opts into the “Gear Sets” checkbox in the **Restore Last Saved Recipes?** dialog; declining (or dismissing the dialog) keeps the stored snapshot untouched until the next SFC autosave or Gear Inspector autosave writes, at which point the runtime registry snapshot (empty or not) is persisted. This lets contributors reopen the dialog later to reapply previously stored sets without re-importing.

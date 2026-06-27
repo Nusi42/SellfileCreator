@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Percentuale di oggetti con almeno un substat glyphed.",
   gearAnalyticsKpiAscendedTip: "Percentuale di oggetti con almeno un livello di ascensione applicato.",
   gearAnalyticsKpiItemCounts: "Artefatti + Accessori",
-  gearAnalyticsKpiItemCountsTip: "Numero di pezzi artefatto armatura (sinistra) e pezzi accessorio (destra) nella vista corrente.",
+  gearAnalyticsKpiItemCountsTip: "Numero di pezzi artefatto (sinistra) e pezzi accessorio (destra) nella vista corrente.",
   gearAnalyticsKpiEquippedVaultTip: "Percentuale equipaggiata su qualsiasi campione (sinistra) e bloccata su campioni nel Deposito (destra).",
   gearAnalyticsCopySnapshotTip: "Esegui il rendering della vista analitica attuale come PNG e copiala negli appunti.",
   gearAnalyticsCopySnapshot: "Copia snapshot",
@@ -573,7 +573,7 @@ const overrides: Catalog = {
   labelText: "Testo",
   labelBg: "Bg",
   slotTintsSectionTitle: "Tinte icone slot",
-  slotTintArmor: "Slot armatura",
+  slotTintArtifact: "Slot artefatto",
   slotTintAccessory: "Slot accessori",
   colorScopeRowLabel: "Colorazione",
   colorScopeOff: "Off",
@@ -630,7 +630,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – set da {count}",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% di probabilità di convertire un colpo debole in critico",
   setDesc_setAvenging_text: "45% di probabilità di contrattaccare quando viene applicato un debuff al portatore",
@@ -705,7 +705,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% di probabilità di applicare {debuff:Provoke} per 1 turno quando attacca",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1082,7 +1082,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Selezione multipla: \"Misto\" indica che le ricette selezionate differiscono. Scegli un valore per sincronizzarle tutte.",
   builderMultiMixedTriStateHint: "• Selezione multipla: l'evidenziazione \"Misto\" indica che la selezione differisce. Fai clic per sincronizzare tutte le ricette.",
   builderFaction: "Fazione",
-  builderFactionHelp: "Limita le regole accessori a una fazione specifica quando vuoi equipaggiare un solo team.\n• Anelli, amuleti e vessilli rispettano questo filtro.\n• I pezzi d'armatura lo ignorano, quindi \"Qualsiasi\" è l'opzione più sicura.",
+  builderFactionHelp: "Limita le regole accessori a una fazione specifica quando vuoi equipaggiare un solo team.\n• Anelli, amuleti e vessilli rispettano questo filtro.\n• I pezzi artefatto lo ignorano, quindi \"Qualsiasi\" è l'opzione più sicura.",
   builderRarityExact: "Esatta",
   builderRarityGte: "Intervalli ≥",
   builderRarityLte: "Intervalli ≤",

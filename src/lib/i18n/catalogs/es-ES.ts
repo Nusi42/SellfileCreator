@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Porcentaje de objetos con al menos un substat glyphed.",
   gearAnalyticsKpiAscendedTip: "Porcentaje de objetos con al menos un nivel de ascensión aplicado.",
   gearAnalyticsKpiItemCounts: "Artefactos + Accesorios",
-  gearAnalyticsKpiItemCountsTip: "Número de piezas de artefacto de armadura (izquierda) y piezas de accesorio (derecha) en la vista actual.",
+  gearAnalyticsKpiItemCountsTip: "Número de piezas de artefacto (izquierda) y piezas de accesorio (derecha) en la vista actual.",
   gearAnalyticsKpiEquippedVaultTip: "Porcentaje equipado a cualquier campeón (izquierda) y bloqueado en campeones en bóveda (derecha).",
   gearAnalyticsCopySnapshotTip: "Renderizar la vista analítica actual como PNG y copiarla al portapapeles.",
   gearAnalyticsCopySnapshot: "Copiar instantánea",
@@ -573,7 +573,7 @@ const overrides: Catalog = {
   labelText: "Texto",
   labelBg: "Bg",
   slotTintsSectionTitle: "Tintes de iconos de ranura",
-  slotTintArmor: "Ranuras de armadura",
+  slotTintArtifact: "Ranuras de artefacto",
   slotTintAccessory: "Ranuras de accesorios",
   colorScopeRowLabel: "Coloreado",
   colorScopeOff: "Desactivado",
@@ -630,7 +630,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – {count} conjunto",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifact (fixed-piece)
   setDesc_setAccuracy_text: "[[stat:statACC]] +40",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% de probabilidad de convertir un golpe débil en crítico",
   setDesc_setAvenging_text: "45% de probabilidad de contraatacar cuando se aplica un perjuicio al portador",
@@ -705,7 +705,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% de probabilidad de aplicar {debuff:Provoke} durante 1 turno al atacar",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifact (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "[[stat:statRES]] +20",
   setDesc_setChronophage_by_2: "[[stat:statSPD]] +10%",
@@ -1082,7 +1082,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Selección múltiple: \"Mezclado\" indica que las recetas seleccionadas son distintas. Elige un valor para sincronizarlas todas.",
   builderMultiMixedTriStateHint: "• Selección múltiple: el sombreado \"Mezclado\" indica que la selección difiere. Haz clic para sincronizar todas las recetas.",
   builderFaction: "Facción",
-  builderFactionHelp: "Limita las reglas de accesorios a una facción concreta cuando solo quieres equipo para un grupo específico.\n• Anillos, amuletos y estandartes respetan este filtro.\n• La armadura ignora la facción, así que “Cualquiera” es lo más seguro para ella.",
+  builderFactionHelp: "Limita las reglas de accesorios a una facción concreta cuando solo quieres equipo para un grupo específico.\n• Anillos, amuletos y estandartes respetan este filtro.\n• Los artefactos ignoran la facción, así que “Cualquiera” es lo más seguro para ellos.",
   builderRarityExact: "Exacto",
   builderRarityGte: "Rangos ≥",
   builderRarityLte: "Rangos ≤",

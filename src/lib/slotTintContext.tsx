@@ -22,7 +22,7 @@ import type { ArtifactTypeId } from './types'
 
 /** Adapted tints ready to apply as CSS `color`; `undefined` ⇒ no tint (use inherit). */
 type ResolvedSlotTints = {
-  armor: string | undefined
+  artifact: string | undefined
   accessory: string | undefined
 }
 
@@ -33,7 +33,7 @@ type SlotTintContextValue = {
   control: ResolvedSlotTints
 }
 
-const EMPTY: ResolvedSlotTints = { armor: undefined, accessory: undefined }
+const EMPTY: ResolvedSlotTints = { artifact: undefined, accessory: undefined }
 const SlotTintContext = createContext<SlotTintContextValue>({ text: EMPTY, control: EMPTY })
 
 // True inside slot CONTROL contexts (builder toggle grids / slot selects), so glyphs there read the
@@ -53,16 +53,16 @@ export function SlotTintProvider({
 }) {
   // Same contrast adapter substat fg colours use — recomputes only when the scheme changes.
   const adaptFg = useSubstatFgAdapter()
-  const armorRaw = tints?.armor ?? DEFAULT_SLOT_TINTS.armor
+  const artifactRaw = tints?.artifact ?? DEFAULT_SLOT_TINTS.artifact
   const accessoryRaw = tints?.accessory ?? DEFAULT_SLOT_TINTS.accessory
 
   const value = useMemo<SlotTintContextValue>(() => {
     const controls = scopeColorsControls(scope)
     const text = scopeColorsText(scope)
     if (!controls && !text) return { text: EMPTY, control: EMPTY }
-    const adapted: ResolvedSlotTints = { armor: adaptFg(armorRaw), accessory: adaptFg(accessoryRaw) }
+    const adapted: ResolvedSlotTints = { artifact: adaptFg(artifactRaw), accessory: adaptFg(accessoryRaw) }
     return { text: text ? adapted : EMPTY, control: controls ? adapted : EMPTY }
-  }, [scope, adaptFg, armorRaw, accessoryRaw])
+  }, [scope, adaptFg, artifactRaw, accessoryRaw])
 
   return <SlotTintContext value={value}>{children}</SlotTintContext>
 }
@@ -75,11 +75,11 @@ export function SlotTintControlScope({ children }: { children: React.ReactNode }
 /**
  * Resolved CSS colour for a slot's glyph, or `undefined` when out of scope. Consumed by the icon
  * factory. Reads the control-scoped tint inside `SlotTintControlScope`, else the text-scoped tint.
- * Reuses `isAccessorySlot` as the armor-vs-accessory SSOT.
+ * Reuses `isAccessorySlot` as the artifact-vs-accessory SSOT.
  */
 export function useSlotTintColor(slot: ArtifactTypeId): string | undefined {
   const { text, control } = use(SlotTintContext)
   const inControl = use(SlotTintControlContext)
   const tints = inControl ? control : text
-  return isAccessorySlot(slot) ? tints.accessory : tints.armor
+  return isAccessorySlot(slot) ? tints.accessory : tints.artifact
 }

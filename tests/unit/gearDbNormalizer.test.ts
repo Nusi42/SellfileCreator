@@ -183,7 +183,7 @@ test('normalizeGearDbArtifact handles accessory rows and faction mapping', () =>
   assert.equal(subValues[StatVariant.DEF_FLAT], 17)
 })
 
-test('normalizeGearDbArtifact keeps armor rows without sets as no-set entries', () => {
+test('normalizeGearDbArtifact keeps artifact rows without sets as no-set entries', () => {
   const normalized = normalizeGearDbArtifact({ ...weaponRow, aset: 0 })
   assert.equal(normalized.slot, ArtifactType.Weapon)
   assert.equal(normalized.set, 0)

@@ -236,13 +236,13 @@ const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
       metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.Accessories })
       continue
     }
-    // Armor sets with 2 or 4 pieces behave as fixed-size set bonuses.
+    // Artifact sets with 2 or 4 pieces behave as fixed-size set bonuses.
     if (pieces === 2 || pieces === 4) {
-      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArmorFixed })
+      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArtifactFixed })
       continue
     }
     // Everything else (1–9 variable sets today) lands in the variable bucket.
-    metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArmorVariable })
+    metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArtifactVariable })
   }
   return metaEntries.reduce<Record<number, ArtifactSetPieceGroup>>((acc, entry) => {
     acc[entry.id] = entry.group
@@ -256,7 +256,7 @@ export function getArtifactSetPieceGroup(id: ArtifactSetId): ArtifactSetPieceGro
   if (Number(id) === ACCESSORY_NO_SET_ID) return ArtifactSetPieceGroup.Accessories
   const runtime = getRuntimeGearSet(id)
   if (runtime) return runtime.pieceGroup
-  return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArmorFixed
+  return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArtifactFixed
 }
 
 /** Convenience arrays keep UI filters and Safeguard defaults in sync. */
@@ -266,20 +266,20 @@ export const ACCESSORY_SET_IDS = Object.freeze(
     .map(([id]) => Number(id) as ArtifactSetId),
 )
 
-export const ARMOR_FIXED_SET_IDS = Object.freeze(
+export const ARTIFACT_FIXED_SET_IDS = Object.freeze(
   Object.entries(artifactSetPieceGroups)
-    .filter(([, group]) => group === ArtifactSetPieceGroup.ArmorFixed)
+    .filter(([, group]) => group === ArtifactSetPieceGroup.ArtifactFixed)
     .map(([id]) => Number(id) as ArtifactSetId),
 )
 
-export const ARMOR_VARIABLE_SET_IDS = Object.freeze(
+export const ARTIFACT_VARIABLE_SET_IDS = Object.freeze(
   Object.entries(artifactSetPieceGroups)
-    .filter(([, group]) => group === ArtifactSetPieceGroup.ArmorVariable)
+    .filter(([, group]) => group === ArtifactSetPieceGroup.ArtifactVariable)
     .map(([id]) => Number(id) as ArtifactSetId),
 )
 
 // Alias the variable list so "9-piece sets" callers have an intuitive export.
-export const NINE_PIECE_SET_IDS = ARMOR_VARIABLE_SET_IDS
+export const NINE_PIECE_SET_IDS = ARTIFACT_VARIABLE_SET_IDS
 
 // Accessory slots accept the no-set sentinel (Spider-dungeon unset accessories),
 // traditional accessory sets (1-piece bonuses), and any of the flexible 1–9 piece families.
@@ -287,7 +287,7 @@ export const ACCESSORY_SLOTS_COMPATIBLE_SET_IDS = Object.freeze(
   Array.from(new Set<number>([
     ACCESSORY_NO_SET_ID,
     ...ACCESSORY_SET_IDS,
-    ...ARMOR_VARIABLE_SET_IDS,
+    ...ARTIFACT_VARIABLE_SET_IDS,
   ])).sort((a, b) => a - b)
     .map((id) => id as ArtifactSetId),
 )
@@ -296,8 +296,8 @@ export const ALL_ARTIFACT_SET_IDS = Object.freeze(
   Array.from(new Set<number>([
     ACCESSORY_NO_SET_ID,
     ...ACCESSORY_SET_IDS,
-    ...ARMOR_FIXED_SET_IDS,
-    ...ARMOR_VARIABLE_SET_IDS,
+    ...ARTIFACT_FIXED_SET_IDS,
+    ...ARTIFACT_VARIABLE_SET_IDS,
   ])).sort((a, b) => a - b)
     .map((id) => id as ArtifactSetId),
 )
@@ -306,8 +306,8 @@ type RuntimeGearSetCache = {
   version: number
   entries: Array<[string, string]>
   accessories: readonly ArtifactSetId[]
-  armorFixed: readonly ArtifactSetId[]
-  armorVariable: readonly ArtifactSetId[]
+  artifactFixed: readonly ArtifactSetId[]
+  artifactVariable: readonly ArtifactSetId[]
   all: readonly ArtifactSetId[]
 }
 
@@ -315,8 +315,8 @@ const runtimeGearSetCache: RuntimeGearSetCache = {
   version: -1,
   entries: Object.entries(artifactSetNames),
   accessories: ACCESSORY_SET_IDS,
-  armorFixed: ARMOR_FIXED_SET_IDS,
-  armorVariable: ARMOR_VARIABLE_SET_IDS,
+  artifactFixed: ARTIFACT_FIXED_SET_IDS,
+  artifactVariable: ARTIFACT_VARIABLE_SET_IDS,
   all: ALL_ARTIFACT_SET_IDS,
 }
 
@@ -338,16 +338,16 @@ function ensureRuntimeGearSetCache(): void {
   if (!runtimeSets.length) {
     runtimeGearSetCache.entries = Object.entries(artifactSetNames)
     runtimeGearSetCache.accessories = ACCESSORY_SET_IDS
-    runtimeGearSetCache.armorFixed = ARMOR_FIXED_SET_IDS
-    runtimeGearSetCache.armorVariable = ARMOR_VARIABLE_SET_IDS
+    runtimeGearSetCache.artifactFixed = ARTIFACT_FIXED_SET_IDS
+    runtimeGearSetCache.artifactVariable = ARTIFACT_VARIABLE_SET_IDS
     runtimeGearSetCache.all = ALL_ARTIFACT_SET_IDS
     runtimeGearSetCache.version = version
     return
   }
   const entryMap = new Map<string, string>(Object.entries(artifactSetNames))
   const accessories: ArtifactSetId[] = []
-  const armorFixed: ArtifactSetId[] = []
-  const armorVariable: ArtifactSetId[] = []
+  const artifactFixed: ArtifactSetId[] = []
+  const artifactVariable: ArtifactSetId[] = []
   runtimeSets.forEach((set) => {
     entryMap.set(String(set.id), set.canonicalName)
     const id = set.id as ArtifactSetId
@@ -355,21 +355,21 @@ function ensureRuntimeGearSetCache(): void {
       case ArtifactSetPieceGroup.Accessories:
         accessories.push(id)
         break
-      case ArtifactSetPieceGroup.ArmorFixed:
-        armorFixed.push(id)
+      case ArtifactSetPieceGroup.ArtifactFixed:
+        artifactFixed.push(id)
         break
-      case ArtifactSetPieceGroup.ArmorVariable:
-        armorVariable.push(id)
+      case ArtifactSetPieceGroup.ArtifactVariable:
+        artifactVariable.push(id)
         break
       default:
-        armorFixed.push(id)
+        artifactFixed.push(id)
     }
   })
   runtimeGearSetCache.entries = Array.from(entryMap.entries())
   runtimeGearSetCache.accessories = mergeSetIds(ACCESSORY_SET_IDS, accessories)
-  runtimeGearSetCache.armorFixed = mergeSetIds(ARMOR_FIXED_SET_IDS, armorFixed)
-  runtimeGearSetCache.armorVariable = mergeSetIds(ARMOR_VARIABLE_SET_IDS, armorVariable)
-  runtimeGearSetCache.all = mergeSetIds(ALL_ARTIFACT_SET_IDS, [...accessories, ...armorFixed, ...armorVariable])
+  runtimeGearSetCache.artifactFixed = mergeSetIds(ARTIFACT_FIXED_SET_IDS, artifactFixed)
+  runtimeGearSetCache.artifactVariable = mergeSetIds(ARTIFACT_VARIABLE_SET_IDS, artifactVariable)
+  runtimeGearSetCache.all = mergeSetIds(ALL_ARTIFACT_SET_IDS, [...accessories, ...artifactFixed, ...artifactVariable])
   runtimeGearSetCache.version = version
 }
 
@@ -383,14 +383,14 @@ export function getAccessorySetIds(): readonly ArtifactSetId[] {
   return runtimeGearSetCache.accessories
 }
 
-export function getArmorFixedSetIds(): readonly ArtifactSetId[] {
+export function getArtifactFixedSetIds(): readonly ArtifactSetId[] {
   ensureRuntimeGearSetCache()
-  return runtimeGearSetCache.armorFixed
+  return runtimeGearSetCache.artifactFixed
 }
 
-export function getArmorVariableSetIds(): readonly ArtifactSetId[] {
+export function getArtifactVariableSetIds(): readonly ArtifactSetId[] {
   ensureRuntimeGearSetCache()
-  return runtimeGearSetCache.armorVariable
+  return runtimeGearSetCache.artifactVariable
 }
 
 export function getAllKnownArtifactSetIds(): readonly ArtifactSetId[] {
@@ -406,7 +406,7 @@ export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
     const numeric = Number(id)
     if (!ACCESSORY_COMPAT_BASE.has(numeric)) extras.push(id)
   })
-  getArmorVariableSetIds().forEach((id) => {
+  getArtifactVariableSetIds().forEach((id) => {
     const numeric = Number(id)
     if (!ACCESSORY_COMPAT_BASE.has(numeric)) extras.push(id)
   })

@@ -48,7 +48,7 @@ import {
 } from '../../lib/gearAnalytics'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID, GEAR_ANALYTICS_COLLAPSED_KEY } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId } from '../../lib/types'
-import { getAccessorySlotsCompatibleSetIds, getArmorFixedSetIds, getArmorVariableSetIds } from '../../lib/types'
+import { getAccessorySlotsCompatibleSetIds, getArtifactFixedSetIds, getArtifactVariableSetIds } from '../../lib/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
 import { isAccessorySlot } from '../../lib/gearInspectorDomain'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
@@ -417,7 +417,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   const toggleSlot = useCallback((id: number | string) => {
     setDim((prev) => ({ ...prev, slots: toggled(prev.slots, Number(id)) }))
   }, [])
-  // Double-click: replace the slot filter with all slots in the same group (armor or accessory).
+  // Double-click: replace the slot filter with all slots in the same group (artifact or accessory).
   const selectSlotGroup = useCallback((id: number | string) => {
     const group = slotGroupIds(Number(id))
     if (group) setDim((prev) => ({ ...prev, slots: group }))
@@ -494,16 +494,16 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
   }, [getExpandedMetaSetIds])
   // Slot-aware set pool for the GearSetsSelect quick-filter in the Sets treemap title row.
   // When specific slots are selected, restrict the set list to sets compatible with those slots.
-  // Empty slots (= no filter) or mixed armor+accessory = no restriction (undefined).
+  // Empty slots (= no filter) or mixed artifact+accessory = no restriction (undefined).
   const treemapAllowedSetIds = useMemo<readonly ArtifactSetId[] | undefined>(() => {
     void gearSetCatalogVersion
     if (dim.slots.size === 0) return undefined
     const slots = Array.from(dim.slots) as ArtifactTypeId[]
     const hasAccessory = slots.some((s) => isAccessorySlot(s))
-    const hasArmor = slots.some((s) => !isAccessorySlot(s))
-    if (hasAccessory && hasArmor) return undefined
+    const hasArtifact = slots.some((s) => !isAccessorySlot(s))
+    if (hasAccessory && hasArtifact) return undefined
     if (hasAccessory) return getAccessorySlotsCompatibleSetIds()
-    return Object.freeze([...getArmorFixedSetIds(), ...getArmorVariableSetIds()])
+    return Object.freeze([...getArtifactFixedSetIds(), ...getArtifactVariableSetIds()])
   }, [dim.slots, gearSetCatalogVersion])
   const toggleOutcome = useCallback((outcome: GearAnalyticsOutcome) => {
     setDim((prev) => ({ ...prev, outcomes: toggled(prev.outcomes, outcome) }))

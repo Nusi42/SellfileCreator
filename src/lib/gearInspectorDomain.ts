@@ -14,8 +14,8 @@ import {
   LEVEL_MILESTONES,
   type LevelMilestone,
   getAllKnownArtifactSetIds,
-  getArmorFixedSetIds,
-  getArmorVariableSetIds,
+  getArtifactFixedSetIds,
+  getArtifactVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
 } from './types'
 
@@ -38,12 +38,12 @@ export const ACCESSORY_SLOT_IDS: readonly ArtifactTypeId[] = Object.freeze([
 ])
 
 /**
- * True when a slot-array multi-edit patch would introduce an armor (non-accessory) slot.
+ * True when a slot-array multi-edit patch would introduce an artifact (non-accessory) slot.
  * Used by the recipe and safeguard multi-edit apply paths as the SSOT for the
  * "this patch conflicts with a faction filter on this rule" check. `remove` and `clear`
  * cannot introduce a slot; only `add`/`replace` are inspected.
  */
-export function slotPatchIntroducesArmor(
+export function slotPatchIntroducesArtifact(
   patch: { add?: readonly number[]; replace?: readonly number[] } | null | undefined,
 ): boolean {
   if (!patch) return false
@@ -78,7 +78,7 @@ export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[]
 
 /**
  * Valid artifact set IDs for a Gear Inspector slot. Accessories allow accessory-only
- * sets plus the "no set" sentinel, while armor limits to <1000 IDs.
+ * sets plus the "no set" sentinel, while artifact limits to <1000 IDs.
  */
 export function allowedGearInspectorSetIds(slot: ArtifactTypeId): number[] {
   const numeric = Number(slot)
@@ -97,11 +97,11 @@ export function allowedGearInspectorSetIds(slot: ArtifactTypeId): number[] {
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
-  const armorSets = new Set<number>([
-    ...getArmorFixedSetIds(),
-    ...getArmorVariableSetIds(),
+  const artifactSets = new Set<number>([
+    ...getArtifactFixedSetIds(),
+    ...getArtifactVariableSetIds(),
   ])
-  return Array.from(armorSets).sort(compareArtifactSets)
+  return Array.from(artifactSets).sort(compareArtifactSets)
 }
 
 /**
@@ -134,7 +134,7 @@ export function normalizeGearInspectorSetForSlot(slot: ArtifactTypeId, setId: un
 
 /**
  * Clamp a raw slot identifier to a Gear Inspector-friendly value.
- * Accepts 0 (any slot) and armor/accessory numeric IDs.
+ * Accepts 0 (any slot) and artifact/accessory numeric IDs.
  */
 export function normalizeGearInspectorSlot(value: unknown): ArtifactTypeId | null {
   const num = Number(value)
@@ -145,7 +145,7 @@ export function normalizeGearInspectorSlot(value: unknown): ArtifactTypeId | nul
   return null
 }
 
-/** Accessory slots carry faction; armor slots always force faction 0. */
+/** Accessory slots carry faction; artifact slots always force faction 0. */
 export function normalizeGearInspectorFaction(slot: ArtifactTypeId, value: unknown): FactionId {
   if (!isAccessorySlot(slot)) return 0 as FactionId
   const num = Number(value)

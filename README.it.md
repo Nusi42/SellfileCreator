@@ -64,7 +64,7 @@ Sellfile Creator semplifica la creazione di file di vendita per RSL Helper — d
     - Il chip è attivo solo quando Rarità è Auto e le Soglie traguardo sono Tardive. In caso contrario mostra una barra obliqua.
     - Esempio: Vessillo con SPD e ATK% dove ATK% necessita 2 roll. Imposta Rarità = Auto, Soglie traguardo = Tardive, Auto ≥ Epica. Il builder mantiene le righe Epiche per ogni traguardo e aggiunge rami ≥ Leggendari a +8 e +12 così gli oggetti più rari restano validi senza allentare i requisiti epici.
   - Prima del +16 il builder usa il numero di sotto-stat che la rarità può avere realmente a quel traguardo. Al +16 applica sempre il tuo conteggio richiesto.
-- Fazione: restringi le regole accessori a una fazione specifica quando stai puntando una squadra. Anelli, Amuleti e Vessilli rispettano questo filtro; i pezzi d'armatura lo ignorano, quindi `Qualsiasi` mantiene le armature sicure.
+- Fazione: restringi le regole accessori a una fazione specifica quando stai puntando una squadra. Anelli, Amuleti e Vessilli rispettano questo filtro; i pezzi artefatto lo ignorano, quindi `Qualsiasi` mantiene gli artefatti sicuri.
 - Slot: concentrare la regola su pezzi precisi (Armi, Stivali, ecc.) per evitare corrispondenze fuori slot. Lascialo vuoto per coprire ogni slot.
 - Set e Metaset: filtra la regola a set specifici o a Metaset nominati così solo quelle collezioni passano. Lascialo vuoto per accettare tutti i set.
 - Riga Stat principale: richiedi determinate statistiche principali.
@@ -206,7 +206,7 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 **Donut a filtro incrociato:** Sei grafici — **Slot**, **Grado**, **Rarità**, **Risultato**, **Fonte**, **Livello** — si aggiornano a vicenda quando si clicca.
 - Clicca un segmento per aggiungerlo come filtro per quella dimensione; ogni altro grafico si restringe immediatamente all'equipaggiamento corrispondente. Ogni grafico esclude la propria dimensione per mostrare sempre l'intera gamma.
-- Doppio clic su un segmento del donut **Slot** per selezionare un intero gruppo in una volta: qualsiasi pezzo d'armatura (Arma, Elmo, Scudo, Guanti, Corazza, Stivali) seleziona tutti e sei gli slot d'armatura; qualsiasi accessorio (Anello, Amuleto, Vessillo) seleziona tutti e tre.
+- Doppio clic su un segmento del donut **Slot** per selezionare un intero gruppo in una volta: qualsiasi pezzo artefatto (Arma, Elmo, Scudo, Guanti, Corazza, Stivali) seleziona tutti e sei gli slot artefatto; qualsiasi accessorio (Anello, Amuleto, Vessillo) seleziona tutti e tre.
 - I donut **Slot** e **Fonte** mostrano icone di categoria. Il donut **Livello** etichetta ogni arco con il testo del livello.
 
 

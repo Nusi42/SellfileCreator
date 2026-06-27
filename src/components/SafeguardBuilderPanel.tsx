@@ -650,8 +650,8 @@ export default function SafeguardBuilderPanel({
   const mainStatSectionDirty = mainStatSelection.length > 0
   const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
   const displayFactions  = hasAccessorySlot ? dedupeNumericArray(effectiveRule.combination.factions ?? []) : []
-  // In multi-edit, disable armor only when EVERY selected rule has faction set.
-  // If any rule uses faction=Any the interaction is mixed — keep armor enabled.
+  // In multi-edit, disable artifact only when EVERY selected rule has faction set.
+  // If any rule uses faction=Any the interaction is mixed — keep artifact enabled.
   const factionSectionDirty = multiEditActive && multiSummary != null
     ? multiSummary.rulesWithFactionCount === multiSummary.total && multiSummary.total > 0
     : factionSelection.length > 0
@@ -2938,7 +2938,7 @@ export default function SafeguardBuilderPanel({
                       key={id}
                       value={`${id}`}
                       selected={selected}
-                      // Armor slots are incompatible with faction filters; disable when faction is active.
+                      // Artifact slots are incompatible with faction filters; disable when faction is active.
                       disabled={factionSectionDirty && !isAccessorySlot(id)}
                       {...(slotMixed ? { 'data-mixed': 'true' } : {})}
                       onClick={() => {

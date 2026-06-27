@@ -57,7 +57,7 @@ const SLOT_ICON_BY_TYPE: Record<ArtifactType, SlotIconAsset> = {
   [ArtifactType.Banner]: SLOT_ICON_SVGS.Banner,
 }
 
-// `slotId` lets the icon resolve its armor/accessory tint from SlotTintContext. The SVG path uses
+// `slotId` lets the icon resolve its artifact/accessory tint from SlotTintContext. The SVG path uses
 // fill="currentColor", so setting the svg `color` to the (already contrast-adapted) tint colours it;
 // `undefined` ⇒ fall back to the inherited theme colour (flag off — unchanged behaviour).
 function makeSlotIcon(asset: SlotIconAsset, slotId: ArtifactTypeId): LocalIcon {

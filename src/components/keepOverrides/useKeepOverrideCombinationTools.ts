@@ -2,8 +2,8 @@ import { useCallback, useMemo } from 'react'
 import type { ArtifactSetId, ArtifactTypeId } from '../../lib/types'
 import {
   getAccessorySlotsCompatibleSetIds,
-  getArmorFixedSetIds,
-  getArmorVariableSetIds,
+  getArtifactFixedSetIds,
+  getArtifactVariableSetIds,
   getAllKnownArtifactSetIds,
 } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
@@ -18,20 +18,20 @@ import { dedupeNumericArray, dedupeStringArray, getMainStatOptionsForSlots } fro
 export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
   // Recompute pools when the runtime set catalog changes.
   const gearSetCatalogVersion = useGearSetCatalogVersion()
-  // Fixed armor sets stay in a dedicated pool for slot-aware filtering.
-  const armorFixedSetIds = useMemo(() => {
+  // Fixed artifact sets stay in a dedicated pool for slot-aware filtering.
+  const artifactFixedSetIds = useMemo(() => {
     void gearSetCatalogVersion
-    return getArmorFixedSetIds()
+    return getArtifactFixedSetIds()
   }, [gearSetCatalogVersion])
-  // Variable armor sets fill the rest of the armor-only pool.
-  const armorVariableSetIds = useMemo(() => {
+  // Variable artifact sets fill the rest of the artifact-only pool.
+  const artifactVariableSetIds = useMemo(() => {
     void gearSetCatalogVersion
-    return getArmorVariableSetIds()
+    return getArtifactVariableSetIds()
   }, [gearSetCatalogVersion])
-  // Union the armor pools for a single allowed list.
+  // Union the artifact pools for a single allowed list.
   const artifactSetPool = useMemo(
-    () => Object.freeze([...armorFixedSetIds, ...armorVariableSetIds]),
-    [armorFixedSetIds, armorVariableSetIds],
+    () => Object.freeze([...artifactFixedSetIds, ...artifactVariableSetIds]),
+    [artifactFixedSetIds, artifactVariableSetIds],
   )
   // Accessories can only use a subset of sets; cache the lookup here.
   const accessoryCompatibleSetIds = useMemo(
@@ -41,7 +41,7 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
     },
     [gearSetCatalogVersion],
   )
-  // When slots include both armor + accessory, allow every known set.
+  // When slots include both artifact + accessory, allow every known set.
   const allArtifactSetIds = useMemo(
     () => {
       void gearSetCatalogVersion
@@ -53,8 +53,8 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
   const resolveAllowedSetPool = useCallback((slots: ArtifactTypeId[]): readonly ArtifactSetId[] => {
     const slotAny = slots.length === 0
     const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
-    const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
-    if (hasAccessory && hasArmor) return allArtifactSetIds
+    const hasArtifact = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
+    if (hasAccessory && hasArtifact) return allArtifactSetIds
     return hasAccessory ? accessoryCompatibleSetIds : artifactSetPool
   }, [accessoryCompatibleSetIds, allArtifactSetIds, artifactSetPool])
   // sanitizeCombinationForSlots keeps sets/main/faction selections valid as slots change.
@@ -70,11 +70,11 @@ export const useKeepOverrideCombinationTools = (metasets: Metaset[]) => {
       return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
     })
     const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
-    // Clear factions when any armor slot is present — faction filters only apply to accessories.
+    // Clear factions when any artifact slot is present — faction filters only apply to accessories.
     // Empty slot selection means "Any slot" (includes accessories), so factions are kept.
-    const hasArmor = normalizedSlots.length > 0 && normalizedSlots.some((slotId) => !isAccessorySlot(slotId))
+    const hasArtifact = normalizedSlots.length > 0 && normalizedSlots.some((slotId) => !isAccessorySlot(slotId))
     const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
-    const filteredFactions = hasArmor ? [] : dedupeNumericArray(combination.factions ?? [])
+    const filteredFactions = hasArtifact ? [] : dedupeNumericArray(combination.factions ?? [])
     // Only individual sets count for the fallback — metasets are returned separately in filteredMetaIds.
     const hadExplicitSetSelection = combination.sets.length > 0
     // Fallback: when the user had individual sets and the slot change wiped them all out,

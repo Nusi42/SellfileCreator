@@ -65,7 +65,7 @@ Sellfile Creator eases building sell files for RSL Helper — define gear filter
     - The chip only turns on when Rarity is Auto and Milestone Thresholds are set to Late. Otherwise it shows a diagonal slash.
     - Example: Banner with SPD and ATK% where ATK% needs 2 rolls. Set Rarity = Auto, Milestone Thresholds = Late, Auto ≥ Epic. The builder keeps Epic rows for every milestone and adds ≥ Legendary branches at +8 and +12 so rarer gear stays eligible without relaxing the Epic timing.
   - Before +16, the builder uses whichever substat count the rarity can actually have at that milestone. At +16 it always enforces your requested count.
-- Faction: Restrict accessory rules to a specific faction when you are targeting a single team. Rings, Amulets, and Banners obey this filter; armor pieces ignore it, so `Any` keeps armor safe.
+- Faction: Restrict accessory rules to a specific faction when you are targeting a single team. Rings, Amulets, and Banners obey this filter; artifact pieces ignore it, so `Any` keeps artifacts safe.
 - Slots: Focus the rule on certain gear pieces (Weapons, Boots, etc.) so off-slot drops do not match. Leave it empty to cover every slot.
 - Sets & Metasets: Filter the rule to explicit gear sets or named Metasets so only those collections pass. Leaving it empty keeps every set eligible.
 - Mainstat row: Require particular main stats.
@@ -230,7 +230,7 @@ Open `Tools` and switch to the **Gear Analytics** tab for an analytics overview 
 
 **Crossfilter donuts:** Six charts — **Slots**, **Rank**, **Rarity**, **Result**, **Source**, **Level** — update each other as you click.
 - Click a slice to add it as a filter for that dimension; every other chart instantly narrows to show only the matching gear. Each chart excludes its own dimension so it always shows its full range.
-- Double-click a slice on the **Slots** donut to select an entire group at once: any armor piece (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) selects all six armor slots; any accessory (Ring, Amulet, Banner) selects all three.
+- Double-click a slice on the **Slots** donut to select an entire group at once: any artifact piece (Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots) selects all six artifact slots; any accessory (Ring, Amulet, Banner) selects all three.
 - **Slots** and **Source** donuts show category icons. The **Level** donut labels each arc with its level text.
 
 

@@ -314,8 +314,8 @@ const overrides: Catalog = {
   gearAnalyticsKpiChaosTip: "Anteil der Gegenstände, die mit einem Chaos Orb bearbeitet wurden.",
   gearAnalyticsKpiGlyphedTip: "Anteil der Gegenstände mit mindestens einem geglyph­ten Substat.",
   gearAnalyticsKpiAscendedTip: "Anteil der Gegenstände mit mindestens einer angewandten Aufstiegsstufe.",
-  gearAnalyticsKpiItemCounts: "Artefakte + Zubehör",
-  gearAnalyticsKpiItemCountsTip: "Anzahl der Rüstungsartefakte (links) und Zubehörteile (rechts) in der aktuellen Ansicht.",
+  gearAnalyticsKpiItemCounts: "Artefakte + Schmuckstücke",
+  gearAnalyticsKpiItemCountsTip: "Anzahl der Artefakte (links) und Schmuckstücke (rechts) in der aktuellen Ansicht.",
   gearAnalyticsKpiEquippedVaultTip: "Anteil der bei einem Champion ausgerüsteten Gegenstände (links) und der in der Höhle gesperrten (rechts).",
   gearAnalyticsCopySnapshotTip: "Aktuelle Analyseansicht als PNG rendern und in die Zwischenablage kopieren.",
   gearAnalyticsCopySnapshot: "Snapshot kopieren",
@@ -375,7 +375,7 @@ const overrides: Catalog = {
   gearAnalyticsSortLabel: "Sortieren",
   gearAnalyticsSlotModeAll: "Alle",
   gearAnalyticsSlotModeArtifacts: "Artefakte",
-  gearAnalyticsSlotModeAccessories: "Accessoires",
+  gearAnalyticsSlotModeAccessories: "Schmuckstücke",
   gearAnalyticsSlotModeRank: "Nach Rang",
   gearAnalyticsSimulateSoldLabel: "Verkauf simulieren",
   gearAnalyticsSimulateSoldDesc: "Wenn aktiv: Slots, deren ausgerüstete Ausrüstung von den aktuellen Regeln verkauft würde, werden rot dargestellt und als fehlend gezählt.",
@@ -571,7 +571,7 @@ const overrides: Catalog = {
   labelText: "Text",
   labelBg: "Bg",
   slotTintsSectionTitle: "Slot-Symbol-Tönung",
-  slotTintArmor: "Rüstungsslots",
+  slotTintArtifact: "Artefakt-Slots",
   slotTintAccessory: "Schmuckstück-Slots",
   colorScopeRowLabel: "Färbung",
   colorScopeOff: "Aus",
@@ -628,7 +628,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – {count} Set",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% Chance, einen schwachen Treffer in einen kritischen Treffer zu verwandeln",
   setDesc_setAvenging_text: "45% Chance auf Gegenangriff, wenn dem Träger ein Debuff zugefügt wird",
@@ -703,7 +703,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% Chance, beim Angriff {debuff:Provoke} für 1 Zug zu platzieren",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1077,7 +1077,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Mehrfachauswahl: \"Gemischt\" bedeutet, dass die ausgewählten Rezepte abweichen. Wähle einen Wert, um alle Rezepte zu synchronisieren.",
   builderMultiMixedTriStateHint: "• Mehrfachauswahl: Die Markierung \"Gemischt\" zeigt, dass die Auswahl abweicht. Klick, um alle Rezepte zu synchronisieren.",
   builderFaction: "Fraktion",
-  builderFactionHelp: "Beschränke Schmuck-Regeln auf eine bestimmte Fraktion, wenn du nur Gear für ein Team brauchst.\n• Ringe, Amulette und Banner respektieren diesen Filter.\n• Rüstung ignoriert Fraktionen, daher ist „Beliebig“ hier am sichersten.",
+  builderFactionHelp: "Beschränke Schmuck-Regeln auf eine bestimmte Fraktion, wenn du nur Gear für ein Team brauchst.\n• Ringe, Amulette und Banner respektieren diesen Filter.\n• Artefakte ignorieren Fraktionen, daher ist „Beliebig“ hier am sichersten.",
   builderRarityExact: "Genau",
   builderRarityGte: "≥ Bereiche",
   builderRarityLte: "≤ Bereiche",
@@ -1211,7 +1211,7 @@ const overrides: Catalog = {
   gearInspectorSortClear: "Leeren",
   gearInspectorSortDirection: "Richtung",
   gearInspectorSortGroupingArtifactsLabel: "Artefakte",
-  gearInspectorSortGroupingAccessoriesLabel: "Accessoires",
+  gearInspectorSortGroupingAccessoriesLabel: "Schmuckstücke",
   gearInspectorSortGroupingNoHeadersLabel: "Keine Überschriften",
   gearInspectorSortGroupingNoHeadersTooltip: "Alle Überschriften ausblenden; eine flache Liste.",
   gearInspectorSortGroupingArtifactsSetLabel: "Set",
@@ -1219,11 +1219,11 @@ const overrides: Catalog = {
   gearInspectorSortGroupingArtifactsSlotLabel: "Slot",
   gearInspectorSortGroupingArtifactsSlotTooltip: "Gruppiert Artefakte nach Slot.",
   gearInspectorSortGroupingAccessoriesFactionLabel: "Fraktion",
-  gearInspectorSortGroupingAccessoriesFactionTooltip: "Gruppiert Accessoires nach Fraktion.",
+  gearInspectorSortGroupingAccessoriesFactionTooltip: "Gruppiert Schmuckstücke nach Fraktion.",
   gearInspectorSortGroupingAccessoriesSetLabel: "Set",
-  gearInspectorSortGroupingAccessoriesSetTooltip: "Gruppiert Accessoires nach Set.",
+  gearInspectorSortGroupingAccessoriesSetTooltip: "Gruppiert Schmuckstücke nach Set.",
   gearInspectorSortGroupingAccessoriesSlotLabel: "Slot",
-  gearInspectorSortGroupingAccessoriesSlotTooltip: "Gruppiert Accessoires nach Slot.",
+  gearInspectorSortGroupingAccessoriesSlotTooltip: "Gruppiert Schmuckstücke nach Slot.",
   gearInspectorSortHighToLow: "Hoch → Niedrig",
   gearInspectorSortLowToHigh: "Niedrig → Hoch",
   gearInspectorSortSafeguardRankLabel: "Schutzregel-Rang",
@@ -1262,7 +1262,7 @@ const overrides: Catalog = {
   filterPresetsSaveDialogHelper: "Speichert den aktuellen Status des Filterpanels und die Ausrüstungsinspektor-Sortierung im lokalen Speicher.",
   // Built-in filter preset names
   builtinFilterPresetAllArtifacts: "Alle Artefakte",
-  builtinFilterPresetAllAccessories: "Alle Accessoires",
+  builtinFilterPresetAllAccessories: "Alle Schmuckstücke",
   builtinFilterPresetShowOnlySell: "Nur Verkauf",
   builtinFilterPresetScopedSell: "Gezielter Verkauf",
   // Built-in sort preset names

@@ -1,4 +1,4 @@
-import { ArtifactSetPieceGroup } from './groups'
+import { normalizePieceGroupValue } from './groups'
 import type { ArtifactSetPieceGroup as ArtifactSetPieceGroupValue } from './groups'
 import type { ArtifactSetDescription } from '../setDescriptions'
 import type { ArtifactSetId } from '../types'
@@ -146,8 +146,10 @@ function readPersisted(): PersistedGearSet[] | null {
       if (!set.name || typeof set.name !== 'string') return
       if (!set.description || typeof set.description !== 'object') return
       if (typeof set.pieceGroup !== 'string') return
-      if (!Object.values(ArtifactSetPieceGroup).includes(set.pieceGroup as ArtifactSetPieceGroupValue)) return
-      normalized.push(set)
+      // Accept legacy `armorFixed`/`armorVariable` by normalizing to the current enum.
+      const canonicalGroup = normalizePieceGroupValue(set.pieceGroup)
+      if (!canonicalGroup) return
+      normalized.push({ ...set, pieceGroup: canonicalGroup })
     })
     return normalized
   } catch {
@@ -260,8 +262,9 @@ const validateEntry = (entry: unknown): GearSetFileEntry | null => {
   if (!Number.isFinite(id) || id <= 0 || Math.floor(id) !== id) return null
   const name = typeof data.name === 'string' ? data.name.trim() : ''
   if (!name) return null
-  const pieceGroup = typeof data.pieceGroup === 'string' ? data.pieceGroup : ''
-  if (!Object.values(ArtifactSetPieceGroup).includes(pieceGroup as ArtifactSetPieceGroup)) return null
+  // Accept legacy `armorFixed`/`armorVariable` by normalizing to the current enum.
+  const pieceGroup = normalizePieceGroupValue(typeof data.pieceGroup === 'string' ? data.pieceGroup : '')
+  if (!pieceGroup) return null
   const pieces = typeof data.pieces === 'number' || typeof data.pieces === 'string' ? data.pieces : ''
   if (pieces === '') return null
   const text = typeof data.text === 'string' ? data.text : ''

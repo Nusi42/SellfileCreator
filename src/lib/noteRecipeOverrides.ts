@@ -3014,7 +3014,7 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
       next.artifactTypes = [...base, ...op.add.filter((id) => !existing.has(id))]
     }
     // Mirror the builder's cascade when slots change:
-    // 1. Clear faction when the new slot set includes armor (armor + faction is invalid).
+    // 1. Clear faction when the new slot set includes artifact (artifact + faction is invalid).
     next = normalizeSlotsOverrideFaction(next)
     // 2. Prune mainstats invalid for the new slot set.
     const newSlots = next.artifactTypes ?? []

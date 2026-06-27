@@ -33,9 +33,9 @@ export type ChampionGearProfile = {
   champion: ChampionLookupRecord
   /** Set of slot IDs for which this champion has gear equipped. */
   slotsFilled: ReadonlySet<number>
-  /** Count of the 6 main armor slots (1-6) that are filled. */
+  /** Count of the 6 main artifact slots (1-6) that are filled. */
   mainSlotsFilled: number
-  /** True when all 6 main armor slots are filled. */
+  /** True when all 6 main artifact slots are filled. */
   fullyEquipped: boolean
   /** Average LevelMilestone across all gear pieces equipped to this champion. */
   avgLevel: number
@@ -65,16 +65,16 @@ export function isSlotAvailableAtAscensionLevel(slotId: number, ascensionLevel: 
 // ── Main slot IDs ─────────────────────────────────────────────────────────────
 
 /**
- * The 6 main armor slots (1–6). Accessories (7–9) are excluded from the
+ * The 6 main artifact slots (1–6). Accessories (7–9) are excluded from the
  * "fully equipped" calculation per the product definition.
  */
-export const MAIN_ARMOR_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.filter(
+export const MAIN_ARTIFACT_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.filter(
   (s) => !isAccessorySlot(s),
 )
 
 /**
  * The 3 accessory slots (Ring / Amulet / Banner). Kept as a named constant
- * alongside MAIN_ARMOR_SLOTS so callers can refer to either group by name.
+ * alongside MAIN_ARTIFACT_SLOTS so callers can refer to either group by name.
  */
 export const ACCESSORY_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER.filter(
   (s) => isAccessorySlot(s),
@@ -132,7 +132,7 @@ export function buildChampionGearProfiles(
   // Convert to ChampionGearProfile[].
   const profiles: ChampionGearProfile[] = []
   for (const entry of map.values()) {
-    const mainSlotsFilled = MAIN_ARMOR_SLOTS.filter((s) => entry.slots.has(s)).length
+    const mainSlotsFilled = MAIN_ARTIFACT_SLOTS.filter((s) => entry.slots.has(s)).length
     const avgLevel =
       entry.levels.length > 0
         ? entry.levels.reduce((s, v) => s + v, 0) / entry.levels.length
@@ -141,7 +141,7 @@ export function buildChampionGearProfiles(
       champion: entry.champion,
       slotsFilled: entry.slots,
       mainSlotsFilled,
-      fullyEquipped: mainSlotsFilled === MAIN_ARMOR_SLOTS.length,
+      fullyEquipped: mainSlotsFilled === MAIN_ARTIFACT_SLOTS.length,
       avgLevel,
       itemCount: entry.levels.length,
       ascentionCount: entry.ascentionCount,

@@ -1839,7 +1839,7 @@ mod sort_safeguard_combination_value_wire_tests {
 mod normalize_safeguard_expected_group_domain_value_wire_tests {
     use super::*;
 
-    const FIXTURE: &str = r#"{"slotOrder": [1, 2, 3], "accessoryCompatibleSetIds": [10, 20], "armorCompatibleSetIds": [30, 40], "allowedMainBySlot": {"1": [1, 2], "2": [3, 4]}, "allFactionIds": [100, 200]}"#;
+    const FIXTURE: &str = r#"{"slotOrder": [1, 2, 3], "accessoryCompatibleSetIds": [10, 20], "artifactCompatibleSetIds": [30, 40], "allowedMainBySlot": {"1": [1, 2], "2": [3, 4]}, "allFactionIds": [100, 200]}"#;
 
     #[test]
     fn full_fixture_deserializes() {
@@ -1850,7 +1850,7 @@ mod normalize_safeguard_expected_group_domain_value_wire_tests {
 
     #[test]
     fn unknown_top_level_field_rejected() {
-        let bad = r#"{"slotOrder": [], "accessoryCompatibleSetIds": [], "armorCompatibleSetIds": [], "allowedMainBySlot": {}, "allFactionIds": [], "bogus": 1}"#;
+        let bad = r#"{"slotOrder": [], "accessoryCompatibleSetIds": [], "artifactCompatibleSetIds": [], "allowedMainBySlot": {}, "allFactionIds": [], "bogus": 1}"#;
         let r: Result<SafeguardWasmExpectedGroupDomainIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
@@ -2384,7 +2384,7 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
         "expectedGroupDomain": {
           "slotOrder": [1, 2, 3, 4, 5, 6],
           "accessoryCompatibleSetIds": [],
-          "armorCompatibleSetIds": [19],
+          "artifactCompatibleSetIds": [19],
           "allowedMainBySlot": { "1": [1, 2] },
           "allFactionIds": [1, 2]
         }
@@ -2676,11 +2676,11 @@ mod safeguard_group_key_value_wire_tests {
         assert_eq!(safeguard_group_key_core(parsed), "7:19:1:1", "ring slot keeps faction in group key");
 
         // Cross-check the non-accessory faction-collapse path (helmet = slot 1).
-        let armor = r#"{ "slot": 1, "set": 1, "faction": 1, "mainStat": 0 }"#;
-        let parsed2: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(armor)
-            .expect("armor fixture (variant-number mainStat) must deserialize");
+        let artifact = r#"{ "slot": 1, "set": 1, "faction": 1, "mainStat": 0 }"#;
+        let parsed2: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(artifact)
+            .expect("artifact fixture (variant-number mainStat) must deserialize");
         // Helmet slot 1 collapses faction to 0 inside safeguard_normalized_faction_for_slot.
-        assert_eq!(safeguard_group_key_core(parsed2), "1:1:0:0", "armor slot collapses faction to 0");
+        assert_eq!(safeguard_group_key_core(parsed2), "1:1:0:0", "artifact slot collapses faction to 0");
 
         // Cross-check the omitted-mainStat path (defaults to None → SAFEGUARD_MAIN_ANY).
         // Ring (slot 7) keeps faction so the test confirms BOTH the faction

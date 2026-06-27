@@ -56,7 +56,7 @@ struct NativeArtifactIn {
     // Level milestone (0 / 4 / 8 / 12 / 16).
     #[serde(default)]
     lvl:    Option<i64>,
-    // Set id for armor slots (slot ≤ 6).
+    // Set id for artifact slots (slot ≤ 6).
     #[serde(default)]
     aset:   Option<i64>,
     // Set id for accessory slots (slot > 6).

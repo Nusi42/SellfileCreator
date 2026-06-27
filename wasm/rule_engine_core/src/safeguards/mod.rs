@@ -68,7 +68,7 @@ fn safeguard_candidate_from_fast_payload(
     }
 }
 
-// Accessory slots keep faction while armor slots collapse to zero by design.
+// Accessory slots keep faction while artifact slots collapse to zero by design.
 // This helper keeps all faction-normalization branches single-sourced.
 pub fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
     if safeguard_is_accessory_slot(slot) {
@@ -402,9 +402,9 @@ pub struct SafeguardWasmExpectedGroupDomainIn {
     #[serde(rename = "acs", alias = "accessoryCompatibleSetIds")]
     #[ts(rename = "acs")]
     pub accessory_compatible_set_ids: Vec<i64>,
-    #[serde(rename = "ams", alias = "armorCompatibleSetIds")]
+    #[serde(rename = "ams", alias = "artifactCompatibleSetIds")]
     #[ts(rename = "ams")]
-    pub armor_compatible_set_ids: Vec<i64>,
+    pub artifact_compatible_set_ids: Vec<i64>,
     #[serde(rename = "amb", alias = "allowedMainBySlot")]
     #[ts(rename = "amb")]
     pub allowed_main_by_slot: BTreeMap<String, Vec<i64>>,
@@ -431,7 +431,7 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
     let slot_order = safeguard_domain_slot_order(&parsed);
     // Set/faction arrays collapse to sorted unique integer domains.
     let accessory_compatible_set_ids = safeguard_sorted_unique_i64(&parsed.accessory_compatible_set_ids);
-    let armor_compatible_set_ids = safeguard_sorted_unique_i64(&parsed.armor_compatible_set_ids);
+    let artifact_compatible_set_ids = safeguard_sorted_unique_i64(&parsed.artifact_compatible_set_ids);
     let all_faction_ids = safeguard_sorted_unique_i64(&parsed.all_faction_ids)
         .into_iter()
         .filter(|value| *value > 0)
@@ -445,7 +445,7 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
     let normalized = SafeguardWasmExpectedGroupDomainIn {
         slot_order,
         accessory_compatible_set_ids,
-        armor_compatible_set_ids,
+        artifact_compatible_set_ids,
         allowed_main_by_slot,
         all_faction_ids,
     };
@@ -1085,8 +1085,8 @@ fn safeguard_resolve_slot_candidates(
         .copied()
         .chain([ACCESSORY_NO_SET_ID])
         .collect::<HashSet<_>>();
-    let armor_set_pool = domain
-        .armor_compatible_set_ids
+    let artifact_set_pool = domain
+        .artifact_compatible_set_ids
         .iter()
         .copied()
         .collect::<HashSet<_>>();
@@ -1117,7 +1117,7 @@ fn safeguard_resolve_slot_candidates(
             let pool = if accessory_slot {
                 &accessory_set_pool
             } else {
-                &armor_set_pool
+                &artifact_set_pool
             };
             let has_compatible_set = set_includes.iter().any(|set_id| {
                 if *set_id == ACCESSORY_NO_SET_ID {
@@ -1147,7 +1147,7 @@ fn safeguard_resolve_set_candidates_for_slot(
     let allowed_pool = if accessory_slot {
         safeguard_sorted_unique_i64(&domain.accessory_compatible_set_ids)
     } else {
-        safeguard_sorted_unique_i64(&domain.armor_compatible_set_ids)
+        safeguard_sorted_unique_i64(&domain.artifact_compatible_set_ids)
     };
     let allowed_pool_set = allowed_pool.iter().copied().collect::<HashSet<_>>();
     if has_set_includes {
@@ -1272,14 +1272,14 @@ fn safeguard_resolve_slot_samples(slots: &[i64], count_mode: SafeguardWasmCountM
     if !count_mode.per_faction {
         return slots.first().copied().map(|slot| vec![slot]).unwrap_or_default();
     }
-    // Faction grouping needs one accessory and one armor sample when available.
+    // Faction grouping needs one accessory and one artifact sample when available.
     let accessory = slots.iter().copied().find(|slot| safeguard_is_accessory_slot(*slot));
-    let armor = slots.iter().copied().find(|slot| !safeguard_is_accessory_slot(*slot));
+    let artifact = slots.iter().copied().find(|slot| !safeguard_is_accessory_slot(*slot));
     let mut samples = Vec::<i64>::new();
     if let Some(slot) = accessory {
         samples.push(slot);
     }
-    if let Some(slot) = armor {
+    if let Some(slot) = artifact {
         samples.push(slot);
     }
     if samples.is_empty() {
@@ -1885,7 +1885,7 @@ fn safeguard_build_placeholder_base_rules(
     set_values.sort_unstable();
     // ACCESSORY_NO_SET_ID (-99) is the "no set" sentinel exclusive to accessory slots.
     // When the only set in the combination is this sentinel, only accessory slots can match.
-    // Positive set IDs span both armor and accessory slots in RSL, so they need no filtering.
+    // Positive set IDs span both artifact and accessory slots in RSL, so they need no filtering.
     let no_set_only = set_values.len() == 1 && set_values[0] == ACCESSORY_NO_SET_ID;
     let slot_values = if no_set_only && !slot_values.is_empty() {
         // Keep only accessory slots; skip the combination entirely if none remain.
@@ -2422,7 +2422,7 @@ fn safeguard_build_placeholder_combination(
             Vec::new()
         };
         // Narrow slots to the class implied by the group sample so accessory-faction
-        // placeholders never bleed into armor and the faction=0 armor placeholder never
+        // placeholders never bleed into artifact and the faction=0 artifact placeholder never
         // matches accessories. Without this, a faction=0 placeholder with an empty slots
         // list would match any slot (including all accessories with any SPD).
         let is_accessory_group = safeguard_is_accessory_slot(group_sample.slot);

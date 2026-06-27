@@ -30,7 +30,7 @@ test('factionCode 0: artifactTypes unchanged (empty)', () => {
   assert.strictEqual(normalizeFactionSlotScope(r), r)
 })
 
-test('factionCode 0: artifactTypes unchanged (armor+accessory mix)', () => {
+test('factionCode 0: artifactTypes unchanged (artifact+accessory mix)', () => {
   const r = recipe({ factionCode: 0, artifactTypes: [HELMET, RING] })
   assert.strictEqual(normalizeFactionSlotScope(r), r)
 })
@@ -47,8 +47,8 @@ test('faction set + empty artifactTypes → all accessories', () => {
   assert.deepEqual(out.artifactTypes, ALL_ACC)
 })
 
-// faction set — only armor slots → all accessories
-test('faction set + only armor slots → all accessories', () => {
+// faction set — only artifact slots → all accessories
+test('faction set + only artifact slots → all accessories', () => {
   const out = normalizeFactionSlotScope(recipe({ factionCode: 5, artifactTypes: [HELMET, CHEST] }))
   assert.deepEqual(out.artifactTypes, ALL_ACC)
 })
@@ -61,8 +61,8 @@ test('faction set + only accessories → same object returned', () => {
   assert.deepEqual(out.artifactTypes, [RING, BANNER])
 })
 
-// faction set — mixed armor+accessories → armor stripped, accessories kept
-test('faction set + mixed slots → armor stripped', () => {
+// faction set — mixed artifact+accessories → artifact stripped, accessories kept
+test('faction set + mixed slots → artifact stripped', () => {
   const out = normalizeFactionSlotScope(recipe({ factionCode: 1, artifactTypes: [HELMET, RING, CHEST, AMULET] }))
   assert.deepEqual(out.artifactTypes, [RING, AMULET])
 })
@@ -87,8 +87,8 @@ test('normalizeSlotsOverrideFaction: faction + accessories only → unchanged', 
   assert.strictEqual(normalizeSlotsOverrideFaction(r), r)
 })
 
-// faction set, armor slot present → clear faction
-test('normalizeSlotsOverrideFaction: faction + armor slot → faction cleared', () => {
+// faction set, artifact slot present → clear faction
+test('normalizeSlotsOverrideFaction: faction + artifact slot → faction cleared', () => {
   const r = recipe({ factionCode: 3, artifactTypes: [HELMET] })
   const out = normalizeSlotsOverrideFaction(r)
   assert.strictEqual(out.factionCode, 0)

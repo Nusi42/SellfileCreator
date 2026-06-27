@@ -173,13 +173,13 @@ export const expandRuleRawFromWire = (rule: object): Record<string, unknown> => 
 export const projectSafeguardExpectedGroupDomainForWire = (domain: {
   slotOrder: number[]
   accessoryCompatibleSetIds: number[]
-  armorCompatibleSetIds: number[]
+  artifactCompatibleSetIds: number[]
   allowedMainBySlot: Record<string, number[]>
   allFactionIds: number[]
 }): SafeguardExpectedGroupDomainWire => ({
   so: domain.slotOrder,
   acs: domain.accessoryCompatibleSetIds,
-  ams: domain.armorCompatibleSetIds,
+  ams: domain.artifactCompatibleSetIds,
   amb: domain.allowedMainBySlot,
   afi: domain.allFactionIds,
 })

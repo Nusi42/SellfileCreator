@@ -811,7 +811,7 @@ test('Matched alone (no Keep/Sell) defaults to sell focus', () => {
   assert.equal(g.get(artB.id), 'companion')
 })
 
-test('set=0 (no-set) armor has no companions even if same set+slot', () => {
+test('set=0 (no-set) artifact has no companions even if same set+slot', () => {
   // Two Helmets with set=0 must NOT companion each other per spec.
   const artA = makeArtifact({ set: 0 as ArtifactSet, slot: ArtifactType.Helmet })
   const artB = makeArtifact({ set: 0 as ArtifactSet, slot: ArtifactType.Helmet })

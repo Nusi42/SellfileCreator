@@ -221,7 +221,7 @@ export const GLYPH_KEEP_MODE_LATE = '☽'   // crescent moon — late-phase keep
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'
 
-// Persisted slot glyph tint colours — armor (top 6) and accessory (bottom 3) base hues.
+// Persisted slot glyph tint colours — artifact (top 6) and accessory (bottom 3) base hues.
 // Single fg colour each (slot SVGs are single-fill); gated by COLOR_STATS_SLOTS_RARITY_KEY.
 export const SLOT_TINT_STORAGE_KEY = 'sellfileCreator.slotTints.v1'
 

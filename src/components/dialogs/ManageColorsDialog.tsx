@@ -24,7 +24,7 @@ export default function ManageColorsDialog(props: {
   onClose: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   setSubstatColors: React.Dispatch<React.SetStateAction<Record<number, { fg: string; bg: string }>>>
-  // Slot glyph tints (armor/accessory) — single fg colour each, edited at the bottom of the flyout.
+  // Slot glyph tints (artifact/accessory) — single fg colour each, edited at the bottom of the flyout.
   slotTints: SlotTints
   setSlotTints: React.Dispatch<React.SetStateAction<SlotTints>>
   // Rarity palette (rarity 1–6) — single fg colour each; one palette feeds labels AND borders/charts.
@@ -243,14 +243,14 @@ export default function ManageColorsDialog(props: {
             )
           })}
         </Stack>
-        {/* Slot icon tints — armor (top 6) and accessory (bottom 3). Single fg colour each: the slot
+        {/* Slot icon tints — artifact (top 6) and accessory (bottom 3). Single fg colour each: the slot
             SVGs are single-fill, so there is no background/alpha to configure here. */}
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('slotTintsSectionTitle')}</Typography>
           {renderScopeRow(slotColorScope, setSlotColorScope)}
           <Stack spacing={1.25}>
             {([
-              { key: 'armor' as const, label: t('slotTintArmor') },
+              { key: 'artifact' as const, label: t('slotTintArtifact') },
               { key: 'accessory' as const, label: t('slotTintAccessory') },
             ]).map(({ key, label }) => (
               <Box key={`slot-tint-${key}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>

@@ -1557,7 +1557,7 @@ export const getSafeguardCountKeyWithLoadedWasm = (params: {
 export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = (domain: {
   slotOrder: number[]
   accessoryCompatibleSetIds: number[]
-  armorCompatibleSetIds: number[]
+  artifactCompatibleSetIds: number[]
   allowedMainBySlot: Record<string, number[]>
   allFactionIds: number[]
 }): Record<string, unknown> => {

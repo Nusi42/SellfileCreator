@@ -68,7 +68,7 @@ Sellfile Creator simplifie la création de fichiers de vente pour RSL Helper —
     - Actif uniquement lorsque Rareté = Auto et Seuils par jalons = Tard. Sinon la puce affiche une barre diagonale.
     - Exemple : Bannière SPD/ATQ% avec 2 jets sur ATQ%. Rareté = Auto, Seuils = Tard, Auto ≥ Épique. Résultat : lignes Épiques à chaque palier et ≥ Légendaire à +8/+12 pour garder les pièces rares admissibles.
   - Avant +16, le builder s’aligne sur le nombre de sous-stats réellement possible pour la rareté. À +16, votre objectif complet s’applique.
-- Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; l’armure l’ignore, donc `Peu importe` reste le choix sûr.
+- Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; les artefacts l’ignorent, donc `Peu importe` reste le choix sûr.
 - Slots : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les slots.
 - Sets & Méta-sets : Filtrez sur des sets explicites ou des méta-sets nommés quand seules certaines combinaisons sont autorisées. Vide = tous les sets.
 - Stat principale : Définissez les stats principales acceptées.
@@ -223,7 +223,7 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 **Donuts à filtre croisé :** Six graphiques — **Emplacements**, **Rang**, **Rareté**, **Résultat**, **Source**, **Niveau** — se mettent à jour mutuellement lors d'un clic.
 - Cliquez sur un segment pour l'ajouter comme filtre de cette dimension ; chaque autre graphique se restreint immédiatement à l'équipement correspondant. Chaque graphique exclut sa propre dimension pour toujours afficher sa plage complète.
-- Double-cliquez sur un segment du donut **Slots** pour sélectionner tout un groupe d'un coup : toute pièce d'armure (Arme, Casque, Bouclier, Gants, Plastron, Bottes) sélectionne les six emplacements d'armure ; tout accessoire (Anneau, Amulette, Bannière) sélectionne les trois.
+- Double-cliquez sur un segment du donut **Slots** pour sélectionner tout un groupe d'un coup : tout artefact (Arme, Casque, Bouclier, Gants, Plastron, Bottes) sélectionne les six emplacements d'artefact ; tout accessoire (Anneau, Amulette, Bannière) sélectionne les trois.
 - Les donuts **Emplacements** et **Source** affichent des icônes de catégorie. Le donut **Niveau** libelle chaque arc avec son texte de niveau.
 
 

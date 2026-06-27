@@ -246,7 +246,7 @@ fn allowed_substats_for_slot(slot: i64) -> &'static [i64] {
     // Mirrors TS ALLOWED_SUB_BY_SLOT; caller excludes the main stat variant.
     // Constants are from generated_domain_constants.rs via `use crate::*`.
     match slot {
-        // Armor slots (1–4): full 11-variant pool.
+        // Artifact slots (1–4): full 11-variant pool.
         ARTIFACT_TYPE_HELMET
         | ARTIFACT_TYPE_CHESTPLATE
         | ARTIFACT_TYPE_GAUNTLETS
@@ -821,7 +821,7 @@ fn compute_probability(
     let is_addition = ctx.addition_milestones.contains(&milestone) && state.len() < MAX_SUBSTAT_SLOTS;
     let result = if is_addition {
         // Addition: choose one missing legal substat uniformly at random.
-        // The legal pool has at most 11 entries (armor slots); a stack buffer avoids heap.
+        // The legal pool has at most 11 entries (artifact slots); a stack buffer avoids heap.
         let mut candidate_buf = [0i64; 12];
         let mut candidate_count = 0usize;
         for &v in ctx.legal_addition_pool.iter() {

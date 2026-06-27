@@ -1,7 +1,7 @@
 /**
  * slotTints
  *
- * Single source of truth for the gear-slot glyph tints. The top 6 (armor) slots render with a
+ * Single source of truth for the gear-slot glyph tints. The top 6 (artifact) slots render with a
  * subtle light-yellow tint and the bottom 3 (accessory) slots with a subtle light-blue tint.
  * Both colours are user-editable (Manage Colors flyout) and gated by the global
  * `slotColorScope` (off / labels / everything) — the slot group's colour scope.
@@ -19,27 +19,27 @@ import { parseCssColorToRgb } from './colorUtils'
 /** The two configurable tint hues. fg-only: slot SVGs are single-fill, so no bg/alpha. */
 export type SlotTints = {
   /** Top 6 slots (weapon/helmet/shield/gauntlets/chestplate/boots). */
-  armor: string
+  artifact: string
   /** Bottom 3 slots (ring/amulet/banner). */
   accessory: string
 }
 
 // Subtle-but-visible pale hues. Adaptation at render keeps them legible in light & dark schemes.
-export const DEFAULT_SLOT_TINT_ARMOR = '#E8DFA0' // pale yellow
+export const DEFAULT_SLOT_TINT_ARTIFACT = '#E8DFA0' // pale yellow
 export const DEFAULT_SLOT_TINT_ACCESSORY = '#A8C8E8' // pale blue
 
 /** The factory defaults as a ready-to-use object — also the Reset target. */
 export const DEFAULT_SLOT_TINTS: SlotTints = Object.freeze({
-  armor: DEFAULT_SLOT_TINT_ARMOR,
+  artifact: DEFAULT_SLOT_TINT_ARTIFACT,
   accessory: DEFAULT_SLOT_TINT_ACCESSORY,
 })
 
 /**
  * Pick the raw (unadapted) tint hue for a slot. Reuses `isAccessorySlot` as the SSOT for the
- * armor-vs-accessory split — never re-classify slots here.
+ * artifact-vs-accessory split — never re-classify slots here.
  */
 export function rawSlotTintFor(slot: ArtifactTypeId, tints: SlotTints): string {
-  return isAccessorySlot(slot) ? tints.accessory : tints.armor
+  return isAccessorySlot(slot) ? tints.accessory : tints.artifact
 }
 
 /** Accept only a valid CSS-parseable colour; fall back to the supplied default otherwise. */
@@ -50,9 +50,12 @@ function sanitizeTint(value: unknown, fallback: string): string {
 /** Merge a persisted blob with defaults, dropping anything unparseable. */
 function coerceSlotTints(raw: unknown): SlotTints {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_SLOT_TINTS }
-  const obj = raw as Partial<Record<keyof SlotTints, unknown>>
+  const obj = raw as Partial<Record<keyof SlotTints, unknown>> & { armor?: unknown }
+  // Migration: the artifact tint was previously persisted under the `armor` key.
+  // Honor an older blob so a user's saved colour is not silently lost on rename.
+  const artifactRaw = obj.artifact ?? obj.armor
   return {
-    armor: sanitizeTint(obj.armor, DEFAULT_SLOT_TINT_ARMOR),
+    artifact: sanitizeTint(artifactRaw, DEFAULT_SLOT_TINT_ARTIFACT),
     accessory: sanitizeTint(obj.accessory, DEFAULT_SLOT_TINT_ACCESSORY),
   }
 }

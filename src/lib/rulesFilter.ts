@@ -827,7 +827,7 @@ export type GearInspectorContextGroup = 'primary' | 'companion' | 'other'
 /**
  * Companion key for a gear item used to find set-mates of sell-tagged pieces.
  * Returns null when the item has no possible companions (regular no-set gear, set ID 0).
- * Accessories companion by set + slot + faction; armor companions by set + slot only.
+ * Accessories companion by set + slot + faction; artifact companions by set + slot only.
  * No-set accessories (set ID −99) companion each other within the same slot + faction.
  */
 function computeGearCompanionKey(artifact: NormalizedGearArtifact): string | null {
@@ -839,7 +839,7 @@ function computeGearCompanionKey(artifact: NormalizedGearArtifact): string | nul
     // Accessories match by set + slot + faction (includes no-set accessories, set ID −99).
     return `${setId}:${slotId}:${Number(artifact.faction ?? 0)}`
   }
-  // Armor matches by set + slot.
+  // Artifact matches by set + slot.
   return `${setId}:${slotId}`
 }
 

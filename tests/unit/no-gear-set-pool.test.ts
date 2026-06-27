@@ -63,17 +63,17 @@ test('findArtifactSetIdByName("No Gear-Set") returns -99', () => {
   assert.equal(findArtifactSetIdByName('No Gear-Set'), ACCESSORY_NO_SET_ID)
 })
 
-// Armor-only sets must never appear alongside -99 in the accessory pool.
-test('-99 is absent from ARMOR_FIXED_SET_IDS and ARMOR_VARIABLE_SET_IDS', async () => {
-  const { ARMOR_FIXED_SET_IDS, ARMOR_VARIABLE_SET_IDS } = await import('../../src/lib/types.js')
+// Artifact-only sets must never appear alongside -99 in the accessory pool.
+test('-99 is absent from ARTIFACT_FIXED_SET_IDS and ARTIFACT_VARIABLE_SET_IDS', async () => {
+  const { ARTIFACT_FIXED_SET_IDS, ARTIFACT_VARIABLE_SET_IDS } = await import('../../src/lib/types.js')
   assert.equal(
-    ARMOR_FIXED_SET_IDS.includes(ACCESSORY_NO_SET_ID as never),
+    ARTIFACT_FIXED_SET_IDS.includes(ACCESSORY_NO_SET_ID as never),
     false,
-    '-99 must not appear in the armor fixed pool',
+    '-99 must not appear in the artifact fixed pool',
   )
   assert.equal(
-    ARMOR_VARIABLE_SET_IDS.includes(ACCESSORY_NO_SET_ID as never),
+    ARTIFACT_VARIABLE_SET_IDS.includes(ACCESSORY_NO_SET_ID as never),
     false,
-    '-99 must not appear in the armor variable pool',
+    '-99 must not appear in the artifact variable pool',
   )
 })

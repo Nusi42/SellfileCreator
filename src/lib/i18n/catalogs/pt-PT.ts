@@ -289,7 +289,7 @@ const overrides: Catalog = {
   hintFinalSellStatusOnDetail: "Desative cada tipo de equipamento ou remova todos os intervalos de nível para a desligar.",
   hintFinalSellStatusOffDetail: "Ative pelo menos um tipo de equipamento e um intervalo de nível para a ligar.",
   labelLevelRanges: "Intervalos de nível",
-  artifacts: "Artefatos",
+  artifacts: "Artefactos",
   accessories: "Acessórios",
   offByDefaultTooltip: "Desativado por padrão para evitar vender equipamentos no nível máximo. Ativar pode vender itens +16 valiosos se mal utilizado.",
   titleResetGearInspector: "Limpar Venda final → Equipamento?",
@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "Percentagem de itens com pelo menos um substat glyphed.",
   gearAnalyticsKpiAscendedTip: "Percentagem de itens com pelo menos um nível de ascensão aplicado.",
   gearAnalyticsKpiItemCounts: "Artefactos + Acessórios",
-  gearAnalyticsKpiItemCountsTip: "Número de peças de artefacto de armadura (esquerda) e peças de acessório (direita) na vista atual.",
+  gearAnalyticsKpiItemCountsTip: "Número de peças de artefacto (esquerda) e peças de acessório (direita) na vista atual.",
   gearAnalyticsKpiEquippedVaultTip: "Percentagem equipada a qualquer campeão (esquerda) e bloqueada em campeões no cofre (direita).",
   gearAnalyticsCopySnapshotTip: "Renderizar a vista analítica atual como PNG e copiá-la para a área de transferência.",
   gearAnalyticsCopySnapshot: "Copiar instantâneo",
@@ -573,7 +573,7 @@ const overrides: Catalog = {
   labelText: "Texto",
   labelBg: "Bg",
   slotTintsSectionTitle: "Tons dos ícones de slot",
-  slotTintArmor: "Slots de armadura",
+  slotTintArtifact: "Slots de artefacto",
   slotTintAccessory: "Slots de acessórios",
   colorScopeRowLabel: "Coloração",
   colorScopeOff: "Desligado",
@@ -630,7 +630,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – {count} conjunto",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% chance de converter um golpe fraco em golpe crítico",
   setDesc_setAvenging_text: "45% chance de contra-atacar quando um debuff é aplicado ao portador",
@@ -705,7 +705,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% chance de aplicar {debuff:Provoke} por 1 turno ao atacar",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1082,7 +1082,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Multiseleção: \"Misto\" indica que as receitas selecionadas divergem. Escolha um valor para as sincronizar todas.",
   builderMultiMixedTriStateHint: "• Multiseleção: o destaque \"Misto\" mostra que a seleção diverge. Clique para sincronizar todas as receitas.",
   builderFaction: "Facção",
-  builderFactionHelp: "Limite regras de acessórios a uma facção específica quando só quer equipamento para uma equipa concreta.\n• Anéis, amuletos e estandartes respeitam este filtro.\n• A armadura ignora facção, por isso “Qualquer” é a opção mais segura para ela.",
+  builderFactionHelp: "Limite regras de acessórios a uma facção específica quando só quer equipamento para uma equipa concreta.\n• Anéis, amuletos e estandartes respeitam este filtro.\n• Os artefactos ignoram facção, por isso “Qualquer” é a opção mais segura para eles.",
   builderRarityExact: "Exato",
   builderRarityGte: "Intervalos ≥",
   builderRarityLte: "Intervalos ≤",

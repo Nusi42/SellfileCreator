@@ -23,8 +23,8 @@ import {
   compareArtifactSets,
   compareArtifactTypes,
   factionNames,
-  getArmorFixedSetIds,
-  getArmorVariableSetIds,
+  getArtifactFixedSetIds,
+  getArtifactVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
   rarityNames,
   variantFromLabel,
@@ -1014,7 +1014,7 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
   })
 
   // Faction wins: if factions are set, restrict slots to accessories only.
-  // Armor pieces cannot carry faction, so including them would be misleading.
+  // Artifact pieces cannot carry faction, so including them would be misleading.
   const dedupedFactions = Array.from(new Set(factions)).sort((a, b) => a - b)
   const dedupedSlots = Array.from(new Set(slots)).sort((left, right) => compareArtifactTypes(left, right))
   let normalizedSlots = dedupedSlots
@@ -1121,7 +1121,7 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
  * normalizeSafeguardFactionSlotScope
  *
  * Faction filters only apply to accessory artifacts (ring/amulet/banner). A rule
- * with `factions` set but `slots = []` ("Any slot") would silently target armor
+ * with `factions` set but `slots = []` ("Any slot") would silently target artifact
  * pieces that can never satisfy the faction filter. This mirrors
  * normalizeFactionSlotScope on the recipe side: when factions are non-empty and
  * slots are empty, fill slots with all three accessory ids so the saved rule is
@@ -1307,12 +1307,12 @@ export const getSafeguardCountKey = (artifact: NormalizedGearArtifact, mode: Saf
   })
 }
 
-// resolveArmorCompatibleSetIds keeps accessory-only sets out of armor pools.
-const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
-  // Merge fixed + variable armor sets while keeping numeric order stable.
+// resolveArtifactCompatibleSetIds keeps accessory-only sets out of artifact pools.
+const resolveArtifactCompatibleSetIds = (): readonly ArtifactSetId[] => {
+  // Merge fixed + variable artifact sets while keeping numeric order stable.
   const combined = [
-    ...getArmorFixedSetIds(),
-    ...getArmorVariableSetIds(),
+    ...getArtifactFixedSetIds(),
+    ...getArtifactVariableSetIds(),
   ]
   // Deduplicate the merged pool without changing numeric ordering.
   const deduped = Array.from(new Set<number>(combined.map((value) => Number(value))))
@@ -1324,7 +1324,7 @@ const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
 type SafeguardWasmExpectedGroupDomainPayload = {
   slotOrder: ArtifactTypeId[]
   accessoryCompatibleSetIds: ArtifactSetId[]
-  armorCompatibleSetIds: ArtifactSetId[]
+  artifactCompatibleSetIds: ArtifactSetId[]
   allowedMainBySlot: Record<string, StatVariant[]>
   allFactionIds: FactionId[]
 }
@@ -1342,7 +1342,7 @@ const buildSafeguardExpectedGroupDomain = (): Record<string, unknown> => {
   const rawDomain: SafeguardWasmExpectedGroupDomainPayload = {
     slotOrder: PREFERRED_ARTIFACT_TYPE_ORDER.map((value) => Number(value) as ArtifactTypeId),
     accessoryCompatibleSetIds: getAccessorySlotsCompatibleSetIds().map((value) => Number(value) as ArtifactSetId),
-    armorCompatibleSetIds: resolveArmorCompatibleSetIds().map((value) => Number(value) as ArtifactSetId),
+    artifactCompatibleSetIds: resolveArtifactCompatibleSetIds().map((value) => Number(value) as ArtifactSetId),
     allowedMainBySlot,
     allFactionIds: ALL_FACTION_IDS.slice(),
   }

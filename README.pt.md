@@ -63,7 +63,7 @@ O Sellfile Creator facilita a criação de ficheiros de venda para o RSL Helper 
     - Só fica ativo quando Raridade = Auto e Limiar por marcos = Tarde. Caso contrário vê uma barra diagonal.
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.
   - Antes de +16 o builder usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
-- Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; a armadura ignora a fação, pelo que `Qualquer` é a opção segura.
+- Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; os artefactos ignoram a fação, pelo que `Qualquer` é a opção segura.
 - Slots: Foque a regra em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
 - Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando só pretende essas combinações. Vazio = todos os sets.
 - Mainstats: Defina quais os mainstats aceites.
@@ -216,7 +216,7 @@ Abra «Ferramentas» e mude para o separador **Análise de Equipamento** para um
 
 **Donuts de filtro cruzado:** Seis gráficos — **Slots**, **Grau**, **Raridade**, **Resultado**, **Fonte**, **Nível** — atualizam-se mutuamente ao clicar.
 - Clique num segmento para o adicionar como filtro dessa dimensão; todos os outros gráficos restringem-se imediatamente ao equipamento correspondente. Cada gráfico exclui a sua própria dimensão para mostrar sempre o intervalo completo.
-- Duplo clique num segmento do donut **Slots** para selecionar um grupo inteiro de uma vez: qualquer peça de armadura (Arma, Elmo, Escudo, Luvas, Couraça, Botas) seleciona os seis slots de armadura; qualquer acessório (Anel, Amuleto, Estandarte) seleciona os três.
+- Duplo clique num segmento do donut **Slots** para selecionar um grupo inteiro de uma vez: qualquer peça de artefacto (Arma, Elmo, Escudo, Luvas, Couraça, Botas) seleciona os seis slots de artefacto; qualquer acessório (Anel, Amuleto, Estandarte) seleciona os três.
 - Os donuts **Slots** e **Fonte** mostram ícones de categoria. O donut **Nível** etiqueta cada arco com o texto do nível.
 
 

@@ -129,10 +129,10 @@ export default function SetMenuSection({
 
   // Centralized grouping keeps the menu categories aligned with the Keep
   // Uniques defaults and any other callers importing the same helper.
-  // Grouping by piece type keeps icon rows aligned to armor/accessory tiers.
+  // Grouping by piece type keeps icon rows aligned to artifact/accessory tiers.
   const iconGridAccessories = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.Accessories)
-  const iconGridArmorFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorFixed)
-  const iconGridArmorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
+  const iconGridArtifactFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArtifactFixed)
+  const iconGridArtifactVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArtifactVariable)
   const renderIconItem = ([id, name]: [string, string]) => {
     const idNum = Number(id)
     // Keep localization consistent with other selects (no-set uses its own key).
@@ -285,11 +285,11 @@ export default function SetMenuSection({
         if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
       }}
     >
-      {iconGridArmorFixed.map(renderIconItem)}
-      {iconGridArmorVar19.length > 0 && (
+      {iconGridArtifactFixed.map(renderIconItem)}
+      {iconGridArtifactVar19.length > 0 && (
         <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
       )}
-      {iconGridArmorVar19.map(renderIconItem)}
+      {iconGridArtifactVar19.map(renderIconItem)}
       {iconGridAccessories.length > 0 && (
         <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
       )}

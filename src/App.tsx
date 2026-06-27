@@ -1166,7 +1166,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatColors,
     resetColors,
   } = useManageColorsDialog()
-  // Slot glyph tints (armor/accessory) — gated by slotColorScope; fed to both the SlotTintProvider
+  // Slot glyph tints (artifact/accessory) — gated by slotColorScope; fed to both the SlotTintProvider
   // (renders the tint everywhere) and the Manage Colors dialog (edits them).
   const [slotTints, setSlotTints] = useSlotTints()
   // Rarity palette (rarity 1–6) — one editable palette feeds raw accents (borders/charts) and
@@ -2708,7 +2708,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleInsertSafeguardFromBuilder = useCallback(() => {
     const current = safeguardBuilderRef.current
     // Enforce the faction→accessory-slots invariant at save: empty slots with a
-    // faction set would silently target armor that can never match.
+    // faction set would silently target artifact that can never match.
     const newRule: SafeguardRule = normalizeSafeguardFactionSlotScope({ ...cloneSafeguardRule(current) })
     // Compute insertion index from current state before enqueuing the updater.
     // Why: functional state updaters are lazy — React evaluates them at render time,
@@ -7133,7 +7133,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const currentBuilder = builderRef.current
         // Clone the builder snapshot so recipes never share object identity.
         // Enforce the faction→accessory-slots invariant: faction set + empty slots
-        // would silently target armor that can never match.
+        // would silently target artifact that can never match.
         const insertedRecipe = normalizeFactionSlotScope(cloneBuilderRecipe(currentBuilder))
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < customRecipes.length)
           ? selectedRecipeIdx + 1

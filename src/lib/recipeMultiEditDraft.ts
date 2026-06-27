@@ -7,7 +7,7 @@
  */
 import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
 import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope } from './recipeNormalization'
-import { isAccessorySlot, slotPatchIntroducesArmor } from './gearInspectorDomain'
+import { isAccessorySlot, slotPatchIntroducesArtifact } from './gearInspectorDomain'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
 import type { NameAppearance } from './nameAppearance'
@@ -798,13 +798,13 @@ export function applyMultiEditFieldToRecipe(
     ? cloneFieldPatch(key, field.patch as MultiEditFieldPatch<typeof key>)
     : null
   if (patch) {
-    // Per-rule mutual-exclusivity guard: a slots patch that introduces an armor slot
+    // Per-rule mutual-exclusivity guard: a slots patch that introduces an artifact slot
     // on a rule that already has a faction set would silently destroy the faction
     // under the old slots-win normalization. Skip the patch for those rules so the
     // caller's mixed-state click only applies to compatible rules.
     if (key === 'artifactTypes'
       && (recipe.factionCode ?? 0) !== 0
-      && slotPatchIntroducesArmor(patch as { add?: readonly number[]; replace?: readonly number[] })) {
+      && slotPatchIntroducesArtifact(patch as { add?: readonly number[]; replace?: readonly number[] })) {
       return recipe
     }
     return applyPatchForKey(recipe, key, patch)
@@ -812,8 +812,8 @@ export function applyMultiEditFieldToRecipe(
   const nextValue = cloneBuilderFieldValue(key, field.value)
   if (areBuilderFieldValuesEqual(key, getRecipeFieldValue(recipe, key), nextValue)) return recipe
   // Scalar-replace mutual-exclusivity guard mirrors the patch path: skip writes that
-  // would force an armor slot onto a faction-set rule, or a faction onto an
-  // armor-slot rule. Single-edit handlers keep their slots-win/faction-wins
+  // would force an artifact slot onto a faction-set rule, or a faction onto an
+  // artifact-slot rule. Single-edit handlers keep their slots-win/faction-wins
   // normalization; multi-edit prefers per-rule skip to avoid silent data loss.
   if (key === 'artifactTypes'
     && (recipe.factionCode ?? 0) !== 0
@@ -876,7 +876,7 @@ export function applyMultiEditFieldsToRecipe(
     }
   }
   // Post-apply: enforce faction→accessory-slots invariant. Per-field application
-  // skips conflicting writes (faction-set recipes don't gain armor slots), so the
+  // skips conflicting writes (faction-set recipes don't gain artifact slots), so the
   // only case this normalizer fires for is "faction set, slots empty" — fill in
   // all three accessories so the saved recipe is internally consistent.
   nextRecipe = normalizeFactionSlotScope(nextRecipe)

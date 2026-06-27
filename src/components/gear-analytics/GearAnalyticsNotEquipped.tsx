@@ -30,7 +30,7 @@ import {
   buildChampionGearProfiles,
   champProfileRankComparator,
   isSlotAvailableAtAscensionLevel,
-  MAIN_ARMOR_SLOTS,
+  MAIN_ARTIFACT_SLOTS,
   ACCESSORY_SLOTS,
   type ChampionGearProfile,
 } from '../../lib/champAnalytics'
@@ -126,7 +126,7 @@ function readShowFullyEquipped(): boolean {
 const SORT_SLOTS: Readonly<Record<SortMode, readonly number[]>> = {
   rank:        SLOT_GRID,
   all:         SLOT_GRID,
-  artifacts:   MAIN_ARMOR_SLOTS,
+  artifacts:   MAIN_ARTIFACT_SLOTS,
   accessories: ACCESSORY_SLOTS,
 }
 

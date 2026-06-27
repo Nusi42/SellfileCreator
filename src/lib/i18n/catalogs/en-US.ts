@@ -328,7 +328,7 @@ const enUS: Catalog = {
   gearAnalyticsKpiAscendedTip: "Percentage of items with at least one ascension level applied.",
   gearAnalyticsKpiArtifacts: "Artifacts",
   gearAnalyticsKpiAccessories: "Accessories",
-  gearAnalyticsKpiItemCountsTip: "Number of armor artifact pieces (left) and accessory pieces (right) in the current view.",
+  gearAnalyticsKpiItemCountsTip: "Number of artifact pieces (left) and accessory pieces (right) in the current view.",
   gearAnalyticsKpiEquippedVaultTip: "Percentage equipped to any champion (left) and percentage locked to vault-benched champions (right).",
   gearAnalyticsCopySnapshotTip: "Render the current analytics view as a PNG and copy it to your clipboard.",
   gearAnalyticsCopySnapshot: "Copy Snapshot",
@@ -602,7 +602,7 @@ const enUS: Catalog = {
   labelText: "Text",
   labelBg: "Bg",
   slotTintsSectionTitle: "Slot icon tints",
-  slotTintArmor: "Armor slots",
+  slotTintArtifact: "Artifact slots",
   slotTintAccessory: "Accessory slots",
   colorScopeRowLabel: "Coloring",
   colorScopeOff: "Off",
@@ -659,7 +659,7 @@ const enUS: Catalog = {
   setTooltipNamed: "{name} - {count} Set",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\n50% chance to convert weak hit to critical hit",
   setDesc_setAvenging_text: "45% chance to counterattack when a debuff is placed on the wearer",
@@ -716,7 +716,7 @@ const enUS: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "30% chance to place {debuff:Provoke} for 1 turn when attacking",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1120,7 +1120,7 @@ const enUS: Catalog = {
   builderMultiMixedTooltipSuffix: "• Multiselect: \"Mixed\" means the selected recipes disagree. Choose a value to sync every recipe.",
   builderMultiMixedTriStateHint: "• Multiselect: \"Mixed\" shading shows the selection disagrees. Click to sync every recipe.",
   builderFaction: "Faction",
-  builderFactionHelp: "Limit accessory rules to a specific faction when you only want gear for a given team.\n• Rings, amulets, and banners respect this filter.\n• Armor pieces ignore faction, so “Any” is safest for them.",
+  builderFactionHelp: "Limit accessory rules to a specific faction when you only want gear for a given team.\n• Rings, amulets, and banners respect this filter.\n• Artifact pieces ignore faction, so “Any” is safest for them.",
   builderRarityExact: "Exact",
   builderRarityGte: "≥ Ranges",
   builderRarityLte: "≤ Ranges",

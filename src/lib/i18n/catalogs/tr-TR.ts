@@ -315,7 +315,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiGlyphedTip: "En az bir glyphed alt stat'ı olan eşyaların yüzdesi.",
   gearAnalyticsKpiAscendedTip: "En az bir yükseliş seviyesi uygulanmış eşyaların yüzdesi.",
   gearAnalyticsKpiItemCounts: "Eserler + Aksesuarlar",
-  gearAnalyticsKpiItemCountsTip: "Geçerli görünümdeki zırh eseri parça sayısı (sol) ve aksesuar parça sayısı (sağ).",
+  gearAnalyticsKpiItemCountsTip: "Geçerli görünümdeki eser parça sayısı (sol) ve aksesuar parça sayısı (sağ).",
   gearAnalyticsKpiEquippedVaultTip: "Herhangi bir kahramana donanımlı eşyaların yüzdesi (sol) ve kasadaki kahramanlara kilitli olanların yüzdesi (sağ).",
   gearAnalyticsCopySnapshotTip: "Geçerli analiz görünümünü PNG olarak render edip panoya kopyalayın.",
   gearAnalyticsCopySnapshot: "Anlık görüntü kopyala",
@@ -574,7 +574,7 @@ const overrides: Catalog = {
   labelText: "Metin",
   labelBg: "Bg",
   slotTintsSectionTitle: "Slot simgesi tonları",
-  slotTintArmor: "Zırh slotları",
+  slotTintArtifact: "Eser slotları",
   slotTintAccessory: "Aksesuar slotları",
   colorScopeRowLabel: "Renklendirme",
   colorScopeOff: "Kapalı",
@@ -631,7 +631,7 @@ const overrides: Catalog = {
   setTooltipNamed: "{name} – {count}",
 
   // Set descriptions (tooltips). Locales may override these.
-  // Armor (fixed-piece)
+  // Artifacts (fixed-piece)
   setDesc_setAccuracy_text: "+40 [[stat:statACC]]",
   setDesc_setAffinitybreaker_text: "[[stat:statCDMG|bare]] +30%\nZayıf vuruşu kritik vuruşa çevirme şansı %50",
   setDesc_setAvenging_text: "Taşıyıcıya bir debuff uygulandığında %45 karşı saldırı şansı",
@@ -706,7 +706,7 @@ const overrides: Catalog = {
   setDesc_setCritDamage_text: "[[stat:statCDMG|bare]] +20%",
   setDesc_setProvoke_text: "Saldırırken {debuff:Provoke} uygulama şansı %30 (1 tur)",
 
-  // Armor (variable 1–9 piece sets)
+  // Artifacts (variable 1–9 piece sets)
   // Chronophage
   setDesc_setChronophage_by_1: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_2: "+10% [[stat:statSPD]]",
@@ -1080,7 +1080,7 @@ const overrides: Catalog = {
   builderMultiMixedTooltipSuffix: "• Çoklu seçim: \"Karışık\", seçili reçetelerin uyuşmadığını gösterir. Tüm reçeteleri eşitlemek için bir değer seçin.",
   builderMultiMixedTriStateHint: "• Çoklu seçim: \"Karışık\" vurgusu seçimin farklı olduğunu gösterir. Tüm reçeteleri eşitlemek için tıklayın.",
   builderFaction: "Faksiyon",
-  builderFactionHelp: "Yalnızca belirli bir takıma yönelik loot ararken aksesuar kurallarını bir faksiyonla sınırlayın.\n• Yüzük, tılsım ve sancak bu filtreyi uygular.\n• Zırh faksiyon filtrelerini yok sayar; onlar için “Herhangi” en güvenlisidir.",
+  builderFactionHelp: "Yalnızca belirli bir takıma yönelik loot ararken aksesuar kurallarını bir faksiyonla sınırlayın.\n• Yüzük, tılsım ve sancak bu filtreyi uygular.\n• Eserler faksiyon filtrelerini yok sayar; onlar için “Herhangi” en güvenlisidir.",
   builderRarityExact: "Tam",
   builderRarityGte: "Aralıklar ≥",
   builderRarityLte: "Aralıklar ≤",
@@ -1264,7 +1264,7 @@ const overrides: Catalog = {
   filterPresetsSaveDialogTitle: "Filtre ön ayarını kaydet",
   filterPresetsSaveDialogHelper: "Geçerli filtre paneli durumunu ve Kural Testi sıralama ayarlarını yerel depolamaya kaydeder.",
   // Built-in filter preset names
-  builtinFilterPresetAllArtifacts: "Tüm Artifaktlar",
+  builtinFilterPresetAllArtifacts: "Tüm Eserler",
   builtinFilterPresetAllAccessories: "Tüm Aksesuarlar",
   builtinFilterPresetShowOnlySell: "Sadece Sat",
   builtinFilterPresetScopedSell: "Hedefli Satış",

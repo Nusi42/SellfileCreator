@@ -311,9 +311,9 @@ export function normalizeLevelWindow<T extends Pick<BuilderRecipe, 'minLevel' | 
 
 /**
  * When a recipe has a specific faction set, restrict artifact slots to accessories only.
- * Faction filters have no effect on armor pieces so including them is misleading.
+ * Faction filters have no effect on artifact pieces so including them is misleading.
  *
- * - Armor slots are stripped from `artifactTypes`.
+ * - Artifact slots are stripped from `artifactTypes`.
  * - If no accessory slots survive (or none were selected), all three are substituted.
  * - When faction is 0 / absent the recipe is returned unchanged.
  */
@@ -328,15 +328,15 @@ export function normalizeFactionSlotScope<T extends Pick<BuilderRecipe, 'faction
 }
 
 /**
- * When the slot scope includes any armor piece, faction has no meaning — clear it.
+ * When the slot scope includes any artifact piece, faction has no meaning — clear it.
  * This is the slots-win direction; `normalizeFactionSlotScope` is the faction-wins direction.
  * Apply when the user explicitly changes slots; do NOT include in `normalizeRecipeKeepState`
  * so the two normalizations cannot conflict at import time.
  */
 export function normalizeSlotsOverrideFaction<T extends Pick<BuilderRecipe, 'factionCode' | 'artifactTypes'>>(recipe: T): T {
   if (!recipe.factionCode) return recipe
-  const hasArmor = (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
-  if (!hasArmor) return recipe
+  const hasArtifact = (recipe.artifactTypes ?? []).some((s) => !isAccessorySlot(s))
+  if (!hasArtifact) return recipe
   return { ...recipe, factionCode: 0 as BuilderRecipe['factionCode'] }
 }
 

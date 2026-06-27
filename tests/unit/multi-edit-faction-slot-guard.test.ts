@@ -2,8 +2,8 @@
 
 // Per-rule mutual-exclusivity guard for slot ↔ faction edits in multi-edit.
 // Recipes and safeguards both honor the same invariant: a multi-edit click that
-// would force an armor slot onto a faction-set rule (or a faction onto an
-// armor-slot rule) is skipped for that rule instead of silently rewriting one
+// would force an artifact slot onto a faction-set rule (or a faction onto an
+// artifact-slot rule) is skipped for that rule instead of silently rewriting one
 // side. Single-edit and normalization helpers retain their slots-win /
 // faction-wins behavior and are covered separately by faction-slot-normalization.
 
@@ -92,7 +92,7 @@ const makeSafeguard = (overrides: Partial<SafeguardRule['combination']> = {}): S
 
 // ── recipes ───────────────────────────────────────────────────────────────────
 
-test('recipe: armor-slot add patch skipped when faction is set', () => {
+test('recipe: artifact-slot add patch skipped when faction is set', () => {
   // Rule with faction X but no slots yet — Weapon-add patch must be a no-op.
   const recipe = createHistoryBuilderBaseline({ factionCode: 5, artifactTypes: [] })
   const next = applyMultiEditFieldToRecipe(recipe, 'artifactTypes', arrayPatchField({ add: [WEAPON] }))
@@ -100,7 +100,7 @@ test('recipe: armor-slot add patch skipped when faction is set', () => {
   assert.strictEqual(next, recipe)
 })
 
-test('recipe: armor-slot add patch applies when no faction is set', () => {
+test('recipe: artifact-slot add patch applies when no faction is set', () => {
   // Companion case — same patch reaches the compatible rule and adds Weapon.
   const recipe = createHistoryBuilderBaseline({ factionCode: 0, artifactTypes: [] })
   const next = applyMultiEditFieldToRecipe(recipe, 'artifactTypes', arrayPatchField({ add: [WEAPON] }))
@@ -109,29 +109,29 @@ test('recipe: armor-slot add patch applies when no faction is set', () => {
 })
 
 test('recipe: accessory-slot add patch unaffected by faction (no conflict)', () => {
-  // Faction is only incompatible with armor slots — accessories are still valid.
+  // Faction is only incompatible with artifact slots — accessories are still valid.
   const recipe = createHistoryBuilderBaseline({ factionCode: 3, artifactTypes: [] })
   const next = applyMultiEditFieldToRecipe(recipe, 'artifactTypes', arrayPatchField({ add: [RING] }))
   assert.deepEqual(next.artifactTypes, [RING])
   assert.strictEqual(next.factionCode, 3)
 })
 
-test('recipe: scalar artifactTypes replace skipped when armor slot would land on faction-set rule', () => {
+test('recipe: scalar artifactTypes replace skipped when artifact slot would land on faction-set rule', () => {
   // Scalar-value path mirrors the patch guard for consistency.
   const recipe = createHistoryBuilderBaseline({ factionCode: 5, artifactTypes: [] })
   const next = applyMultiEditFieldToRecipe(recipe, 'artifactTypes', scalarField([HELMET]))
   assert.strictEqual(next, recipe)
 })
 
-test('recipe: factionCode scalar set skipped when rule already has armor slots', () => {
-  // Symmetric direction: faction multi-edit must not silently rewrite armor slots.
+test('recipe: factionCode scalar set skipped when rule already has artifact slots', () => {
+  // Symmetric direction: faction multi-edit must not silently rewrite artifact slots.
   const recipe = createHistoryBuilderBaseline({ factionCode: 0, artifactTypes: [WEAPON] })
   const next = applyMultiEditFieldToRecipe(recipe, 'factionCode', scalarField(4))
   assert.strictEqual(next, recipe)
 })
 
 test('recipe: factionCode scalar set applies when rule has only accessories', () => {
-  // No armor slot — faction set is valid and writes through.
+  // No artifact slot — faction set is valid and writes through.
   const recipe = createHistoryBuilderBaseline({ factionCode: 0, artifactTypes: [RING] })
   const next = applyMultiEditFieldToRecipe(recipe, 'factionCode', scalarField(4))
   assert.strictEqual(next.factionCode, 4)
@@ -140,20 +140,20 @@ test('recipe: factionCode scalar set applies when rule has only accessories', ()
 
 // ── safeguards ────────────────────────────────────────────────────────────────
 
-test('safeguard: armor-slot add patch skipped when factions is non-empty', () => {
+test('safeguard: artifact-slot add patch skipped when factions is non-empty', () => {
   const rule = makeSafeguard({ factions: [5 as FactionId], slots: [] })
   const next = applyMultiEditFieldToSafeguardRule(rule, 'slots', arrayPatchField({ add: [WEAPON] }))
   assert.strictEqual(next, rule)
 })
 
-test('safeguard: armor-slot add patch applies when factions is empty', () => {
+test('safeguard: artifact-slot add patch applies when factions is empty', () => {
   const rule = makeSafeguard({ factions: [], slots: [] })
   const next = applyMultiEditFieldToSafeguardRule(rule, 'slots', arrayPatchField({ add: [WEAPON] }))
   assert.deepEqual(next.combination.slots, [WEAPON])
   assert.deepEqual(next.combination.factions, [])
 })
 
-test('safeguard: factions add patch skipped when slots contain armor', () => {
+test('safeguard: factions add patch skipped when slots contain artifact', () => {
   const rule = makeSafeguard({ factions: [], slots: [WEAPON as ArtifactTypeId] })
   const next = applyMultiEditFieldToSafeguardRule(rule, 'factions', arrayPatchField({ add: [3 as FactionId] }))
   assert.strictEqual(next, rule)
