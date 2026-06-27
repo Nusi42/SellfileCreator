@@ -10,8 +10,6 @@
 import { scopeColorsText } from './lib/colorScope'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
-import beginnerSfcRaw from '../presets/beginner.sfc?raw'
-import lategameSfcRaw from '../presets/lategame.sfc?raw'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import {
@@ -42,8 +40,8 @@ import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } 
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
-import { currentSfcMatchesAnyPreset, matchedPreset } from './lib/sfcPresetMatch'
-import type { SfcSetupFields } from './lib/sfcPresetMatch'
+import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
+import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 import {
   loadRuntimeGearSetsFromStorage,
@@ -7945,11 +7943,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Loads the beginner or lategame preset SFC directly without a confirmation dialog.
   // Used by the express-mode preset toggle in NoteDialog. Persists the chosen
   // variant so the selection survives reloads.
-  const handleLoadSimplePreset = useCallback((variant: 'beginner' | 'lategame') => {
+  const handleLoadSimplePreset = useCallback((variant: PresetVariant) => {
     persistSimpleVariant(variant)
-    const raw = variant === 'beginner' ? beginnerSfcRaw : lategameSfcRaw
-    const filename = variant === 'beginner' ? 'beginner.sfc' : 'lategame.sfc'
-    const file = new File([raw], filename, { type: 'application/json' })
+    // Raw text + filename come from the preset SSOT (sfcPresetMatch) so the bundled
+    // preset is consumed in exactly one place across the app.
+    const file = new File([presetRaw(variant)], presetFilename(variant), { type: 'application/json' })
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
@@ -8008,7 +8006,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // never the stale saved body — so users ride preset updates across app versions.
   // Without a marker we treat the saved body as the user's own custom setup. The
   // variant token is only a fallback when no autosave exists at all.
-  const resolveSimpleStartupSource = useCallback((): { kind: 'preset'; variant: 'beginner' | 'lategame' } | { kind: 'custom' } => {
+  const resolveSimpleStartupSource = useCallback((): { kind: 'preset'; variant: PresetVariant } | { kind: 'custom' } => {
     const entry = simpleStartupAutosaveEntry
     if (entry) {
       const origin = entry.payload[AUTOSAVE_PRESET_ORIGIN_KEY]

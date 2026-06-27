@@ -70,14 +70,47 @@ const canonicalize = (fields: SfcSetupFields): string => {
   return JSON.stringify(payload)
 }
 
-// Parse a bundled preset raw string into the same setup fields, then canonicalize.
-// Computed lazily and cached — the presets never change at runtime.
-const presetCanonicalFromRaw = (raw: string): string => {
-  const parsed = parseSfcText(raw, {
+/** Identifies a bundled built-in preset. SSOT for the two preset variant tokens. */
+export type PresetVariant = 'beginner' | 'lategame'
+
+// The bundled raw SFC text for each preset variant, keyed by token. Single place
+// the raw imports are consumed so callers never re-import them ad-hoc.
+const PRESET_RAW: Record<PresetVariant, string> = {
+  beginner: beginnerSfcRaw,
+  lategame: lategameSfcRaw,
+}
+
+// The .sfc filename for each preset variant. Used when wrapping the raw in a File
+// for the full SFC load path (simple-mode preset buttons / startup).
+const PRESET_FILENAME: Record<PresetVariant, string> = {
+  beginner: 'beginner.sfc',
+  lategame: 'lategame.sfc',
+}
+
+/** The bundled raw SFC text for a preset variant (SSOT for the raw imports). */
+export function presetRaw(variant: PresetVariant): string {
+  return PRESET_RAW[variant]
+}
+
+/** The canonical .sfc filename for a preset variant. */
+export function presetFilename(variant: PresetVariant): string {
+  return PRESET_FILENAME[variant]
+}
+
+// Parse a bundled preset raw string into normalized setup fields. The presets never
+// change at runtime, so each variant is parsed at most once and cached. This is the
+// single parse path for preset bodies — both the equivalence check (canonicalize)
+// and the restore-draft swap (presetDraftFields) read from it.
+const presetSetupCache = new Map<PresetVariant, SfcSetupFields>()
+const presetSetup = (variant: PresetVariant): SfcSetupFields => {
+  const cached = presetSetupCache.get(variant)
+  if (cached) return cached
+  // Parse the raw against empty defaults — a preset is a full replace, not a merge.
+  const parsed = parseSfcText(PRESET_RAW[variant], {
     metasets: [],
     substatTargets: defaultSubstatTargets(),
   })
-  return canonicalize({
+  const fields: SfcSetupFields = {
     metasets: parsed.metasets,
     substatTargets: parsed.substatTargets,
     recipes: parsed.recipes,
@@ -86,15 +119,29 @@ const presetCanonicalFromRaw = (raw: string): string => {
     safeguardRules: parsed.safeguardRules ?? [],
     safeguardsEnabled: parsed.safeguardsEnabled ?? false,
     recipesEnabled: parsed.recipesEnabled,
-  })
+  }
+  presetSetupCache.set(variant, fields)
+  return fields
+}
+
+/**
+ * The preset-derived setup fields for a bundled built-in, ready to seed a restore
+ * draft. Returns a SHALLOW copy so callers can spread session/override state on top
+ * without mutating the cached parse. This is the SSOT both the full-app restore
+ * dialog and the simple-mode startup use to load the CURRENT bundled preset body in
+ * place of a stale saved one (so users ride preset updates across app versions).
+ */
+export function presetDraftFields(variant: PresetVariant): SfcSetupFields {
+  return { ...presetSetup(variant) }
 }
 
 let presetCanonicalsCache: string[] | null = null
 const presetCanonicals = (): string[] => {
   if (presetCanonicalsCache) return presetCanonicalsCache
+  // Canonicalize from the same single parse path used for restore-draft swaps.
   presetCanonicalsCache = [
-    presetCanonicalFromRaw(beginnerSfcRaw),
-    presetCanonicalFromRaw(lategameSfcRaw),
+    canonicalize(presetSetup('beginner')),
+    canonicalize(presetSetup('lategame')),
   ]
   return presetCanonicalsCache
 }
@@ -104,7 +151,7 @@ const presetCanonicals = (): string[] => {
  * overrides — `'beginner'`, `'lategame'`, or `null` when it matches neither.
  * Single canonicalization path so equality stays SSOT with the boolean check.
  */
-export function matchedPreset(fields: SfcSetupFields): 'beginner' | 'lategame' | null {
+export function matchedPreset(fields: SfcSetupFields): PresetVariant | null {
   // Canonicalize once, then compare against the cached preset canonicals.
   const current = canonicalize(fields)
   // presetCanonicals() is ordered [beginner, lategame] (see presetCanonicals()).

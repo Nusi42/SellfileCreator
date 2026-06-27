@@ -24,10 +24,47 @@ function walk(dir) {
   return out
 }
 
+const repoRoot = path.join(__dirname, '..', '..')
+
+// Vite resolves `import x from './foo.sfc?raw'` to the file's text; Node cannot.
+// For each such import in a compiled artifact, emit a sibling shim module that
+// default-exports the raw file contents and rewrite the specifier to point at it.
+// Returns the (possibly) rewritten source. SSOT for the test harness's `?raw` support.
+function patchRawImports(source, compiledFilePath) {
+  // Map the compiled file back to its source location so relative `?raw` paths
+  // (authored against src/) resolve to real on-disk files under the repo root.
+  // Compiled tests live at tmp/tsc/tests/<repo-relative>; strip that prefix.
+  const compiledTestsRoot = path.join(repoRoot, 'tmp', 'tsc', 'tests')
+  const repoRelativeDir = compiledFilePath.startsWith(compiledTestsRoot)
+    ? path.dirname(path.relative(compiledTestsRoot, compiledFilePath))
+    : null
+  // Match `from '<rel>.sfc?raw'` (the patcher above has not yet appended .js because
+  // we run this first); capture the relative path without the ?raw query.
+  return source.replace(/from\s+(["'])(\.\.\/|\.\/)([^'"\n]+?)\?raw\1/g, (m, quote, rel, mod) => {
+    // Without a source mapping we cannot resolve the file; leave it untouched.
+    if (repoRelativeDir == null) return m
+    // Resolve the raw file on disk relative to the source file's repo location.
+    const rawAbs = path.resolve(repoRoot, repoRelativeDir, rel + mod)
+    if (!fs.existsSync(rawAbs)) return m
+    const text = fs.readFileSync(rawAbs, 'utf8')
+    // Emit the shim next to the compiled importer, named so it cannot collide with
+    // the real compiled module (the .sfc extension is kept, .raw.js appended).
+    const shimName = path.basename(mod) + '.raw.js'
+    const shimAbs = path.join(path.dirname(compiledFilePath), shimName)
+    fs.writeFileSync(shimAbs, `export default ${JSON.stringify(text)};\n`)
+    // The shim sits next to the importer, so the specifier is always a sibling ('./'),
+    // regardless of where the original raw file lived.
+    return `from ${quote}./${shimName}${quote}`
+  })
+}
+
 const existingRoots = roots.filter((r) => fs.existsSync(r))
 const files = existingRoots.flatMap((r) => walk(r))
 for (const p of files) {
   let s = fs.readFileSync(p, 'utf8')
+  // Resolve `?raw` imports BEFORE the extension pass so the shim specifier (already
+  // ending in .js) is left alone by the extensionless-import rewrite below.
+  s = patchRawImports(s, p)
   // Replace extensionless relative imports with .js extensions.
   // Patch paths that start with './' or '../' and have no extension.
   s = s.replace(/from\s+(["'])(\.\.\/|\.\/)([^'"\n]+?)\1(?=;)/g, (m, quote, rel, mod) => {

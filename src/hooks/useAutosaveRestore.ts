@@ -9,6 +9,8 @@
 import { useMemo, useState } from 'react'
 import { loadAutosave, removeAutosave } from '../lib/autosave'
 import { parseSfcObject } from '../lib/sfcIO'
+import { presetDraftFields, type PresetVariant } from '../lib/sfcPresetMatch'
+import { AUTOSAVE_PRESET_ORIGIN_KEY } from '../lib/externalWsProtocol'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
@@ -351,14 +353,35 @@ function computeInitialAutosaveState(args: {
         { metasets: args.metasets, substatTargets: args.substatTargets },
         { runtimeSetNameMap },
       )
-      const recipes = parsed.recipes
-      const savedMetasets = parsed.metasets
-      const savedSubstatTargets = parsed.substatTargets
-      const savedFinalSell = parsed.finalSellRemainder
-      const savedSafeguards = parsed.safeguardRules ?? []
-      const savedKeepEnabled = parsed.safeguardsEnabled ?? false
+      // Preset-origin swap: a setup stamped with a PresetOrigin marker (written at save
+      // time from the LIVE content match) is treated as "ride the current preset" rather
+      // than "restore the stale saved body". When the marker names a built-in, we replace
+      // the preset-IDENTITY slices (metasets, targets, recipes, final-sell, safeguards,
+      // enabled flags, note) with the CURRENT bundled preset so users pick up preset
+      // updates across app versions — exactly mirroring the simple-mode startup. Session
+      // and override state (filters, sort, override answers, selected indices) still come
+      // from the saved payload below, and the swap is silent (no UI change). SSOT for the
+      // preset body lives in presetDraftFields; the same authority the simple path trusts.
+      const presetOriginRaw = (entry.payload && typeof entry.payload === 'object')
+        ? (entry.payload as Record<string, unknown>)[AUTOSAVE_PRESET_ORIGIN_KEY]
+        : null
+      const presetOrigin: PresetVariant | null = presetOriginRaw === 'beginner' || presetOriginRaw === 'lategame'
+        ? presetOriginRaw
+        : null
+      // The current bundled preset body when the marker is valid, else null (custom body).
+      const presetSwap = presetOrigin ? presetDraftFields(presetOrigin) : null
+      // Preset-identity slices: from the bundled preset when swapping, else the saved body.
+      const recipes = presetSwap ? presetSwap.recipes : parsed.recipes
+      const savedMetasets = presetSwap ? presetSwap.metasets : parsed.metasets
+      const savedSubstatTargets = presetSwap ? presetSwap.substatTargets : parsed.substatTargets
+      const savedFinalSell = presetSwap ? (presetSwap.finalSellRemainder ?? null) : parsed.finalSellRemainder
+      const savedSafeguards = (presetSwap ? presetSwap.safeguardRules : parsed.safeguardRules) ?? []
+      const savedKeepEnabled = (presetSwap ? presetSwap.safeguardsEnabled : parsed.safeguardsEnabled) ?? false
       // Explicit false is meaningful — treat absent as the default (true).
-      const savedRecipesEnabled = parsed.recipesEnabled ?? true
+      const savedRecipesEnabled = (presetSwap ? presetSwap.recipesEnabled : parsed.recipesEnabled) ?? true
+      // The note also follows the preset body when swapping (its override DSL must match
+      // the loaded preset so saved override answers prune/seed against the right note).
+      const swappedNote = presetSwap ? presetSwap.note : parsed.note
       const metasetsMatchDefaults = metasetsEqualSession(savedMetasets as Metaset[], args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
@@ -458,7 +481,7 @@ function computeInitialAutosaveState(args: {
             ...(savedGridFilterMode ? { SafeguardsGridFilterMode: savedGridFilterMode } : {}),
             ...(savedRecipeSelIdx != null ? { SelectedRecipeIndex: savedRecipeSelIdx } : {}),
             ...(savedSgSelIdx != null ? { SelectedSafeguardRuleIdx: savedSgSelIdx } : {}),
-            ...(parsed.note ? { Note: parsed.note } : {}),
+            ...(swappedNote ? { Note: swappedNote } : {}),
             ...(savedRecipeOverridesAnswers ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: savedRecipeOverridesAnswers } : {}),
             ...(savedSafeguardOverridesAnswers ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: savedSafeguardOverridesAnswers } : {}),
             ...(savedOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
