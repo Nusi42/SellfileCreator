@@ -363,6 +363,37 @@ const buildRulesByRecipeIndices = (
   return result
 }
 
+// Baseline matches carry `ruleIndex` relative to mergedRulesBaseline (no injected safeguard
+// rules). The main thread looks rules up in mergedRulesFinal, where the injected safeguard
+// block is PREPENDED (prependSafeguardRules), shifting every non-safeguard rule forward by the
+// injected count. Reusing a baseline match for a non-candidate without shifting its index makes
+// the chip read the wrong (often a slot-mismatched safeguard) rule — e.g. a Weapon showing a
+// "Best SPD Banner" safeguard. Since baseline has zero safeguard rules (detection=null) and both
+// builds share merge params (identical non-safeguard order), the shift is the uniform offset
+// `mergedRulesFinal.length - mergedRulesBaseline.length`. SSOT for that remap lives here.
+// EvalMatch-shaped value (ruleIndex/keep/recipeIdx); typed via the worker result alias so this
+// file keeps using the worker's domain shapes rather than importing lib match types directly.
+type WorkerEvalMatch = GearInspectorMatchWorkerItemResult['firstMatch']
+const shiftMatchRuleIndex = (
+  match: WorkerEvalMatch,
+  offset: number,
+): WorkerEvalMatch => (
+  // Zero offset (no injection) or no match → return as-is; EvalMatch is a flat value object.
+  match && offset !== 0 ? { ...match, ruleIndex: match.ruleIndex + offset } : match
+)
+
+// Remap a baseline-relative match entry into final-ruleset index space (both match fields).
+const remapBaselineMatchToFinal = (
+  entry: GearInspectorMatchWorkerItemResult,
+  offset: number,
+): GearInspectorMatchWorkerItemResult => (
+  offset === 0 ? entry : {
+    ...entry,
+    firstMatch: shiftMatchRuleIndex(entry.firstMatch, offset),
+    firstNonExcludedMatch: shiftMatchRuleIndex(entry.firstNonExcludedMatch, offset),
+  }
+)
+
 const buildPipelineMatches = async (
   mergedRules: HsfRuleWithRecipe[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
@@ -692,6 +723,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     })
     logTalcCounters(`after-mergedRulesFinal id=${id} rules=${mergedRulesFinal.length}`)
 
+    // Offset between baseline-relative and final-relative rule indices: the injected safeguard
+    // block is prepended, so every reused baseline match must shift its ruleIndex by this amount
+    // before the main thread looks it up in mergedRulesFinal. Baseline has no safeguard rules
+    // (detection=null) and both builds share merge params, so the offset is uniform. SSOT for the
+    // baseline→final index space lives in remapBaselineMatchToFinal.
+    const baselineToFinalIndexOffset = mergedRulesFinal.length - mergedRulesBaseline.length
+
     // The final ruleset differs from baseline ONLY by the injected safeguard keep-rules +
     // anticipateGaps placeholders. An item's final gear-inspector verdict can therefore differ
     // from its baseline verdict ONLY when a safeguard keep-override can fire for it — i.e. when
@@ -707,13 +745,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       && safeguardDetectionSnapshot.entries.length === 0
     let matches: GearInspectorMatchWorkerItemResult[]
     if (needsDetection && detectionFoundNothing) {
-      // Copy results from the baseline map in artifact order.
-      matches = artifactEntries.map(([itemId]) => baselineMatchMap.get(itemId) ?? {
-        itemId,
-        firstMatch: null,
-        firstNonExcludedMatch: null,
-        matchingRecipeIndices: [],
-        matchingRecipeDecisions: [],
+      // Copy results from the baseline map in artifact order, remapping baseline-relative rule
+      // indices into final-ruleset space (the main thread indexes mergedRulesFinal).
+      matches = artifactEntries.map(([itemId]) => {
+        const baseEntry = baselineMatchMap.get(itemId)
+        return baseEntry
+          ? remapBaselineMatchToFinal(baseEntry, baselineToFinalIndexOffset)
+          : { itemId, firstMatch: null, firstNonExcludedMatch: null, matchingRecipeIndices: [], matchingRecipeDecisions: [] }
       })
       if (total > 0) {
         emitPipelineProgress?.({ completed: total, total })
@@ -744,14 +782,17 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         runIsStale,
       )
       if (runIsStale()) return
-      // Merge: candidates take their freshly-evaluated final verdict; everyone else reuses the
-      // baseline verdict (already the final verdict for non-candidates).
+      // Merge: candidates take their freshly-evaluated final verdict (already final-indexed);
+      // everyone else reuses the baseline verdict, remapped from baseline- to final-index space.
       const candidateById = new Map(candidateMatches.map((m) => [m.itemId, m]))
-      matches = artifactEntries.map(([itemId]) =>
-        candidateById.get(itemId)
-        ?? baselineMatchMap.get(itemId)
-        ?? { itemId, firstMatch: null, firstNonExcludedMatch: null, matchingRecipeIndices: [], matchingRecipeDecisions: [] },
-      )
+      matches = artifactEntries.map(([itemId]) => {
+        const candidate = candidateById.get(itemId)
+        if (candidate) return candidate
+        const baseEntry = baselineMatchMap.get(itemId)
+        return baseEntry
+          ? remapBaselineMatchToFinal(baseEntry, baselineToFinalIndexOffset)
+          : { itemId, firstMatch: null, firstNonExcludedMatch: null, matchingRecipeIndices: [], matchingRecipeDecisions: [] }
+      })
       if (total > 0 && finalProgressRef.value < total) {
         finalProgressRef.value = total
         emitPipelineProgress?.({ completed: total, total })
