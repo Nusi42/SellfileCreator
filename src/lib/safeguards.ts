@@ -1,7 +1,7 @@
 import { stableSerialize } from './stableSerialize'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
-import { normalizeSubstatByMax6, getGlyphAverageForVariant, mainStatRankRatio } from './substatRollNormalization'
+import { substatNormalizedContribution, mainStatRankRatio } from './substatRollNormalization'
 import { retainAllowedSubstats } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
@@ -1193,10 +1193,15 @@ const getArtifactSubstatValue = (artifact: NormalizedGearArtifact, variant: numb
 }
 
 // Compute safeguard ranking score using weighted normalized selected substats.
-// Includes glyph potential: for each present glyphable substat, the average glyph
-// enchantment value for the artifact's rank is added to the score. This accounts for
-// higher-rank gear having access to stronger glyphs even if raw substats are lower.
-// Exported so safeguardImprovementChance.ts shares one definition (SSOT).
+// Each present substat contributes via the shared substatNormalizedContribution helper:
+// its weighted normalized current value plus rank-limited glyph potential (stronger glyphs
+// at higher ranks), so higher-rank gear scores above an equal-substat lower-rank piece on
+// glyphable stats. The main-stat rank bonus is added after the per-substat sum.
+// This is a TS parity/diagnostic mirror of the authoritative Rust safeguard_compute_score
+// (wasm/rule_engine_core/src/safeguards/mod.rs), which drives the live keep/sell decision and
+// improvement chance. This TS copy is not on the runtime path — its only callers are the
+// instrument-safeguard-piece tooling script and unit tests; keep it byte-for-byte in step
+// with the Rust formula so those parity checks stay meaningful.
 export const computeSafeguardScoreFromArtifact = (
   artifact: NormalizedGearArtifact,
   selectedSubstats: readonly number[],
@@ -1208,16 +1213,9 @@ export const computeSafeguardScoreFromArtifact = (
   let total = 0
   for (const variant of selectedSubstats) {
     const raw = getArtifactSubstatValue(artifact, variant)
-    const normalized = normalizeSubstatByMax6(variant as StatVariant, raw)
     const weight = Number(weights.get(variant) ?? 1)
-    total += weight * normalized
-    // Add glyph potential for present substats (0 for non-glyphable or missing).
-    if (raw > 0) {
-      const glyphAvg = getGlyphAverageForVariant(rank, variant)
-      if (glyphAvg > 0) {
-        total += weight * normalizeSubstatByMax6(variant as StatVariant, glyphAvg)
-      }
-    }
+    // Shared SSOT contribution: normalized current value + rank-limited glyph potential.
+    total += substatNormalizedContribution(rank, variant as StatVariant, raw, weight)
   }
   // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
   // gated by the toggle and by having at least one selected substat (constant across levels).

@@ -424,3 +424,31 @@ test('sortGearInspectorRows breaks full ties by artifact id', () => {
   const sorted = sortGearInspectorRows([second, first])
   assert.deepEqual(sorted, [first, second])
 })
+
+test('normalized sort ranks a 6★ above an equal-substat 5★ via rank-limited glyph potential (glyphable stat)', () => {
+  // Same rolled SPD on both; only the glyph tier (5.5 avg at 6★ vs 3 at 5★) separates them.
+  const sixStar = makeGearInspectorRow({ id: 1, rank: 6 as RankValue, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const fiveStar = makeGearInspectorRow({ id: 2, rank: 5 as RankValue, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const sorted = sortGearInspectorRowsBySubstats([fiveStar, sixStar], {
+    priorities: [StatVariant.SPD],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+    normalized: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2])
+})
+
+test('normalized sort leaves non-glyphable CR tied, then the natural rank tie-breaker favors the 6★', () => {
+  // CR is non-glyphable → identical normalized score → fall through to natural ordering (rank desc).
+  const sixStar = makeGearInspectorRow({ id: 1, rank: 6 as RankValue, substats: [makeSubstat(StatVariant.CR, 5)] })
+  const fiveStar = makeGearInspectorRow({ id: 2, rank: 5 as RankValue, substats: [makeSubstat(StatVariant.CR, 5)] })
+  const sorted = sortGearInspectorRowsBySubstats([fiveStar, sixStar], {
+    priorities: [StatVariant.CR],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+    normalized: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2])
+})

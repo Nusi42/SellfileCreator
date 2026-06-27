@@ -8,7 +8,7 @@ import {
   type ArtifactTypeId,
 } from './types'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
-import { normalizeSubstatByMax6 } from './substatRollNormalization'
+import { substatNormalizedContribution } from './substatRollNormalization'
 
 const generalSlotBucket = (slot: ArtifactTypeId): number => (isAccessorySlot(slot) ? 1 : 0)
 
@@ -355,14 +355,18 @@ export function computeGearInspectorNormalizedSubstatScore(
   if (!spec.variants || spec.variants.length === 0) return null
   // Exclude-glyphs defaults to true in the rest of the sorter; keep the same bias here.
   const excludeGlyphs = spec.excludeGlyphs !== false
+  // Rank gates glyph potential to the piece's tier, so mixed-star gear sorts by the same
+  // glyph-aware formula the safeguard scorer uses (SSOT: substatNormalizedContribution).
+  const rank = Number(row.artifact.rank)
   // Sum all selected substats; missing ones are treated as 0 per statValueForSubstatSort's contract.
   let total = 0
   for (const variant of spec.variants) {
-    // Normalize every contribution by its 6★ roll cap so mixed stats become comparable.
+    // Current value respects the excludeGlyphs toggle (base+myth, optionally + applied glyph).
     const raw = statValueForSubstatSort(row, variant, excludeGlyphs)
     // Weights bias each contribution; missing/invalid weights fall back to 1.0.
     const weight = weightForNormalizedSum(spec.weights, variant)
-    total += weight * normalizeSubstatByMax6(variant, raw)
+    // Normalized current value + rank-limited glyph potential, so a 6★ outranks an equal-substat 5★.
+    total += substatNormalizedContribution(rank, variant, raw, weight)
   }
   // Treat non-finite totals as "no score" so callers never render NaN/Infinity into UI.
   return Number.isFinite(total) ? total : null

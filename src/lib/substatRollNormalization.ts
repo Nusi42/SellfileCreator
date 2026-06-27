@@ -66,3 +66,31 @@ export function normalizeSubstatByMax6(variant: StatVariant, rawValue: number): 
   // This keeps ordering faithful to "more (or better) rolls = higher score" while still using the same per-roll cap scale.
   return Math.max(0, value / max)
 }
+
+// Per-substat contribution to a glyph-aware normalized gear score: the weighted normalized
+// current value plus, when the substat is present, the weighted normalized average glyph
+// potential for the piece's rank. Glyphs apply at every rank but are capped to the gear's
+// rank tier (a 6★ gets stronger glyphs than a 5★), which is exactly how getGlyphAverageForVariant
+// is keyed — so a 6★ outscores an equal-substat 5★ on glyphable stats without inventing a multiplier.
+// SSOT shared by the safeguard scorer (safeguards.ts) and the Gear Inspector normalized sort
+// (gearInspectorSort.ts) so both rank mixed-star gear by the same formula. CR/CDMG are non-glyphable
+// (getGlyphAverageForVariant returns 0), so they contribute no rank separation here by design — their
+// 5★/6★ ordering is settled by the caller's rank tie-breaker instead.
+export function substatNormalizedContribution(
+  rank: number,
+  variant: StatVariant,
+  currentValue: number,
+  weight: number,
+): number {
+  // Normalized current value on the shared 6★ per-roll scale, biased by the caller's weight.
+  let total = weight * normalizeSubstatByMax6(variant, currentValue)
+  // Glyph potential only counts for substats that actually exist on the piece (rolled),
+  // mirroring the safeguard scorer's "present substat" gate.
+  if (currentValue > 0) {
+    const glyphAvg = getGlyphAverageForVariant(rank, variant)
+    if (glyphAvg > 0) {
+      total += weight * normalizeSubstatByMax6(variant, glyphAvg)
+    }
+  }
+  return total
+}
