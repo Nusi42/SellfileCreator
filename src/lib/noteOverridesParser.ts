@@ -357,6 +357,12 @@ const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: stri
 //   Deutscher Absatz / Absätze.
 //   <!-- end-lang -->
 //
+// Markers may hug their text inline (`<!-- lang -->EN<!-- lang:de -->DE<!-- end-lang -->`)
+// or sit on their own lines as shown above; both render identically because the one
+// structural newline a marker line contributes is trimmed off each slice (see
+// `stripMarkerBoundaryNewlines`). The bundled preset notes use the line-split shape so a
+// single locale's edit touches one line in the `.sfc`, not a line shared with other locales.
+//
 // The explicit `<!-- lang -->` open + `<!-- end-lang -->` close make the group a
 // self-contained unit: it answers the "which paragraphs belong together for fallback"
 // question the preset author raised — a whole group falls back to its base together,
@@ -369,6 +375,19 @@ const PROSE_LANG_GROUP_OPEN_REGEX = /<!--\s*lang\s*-->/gi
 const PROSE_LANG_VARIANT_REGEX = /<!--\s*lang:([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\s*-->/gi
 /** Closes a prose-localization group: `<!-- end-lang -->`. */
 const PROSE_LANG_CLOSE_REGEX = /<!--\s*end-lang\s*-->/gi
+
+/**
+ * Strip the one structural newline a marker line contributes on each side of a slice.
+ * In the multi-line authoring shape (markers on their own lines — the documented canonical
+ * form) every base/variant slice picks up a leading and/or trailing newline from the marker
+ * boundaries; removing a single leading and single trailing newline (plus the horizontal
+ * whitespace on that marker line) makes a group render identically whether authored inline
+ * (`<!-- lang -->X<!-- lang:de -->Y<!-- end-lang -->`) or split across lines for diff-friendly
+ * editing. The inline shape has no boundary newline, so this is a no-op there — existing
+ * single-line notes (and marker-free notes) are unaffected.
+ */
+const stripMarkerBoundaryNewlines = (slice: string): string =>
+  slice.replace(/^[^\S\n]*\n/, '').replace(/\n[^\S\n]*$/, '')
 
 /**
  * Resolve every `<!-- lang -->…<!-- end-lang -->` prose group in `note` for `lang`,
@@ -413,14 +432,14 @@ export const localizeNoteProse = (note: string, lang: string): string => {
     }
     // Base = body text up to the first variant marker (or the whole body when none).
     const baseEnd = variants.length > 0 ? variants[0]!.start : bodyEnd
-    const base = note.slice(bodyStart, baseEnd)
+    const base = stripMarkerBoundaryNewlines(note.slice(bodyStart, baseEnd))
     // code→variant: each variant slice runs to the next variant marker or to the close.
     const byLang = new Map<string, string>()
     for (let i = 0; i < variants.length; i += 1) {
       const segStart = variants[i]!.tagEnd
       const segEnd = i + 1 < variants.length ? variants[i + 1]!.start : bodyEnd
       // First definition wins, mirroring the inline resolver's duplicate policy.
-      if (!byLang.has(variants[i]!.code)) byLang.set(variants[i]!.code, note.slice(segStart, segEnd))
+      if (!byLang.has(variants[i]!.code)) byLang.set(variants[i]!.code, stripMarkerBoundaryNewlines(note.slice(segStart, segEnd)))
     }
     // Replace the whole group (open marker → close marker) with the picked slice.
     out += pickLocaleFromMap(byLang, base, lang)

@@ -63,35 +63,37 @@ test('note with no prose-lang group is returned unchanged', () => {
 test('prose group resolves to the matching language, replacing brackets + other variants', () => {
   const note =
     'Before.\n<!-- lang -->\nEnglish body.\n<!-- lang:de -->\nDeutscher Text.\n<!-- end-lang -->\nAfter.'
+  // Markers on their own lines: the one structural newline each marker contributes is
+  // trimmed, so the picked slice is just the body (no leading/trailing blank line).
   // German active → only the German slice survives between Before/After.
   assert.equal(
     localizeNoteProse(note, 'de-DE'),
-    'Before.\n\nDeutscher Text.\n\nAfter.',
+    'Before.\nDeutscher Text.\nAfter.',
   )
   // English/unknown active → the base (pre-variant) slice survives.
   assert.equal(
     localizeNoteProse(note, 'en-US'),
-    'Before.\n\nEnglish body.\n\nAfter.',
+    'Before.\nEnglish body.\nAfter.',
   )
   assert.equal(
     localizeNoteProse(note, 'fr-FR'),
-    'Before.\n\nEnglish body.\n\nAfter.',
+    'Before.\nEnglish body.\nAfter.',
   )
 })
 
 test('prose group falls back to the base as a whole when the language is absent', () => {
   // Only a `de` variant exists; an Italian viewer gets the full English base, never a mix.
   const note = '<!-- lang -->\nKeep your gear.\n<!-- lang:de -->\nBehalte deine Ausrüstung.\n<!-- end-lang -->'
-  assert.equal(localizeNoteProse(note, 'it-IT'), '\nKeep your gear.\n')
-  assert.equal(localizeNoteProse(note, 'de-DE'), '\nBehalte deine Ausrüstung.\n')
+  assert.equal(localizeNoteProse(note, 'it-IT'), 'Keep your gear.')
+  assert.equal(localizeNoteProse(note, 'de-DE'), 'Behalte deine Ausrüstung.')
 })
 
 test('prefix and exact-code precedence match the inline resolver (pt-BR beats pt)', () => {
   const note =
     '<!-- lang -->\nEN\n<!-- lang:pt -->\nPT generic\n<!-- lang:pt-BR -->\nPT Brasil\n<!-- end-lang -->'
-  assert.equal(localizeNoteProse(note, 'pt-BR'), '\nPT Brasil\n')
+  assert.equal(localizeNoteProse(note, 'pt-BR'), 'PT Brasil')
   // pt-PT has no exact slice → falls to the bare `pt` prefix slice.
-  assert.equal(localizeNoteProse(note, 'pt-PT'), '\nPT generic\n')
+  assert.equal(localizeNoteProse(note, 'pt-PT'), 'PT generic')
 })
 
 test('multiple prose groups in one note each resolve independently', () => {
@@ -116,10 +118,25 @@ test('rich markdown (colored spans, blink, headings) survives inside a variant',
   const note =
     '<!-- lang -->\n## Safe\n<span data-color="red">**Risk.**</span>\n' +
     '<!-- lang:de -->\n## Sicher\n<span data-color="red">**Gefahr.**</span>\n<!-- end-lang -->'
+  // Only the boundary newlines (right after `lang:de`, right before `end-lang`) are
+  // trimmed; the newline *inside* the variant body is preserved.
   assert.equal(
     localizeNoteProse(note, 'de-DE'),
-    '\n## Sicher\n<span data-color="red">**Gefahr.**</span>\n',
+    '## Sicher\n<span data-color="red">**Gefahr.**</span>',
   )
+})
+
+test('inline and line-split authoring of the same group render identically', () => {
+  // The diff-friendly split form (open + base on one line; each `lang:xx` variant on its
+  // own line) must resolve byte-for-byte the same as the compact inline form, for every
+  // locale — this is what lets the bundled preset notes be stored split-by-line.
+  const inline = 'A <!-- lang -->keep<!-- lang:de -->behalten<!-- end-lang --> B'
+  const split = 'A <!-- lang -->keep\n<!-- lang:de -->behalten<!-- end-lang --> B'
+  for (const lang of ['en-US', 'de-DE', 'fr-FR', 'pt-BR']) {
+    assert.equal(localizeNoteProse(split, lang), localizeNoteProse(inline, lang))
+  }
+  assert.equal(localizeNoteProse(split, 'de-DE'), 'A behalten B')
+  assert.equal(localizeNoteProse(split, 'en-US'), 'A keep B')
 })
 
 export {}
