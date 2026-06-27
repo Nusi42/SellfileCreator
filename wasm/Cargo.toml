@@ -3,16 +3,6 @@ members = ["rule_engine_core", "rule_engine_wasm", "rule_engine_dsim_wasm", "rul
 exclude = ["rule_engine"]
 resolver = "2"
 
-# rustc 1.93 introduced a const-eval regression (E0080 "scalar size mismatch")
-# that fires when wasm-bindgen's flat_byte_slices is inlined into js-sys const
-# initialisers during a wasm32 release build at opt-level=3.  Capping both
-# packages to opt-level=2 avoids the inlining path that triggers the bug while
-# keeping our own crates fully optimised.
-[profile.release.package.js-sys]
-opt-level = 2
-[profile.release.package.wasm-bindgen]
-opt-level = 2
-
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patches.
 # Fixes a talc 5.0.3 bug where the tag byte overlaps the end-size MSB, causing is_allocated()
 # to misidentify free gaps ≥16 MiB as allocated chunks, ultimately corrupting the free list.
