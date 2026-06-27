@@ -561,6 +561,7 @@ const enUS: Catalog = {
   safeguardsCandidateCutoff: "── cutoff (quota: {n}) ──",
   // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── quota: {n} per {scope} ──",
+  safeguardsCandidateChanceCutoff: "upgrade chance",
   // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "slot",
   safeguardsCountModeScopeSet: "set",

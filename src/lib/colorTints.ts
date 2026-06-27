@@ -92,6 +92,7 @@ export const TINT = {
   warningBgFaint:     tint('warning-main', ALPHA.a10),  // warning surface (App.tsx)
   warningFlashBg:     tint('warning-main', ALPHA.a18),  // row-change pulse bg (HsfRulesTable)
   warningGlow:        tint('warning-main', ALPHA.a60),  // metaset highlight glow (MetasetsDialog) — a60 glow step
+  warningBorder:      tint('warning-main', ALPHA.a40),  // chance-protected divider border (SafeguardCandidateRankList) — pairs errorRemovedBorder/successAddedBorder
   warningHighlightBg: tint('warning-light', ALPHA.a90), // metaset highlight bg (MetasetsDialog)
 
   // ── Primary accent (focus, selection, glow, pulse) ───────────────────────────

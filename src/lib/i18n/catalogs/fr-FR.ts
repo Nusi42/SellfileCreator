@@ -561,6 +561,7 @@ const overrides: Catalog = {
   safeguardsCandidateCutoff: "── limite (quota : {n}) ──",
   // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── quota : {n} par {scope} ──",
+  safeguardsCandidateChanceCutoff: "chance d’amélioration",
   // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "emplacement",
   safeguardsCountModeScopeSet: "set",

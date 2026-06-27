@@ -23,7 +23,9 @@ import EllipsisTooltip from './EllipsisTooltip'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SellIcon from '@mui/icons-material/Sell'
 import StarsIcon from '@mui/icons-material/Stars'
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_SECONDARY_REM, FONT_FAMILY_MONO } from '../lib/constants'
 import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
 import { createElement, useEffect, useMemo, useRef, useState } from 'react'
@@ -320,7 +322,19 @@ export default function SafeguardCandidateRankList({
 
   // Resolve substat column count — use parent-computed value (max across candidates) when available,
   // fall back to the rule's selection length so the layout is still valid before detection runs.
-  const resolvedSubstatColumnCount = substatColumnCount ?? Math.min(substats.length, SUBSTAT_SLOT_COUNT)
+  // Now that non-rule substats are rendered (dim), the column budget must cover all artifact
+  // substats, not just the rule-selected ones.  Scan the candidate list for the widest artifact.
+  const maxArtifactSubstats = candidates.reduce((m, c) => {
+    const n = artifactsByItemKey.get(c.itemKey)?.substats.length ?? 0
+    return n > m ? n : m
+  }, 0)
+  const resolvedSubstatColumnCount = Math.min(
+    SUBSTAT_SLOT_COUNT,
+    Math.max(
+      substatColumnCount ?? Math.min(substats.length, SUBSTAT_SLOT_COUNT),
+      maxArtifactSubstats,
+    ),
+  )
 
   // Suppress per-X labels that are no-ops given the selected combination filters.
   const effectiveCutoffMode = (combination && countMode)
@@ -361,6 +375,10 @@ export default function SafeguardCandidateRankList({
   // Split into kept (isWithinQuota) and sold (outside quota) preserving rank order.
   const kept = candidates.filter((c) => c.isWithinQuota && inFocus(c))
   const sold = candidates.filter((c) => !c.isWithinQuota && inFocus(c))
+  // Within kept, separate rank-protected (bucketRank ≤ quota) from chance-protected (bucketRank
+  // exceeds quota but isWithinQuota was set by the improvement-chance threshold).
+  const keptByRank = kept.filter((c) => c.bucketRank > 0 && c.bucketRank <= quota)
+  const keptByChance = kept.filter((c) => !(c.bucketRank > 0 && c.bucketRank <= quota))
 
   // Toggle focus to a candidate's group, or clear it when its group is already focused. Computed
   // against the current activeFocusKey so the setter never needs the functional-updater form (which
@@ -396,6 +414,7 @@ export default function SafeguardCandidateRankList({
     substatColors: substatColors ?? {},
     useStatButtonColors: useStatButtonColors ?? false,
     groupRankMode: activeFocusKey != null,
+    quota,
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
     t,
     theme,
@@ -405,8 +424,34 @@ export default function SafeguardCandidateRankList({
     <Box sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* The focus chip lives beside the "Candidates" header (rendered by SafeguardBuilderPanel) so it
           stays visible while this list scrolls — see SafeguardFocusGroupChip. */}
-      {/* All kept candidates */}
-      {kept.map((candidate) => (
+      {/* Rank-protected kept candidates (bucketRank ≤ quota). */}
+      {keptByRank.map((candidate) => (
+        <CandidateRow
+          key={candidate.itemKey}
+          candidate={candidate}
+          artifact={artifactsByItemKey.get(candidate.itemKey)}
+          previewRow={previewRowByItemKey?.get(candidate.itemKey)}
+          isFiltered={visibleItemKeys != null && !visibleItemKeys.has(candidate.itemKey)}
+          {...(onSelectCandidate ? { onSelectCandidate } : {})}
+          {...(focusable ? { onToggleFocus: () => toggleFocusFor(candidate.itemKey) } : {})}
+          isFocused={activeFocusKey != null && groupKeyFor(candidate.itemKey) === activeFocusKey}
+          {...rowCommonProps}
+        />
+      ))}
+      {/* Chance-protected divider — only rendered when improvement-chance threshold keeps items
+          beyond the rank quota. Dotted + warning colour distinguishes it from the dashed
+          text.disabled quota-cutoff below. */}
+      {keptByChance.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
+          <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
+          <Typography variant="caption" color="warning.main" sx={{ px: 0.75, whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_SECONDARY_REM}rem` }}>
+            {t('safeguardsCandidateChanceCutoff')}
+          </Typography>
+          <Divider sx={{ flex: 1, borderStyle: 'dotted', borderColor: TINT.warningBorder }} />
+        </Box>
+      )}
+      {/* Chance-protected kept candidates (bucketRank > quota, kept by improvement-chance threshold). */}
+      {keptByChance.map((candidate) => (
         <CandidateRow
           key={candidate.itemKey}
           candidate={candidate}
@@ -472,6 +517,7 @@ function CandidateRow({
   onToggleFocus,
   isFocused,
   groupRankMode,
+  quota,
   improvementChanceByItemKey,
   t,
   theme,
@@ -507,6 +553,8 @@ function CandidateRow({
   isFocused: boolean
   // True while a group is focused — show the per-group bucketRank instead of the global candidateRank.
   groupRankMode: boolean
+  // Rule quota — compared against candidate.bucketRank to detect chance-protected items.
+  quota: number
   // Improvement chance percent (current rule) keyed by item key — rendered left of the score.
   improvementChanceByItemKey: ReadonlyMap<number, number> | null
   t: ReturnType<typeof useI18n>['t']
@@ -534,7 +582,18 @@ function CandidateRow({
   // Unmatched: previewRow present but no match at all — not explicitly sold, just uncovered.
   const isUnmatched = previewRow != null && previewRow.match == null
   const isSold = !isSafeguarded && !isRecipeKept && !isUnmatched
-  const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? CheckCircleIcon : isSold ? SellIcon : null
+  // Chance-protected: bucketRank exceeds the rank quota — isWithinQuota was set by the
+  // improvement-chance threshold, not rank position alone. Recipe-kept chance-protected items
+  // get CheckCircleOutlinedIcon (outline) instead of CheckCircleIcon (filled) to signal
+  // "also kept for upgrade potential"; safeguarded items remain StarsIcon either way.
+  const isChanceProtected = candidate.bucketRank > 0 && candidate.bucketRank > quota
+  // True when the item's first match is specifically THIS safeguard rule (drives the triangle
+  // indicator in the reserved space to the right of the outcome badge). Without preview data
+  // we can only know the item is within quota — treat that as a match since it's why it's here.
+  const isCurrentRuleMatch = previewRow != null
+    ? (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
+    : candidate.isWithinQuota
+  const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? (isChanceProtected ? CheckCircleOutlinedIcon : CheckCircleIcon) : isSold ? SellIcon : null
   const badgeColor = isSafeguarded
     ? (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
     : isRecipeKept ? (theme.vars?.palette.success.main ?? theme.palette.success.main) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
@@ -577,12 +636,14 @@ function CandidateRow({
 
   // Improvement chance for the current rule on this artifact (absent → blank cell). Graded on an
   // absolute 0→100 scale from error (low) to success (high), mirroring the grid overlay's palette.
+  // Uses theme.palette.* (not theme.vars.palette.*) for JS-level RGB mixing — CSS-var strings
+  // returned by theme.vars are not parseable by parseCssColorToRgb and fall through to hardcoded
+  // light-mode fallbacks regardless of scheme.
   const improvementChance = improvementChanceByItemKey?.get(candidate.itemKey) ?? null
   const improvementChanceColor = ((): string | null => {
     if (improvementChance == null) return null
-    const lowRgb = parseCssColorToRgb(theme.vars?.palette.error.main ?? theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
-    const highRgb = parseCssColorToRgb(theme.vars?.palette.success.main ?? theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
-    // Clamp to [0,1] so out-of-range values never overshoot the mix.
+    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
     const ratio = Math.max(0, Math.min(1, improvementChance / 100))
     return ensureContrastOnBg(rgbToCss(mixRgb(lowRgb, highRgb, ratio)), rowSurfacePaper)
   })()
@@ -595,37 +656,62 @@ function CandidateRow({
 
   // Build cells for present rule substats only, sorted by weighted impact descending.
   // Impact = normalised weight × per-unit contribution for the artifact's actual substat value.
-  // Absent rule substats are omitted; roll glyphs and stat-button colors apply as usual.
-  const previewSubstatRollsByVariant = new Map(
-    (previewRow?.artifact.substats ?? []).map((s) => [s.variant, s.rolls ?? null]),
-  )
-  const substatCells = substats
-    .flatMap((variant) => {
-      // previewRow.artifact.substats uses NormalizedStat with plain JS-number variants —
-      // no BigInt concern. Detection-snapshot artifact variants may be BigInt (i64 via
-      // serde_wasm_bindgen 0.6 to_js_value), so coerce with Number() when falling back.
-      const previewArtSub = previewRow?.artifact.substats.find((s) => s.variant === variant)
-      const detArtSub = previewArtSub == null
-        ? artifact?.substats.find((s) => Number(s.variant) === variant)
-        : null
-      // NormalizedStat uses totalValue; SafeguardDetectionSubstat uses value.
-      const artSubValue = previewArtSub?.totalValue ?? detArtSub?.value
-      if (artSubValue == null) return []  // substat absent from this artifact — omit cell
-      const rawWeight = Number(weights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
-      const weight = normalizeGearInspectorSortWeight(rawWeight)
-      // Impact drives the sort order; higher impact substats appear first.
-      const impact = weight * normalizeSubstatByMax6(variant, artSubValue)
-      const rolls = previewSubstatRollsByVariant.get(variant) ?? null
-      const rollCount = (rolls !== null && rolls > 0) ? rolls : null
-      // Apply stat button color when enabled; fall back to muted secondary color.
-      const color = (useStatButtonColors && substatColors[variant]?.fg)
+  // Build substat cells: rule-selected substats first (sorted by weighted impact descending),
+  // then the artifact's remaining substats in canonical STAT_VARIANTS_PRIORITY order (dim/crossed-out).
+  // Prefer previewRow (NormalizedStat: totalValue + rolls + mythValue) over the detection snapshot
+  // (SafeguardDetectionSubstat: value only, BigInt variant — coerce with Number()).
+  const ruleSubstatSet = new Set(substats)
+  const allArtifactSubstats: Array<{ variant: StatVariant; value: number; rolls: number | null; mythValue: number }> =
+    previewRow?.artifact.substats
+      ? previewRow.artifact.substats.map((s) => ({
+          variant: s.variant as StatVariant,
+          value: s.totalValue,
+          rolls: s.rolls ?? null,
+          mythValue: s.mythValue,
+        }))
+      : (artifact?.substats ?? []).map((s) => ({
+          variant: Number(s.variant) as StatVariant,
+          value: s.value,
+          rolls: null,
+          mythValue: 0,
+        }))
+  // Neutral gray used as the base for dim cell blending.  Parsed once so all dim cells share it.
+  const dimNeutralRgb = parseCssColorToRgb(theme.palette.text.secondary)
+  const buildSubstatCell = (variant: StatVariant, value: number, rolls: number | null, mythValue: number, isDim: boolean) => {
+    const rawWeight = Number(weights[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)
+    const weight = normalizeGearInspectorSortWeight(rawWeight)
+    const impact = weight * normalizeSubstatByMax6(variant, value)
+    const rollCount = (rolls !== null && rolls > 0) ? rolls : null
+    let color: string | null
+    if (!isDim) {
+      // Rule-selected: full stat-button color (or null → text.secondary via sx).
+      color = (useStatButtonColors && substatColors[variant]?.fg)
         ? (adaptSubstatFgOnSurface(substatColors[variant].fg, rowSurfacePaper) ?? null)
         : null
-      // Mythic bonus is only detectable from NormalizedStat (previewRow); detection-only path has no mythValue.
-      const isMythic = (previewArtSub?.mythValue ?? 0) >= MYTHIC_BONUS_MIN
-      return [{ variant, label: t(statVariantI18nKey(variant)), rollCount, color, impact, isMythic }]
-    })
+    } else if (useStatButtonColors && substatColors[variant]?.fg) {
+      // Dim non-rule: neutral gray tinted 20% toward the stat color for a "barely-there hue".
+      const adaptedStatColor = adaptSubstatFgOnSurface(substatColors[variant].fg, rowSurfacePaper)
+      const statRgb = adaptedStatColor ? parseCssColorToRgb(adaptedStatColor) : null
+      color = (statRgb && dimNeutralRgb)
+        ? rgbToCss(mixRgb(dimNeutralRgb, statRgb, 0.2))
+        : null
+    } else {
+      color = null  // → text.secondary via sx
+    }
+    const isMythic = mythValue >= MYTHIC_BONUS_MIN
+    return { variant, label: t(statVariantI18nKey(variant)), rollCount, color, impact, isMythic, isDim }
+  }
+  // Part 1: rule substats present on this artifact, sorted by weighted impact descending.
+  const ruleSubstatCells = allArtifactSubstats
+    .filter((s) => ruleSubstatSet.has(s.variant))
+    .map((s) => buildSubstatCell(s.variant, s.value, s.rolls, s.mythValue, false))
     .sort((a, b) => b.impact - a.impact)
+  // Part 2: non-rule substats present on this artifact, in canonical STAT_VARIANTS_PRIORITY order.
+  const dimSubstatCells = allArtifactSubstats
+    .filter((s) => !ruleSubstatSet.has(s.variant))
+    .sort((a, b) => STAT_VARIANTS_PRIORITY.indexOf(a.variant) - STAT_VARIANTS_PRIORITY.indexOf(b.variant))
+    .map((s) => buildSubstatCell(s.variant, s.value, s.rolls, s.mythValue, true))
+  const substatCells = [...ruleSubstatCells, ...dimSubstatCells]
 
   const rowNode = (
     <Box
@@ -756,6 +842,9 @@ function CandidateRow({
                 flexGrow: 0,
                 flexShrink: 0,
                 textAlign: 'left',
+                // Non-rule substats: rendered in a neutral-tinted gray (computed in buildSubstatCell)
+                // at reduced opacity so they read as clearly secondary without disappearing.
+                ...(cell.isDim ? { opacity: ALPHA.a30 } : undefined),
                 // noWrap sets overflow:hidden which clips the child span's box-shadow.
                 // Override to visible for mythic cells — labels are short and won't overflow.
                 ...(cell.isMythic ? { overflow: 'visible' } : undefined),
@@ -784,9 +873,9 @@ function CandidateRow({
             </Typography>
           </EllipsisTooltip>
         ))}
-        {/* Empty placeholder cells to pad up to substatColumnCount (max matching substats across candidates).
+        {/* Empty placeholder cells to pad up to substatColumnCount (max substats across candidates).
             Keeps every row the same column width so the score/badge/match columns stay aligned. */}
-        {Array.from({ length: substatColumnCount - substatCells.length }, (_, i) => (
+        {Array.from({ length: Math.max(0, substatColumnCount - substatCells.length) }, (_, i) => (
           <Box key={`ph-${i}`} sx={{ width: substatCellWidthPx, flexShrink: 0, flexGrow: 0 }} />
         ))}
       </Box>
@@ -811,6 +900,12 @@ function CandidateRow({
           Unmatched items render an empty placeholder so columns stay aligned. */}
       <Box title={badgeTitle} sx={{ color: badgeColor, lineHeight: 0, flexShrink: 0, display: 'flex', alignItems: 'center', width: 14 }}>
         {BadgeIcon && <BadgeIcon sx={{ fontSize: 14 }} />}
+      </Box>
+      {/* Triangle indicator: small right-pointing arrow that appears when this item's first match
+          is specifically the current safeguard rule — lets users scan "which pieces belong here"
+          at a glance. Empty space of the same width for all other items so columns stay aligned. */}
+      <Box sx={{ width: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isCurrentRuleMatch && <PlayArrowIcon sx={{ fontSize: 10, color: 'warning.main' }} />}
       </Box>
       {/* Match source: rule or recipe name that explains the outcome.
           Parsed for [rrggbb] color directives; white by default. Truncates with ellipsis + OS title. */}
