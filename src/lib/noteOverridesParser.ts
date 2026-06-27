@@ -374,12 +374,12 @@ const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: stri
   return byLang.get(lower) ?? byLang.get(prefix) ?? base
 }
 
-// ── Block-level prose localization (`<!-- lang -->…<!-- end-lang -->`) ────────────
+// ── Block-level prose localization (`<!-- lang -->…<!-- /lang -->`) ────────────
 // Companion to the inline `[[xx]]` DSL localizer, but for whole prose regions in the
 // Note markdown. A *group* is bracketed by an opening `<!-- lang -->` and a closing
-// `<!-- end-lang -->`. Inside, the text before the first `<!-- lang:xx -->` marker is
+// `<!-- /lang -->`. Inside, the text before the first `<!-- lang:xx -->` marker is
 // the English BASE; each `<!-- lang:xx -->` marker starts a localized variant running
-// to the next variant marker or to end-lang. At render time exactly one slice survives
+// to the next variant marker or to /lang. At render time exactly one slice survives
 // — the active language (exact→prefix) or, when none matches, the base.
 //
 // Authoring shape (base first, then variants; explicit open + close brackets):
@@ -387,15 +387,15 @@ const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: stri
 //   English paragraph(s).
 //   <!-- lang:de -->
 //   Deutscher Absatz / Absätze.
-//   <!-- end-lang -->
+//   <!-- /lang -->
 //
-// Markers may hug their text inline (`<!-- lang -->EN<!-- lang:de -->DE<!-- end-lang -->`)
+// Markers may hug their text inline (`<!-- lang -->EN<!-- lang:de -->DE<!-- /lang -->`)
 // or sit on their own lines as shown above; both render identically because the one
 // structural newline a marker line contributes is trimmed off each slice (see
 // `stripMarkerBoundaryNewlines`). The bundled preset notes use the line-split shape so a
 // single locale's edit touches one line in the `.sfc`, not a line shared with other locales.
 //
-// The explicit `<!-- lang -->` open + `<!-- end-lang -->` close make the group a
+// The explicit `<!-- lang -->` open + `<!-- /lang -->` close make the group a
 // self-contained unit: it answers the "which paragraphs belong together for fallback"
 // question the preset author raised — a whole group falls back to its base together,
 // never interleaving languages. Markers are plain HTML comments, so legacy renderers /
@@ -405,8 +405,23 @@ const pickLocaleFromMap = (byLang: Map<string, string>, base: string, lang: stri
 const PROSE_LANG_GROUP_OPEN_REGEX = /<!--\s*lang\s*-->/gi
 /** Opens a localized variant inside a group: `<!-- lang:de -->`. */
 const PROSE_LANG_VARIANT_REGEX = /<!--\s*lang:([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\s*-->/gi
-/** Closes a prose-localization group: `<!-- end-lang -->`. */
-const PROSE_LANG_CLOSE_REGEX = /<!--\s*end-lang\s*-->/gi
+/** Closes a prose-localization group: `<!-- /lang -->`. */
+const PROSE_LANG_CLOSE_REGEX = /<!--\s*\/lang\s*-->/gi
+
+// ── Conditional "no-endpoint" block markers ──────────────────────────────────
+// `<!-- if-no-endpoint -->…<!-- /if-no-endpoint -->` wraps content shown only while the app
+// is NOT connected to RSL Helper. The rendering (a rehype plugin) lives in NoteDialog; the
+// marker *grammar* lives here, beside the prose-lang markers, so it stays in one place and is
+// unit-testable without NoteDialog's browser dependencies. Matched against an HTML comment's
+// body (the text between `<!--` and `-->`), so these patterns carry no `<!--`/`-->`.
+/** Opens a connection-conditional block: `<!-- if-no-endpoint -->`. */
+export const CONDITIONAL_BLOCK_OPEN_REGEX = /^\s*if-no-endpoint\s*$/i
+/**
+ * Closes a connection-conditional block. Canonical close is `<!-- /if-no-endpoint -->`; the
+ * legacy `<!-- end-if -->` form shipped in earlier presets and is still accepted on read, so
+ * older saved notes keep working (lenient input, canonical output).
+ */
+export const CONDITIONAL_BLOCK_CLOSE_REGEX = /^\s*(?:\/if-no-endpoint|end-if)\s*$/i
 
 /**
  * Strip the one structural newline a marker line contributes on each side of a slice.
@@ -414,7 +429,7 @@ const PROSE_LANG_CLOSE_REGEX = /<!--\s*end-lang\s*-->/gi
  * form) every base/variant slice picks up a leading and/or trailing newline from the marker
  * boundaries; removing a single leading and single trailing newline (plus the horizontal
  * whitespace on that marker line) makes a group render identically whether authored inline
- * (`<!-- lang -->X<!-- lang:de -->Y<!-- end-lang -->`) or split across lines for diff-friendly
+ * (`<!-- lang -->X<!-- lang:de -->Y<!-- /lang -->`) or split across lines for diff-friendly
  * editing. The inline shape has no boundary newline, so this is a no-op there — existing
  * single-line notes (and marker-free notes) are unaffected.
  */
@@ -422,7 +437,7 @@ const stripMarkerBoundaryNewlines = (slice: string): string =>
   slice.replace(/^[^\S\n]*\n/, '').replace(/\n[^\S\n]*$/, '')
 
 /**
- * Resolve every `<!-- lang -->…<!-- end-lang -->` prose group in `note` for `lang`,
+ * Resolve every `<!-- lang -->…<!-- /lang -->` prose group in `note` for `lang`,
  * leaving all other text (and unrelated markers) untouched. Pure string transform run
  * once at the render boundary, before markdown + override-marker parsing.
  *

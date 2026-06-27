@@ -114,7 +114,7 @@ import {
   DynamicOverridesPresetMenuItems,
   DynamicOverridesPresetDialogs,
 } from './NoteDynamicOverridesPresets'
-import { formatNoteTagSelector, localizeNoteProse, type NoteTagSelector } from '../lib/noteOverridesParser'
+import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNoteTagSelector, localizeNoteProse, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -502,14 +502,25 @@ const DUNGEON_SIM_COMMENT_REGEX = /^\s*dungeon-simulator\s*$/i
 // Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
 const DUNGEON_SIM_ELEMENT_TAG = 'dungeon-sim-block'
 
+// ── Collapsible section block (<!-- collapse --> … <!-- /collapse -->) ──
+// Wraps a marker range in a click-to-expand section (default collapsed) so optional
+// override controls don't overwhelm the note's first impression. The header text stays
+// visible in both states; it may carry an inline [[xx]] locale variant resolved at render.
+const COLLAPSE_OPEN_REGEX = /^\s*collapse\s*$/i
+const COLLAPSE_CLOSE_REGEX = /^\s*\/collapse\s*$/i
+// Custom element tag the open/close range is wrapped into. The first child inside the range is
+// the section title (a normal localized `<!-- lang -->` line) promoted to the clickable header.
+const COLLAPSE_ELEMENT_TAG = 'note-collapse-block'
+
 // ── Conditional "no endpoint" block ──────────────────────────────────────────
-// Wrapping directive: content between <!-- if-no-endpoint --> and <!-- end-if -->
+// Wrapping directive: content between <!-- if-no-endpoint --> and <!-- /if-no-endpoint -->
 // is shown only while the app is NOT connected to RSL Helper. The markers are
 // authored as plain HTML comments so legacy renderers (and the raw .sfc text)
-// degrade gracefully — the comment markers simply stay invisible.
-const IF_NO_ENDPOINT_OPEN_REGEX = /^\s*if-no-endpoint\s*$/i
-// Closing marker, shared by any future conditional directives.
-const IF_BLOCK_CLOSE_REGEX = /^\s*end-if\s*$/i
+// degrade gracefully — the comment markers simply stay invisible. The marker grammar
+// (incl. the legacy `<!-- end-if -->` reader) lives in noteOverridesParser, next to the
+// prose-lang markers, so it can be unit-tested without NoteDialog's browser deps.
+const IF_NO_ENDPOINT_OPEN_REGEX = CONDITIONAL_BLOCK_OPEN_REGEX
+const IF_BLOCK_CLOSE_REGEX = CONDITIONAL_BLOCK_CLOSE_REGEX
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -1332,7 +1343,7 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
   }
 }
 
-// Wrap <!-- if-no-endpoint --> … <!-- end-if --> ranges in a <div> tagged with
+// Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges in a <div> tagged with
 // NOTE_CONDITIONAL_ATTR. The content is ALWAYS emitted into the DOM (never dropped)
 // so visibility can be animated purely in CSS: the live connection state toggles a
 // class on the note container, and NOTE_CONDITIONAL_SX fades + collapses the div.
@@ -1380,13 +1391,109 @@ const rehypeConditionalEndpointComments: Pluggable = () => {
         if (inBlock) buffer.push(child)
         else next.push(child)
       }
-      // Unterminated range (missing end-if): still wrap what we collected.
+      // Unterminated range (missing /if-no-endpoint): still wrap what we collected.
       flushBuffer()
       // Replace children in place to preserve the node reference.
       ;(node as { children: RootContent[] }).children = next
     }
     transform(tree)
   }
+}
+
+// Wrap <!-- collapse --> … <!-- /collapse --> ranges in a <note-collapse-block>
+// element carrying the title. Mirrors rehypeConditionalEndpointComments (sibling-level scan,
+// recurse into elements) but captures the per-range title from the open marker. Runs after the
+// override/question transforms so the wrapped children are already the rendered question cards.
+const rehypeCollapseSectionComments: Pluggable = () => {
+  return (tree: Root) => {
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      const next: RootContent[] = []
+      let inBlock = false
+      let buffer: RootContent[] = []
+      const flushBuffer = (): void => {
+        if (!inBlock) return
+        next.push({
+          type: 'element',
+          tagName: COLLAPSE_ELEMENT_TAG,
+          properties: {},
+          children: buffer,
+        } as Element)
+        buffer = []
+      }
+      for (const child of nodeChildren) {
+        if (child.type === 'comment') {
+          const value = (child as { value?: string }).value ?? ''
+          if (COLLAPSE_OPEN_REGEX.test(value)) {
+            // A new section closes any previous unterminated one.
+            flushBuffer()
+            inBlock = true
+            continue
+          }
+          if (COLLAPSE_CLOSE_REGEX.test(value)) {
+            flushBuffer()
+            inBlock = false
+            continue
+          }
+        }
+        // Recurse so nested ranges (if any) resolve too.
+        if (child.type === 'element') transform(child as Element)
+        if (inBlock) buffer.push(child)
+        else next.push(child)
+      }
+      // Unterminated range (missing /collapse): still wrap what we collected.
+      flushBuffer()
+      ;(node as { children: RootContent[] }).children = next
+    }
+    transform(tree)
+  }
+}
+
+// Renders a <note-collapse-block> as a click-to-expand section, collapsed by default. The
+// header label is shown in both states (so a collapsed section still says what it holds) and
+// is localized through the shared inline [[xx]] resolver. Children (already-rendered override
+// cards) stay mounted inside the MUI Collapse so their answer state survives expand/collapse.
+const NoteCollapseSection: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+  const { isEditorPreview } = useNoteRenderContext()
+  const [open, setOpen] = React.useState(false)
+  // Edit+preview mode renders the children verbatim — no collapse, no header chrome, no wrapper.
+  // The split-pane editor relies on the preview DOM mirroring the source (for scroll/anchor sync
+  // and text selection); any extra interactive element here breaks that. The author still sees
+  // the `<!-- collapse -->` markers + the title line in the source pane.
+  if (isEditorPreview) return <>{children}</>
+  // The first block inside the range is the section title (a localized `<!-- lang -->` line);
+  // promote it to the click-to-toggle header, collapse the rest. The rehype plugin emits the
+  // range as a flat children array, so a plain array split is sufficient (and avoids the
+  // Children.toArray lint rule); whitespace-only text nodes between blocks are dropped first.
+  const items = (Array.isArray(children) ? children : [children])
+    .filter((c) => !(typeof c === 'string' && c.trim() === ''))
+  const [header, ...body] = items
+  const toggle = (): void => setOpen((prev) => !prev)
+  return (
+    <Box sx={{ my: 1 }}>
+      <Box
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={toggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+        sx={{
+          display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
+          color: (theme: Theme) => theme.palette.warning.main, fontWeight: 700,
+          '& > :not(svg)': { m: 0 },
+        }}
+      >
+        <ExpandMoreIcon
+          fontSize="small"
+          sx={{ flexShrink: 0, transition: 'transform 150ms', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+        {header}
+      </Box>
+      <Collapse in={open}>
+        <Box sx={{ pt: 0.5 }}>{body}</Box>
+      </Collapse>
+    </Box>
+  )
 }
 
 // ── safeguard-overrides rehype plugins ────────────────────────────────────────
@@ -4278,7 +4385,7 @@ export default function NoteDialog({
   // first paint is already correct. The deferred value is kept only to surface a brief
   // pending indicator while React is still working through a large note transition.
   const deferredNote = useDeferredValue(note)
-  // Resolve `<!-- lang -->…<!-- end-lang -->` prose groups for the active language before
+  // Resolve `<!-- lang -->…<!-- /lang -->` prose groups for the active language before
   // any markdown / override-marker parsing. Pure text transform: the editor still saves the
   // raw multi-language source (`note`); only this view-side derived string is localized, so
   // persisted data is never touched. Memoized on (note, lang) so the downstream marker memos
@@ -4812,7 +4919,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG || tag === COLLAPSE_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -4868,6 +4975,7 @@ export default function NoteDialog({
         SAFEGUARD_ELEMENT_TAG,
         QUESTION_ELEMENT_TAG,
         QUESTION_GROUP_ELEMENT_TAG,
+        COLLAPSE_ELEMENT_TAG,
         SG_QUESTION_ELEMENT_TAG,
         SG_QUESTION_GROUP_ELEMENT_TAG,
         DUNGEON_SIM_ELEMENT_TAG,
@@ -4889,10 +4997,13 @@ export default function NoteDialog({
       rehypeSafeguardOverridesGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
-      // Wrap <!-- if-no-endpoint --> … <!-- end-if --> ranges (always present in the
+      // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges (always present in the
       // DOM) before sanitize strips the comment markers. State-independent: the
       // wrapper is shown/hidden via CSS keyed on the container's connection attr.
       rehypeConditionalEndpointComments,
+      // Wrap <!-- collapse --> … <!-- /collapse --> ranges after the override
+      // transforms, so collapsed sections contain the finished question cards.
+      rehypeCollapseSectionComments,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
@@ -4906,6 +5017,8 @@ export default function NoteDialog({
     [SG_QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders a live dungeon simulation summary table from <!-- dungeon-simulator -->.
     [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    // Renders a <!-- collapse --> … <!-- /collapse --> range as a collapsible section.
+    [COLLAPSE_ELEMENT_TAG]: NoteCollapseSection as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
   // Shared minimize animation: shrinks the paper toward the Note button in the builder.

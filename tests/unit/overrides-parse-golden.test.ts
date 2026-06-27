@@ -166,7 +166,6 @@ Q "Keep weak \`6★\` pieces from any gear set " cols=0
 Q "Actually, just **sell** all weak \`Chaos " cols=1
   ore_chaos_master_keep s * needs[ore5_epic,ore5_legendary,ore5_mythical,ore6_epic,ore6_legendary,ore6_mythical,ore6as_epic,ore6as_legendary,ore6as_mythical]
   ore_chaos_master_sell s blk:keepAction
-Q "" cols=1 SPACER
 == SAFEGUARD ==
 Q "How many of the best SPD banners **per f" cols=2
   min_spdbanner_pieces s blk:count sld:1-64/16 unit: pieces

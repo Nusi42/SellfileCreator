@@ -6,6 +6,8 @@ import {
   dslLocaleBase,
   localizeNoteProse,
   tokenize,
+  CONDITIONAL_BLOCK_OPEN_REGEX,
+  CONDITIONAL_BLOCK_CLOSE_REGEX,
 } from '../../src/lib/noteOverridesParser.js'
 
 // The inline `[[xx]]` localization primitive used by recipe/safeguard override
@@ -52,7 +54,7 @@ test('a string starting with [[en]] has an empty base but still resolves', () =>
   assert.equal(localizeDslDisplay(raw, 'de-DE'), 'Ja')
 })
 
-// ── Block-level prose localization (`<!-- lang -->…<!-- end-lang -->`) ────────────
+// ── Block-level prose localization (`<!-- lang -->…<!-- /lang -->`) ────────────
 // Whole-paragraph localization for the Note markdown, sharing the inline resolver's
 // exact→prefix→base precedence. The group brackets define the fallback unit.
 
@@ -63,7 +65,7 @@ test('note with no prose-lang group is returned unchanged', () => {
 
 test('prose group resolves to the matching language, replacing brackets + other variants', () => {
   const note =
-    'Before.\n<!-- lang -->\nEnglish body.\n<!-- lang:de -->\nDeutscher Text.\n<!-- end-lang -->\nAfter.'
+    'Before.\n<!-- lang -->\nEnglish body.\n<!-- lang:de -->\nDeutscher Text.\n<!-- /lang -->\nAfter.'
   // Markers on their own lines: the one structural newline each marker contributes is
   // trimmed, so the picked slice is just the body (no leading/trailing blank line).
   // German active → only the German slice survives between Before/After.
@@ -84,14 +86,14 @@ test('prose group resolves to the matching language, replacing brackets + other 
 
 test('prose group falls back to the base as a whole when the language is absent', () => {
   // Only a `de` variant exists; an Italian viewer gets the full English base, never a mix.
-  const note = '<!-- lang -->\nKeep your gear.\n<!-- lang:de -->\nBehalte deine Ausrüstung.\n<!-- end-lang -->'
+  const note = '<!-- lang -->\nKeep your gear.\n<!-- lang:de -->\nBehalte deine Ausrüstung.\n<!-- /lang -->'
   assert.equal(localizeNoteProse(note, 'it-IT'), 'Keep your gear.')
   assert.equal(localizeNoteProse(note, 'de-DE'), 'Behalte deine Ausrüstung.')
 })
 
 test('prefix and exact-code precedence match the inline resolver (pt-BR beats pt)', () => {
   const note =
-    '<!-- lang -->\nEN\n<!-- lang:pt -->\nPT generic\n<!-- lang:pt-BR -->\nPT Brasil\n<!-- end-lang -->'
+    '<!-- lang -->\nEN\n<!-- lang:pt -->\nPT generic\n<!-- lang:pt-BR -->\nPT Brasil\n<!-- /lang -->'
   assert.equal(localizeNoteProse(note, 'pt-BR'), 'PT Brasil')
   // pt-PT has no exact slice → falls to the bare `pt` prefix slice.
   assert.equal(localizeNoteProse(note, 'pt-PT'), 'PT generic')
@@ -99,14 +101,14 @@ test('prefix and exact-code precedence match the inline resolver (pt-BR beats pt
 
 test('multiple prose groups in one note each resolve independently', () => {
   const note =
-    'A <!-- lang -->one<!-- lang:de -->eins<!-- end-lang --> B ' +
-    '<!-- lang -->two<!-- lang:de -->zwei<!-- end-lang --> C'
+    'A <!-- lang -->one<!-- lang:de -->eins<!-- /lang --> B ' +
+    '<!-- lang -->two<!-- lang:de -->zwei<!-- /lang --> C'
   assert.equal(localizeNoteProse(note, 'de-DE'), 'A eins B zwei C')
   assert.equal(localizeNoteProse(note, 'en-US'), 'A one B two C')
 })
 
 test('group with no variants keeps its body verbatim, dropping only the brackets', () => {
-  const note = 'X <!-- lang -->just base<!-- end-lang --> Y'
+  const note = 'X <!-- lang -->just base<!-- /lang --> Y'
   assert.equal(localizeNoteProse(note, 'de-DE'), 'X just base Y')
 })
 
@@ -118,8 +120,8 @@ test('unterminated group degrades safely (open marker left as-is, no crash)', ()
 test('rich markdown (colored spans, blink, headings) survives inside a variant', () => {
   const note =
     '<!-- lang -->\n## Safe\n<span data-color="red">**Risk.**</span>\n' +
-    '<!-- lang:de -->\n## Sicher\n<span data-color="red">**Gefahr.**</span>\n<!-- end-lang -->'
-  // Only the boundary newlines (right after `lang:de`, right before `end-lang`) are
+    '<!-- lang:de -->\n## Sicher\n<span data-color="red">**Gefahr.**</span>\n<!-- /lang -->'
+  // Only the boundary newlines (right after `lang:de`, right before `/lang`) are
   // trimmed; the newline *inside* the variant body is preserved.
   assert.equal(
     localizeNoteProse(note, 'de-DE'),
@@ -131,13 +133,33 @@ test('inline and line-split authoring of the same group render identically', () 
   // The diff-friendly split form (open + base on one line; each `lang:xx` variant on its
   // own line) must resolve byte-for-byte the same as the compact inline form, for every
   // locale — this is what lets the bundled preset notes be stored split-by-line.
-  const inline = 'A <!-- lang -->keep<!-- lang:de -->behalten<!-- end-lang --> B'
-  const split = 'A <!-- lang -->keep\n<!-- lang:de -->behalten<!-- end-lang --> B'
+  const inline = 'A <!-- lang -->keep<!-- lang:de -->behalten<!-- /lang --> B'
+  const split = 'A <!-- lang -->keep\n<!-- lang:de -->behalten<!-- /lang --> B'
   for (const lang of ['en-US', 'de-DE', 'fr-FR', 'pt-BR']) {
     assert.equal(localizeNoteProse(split, lang), localizeNoteProse(inline, lang))
   }
   assert.equal(localizeNoteProse(split, 'de-DE'), 'A behalten B')
   assert.equal(localizeNoteProse(split, 'en-US'), 'A keep B')
+})
+
+// ── Conditional-block markers + legacy `end-if` reader ───────────────────────
+// Regexes match an HTML comment's body (the text between `<!--` and `-->`).
+
+test('conditional block close accepts the canonical /if-no-endpoint and the legacy end-if', () => {
+  // Canonical close (the only form the writer emits).
+  assert.ok(CONDITIONAL_BLOCK_CLOSE_REGEX.test(' /if-no-endpoint '))
+  // Legacy form that shipped in earlier presets — still accepted so old saved notes keep working.
+  assert.ok(CONDITIONAL_BLOCK_CLOSE_REGEX.test(' end-if '))
+  assert.ok(CONDITIONAL_BLOCK_CLOSE_REGEX.test('end-if'))
+  // The open marker is not a close; an unrelated close (collapse) does not match either.
+  assert.equal(CONDITIONAL_BLOCK_CLOSE_REGEX.test(' if-no-endpoint '), false)
+  assert.equal(CONDITIONAL_BLOCK_CLOSE_REGEX.test(' /collapse '), false)
+})
+
+test('conditional block open matches only the opener', () => {
+  assert.ok(CONDITIONAL_BLOCK_OPEN_REGEX.test(' if-no-endpoint '))
+  assert.equal(CONDITIONAL_BLOCK_OPEN_REGEX.test(' /if-no-endpoint '), false)
+  assert.equal(CONDITIONAL_BLOCK_OPEN_REGEX.test(' end-if '), false)
 })
 
 // ── DSL string `[[xx]]` continuation merge (diff-friendly line-split authoring) ──
