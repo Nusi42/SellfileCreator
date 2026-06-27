@@ -379,11 +379,18 @@ refractor.register(recipeOverrides as Syntax);
 
 // ── note-markers grammar ───────────────────────────────────────────────────
 // Minimal grammar for the simpler inline note markers that reference recipes
-// or safeguards by index or regex filter:
+// or safeguards by index or regex filter, plus the standalone wrapper/structure
+// markers (collapse / conditional / prose-language). They all share one grammar so
+// every custom `<!--` tag gets the same recognizable colour as `<!-- dungeon-simulator -->`,
+// instead of falling through to the generic muted HTML-comment grey:
 //   <!-- recipes: 1,0,2 -->
 //   <!-- recipes-re: "speed" -->
 //   <!-- safeguards: 1,2 -->
 //   <!-- safeguards-re: "ring" -->
+//   <!-- dungeon-simulator -->
+//   <!-- collapse --> … <!-- /collapse -->
+//   <!-- if-no-endpoint --> … <!-- /if-no-endpoint -->   (legacy close: <!-- end-if -->)
+//   <!-- lang --> … <!-- lang:de --> … <!-- /lang -->
 
 function noteMarkers(Prism: Refractor): void {
     Prism.languages['note-markers'] = {
@@ -393,8 +400,11 @@ function noteMarkers(Prism: Refractor): void {
 
         // Marker type keyword. `recipes-re` / `safeguards-re` must precede their
         // shorter counterparts to win the first-match race.
-        // `dungeon-simulator` is a standalone marker with no arguments.
-        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards|dungeon-simulator)\b/,
+        // `dungeon-simulator`, `collapse`, `if-no-endpoint`, and the legacy `end-if`
+        // are standalone markers with no arguments. `lang` optionally carries a locale
+        // code (`lang:de`, `lang:pt-BR`) which stays inside the keyword so the whole tag
+        // reads as one coloured unit; the close form's leading `/` is matched as punctuation.
+        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards|dungeon-simulator|if-no-endpoint|end-if|collapse)\b|\blang(?::[A-Za-z0-9-]+)?\b/,
 
         // Quoted regex pattern used in the `-re` filter variants.
         'string': /"(?:\\[\s\S]|[^"\\])*"/,
@@ -402,8 +412,8 @@ function noteMarkers(Prism: Refractor): void {
         // 1-based recipe/safeguard indices, including `0` (next-after-previous).
         'number': /\b\d+\b/,
 
-        // Colon separator and comma list delimiter.
-        'punctuation': /[:,]/,
+        // Colon/comma delimiters plus the close-marker slash (`/lang`, `/collapse`).
+        'punctuation': /[:,/]/,
     };
 }
 
@@ -434,10 +444,11 @@ if (mdGrammar) {
                 inside: refractor.languages['dynamic-overrides'],
             },
             // Matches inline <!-- recipes: … --> / <!-- recipes-re: "…" --> /
-            // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers,
-            // and the standalone <!-- dungeon-simulator --> marker.
+            // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers, the standalone
+            // <!-- dungeon-simulator --> marker, and the wrapper/structure markers
+            // (collapse, if-no-endpoint/end-if, lang) in both their open and `/`-close forms.
             'note-markers-block': {
-                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->|<!--\s*dungeon-simulator\s*-->/,
+                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->|<!--\s*\/?(?:dungeon-simulator|collapse|if-no-endpoint|end-if|lang(?::[A-Za-z0-9-]+)?)\s*-->/,
                 inside: refractor.languages['note-markers'],
             },
         },

@@ -6233,6 +6233,26 @@ function NoteEditorContent({
     ],
   )
 
+  // Custom preview renderer for the MDEditor split pane. MDEditor feeds the same raw `value`
+  // (draft) to both the source textarea AND the preview; rendering that verbatim showed BOTH
+  // languages at once and left `<!-- lang -->### Heading` comment-prefixed (so `###` never reached
+  // line-start and never parsed as a heading). We localize the preview source exactly like the
+  // read-only view does — the SAME `localizeNoteProse` string transform that strips the inactive
+  // language and the prose-lang markers — so the preview matches view-mode output. The textarea
+  // keeps the untouched draft; the marker-index scroll sync pairs cards by index, not char offset,
+  // so it is unaffected by the preview being shorter than the source.
+  const renderEditorPreview = React.useCallback(
+    (source: string) => (
+      <MDEditor.Markdown
+        source={localizeNoteProse(source, lang)}
+        rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}
+        components={markdownComponents as unknown as Components}
+        allowElement={allowElement}
+      />
+    ),
+    [lang, rehypePluginsSafe, markdownComponents, allowElement],
+  )
+
   const commitAndClose = React.useCallback(() => {
     try { onChange(draft, { mode: 'edit' }) } catch {}
     onClose()
@@ -6652,6 +6672,9 @@ function NoteEditorContent({
                 }}
                 commands={toolbarCommands}
                 components={{
+                  // Localize the preview pane (strip the inactive language + prose-lang markers) so
+                  // it renders like view mode; the textarea still edits the raw bilingual source.
+                  preview: renderEditorPreview,
                   toolbar: (command, disabled, executeCommand) => {
                     try {
                       if (command?.keyCommand === 'divider') return undefined

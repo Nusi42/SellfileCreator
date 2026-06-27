@@ -72,6 +72,11 @@ export const RECIPE_OVERRIDES_TOKEN_COLORS: Record<string, string> = {
   'punctuation':       '#abb2bf',
   // note-markers sub-tokens
   'marker-kw':         '#c678dd',
+  // Authored inline HTML (<span data-color> / <br>) — One Dark conventions: element
+  // name coral, attribute name warm amber, attribute value green (string family).
+  'html-tag':          '#e06c75',
+  'html-attr-name':    '#d19a66',
+  'html-attr-value':   '#98c379',
   'slider-param-kw':   '#56b6c2',  // min / max / step — same family as field names
   'slider-toggle-side-val': '#d19a66',  // toggleside= left / above — warm amber like boolean-val
   // safeguard-overrides specific tokens — reuse existing palette hues for consistency.

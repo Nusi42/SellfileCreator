@@ -40,7 +40,10 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string                     { color: var(--note-tok-string, #98c379); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-bold  { color: var(--note-tok-string-bold, #c3e88d); }
 .w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-chip  { color: var(--note-tok-string-chip, #7ec8e3); }
-.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-locale { color: var(--note-tok-string-locale, #c678dd); font-weight: 600; }
+/* Locale segments (`[[de]]`) get a distinct hue but MUST stay normal weight: the
+   textarea underneath is uniform-weight, so a bolded mirror token changes glyph
+   widths and drifts the scroll-anchor measurement (text appears to shift on select). */
+.w-md-editor-text-pre .token.dynamic-overrides-block .token.string .token.string-locale { color: var(--note-tok-string-locale, #c678dd); }
 /* marker-option [columns=N]: inner tokens carry colors; no flat outer color.
    marker-option-kw (columns) – teal, same family as field names.
    operator (=) and number (N) pick up the general operator/number rules below. */
@@ -103,6 +106,17 @@ body.restrict-ui [data-allow-select="1"] {
 .w-md-editor-text-pre .token.note-markers-block .token.string            { color: var(--note-tok-string, #98c379); }
 .w-md-editor-text-pre .token.note-markers-block .token.number            { color: var(--note-tok-number, #d19a66); }
 .w-md-editor-text-pre .token.note-markers-block .token.punctuation       { color: var(--note-tok-punctuation, #abb2bf); }
+
+/* ── Authored inline HTML (<span data-color> / <span data-blink> / <br>) ─ */
+/* Generic Prism markup classes — our <!-- … --> markers are captured as
+   note-/dynamic-overrides-block first, so these rules only reach real HTML tags.
+   Element name coral, attribute name amber, attribute value green; all the
+   structural brackets/quotes (< > = ") stay punctuation-grey. */
+.w-md-editor-text-pre .token.tag                          { color: var(--note-tok-html-tag, #e06c75); }
+.w-md-editor-text-pre .token.tag .token.punctuation       { color: var(--note-tok-punctuation, #abb2bf); }
+.w-md-editor-text-pre .token.tag .token.attr-name         { color: var(--note-tok-html-attr-name, #d19a66); }
+.w-md-editor-text-pre .token.tag .token.attr-value        { color: var(--note-tok-html-attr-value, #98c379); }
+.w-md-editor-text-pre .token.tag .token.attr-value .token.punctuation { color: var(--note-tok-punctuation, #abb2bf); }
 
 /* Animatable angle for the Gear Diff button's rotating border-chase highlight (see
    PreviewHeaderActions). Registering it via @property lets the conic-gradient angle
