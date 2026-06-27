@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.30 — 2026-06-27
+English:
+- **Fixed: The "first match" chip in Gear Inspector could display an entirely wrong rule name for pieces already kept by a recipe** — for example, a Speed Weapon kept by a recipe would show a Banner safeguard ("Protect: Best SPD Banner") as its match chip instead of the correct rule. A side-effect of the evaluation shortcut that skips re-checking recipe-confirmed pieces when safeguards are active, which left a rule index pointing at the wrong position once safeguard rules were inserted ahead of the recipe list. The keep/sell verdict and the exported sell file were always correct; only the chip label, color, and jump target were wrong.
+
+Deutsch:
+- **Behoben: Der „First Match"-Chip im Gear Inspector konnte für Teile, die bereits durch ein Rezept behalten werden, eine völlig falsche Regelbezeichnung anzeigen** — zum Beispiel zeigte eine Geschwindigkeitswaffe, die durch ein Rezept behalten wird, als Match-Chip einen Banner-Safeguard („Protect: Best SPD Banner") anstelle der korrekten Regel. Ein Nebeneffekt der Auswertungsoptimierung, die das erneute Prüfen von rezeptbestätigten Teilen bei aktiven Safeguards überspringt: Ein Regelindex verwies auf die falsche Position, sobald Safeguard-Regeln vor der Rezeptliste eingefügt wurden. Das Behalten/Verkaufen-Urteil und die exportierte Verkaufsdatei waren immer korrekt; nur Bezeichnung, Farbe und Sprungziel des Chips waren falsch.
+
 ## v1.0.29 — 2026-06-25
 English:
 - **New: The Sellfile Preview now shows a labeled divider above each group of rules** — a slim header row appears before each recipe block, each safeguard block, the Final Sell block, and the imported-base block. Each divider shows the group's icon, name, and how many rules are in that group. Dividers cannot be selected or interacted with.
