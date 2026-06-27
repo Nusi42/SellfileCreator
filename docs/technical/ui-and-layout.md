@@ -556,7 +556,7 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 - Layout mirrors `RecipeBuilderPanel` — a 4-row CSS grid with identical column widths and control heights:
   - **Row 1**: Mode toggle (`KeepOverrideScopeChip` — per-slot / per-set / per-main-stat / total) + Required count spinner.
   - **Row 2**: Rank / Rarity / Faction selects (nested 3-column sub-grid) + Ignore chips (`ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`).
-  - **Row 3**: Main-stat toggle grid + per-main-stat chip | Substat toggle grid + match chips (`Any Substat` / `All Substats` / `Per Substat`) + sort weight controls (`GearInspectorSortWeightControls`).
+  - **Row 3**: Main-stat toggle grid + per-main-stat chip | Substat toggle grid + match chips (`≥1`–`≥4` min-count / `Per Substat`) + sort weight controls (`GearInspectorSortWeightControls`).
   - **Row 4**: Slot icon grid + per-slot chip | Sets selector + per-set chip.
 - **Collapsible sections**: three sections are collapsible independently via `useBuilderSafeguardCollapsedPreference` (shared preference key, same sections as `RecipeBuilderPanel`).
 - **Undo / Redo**: full history with context menu, mirrors `RecipeBuilderPanel` via `useBuilderHistoryMenu`.

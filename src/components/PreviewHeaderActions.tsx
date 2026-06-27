@@ -473,7 +473,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortGlyphsExcludeLabel = t('gearInspectorSortGlyphsExclude')
 	  const sortGlyphsIncludeLabel = t('gearInspectorSortGlyphsInclude')
 	  const sortNormalizedLabel = t('gearInspectorSortNormalized')
-	  const sortNormalizedTooltip = t('gearInspectorSortNormalizedTooltip')
+	  const sortNormalizedTooltip = t('gearInspectorSortNormalizedTooltip', { scoreDef: t('gearInspectorNormalizedScoreDef') })
   const sortNormalizedUseActiveLabel = t('gearInspectorSortNormalizedUseActive')
   const sortNormalizedUseActiveTooltip = t('gearInspectorSortNormalizedUseActiveTooltip')
   const normalizedPresetTooltipEmptyLabel = t('gearInspectorNormalizedPresetTooltipEmpty')

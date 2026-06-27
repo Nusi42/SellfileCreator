@@ -2724,7 +2724,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             toggleNormalizedOverlayEnabledPresetsFromLastUsed()
           }}
         >
-          <MarkdownTooltip markdown={t('gearInspectorGridNormalizedTooltip')} placement="top-start">
+          <MarkdownTooltip markdown={t('gearInspectorGridNormalizedTooltip', { scoreDef: t('gearInspectorNormalizedScoreDef') })} placement="top-start">
             <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
               {t('gearInspectorGridNormalizedLabel')}
             </Typography>

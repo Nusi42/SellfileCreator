@@ -512,9 +512,24 @@ export default function SafeguardBuilderPanel({
     return () => { registerAutoApplyHandler(null) }
   }, [registerAutoApplyHandler, autoApplySelectedRecipe, editingRuleIdx, onApplySafeguard])
 
-  const ruleModeScopeTooltip = useMemo(() => (
-    `${t('safeguardsRuleModeHint')}\n\n${t('safeguardsCountModeHint')}\n\n${t('safeguardsSubstatModeHint')}\n\n${t('safeguardsIgnoreOptionsHint')}`
+  // Compose the "Ignore toggles" block from the same atomic hints the individual
+  // chips use, so there is one source per toggle (no duplicated copy to drift).
+  const ignoreOptionsTooltip = useMemo(() => (
+    `${t('safeguardsIgnoreOptionsHeading')}\n` +
+    `- **${t('safeguardsIgnorePreviousSafeguards')}**: ${t('safeguardsIgnorePreviousSafeguardsHint')}\n` +
+    `- **${t('safeguardsIgnoreEquippedInCollection')}**: ${t('safeguardsIgnoreEquippedInCollectionHint')}\n` +
+    `- **${t('safeguardsIgnoreEquippedInVault')}**: ${t('safeguardsIgnoreEquippedInVaultHint')}`
   ), [t])
+
+  // The substat block in the combined help reuses the per-chip match-requirement
+  // hint (one source) and adds the ranking/weights note that only the blob needs.
+  const substatModeTooltip = useMemo(() => (
+    `${t('safeguardsSubstatRequirementHint')}\n\n${t('safeguardsSubstatModeRankingHint')}`
+  ), [t])
+
+  const ruleModeScopeTooltip = useMemo(() => (
+    `${t('safeguardsRuleModeHint')}\n\n${t('safeguardsCountModeHint')}\n\n${substatModeTooltip}\n\n${ignoreOptionsTooltip}`
+  ), [t, substatModeTooltip, ignoreOptionsTooltip])
 
 
   const safeguardScopeChipTooltips = useMemo(() => ({
