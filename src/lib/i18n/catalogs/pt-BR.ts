@@ -52,9 +52,9 @@ const catalog: Catalog = {
   filterTooltip: "Filtre a tabela (somente visualização). A **exportação** ignora os filtros.",
   filterTooltipPush: "Filtre a tabela (somente visualização). O **envio** ignora os filtros.",
   finalSellToggleLabel: "Venda final",
-  safeguardsToggleLabel: "Salvaguardas",
   finalSellToggleTooltip: "**Venda final** — Varredura final que vende os equipamentos restantes após receitas e salvaguardas.\n\nAtive para incluir uma varredura de venda final no seu sellfile. Clique no ícone de engrenagem para configurar quais tipos de equip e raridades se aplicam.",
   finalSellConfigureTooltip: "Abra o diálogo **Ferramentas** na aba **Venda final** para configurar a varredura final.",
+  safeguardsToggleLabel: "Salvaguardas",
   safeguardsToggleTooltip: "**Salvaguardas** — Protege equipamentos específicos de serem vendidos independentemente de suas receitas.\n\nAtive para ativar as salvaguardas. Use o **Construtor de salvaguardas** para gerenciar regras individuais.",
   recipesToggleLabel: "Receitas",
   recipesToggleTooltip: "**Receitas** — Ative ou desative todas as regras de venda/retenção.\n\nQuando desativado, nenhuma receita é avaliada e nada é adicionado ao sellfile pelas receitas.",
@@ -63,6 +63,10 @@ const catalog: Catalog = {
   exportIgnoresFilters: "A **exportação** ignora os filtros",
   pushIgnoresFilters: "O **envio** ignora os filtros",
   exportMergedSellfile: "Exportar Sellfile do RSL Helper mesclado",
+  // Shorter tiers of the export label, picked by useFittingLabel when the full
+  // string would overflow the split button: "…Short" drops "RSL Helper", "…Min"
+  // keeps only the verb. Each tier is translated per-locale so word order/grammar
+  // stay correct (never slice a localized string).
   exportMergedSellfileShort: "Exportar Sellfile mesclado",
   exportMergedSellfileMin: "Exportar",
   exportSellfile: "Exportar Sellfile do RSL Helper",
@@ -224,13 +228,17 @@ const catalog: Catalog = {
   // Generic
   rulesCountOne: "1 regra",
   rulesCountMany: "{n} regras",
+  // Preview-table group separator rows: one unselectable header per recipe/safeguard/group,
+  // showing the group name plus how many HSF rules it generates.
   previewGroupSeparatorEntriesOne: "1 regra",
   previewGroupSeparatorEntriesMany: "{n} regras",
+  // Group label shown on the separator for imported base (HSF) rows that carry no recipe identity.
   previewGroupSeparatorBaseLabel: "Regras base importadas",
   gearInspectorItemsCountOne: "1 item",
   gearInspectorItemsCountMany: "{n} itens",
   helpOpenLabel: "Ajuda",
   helpOpenTooltip: "Abrir Ajuda / README",
+  // Update-available notice shown in the header when a newer GitHub release is found
   updateNoticeAvailable: "v{version} disponível",
   updateNoticeDownload: "Baixar",
   updateNoticeDismissAriaLabel: "Dispensar notificação de atualização",
@@ -245,6 +253,7 @@ const catalog: Catalog = {
   rslHelperPortLabel: "Porta",
   rslHelperPortHelper: "Porta à qual o app se conecta ao iniciar com o RSL Helper. Padrão: 8080.",
 
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
   simpleModeBasicSfc: "Iniciante",
   simpleModeEndgameSfc: "Meio / Jogo tardio / Fim de jogo",
   simpleModePresetLabel: "Regras de venda",
@@ -339,10 +348,10 @@ const catalog: Catalog = {
   gearAnalyticsChartOutcome: "Resultado",
   gearAnalyticsChartMainStat: "Stats principais",
   gearAnalyticsChartMainStatDesc: "Frequência de cada stat principal no equipamento filtrado. Use o donut de Slot para focar em um tipo de peça específico.",
-  gearAnalyticsChartImprovChance: "Chance de melhoria",
-  gearAnalyticsChartImprovChanceDesc: "Quão provável é que seu equipamento melhore, agrupado em faixas de 10%. O número à direita indica quantos itens caem em cada faixa. Equipamentos sem salvaguarda e equipamentos maximizados em +16 ficam de fora. Clique em uma faixa para mostrar apenas aquele equipamento.",
   gearAnalyticsChartSubstats: "Frequência de substats",
   gearAnalyticsChartSubstatsDesc: "Com que frequência cada substat aparece no equipamento filtrado. Um item pode contribuir com até 4 substats.",
+  gearAnalyticsChartImprovChance: "Chance de melhoria",
+  gearAnalyticsChartImprovChanceDesc: "Quão provável é que seu equipamento melhore, agrupado em faixas de 10%. O número à direita indica quantos itens caem em cada faixa. Equipamentos sem salvaguarda e equipamentos maximizados em +16 ficam de fora. Clique em uma faixa para mostrar apenas aquele equipamento.",
   gearAnalyticsChartHeatmap: "Cobertura Slot × Stat principal",
   gearAnalyticsChartHeatmapDesc: "Contagem de itens por slot (colunas) e stat principal (linhas). Clique em um cabeçalho de coluna ou célula para filtrar por slot.",
   gearAnalyticsChartSource: "Fonte",
@@ -360,6 +369,7 @@ const catalog: Catalog = {
   gearAnalyticsSetSlotFilter: "Slot",
   gearAnalyticsOtherSets: "Outros ({n})",
   gearAnalyticsOtherSetsChip: "Outros",
+  // Champion Stats section.
   gearAnalyticsChampStatsTitle: "Stats de campeões",
   gearAnalyticsChampStatsTitleDesc: "Apenas substats de equipamento — totais somados sobre todas as peças equipadas por campeão. Não inclui Maestrias, stats base do campeão, bônus de set, Relíquias, bônus de ascensão, bônus de área ou bônus de Guardião de facção.",
   gearAnalyticsChampLocationAll: "Todos",
@@ -381,9 +391,12 @@ const catalog: Catalog = {
   gearAnalyticsSlotModeAll: "Todos",
   gearAnalyticsSlotModeArtifacts: "Artefatos",
   gearAnalyticsSlotModeAccessories: "Acessórios",
+  // In-game roster order: ascension level → rarity → empowerment proxy → awakening proxy → avg gear rank.
   gearAnalyticsSlotModeRank: "Por rank",
+  // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
   gearAnalyticsSimulateSoldLabel: "Simular venda",
   gearAnalyticsSimulateSoldDesc: "Quando ativado, espaços cuja peça equipada seria vendida pelas regras atuais aparecem em vermelho e são contados como ausentes.",
+  // Show-fully-equipped toggle: expands the list to also include champions with no missing slots.
   gearAnalyticsShowFullyEquippedLabel: "Mostrar completos",
   gearAnalyticsShowFullyEquippedDesc: "Quando ativado, campeões com todos os espaços disponíveis já equipados também são listados (ordenados ao final nos modos por espaços ausentes).",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
@@ -468,6 +481,8 @@ const catalog: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: "Dragão",
   dungeonEvent: "Evento",
+  // Note-block dungeon simulator tooltip — keep-chance summary line.
+  // {level} = gear level milestone; {pct} = formatted keep-chance string.
   noteSimKeepChanceAtLevel: "Mantido em +{level}: {pct}",
   safeguardsTabLabel: "Salvaguardas",
   safeguardsTabIntro: "Adicione regras por slot/conjunto/estatística para que suas regras de venda atualmente ativas nunca removam todas as cópias dessa combinação.",
@@ -500,7 +515,6 @@ const catalog: Catalog = {
   safeguardsIgnorePreviousSafeguardsHint: "Quando esta salvaguarda classifica candidatos por substats, descarta do seu grupo as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as próximas melhores por pontuação. Regras sem substats não são afetadas e continuam usando o cálculo baseado em peças mantidas.",
   safeguardsIgnoreEquippedInCollectionHint: "Exclui itens equipados em campeões da coleção ao contar correspondências desta salvaguarda.",
   safeguardsIgnoreEquippedInVaultHint: "Exclui itens equipados em campeões do cofre ao contar correspondências desta salvaguarda.",
-  safeguardsIgnoreOptionsHint: "**Opções ignorar**\n- **Ignorar salvaguardas anteriores**: quando esta salvaguarda classifica candidatos por substats, descarta do seu grupo as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as próximas melhores por pontuação. Regras sem substats não são afetadas.\n- **Ignorar equipados (Coleção)**: exclui itens equipados em campeões da coleção enquanto esta salvaguarda conta correspondências.\n- **Ignorar equipados (Cofre)**: exclui itens equipados em campeões do cofre enquanto esta salvaguarda conta correspondências.",
   safeguardsImprovementChanceThreshold: "Chance de Melhoria ≥ N%",
   safeguardsImprovementChanceShort: "Chance de Melhoria",
   safeguardsImprovementChanceWithValue: "Chance de Melhoria ≥ {value}%",
@@ -514,6 +528,7 @@ const catalog: Catalog = {
   safeguardsImprovementChanceLevelLabel4: "Nível 4+",
   safeguardsImprovementChanceLevelLabel8: "Nível 8+",
   safeguardsImprovementChanceLevelLabel12: "Nível 12+",
+  safeguardsIgnoreOptionsHint: "**Opções ignorar**\n- **Ignorar salvaguardas anteriores**: quando esta salvaguarda classifica candidatos por substats, descarta do seu grupo as peças que salvaguardas anteriores já mantiveram e escolhe em vez delas as próximas melhores por pontuação. Regras sem substats não são afetadas.\n- **Ignorar equipados (Coleção)**: exclui itens equipados em campeões da coleção enquanto esta salvaguarda conta correspondências.\n- **Ignorar equipados (Cofre)**: exclui itens equipados em campeões do cofre enquanto esta salvaguarda conta correspondências.",
   safeguardsCountModePerSlot: "Por slot",
   safeguardsCountModePerSlotHint: "**Por slot**\nGuarda ≥N por slot de forma independente — cada tipo de slot é protegido separadamente, sem compartilhar uma única contagem. Sem restrição de slot, aplica-se a cada tipo de slot no seu inventário.",
   safeguardsCountModePerSet: "Por conjunto",
@@ -521,9 +536,9 @@ const catalog: Catalog = {
   safeguardsCountModePerFaction: "Por facção",
   safeguardsCountModePerFactionHint: "**Por facção**\nGuarda ≥N por facção de forma independente — cada facção é protegida separadamente, sem compartilhar uma única contagem. Sem restrição de facção, aplica-se a cada facção no seu inventário.",
   safeguardsCountModePerMain: "Por stat principal",
+  safeguardsCountModePerMainHint: "**Por stat principal**\nGuarda ≥N por stat principal de forma independente — cada stat principal é protegido separadamente, sem compartilhar uma única contagem. Sem restrição de stat principal, aplica-se a cada stat principal no seu inventário.",
   safeguardsWeightByRank: "Ponderar por rank",
   safeguardsWeightByRankHint: "**Ponderar por rank**\nDá vantagem ao equipamento de rank maior — apenas no **stat principal**: um 6★ conta cheio, um 5★ cerca de 85 %. Assim um 6★ supera um 5★ de mesmo stat principal com substats só um pouco melhores. Só refina a ordem dentro de um mesmo stat principal — não é um bônus geral para toda peça de rank maior, e os substats não são afetados. Requer ao menos um substat selecionado. Cada peça é comparada com a melhor do seu próprio slot e stat principal.",
-  safeguardsCountModePerMainHint: "**Por stat principal**\nGuarda ≥N por stat principal de forma independente — cada stat principal é protegido separadamente, sem compartilhar uma única contagem. Sem restrição de stat principal, aplica-se a cada stat principal no seu inventário.",
   safeguardsCountModePerRule: "Por salvaguarda",
   safeguardsCountModeHint: "**Chips de cota**\nPor padrão (**Por salvaguarda**), todo o equipamento correspondente compartilha uma única contagem. Cada chip divide essa contagem em grupos independentes:\n- **Por slot**: cada tipo de slot é contado separadamente\n- **Por conjunto**: cada conjunto ou metaconjunto é contado separadamente\n- **Por facção**: cada facção é contada separadamente\n- **Por stat principal**: cada stat principal é contado separadamente\nCombine os chips livremente. Sem seleção de filtro, a cota cobre cada valor no seu inventário. Os chips aparecem sob todos os seletores exceto Rank e Raridade. **Por Substat** (seção substats) divide cada grupo por substat.",
   safeguardsSubstatLabel: "Substats",
@@ -538,14 +553,19 @@ const catalog: Catalog = {
   safeguardsCandidateKept: "Manter",
   safeguardsCandidateSold: "Vender",
   safeguardsCandidateSafeguarded: "Seguro",
+  // Per-candidate focus toggle: scopes the candidate list to that item's count-group.
   safeguardsCandidateFocusGroup: "Mostrar apenas este grupo",
   safeguardsCandidateFocusClear: "Mostrar todos os grupos",
+  // {n} = quota count
   safeguardsCandidateCutoff: "── corte (cota: {n}) ──",
+  // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── cota: {n} por {scope} ──",
+  // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "slot",
   safeguardsCountModeScopeSet: "conjunto",
   safeguardsCountModeScopeFaction: "facção",
   safeguardsCountModeScopeMain: "stat principal",
+  // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: "1 rolar ≈ +{pts}",
   safeguardSubstatWeight: "Peso: {value}×",
   safeguardsCandidatesNoData: "Sem dados de detecção.\nExecute a detecção para ver os candidatos.",
@@ -653,15 +673,6 @@ const catalog: Catalog = {
   setDesc_setDaze_text: "25% chance de aplicar {debuff:Sleep} por 1 turno ao atacar",
   setDesc_setDefense_text: "+15% [[stat:statDEF]]",
   setDesc_setDefiant_text: "[[stat:statDEF]] +10%\n-15% de dano recebido de ataques AoE inimigos",
-  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_4: "35% de chance de desviar 1 debuff para o atacante quando um debuff e aplicado ao portador\nAplica {buff:Block Debuffs} por 1 turno no inicio da rodada",
-  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_6: "Causa dano bonus proporcional a propria [[stat:statACC]] contra inimigos que bloqueiam debuffs do portador (uma vez por habilidade)\nEsse dano bonus pode remover acumulacoes de {buff:Total Guard}",
-  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
-  setDesc_setDeflection_by_9: "Inimigos ignoram 10% a menos de [[stat:statDEF]] para cada debuff ativo aplicado pelo portador (5% contra Chefes)",
   setDesc_setDestroy_text: "reduz o [[stat:statHP]] máx. do alvo em 40% do dano causado",
   setDesc_setDivineCriticalRate_text: "[[stat:statCR|bare]] +12%\n{buff:Shield} em si igual a 15% do [[stat:statHP]] máx. por 3 turnos no início da rodada",
   setDesc_setDivineLife_text: "[[stat:statHP]] +15%\n{buff:Shield} em si igual a 15% do [[stat:statHP]] máx. por 3 turnos no início da rodada",
@@ -699,15 +710,6 @@ const catalog: Catalog = {
   setDesc_setSpeed_text: "+12% [[stat:statSPD]]",
   setDesc_setStalwart_text: "-30% de dano de ataques AoE recebidos",
   setDesc_setStun_text: "18% chance de aplicar {debuff:Stun} por 1 turno ao atacar",
-  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
-  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% de chance de ganhar {buff:Unkillable} por 1 turno ao receber dano fatal de qualquer fonte",
-  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
-  setDesc_setSwiftParry_by_6: "Ataques inimigos de alvo unico causam 15% menos dano ao portador",
-  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
-  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
-  setDesc_setSwiftParry_by_9: "Ignora 50% de [[stat:statDEF]]",
   setDesc_setToxic_text: "75% chance de aplicar {debuff:Poison} de 2,5% por 2 turnos ao atacar",
   setDesc_setUntouchable_text: "{buff:Block Debuffs} por 2 turnos no início da rodada\n+40 [[stat:statRES]]",
   setDesc_setZeal_text: "[[stat:statCDMG|bare]] +20%\ndano +3% por cada 25% de [[stat:statHP]] atual",
@@ -725,6 +727,17 @@ const catalog: Catalog = {
   setDesc_setChronophage_by_7: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_8: "+12% [[stat:statSPD]]",
   setDesc_setChronophage_by_9: "começa com 3 acúmulos de {buff:Immutable}",
+
+  // Deflection
+  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_4: "35% de chance de desviar 1 debuff para o atacante quando um debuff e aplicado ao portador\nAplica {buff:Block Debuffs} por 1 turno no inicio da rodada",
+  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_6: "Causa dano bonus proporcional a propria [[stat:statACC]] contra inimigos que bloqueiam debuffs do portador (uma vez por habilidade)\nEsse dano bonus pode remover acumulacoes de {buff:Total Guard}",
+  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
+  setDesc_setDeflection_by_9: "Inimigos ignoram 10% a menos de [[stat:statDEF]] para cada debuff ativo aplicado pelo portador (5% contra Chefes)",
 
   // Feral
   setDesc_setFeral_by_1: "+40 [[stat:statACC]]",
@@ -836,6 +849,17 @@ const catalog: Catalog = {
   setDesc_setSupersonic_by_8: "+12% [[stat:statSPD]]",
   setDesc_setSupersonic_by_9: "+30% aos efeitos de aumento do Medidor de Turnos",
 
+  // Swift Parry
+  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
+  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% de chance de ganhar {buff:Unkillable} por 1 turno ao receber dano fatal de qualquer fonte",
+  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
+  setDesc_setSwiftParry_by_6: "Ataques inimigos de alvo unico causam 15% menos dano ao portador",
+  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
+  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
+  setDesc_setSwiftParry_by_9: "Ignora 50% de [[stat:statDEF]]",
+
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: "por peça: {buff:Shield} equivalente a 5% do dano causado após atacar (AoE reduzido em 75%); totais: 5/10/15% com 1/2/3 peças",
 
@@ -916,9 +940,9 @@ const catalog: Catalog = {
   builderSectionToggleTooltip: "Recolher seção\n\n_Clique com o botão direito para recolher/expandir todas as seções._",
   builderRecipeName: "Nome da receita",
   builderClearRecipeName: "Limpar nome da receita",
-  colorFieldNoColor: "Sem cor",
   builderRecipeColor: "Cor da receita",
   builderClearRecipeColor: "Limpar cor da receita",
+  colorFieldNoColor: "Sem cor",
   builderTagsLabel: "Tags",
   builderClearTags: "Limpar tags",
   builderTagsPlaceholder: "Adicionar tag",
@@ -1040,6 +1064,7 @@ const catalog: Catalog = {
   historyMetasetConflictCountLine: "Conflitos: {count}",
   historyMetasetConflictNewIdsLine: "IDs de meta-set gerados: {count}",
   builderHelpOpen: "Informações do builder",
+  // Tooltip shown when the user hovers the (i) icon beside the Action label.
   builderInfoTooltip: "**Construtor de receitas**\nCada receita vira uma regra Manter. Equipamento que não corresponde a nenhuma receita é vendido, a menos que uma Salvaguarda o proteja.\n\n**Salvaguardas**\nUse o painel de Salvaguardas para guardar equipamentos específicos independentemente das suas receitas — com ou sem filtros de substats.",
   builderRank: "Rank",
   builderRankHelp: "Limite a regra a determinados ranks de estrela para tratar peças 6★ de forma diferente das de 5★.\n• “Qualquer” mantém todos os ranks elegíveis.",
@@ -1171,6 +1196,7 @@ const catalog: Catalog = {
   // Filter panel
   // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Recolher seção\n\n_Clique com o botão direito para recolher/expandir todas as seções._",
+  // Substat variant toggle — right-click excludes instead of including.
   rulesFilterVariantRightClickHintExclude: "_Clique com o botão direito para excluir._",
   rulesFilterVariantRightClickHintRemove: "_Clique com o botão direito para remover._",
   filterRule: "Regra",
@@ -1244,9 +1270,9 @@ const catalog: Catalog = {
   gearInspectorSortGroupingAccessoriesSlotTooltip: "Agrupa acessórios por slot.",
   gearInspectorSortHighToLow: "Maior → Menor",
   gearInspectorSortLowToHigh: "Menor → Maior",
+  gearInspectorSortImprovementChanceLabel: "Chance de melhoria",
   gearInspectorSortSafeguardRankLabel: "Posição da Salvaguarda",
   gearInspectorSortSafeguardGroupRankLabel: "Posição da Salvaguarda no Grupo",
-  gearInspectorSortImprovementChanceLabel: "Chance de melhoria",
   gearInspectorSortNewestLabel: "Mais recente",
   gearInspectorSortGlyphsLabel: "Glifos",
   gearInspectorSortGlyphsExclude: "Excluir",
@@ -1274,10 +1300,6 @@ const catalog: Catalog = {
   gearInspectorChampionUnknownName: "Campeão desconhecido #{id}",
   filterReset: "Redefinir filtros",
   filterSyncViews: "Sincronizar filtros entre vistas",
-  filterPresetsSaveAs: "Salvar como…",
-  filterPresetsEmpty: "Ainda não há filtros salvos.",
-  filterPresetsSaveDialogTitle: "Salvar predefinição de filtro",
-  filterPresetsSaveDialogHelper: "Armazena o estado atual do painel de filtros e as configurações de ordenação do Inspetor de Equipamento no armazenamento local.",
   // Built-in filter preset names
   builtinFilterPresetAllArtifacts: "Todos os artefatos",
   builtinFilterPresetAllAccessories: "Todos os acessórios",
@@ -1292,6 +1314,10 @@ const catalog: Catalog = {
   builtinSortPresetSafeguardGroupRank: "Posição da Salvaguarda no Grupo",
   builtinSortPresetAscending: "Crescente",
   builtinSortPresetTopLevel: "Nível superior",
+  filterPresetsSaveAs: "Salvar como…",
+  filterPresetsEmpty: "Ainda não há filtros salvos.",
+  filterPresetsSaveDialogTitle: "Salvar predefinição de filtro",
+  filterPresetsSaveDialogHelper: "Armazena o estado atual do painel de filtros e as configurações de ordenação do Inspetor de Equipamento no armazenamento local.",
   filterPresetsNameLabel: "Nome",
   filterPresetsDeleteDialogTitle: "Excluir filtro salvo?",
   filterPresetsDeleteDialogMessage: "Excluir “{name}”? Isso não pode ser desfeito.",
@@ -1308,11 +1334,13 @@ const catalog: Catalog = {
   sortPresetsSaveIncludeFilter: "Incluir configurações de filtro",
   sortPresetsSaveExclusive: "Substituir a ordenação atual ao aplicar",
   presetLabelColor: "Cor do rótulo",
+  // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Ícone",
   presetIconPickerAria: "Escolher ícone da predefinição",
   presetPinToHeader: "Fixar no cabeçalho",
   presetPin: "Fixar como botão",
   presetUnpin: "Desafixar botão",
+  // Hide/show-hidden actions for preset menus.
   presetHide: "Ocultar",
   presetUnhide: "Mostrar",
   presetsShowHidden: "Mostrar ocultos",
@@ -1328,7 +1356,6 @@ const catalog: Catalog = {
   gearInspectorResultMatched: "Escopo",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
-  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Comum",
   rarityUncommon: "Incomum",
@@ -1401,13 +1428,16 @@ const catalog: Catalog = {
   // Help dialog
   helpAriaLabel: "Ajuda / README",
   helpLanguage: "Idioma",
+
   // Theme settings flyout
   themeSettings: "Aparência",
   themeMode: "Modo",
   themeDark: "Escuro",
   themeLight: "Claro",
+  themeRslh: "RSLH",
   themeDarkAria: "Modo escuro",
   themeLightAria: "Modo claro",
+  themeRslhAria: "RSLH theme",
   themeColorAccent: "Destaque",
   themeColorToggles: "Botões",
   themeColorSelection: "Seleção",
@@ -1417,8 +1447,6 @@ const catalog: Catalog = {
   themeColorSuccess: "Sucesso",
   themeColorWarning: "Aviso",
   themeColorError: "Erro",
-  themeRslh: "RSLH",
-  themeRslhAria: "RSLH theme",
   themeColorInfo: "Info",
   themeColorTextPrimary: "Text",
   themeColorTextSecondary: "Text 2nd",
@@ -1499,10 +1527,12 @@ const catalog: Catalog = {
   toastRecipesSaved: "Receitas salvas. Confira sua pasta Downloads.",
   toastSellfileSaved: "Sellfile exportado.",
   toastSellfileExportFailed: "Falha ao exportar o Sellfile. Veja o console.",
+  // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile enviado.",
   toastSellfilePushFailed: "Falha ao enviar o Sellfile. Veja o console.",
   toastGearDbImportedShort: "Importadas {count}",
   toastGearDbImportedShortWithInbox: "Importadas {count} (+{inboxCount} caixa de entrada)",
+  // Used after the initial import when the DB already had gear — shows the running total, not "Imported".
   toastGearDbTotalShort: "Total: {count}",
   toastGearDbTotalShortWithInbox: "Total: {count} (+{inboxCount} caixa de entrada)",
   toastGearDbDiffSummaryLabel: "Equipamentos atualizados:",
@@ -1807,6 +1837,7 @@ const catalog: Catalog = {
   setBloodshield: "Escudo de sangue",
   setReaction: "Reação",
   setRevenge: "Vingança",
+
   // Gear diff (sell/keep before-vs-after comparison)
   gearDiffEmpty: "Nenhuma mudança de vender/manter para mostrar.",
   gearDiffSplitBaselineHeading: "Antes",

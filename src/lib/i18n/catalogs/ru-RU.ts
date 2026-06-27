@@ -52,9 +52,9 @@ const overrides: Catalog = {
   filterTooltip: "Фильтрует таблицу (только просмотр). **Экспорт** игнорирует фильтры.",
   filterTooltipPush: "Фильтрует таблицу (только просмотр). **Отправка** игнорирует фильтры.",
   finalSellToggleLabel: "Финпродажа",
-  safeguardsToggleLabel: "Защиты",
   finalSellToggleTooltip: "**Финпродажа** — Завершающий проход, продающий оставшееся снаряжение после рецептов и защит.\n\nВключите, чтобы добавить итоговый проход в sellfile.",
   finalSellConfigureTooltip: "Откройте диалог **Инструменты** на вкладке **Финпродажа** для настройки.",
+  safeguardsToggleLabel: "Защиты",
   safeguardsToggleTooltip: "**Защиты** — Защищают определённое снаряжение от продажи.\n\nВключите для активации защит.",
   recipesToggleLabel: "Рецепты",
   recipesToggleTooltip: "**Рецепты** — Включите или отключите все правила продажи/сохранения.\n\nПри отключении рецепты не применяются.",
@@ -63,6 +63,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: "**Экспорт** игнорирует фильтры",
   pushIgnoresFilters: "**Отправка** игнорирует фильтры",
   exportMergedSellfile: "Экспортировать объединённый Sellfile RSL Helper",
+  // Shorter tiers of the export label, picked by useFittingLabel when the full
+  // string would overflow the split button: "…Short" drops "RSL Helper", "…Min"
+  // keeps only the verb. Each tier is translated per-locale so word order/grammar
+  // stay correct (never slice a localized string).
   exportMergedSellfileShort: "Экспортировать объединённый Sellfile",
   exportMergedSellfileMin: "Экспорт",
   exportSellfile: "Экспортировать Sellfile RSL Helper",
@@ -224,13 +228,17 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: "1 правило",
   rulesCountMany: "{n} правил",
+  // Preview-table group separator rows: one unselectable header per recipe/safeguard/group,
+  // showing the group name plus how many HSF rules it generates.
   previewGroupSeparatorEntriesOne: "1 правило",
   previewGroupSeparatorEntriesMany: "{n} правил",
+  // Group label shown on the separator for imported base (HSF) rows that carry no recipe identity.
   previewGroupSeparatorBaseLabel: "Импортированные базовые правила",
   gearInspectorItemsCountOne: "1 предмет",
   gearInspectorItemsCountMany: "{n} предметов",
   helpOpenLabel: "Помощь",
   helpOpenTooltip: "Открыть справку / README",
+  // Update-available notice shown in the header when a newer GitHub release is found
   updateNoticeAvailable: "v{version} доступна",
   updateNoticeDownload: "Скачать",
   updateNoticeDismissAriaLabel: "Закрыть уведомление об обновлении",
@@ -245,6 +253,7 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Порт",
   rslHelperPortHelper: "Порт, к которому приложение подключается при запуске с RSL Helper. По умолчанию: 8080.",
 
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
   simpleModeBasicSfc: "Новичок",
   simpleModeEndgameSfc: "Середина / Поздняя игра / Финал",
   simpleModePresetLabel: "Правила продажи",
@@ -339,10 +348,10 @@ const overrides: Catalog = {
   gearAnalyticsChartOutcome: "Результат",
   gearAnalyticsChartMainStat: "Основные статы",
   gearAnalyticsChartMainStatDesc: "Частота каждого основного стата в отфильтрованном снаряжении. Используйте диаграмму слотов, чтобы сфокусироваться на конкретном типе.",
-  gearAnalyticsChartImprovChance: "Шанс улучшения",
-  gearAnalyticsChartImprovChanceDesc: "Насколько вероятно, что снаряжение улучшится, с группировкой по шагам в 10%. Число справа показывает, сколько предметов попадает в каждую группу. Снаряжение без защиты и максимально прокачанное снаряжение +16 исключаются. Нажмите на группу, чтобы показать только это снаряжение.",
   gearAnalyticsChartSubstats: "Частота подстатов",
   gearAnalyticsChartSubstatsDesc: "Как часто каждый подстат встречается в отфильтрованном снаряжении. Один предмет может давать до 4 подстатов.",
+  gearAnalyticsChartImprovChance: "Шанс улучшения",
+  gearAnalyticsChartImprovChanceDesc: "Насколько вероятно, что снаряжение улучшится, с группировкой по шагам в 10%. Число справа показывает, сколько предметов попадает в каждую группу. Снаряжение без защиты и максимально прокачанное снаряжение +16 исключаются. Нажмите на группу, чтобы показать только это снаряжение.",
   gearAnalyticsChartHeatmap: "Покрытие Слот × Основной стат",
   gearAnalyticsChartHeatmapDesc: "Количество предметов по слоту (столбцы) и основному стату (строки). Нажмите на заголовок столбца или ячейку для фильтрации по слоту.",
   gearAnalyticsChartSource: "Источник",
@@ -360,6 +369,7 @@ const overrides: Catalog = {
   gearAnalyticsSetSlotFilter: "Слот",
   gearAnalyticsOtherSets: "Другие ({n})",
   gearAnalyticsOtherSetsChip: "Другие",
+  // Champion Stats section.
   gearAnalyticsChampStatsTitle: "Статы чемпионов",
   gearAnalyticsChampStatsTitleDesc: "Только подстаты снаряжения — суммы по всем надетым предметам на чемпиона. Не включает Мастерство, базовые статы чемпиона, бонусы сетов, Реликвии, бонусы вознесения, бонусы области или бонусы Стражей фракции.",
   gearAnalyticsChampLocationAll: "Все",
@@ -381,14 +391,16 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Все",
   gearAnalyticsSlotModeArtifacts: "Артефакты",
   gearAnalyticsSlotModeAccessories: "Аксессуары",
+  // In-game roster order: ascension level → rarity → empowerment proxy → awakening proxy → avg gear rank.
   gearAnalyticsSlotModeRank: "По рангу",
+  // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
   gearAnalyticsSimulateSoldLabel: "Имитация продажи",
   gearAnalyticsSimulateSoldDesc: "Если включено, ячейки, снаряжение которых было бы продано текущими правилами, отображаются красным и засчитываются как отсутствующие.",
+  // Show-fully-equipped toggle: expands the list to also include champions with no missing slots.
   gearAnalyticsShowFullyEquippedLabel: "Показывать полных",
   gearAnalyticsShowFullyEquippedDesc: "Если включено, чемпионы, у которых все доступные ячейки уже заполнены, также отображаются (сортируются в конец в режимах по недостающим ячейкам).",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Свернуть график\n\n_Правый клик — переключить все графики._",
-
   dungeonDropsIntro: "Симулируйте дропы подземелий, используя текущие правила Sellfile (HSF), чтобы оценить, сколько снаряжения сохраняется по сету и уровневому этапу.",
   dungeonDropsExplanation: "Проценты в таблице — это сохранённые дропы, делённые на все дропы этой стадии; усиленные сеты меняют только веса сетов.",
   // Simulation roll assumptions and run count.
@@ -469,6 +481,8 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: "Дракон",
   dungeonEvent: "Событие",
+  // Note-block dungeon simulator tooltip — keep-chance summary line.
+  // {level} = gear level milestone; {pct} = formatted keep-chance string.
   noteSimKeepChanceAtLevel: "Сохранено при +{level}: {pct}",
   safeguardsTabLabel: "Защиты",
   safeguardsTabIntro: "Добавьте защиты по слоту/сету/стату, чтобы ваши текущие активные правила продажи никогда не убирали все копии этой комбинации.",
@@ -501,7 +515,6 @@ const overrides: Catalog = {
   safeguardsIgnorePreviousSafeguardsHint: "Когда эта защита ранжирует кандидатов по подстатам, она исключает из своего пула предметы, которые предыдущие защиты уже сохранили, и вместо них выбирает следующих лучших по очкам. Защиты без подстатов это не затрагивает — они продолжают использовать расчёт по сохранённым предметам.",
   safeguardsIgnoreEquippedInCollectionHint: "Исключает предметы, экипированные на героях в коллекции, при подсчёте совпадений для этой защиты.",
   safeguardsIgnoreEquippedInVaultHint: "Исключает предметы, экипированные на героях в хранилище, при подсчёте совпадений для этой защиты.",
-  safeguardsIgnoreOptionsHint: "**Переключатели игнорирования**\n- **Игнорировать предыдущие защиты**: когда эта защита ранжирует кандидатов по подстатам, она исключает из своего пула предметы, которые предыдущие защиты уже сохранили, и вместо них выбирает следующих лучших по очкам. Защиты без подстатов это не затрагивает.\n- **Игнорировать экипированные (Коллекция)**: исключает предметы, экипированные на героях в коллекции, пока эта защита считает совпадения.\n- **Игнорировать экипированные (Хранилище)**: исключает предметы, экипированные на героях в хранилище, пока эта защита считает совпадения.",
   safeguardsImprovementChanceThreshold: "Шанс улучшения ≥ N%",
   safeguardsImprovementChanceShort: "Шанс улучшения",
   safeguardsImprovementChanceWithValue: "Шанс улучшения ≥ {value}%",
@@ -515,6 +528,7 @@ const overrides: Catalog = {
   safeguardsImprovementChanceLevelLabel4: "Уровень 4+",
   safeguardsImprovementChanceLevelLabel8: "Уровень 8+",
   safeguardsImprovementChanceLevelLabel12: "Уровень 12+",
+  safeguardsIgnoreOptionsHint: "**Переключатели игнорирования**\n- **Игнорировать предыдущие защиты**: когда эта защита ранжирует кандидатов по подстатам, она исключает из своего пула предметы, которые предыдущие защиты уже сохранили, и вместо них выбирает следующих лучших по очкам. Защиты без подстатов это не затрагивает.\n- **Игнорировать экипированные (Коллекция)**: исключает предметы, экипированные на героях в коллекции, пока эта защита считает совпадения.\n- **Игнорировать экипированные (Хранилище)**: исключает предметы, экипированные на героях в хранилище, пока эта защита считает совпадения.",
   safeguardsCountModePerSlot: "По слоту",
   safeguardsCountModePerSlotHint: "**По слоту**\nСохраняет ≥N для каждого слота независимо — каждый тип слота защищается отдельно, без общего счётчика. Без ограничения по слоту применяется к каждому типу слота в твоём инвентаре.",
   safeguardsCountModePerSet: "По сету",
@@ -522,9 +536,9 @@ const overrides: Catalog = {
   safeguardsCountModePerFaction: "По фракции",
   safeguardsCountModePerFactionHint: "**По фракции**\nСохраняет ≥N для каждой фракции независимо — каждая фракция защищается отдельно, без общего счётчика. Без ограничения по фракции применяется к каждой фракции в твоём инвентаре.",
   safeguardsCountModePerMain: "По осн. стату",
+  safeguardsCountModePerMainHint: "**По осн. стату**\nСохраняет ≥N для каждого основного стата независимо — каждый основной стат защищается отдельно, без общего счётчика. Без ограничения по основному стату применяется к каждому основному стату в твоём инвентаре.",
   safeguardsWeightByRank: "Вес по рангу",
   safeguardsWeightByRankHint: "**Вес по рангу**\nДаёт преимущество предметам более высокого ранга — только по **основному стату**: 6★ учитывается полностью, 5★ примерно на 85 %. Поэтому 6★ обходит 5★ с тем же основным статом, у которого подстаты лишь немного лучше. Это лишь уточняет порядок в пределах одного основного стата — это не общий бонус для любого предмета более высокого ранга, и подстаты не затрагиваются. Нужен хотя бы один выбранный подстат. Каждый предмет сравнивается с лучшим в своём слоте и по своему основному стату.",
-  safeguardsCountModePerMainHint: "**По осн. стату**\nСохраняет ≥N для каждого основного стата независимо — каждый основной стат защищается отдельно, без общего счётчика. Без ограничения по основному стату применяется к каждому основному стату в твоём инвентаре.",
   safeguardsCountModePerRule: "На защиту",
   safeguardsCountModeHint: "**Чипы области**\nПо умолчанию (**На защиту**) всё подходящее снаряжение делит один счётчик. Каждый чип разбивает его на независимые группы:\n- **По слоту**: каждый тип слота считается отдельно\n- **По сету**: каждый сет или метасет считается отдельно\n- **По фракции**: каждая фракция считается отдельно\n- **По осн. стату**: каждый основной стат считается отдельно\nКомбинируй чипы как угодно. Без фильтра область охватывает все значения в твоём инвентаре. Чипы расположены под всеми селекторами, кроме Ранга и Редкости. **По подстату** (раздел подстатов) дополнительно делит каждую группу по подстатам.",
   safeguardsSubstatLabel: "Подстаты",
@@ -539,14 +553,19 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Оставить",
   safeguardsCandidateSold: "Продать",
   safeguardsCandidateSafeguarded: "Защ.",
+  // Per-candidate focus toggle: scopes the candidate list to that item's count-group.
   safeguardsCandidateFocusGroup: "Показать только эту группу",
   safeguardsCandidateFocusClear: "Показать все группы",
+  // {n} = quota count
   safeguardsCandidateCutoff: "── порог (квота: {n}) ──",
+  // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── квота: {n} на {scope} ──",
+  // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "слот",
   safeguardsCountModeScopeSet: "сет",
   safeguardsCountModeScopeFaction: "фракцию",
   safeguardsCountModeScopeMain: "основной стат",
+  // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: "1 бросок ≈ +{pts}",
   safeguardSubstatWeight: "Вес: {value}×",
   safeguardsCandidatesNoData: "Нет данных обнаружения.\nЗапустите обнаружение, чтобы увидеть кандидатов.",
@@ -654,15 +673,6 @@ const overrides: Catalog = {
   setDesc_setDaze_text: "25% шанс наложить {debuff:Sleep} на 1 ход при атаке",
   setDesc_setDefense_text: "[[stat:statDEF]] +15%",
   setDesc_setDefiant_text: "[[stat:statDEF]] +10%\n-15% урона от вражеских AoE атак",
-  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_4: "35% шанс отразить 1 дебафф на атакующего при наложении дебаффа на владельца\nНакладывает {buff:Block Debuffs} на 1 ход в начале раунда",
-  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_6: "Наносит бонусный урон, зависящий от собственной [[stat:statACC]], по врагам, которые блокируют дебаффы владельца (1 раз за навык)\nЭтот бонусный урон может снимать стаки {buff:Total Guard}",
-  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
-  setDesc_setDeflection_by_9: "Враги игнорируют на 10% меньше [[stat:statDEF]] за каждый активный дебафф, наложенный владельцем (5% для боссов)",
   setDesc_setDestroy_text: "уменьшает макс. [[stat:statHP]] цели на 40% нанесённого урона",
   setDesc_setDivineCriticalRate_text: "[[stat:statCR|bare]] +12%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда",
   setDesc_setDivineLife_text: "[[stat:statHP]] +15%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда",
@@ -700,15 +710,6 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: "+12% [[stat:statSPD]]",
   setDesc_setStalwart_text: "–30% урона от входящих AoE атак",
   setDesc_setStun_text: "18% шанс наложить {debuff:Stun} на 1 ход при атаке",
-  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
-  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% шанс получить {buff:Unkillable} на 1 ход при получении смертельного урона из любого источника",
-  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
-  setDesc_setSwiftParry_by_6: "Вражеские атаки по одной цели наносят владельцу на 15% меньше урона",
-  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
-  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
-  setDesc_setSwiftParry_by_9: "Игнорирует 50% [[stat:statDEF]]",
   setDesc_setToxic_text: "75% шанс наложить 2.5% {debuff:Poison} на 2 хода при атаке",
   setDesc_setUntouchable_text: "{buff:Block Debuffs} на 2 хода в начале раунда\n+40 [[stat:statRES]]",
   setDesc_setZeal_text: "[[stat:statCDMG|bare]] +20%\nурон +3% за каждые 25% текущего [[stat:statHP]]",
@@ -726,6 +727,17 @@ const overrides: Catalog = {
   setDesc_setChronophage_by_7: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_8: "+12% [[stat:statSPD]]",
   setDesc_setChronophage_by_9: "начинает раунд с 3 стаками {buff:Immutable}",
+
+  // Deflection
+  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_4: "35% шанс отразить 1 дебафф на атакующего при наложении дебаффа на владельца\nНакладывает {buff:Block Debuffs} на 1 ход в начале раунда",
+  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_6: "Наносит бонусный урон, зависящий от собственной [[stat:statACC]], по врагам, которые блокируют дебаффы владельца (1 раз за навык)\nЭтот бонусный урон может снимать стаки {buff:Total Guard}",
+  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
+  setDesc_setDeflection_by_9: "Враги игнорируют на 10% меньше [[stat:statDEF]] за каждый активный дебафф, наложенный владельцем (5% для боссов)",
 
   // Feral
   setDesc_setFeral_by_1: "+40 [[stat:statACC]]",
@@ -836,6 +848,17 @@ const overrides: Catalog = {
   setDesc_setSupersonic_by_7: "+20 [[stat:statRES]]",
   setDesc_setSupersonic_by_8: "+12% [[stat:statSPD]]",
   setDesc_setSupersonic_by_9: "+30% эффектов увеличения шкалы хода",
+
+  // Swift Parry
+  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
+  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% шанс получить {buff:Unkillable} на 1 ход при получении смертельного урона из любого источника",
+  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
+  setDesc_setSwiftParry_by_6: "Вражеские атаки по одной цели наносят владельцу на 15% меньше урона",
+  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
+  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
+  setDesc_setSwiftParry_by_9: "Игнорирует 50% [[stat:statDEF]]",
 
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: "за предмет: {buff:Shield} = 5% нанесённого урона после атаки (AoE уменьшен на 75%); итого: 5/10/15% при 1/2/3 предметах",
@@ -1041,6 +1064,7 @@ const overrides: Catalog = {
   historyMetasetConflictCountLine: "Конфликты: {count}",
   historyMetasetConflictNewIdsLine: "Создано {count} новых ID метасетов",
   builderHelpOpen: "Информация о конструкторе",
+  // Tooltip shown when the user hovers the (i) icon beside the Action label.
   builderInfoTooltip: "**Конструктор рецептов**\nКаждый рецепт становится одним правилом «Оставить». Снаряжение, не подходящее ни под один рецепт, продаётся, если только его не защищает защита.\n\n**Защиты**\nИспользуйте панель защит, чтобы оставлять определённое снаряжение независимо от рецептов — с фильтрами по подстатам или без.",
   builderRank: "Ранг",
   builderRankHelp: "Ограничьте правило конкретными звёздными рангами, чтобы по-разному обрабатывать 6★ и 5★.\n• «Любой» оставляет допустимыми все ранги.",
@@ -1172,6 +1196,7 @@ const overrides: Catalog = {
   // Filter panel
   // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Свернуть раздел\n\n_Правый клик — свернуть/развернуть все разделы._",
+  // Substat variant toggle — right-click excludes instead of including.
   rulesFilterVariantRightClickHintExclude: "_Правый клик — исключить._",
   rulesFilterVariantRightClickHintRemove: "_Правый клик — убрать._",
   filterRule: "Правило",
@@ -1245,9 +1270,9 @@ const overrides: Catalog = {
   gearInspectorSortGroupingAccessoriesSlotTooltip: "Группировать аксессуары по слоту.",
   gearInspectorSortHighToLow: "Больше → Меньше",
   gearInspectorSortLowToHigh: "Меньше → Больше",
+  gearInspectorSortImprovementChanceLabel: "Шанс улучшения",
   gearInspectorSortSafeguardRankLabel: "Ранг Защиты",
   gearInspectorSortSafeguardGroupRankLabel: "Ранг Защиты в группе",
-  gearInspectorSortImprovementChanceLabel: "Шанс улучшения",
   gearInspectorSortNewestLabel: "Новые",
   gearInspectorSortGlyphsLabel: "Глифы",
   gearInspectorSortGlyphsExclude: "Исключить",
@@ -1275,10 +1300,6 @@ const overrides: Catalog = {
   gearInspectorChampionUnknownName: "Unknown champion #{id}",
   filterReset: "Сбросить фильтры",
   filterSyncViews: "Синхронизировать фильтры между видами",
-  filterPresetsSaveAs: "Сохранить как…",
-  filterPresetsEmpty: "Сохранённых фильтров пока нет.",
-  filterPresetsSaveDialogTitle: "Сохранить пресет фильтра",
-  filterPresetsSaveDialogHelper: "Сохраняет текущее состояние панели фильтров и настройки сортировки Инспектора снаряжения в локальном хранилище.",
   // Built-in filter preset names
   builtinFilterPresetAllArtifacts: "Все артефакты",
   builtinFilterPresetAllAccessories: "Все аксессуары",
@@ -1293,6 +1314,10 @@ const overrides: Catalog = {
   builtinSortPresetSafeguardGroupRank: "Ранг Защиты в группе",
   builtinSortPresetAscending: "По возрастанию",
   builtinSortPresetTopLevel: "Верхний уровень",
+  filterPresetsSaveAs: "Сохранить как…",
+  filterPresetsEmpty: "Сохранённых фильтров пока нет.",
+  filterPresetsSaveDialogTitle: "Сохранить пресет фильтра",
+  filterPresetsSaveDialogHelper: "Сохраняет текущее состояние панели фильтров и настройки сортировки Инспектора снаряжения в локальном хранилище.",
   filterPresetsNameLabel: "Имя",
   filterPresetsDeleteDialogTitle: "Удалить сохранённый фильтр?",
   filterPresetsDeleteDialogMessage: "Удалить «{name}»? Это действие нельзя отменить.",
@@ -1309,11 +1334,13 @@ const overrides: Catalog = {
   sortPresetsSaveIncludeFilter: "Включить настройки фильтра",
   sortPresetsSaveExclusive: "Заменять текущую сортировку при применении",
   presetLabelColor: "Цвет метки",
+  // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Значок",
   presetIconPickerAria: "Выбрать значок пресета",
   presetPinToHeader: "Закрепить в шапке",
   presetPin: "Закрепить как кнопку",
   presetUnpin: "Открепить кнопку",
+  // Hide/show-hidden actions for preset menus.
   presetHide: "Скрыть",
   presetUnhide: "Показать",
   presetsShowHidden: "Показать скрытые",
@@ -1329,7 +1356,6 @@ const overrides: Catalog = {
   gearInspectorResultMatched: "Область",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
-  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Обычный",
   rarityUncommon: "Необычный",
@@ -1402,13 +1428,16 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Помощь / README",
   helpLanguage: "Язык",
+
   // Theme settings flyout
   themeSettings: "Оформление",
   themeMode: "Режим",
   themeDark: "Тёмный",
   themeLight: "Светлый",
+  themeRslh: "RSLH",
   themeDarkAria: "Тёмный режим",
   themeLightAria: "Светлый режим",
+  themeRslhAria: "RSLH theme",
   themeColorAccent: "Акцент",
   themeColorToggles: "Переключатели",
   themeColorSelection: "Выделение",
@@ -1418,8 +1447,6 @@ const overrides: Catalog = {
   themeColorSuccess: "Успех",
   themeColorWarning: "Предупреждение",
   themeColorError: "Ошибка",
-  themeRslh: "RSLH",
-  themeRslhAria: "RSLH theme",
   themeColorInfo: "Info",
   themeColorTextPrimary: "Text",
   themeColorTextSecondary: "Text 2nd",
@@ -1500,10 +1527,12 @@ const overrides: Catalog = {
   toastRecipesSaved: "Рецепты сохранены. Проверьте папку «Загрузки».",
   toastSellfileSaved: "Sellfile экспортирован.",
   toastSellfileExportFailed: "Не удалось экспортировать Sellfile. Подробности в консоли.",
+  // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile отправлен.",
   toastSellfilePushFailed: "Не удалось отправить Sellfile. Подробности в консоли.",
   toastGearDbImportedShort: "Импортировано {count}",
   toastGearDbImportedShortWithInbox: "Импортировано {count} (+{inboxCount} из почты)",
+  // Used after the initial import when the DB already had gear — shows the running total, not "Imported".
   toastGearDbTotalShort: "Всего: {count}",
   toastGearDbTotalShortWithInbox: "Всего: {count} (+{inboxCount} из почты)",
   toastGearDbDiffSummaryLabel: "Снаряжение обновлено:",
@@ -1808,6 +1837,7 @@ const overrides: Catalog = {
   setBloodshield: "Кровавый щит",
   setReaction: "Реакция",
   setRevenge: "Месть",
+
   // Gear diff (sell/keep before-vs-after comparison)
   gearDiffEmpty: "Нет изменений продать/оставить для показа.",
   gearDiffSplitBaselineHeading: "До",

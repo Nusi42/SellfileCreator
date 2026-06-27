@@ -52,9 +52,9 @@ const overrides: Catalog = {
   filterTooltip: "Tabloyu filtreler (yalnızca görüntüleme). **Dışa aktarma** filtreleri yok sayar.",
   filterTooltipPush: "Tabloyu filtreler (yalnızca görüntüleme). **Gönderme** filtreleri yok sayar.",
   finalSellToggleLabel: "Nihai satış",
-  safeguardsToggleLabel: "Korumalar",
   finalSellToggleTooltip: "**Nihai satış** — Reçete ve korumaları çalıştırdıktan sonra kalan eşyaları satan son tarama.\n\nSellfile'a nihai satış taraması eklemek için etkinleştirin.",
   finalSellConfigureTooltip: "Son taramasını yapılandırmak için **Nihai satış** sekmesindeki **Araçlar** iletisim kutusunu açın.",
+  safeguardsToggleLabel: "Korumalar",
   safeguardsToggleTooltip: "**Korumalar** — Reçetelerinizden bağımsız olarak belirli eşyaları satıştan korur.\n\nKorumaları etkinleştirmek için açın.",
   recipesToggleLabel: "Reçeteler",
   recipesToggleTooltip: "**Reçeteler** — Tüm sat/sakla kurallarını etkinleştir veya devre dışı bırak.\n\nDevre dışı bırakıldığında hiçbir reçete değerlendirilmez.",
@@ -63,6 +63,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: "**Dışa aktarma** filtreleri yok sayar",
   pushIgnoresFilters: "**Gönderme** filtreleri yok sayar",
   exportMergedSellfile: "Birleştirilmiş RSL Helper Sellfile dışa aktar",
+  // Shorter tiers of the export label, picked by useFittingLabel when the full
+  // string would overflow the split button: "…Short" drops "RSL Helper", "…Min"
+  // keeps only the verb. Each tier is translated per-locale so word order/grammar
+  // stay correct (never slice a localized string).
   exportMergedSellfileShort: "Birleştirilmiş Sellfile dışa aktar",
   exportMergedSellfileMin: "Dışa aktar",
   exportSellfile: "RSL Helper Sellfile dışa aktar",
@@ -224,13 +228,17 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: "1 kural",
   rulesCountMany: "{n} kural",
+  // Preview-table group separator rows: one unselectable header per recipe/safeguard/group,
+  // showing the group name plus how many HSF rules it generates.
   previewGroupSeparatorEntriesOne: "1 kural",
   previewGroupSeparatorEntriesMany: "{n} kural",
+  // Group label shown on the separator for imported base (HSF) rows that carry no recipe identity.
   previewGroupSeparatorBaseLabel: "İçe aktarılan temel kurallar",
   gearInspectorItemsCountOne: "1 öğe",
   gearInspectorItemsCountMany: "{n} öğe",
   helpOpenLabel: "Yardım",
   helpOpenTooltip: "Yardımı / README'yi aç",
+  // Update-available notice shown in the header when a newer GitHub release is found
   updateNoticeAvailable: "v{version} mevcut",
   updateNoticeDownload: "İndir",
   updateNoticeDismissAriaLabel: "Güncelleme bildirimini kapat",
@@ -245,6 +253,7 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Port",
   rslHelperPortHelper: "RSL Helper ile başlatılırken uygulamanın bağlandığı port. Varsayılan: 8080.",
 
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
   simpleModeBasicSfc: "Başlangıç",
   simpleModeEndgameSfc: "Orta / Geç / İleri Oyun",
   simpleModePresetLabel: "Satış Kuralları",
@@ -341,10 +350,10 @@ const overrides: Catalog = {
   gearAnalyticsChartMainStatDesc: "Filtrelenmiş ekipmanlardaki her ana stat'ın sıklığı. Belirli bir parça türüne odaklanmak için Yuva halkasını kullanın.",
   gearAnalyticsChartSubstats: "Alt Stat Sıklığı",
   gearAnalyticsChartSubstatsDesc: "Filtrelenmiş ekipmanlarda her alt stat'ın ne sıklıkla göründüğü. Bir eşya en fazla 4 alt stat katkısı sağlayabilir.",
-  gearAnalyticsChartHeatmap: "Yuva × Ana Stat Kapsamı",
-  gearAnalyticsChartHeatmapDesc: "Yuva (sütunlar) ve ana stat (satırlar) başına eşya sayısı. Yuvaya göre filtrelemek için bir sütun başlığına veya hücreye tıklayın.",
   gearAnalyticsChartImprovChance: "İyileştirme Şansı",
   gearAnalyticsChartImprovChanceDesc: "Ekipmanınızın iyileşme olasılığı, %10'luk adımlar halinde gruplandırılır. Sağdaki sayı her grupta kaç eşya bulunduğunu gösterir. Koruması olmayan ekipman ve sonuna gelmiş +16 ekipman dahil edilmez. Yalnızca o grubu göstermek için bir gruba tıklayın.",
+  gearAnalyticsChartHeatmap: "Yuva × Ana Stat Kapsamı",
+  gearAnalyticsChartHeatmapDesc: "Yuva (sütunlar) ve ana stat (satırlar) başına eşya sayısı. Yuvaya göre filtrelemek için bir sütun başlığına veya hücreye tıklayın.",
   gearAnalyticsChartSource: "Kaynak",
   gearAnalyticsOutcomeSell: "Sat",
   gearAnalyticsOutcomeKeep: "Tut",
@@ -360,6 +369,7 @@ const overrides: Catalog = {
   gearAnalyticsSetSlotFilter: "Yuva",
   gearAnalyticsOtherSets: "Diğerleri ({n})",
   gearAnalyticsOtherSetsChip: "Diğerleri",
+  // Champion Stats section.
   gearAnalyticsChampStatsTitle: "Kahraman Statları",
   gearAnalyticsChampStatsTitleDesc: "Yalnızca ekipman alt statları — kahraman başına tüm donatılmış parçalar üzerinden toplam. Ustalıklar, kahraman temel statları, set bonusları, Emanetler, yükseliş bonusları, bölge bonusları veya Hizip Koruyucu bonusları dahil değildir.",
   gearAnalyticsChampLocationAll: "Tümü",
@@ -381,14 +391,16 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Tümü",
   gearAnalyticsSlotModeArtifacts: "Eserler",
   gearAnalyticsSlotModeAccessories: "Aksesuarlar",
+  // In-game roster order: ascension level → rarity → empowerment proxy → awakening proxy → avg gear rank.
   gearAnalyticsSlotModeRank: "Aşamaya göre",
+  // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
   gearAnalyticsSimulateSoldLabel: "Satışı simüle et",
   gearAnalyticsSimulateSoldDesc: "Etkinleştirildiğinde, mevcut kurallara göre satılacak ekipmana sahip yuvalar kırmızıyla gösterilir ve eksik sayılır.",
+  // Show-fully-equipped toggle: expands the list to also include champions with no missing slots.
   gearAnalyticsShowFullyEquippedLabel: "Tam donanımı göster",
   gearAnalyticsShowFullyEquippedDesc: "Etkinleştirildiğinde, mevcut tüm yuvaları zaten dolu olan şampiyonlar da listelenir (eksik sayım modlarında sona sıralanır).",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Grafiği daralt\n\n_Tüm grafikleri değiştirmek için sağ tıklayın._",
-
   dungeonDropsIntro: "Mevcut Sellfile kurallarınızı (HSF) kullanarak zindan düşüşlerini simüle edin ve set ile seviye kilometre taşına göre ne kadar ekipmanın tutulduğunu tahmin edin.",
   dungeonDropsExplanation: "Tablodaki yüzdeler, bu aşamadaki tüm düşüşlere bölünmüş elde tutulan düşüşlerdir; güçlendirilmiş setler yalnızca set ağırlıklarını değiştirir.",
   // Simulation roll assumptions and run count.
@@ -469,6 +481,8 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: "Ejderha",
   dungeonEvent: "Etkinlik",
+  // Note-block dungeon simulator tooltip — keep-chance summary line.
+  // {level} = gear level milestone; {pct} = formatted keep-chance string.
   noteSimKeepChanceAtLevel: "Tutulan +{level}: {pct}",
   safeguardsTabLabel: "Korumalar",
   safeguardsTabIntro: "Yuva/set/istatistik kombinasyonu bazında korumalar ekleyin, böylece şu anda aktif olan Satış kurallarınız bu kombinasyonun tüm kopyalarını asla silmesin.",
@@ -522,9 +536,9 @@ const overrides: Catalog = {
   safeguardsCountModePerFaction: "Fraksiyon başına",
   safeguardsCountModePerFactionHint: "**Fraksiyon başına**\nHer fraksiyonu bağımsız olarak ≥N korur — her fraksiyon ayrı ayrı korunur, tek bir sayacı paylaşmadan. Fraksiyon kısıtlaması yoksa envanterindeki her fraksiyona uygulanır.",
   safeguardsCountModePerMain: "Ana stat başına",
+  safeguardsCountModePerMainHint: "**Ana stat başına**\nHer ana statı bağımsız olarak ≥N korur — her ana stat ayrı ayrı korunur, tek bir sayacı paylaşmadan. Ana stat kısıtlaması yoksa envanterindeki her ana stata uygulanır.",
   safeguardsWeightByRank: "Rütbeye göre ağırlık",
   safeguardsWeightByRankHint: "**Rütbeye göre ağırlık**\nDaha yüksek rütbeli eşyaya yalnızca **ana istatistikte** avantaj verir: 6★ tam, 5★ yaklaşık %85 sayılır. Böylece bir 6★, alt istatleri yalnızca biraz daha iyi olan aynı ana istatlı bir 5★'ı geçer. Sadece aynı ana istat içindeki sıralamayı keskinleştirir — daha yüksek rütbeli her parça için genel bir bonus değildir ve alt istatlere dokunmaz. En az bir alt istat seçili olmalıdır. Her parça, kendi yuvasının ve ana istatistiğinin en iyisiyle karşılaştırılır.",
-  safeguardsCountModePerMainHint: "**Ana stat başına**\nHer ana statı bağımsız olarak ≥N korur — her ana stat ayrı ayrı korunur, tek bir sayacı paylaşmadan. Ana stat kısıtlaması yoksa envanterindeki her ana stata uygulanır.",
   safeguardsCountModePerRule: "Koruma başına",
   safeguardsCountModeHint: "**Kapsam çipleri**\nVarsayılan olarak (**Koruma başına**) tüm eşleşen ekipman tek bir sayacı paylaşır. Her çip bunu bağımsız gruplara böler:\n- **Yuva başına**: her yuva türü ayrı ayrı sayılır\n- **Set başına**: her set veya metaset ayrı ayrı sayılır\n- **Fraksiyon başına**: her fraksiyon ayrı ayrı sayılır\n- **Ana stat başına**: her ana stat ayrı ayrı sayılır\nÇipleri serbestçe kombinle. Filtre yoksa o kapsam envanterdeki tüm değerleri kapsar. Çipler Rank ve Nadirlik dışındaki tüm seçicilerin altında bulunur. **Alt stat başına** (alt stat bölümünde) her grubu alt stata göre ayrıca böler.",
   safeguardsSubstatLabel: "Alt statlar",
@@ -539,14 +553,19 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Tut",
   safeguardsCandidateSold: "Sat",
   safeguardsCandidateSafeguarded: "Koruma",
+  // Per-candidate focus toggle: scopes the candidate list to that item's count-group.
   safeguardsCandidateFocusGroup: "Yalnızca bu grubu göster",
   safeguardsCandidateFocusClear: "Tüm grupları göster",
+  // {n} = quota count
   safeguardsCandidateCutoff: "── kesim (kota: {n}) ──",
+  // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── kota: {n} / {scope} ──",
+  // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "yuva",
   safeguardsCountModeScopeSet: "set",
   safeguardsCountModeScopeFaction: "fraksiyon",
   safeguardsCountModeScopeMain: "ana stat",
+  // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: "1 rulo ≈ +{pts}",
   safeguardSubstatWeight: "Ağırlık: {value}×",
   safeguardsCandidatesNoData: "Tespit verisi yok.\nAdayları görmek için tespiti çalıştırın.",
@@ -654,15 +673,6 @@ const overrides: Catalog = {
   setDesc_setDaze_text: "Saldırırken {debuff:Sleep} uygulama şansı %25 (1 tur)",
   setDesc_setDefense_text: "+15% [[stat:statDEF]]",
   setDesc_setDefiant_text: "[[stat:statDEF]] +10%\nDüşman AoE saldırılarından alınan hasar -%15",
-  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_4: "Tasiyiciya bir debuff uygulandiginda %35 ihtimalle 1 debuff i saldirgana geri yansitir\nRound baslangicinda 1 tur {buff:Block Debuffs} verir",
-  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_6: "Debufflari engelleyen dusmanlara, kendi [[stat:statACC]] degerine bagli bonus hasar verir (yetenek basina 1 kez)\nBu bonus hasar {buff:Total Guard} yuklerini kaldirabilir",
-  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
-  setDesc_setDeflection_by_9: "Tasiyicinin yerlestirdigi her aktif debuff icin dusmanlar %10 daha az [[stat:statDEF]] yok sayar (Bosslar icin %5)",
   setDesc_setDestroy_text: "Verilen hasarın %40'ı kadar hedef maksimum [[stat:statHP]]'sini düşürür",
   setDesc_setDivineCriticalRate_text: "[[stat:statCR|bare]] +12%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]'nin %15'i kadar {buff:Shield}",
   setDesc_setDivineLife_text: "[[stat:statHP]] +15%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]'nin %15'i kadar {buff:Shield}",
@@ -700,15 +710,6 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: "+12% [[stat:statSPD]]",
   setDesc_setStalwart_text: "Gelen AoE hasarı -%30",
   setDesc_setStun_text: "Saldırırken {debuff:Stun} uygulama şansı %18 (1 tur)",
-  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
-  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\nHerhangi bir hasar kaynagindan olumcul hasar aldiginda %50 ihtimalle 1 tur {buff:Unkillable} kazanir",
-  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
-  setDesc_setSwiftParry_by_6: "Dusman tek hedef saldirilari tasiyiciya %15 daha az hasar verir",
-  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
-  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
-  setDesc_setSwiftParry_by_9: "%50 [[stat:statDEF]] yok sayar",
   setDesc_setToxic_text: "Saldırırken %75 şansla 2 tur 2.5% {debuff:Poison} uygular",
   setDesc_setUntouchable_text: "Raund başında 2 tur {buff:Block Debuffs}\n+40 [[stat:statRES]]",
   setDesc_setZeal_text: "[[stat:statCDMG|bare]] +20%\nHer %25 mevcut [[stat:statHP]] için hasar +3%",
@@ -726,6 +727,17 @@ const overrides: Catalog = {
   setDesc_setChronophage_by_7: "+20 [[stat:statRES]]",
   setDesc_setChronophage_by_8: "+12% [[stat:statSPD]]",
   setDesc_setChronophage_by_9: "Raund başında 3 {buff:Immutable} yığınıyla başlar",
+
+  // Deflection
+  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_4: "Tasiyiciya bir debuff uygulandiginda %35 ihtimalle 1 debuff i saldirgana geri yansitir\nRound baslangicinda 1 tur {buff:Block Debuffs} verir",
+  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_6: "Debufflari engelleyen dusmanlara, kendi [[stat:statACC]] degerine bagli bonus hasar verir (yetenek basina 1 kez)\nBu bonus hasar {buff:Total Guard} yuklerini kaldirabilir",
+  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
+  setDesc_setDeflection_by_9: "Tasiyicinin yerlestirdigi her aktif debuff icin dusmanlar %10 daha az [[stat:statDEF]] yok sayar (Bosslar icin %5)",
 
   // Feral
   setDesc_setFeral_by_1: "+40 [[stat:statACC]]",
@@ -836,6 +848,17 @@ const overrides: Catalog = {
   setDesc_setSupersonic_by_7: "+20 [[stat:statRES]]",
   setDesc_setSupersonic_by_8: "+12% [[stat:statSPD]]",
   setDesc_setSupersonic_by_9: "Turn Meter artırma etkileri +%30",
+
+  // Swift Parry
+  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
+  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\nHerhangi bir hasar kaynagindan olumcul hasar aldiginda %50 ihtimalle 1 tur {buff:Unkillable} kazanir",
+  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
+  setDesc_setSwiftParry_by_6: "Dusman tek hedef saldirilari tasiyiciya %15 daha az hasar verir",
+  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
+  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
+  setDesc_setSwiftParry_by_9: "%50 [[stat:statDEF]] yok sayar",
 
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: "Parça başına: Saldırı sonrası verilen hasarın %5'i kadar {buff:Shield} (AoE %75 azaltılır); toplam: 1/2/3 parçada %5/%10/%15",
@@ -1041,6 +1064,7 @@ const overrides: Catalog = {
   historyMetasetConflictCountLine: "Çakışmalar: {count}",
   historyMetasetConflictNewIdsLine: "{count} yeni meta set kimliği oluşturuldu",
   builderHelpOpen: "Builder bilgisi",
+  // Tooltip shown when the user hovers the (i) icon beside the Action label.
   builderInfoTooltip: "**Reçete Oluşturucu**\nHer reçete bir Koru kuralı olur. Hiçbir reçeteyle eşleşmeyen ekipman, bir koruma korumadığı sürece satılır.\n\n**Korumalar**\nReçetelerinizden bağımsız olarak belirli ekipmanları tutmak için Koruma panelini kullanın — alt stat filtreleriyle ya da filtre olmadan.",
   builderRank: "Rütbe",
   builderRankHelp: "6★ eşyayı 5★'den farklı değerlendirmek için kuralı belirli yıldız rütbeleriyle sınırlandırın.\n• “Herhangi” tüm rütbeleri geçerli bırakır.",
@@ -1172,6 +1196,7 @@ const overrides: Catalog = {
   // Filter panel
   // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Bölümü daralt\n\n_Tüm bölümleri daraltmak/genişletmek için sağ tıklayın._",
+  // Substat variant toggle — right-click excludes instead of including.
   rulesFilterVariantRightClickHintExclude: "_Hariç tutmak için sağ tıklayın._",
   rulesFilterVariantRightClickHintRemove: "_Kaldırmak için sağ tıklayın._",
   filterRule: "Kural",
@@ -1245,9 +1270,9 @@ const overrides: Catalog = {
   gearInspectorSortGroupingAccessoriesSlotTooltip: "Aksesuarları yuvaya göre grupla.",
   gearInspectorSortHighToLow: "Yüksek → Düşük",
   gearInspectorSortLowToHigh: "Düşük → Yüksek",
+  gearInspectorSortImprovementChanceLabel: "İyileştirme şansı",
   gearInspectorSortSafeguardRankLabel: "Koruyucu Sırası",
   gearInspectorSortSafeguardGroupRankLabel: "Koruyucu Grup Sırası",
-  gearInspectorSortImprovementChanceLabel: "İyileştirme şansı",
   gearInspectorSortNewestLabel: "En yeni",
   gearInspectorSortGlyphsLabel: "Glifler",
   gearInspectorSortGlyphsExclude: "Hariç tut",
@@ -1275,10 +1300,6 @@ const overrides: Catalog = {
   gearInspectorChampionUnknownName: "Unknown champion #{id}",
   filterReset: "Filtreleri sıfırla",
   filterSyncViews: "Filtreleri görünümler arasında senkronize et",
-  filterPresetsSaveAs: "Farklı kaydet…",
-  filterPresetsEmpty: "Henüz kaydedilmiş filtre yok.",
-  filterPresetsSaveDialogTitle: "Filtre ön ayarını kaydet",
-  filterPresetsSaveDialogHelper: "Geçerli filtre paneli durumunu ve Kural Testi sıralama ayarlarını yerel depolamaya kaydeder.",
   // Built-in filter preset names
   builtinFilterPresetAllArtifacts: "Tüm Eserler",
   builtinFilterPresetAllAccessories: "Tüm Aksesuarlar",
@@ -1293,6 +1314,10 @@ const overrides: Catalog = {
   builtinSortPresetSafeguardGroupRank: "Koruyucu Grup Sırası",
   builtinSortPresetAscending: "Artan",
   builtinSortPresetTopLevel: "Üst Düzey",
+  filterPresetsSaveAs: "Farklı kaydet…",
+  filterPresetsEmpty: "Henüz kaydedilmiş filtre yok.",
+  filterPresetsSaveDialogTitle: "Filtre ön ayarını kaydet",
+  filterPresetsSaveDialogHelper: "Geçerli filtre paneli durumunu ve Kural Testi sıralama ayarlarını yerel depolamaya kaydeder.",
   filterPresetsNameLabel: "Ad",
   filterPresetsDeleteDialogTitle: "Kaydedilmiş filtre silinsin mi?",
   filterPresetsDeleteDialogMessage: "”{name}” silinsin mi? Bu geri alınamaz.",
@@ -1309,11 +1334,13 @@ const overrides: Catalog = {
   sortPresetsSaveIncludeFilter: "Filtre ayarlarını dahil et",
   sortPresetsSaveExclusive: "Uygulandığında mevcut sıralamayı değiştir",
   presetLabelColor: "Etiket rengi",
+  // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Simge",
   presetIconPickerAria: "Hazır ayar simgesini seç",
   presetPinToHeader: "Başlığa sabitle",
   presetPin: "Düğme olarak sabitle",
   presetUnpin: "Düğmeyi kaldır",
+  // Hide/show-hidden actions for preset menus.
   presetHide: "Gizle",
   presetUnhide: "Göster",
   presetsShowHidden: "Gizlenenleri göster",
@@ -1329,7 +1356,6 @@ const overrides: Catalog = {
   gearInspectorResultMatched: "Kapsam",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
-  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Sıradan",
   rarityUncommon: "Sıradışı",
@@ -1402,13 +1428,16 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Yardım / README",
   helpLanguage: "Dil",
+
   // Theme settings flyout
   themeSettings: "Görünüm",
   themeMode: "Mod",
   themeDark: "Koyu",
   themeLight: "Açık",
+  themeRslh: "RSLH",
   themeDarkAria: "Koyu mod",
   themeLightAria: "Açık mod",
+  themeRslhAria: "RSLH theme",
   themeColorAccent: "Vurgu",
   themeColorToggles: "Düğmeler",
   themeColorSelection: "Seçim",
@@ -1418,8 +1447,6 @@ const overrides: Catalog = {
   themeColorSuccess: "Başarı",
   themeColorWarning: "Uyarı",
   themeColorError: "Hata",
-  themeRslh: "RSLH",
-  themeRslhAria: "RSLH theme",
   themeColorInfo: "Info",
   themeColorTextPrimary: "Text",
   themeColorTextSecondary: "Text 2nd",
@@ -1500,10 +1527,12 @@ const overrides: Catalog = {
   toastRecipesSaved: "Reçeteler kaydedildi. İndirilenler'i kontrol edin.",
   toastSellfileSaved: "Sellfile dışa aktarıldı.",
   toastSellfileExportFailed: "Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.",
+  // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile gönderildi.",
   toastSellfilePushFailed: "Sellfile gönderme başarısız oldu. Ayrıntılar için konsola bakın.",
   toastGearDbImportedShort: "İçe aktarıldı {count}",
   toastGearDbImportedShortWithInbox: "İçe aktarıldı {count} (+{inboxCount} gelen kutusu)",
+  // Used after the initial import when the DB already had gear — shows the running total, not "Imported".
   toastGearDbTotalShort: "Toplam: {count}",
   toastGearDbTotalShortWithInbox: "Toplam: {count} (+{inboxCount} gelen kutusu)",
   toastGearDbDiffSummaryLabel: "Ekipman güncellendi:",
@@ -1808,6 +1837,7 @@ const overrides: Catalog = {
   setBloodshield: "Kan kalkanı",
   setReaction: "Tepki",
   setRevenge: "İntikam",
+
   // Gear diff (sell/keep before-vs-after comparison)
   gearDiffEmpty: "Gösterilecek sat/sakla değişikliği yok.",
   gearDiffSplitBaselineHeading: "Önce",

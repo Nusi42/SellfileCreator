@@ -52,9 +52,9 @@ const overrides: Catalog = {
   filterTooltip: "Фільтрує таблицю (лише перегляд). **Експорт** ігнорує фільтри.",
   filterTooltipPush: "Фільтрує таблицю (лише перегляд). **Надсилання** ігнорує фільтри.",
   finalSellToggleLabel: "Фінальний продаж",
-  safeguardsToggleLabel: "Захисти",
   finalSellToggleTooltip: "**Фінальний продаж** — Завершальний прохід, що продає залишкове спорядження після рецептів та захистів.\n\nУвімкніть, щоб включити фінальний прохід до sellfile.",
   finalSellConfigureTooltip: "Відкрийте діалог **Інструменти** на вкладці **Фінальний продаж** для налаштування.",
+  safeguardsToggleLabel: "Захисти",
   safeguardsToggleTooltip: "**Захисти** — Захищає певне спорядження від продажу.\n\nУвімкніть для активації захистів.",
   recipesToggleLabel: "Рецепти",
   recipesToggleTooltip: "**Рецепти** — Увімкніть або вимкніть усі правила продажу/збереження.\n\nПри вимкненні жодні рецепти не обчислюються.",
@@ -63,6 +63,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: "**Експорт** ігнорує фільтри",
   pushIgnoresFilters: "**Надсилання** ігнорує фільтри",
   exportMergedSellfile: "Експортувати об’єднаний Sellfile RSL Helper",
+  // Shorter tiers of the export label, picked by useFittingLabel when the full
+  // string would overflow the split button: "…Short" drops "RSL Helper", "…Min"
+  // keeps only the verb. Each tier is translated per-locale so word order/grammar
+  // stay correct (never slice a localized string).
   exportMergedSellfileShort: "Експортувати об’єднаний Sellfile",
   exportMergedSellfileMin: "Експорт",
   exportSellfile: "Експортувати Sellfile RSL Helper",
@@ -224,13 +228,17 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: "1 правило",
   rulesCountMany: "{n} правил",
+  // Preview-table group separator rows: one unselectable header per recipe/safeguard/group,
+  // showing the group name plus how many HSF rules it generates.
   previewGroupSeparatorEntriesOne: "1 правило",
   previewGroupSeparatorEntriesMany: "{n} правил",
+  // Group label shown on the separator for imported base (HSF) rows that carry no recipe identity.
   previewGroupSeparatorBaseLabel: "Імпортовані базові правила",
   gearInspectorItemsCountOne: "1 предмет",
   gearInspectorItemsCountMany: "{n} предметів",
   helpOpenLabel: "Довідка",
   helpOpenTooltip: "Відкрити довідку / README",
+  // Update-available notice shown in the header when a newer GitHub release is found
   updateNoticeAvailable: "v{version} доступна",
   updateNoticeDownload: "Завантажити",
   updateNoticeDismissAriaLabel: "Закрити сповіщення про оновлення",
@@ -245,6 +253,7 @@ const overrides: Catalog = {
   rslHelperPortLabel: "Порт",
   rslHelperPortHelper: "Порт, до якого програма підключається при запуску з RSL Helper. За замовчуванням: 8080.",
 
+  // Express mode — streamlined UI when launched from RSL Helper via ?express param
   simpleModeBasicSfc: "Початківець",
   simpleModeEndgameSfc: "Середня / Пізня / Фінальна гра",
   simpleModePresetLabel: "Правила продажу",
@@ -341,10 +350,10 @@ const overrides: Catalog = {
   gearAnalyticsChartMainStatDesc: "Частота кожного основного стату у відфільтрованому спорядженні. Використовуйте діаграму слотів для фокусування на конкретному типі.",
   gearAnalyticsChartSubstats: "Частота підстатів",
   gearAnalyticsChartSubstatsDesc: "Як часто кожен підстат зустрічається у відфільтрованому спорядженні. Один предмет може мати до 4 підстатів.",
-  gearAnalyticsChartHeatmap: "Покриття Слот × Основний стат",
-  gearAnalyticsChartHeatmapDesc: "Кількість предметів за слотом (стовпці) і основним статом (рядки). Натисніть на заголовок стовпця або клітинку для фільтрації за слотом.",
   gearAnalyticsChartImprovChance: "Шанс покращення",
   gearAnalyticsChartImprovChanceDesc: "Наскільки ймовірно ваше спорядження покращиться, згруповано за кроками 10 %. Число праворуч показує, скільки предметів потрапляє в кожну групу. Спорядження без захисту та максимальне спорядження +16 не враховуються. Натисніть групу, щоб показати лише це спорядження.",
+  gearAnalyticsChartHeatmap: "Покриття Слот × Основний стат",
+  gearAnalyticsChartHeatmapDesc: "Кількість предметів за слотом (стовпці) і основним статом (рядки). Натисніть на заголовок стовпця або клітинку для фільтрації за слотом.",
   gearAnalyticsChartSource: "Джерело",
   gearAnalyticsOutcomeSell: "Продати",
   gearAnalyticsOutcomeKeep: "Зберегти",
@@ -360,6 +369,7 @@ const overrides: Catalog = {
   gearAnalyticsSetSlotFilter: "Слот",
   gearAnalyticsOtherSets: "Інші ({n})",
   gearAnalyticsOtherSetsChip: "Інші",
+  // Champion Stats section.
   gearAnalyticsChampStatsTitle: "Стати чемпіонів",
   gearAnalyticsChampStatsTitleDesc: "Лише підстати спорядження — суми по всіх вдягнених предметах на чемпіона. Не включає Майстерність, базові стати чемпіона, бонуси сетів, Реліквії, бонуси піднесення, бонуси зони або бонуси Вартових фракції.",
   gearAnalyticsChampLocationAll: "Всі",
@@ -381,14 +391,16 @@ const overrides: Catalog = {
   gearAnalyticsSlotModeAll: "Усі",
   gearAnalyticsSlotModeArtifacts: "Артефакти",
   gearAnalyticsSlotModeAccessories: "Аксесуари",
+  // In-game roster order: ascension level → rarity → empowerment proxy → awakening proxy → avg gear rank.
   gearAnalyticsSlotModeRank: "За рангом",
+  // Simulate-sold toggle: paints slots holding sell-targeted gear red and adds them to the missing count.
   gearAnalyticsSimulateSoldLabel: "Імітація продажу",
   gearAnalyticsSimulateSoldDesc: "Якщо увімкнено, комірки, спорядження яких було б продане за поточними правилами, відображаються червоним і рахуються як відсутні.",
+  // Show-fully-equipped toggle: expands the list to also include champions with no missing slots.
   gearAnalyticsShowFullyEquippedLabel: "Показати повних",
   gearAnalyticsShowFullyEquippedDesc: "Якщо увімкнено, чемпіони, у яких усі доступні комірки вже заповнені, також відображаються (сортуються в кінець у режимах за відсутніми комірками).",
   // Collapse chevron tooltip — right-click toggles all charts simultaneously.
   gearAnalyticsCollapseChartTooltip: "Згорнути графік\n\n_Правий клік — перемкнути всі графіки._",
-
   dungeonDropsIntro: "Симулюйте дропи підземель, використовуючи поточні правила Sellfile (HSF), щоб оцінити, скільки спорядження зберігається за сетом і рівневим рубежем.",
   dungeonDropsExplanation: "Відсотки в таблиці — це збережені дропи, поділені на всі дропи цієї стадії; посилені сети змінюють лише ваги сетів.",
   // Simulation roll assumptions and run count.
@@ -469,6 +481,8 @@ const overrides: Catalog = {
   // Remaining dungeon names.
   dungeonDragon: "Дракон",
   dungeonEvent: "Подія",
+  // Note-block dungeon simulator tooltip — keep-chance summary line.
+  // {level} = gear level milestone; {pct} = formatted keep-chance string.
   noteSimKeepChanceAtLevel: "Збережено при +{level}: {pct}",
   safeguardsTabLabel: "Захисти",
   safeguardsTabIntro: "Додайте захисти за слотом/сетом/основним статом, щоб ваші поточні активні правила продажу ніколи не видаляли усі копії цієї комбінації.",
@@ -522,9 +536,9 @@ const overrides: Catalog = {
   safeguardsCountModePerFaction: "На фракцію",
   safeguardsCountModePerFactionHint: "**На фракцію**\nЗберігає ≥N для кожної фракції незалежно — кожна фракція захищається окремо, без спільного лічильника. Без обмеження за фракцією застосовується до кожної фракції у твоєму інвентарі.",
   safeguardsCountModePerMain: "На осн. стат",
+  safeguardsCountModePerMainHint: "**На осн. стат**\nЗберігає ≥N для кожного основного стату незалежно — кожен основний стат захищається окремо, без спільного лічильника. Без обмеження за основним статом застосовується до кожного основного стату у твоєму інвентарі.",
   safeguardsWeightByRank: "Вага за рангом",
   safeguardsWeightByRankHint: "**Вага за рангом**\nДає перевагу спорядженню вищого рангу — лише за **основним статом**: 6★ враховується повністю, 5★ приблизно на 85 %. Тож 6★ випереджає 5★ з тим самим основним статом, чиї підстати лише трохи кращі. Це лише уточнює порядок у межах одного основного стата — це не загальний бонус для будь-якого предмета вищого рангу, і підстати не змінюються. Потрібен щонайменше один обраний підстат. Кожен предмет порівнюється з найкращим у своєму слоті та за основним статом.",
-  safeguardsCountModePerMainHint: "**На осн. стат**\nЗберігає ≥N для кожного основного стату незалежно — кожен основний стат захищається окремо, без спільного лічильника. Без обмеження за основним статом застосовується до кожного основного стату у твоєму інвентарі.",
   safeguardsCountModePerRule: "На захист",
   safeguardsCountModeHint: "**Чипи діапазону**\nЗа замовчуванням (**На захист**) все підходяще спорядження ділить один лічильник. Кожен чип розбиває його на незалежні групи:\n- **На слот**: кожен тип слота рахується окремо\n- **На сет**: кожен сет або метасет рахується окремо\n- **На фракцію**: кожна фракція рахується окремо\n- **На осн. стат**: кожен основний стат рахується окремо\nКомбінуй чипи як завгодно. Без фільтра діапазон охоплює всі значення у твоєму інвентарі. Чипи розташовані під усіма селекторами, окрім Рангу та Рідкості. **По підстату** (розділ підстатів) додатково ділить кожну групу за підстатами.",
   safeguardsSubstatLabel: "Підстати",
@@ -539,14 +553,19 @@ const overrides: Catalog = {
   safeguardsCandidateKept: "Зберегти",
   safeguardsCandidateSold: "Продати",
   safeguardsCandidateSafeguarded: "Захист",
+  // Per-candidate focus toggle: scopes the candidate list to that item's count-group.
   safeguardsCandidateFocusGroup: "Показати лише цю групу",
   safeguardsCandidateFocusClear: "Показати всі групи",
+  // {n} = quota count
   safeguardsCandidateCutoff: "── поріг (квота: {n}) ──",
+  // {n} = quota count, {scope} = active countMode dimensions e.g. "set · faction"
   safeguardsCandidateCutoffPerGroup: "── квота: {n} на {scope} ──",
+  // Short lowercase dimension labels used inside safeguardsCandidateCutoffPerGroup
   safeguardsCountModeScopeSlot: "слот",
   safeguardsCountModeScopeSet: "сет",
   safeguardsCountModeScopeFaction: "фракцію",
   safeguardsCountModeScopeMain: "основний стат",
+  // {pts} = per-roll contribution, e.g. "0.17"
   safeguardsCandidateWeightHint: "1 кидок ≈ +{pts}",
   safeguardSubstatWeight: "Вага: {value}×",
   safeguardsCandidatesNoData: "Немає даних виявлення.\nЗапустіть виявлення, щоб побачити кандидатів.",
@@ -654,15 +673,6 @@ const overrides: Catalog = {
   setDesc_setDaze_text: "25% ймовірність накласти {debuff:Sleep} на 1 хід під час атаки",
   setDesc_setDefense_text: "+15% [[stat:statDEF]]",
   setDesc_setDefiant_text: "[[stat:statDEF]] +10%\n-15% отриманої шкоди від ворожих AoE-атак",
-  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_4: "35% шанс відбити 1 дебафф назад у атакувальника, коли на носія накладають дебафф\nНакладає {buff:Block Debuffs} на 1 хід на початку раунду",
-  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
-  setDesc_setDeflection_by_6: "Завдає бонусної шкоди, пропорційної власній [[stat:statACC]], ворогам, які блокують дебаффи носія (раз за навичку)\nЦя бонусна шкода може знімати стаки {buff:Total Guard}",
-  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
-  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
-  setDesc_setDeflection_by_9: "Вороги ігнорують на 10% менше [[stat:statDEF]] за кожен активний дебафф, накладений носієм (5% для Босів)",
   setDesc_setDestroy_text: "зменшує MAX [[stat:statHP]] цілі на 40% завданої шкоди",
   setDesc_setDivineCriticalRate_text: "[[stat:statCR|bare]] +12%\n{buff:Shield} на собі на 15% від макс. [[stat:statHP]] на 3 ходи на початку раунду",
   setDesc_setDivineLife_text: "[[stat:statHP]] +15%\n{buff:Shield} на собі на 15% від макс. [[stat:statHP]] на 3 ходи на початку раунду",
@@ -700,15 +710,6 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: "[[stat:statSPD]] +12%",
   setDesc_setStalwart_text: "-30% шкоди від вхідних AoE-атак",
   setDesc_setStun_text: "18% шанс накласти {debuff:Stun} на 1 хід під час атаки",
-  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
-  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
-  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% шанс отримати {buff:Unkillable} на 1 хід при отриманні смертельної шкоди з будь-якого джерела",
-  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
-  setDesc_setSwiftParry_by_6: "Ворожі атаки по одній цілі завдають носію на 15% менше шкоди",
-  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
-  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
-  setDesc_setSwiftParry_by_9: "Ігнорує 50% [[stat:statDEF]]",
   setDesc_setToxic_text: "75% шанс накласти 2,5% {debuff:Poison} на 2 ходи під час атаки",
   setDesc_setUntouchable_text: "{buff:Block Debuffs} на 2 ходи на початку раунду\n[[stat:statRES]] +40",
   setDesc_setZeal_text: "[[stat:statCDMG|bare]] +20%\nшкода +3% за кожні 25% поточного [[stat:statHP]]",
@@ -726,6 +727,17 @@ const overrides: Catalog = {
   setDesc_setChronophage_by_7: "[[stat:statRES]] +20",
   setDesc_setChronophage_by_8: "[[stat:statSPD]] +12%",
   setDesc_setChronophage_by_9: "починає з 3 стеків {buff:Immutable}",
+
+  // Deflection
+  setDesc_setDeflection_by_1: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_2: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_3: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_4: "35% шанс відбити 1 дебафф назад у атакувальника, коли на носія накладають дебафф\nНакладає {buff:Block Debuffs} на 1 хід на початку раунду",
+  setDesc_setDeflection_by_5: "+10% [[stat:statSPD]]",
+  setDesc_setDeflection_by_6: "Завдає бонусної шкоди, пропорційної власній [[stat:statACC]], ворогам, які блокують дебаффи носія (раз за навичку)\nЦя бонусна шкода може знімати стаки {buff:Total Guard}",
+  setDesc_setDeflection_by_7: "+20 [[stat:statACC]]",
+  setDesc_setDeflection_by_8: "+12% [[stat:statSPD]]",
+  setDesc_setDeflection_by_9: "Вороги ігнорують на 10% менше [[stat:statDEF]] за кожен активний дебафф, накладений носієм (5% для Босів)",
 
   // Feral
   setDesc_setFeral_by_1: "[[stat:statACC]] +40",
@@ -836,6 +848,17 @@ const overrides: Catalog = {
   setDesc_setSupersonic_by_7: "[[stat:statRES]] +20",
   setDesc_setSupersonic_by_8: "[[stat:statSPD]] +12%",
   setDesc_setSupersonic_by_9: "+30% ефектів підвищення смуги ходу",
+
+  // Swift Parry
+  setDesc_setSwiftParry_by_1: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_2: "[[stat:statSPD]] +8%",
+  setDesc_setSwiftParry_by_3: "[[stat:statCDMG|bare]] +15%",
+  setDesc_setSwiftParry_by_4: "[[stat:statSPD]] +10%\n50% шанс отримати {buff:Unkillable} на 1 хід при отриманні смертельної шкоди з будь-якого джерела",
+  setDesc_setSwiftParry_by_5: "[[stat:statHP]] +10%",
+  setDesc_setSwiftParry_by_6: "Ворожі атаки по одній цілі завдають носію на 15% менше шкоди",
+  setDesc_setSwiftParry_by_7: "[[stat:statHP]] +15%",
+  setDesc_setSwiftParry_by_8: "[[stat:statSPD]] +10%",
+  setDesc_setSwiftParry_by_9: "Ігнорує 50% [[stat:statDEF]]",
 
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: "за предмет: {buff:Shield} на 5% від завданої шкоди після атаки (AoE зменшено на 75%); сумарно: 5/10/15% з 1/2/3 предметами",
@@ -1041,6 +1064,7 @@ const overrides: Catalog = {
   historyMetasetConflictCountLine: "Конфлікти: {count}",
   historyMetasetConflictNewIdsLine: "Створено {count} нових ID метасетів",
   builderHelpOpen: "Інформація про конструктор",
+  // Tooltip shown when the user hovers the (i) icon beside the Action label.
   builderInfoTooltip: "**Генератор рецептів**\nКожен рецепт стає одним правилом Зберегти. Спорядження, яке не підходить жодному рецепту, продається, якщо його не захищає захист.\n\n**Захист**\nВикористовуй панель Захист, щоб зберегти певне спорядження незалежно від рецептів — з фільтрами підстатів або без них.",
   builderRank: "Ранг",
   builderRankHelp: "Обмежте правило конкретними зірковими рангами, щоб по-різному поводитися з 6★ та 5★.\n• «Будь‑який» залишає допустимими всі ранги.",
@@ -1172,6 +1196,7 @@ const overrides: Catalog = {
   // Filter panel
   // Section collapse toggle — right-click collapses/expands all sections at once.
   rulesFilterSectionToggleTooltip: "Згорнути розділ\n\n_Правий клік — згорнути/розгорнути всі розділи._",
+  // Substat variant toggle — right-click excludes instead of including.
   rulesFilterVariantRightClickHintExclude: "_Правий клік — виключити._",
   rulesFilterVariantRightClickHintRemove: "_Правий клік — прибрати._",
   filterRule: "Правило",
@@ -1222,7 +1247,6 @@ const overrides: Catalog = {
   filterLimitSelectedGearInspectorTooltip: "**Вимк.**: спорядження тестується проти всіх рецептів.\n**Перша**: спорядження відображається лише в першому відповідному рецепті.\n**Будь-яка**: спорядження відображається в кожному відповідному рецепті.\n\nПредмети, захищені захистами, завжди виключаються зі списку продажу.",
   filterLimitSelectedSafeguardTooltip: "**Вимк.**: всі рядки продажу відображаються.\n**Увімк.**: відображаються лише рядки вибраного захисту.",
   filterLimitSelectedSafeguardGearInspectorTooltip: "**Вимк.**: спорядження тестується проти всіх захистів.\n**Перша**: спорядження відображається лише в першому відповідному захисті.\n**Будь-яка**: спорядження відображається в кожному відповідному захисті.",
-
   gearInspectorSortLabel: "Сортування",
   gearInspectorSortTooltip: "Сортує елементи Тестера за пріоритетами підстатів.",
   gearInspectorSortPopoverDescription: "Виберіть пріоритети для сортування.",
@@ -1246,9 +1270,9 @@ const overrides: Catalog = {
   gearInspectorSortGroupingAccessoriesSlotTooltip: "Групувати аксесуари за слотом.",
   gearInspectorSortHighToLow: "Більше → Менше",
   gearInspectorSortLowToHigh: "Менше → Більше",
+  gearInspectorSortImprovementChanceLabel: "Шанс покращення",
   gearInspectorSortSafeguardRankLabel: "Ранг Захисту",
   gearInspectorSortSafeguardGroupRankLabel: "Ранг Захисту в групі",
-  gearInspectorSortImprovementChanceLabel: "Шанс покращення",
   gearInspectorSortNewestLabel: "Найновіші",
   gearInspectorSortGlyphsLabel: "Гліфи",
   gearInspectorSortGlyphsExclude: "Виключити",
@@ -1276,10 +1300,6 @@ const overrides: Catalog = {
   gearInspectorChampionUnknownName: "Невідомий чемпіон #{id}",
   filterReset: "Скинути фільтри",
   filterSyncViews: "Синхронізувати фільтри між переглядами",
-  filterPresetsSaveAs: "Зберегти як…",
-  filterPresetsEmpty: "Збережених фільтрів ще немає.",
-  filterPresetsSaveDialogTitle: "Зберегти пресет фільтра",
-  filterPresetsSaveDialogHelper: "Зберігає поточний стан панелі фільтрів і налаштування сортування Тестера в локальному сховищі.",
   // Built-in filter preset names
   builtinFilterPresetAllArtifacts: "Всі артефакти",
   builtinFilterPresetAllAccessories: "Всі аксесуари",
@@ -1294,6 +1314,10 @@ const overrides: Catalog = {
   builtinSortPresetSafeguardGroupRank: "Ранг Захисту в групі",
   builtinSortPresetAscending: "За зростанням",
   builtinSortPresetTopLevel: "Верхній рівень",
+  filterPresetsSaveAs: "Зберегти як…",
+  filterPresetsEmpty: "Збережених фільтрів ще немає.",
+  filterPresetsSaveDialogTitle: "Зберегти пресет фільтра",
+  filterPresetsSaveDialogHelper: "Зберігає поточний стан панелі фільтрів і налаштування сортування Тестера в локальному сховищі.",
   filterPresetsNameLabel: "Назва",
   filterPresetsDeleteDialogTitle: "Видалити збережений фільтр?",
   filterPresetsDeleteDialogMessage: "Видалити “{name}”? Це не можна скасувати.",
@@ -1310,11 +1334,13 @@ const overrides: Catalog = {
   sortPresetsSaveIncludeFilter: "Включити налаштування фільтра",
   sortPresetsSaveExclusive: "Замінювати поточне сортування під час застосування",
   presetLabelColor: "Колір мітки",
+  // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Значок",
   presetIconPickerAria: "Вибрати значок пресету",
   presetPinToHeader: "Закріпити в шапці",
   presetPin: "Закріпити як кнопку",
   presetUnpin: "Відкріпити кнопку",
+  // Hide/show-hidden actions for preset menus.
   presetHide: "Сховати",
   presetUnhide: "Показати",
   presetsShowHidden: "Показати приховані",
@@ -1330,7 +1356,6 @@ const overrides: Catalog = {
   gearInspectorResultMatched: "Область",
   // Abbreviation for “Common / Uncommon” rarity badge.
 
-  // Abbreviation for “Common / Uncommon” rarity badge.
   // Rarity labels (generic)
   rarityCommon: "Звичайна",
   rarityUncommon: "Незвичайна",
@@ -1403,13 +1428,16 @@ const overrides: Catalog = {
   // Help dialog
   helpAriaLabel: "Довідка / README",
   helpLanguage: "Мова",
+
   // Theme settings flyout
   themeSettings: "Оформлення",
   themeMode: "Режим",
   themeDark: "Темний",
   themeLight: "Світлий",
+  themeRslh: "RSLH",
   themeDarkAria: "Темний режим",
   themeLightAria: "Світлий режим",
+  themeRslhAria: "RSLH theme",
   themeColorAccent: "Акцент",
   themeColorToggles: "Перемикачі",
   themeColorSelection: "Виділення",
@@ -1419,8 +1447,6 @@ const overrides: Catalog = {
   themeColorSuccess: "Успіх",
   themeColorWarning: "Попередження",
   themeColorError: "Помилка",
-  themeRslh: "RSLH",
-  themeRslhAria: "RSLH theme",
   themeColorInfo: "Info",
   themeColorTextPrimary: "Text",
   themeColorTextSecondary: "Text 2nd",
@@ -1501,10 +1527,12 @@ const overrides: Catalog = {
   toastRecipesSaved: "Рецепти збережено. Перевірте папку «Завантаження».",
   toastSellfileSaved: "Sellfile експортовано.",
   toastSellfileExportFailed: "Не вдалося експортувати Sellfile. Перевірте консоль.",
+  // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile надіслано.",
   toastSellfilePushFailed: "Не вдалося надіслати Sellfile. Перевірте консоль.",
   toastGearDbImportedShort: "Імпортовано {count}",
   toastGearDbImportedShortWithInbox: "Імпортовано {count} (+{inboxCount} з пошти)",
+  // Used after the initial import when the DB already had gear — shows the running total, not "Imported".
   toastGearDbTotalShort: "Всього: {count}",
   toastGearDbTotalShortWithInbox: "Всього: {count} (+{inboxCount} з пошти)",
   toastGearDbDiffSummaryLabel: "Спорядження оновлено:",
@@ -1809,6 +1837,7 @@ const overrides: Catalog = {
   setBloodshield: "Кривавий щит",
   setReaction: "Реакція",
   setRevenge: "Помста",
+
   // Gear diff (sell/keep before-vs-after comparison)
   gearDiffEmpty: "Немає змін продати/зберегти для показу.",
   gearDiffSplitBaselineHeading: "До",
