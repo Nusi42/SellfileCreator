@@ -134,7 +134,7 @@ Sellfile Creator erleichtert das Erstellen von Sell-Dateien für RSL Helper — 
 
   **Was ist die Verbesserungschance?** Die App simuliert alle möglichen Wege, wie ein Teil beim Aufwerten auf +16 würfeln könnte – manche Würfe treffen den gewünschten Unterwert, manche nicht – und zählt, wie oft das Teil dabei im Top-N landet. Ein Teil mit 68 % Verbesserungschance landet in etwa zwei von drei simulierten Aufwertungspfaden im Top-N.
 
-  **Die Verbesserungschance ist eine *Vorhersage*, nicht die Regel, die dein Gear behält – das sind zwei getrennte Systeme.** Das verwirrt oft, deshalb hier ganz deutlich:
+  **Die Verbesserungschance ist eine *Vorhersage*, nicht die Regel, die deine Ausrüstung behält – das sind zwei getrennte Systeme.** Das verwirrt oft, deshalb hier ganz deutlich:
 
   - Der Safeguard behält **immer die Top-N-Teile nach ihrem Unterwert *jetzt gerade***. Diese Reihung nach aktuellem Wert ist es, die ein Teil tatsächlich schützt.
   - Die Verbesserungschance beantwortet eine *andere* Frage: *„Wird dieses Teil, wenn alles auf +16 aufgewertet ist, immer noch zu meinen besten gehören?“* Sie bewertet **sowohl das Teil als auch seine Konkurrenten anhand ihrer voraussichtlichen +16-Werte** und zählt, wie oft das Teil im Top-N landet.
@@ -221,7 +221,7 @@ Hinweise:
 - **Slots** und **Quelle** zeigen Kategorie-Icons. Der **Level**-Donut beschriftet jeden Bogen mit seinem Leveltext.
 
 
-**Sets-Treemap:** Unterhalb der Donuts angezeigt. Jede Kachel steht für ein Gear-Set; die Kachelfläche ist proportional zur Anzahl der Items. Der Kachel-Hintergrund ist von links nach rechts in Ergebnisfarbbänder unterteilt (Verkaufen / Geschützt / Behalten / Kein Treffer). Klicke auf eine Kachel, um dieses Set als Crossfilter hinzuzufügen.
+**Sets-Treemap:** Unterhalb der Donuts angezeigt. Jede Kachel steht für ein Ausrüstungsset; die Kachelfläche ist proportional zur Anzahl der Items. Der Kachel-Hintergrund ist von links nach rechts in Ergebnisfarbbänder unterteilt (Verkaufen / Geschützt / Behalten / Kein Treffer). Klicke auf eine Kachel, um dieses Set als Crossfilter hinzuzufügen.
 
 **Filter-Chips:** Aktive Auswahlen für jede Dimension erscheinen als Chips unterhalb der Donuts; klicke das Lösch-Icon auf einem Chip, um nur diesen Filter zu entfernen. Hauptwert-Auswahlen erscheinen ebenfalls als Chips. Der Button **Filter löschen** setzt alle Dimensionen auf einmal zurück.
 

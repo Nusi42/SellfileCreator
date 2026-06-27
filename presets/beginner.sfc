@@ -951,11 +951,11 @@
         ],
         "factions": []
       }
-      },
+    },
     {
       "appearance": {
         "name": "Unique: All Gauntlet Types"
-    },
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -985,11 +985,11 @@
         ],
         "factions": []
       }
-      },
+    },
     {
       "appearance": {
         "name": "Unique: All other Boot types"
-    },
+      },
       "requiredCount": 5,
       "activation": "protectExisting",
       "countMode": {
@@ -1022,33 +1022,51 @@
   "SafeguardsEnabled": true,
   "RecipesEnabled": true,
   "Note": [
-    "# Sellfile Preset for Beginner Accounts",
+    "<!-- lang --># Sellfile Preset for Beginner Accounts<!-- lang:de --># Sellfile-Preset für Anfänger-Accounts<!-- end-lang -->",
     "",
-    "<span data-color=\"red\">Use at your own risk!</span>",
+    "<!-- lang --><span data-color=\"red\">Use at your own risk!</span><!-- lang:de --><span data-color=\"red\">Nutzung auf eigene Gefahr!</span><!-- end-lang -->",
     "",
     "<!-- if-no-endpoint -->",
-    "<span data-color=\"red\" data-blink>**⚠ Currently not connected.**</span> <span data-color=\"green\">It's recommended to use this file alongside the real **RSL Helper** gear inventory. This helps retain **unique** gear pieces (gear pieces you own few copies of). See the **Help** section to learn how to connect **RSL Helper Sellfile Creator** to **RSL Helper**.</span>  ",
+    "<!-- lang --><span data-color=\"red\" data-blink>**⚠ Currently not connected.**</span> <span data-color=\"green\">It's recommended to use this file alongside the real **RSL Helper** gear inventory. This helps retain **unique** gear pieces (gear pieces you own few copies of). See the **Help** section to learn how to connect **RSL Helper Sellfile Creator** to **RSL Helper**.</span>  <!-- lang:de --><span data-color=\"red\" data-blink>**⚠ Aktuell nicht verbunden.**</span> <span data-color=\"green\">Es wird empfohlen, diese Datei zusammen mit dem echten **RSL Helper** Ausrüstungsinventar zu nutzen. So bleiben **seltene** Teile erhalten (von denen du nur wenige Kopien besitzt). Im Bereich **Hilfe** erfährst du, wie du den **RSL Helper Sellfile Creator** mit dem **RSL Helper** verbindest.</span>  <!-- end-lang -->",
     "<!-- end-if -->",
     "",
-    "## Recipes",
-    "If your account is keeping 3★ and 4★ gear, then this sellfile is a base to start with.",
+    "<!-- lang -->## What is this sell file?<!-- lang:de -->## Was ist diese Sellfile?<!-- end-lang -->",
     "",
-    "At the beginning, you essentially want to keep every gear piece which has no flat stats, or when upgraded, rolls for a good substat.",
+    "<!-- lang -->This is a **keep-list**: every gear piece is auto-sold unless it matches a keep recipe. RSL Helper does the actual selling — this file tells it what to spare. If you are ever unsure about a piece, **check it in RSL Helper before confirming a sale**.<!-- lang:de -->Das ist eine **Behalten-Liste**: Jedes Teil wird automatisch verkauft, außer es passt auf ein Behalten-Rezept. Den eigentlichen Verkauf erledigt der RSL Helper – diese Datei sagt ihm nur, was verschont werden soll. Wenn du dir bei einem Teil unsicher bist, **prüfe es im RSL Helper, bevor du einen Verkauf bestätigst**.<!-- end-lang -->",
     "",
-    "We created matching rules for this scenario.",
+    "<!-- lang -->(We use **sell file** and **preset** to mean the same thing: this whole file, recipes and safeguards together.)<!-- lang:de -->(Wir benutzen **Sellfile** und **Preset** gleichbedeutend: gemeint ist diese ganze Datei, Rezepte und Schutzregeln zusammen.)<!-- end-lang -->",
+    "",
+    "---",
+    "",
+    "<!-- lang -->## Recipes<!-- lang:de -->## Rezepte<!-- end-lang -->",
+    "<!-- lang -->If your account still needs 3★ and 4★ gear, then this sell file is a base to start with.<!-- lang:de -->Wenn dein Account noch 3★- und 4★-Ausrüstung braucht, ist diese Sellfile eine gute Ausgangsbasis.<!-- end-lang -->",
+    "",
+    "<!-- lang -->At the beginning, you essentially want to keep every gear piece which has no flat substats, or — once upgraded — rolls a good substat.<!-- lang:de -->Am Anfang willst du im Grunde jedes Teil behalten, das keine flachen Unterwerte hat oder – einmal hochgelevelt – einen guten Unterwert rollt.<!-- end-lang -->",
+    "",
+    "<!-- lang -->We created matching keep recipes for this scenario.<!-- lang:de -->Wir haben passende Behalten-Rezepte für dieses Szenario erstellt.<!-- end-lang -->",
     "",
     "",
     "<!-- recipes:1,2,3,4,5,6,7,8,9,10,11,12 -->",
     "",
     "",
-    "## Safeguards",
+    "<!-- lang -->## Safeguards<!-- lang:de -->## Schutzregeln<!-- end-lang -->",
     "",
-    "If you connect **Sellfile Creator** with the **RSL Helper** (or its DB), then these rules below will dynamically create special *keep* rules which ensure that you keep the most basic items regardless how bad they are.  ",
-    "First, we want to ensure that you have Accessories for all your faction wars teams:",
+    "<!-- if-no-endpoint -->",
+    "<!-- lang -->For Safeguards to work, you *must* connect the Sellfile Creator with RSL Helper, or manually load its DB! Otherwise the Safeguards have simply no effect at all.<!-- lang:de -->Damit Schutzregeln funktionieren, *musst* du den Sellfile Creator mit dem RSL Helper verbinden oder dessen Datenbank manuell laden! Sonst haben die Schutzregeln schlicht gar keine Wirkung.<!-- end-lang -->",
+    "<!-- end-if -->",
+    "",
+    "<!-- lang -->The safeguards below dynamically create special *keep* recipes that make sure you always hold on to the most basic items, no matter how bad their rolls are.  <!-- lang:de -->Die Schutzregeln unten erstellen dynamisch spezielle *Behalten*-Rezepte, die dafür sorgen, dass du immer ein paar grundlegende Teile behältst – egal wie schlecht ihre Rolls sind.  <!-- end-lang -->",
+    "<!-- lang -->First, we make sure you have accessories for all your Faction Wars teams:<!-- lang:de -->Zuerst stellen wir sicher, dass du Schmuckstücke für alle deine Faction-Wars-Teams hast:<!-- end-lang -->",
     "<!-- safeguards:1 -->",
     "",
-    "And then we want to ensure that you keep basic gear for typical scenarios for 5 champs:",
+    "<!-- lang -->And then we make sure you keep basic gear for typical setups across 5 champions:<!-- lang:de -->Und dann stellen wir sicher, dass du grundlegende Teile für typische Aufstellungen von 5 Champions behältst:<!-- end-lang -->",
     "<!-- safeguards:2,3,4,5,6,7 -->",
+    "",
+    "---",
+    "",
+    "<!-- lang -->## When should you move on?<!-- lang:de -->## Wann solltest du wechseln?<!-- end-lang -->",
+    "",
+    "<!-- lang -->Once you start running out of gear space, or you are spending too much silver upgrading and re-rolling pieces you keep, this preset is keeping too much. That is your cue to switch to the `Midgame` preset, which is stricter and sells more.<!-- lang:de -->Sobald dir der Platz für Ausrüstung ausgeht oder du zu viel Silber fürs Hochleveln und Neu-Rollen behaltener Teile ausgibst, behält dieses Preset zu viel. Das ist dein Zeichen, auf das `Midgame`-Preset zu wechseln, das strenger ist und mehr verkauft.<!-- end-lang -->",
     ""
   ]
 }

@@ -53,7 +53,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | English | de-DE (catalog key) | Notes |
   | --- | --- | --- |
   | piece / pieces | Teil / Teile | not "Stück" |
-  | gear | Gear | loanword (README uses it) |
+  | gear | Ausrüstung | translated, **not** the loanword "Gear". Feminine (die Ausrüstung) → "deine Ausrüstung", adjective agreement "frische/höherrangige Ausrüstung". Compounds: Ausrüstungsset, Ausrüstungstyp(en), Ausrüstungsinventar, Ausrüstungsdatenbank, Ausrüstungsinspektor. The *Gear Inspector* UI is "Ausrüstungsinspektor". (Catalog + README + presets all unified to this; the only surviving "Gear" is the proper-noun video-series title "Gear-Cleanse-Videos".) |
   | gear set / set | Set | loanword |
   | stat (bare) | Wert / Werte | translated, not the loanword "Stat". Whole family shares "-wert": **Wert / Unterwert / Hauptwert**. Dative plural takes -n ("auf gesperrten Werten"). |
   | substat(s) | Unterwert / Unterwerte | not "Substat"/"Nebenwert" — translated (the TS key `statSubstat` etc. stay English) |
@@ -75,7 +75,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file (the file) | Sellfile | one word, no space — never "Sell File"/"Sell-Datei" |
   | rolls / drops | Rolls / Drops | **intentional loanwords** |
 
-  de-DE **intentional loanwords** (do NOT "correct" to German): Gear, Set, SPD, Banner, Slot, Rolls, Drops. The whole **stat** family is translated, not a loanword: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` etc. TS keys stay English; `[[stat:…]]` tokens are untouched).
+  de-DE **intentional loanwords** (do NOT "correct" to German): Set, SPD, Banner, Slot, Rolls, Drops. **"Gear" is NOT a loanword in de-DE** — it is translated to "Ausrüstung" everywhere (catalog, README, preset prose); the lone exception is the proper-noun series title "Gear-Cleanse-Videos". The whole **stat** family is also translated: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` / `gear*` etc. TS **keys** stay English; `[[stat:…]]` tokens are untouched).
 
 - **Reserve "rules"/"Regeln" for HSF rules.** User-facing keep/sell logic is *recipes* (`recipeMany` → "Rezepte"); calling those "rules"/"Regeln" confuses them with the engine's HSF rules. The same applies inside preset prose.
 - **Keep terminology notes here, not in the catalogs.** Catalog files must stay structurally identical across locales (same key order, count, indentation, and comment blocks — `sync-catalog-comments` enforces this), so do **not** add a glossary/loanword comment to `<lang>.ts`. Record per-language decisions in this doc instead.
