@@ -175,12 +175,53 @@ const intersectAnswers = (
   return next
 }
 
+/**
+ * Format a DSL id token (e.g. "account-level", "veteran", "off", "25") as a readable label.
+ * Splits on hyphens and capitalises each word — numeric and single-word tokens pass through
+ * intact. Used for question/option ids in the unavailable section where the original note
+ * text (and therefore the proper display labels) is no longer accessible.
+ */
+const formatDslToken = (token: string): string =>
+  token.split('-').map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ')
+
+/** One entry in the unavailable-answers section of the flyout. */
+export type DynamicOverridesUnavailableLine = {
+  // Readable label for the stored question, formatted from its DSL id token.
+  questionLabel: string
+  // Readable labels for the stored answer values (option ids or numeric slider values).
+  answerLabels: string[]
+}
+
+/**
+ * Collect stored answers whose question id is entirely absent from the note's question list.
+ * These can't appear in the main summary table (the resolver only emits questions the note has),
+ * so they need a separate section. Partial-option losses (question IS in the note but some
+ * option ids are gone) are already handled by the hasPresetFallback flag on main-table lines.
+ */
+const buildUnavailableLines = (
+  presetAnswers: AnswerMap,
+  noteQuestionIds: Set<string>,
+): DynamicOverridesUnavailableLine[] => {
+  const lines: DynamicOverridesUnavailableLine[] = []
+  for (const [qId, stored] of Object.entries(presetAnswers)) {
+    if (noteQuestionIds.has(qId)) continue
+    lines.push({
+      questionLabel: formatDslToken(qId),
+      answerLabels: (Array.isArray(stored) ? stored : []).map(formatDslToken),
+    })
+  }
+  return lines
+}
+
 /** Return type of buildDynamicOverridesPresetSummary, including the row-level fallback flag. */
 export type DynamicOverridesPresetSummaryResult = {
   lines: DynamicOverridesSummaryLine[]
   // True when at least one answer stored in the preset is unavailable for the current note
   // (question gone or some option IDs removed). Drives the warning icon on the preset row.
   hasAnyFallback: boolean
+  // Stored answers for questions entirely absent from the current note. These can't appear
+  // in the main table, so the flyout renders them in a separate "not available" section.
+  unavailableLines: DynamicOverridesUnavailableLine[]
 }
 
 /**
@@ -189,18 +230,22 @@ export type DynamicOverridesPresetSummaryResult = {
  * note appears (defaults included, flagged); questions absent from the note do not
  * appear because the resolver only emits the note's own questions.
  *
- * Also computes `hasAnyFallback`: whether any stored answer — including for questions
- * entirely absent from the current note — was unavailable. Questions not in the note
- * don't produce summary lines, so this flag covers losses the line array can't surface.
+ * `lang` is threaded to both resolvers so option/question labels render in the active
+ * UI language rather than always defaulting to English.
+ *
+ * Also computes `hasAnyFallback` and `unavailableLines`: the former covers losses
+ * including questions entirely absent from the note (which produce no summary lines);
+ * the latter lists those absent questions so the flyout can surface them explicitly.
  */
 export const buildDynamicOverridesPresetSummary = (
   note: string,
   recipeAnswers: NoteRecipeOverridesAnswers,
   safeguardAnswers: NoteSafeguardOverridesAnswers,
+  lang = 'en-US',
 ): DynamicOverridesPresetSummaryResult => {
-  // Resolve questions for both domains using the SAVED answers so each `.answer` reflects the set.
-  const { questions: recipeQuestions } = resolveRecipeOverridesTags(note, recipeAnswers)
-  const { questions: safeguardQuestions } = resolveNoteSafeguardOverridesTags(note, safeguardAnswers)
+  // Resolve questions in the active language so labels/prompts display correctly.
+  const { questions: recipeQuestions } = resolveRecipeOverridesTags(note, recipeAnswers, undefined, undefined, lang)
+  const { questions: safeguardQuestions } = resolveNoteSafeguardOverridesTags(note, safeguardAnswers, undefined, undefined, lang)
   // Intersect to find which stored answers survive — passed to summarizeQuestions for per-line
   // fallback detection and used directly for the aggregate hasAnyFallback flag.
   const appliedRecipe = intersectAnswers(recipeQuestions, recipeAnswers)
@@ -209,12 +254,19 @@ export const buildDynamicOverridesPresetSummary = (
     ...summarizeQuestions(recipeQuestions, recipeAnswers, appliedRecipe),
     ...summarizeQuestions(safeguardQuestions, safeguardAnswers, appliedSafeguard),
   ]
+  // Build sets of question ids present in the current note for the unavailable-line filter.
+  const noteRecipeIds = new Set(recipeQuestions.map((q) => q.id))
+  const noteSafeguardIds = new Set(safeguardQuestions.map((q) => q.id))
   return {
     lines,
     // Check both domains independently so a loss in either (including questions entirely
     // absent from the note, which produce no summary lines) is caught.
     hasAnyFallback: hasFallbackInDomain(recipeAnswers, appliedRecipe)
       || hasFallbackInDomain(safeguardAnswers, appliedSafeguard),
+    unavailableLines: [
+      ...buildUnavailableLines(recipeAnswers, noteRecipeIds),
+      ...buildUnavailableLines(safeguardAnswers, noteSafeguardIds),
+    ],
   }
 }
 

@@ -1605,6 +1605,7 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(predeterminado)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Algunas respuestas guardadas no están disponibles para esta nota",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Respuesta guardada no disponible — mostrando valor predeterminado",
+  noteDynamicOverridesPresetsUnavailableHeader: "No disponible para esta nota",
   recipeClearTagsConfirmTitle: "¿Borrar etiquetas?",
   recipeClearTagsConfirmBody: "Esta receta tiene valores de anulación dinámica aplicados mediante notas. ¿Aplicar esos valores antes de borrar las etiquetas o borrarlas sin aplicar?",
   safeguardClearTagsConfirmTitle: "¿Borrar etiquetas?",

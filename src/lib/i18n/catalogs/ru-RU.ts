@@ -1605,6 +1605,7 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(по умолчанию)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Некоторые сохранённые ответы недоступны для этой заметки",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Сохранённый ответ недоступен — отображается значение по умолчанию",
+  noteDynamicOverridesPresetsUnavailableHeader: "Недоступно для этой заметки",
   recipeClearTagsConfirmTitle: "Очистить теги?",
   recipeClearTagsConfirmBody: "К этому рецепту через заметки применены значения динамического переопределения. Применить эти значения перед очисткой тегов или очистить без применения?",
   safeguardClearTagsConfirmTitle: "Очистить теги?",

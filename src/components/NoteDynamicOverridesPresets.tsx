@@ -220,11 +220,12 @@ function DynamicOverridesPresetRow({
   onRequestDelete: (preset: DynamicOverridesPreset) => void
   onRequestOverwrite: (preset: DynamicOverridesPreset) => void
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   // Resolve the per-set summary against the current note (display text + fallback flags).
-  const { lines, hasAnyFallback } = React.useMemo(
-    () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers),
-    [note, preset],
+  // Pass the active language so question/option labels render in the UI locale, not always English.
+  const { lines, hasAnyFallback, unavailableLines } = React.useMemo(
+    () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers, lang),
+    [note, preset, lang],
   )
   // The summary lives in a scrollable Popover (not a tooltip) because large sets can be
   // taller than the viewport and tooltips cannot scroll. Anchor is the row itself.
@@ -383,7 +384,7 @@ function DynamicOverridesPresetRow({
               screen). Its own maxHeight still caps it on tall screens. */}
           <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <ClippedScrollBody maxHeightPx={DYNAMIC_OVERRIDES_PRESET_POPOVER_MAX_HEIGHT_PX} overflowY="auto">
-              <DynamicOverridesPresetSummaryTable lines={lines} />
+              <DynamicOverridesPresetSummaryTable lines={lines} unavailableLines={unavailableLines} />
             </ClippedScrollBody>
           </Box>
         </Paper>

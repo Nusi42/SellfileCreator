@@ -1605,6 +1605,7 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(varsayılan)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Bazı kaydedilen yanıtlar bu not için mevcut değil",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Kaydedilen yanıt mevcut değil — varsayılan gösteriliyor",
+  noteDynamicOverridesPresetsUnavailableHeader: "Bu not için mevcut değil",
   recipeClearTagsConfirmTitle: "Etiketler temizlensin mi?",
   recipeClearTagsConfirmBody: "Bu reçetenin, notlar aracılığıyla uygulanmış dinamik geçersiz kılma değerleri var. Etiketleri temizlemeden önce bu değerleri uygula mı yoksa uygulamadan temizle mi?",
   safeguardClearTagsConfirmTitle: "Etiketler temizlensin mi?",

@@ -1605,6 +1605,7 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(Standard)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Einige gespeicherte Antworten sind für diese Notiz nicht verfügbar",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Gespeicherte Antwort nicht verfügbar — Standardwert wird angezeigt",
+  noteDynamicOverridesPresetsUnavailableHeader: "Für diese Notiz nicht verfügbar",
   recipeClearTagsConfirmTitle: "Tags löschen?",
   recipeClearTagsConfirmBody: "Für dieses Rezept gelten dynamische Überbrückungswerte aus der Notiz. Diese Werte übernehmen, bevor die Tags gelöscht werden, oder ohne Übernahme löschen?",
   safeguardClearTagsConfirmTitle: "Tags löschen?",

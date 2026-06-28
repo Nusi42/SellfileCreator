@@ -1605,6 +1605,7 @@ const catalog: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(padrão)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Algumas respostas salvas não estão disponíveis para esta nota",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Resposta salva não disponível — exibindo valor padrão",
+  noteDynamicOverridesPresetsUnavailableHeader: "Não disponível para esta nota",
   recipeClearTagsConfirmTitle: "Limpar tags?",
   recipeClearTagsConfirmBody: "Esta receita tem valores de substituição dinâmica aplicados via notas. Aplicar esses valores antes de limpar as tags ou limpar sem aplicar?",
   safeguardClearTagsConfirmTitle: "Limpar tags?",

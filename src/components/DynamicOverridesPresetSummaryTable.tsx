@@ -8,6 +8,11 @@
  * whole popout stays in a single, consistent font. Answers left at the note's default are
  * dimmed and tagged so chosen-vs-accepted reads at a glance — mirroring the override cards.
  *
+ * A second "Not available for this note" section follows when the preset stored answers
+ * for questions entirely absent from the current note. Those questions never appear in the
+ * main table (the resolver only emits the note's own questions), so they need their own
+ * block. Labels are formatted from raw DSL id tokens since the original note text is gone.
+ *
  * Used inside the saved-set Popover (replacing the old hover tooltip); the host owns
  * scrolling, so this component is layout-only.
  */
@@ -16,17 +21,21 @@ import { Box, Divider, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import { parseInlineMarkdown } from './MarkdownTooltip'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
-import type { DynamicOverridesSummaryLine } from '../lib/dynamicOverridesPresetSummary'
+import type { DynamicOverridesSummaryLine, DynamicOverridesUnavailableLine } from '../lib/dynamicOverridesPresetSummary'
 
 /** A saved set's resolved summary, laid out as an aligned title | answers grid. */
 export function DynamicOverridesPresetSummaryTable({
   lines,
+  unavailableLines = [],
 }: {
   lines: DynamicOverridesSummaryLine[]
+  unavailableLines?: DynamicOverridesUnavailableLine[]
 }) {
   const { t } = useI18n()
-  // No applicable questions → keep the same empty copy the tooltip used.
-  if (lines.length === 0) {
+  const hasMain = lines.length > 0
+  const hasUnavailable = unavailableLines.length > 0
+  // Nothing to show at all → keep the same empty copy the tooltip used.
+  if (!hasMain && !hasUnavailable) {
     return (
       <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.85 }}>
         {t('noteDynamicOverridesPresetsTooltipEmpty')}
@@ -107,6 +116,52 @@ export function DynamicOverridesPresetSummaryTable({
           </Box>
         </React.Fragment>
       ))}
+
+      {/* Unavailable section: stored answers for questions not in the current note.
+          Shown below the main table (or alone when the note has no override questions at all).
+          Labels are formatted DSL tokens — the original note text is no longer available. */}
+      {hasUnavailable ? (
+        <>
+          <Divider sx={{ gridColumn: '1 / -1', mt: hasMain ? 0.5 : 0, mb: 0.25, opacity: 0.6 }} />
+          {/* Section header spans both columns; warning colour ties it to the row badge. */}
+          <Typography
+            variant="caption"
+            sx={(theme) => ({
+              gridColumn: '1 / -1',
+              color: theme.vars?.palette.warning.main ?? theme.palette.warning.main,
+              fontWeight: 600,
+              opacity: 0.9,
+              mb: 0.25,
+            })}
+          >
+            {t('noteDynamicOverridesPresetsUnavailableHeader')}
+          </Typography>
+          {unavailableLines.map((line, index) => (
+            // questionLabel is derived from a unique question id, so it's a safe key.
+            <React.Fragment key={`unavail-${line.questionLabel}`}>
+              {index > 0 ? (
+                <Divider sx={{ gridColumn: '1 / -1', opacity: 0.3 }} />
+              ) : null}
+              {/* Question label (left): formatted DSL token, dimmed to signal unavailability. */}
+              <Typography
+                variant="body2"
+                component="div"
+                sx={{ minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
+              >
+                {line.questionLabel}
+              </Typography>
+              {/* Answer labels (right): comma-joined for compactness in this secondary section. */}
+              <Typography
+                variant="body2"
+                component="div"
+                sx={{ minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
+              >
+                {line.answerLabels.length > 0 ? line.answerLabels.join(', ') : '—'}
+              </Typography>
+            </React.Fragment>
+          ))}
+        </>
+      ) : null}
     </Box>
   )
 }

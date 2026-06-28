@@ -1605,6 +1605,7 @@ const enUS: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(default)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Some saved answers are not available for this note",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Saved answer not available — showing fallback",
+  noteDynamicOverridesPresetsUnavailableHeader: "Not available for this note",
   recipeClearTagsConfirmTitle: "Clear Tags?",
   recipeClearTagsConfirmBody: "This recipe has dynamic override values applied via notes. Apply those values before clearing the tags, or clear without applying?",
   safeguardClearTagsConfirmTitle: "Clear Tags?",

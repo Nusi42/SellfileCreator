@@ -1605,6 +1605,7 @@ const overrides: Catalog = {
   noteDynamicOverridesPresetsDefaultTag: "(par défaut)",
   noteDynamicOverridesPresetsFallbackRowTooltip: "Certaines réponses enregistrées ne sont pas disponibles pour cette note",
   noteDynamicOverridesPresetsFallbackLineTooltip: "Réponse enregistrée non disponible — valeur par défaut affichée",
+  noteDynamicOverridesPresetsUnavailableHeader: "Non disponible pour cette note",
   recipeClearTagsConfirmTitle: "Effacer les balises ?",
   recipeClearTagsConfirmBody: "Cette recette a des valeurs de surcharge dynamique appliquées via les notes. Appliquer ces valeurs avant d'effacer les tags, ou effacer sans appliquer ?",
   safeguardClearTagsConfirmTitle: "Effacer les balises ?",
