@@ -599,6 +599,15 @@ export default function SafeguardBuilderPanel({
     onChange((prev) => updater(prev))
   }, [onChange])
 
+  // SSOT for collapsible-section header clear buttons: render the ✕ whenever the section is
+  // non-default (dirty), otherwise a same-size placeholder so the header row never reflows.
+  // Mirrors the recipe builder + filter panels — blue label and clear ✕ always go together.
+  const renderSectionClearButton = useCallback((dirty: boolean, label: string, onClear: () => void) => (
+    dirty
+      ? <ClearIconButton size="small" aria-label={label} tooltip={label} onClick={onClear} />
+      : <Box sx={CLEAR_PLACEHOLDER_SX} />
+  ), [])
+
   const commitFgColor = useCallback((color: string | undefined) => {
     if (multiEditActive && multiEdit) {
       multiEdit.updateField('appearanceFgColor', { value: color, status: 'common' })
@@ -2205,6 +2214,8 @@ export default function SafeguardBuilderPanel({
             <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
+            {/* Clear mirrors the GearRankSelect onChange with an empty selection (same setRuleCombination path). */}
+            {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => setRuleCombination((prev) => ({ ...prev, ranks: [] })))}
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
@@ -2244,6 +2255,8 @@ export default function SafeguardBuilderPanel({
             <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
+            {/* Clear mirrors the GearRaritySelect onChange with an empty selection. */}
+            {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => setRuleCombination((prev) => ({ ...prev, rarities: [] })))}
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
@@ -2280,6 +2293,14 @@ export default function SafeguardBuilderPanel({
             <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </BuilderSectionHeader>
+            {/* Clear mirrors the GearFactionSelect onChange empty-selection paths (single + multi-edit). */}
+            {renderSectionClearButton(factionSectionDirty, t('builderClearFaction'), () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('factions', { value: [], status: 'common', patch: { clear: true } })
+                return
+              }
+              setRuleCombination((prev) => ({ ...prev, factions: [] }))
+            })}
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
@@ -3077,9 +3098,19 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0, flex: 1 }}>
+            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0, flex: '0 1 auto' }}>
               <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
             </BuilderSectionHeader>
+            {/* Clear wipes both sets and metaSetNames, mirroring the GearSetsSelect onChange paths (single + multi). */}
+            {renderSectionClearButton(setsSectionDirty, t('builderClearSets'), () => {
+              setRuleCombination((prev) => ({ ...prev, sets: [], metaSetNames: [] }))
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('sets', { value: [], status: 'common' })
+                multiEdit.updateField('metaSetNames', { value: [], status: 'common' })
+              }
+            })}
+            {/* Flexible spacer keeps the label/clear left-aligned and the Manage button right-aligned. */}
+            <Box sx={{ flex: 1, minWidth: 0 }} />
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
               <Button
                 size="small"

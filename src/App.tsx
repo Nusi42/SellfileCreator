@@ -3725,14 +3725,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const includeSort = preset.snapshot.gearInspectorSubstatSort !== undefined
     return filterPresetSnapshotsEqual(buildFilterPresetSnapshot(includeSort), preset.snapshot)
   }, [buildFilterPresetSnapshot, orPresetApplied])
-  // Exact match: the current filter equals exactly what applying this preset from default would produce.
-  // Uniform for OR and exclusive — both are checked via payload containment + no residual after subtracting.
-  const isFilterPresetExactMatch = useCallback((preset: FilterPreset): boolean => {
-    const payload = presetPayloadForMode(preset, previewMode)
-    if (!payload || !rulesFilterStateHasContribution(payload)) return false
-    return rulesFilterStateContains(rulesFilter, payload)
-      && !rulesFilterStateHasContribution(subtractRulesFilterState(rulesFilter, payload))
-  }, [rulesFilter, previewMode])
   // A preset is "applicable" in the current panel when its cross-panel-projected payload still
   // contributes something there. Thanks to Keep/Sell mapping, Sell presets apply to the Sellfile
   // preview too; only presets whose payload is purely Gear-Inspector-specific (e.g. matched/sources
@@ -9459,7 +9451,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onHideFilterPreset={handleHideFilterPreset}
           onTogglePinFilterPreset={handleTogglePinFilterPreset}
           isFilterPresetApplied={isFilterPresetApplied}
-          isFilterPresetExactMatch={isFilterPresetExactMatch}
           sortPresets={sortPresets}
           onSaveSortPreset={handleSaveSortPreset}
           onApplySortPreset={handleApplySortPreset}

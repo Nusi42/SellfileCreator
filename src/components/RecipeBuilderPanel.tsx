@@ -1142,7 +1142,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   // rank/rarity/faction: non-default when anything other than "any" is selected.
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
   const rankSectionDirty = (recipe.rankCode ?? 0) !== 0
-  const raritySectionDirty = (recipe.rarityMode ?? 'code') !== 'code' || (recipe.rarityCode ?? 0) !== 0
+  // The factory default is rarityMode 'auto' (see createFactoryBuilderDefaults), so the section is
+  // non-default whenever it leaves Auto — any explicit code mode, including Any/0. Clearing returns to Auto.
+  const raritySectionDirty = (recipe.rarityMode ?? 'auto') !== 'auto'
   // In multi-edit, disable artifact only when ALL selected recipes share the same non-zero
   // faction (status='common', value≠0). Mixed (some Any, some N) → keep artifact enabled.
   const factionSectionDirty = multiEditActive && multiFactionField != null
@@ -1779,6 +1781,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     height: CLEAR_ICON_BUTTON_SIZE_PX,
     flexShrink: 0,
   }), [])
+  // SSOT for collapsible-section header clear buttons: render the ✕ whenever the section is
+  // non-default (dirty), otherwise a same-size placeholder so the header row never reflows.
+  // Keeps every section consistent — blue label + clear ✕ go together (see filter panels).
+  const renderSectionClearButton = useCallback((dirty: boolean, label: string, onClear: () => void) => (
+    dirty
+      ? <ClearIconButton size="small" aria-label={label} tooltip={label} onClick={onClear} />
+      : <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+  ), [CLEAR_BUTTON_PLACEHOLDER_SX])
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -4524,6 +4534,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
+          {/* Reset routes through the same set-auto action the Auto toggle uses, so the aggregate-min
+              state is normalized (commitRollState/commitMultiRollState → normalizeKeepWithAuto). */}
+          {renderSectionClearButton(minRollsSectionDirty, t('builderClearMinRolls'), () => {
+            if (multiEditActive && multiEdit) commitMultiRollState({ auto: true, manual: 0, locked: 0 })
+            else commitRollState(applyAggregateRollAction(aggregateRollStateFromRecipe(recipe), { type: 'set-auto' }))
+          })}
         </Box>
         <Collapse in={!builderCollapsed.minRolls} timeout="auto" unmountOnExit>
         {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
@@ -4793,6 +4809,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
+          {/* Reset to the section's default (Auto count, no locked substats); minCount is re-derived by
+              normalizeKeepWithAuto under autoMinCount, so we never end up in a conflicting state. */}
+          {renderSectionClearButton(requiredSubstatsSectionDirty, t('builderClearRequiredSubstats'), () => {
+            if (multiEditActive && multiEdit) {
+              // Mirror the Auto toggle's multi-edit path, plus drop locked substats.
+              multiEdit.updateField('autoMinCount', { value: true, status: 'common' })
+              multiEdit.updateField('minCount', { value: 0 as BuilderRecipe['minCount'], status: 'common' })
+              multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
+              multiEdit.updateField('fixedSubstatsV', { value: [] as BuilderRecipe['fixedSubstatsV'], status: 'common' })
+            } else {
+              userDisabledFlexRef.current = true
+              onChange(normalizeKeepWithAuto({ ...recipe, autoMinCount: true, minCount: 0, fixedSubstatsV: [] }))
+            }
+          })}
         </Box>
         <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
         {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
@@ -5023,6 +5053,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
+          {renderSectionClearButton(milestoneThresholdsSectionDirty, t('builderClearMilestoneThresholds'), () => {
+            // Default keep timing is 'early'; mirror the toggle group's change paths.
+            if (multiEditActive && multiEdit) multiEdit.updateField('earlyKeepMode', { value: 'early', status: 'common' })
+            else updateKeepMode('early')
+          })}
         </Box>
         <Collapse in={!builderCollapsed.milestoneThresholds} timeout="auto" unmountOnExit>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -6356,6 +6391,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
+            {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => {
+              if (multiEditActive) multiEdit?.updateField('rankCode', { value: 0 as BuilderRecipe['rankCode'], status: 'common' })
+              else update('rankCode', 0)
+            })}
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -6486,6 +6525,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
+            {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => {
+              // Factory default is rarity mode 'auto'; mirror the Select's onChange auto path exactly.
+              if (multiEditActive) {
+                multiEdit?.updateField('rarityMode', { value: 'auto', status: 'common' })
+                multiEdit?.resetField('rarityCode')
+              } else {
+                updateRaritySelection('auto')
+              }
+            })}
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -6653,6 +6701,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
+            {renderSectionClearButton(factionSectionDirty, t('builderClearFaction'), () => {
+              if (multiEditActive) multiEdit?.updateField('factionCode', { value: 0 as BuilderRecipe['factionCode'], status: 'common' })
+              else onChange(normalizeKeepWithAuto({ ...recipe, factionCode: 0 as FactionId }))
+            })}
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -6752,6 +6804,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <BuilderSectionHeader id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
             </BuilderSectionHeader>
+            {renderSectionClearButton(levelSectionDirty, t('builderClearLevel'), () => {
+              // Default window is the full 0–16 range; mirror the slider's min/max change paths.
+              if (multiEditActive) {
+                multiEdit?.updateField('minLevel', { value: 0 as LevelMilestone, status: 'common' })
+                multiEdit?.updateField('maxLevel', { value: 16 as LevelMilestone, status: 'common' })
+              } else {
+                updateLevelWindow(0 as LevelMilestone, 16 as LevelMilestone)
+              }
+            })}
           </Box>
           <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
           <Box sx={{ px: 1.5, position: 'relative' }}>
@@ -7115,6 +7176,25 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 <Box component="span" data-ellipsis-target sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
+            {/* Clear ✕ mirrors the in-content sets clear (see InlineSelectClearButton): wipes sets + metasets. */}
+            <Box sx={{ flexShrink: 0, mr: 1 }}>
+              {renderSectionClearButton(setsSectionDirty, t('builderClearSets'), () => {
+                if (multiEditActive && multiEdit) {
+                  multiEdit.updateField('artifactSets', {
+                    value: (multiSetsField?.value as BuilderRecipe['artifactSets']) ?? (recipe.artifactSets ?? []),
+                    status: 'common',
+                    patch: { clear: true },
+                  })
+                  multiEdit.updateField('artifactMetaSets', {
+                    value: (multiMetasetsField?.value as BuilderRecipe['artifactMetaSets']) ?? (recipe.artifactMetaSets ?? []),
+                    status: 'common',
+                    patch: { clear: true },
+                  })
+                  return
+                }
+                onChange({ ...recipe, artifactSets: [], artifactMetaSets: [] })
+              })}
+            </Box>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
             <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
