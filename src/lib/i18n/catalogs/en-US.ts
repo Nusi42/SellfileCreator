@@ -1336,6 +1336,7 @@ const enUS: Catalog = {
   sortPresetsSaveIncludeFilter: "Include filter settings",
   sortPresetsSaveExclusive: "Replace current sort when applied",
   presetLabelColor: "Label color",
+  presetSuggestName: "Suggest a name",
   // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Icon",
   presetIconPickerAria: "Choose preset icon",

@@ -20,11 +20,12 @@
  *    so they survive the menu unmounting on close (the menu's children unmount with it).
  */
 import React from 'react'
-import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Paper, Popper, Stack, TextField, Tooltip, Typography, Button, Divider } from '@mui/material'
+import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Popper, Stack, TextField, Tooltip, Typography, Button, Divider } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SaveAsIcon from '@mui/icons-material/SaveAs'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import CasinoIcon from '@mui/icons-material/Casino'
 import { useI18n } from '../lib/i18n'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import { ClippedScrollBody } from './ClippedScrollBody'
@@ -41,6 +42,8 @@ import {
   type DynamicOverridesPreset,
 } from '../state/dynamicOverridesPresetsPreference'
 import { createPresetId, sanitizePresetName } from '../state/presetUtils'
+import { generateMetasetNameWithFlag } from '../lib/namegen'
+import { legendaryGlow } from '../lib/celebrationKeyframes'
 import {
   buildDynamicOverridesPresetSummary,
   resolveDynamicOverridesPresetApply,
@@ -79,6 +82,8 @@ export type DynamicOverridesPresetController = {
   saveOpen: boolean
   saveName: string
   setSaveName: (value: string) => void
+  reshuffleSaveName: () => void
+  saveFun: boolean
   closeSaveDialog: () => void
   confirmSave: () => void
   // Delete dialog wiring.
@@ -105,6 +110,13 @@ export function useDynamicOverridesPresetController({
   // Save dialog state: open + the in-progress name.
   const [saveOpen, setSaveOpen] = React.useState(false)
   const [saveName, setSaveName] = React.useState('')
+  // Brief celebratory glow when the generator produces a playful name.
+  const [saveFun, setSaveFun] = React.useState(false)
+  React.useEffect(() => {
+    if (!saveFun) return
+    const id = window.setTimeout(() => setSaveFun(false), 1600)
+    return () => clearTimeout(id)
+  }, [saveFun])
   // Delete-confirm target (null when closed).
   const [deleteTarget, setDeleteTarget] = React.useState<DynamicOverridesPreset | null>(null)
   // Overwrite-confirm target (null when closed): the existing set to replace with the live selection.
@@ -112,12 +124,21 @@ export function useDynamicOverridesPresetController({
   // Active UI language — used to capture human-readable labels at save/overwrite time.
   const { lang } = useI18n()
 
-  // Open the save dialog with an empty name after the host menu closes.
+  // Open the save dialog with a generated name suggestion after the host menu closes.
   const openSaveDialog = React.useCallback(() => {
     onCloseMenu()
-    setSaveName('')
+    const { name, isFun } = generateMetasetNameWithFlag(presets.map((p) => p.name))
+    setSaveName(name)
+    if (isFun) setSaveFun(true)
     setSaveOpen(true)
-  }, [onCloseMenu])
+  }, [onCloseMenu, presets])
+
+  // Re-roll the name suggestion without closing the dialog.
+  const reshuffleSaveName = React.useCallback(() => {
+    const { name, isFun } = generateMetasetNameWithFlag(presets.map((p) => p.name))
+    setSaveName(name)
+    if (isFun) setSaveFun(true)
+  }, [presets])
   const closeSaveDialog = React.useCallback(() => setSaveOpen(false), [])
 
   // Persist the current selections under the entered name. We snapshot the FULL resolved
@@ -204,6 +225,8 @@ export function useDynamicOverridesPresetController({
     saveOpen,
     saveName,
     setSaveName,
+    reshuffleSaveName,
+    saveFun,
     closeSaveDialog,
     confirmSave,
     deleteTarget,
@@ -447,10 +470,11 @@ export function DynamicOverridesPresetMenuItems({ controller }: { controller: Dy
 export function DynamicOverridesPresetDialogs({ controller }: { controller: DynamicOverridesPresetController }) {
   const { t } = useI18n()
   const {
-    saveOpen, saveName, setSaveName, closeSaveDialog, confirmSave,
+    saveOpen, saveName, setSaveName, reshuffleSaveName, saveFun, closeSaveDialog, confirmSave,
     deleteTarget, closeDeleteDialog, confirmDelete,
     overwriteTarget, closeOverwriteDialog, confirmOverwrite,
   } = controller
+  const saveNameRef = React.useRef<HTMLInputElement>(null)
   return (
     <>
       {/* Save-name dialog. */}
@@ -461,14 +485,39 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
             <Typography variant="body2" color="text.secondary">
               {t('noteDynamicOverridesPresetsSaveDialogHelper')}
             </Typography>
+            {/* Glow wrapper for isFun names; dice end-adornment rolls a fresh suggestion on demand. */}
+            <Box sx={{ borderRadius: 1, ...(saveFun && { animation: `${legendaryGlow} 1400ms ease-out` }) }}>
             <TextField
               autoFocus
+              fullWidth
               label={t('noteDynamicOverridesPresetsNameLabel')}
               value={saveName}
               onChange={(event) => setSaveName(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') confirmSave() }}
-              slotProps={{ htmlInput: { maxLength: 80 } }}
+              slotProps={{
+                htmlInput: { maxLength: 80, ref: saveNameRef },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton
+                        size="small"
+                        tabIndex={-1}
+                        edge="start"
+                        title={t('presetSuggestName')}
+                        onClick={() => {
+                          reshuffleSaveName()
+                          const el = saveNameRef.current
+                          window.setTimeout(() => el?.select(), 0)
+                        }}
+                      >
+                        <CasinoIcon fontSize="inherit" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>

@@ -1336,6 +1336,7 @@ const overrides: Catalog = {
   sortPresetsSaveIncludeFilter: "Filtereinstellungen einschließen",
   sortPresetsSaveExclusive: "Beim Anwenden aktuelle Sortierung ersetzen",
   presetLabelColor: "Etikettenfarbe",
+  presetSuggestName: "Namen vorschlagen",
   // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Symbol",
   presetIconPickerAria: "Preset-Symbol wählen",

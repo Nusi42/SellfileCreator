@@ -93,10 +93,13 @@ import { GlyphPicker } from './GlyphPicker'
 import { PinnedPresetButtons, type PinnedPresetButtonDescriptor } from './PinnedPresetButtons'
 import PushPinIcon from '@mui/icons-material/PushPin'
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
+import CasinoIcon from '@mui/icons-material/Casino'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { GearDbHistoryMenu } from './GearDbHistoryMenu'
 import type { GearDbDiffHistoryEntry } from '../lib/gearDbDiffToast'
 import { ColorField, COLOR_FIELD_DEFAULT_VALUE } from './ColorField'
+import { generateMetasetNameWithFlag } from '../lib/namegen'
+import { legendaryGlow } from '../lib/celebrationKeyframes'
 
 
 type ProgressChipProps = {
@@ -659,10 +662,20 @@ export default function PreviewHeaderActions(props: {
   const [savePresetExclusive, setSavePresetExclusive] = React.useState(false)
   // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
   const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
+  // Brief celebratory glow on the name field when the generator produces a playful name.
+  const [savePresetFun, setSavePresetFun] = React.useState(false)
+  const savePresetNameRef = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    if (!savePresetFun) return
+    const id = window.setTimeout(() => setSavePresetFun(false), 1600)
+    return () => clearTimeout(id)
+  }, [savePresetFun])
 
   const openSavePresetDialog = React.useCallback(() => {
-    // Default to an empty field so repeated saves don't accidentally reuse prior input.
-    setSavePresetName('')
+    // Pre-fill with a generated name; user can edit or re-roll via the dice button.
+    const { name, isFun } = generateMetasetNameWithFlag(filterPresets.map((p) => p.name))
+    setSavePresetName(name)
+    if (isFun) setSavePresetFun(true)
     // Default the "include sort" opt-in to off so a saved filter preset stays filter-only unless asked.
     setSavePresetIncludeSort(false)
     // Reset color so the default (no color) is shown each time the dialog opens.
@@ -673,7 +686,7 @@ export default function PreviewHeaderActions(props: {
     // Default to OR/merge apply (exclusive off), matching the built-in presets.
     setSavePresetExclusive(false)
     setSavePresetOpen(true)
-  }, [])
+  }, [filterPresets])
 
   const closeSavePresetDialog = React.useCallback(() => {
     setSavePresetOpen(false)
@@ -704,9 +717,20 @@ export default function PreviewHeaderActions(props: {
   // When true, applying replaces the whole sort; when false (default), it ORs/stacks onto it.
   const [saveSortPresetExclusive, setSaveSortPresetExclusive] = React.useState(false)
   const [deleteSortPresetTarget, setDeleteSortPresetTarget] = React.useState<{ id: string; name: string } | null>(null)
+  // Brief celebratory glow on the name field when the generator produces a playful name.
+  const [saveSortPresetFun, setSaveSortPresetFun] = React.useState(false)
+  const saveSortPresetNameRef = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    if (!saveSortPresetFun) return
+    const id = window.setTimeout(() => setSaveSortPresetFun(false), 1600)
+    return () => clearTimeout(id)
+  }, [saveSortPresetFun])
 
   const openSaveSortPresetDialog = React.useCallback(() => {
-    setSaveSortPresetName('')
+    // Pre-fill with a generated name; user can edit or re-roll via the dice button.
+    const { name, isFun } = generateMetasetNameWithFlag(sortPresets.map((p) => p.name))
+    setSaveSortPresetName(name)
+    if (isFun) setSaveSortPresetFun(true)
     // Default the "include filter" opt-in to off so a saved sort preset stays sort-only unless asked.
     setSaveSortPresetIncludeFilter(false)
     // Reset color so the default (no color) is shown each time the dialog opens.
@@ -717,7 +741,7 @@ export default function PreviewHeaderActions(props: {
     // Default to OR/stack apply (exclusive off), matching the built-in sort presets.
     setSaveSortPresetExclusive(false)
     setSaveSortPresetOpen(true)
-  }, [])
+  }, [sortPresets])
 
   const closeSaveSortPresetDialog = React.useCallback(() => {
     setSaveSortPresetOpen(false)
@@ -1724,7 +1748,8 @@ export default function PreviewHeaderActions(props: {
                   <Typography variant="body2" color="text.secondary">
                     {t('filterPresetsSaveDialogHelper')}
                   </Typography>
-                  {/* Name field + color swatch share one row via endAdornment — no extra layout needed. */}
+                  {/* Name field: glow wrapper for isFun names; dice start-adornment re-rolls; color swatch end-adornment picks label color. */}
+                  <Box sx={{ borderRadius: 1, ...(savePresetFun && { animation: `${legendaryGlow} 1400ms ease-out` }) }}>
                   <TextField
                     autoFocus
                     label={t('filterPresetsNameLabel')}
@@ -1733,9 +1758,30 @@ export default function PreviewHeaderActions(props: {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') confirmSavePreset()
                     }}
+                    fullWidth
                     slotProps={{
-                      htmlInput: { maxLength: 80 },
+                      htmlInput: { maxLength: 80, ref: savePresetNameRef },
                       input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <MarkdownTooltip markdown={t('presetSuggestName')}>
+                              <IconButton
+                                size="small"
+                                tabIndex={-1}
+                                edge="start"
+                                onClick={() => {
+                                  const { name, isFun } = generateMetasetNameWithFlag(filterPresets.map((p) => p.name))
+                                  setSavePresetName(name)
+                                  if (isFun) setSavePresetFun(true)
+                                  const el = savePresetNameRef.current
+                                  window.setTimeout(() => el?.select(), 0)
+                                }}
+                              >
+                                <CasinoIcon fontSize="inherit" />
+                              </IconButton>
+                            </MarkdownTooltip>
+                          </InputAdornment>
+                        ),
                         endAdornment: (
                           <InputAdornment position="end">
                             {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
@@ -1761,6 +1807,7 @@ export default function PreviewHeaderActions(props: {
                       },
                     }}
                   />
+                  </Box>
                   {/* Icon + pin row: choose a glyph and optionally surface a header quick-toggle button. */}
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -1992,7 +2039,8 @@ export default function PreviewHeaderActions(props: {
                   <Typography variant="body2" color="text.secondary">
                     {t('sortPresetsSaveDialogHelper')}
                   </Typography>
-                  {/* Name field + color swatch share one row via endAdornment — no extra layout needed. */}
+                  {/* Name field: glow wrapper for isFun names; dice start-adornment re-rolls; color swatch end-adornment picks label color. */}
+                  <Box sx={{ borderRadius: 1, ...(saveSortPresetFun && { animation: `${legendaryGlow} 1400ms ease-out` }) }}>
                   <TextField
                     autoFocus
                     label={t('filterPresetsNameLabel')}
@@ -2001,9 +2049,30 @@ export default function PreviewHeaderActions(props: {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') confirmSaveSortPreset()
                     }}
+                    fullWidth
                     slotProps={{
-                      htmlInput: { maxLength: 80 },
+                      htmlInput: { maxLength: 80, ref: saveSortPresetNameRef },
                       input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <MarkdownTooltip markdown={t('presetSuggestName')}>
+                              <IconButton
+                                size="small"
+                                tabIndex={-1}
+                                edge="start"
+                                onClick={() => {
+                                  const { name, isFun } = generateMetasetNameWithFlag(sortPresets.map((p) => p.name))
+                                  setSaveSortPresetName(name)
+                                  if (isFun) setSaveSortPresetFun(true)
+                                  const el = saveSortPresetNameRef.current
+                                  window.setTimeout(() => el?.select(), 0)
+                                }}
+                              >
+                                <CasinoIcon fontSize="inherit" />
+                              </IconButton>
+                            </MarkdownTooltip>
+                          </InputAdornment>
+                        ),
                         endAdornment: (
                           <InputAdornment position="end">
                             {/* Grey swatch = no color (click to start picking); colored swatch = active color + clear. */}
@@ -2029,6 +2098,7 @@ export default function PreviewHeaderActions(props: {
                       },
                     }}
                   />
+                  </Box>
                   {/* Icon + pin row: choose a glyph and optionally surface a header quick-toggle button. */}
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>

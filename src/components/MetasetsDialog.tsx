@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, InputAdornment, MenuItem, Select, Stack, TextField as MuiTextField, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import CasinoIcon from '@mui/icons-material/Casino'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
@@ -16,7 +17,7 @@ import { GlyphPicker } from './GlyphPicker'
 import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
-import { keyframes } from '@emotion/react'
+import { legendaryGlow, sparkleRise } from '../lib/celebrationKeyframes'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
@@ -69,29 +70,27 @@ function metasetStateEqual(a: Metaset, b: Metaset): boolean {
   return true
 }
 
-// Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
-const legendaryGlow = keyframes`
-  0% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
-  25% { box-shadow: 0 0 14px 3px rgba(255, 204, 0, 0.55), inset 0 0 8px 2px rgba(255, 230, 150, 0.45); }
-  60% { box-shadow: 0 0 18px 6px rgba(255, 184, 0, 0.50), inset 0 0 12px 3px rgba(255, 224, 140, 0.45); }
-  100% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
-`
-const sparkleRise = keyframes`
-  0% { transform: translateY(6px) scale(0.9); opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 0.85; }
-  100% { transform: translateY(-10px) scale(1.05); opacity: 0; }
-`
 
 // Inner component handles draft state for a single metaset name field.
-const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, allNames, onCommitName }: { initialName: string; idx: number; highlight: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
+const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, isUsed, allNames, onCommitName }: { initialName: string; idx: number; highlight: boolean; isUsed: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState(initialName)
+  // Local funFlash drives the celebratory glow when the dice produces a playful name.
+  const [funFlash, setFunFlash] = useState(false)
+  useEffect(() => {
+    if (!funFlash) return
+    const id = window.setTimeout(() => setFunFlash(false), 1600)
+    return () => clearTimeout(id)
+  }, [funFlash])
+  // Ref to the underlying input so the dice can select-all after filling a name.
+  const inputRef = useRef<HTMLInputElement>(null)
   // Show error border when the current draft (trimmed) is already used by another metaset.
   const trimmedDraft = draft.trim()
   const isDuplicate = trimmedDraft.length > 0 && allNames.some((n, i) => i !== idx && n === trimmedDraft)
+  const glowActive = highlight || funFlash
   return (
     <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
-      {highlight && (
+      {glowActive && (
         <Box
           aria-hidden
           sx={{
@@ -109,7 +108,7 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
           }}
         />
       )}
-      {highlight && (
+      {glowActive && (
         <>
           {[0,1,2,3,4].map((i) => (
             <Box key={i} aria-hidden sx={{
@@ -141,13 +140,43 @@ const MetasetNameFieldInner = React.memo(function MetasetNameFieldInner({ initia
         fullWidth
         error={isDuplicate}
         sx={{ m: 0 }}
+        slotProps={{
+          htmlInput: { ref: inputRef },
+          input: {
+            // Dice hidden for in-use metasets: renaming them would break recipe/safeguard references.
+            startAdornment: !isUsed ? (
+              <InputAdornment position="start">
+                {/* onMouseDown preventDefault keeps focus in the text field so blur doesn't fire before the name updates. */}
+                <MarkdownTooltip markdown={t('presetSuggestName')}>
+                  <IconButton
+                    size="small"
+                    tabIndex={-1}
+                    edge="start"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      // Exclude current slot's name so the generator always produces a visible change.
+                      const { name, isFun } = generateMetasetNameWithFlag(allNames.filter((_, i) => i !== idx))
+                      setDraft(name)
+                      if (isFun) setFunFlash(true)
+                      // Defer select-all until after React flushes the new value into the input.
+                      const el = inputRef.current
+                      window.setTimeout(() => el?.select(), 0)
+                    }}
+                  >
+                    <CasinoIcon fontSize="inherit" />
+                  </IconButton>
+                </MarkdownTooltip>
+              </InputAdornment>
+            ) : undefined,
+          },
+        }}
       />
     </Box>
   )
 })
 
 // Outer wrapper resets draft state via key when name/id changes.
-const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, highlight, allNames, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
+const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, highlight, isUsed, allNames, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; isUsed: boolean; allNames: string[]; onCommitName: (value: string) => void }) {
   const highlightActive = Boolean(highlight)
   return (
     <MetasetNameFieldInner
@@ -155,6 +184,7 @@ const MetasetNameField = React.memo(function MetasetNameField({ id, name, idx, h
       initialName={name}
       idx={idx}
       highlight={highlightActive}
+      isUsed={isUsed}
       allNames={allNames}
       onCommitName={onCommitName}
     />
@@ -1115,6 +1145,7 @@ export default function MetasetsDialog({
                     name={m.name}
                     idx={idx}
                     highlight={legendaryMetaId === m.name}
+                    isUsed={totalUsed > 0}
                     allNames={draftMetasets.map((dm) => dm.name)}
                     onCommitName={(nextName) => {
                       // Names are the primary key; reject renames that would create a duplicate or no-op.

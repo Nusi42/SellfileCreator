@@ -1336,6 +1336,7 @@ const overrides: Catalog = {
   sortPresetsSaveIncludeFilter: "Filtre ayarlarını dahil et",
   sortPresetsSaveExclusive: "Uygulandığında mevcut sıralamayı değiştir",
   presetLabelColor: "Etiket rengi",
+  presetSuggestName: "Ad öner",
   // Icon + pin controls in the save dialog and preset menus.
   presetIconLabel: "Simge",
   presetIconPickerAria: "Ön ayar simgesini seç",
