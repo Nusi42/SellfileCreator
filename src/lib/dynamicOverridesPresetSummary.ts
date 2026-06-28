@@ -176,19 +176,21 @@ const intersectAnswers = (
 }
 
 /**
- * Format a DSL id token (e.g. "account-level", "veteran", "off", "25") as a readable label.
- * Splits on hyphens and capitalises each word — numeric and single-word tokens pass through
- * intact. Used for question/option ids in the unavailable section where the original note
- * text (and therefore the proper display labels) is no longer accessible.
+ * Extract the human-readable label from a stored option id. Auto-generated option ids
+ * embed the display label between backticks: e.g. "Q_abpiug:`keep 5★ sets`#1" → "keep 5★ sets".
+ * Plain values (numeric slider values like "32", sentinels like "off") have no backticks and
+ * pass through unchanged.
  */
-const formatDslToken = (token: string): string =>
-  token.split('-').map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ')
+const extractOptionLabel = (optionId: string): string => {
+  const match = optionId.match(/`([^`]+)`/)
+  return match != null ? match[1] : optionId
+}
 
 /** One entry in the unavailable-answers section of the flyout. */
 export type DynamicOverridesUnavailableLine = {
-  // Readable label for the stored question, formatted from its DSL id token.
-  questionLabel: string
-  // Readable labels for the stored answer values (option ids or numeric slider values).
+  // Raw question id — the note text is gone so the original prompt title is not recoverable.
+  questionId: string
+  // Human-readable labels extracted from the stored option ids.
   answerLabels: string[]
 }
 
@@ -197,6 +199,9 @@ export type DynamicOverridesUnavailableLine = {
  * These can't appear in the main summary table (the resolver only emits questions the note has),
  * so they need a separate section. Partial-option losses (question IS in the note but some
  * option ids are gone) are already handled by the hasPresetFallback flag on main-table lines.
+ *
+ * Entries with no stored values (spacers, explicitly-nothing-selected checkboxes) are skipped —
+ * an empty answer for a missing question communicates nothing useful.
  */
 const buildUnavailableLines = (
   presetAnswers: AnswerMap,
@@ -205,9 +210,12 @@ const buildUnavailableLines = (
   const lines: DynamicOverridesUnavailableLine[] = []
   for (const [qId, stored] of Object.entries(presetAnswers)) {
     if (noteQuestionIds.has(qId)) continue
+    const values = Array.isArray(stored) ? stored : []
+    // Skip spacers and questions that were explicitly set to nothing — no useful info to show.
+    if (values.length === 0) continue
     lines.push({
-      questionLabel: formatDslToken(qId),
-      answerLabels: (Array.isArray(stored) ? stored : []).map(formatDslToken),
+      questionId: qId,
+      answerLabels: values.map(extractOptionLabel),
     })
   }
   return lines

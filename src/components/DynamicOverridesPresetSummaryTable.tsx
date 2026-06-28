@@ -137,26 +137,20 @@ export function DynamicOverridesPresetSummaryTable({
             {t('noteDynamicOverridesPresetsUnavailableHeader')}
           </Typography>
           {unavailableLines.map((line, index) => (
-            // questionLabel is derived from a unique question id, so it's a safe key.
-            <React.Fragment key={`unavail-${line.questionLabel}`}>
+            // questionId is unique within the unavailable list, so it's a safe key.
+            <React.Fragment key={`unavail-${line.questionId}`}>
               {index > 0 ? (
                 <Divider sx={{ gridColumn: '1 / -1', opacity: 0.3 }} />
               ) : null}
-              {/* Question label (left): formatted DSL token, dimmed to signal unavailability. */}
+              {/* Answer labels span both columns — the question title is not recoverable
+                  (the note is gone), so showing the raw opaque question id in the left cell
+                  adds no value. The extracted answer labels identify the stored selection. */}
               <Typography
                 variant="body2"
                 component="div"
-                sx={{ minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
+                sx={{ gridColumn: '1 / -1', minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
               >
-                {line.questionLabel}
-              </Typography>
-              {/* Answer labels (right): comma-joined for compactness in this secondary section. */}
-              <Typography
-                variant="body2"
-                component="div"
-                sx={{ minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
-              >
-                {line.answerLabels.length > 0 ? line.answerLabels.join(', ') : '—'}
+                {line.answerLabels.join(', ')}
               </Typography>
             </React.Fragment>
           ))}
