@@ -6,7 +6,7 @@
 //
 // This is the general "reproduce a captured pipeline bug in CI" primitive. Capture a live
 // session with `?capturePackets` (frames land in docs/orig/sampleLog/captures/<session>/), then
-// write a 5-line spec that points `replayCaptureAndAssert` at that folder and asserts on the
+// write a script that points `replayCaptureAndAssert` at that folder and asserts on the
 // protected-count history. The offline headless harness (tests/repro/repro-capture-replay.ts)
 // does a clean fresh detect per export, so it cannot exhibit bugs that only appear in the
 // long-lived worker driven by the app's real build sequence (configure baseline → detect →
@@ -16,17 +16,21 @@
 // The protected counts come from the window.__protectedHistory test hook (useRuleCacheWorker,
 // gated by ALLOW_TEST_HOOKS + ?logWasmHeap) — worker console.log does not reliably reach
 // Playwright, so the worker stashes the per-build protected count on window for us to read.
+//
+// Usage: import this helper from a Playwright spec placed in tests/playwright/ (Playwright's
+// testDir). Specs in tests/repro/ are NOT auto-discovered by Playwright — launch them manually
+// with `npx playwright test tests/repro/<file>.spec.ts`.
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
 import type { WebSocketRoute } from '@playwright/test'
-import { expect } from './fixtures'
-import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
-import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
-import { dismissBlockingDialogs } from './dialog-helpers'
-import { settleWorkload } from './workload-indicator'
-import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
+import { expect } from '../playwright/fixtures'
+import { APP_GOTO_OPTIONS, prepareApp } from '../playwright/app-init'
+import { SFC_LOAD_INPUT_SELECTOR } from '../playwright/ui-selectors'
+import { dismissBlockingDialogs } from '../playwright/dialog-helpers'
+import { settleWorkload } from '../playwright/workload-indicator'
+import { PLAYWRIGHT_TIMEOUTS } from '../playwright/timeouts'
+import { PRESET_LATEGAME_SFC_PATH } from '../playwright/fixture-paths'
 
 // RSL Helper default WebSocket endpoint; the app reads it from the ?endpoint= query param.
 const ENDPOINT_URL = 'ws://localhost:8080/'
@@ -144,7 +148,7 @@ export const replayCaptureAndAssert = async (options: ReplayCaptureOptions): Pro
   const history = await page.evaluate(
     () => (window as unknown as { __protectedHistory?: number[] }).__protectedHistory ?? [],
   )
-   
+
   console.log(`[capture-replay] ${label} protected history = ${JSON.stringify(history)}`)
 
   expect(crashed, `page crashed during ${label}`).toBe(false)

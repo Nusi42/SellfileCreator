@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
-import { dismissBlockingDialogs } from './dialog-helpers'
+import { dismissBlockingDialogs, NOTE_DIALOG_TITLES } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { SAMPLE_SFC_PATH } from './fixture-paths'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
@@ -104,6 +104,13 @@ test.describe('preview chip scroll', () => {
     // Allow slower engines to resolve the hidden input before uploading.
     await sfcInput.setInputFiles(SFC_PATH, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
+    // Wait for the note dialog that auto-opens after SFC import before dismissing.
+    // Why: setInputFiles returns before the SFC is parsed; the dialog may take several seconds
+    // to appear on a large file. uiPopover (1 s) is too tight; expect(...).toBeVisible() with
+    // expectLong gives enough headroom without triggering the waitFor visible-budget lint rule.
+    const noteDialog = page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[0] })
+      .or(page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[1] }))
+    await expect(noteDialog).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong }).catch(() => undefined)
     // Close any note/restore dialogs that appear after loading recipes.
     await dismissBlockingDialogs(page)
 

@@ -31,7 +31,10 @@ const readMaster = async (page: import('@playwright/test').Page) =>
   })
 
 test('Chaos Ore master Keep radio gates on the per-rarity keeps (cross-question)', async ({ page }) => {
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  // Budget: appGoto(15) + sfcInput.waitFor(15) + expectEnabled(3) + dialog.waitFor(15)
+  //         + workloadIdle(15) + expect.poll(15) ≈ 78 s minimum; testXL(90) gives headroom.
+  // testHeavy(30) was always too tight — it equals only two 15 s waits with zero overhead margin.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
   await prepareApp(page)
   await page.goto('/', APP_GOTO_OPTIONS)
   const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
