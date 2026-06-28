@@ -22,8 +22,7 @@
 // with `npx playwright test tests/repro/<file>.spec.ts`.
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Page } from '@playwright/test'
-import type { WebSocketRoute } from '@playwright/test'
+import type { Page, WebSocketRoute } from '@playwright/test'
 import { expect } from '../playwright/fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from '../playwright/app-init'
 import { SFC_LOAD_INPUT_SELECTOR } from '../playwright/ui-selectors'
@@ -136,10 +135,12 @@ export const replayCaptureAndAssert = async (options: ReplayCaptureOptions): Pro
 
   // Replay each push as a burst, settling the pipeline after each so the per-build sequence
   // mirrors the live session that produced the capture.
-  const ws = serverWs
+  // Cast: the throw above guarantees serverWs is set by this point; TS can't narrow
+  // a let assigned inside a closure through the throw, so an explicit cast is needed.
+  const ws = serverWs as WebSocketRoute
   for (const group of pushes) {
     expect(crashed, `page crashed during replay of ${label}`).toBe(false)
-    for (const msg of group) ws.send(JSON.stringify(msg))
+    for (const msg of group) { ws.send(JSON.stringify(msg)) }
     await settleWorkload(page, PLAYWRIGHT_TIMEOUTS.testXL)
     await page.waitForTimeout(300).catch(() => { crashed = true })
     if (crashed) break
