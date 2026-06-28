@@ -25,6 +25,27 @@ import {
 export const DYNAMIC_OVERRIDES_PRESETS_STORAGE_KEY = 'sellfileCreator.dynamicOverridesPresets.v1'
 
 /**
+ * Human-readable question title and option label map captured at save time.
+ * Stored per-question so the flyout can show meaningful text if the question
+ * later disappears from the note (question IDs are opaque hashes, unusable alone).
+ */
+export type DynamicOverridesPresetLabelEntry = {
+  // Question title (first line of the prompt, subtext stripped) in the UI language at save time.
+  title: string
+  // Option id → display label at save time. Only option IDs that existed in the note are present.
+  options: Record<string, string>
+}
+
+/**
+ * Label snapshots for all questions in both override domains at save time.
+ * Keyed by question id. Optional on the preset so old saves (without this field) still load.
+ */
+export type DynamicOverridesPresetSavedLabels = {
+  recipe: Record<string, DynamicOverridesPresetLabelEntry>
+  safeguard: Record<string, DynamicOverridesPresetLabelEntry>
+}
+
+/**
  * A saved dynamic-overrides set: both the recipe answers and the safeguard answers
  * are captured so loading restores the full prompt state, matching the disable-confirm
  * "apply" path which also applies both answer maps together.
@@ -37,11 +58,20 @@ export type DynamicOverridesPreset = {
   recipeAnswers: NoteRecipeOverridesAnswers
   // Safeguard-overrides prompt selections (question ID → selected option IDs).
   safeguardAnswers: NoteSafeguardOverridesAnswers
+  // Human-readable question titles + option labels captured at save time. Absent on old presets
+  // (saved before this field was introduced) — the flyout omits the unavailable section in that case.
+  savedLabels?: DynamicOverridesPresetSavedLabels
 }
 
 // ---------------------------------------------------------------------------
 // Parse / serialize
 // ---------------------------------------------------------------------------
+
+const sanitizeSavedLabels = (raw: unknown): DynamicOverridesPresetSavedLabels | undefined => {
+  // Labels are display-only — if the shape is wrong, silently omit rather than rejecting the preset.
+  if (!raw || typeof raw !== 'object') return undefined
+  return raw as DynamicOverridesPresetSavedLabels
+}
 
 const sanitizePreset = (raw: unknown): DynamicOverridesPreset | null => {
   // Top-level record validation prevents partially-written localStorage from breaking the menu.
@@ -55,12 +85,15 @@ const sanitizePreset = (raw: unknown): DynamicOverridesPreset | null => {
   // keep-explicit-empty rules apply here as on autosave restore (SSOT).
   const recipeAnswers = normalizeNoteRecipeOverridesAnswers(rec['recipeAnswers']) ?? {}
   const safeguardAnswers = normalizeNoteSafeguardOverridesAnswers(rec['safeguardAnswers']) ?? {}
+  const savedLabels = sanitizeSavedLabels(rec['savedLabels'])
   return {
     id,
     name,
     savedAt: sanitizePresetSavedAt(rec['savedAt']),
     recipeAnswers,
     safeguardAnswers,
+    // Spread only when defined — exactOptionalPropertyTypes disallows { prop: undefined }.
+    ...(savedLabels !== undefined ? { savedLabels } : {}),
   }
 }
 

@@ -25,6 +25,10 @@ import {
   type NoteRecipeOverridesAnswers,
 } from './noteRecipeOverrides'
 import { resolveNoteSafeguardOverridesTags, SLIDER_TOGGLE_OFF, type NoteSafeguardOverridesAnswers } from './noteSafeguardOverrides'
+import type {
+  DynamicOverridesPresetLabelEntry,
+  DynamicOverridesPresetSavedLabels,
+} from '../state/dynamicOverridesPresetsPreference'
 
 /**
  * The minimal question shape both override domains satisfy. `groups` lets us spot
@@ -182,40 +186,49 @@ const intersectAnswers = (
  * pass through unchanged.
  */
 const extractOptionLabel = (optionId: string): string => {
+  // noUncheckedIndexedAccess makes match[1] string | undefined; fallback to optionId covers both.
   const match = optionId.match(/`([^`]+)`/)
-  return match != null ? match[1] : optionId
+  return match?.[1] ?? optionId
 }
 
 /** One entry in the unavailable-answers section of the flyout. */
 export type DynamicOverridesUnavailableLine = {
-  // Raw question id — the note text is gone so the original prompt title is not recoverable.
-  questionId: string
-  // Human-readable labels extracted from the stored option ids.
+  // Human-readable question title captured at save time.
+  questionTitle: string
+  // Human-readable option labels captured at save time (with extractOptionLabel as fallback).
   answerLabels: string[]
 }
 
 /**
  * Collect stored answers whose question id is entirely absent from the note's question list.
- * These can't appear in the main summary table (the resolver only emits questions the note has),
- * so they need a separate section. Partial-option losses (question IS in the note but some
- * option ids are gone) are already handled by the hasPresetFallback flag on main-table lines.
+ * Only emitted when the preset has saved labels — old presets without them produce an empty array
+ * rather than showing opaque auto-generated IDs (like "Q_abpiug") that communicate nothing.
  *
- * Entries with no stored values (spacers, explicitly-nothing-selected checkboxes) are skipped —
- * an empty answer for a missing question communicates nothing useful.
+ * Entries with no stored values (spacers, explicitly-nothing-selected checkboxes) are skipped.
+ * Questions not found in savedLabels (e.g. spacers that were captured with empty option maps)
+ * are also skipped to avoid blank entries.
  */
 const buildUnavailableLines = (
   presetAnswers: AnswerMap,
   noteQuestionIds: Set<string>,
+  savedLabels: Record<string, DynamicOverridesPresetLabelEntry> | undefined,
 ): DynamicOverridesUnavailableLine[] => {
+  // Without saved labels we cannot show meaningful text — omit the section entirely.
+  if (!savedLabels) return []
   const lines: DynamicOverridesUnavailableLine[] = []
   for (const [qId, stored] of Object.entries(presetAnswers)) {
     if (noteQuestionIds.has(qId)) continue
-    const values = Array.isArray(stored) ? stored : []
-    // Skip spacers and questions that were explicitly set to nothing — no useful info to show.
+    // SLIDER_TOGGLE_OFF sentinels and explicitly-nothing answers convey no useful information.
+    const values = (Array.isArray(stored) ? stored : []).filter((v) => v !== SLIDER_TOGGLE_OFF)
     if (values.length === 0) continue
+    // Questions not in savedLabels (spacers, questions whose label capture yielded nothing) are skipped.
+    const labelEntry = savedLabels[qId]
+    if (!labelEntry) continue
     lines.push({
-      questionId: qId,
-      answerLabels: values.map(extractOptionLabel),
+      questionTitle: labelEntry.title,
+      // Prefer the save-time label; fall back to extractOptionLabel for slider numeric values
+      // (stored as raw strings, never as option ids) and any gaps in the saved option map.
+      answerLabels: values.map((v) => labelEntry.options[v] ?? extractOptionLabel(v)),
     })
   }
   return lines
@@ -250,6 +263,7 @@ export const buildDynamicOverridesPresetSummary = (
   recipeAnswers: NoteRecipeOverridesAnswers,
   safeguardAnswers: NoteSafeguardOverridesAnswers,
   lang = 'en-US',
+  savedLabels?: DynamicOverridesPresetSavedLabels,
 ): DynamicOverridesPresetSummaryResult => {
   // Resolve questions in the active language so labels/prompts display correctly.
   const { questions: recipeQuestions } = resolveRecipeOverridesTags(note, recipeAnswers, undefined, undefined, lang)
@@ -272,8 +286,8 @@ export const buildDynamicOverridesPresetSummary = (
     hasAnyFallback: hasFallbackInDomain(recipeAnswers, appliedRecipe)
       || hasFallbackInDomain(safeguardAnswers, appliedSafeguard),
     unavailableLines: [
-      ...buildUnavailableLines(recipeAnswers, noteRecipeIds),
-      ...buildUnavailableLines(safeguardAnswers, noteSafeguardIds),
+      ...buildUnavailableLines(recipeAnswers, noteRecipeIds, savedLabels?.recipe),
+      ...buildUnavailableLines(safeguardAnswers, noteSafeguardIds, savedLabels?.safeguard),
     ],
   }
 }
@@ -298,6 +312,43 @@ const projectFullSelection = (questions: SummarizableQuestion[]): AnswerMap => {
     map[question.id] = Array.isArray(question.answer) ? [...question.answer] : []
   }
   return map
+}
+
+/** Build a question-id → label entry map for one override domain. */
+const buildLabelMap = (questions: SummarizableQuestion[]): Record<string, DynamicOverridesPresetLabelEntry> => {
+  const map: Record<string, DynamicOverridesPresetLabelEntry> = {}
+  for (const question of questions) {
+    // Collect option id → display label; slider questions have empty option labels (fine — their
+    // values are stored as raw numeric strings, never looked up as option ids on restore).
+    const options: Record<string, string> = {}
+    for (const option of question.options) {
+      if (option.id) options[option.id] = normalizeOptionLabelText(option.label)
+    }
+    map[question.id] = {
+      title: normalizeOptionLabelText(splitQuestionPrompt(question.prompt).title),
+      options,
+    }
+  }
+  return map
+}
+
+/**
+ * Snapshot the human-readable question titles and option labels for the current note, for saving
+ * alongside a preset. Called at save time so the flyout can show meaningful labels if a question
+ * later disappears from the note. Labels are captured in the active UI language.
+ */
+export const snapshotDynamicOverridesLabels = (
+  note: string,
+  recipeAnswers: NoteRecipeOverridesAnswers,
+  safeguardAnswers: NoteSafeguardOverridesAnswers,
+  lang = 'en-US',
+): DynamicOverridesPresetSavedLabels => {
+  const { questions: recipeQuestions } = resolveRecipeOverridesTags(note, recipeAnswers, undefined, undefined, lang)
+  const { questions: safeguardQuestions } = resolveNoteSafeguardOverridesTags(note, safeguardAnswers, undefined, undefined, lang)
+  return {
+    recipe: buildLabelMap(recipeQuestions),
+    safeguard: buildLabelMap(safeguardQuestions),
+  }
 }
 
 /**

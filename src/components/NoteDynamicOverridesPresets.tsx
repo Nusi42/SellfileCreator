@@ -45,6 +45,7 @@ import {
   buildDynamicOverridesPresetSummary,
   resolveDynamicOverridesPresetApply,
   snapshotDynamicOverridesFullSelection,
+  snapshotDynamicOverridesLabels,
 } from '../lib/dynamicOverridesPresetSummary'
 import { buildWarningBadgeBase } from '../lib/badgeStyles'
 import type { NoteRecipeOverridesAnswers } from '../lib/noteRecipeOverrides'
@@ -108,6 +109,8 @@ export function useDynamicOverridesPresetController({
   const [deleteTarget, setDeleteTarget] = React.useState<DynamicOverridesPreset | null>(null)
   // Overwrite-confirm target (null when closed): the existing set to replace with the live selection.
   const [overwriteTarget, setOverwriteTarget] = React.useState<DynamicOverridesPreset | null>(null)
+  // Active UI language — used to capture human-readable labels at save/overwrite time.
+  const { lang } = useI18n()
 
   // Open the save dialog with an empty name after the host menu closes.
   const openSaveDialog = React.useCallback(() => {
@@ -120,22 +123,25 @@ export function useDynamicOverridesPresetController({
   // Persist the current selections under the entered name. We snapshot the FULL resolved
   // selection (defaults merged in) — not the lean live map — so the saved set reproduces
   // the same outcome even if the note's defaults change later. Resolution uses the shared
-  // resolver, so the values are identical to the live selection.
+  // resolver, so the values are identical to the live selection. Human-readable labels are
+  // captured alongside the answer maps so the flyout can show them if a question disappears.
   const confirmSave = React.useCallback(() => {
     const name = sanitizePresetName(saveName)
     if (!name) return
     const full = snapshotDynamicOverridesFullSelection(note, recipeAnswers, safeguardAnswers)
+    const labels = snapshotDynamicOverridesLabels(note, recipeAnswers, safeguardAnswers, lang)
     const preset: DynamicOverridesPreset = {
       id: createPresetId(),
       name,
       savedAt: new Date().toISOString(),
       recipeAnswers: full.recipeAnswers,
       safeguardAnswers: full.safeguardAnswers,
+      savedLabels: labels,
     }
     // Newest first, matching the filter/sort preset ordering.
     setPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
     setSaveOpen(false)
-  }, [note, saveName, recipeAnswers, safeguardAnswers, setPresets])
+  }, [note, lang, saveName, recipeAnswers, safeguardAnswers, setPresets])
 
   // Load a saved set: apply only still-valid selections over the live answers, then re-enable.
   const handleLoad = React.useCallback((preset: DynamicOverridesPreset) => {
@@ -168,22 +174,25 @@ export function useDynamicOverridesPresetController({
   }, [onCloseMenu])
   const closeOverwriteDialog = React.useCallback(() => setOverwriteTarget(null), [])
   // Replace the target set's stored answers with the current FULL selection (same snapshot
-  // rule as confirmSave), keeping its id + name and bumping the saved timestamp.
+  // rule as confirmSave), keeping its id + name and bumping the saved timestamp. Labels are
+  // refreshed too so the flyout reflects the overwritten state's question/option text.
   const confirmOverwrite = React.useCallback(() => {
     setOverwriteTarget((target) => {
       if (target) {
         const full = snapshotDynamicOverridesFullSelection(note, recipeAnswers, safeguardAnswers)
+        const labels = snapshotDynamicOverridesLabels(note, recipeAnswers, safeguardAnswers, lang)
         const updated: DynamicOverridesPreset = {
           ...target,
           savedAt: new Date().toISOString(),
           recipeAnswers: full.recipeAnswers,
           safeguardAnswers: full.safeguardAnswers,
+          savedLabels: labels,
         }
         setPresets((prev) => (Array.isArray(prev) ? prev.map((p) => (p.id === target.id ? updated : p)) : []))
       }
       return null
     })
-  }, [note, recipeAnswers, safeguardAnswers, setPresets])
+  }, [note, lang, recipeAnswers, safeguardAnswers, setPresets])
 
   return {
     note,
@@ -224,7 +233,7 @@ function DynamicOverridesPresetRow({
   // Resolve the per-set summary against the current note (display text + fallback flags).
   // Pass the active language so question/option labels render in the UI locale, not always English.
   const { lines, hasAnyFallback, unavailableLines } = React.useMemo(
-    () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers, lang),
+    () => buildDynamicOverridesPresetSummary(note, preset.recipeAnswers, preset.safeguardAnswers, lang, preset.savedLabels),
     [note, preset, lang],
   )
   // The summary lives in a scrollable Popover (not a tooltip) because large sets can be

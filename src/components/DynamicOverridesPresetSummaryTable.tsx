@@ -11,7 +11,8 @@
  * A second "Not available for this note" section follows when the preset stored answers
  * for questions entirely absent from the current note. Those questions never appear in the
  * main table (the resolver only emits the note's own questions), so they need their own
- * block. Labels are formatted from raw DSL id tokens since the original note text is gone.
+ * block. Labels come from the human-readable snapshot captured at save time (savedLabels);
+ * old presets without that snapshot produce no unavailable lines, so the section is absent.
  *
  * Used inside the saved-set Popover (replacing the old hover tooltip); the host owns
  * scrolling, so this component is layout-only.
@@ -119,7 +120,9 @@ export function DynamicOverridesPresetSummaryTable({
 
       {/* Unavailable section: stored answers for questions not in the current note.
           Shown below the main table (or alone when the note has no override questions at all).
-          Labels are formatted DSL tokens — the original note text is no longer available. */}
+          Two-column layout (question title left, answer labels right) mirrors the main table.
+          Only rendered for presets saved after savedLabels was introduced — old presets produce
+          no unavailable lines, so this block is absent for them. */}
       {hasUnavailable ? (
         <>
           <Divider sx={{ gridColumn: '1 / -1', mt: hasMain ? 0.5 : 0, mb: 0.25, opacity: 0.6 }} />
@@ -137,21 +140,34 @@ export function DynamicOverridesPresetSummaryTable({
             {t('noteDynamicOverridesPresetsUnavailableHeader')}
           </Typography>
           {unavailableLines.map((line, index) => (
-            // questionId is unique within the unavailable list, so it's a safe key.
-            <React.Fragment key={`unavail-${line.questionId}`}>
+            // questionTitle is human-readable and unique within the unavailable list.
+            <React.Fragment key={`unavail-${line.questionTitle}`}>
               {index > 0 ? (
                 <Divider sx={{ gridColumn: '1 / -1', opacity: 0.3 }} />
               ) : null}
-              {/* Answer labels span both columns — the question title is not recoverable
-                  (the note is gone), so showing the raw opaque question id in the left cell
-                  adds no value. The extracted answer labels identify the stored selection. */}
+              {/* Question title (left): dimmed + italic to visually separate from active rows. */}
               <Typography
                 variant="body2"
                 component="div"
-                sx={{ gridColumn: '1 / -1', minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
+                sx={{ minWidth: 0, wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
               >
-                {line.answerLabels.join(', ')}
+                {parseInlineMarkdown(line.questionTitle, { plainCode: true })}
               </Typography>
+              {/* Answer labels (right): stacked one-per-line like the main table's answer column.
+                  parseInlineMarkdown in plainCode mode strips backtick wrappers from auto-generated
+                  composite option labels (e.g. `keep 5★ limited sets`) so they render cleanly. */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+                {line.answerLabels.map((label) => (
+                  <Typography
+                    key={label}
+                    variant="body2"
+                    component="div"
+                    sx={{ wordBreak: 'break-word', opacity: 0.6, fontStyle: 'italic' }}
+                  >
+                    {parseInlineMarkdown(label, { plainCode: true })}
+                  </Typography>
+                ))}
+              </Box>
             </React.Fragment>
           ))}
         </>
