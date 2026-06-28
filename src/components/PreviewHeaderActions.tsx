@@ -1741,7 +1741,15 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
-            <Dialog open={savePresetOpen} onClose={closeSavePresetDialog} maxWidth="xs" fullWidth>
+            <Dialog
+              open={savePresetOpen}
+              onClose={closeSavePresetDialog}
+              maxWidth="xs"
+              fullWidth
+              // The dialog pre-fills a generated name; once the open transition completes and the
+              // field is focused, select all so the user can type over it. Matches the dice button.
+              slotProps={{ transition: { onEntered: () => savePresetNameRef.current?.select() } }}
+            >
               <DialogTitle>{t('filterPresetsSaveDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Stack spacing={1.5} sx={{ mt: 0.5 }}>
@@ -2032,7 +2040,15 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
-            <Dialog open={saveSortPresetOpen} onClose={closeSaveSortPresetDialog} maxWidth="xs" fullWidth>
+            <Dialog
+              open={saveSortPresetOpen}
+              onClose={closeSaveSortPresetDialog}
+              maxWidth="xs"
+              fullWidth
+              // The dialog pre-fills a generated name; once the open transition completes and the
+              // field is focused, select all so the user can type over it. Matches the dice button.
+              slotProps={{ transition: { onEntered: () => saveSortPresetNameRef.current?.select() } }}
+            >
               <DialogTitle>{t('sortPresetsSaveDialogTitle')}</DialogTitle>
               <DialogContent>
                 <Stack spacing={1.5} sx={{ mt: 0.5 }}>

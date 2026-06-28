@@ -478,7 +478,15 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
   return (
     <>
       {/* Save-name dialog. */}
-      <Dialog open={saveOpen} onClose={closeSaveDialog} maxWidth="xs" fullWidth>
+      <Dialog
+        open={saveOpen}
+        onClose={closeSaveDialog}
+        maxWidth="xs"
+        fullWidth
+        // The dialog pre-fills a generated name; once the open transition completes and the field
+        // is focused, select all so the user can type over it immediately. Matches the dice button.
+        slotProps={{ transition: { onEntered: () => saveNameRef.current?.select() } }}
+      >
         <DialogTitle>{t('noteDynamicOverridesPresetsSaveDialogTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
