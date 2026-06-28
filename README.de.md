@@ -1,12 +1,12 @@
 ﻿# Sellfile Creator for RSL Helper
 
-Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — definiere Ausrüstungsfilter nach Set, Slot, Hauptwert, Unterwerte und mehr, sieh dir die Treffer live an und exportiere fertige Sellfiles in Sekunden.
+Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — definiere Ausrüstungsfilter nach Set, Art, Hauptwert, Unterwerte und mehr, sieh dir die Treffer live an und exportiere fertige Sellfiles in Sekunden.
 
 > Dies ist ein unabhängiges Fan-Projekt. Es besteht keine Verbindung zu Plarium, Raid: Shadow Legends oder RSL Helper. Alle Marken gehören ihren jeweiligen Eigentümern.
 
 ## Features
 
-- **Rezept-Builder** — erstelle benannte Behalten/Verkaufen-Rezepte mit Filtern für Slot,
+- **Rezept-Builder** — erstelle benannte Behalten/Verkaufen-Rezepte mit Filtern für Art,
   Set, Rang, Seltenheit, Hauptwert, Unterwerte (mit Roll-Minima und Zielwerten), Fraktion
   und Stufenmeilensteinen. Baue eine wiederverwendbare Bibliothek auf und exportiere sie
   mit einem Klick als RSL-Helper-Sellfile (`.hsf`).
@@ -19,11 +19,11 @@ Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — def
 - **Dungeon-Simulator** — sieh dir Behalten-Chancen in Prozent für Feuerritter, Drachen
   und Eisgolem über Schwierigkeitsstufen und Ausbaustufen an, um die Wirkung deines
   Sellfiles beim Farmen oder Verbessern von Ausrüstung zu bestätigen.
-- **Schutzregeln** — definiere Slot/Set/Wert-Kombinationen, die du nie verlieren willst;
+- **Schutzregeln** — definiere Art/Set/Wert-Kombinationen, die du nie verlieren willst;
   der Scanner fügt automatisch Behalten-Regeln in das Sellfile ein, wenn deine
   Einstellung eine geschützte Kombination unter ihre Quote senken würde.
 - **Ausrüstungsanalyse** — Analyse-Dashboard mit KPI-Karten, Kreuzfilter-Diagrammen
-  (Slot, Rang, Seltenheit, Quelle, Level), einer Sets-Baumkarte, Hauptwert-Balken und
+  (Art, Rang, Seltenheit, Quelle, Level), einer Sets-Baumkarte, Hauptwert-Balken und
   einem Unterwert-Radar. Klicke auf ein Diagramm, um alle anderen zu filtern; sende den
   aktiven Filter direkt in den Ausrüstungs-Inspektor.
 - **Finaler Verkauf** — ein Schalter fügt Auffangregeln für nicht zugeordnete Ausrüstung
@@ -64,7 +64,7 @@ Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — def
     - Beispiel: Banner mit SPD und ATK%, ATK% braucht 2 Rollen. Seltenheit = Auto, Meilenstein-Schwellen = Spät, Auto ≥ Episch. Ergebnis: Epische Zeilen an jedem Meilenstein plus ≥ Legendär bei +8 und +12, damit seltenere Drops nicht durchs Raster fallen.
   - Vor +16 verwendet der Builder die Unterwert-Anzahl, die die aktuelle Seltenheit tatsächlich tragen kann. Bei +16 gilt deine Zielanzahl.
 - Fraktion: Beschränke Schmuckstück-Regeln auf eine Fraktion, wenn du ein Team gezielt ausstattest. Ringe, Amulette und Banner beachten den Filter; Artefakte ignorieren Fraktionen, daher ist `Beliebig` dort am sichersten.
-- Slots: Fokussiere die Regel auf bestimmte Slots (Waffe, Stiefel etc.), damit Off-Slot-Drops nicht matchen. Leer lassen = alle Slots.
+- Arten: Fokussiere die Regel auf bestimmte Arten (Waffe, Stiefel etc.), damit Drops anderer Arten nicht matchen. Leer lassen = alle Arten.
 - Sets & Metasets: Filtere auf explizite Sets oder benannte Metasets, wenn nur bestimmte Kombinationen zugelassen sein sollen. Leer lassen = alle Sets.
 - Hauptwerte: Bestimme, welche Hauptwerte zulässig sind.
   - Mehrfachauswahl erlaubt; keine Auswahl = jeder Hauptwert ist gültig.
@@ -118,13 +118,13 @@ Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — def
 ### Schutzregeln
 - Schalte den Builder über den Umschalter oben am Builder-Panel in den **Schutzregeln**-Modus, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Schutzregeln`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
 - Schutzregeln „verbrauchen“ keine Items – jede Schutzregel bewertet denselben Kandidatenpool. Wenn ein Teil mehreren Schutzregeln entspricht, zählt es für alle.
-- Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Hauptwerte und (bei Schmuckstücken) Fraktionen festlegen. Leer bedeutet „egal“.
+- Jede Behalte-Regel lässt dich Art, Sets oder Metasets, Ränge, Seltenheiten, Hauptwerte und (bei Schmuckstücken) Fraktionen festlegen. Leer bedeutet „egal“.
 - `Modus` bestimmt, wie die Regel ausgegeben wird: `Aus` deaktiviert sie, `Bestehendes schützen` fügt Behalte-Zeilen für verkaufsgefährdete Treffer hinzu, bis die Quote erreicht ist, und `Lücken vorab sichern` ergänzt Platzhalter-Regeln für fehlende Kombinationen, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.
 - Unterwerte sind optional: Wähle einen oder mehrere, damit nur Items zählen, die diese Unterwerte haben. Die Match‑Chips legen fest, wie viele der ausgewählten Unterwerte ein Teil haben muss — `≥1`–`≥4` (Chips über der von dir gewählten Zahl sind ausgegraut) — oder `Pro Unterwert`, was die Quote auf jeden ausgewählten Unterwert einzeln anwendet. Lasse die Unterwerte leer, um beliebige Unterwerte zuzulassen.
 - Ausgewählte Unterwerte werden immer mit der normalisierten Unterwert-Wertung gerankt (Glyphen ignoriert); Gewichtungen erscheinen in jedem Mindestanzahl-Modus (`≥1`–`≥4`), `Pro Unterwert` bleibt bei der Standardgewichtung (Gleichstände an der Grenze bleiben geschützt).
-- `Nach Rang gewichten` (Chip neben `Pro Hauptwert`) macht den Rang zu einem Teil der Punktzahl selbst, statt ihn nur als exakten Gleichstandsentscheider zu lassen. Der Bonus wird anhand des **Hauptwerts** skaliert, und die genaue Größe hängt von Slot und Hauptwert ab — ein 5★-Hauptwert erreicht etwa 81–89 % des 6★ desselben Slots, ein 4★ noch weniger. Der Abstand zwischen benachbarten Rängen ist klein: genug, damit ein 6★ einen *knappen* Gleichstand gegen ein 5★ mit gleichem Hauptwert und nur leicht besseren Unterwerten gewinnt, aber nicht genug, um einen echten Unterwert-Vorsprung zu schlagen. Es nutzt den +16-Hauptwert des Rangs, sodass Aufwerten eines Teils seine Punktzahl nie ändert, und die Unterwert-Punktzahlen bleiben unberührt. Mindestens ein Unterwert muss ausgewählt sein; bei neuen Regeln standardmäßig an.
-- `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptwert`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Schutzregel` (ein gemeinsamer Pool).
-- Der Hinweis bei `Benötigte Anzahl` zeigt die aktive Bereichs-Aufteilung (`X je Slot × je Set × ...`) plus eine einfache Fehlmenge (`({missing} fehlen)`).
+- `Nach Rang gewichten` (Chip neben `Pro Hauptwert`) macht den Rang zu einem Teil der Punktzahl selbst, statt ihn nur als exakten Gleichstandsentscheider zu lassen. Der Bonus wird anhand des **Hauptwerts** skaliert, und die genaue Größe hängt von Art und Hauptwert ab — ein 5★-Hauptwert erreicht etwa 81–89 % des 6★ derselben Art, ein 4★ noch weniger. Der Abstand zwischen benachbarten Rängen ist klein: genug, damit ein 6★ einen *knappen* Gleichstand gegen ein 5★ mit gleichem Hauptwert und nur leicht besseren Unterwerten gewinnt, aber nicht genug, um einen echten Unterwert-Vorsprung zu schlagen. Es nutzt den +16-Hauptwert des Rangs, sodass Aufwerten eines Teils seine Punktzahl nie ändert, und die Unterwert-Punktzahlen bleiben unberührt. Mindestens ein Unterwert muss ausgewählt sein; bei neuen Regeln standardmäßig an.
+- `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Art`, `Pro Set`, `Pro Fraktion` und `Pro Hauptwert`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Schutzregel` (ein gemeinsamer Pool).
+- Der Hinweis bei `Benötigte Anzahl` zeigt die aktive Bereichs-Aufteilung (`X je Art × je Set × ...`) plus eine einfache Fehlmenge (`({missing} fehlen)`).
 - Der Scanner fügt nur Behalte-Zeilen für passende Items hinzu, die sonst verkauft würden, und nur wenn die Quote nicht erfüllt ist. Im Modus `Lücken vorab sichern` kommen Platzhalter-Regeln für fehlende Kombinationen dazu.
 - **Ignorier-Schalter** (Chips neben dem Aktivieren-Schalter der Regel) verfeinern, was die Regel zählt:
   - `Vorherige Schutzregeln ignorieren` – wenn die Schutzregel Kandidaten nach Unterwerte sortiert, lässt sie Items, die frühere Schutzregeln bereits behalten haben, aus ihrem Pool fallen und wählt stattdessen die nächsten Top-Picks. Nützlich, wenn du nach einer allgemeinen Schutzregel eine zweite SPD/CR-Schutzregel stapelst und möchtest, dass sie tiefer in die Punkterangordnung greift, statt redundant dieselben Teile zu schützen. Schutzregeln ohne Unterwerte sind nicht betroffen. Standard: aus.
@@ -170,12 +170,12 @@ Sellfile Creator erleichtert das Erstellen von Sellfiles für RSL Helper — def
   - **100 % vermeiden**: trifft nur vollständig aufgewertete Teile, die bereits im Standard-Top-N gehalten werden – daher bringt es gegenüber dem Standardmodus nichts.
 
 #### Kontingentbereiche auf einen Blick
-Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptwert`, wenn Slot × Set × Fraktion × Hauptwert getrennte Quoten erhalten sollen.
+Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Art`, `Pro Set`, `Pro Fraktion` und `Pro Hauptwert`, wenn Art × Set × Fraktion × Hauptwert getrennte Quoten erhalten sollen.
 
 | Bereichs-Schalter | Kontingent-Verhalten | Geeignet für |
 | --- | --- | --- |
 | `Pro Schutzregel` | Ein gemeinsamer Pool für die komplette Schutzregel. | Mindestens fünf SPD-Stiefel unabhängig vom Set sichern. |
-| `Pro Slot` | Dupliziert das Kontingent für jeden Slot. | Je zwei Ringe, Amulette und Banner getrennt behalten. |
+| `Pro Art` | Dupliziert das Kontingent für jede Art. | Je zwei Ringe, Amulette und Banner getrennt behalten. |
 | `Pro Set` | Erstellt ein eigenes Kontingent pro Set/Metaset. | Zwei Stoneskin- und zwei Protection-Drops separat verfolgen. |
 | `Pro Fraktion` | Gibt jeder Fraktion ihr eigenes Budget. | Drei Merciless-Ringe pro Fraktion garantieren. |
 | `Pro Hauptwert` | Splittet das Kontingent pro Hauptwert. | ACC- und RES-Banner unabhängig voreinander halten. |
@@ -184,14 +184,14 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um
 
 | Szenario | Filter | Benötigte Anzahl | Bereiche | Was der Scanner garantiert |
 | --- | --- | --- | --- | --- |
-| SPD-Stiefel gehen aus | Slot = Stiefel, Hauptwert = SPD, Sets leer | `5` | `Pro Schutzregel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
-| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Hauptwert = CDMG% | `3` | `Pro Schutzregel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
-| Merciless-Ringe pro Fraktion | Slot = Ring, Set = Merciless, Fraktion leer | `3` | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
-| HP%-Ringe pro Fraktion | Slot = Ring, Hauptwert = HP%, Sets leer | `2` | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
+| SPD-Stiefel gehen aus | Art = Stiefel, Hauptwert = SPD, Sets leer | `5` | `Pro Schutzregel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
+| Savage + Lethal mischen | Art = Handschuhe, Sets = Savage + Lethal, Hauptwert = CDMG% | `3` | `Pro Schutzregel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
+| Merciless-Ringe pro Fraktion | Art = Ring, Set = Merciless, Fraktion leer | `3` | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
+| HP%-Ringe pro Fraktion | Art = Ring, Hauptwert = HP%, Sets leer | `2` | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
 | Kern-Schmuckstücke pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer | `5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
-| Stoneskin + Protection pro Fraktion | Slot = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Hauptwert leer | `2` | `Pro Set` + `Pro Fraktion` + `Pro Slot` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Schmuckstück-Slot. |
-| Schnellste SPD-Schmuckstücke | Slot = Ring/Amulett/Banner, Unterwerte = SPD | `5` | `Pro Schutzregel` | Behält die besten fünf SPD-Unterwert-Rolls über deine Schmuckstücke hinweg (inkl. Gleichstände). |
-| ACC-Banner mit SPD-Rolls | Slot = Banner, Hauptwert = ACC, Unterwerte = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
+| Stoneskin + Protection pro Fraktion | Art = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Hauptwert leer | `2` | `Pro Set` + `Pro Fraktion` + `Pro Art` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Schmuckstück-Art. |
+| Schnellste SPD-Schmuckstücke | Art = Ring/Amulett/Banner, Unterwerte = SPD | `5` | `Pro Schutzregel` | Behält die besten fünf SPD-Unterwert-Rolls über deine Schmuckstücke hinweg (inkl. Gleichstände). |
+| ACC-Banner mit SPD-Rolls | Art = Banner, Hauptwert = ACC, Unterwerte = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
 
 Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du in den Schutzregeln-Modus wechselst, damit der Scanner echte Ausrüstung bewertet. Klicke eine Schutzregel an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
 
@@ -203,7 +203,7 @@ Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, b
   - `Aufwertung`: Rolls stoppen, sobald das Item verkauft würde, also wie beim echten Aufwerten.
   - `Momentaufnahme`: Rolls laufen immer bis +16, auch wenn das Item vorher verkauft worden wäre.
 - Die Tabelle zeigt behaltene Drops geteilt durch alle Drops dieser Level bei +0 / +4 / +8 / +12 / +16.
-- Klicke auf eine Zelle für Slot- und Hauptwert-Aufschlüsselungen, dann öffne **Spezifische Unterwert-Chancen** für genaue Unterwert-Wahrscheinlichkeiten und Schätzungen für Durchläufe.
+- Klicke auf eine Zelle für Art- und Hauptwert-Aufschlüsselungen, dann öffne **Spezifische Unterwert-Chancen** für genaue Unterwert-Wahrscheinlichkeiten und Schätzungen für Durchläufe.
 
 Hinweise:
 - Nutzt deine aktuellen Behalten/Verkaufen-Regeln inklusive Finaler Verkauf und Schutzregeln.
@@ -215,10 +215,10 @@ Hinweise:
 
 **KPI-Karten (obere Zeile):** Acht Prozentkarten — **6★-Rate**, **Legendär+**, **Maxed (+16)**, **Angelegt**, **Tresor-gesperrt**, **Chaos'd**, **Glyphed**, **Aufgestiegen** — jeweils mit Tooltip.
 
-**Crossfilter-Donuts:** Sechs Charts — **Slots**, **Rang**, **Seltenheit**, **Ergebnis**, **Quelle**, **Level** — aktualisieren sich gegenseitig beim Klicken.
+**Crossfilter-Donuts:** Sechs Charts — **Arten**, **Rang**, **Seltenheit**, **Ergebnis**, **Quelle**, **Level** — aktualisieren sich gegenseitig beim Klicken.
 - Klicke auf ein Segment, um es als Filter für diese Dimension hinzuzufügen; jeder andere Chart grenzt sich sofort auf die passende Ausrüstung ein. Jeder Chart schließt seine eigene Dimension aus, damit er stets seinen vollen Bereich zeigt.
-- Doppelklick auf ein Segment im **Slots**-Donut wählt eine ganze Gruppe auf einmal: ein beliebiges Artefakt (Waffe, Helm, Schild, Handschuhe, Brustpanzer, Stiefel) wählt alle sechs Artefakt-Slots; ein Schmuckstück (Ring, Amulett, Banner) wählt alle drei.
-- **Slots** und **Quelle** zeigen Kategorie-Icons. Der **Level**-Donut beschriftet jeden Bogen mit seinem Leveltext.
+- Doppelklick auf ein Segment im **Arten**-Donut wählt eine ganze Gruppe auf einmal: ein beliebiges Artefakt (Waffe, Helm, Schild, Handschuhe, Brustpanzer, Stiefel) wählt alle sechs Artefakt-Arten; ein Schmuckstück (Ring, Amulett, Banner) wählt alle drei.
+- **Arten** und **Quelle** zeigen Kategorie-Icons. Der **Level**-Donut beschriftet jeden Bogen mit seinem Leveltext.
 
 
 **Sets-Treemap:** Unterhalb der Donuts angezeigt. Jede Kachel steht für ein Ausrüstungsset; die Kachelfläche ist proportional zur Anzahl der Items. Der Kachel-Hintergrund ist von links nach rechts in Ergebnisfarbbänder unterteilt (Verkaufen / Geschützt / Behalten / Kein Treffer). Klicke auf eine Kachel, um dieses Set als Crossfilter hinzuzufügen.
@@ -231,11 +231,11 @@ Hinweise:
 
 **Unterwert-Frequenz-Radar:** Zeigt, wie oft jeder Unterwert in der gefilterten (und optional nach Hauptwert eingeschränkten) Ausrüstung vorkommt – als Spinnennetz-Diagramm. Klicke auf eine Achsenmarkierung, um sie als Kookkurrenz-Pivot zu wählen – der Radar zeigt dann nur Ausrüstung, die alle gewählten Unterwerte enthält (bis zu 4 Pivots). Aktive Pivots erscheinen als Chips unterhalb des Charts; × entfernt einen einzelnen Chip, **Filter löschen** alle.
 
-**Slot × Hauptwert-Heatmap:** Anzahl der Items pro Slot (Spalten) × Hauptwert (Zeilen). Klicke auf einen Spaltenheader oder eine Zelle, um nach diesem Slot zu filtern.
+**Art × Hauptwert-Heatmap:** Anzahl der Items pro Art (Spalten) × Hauptwert (Zeilen). Klicke auf einen Spaltenheader oder eine Zelle, um nach dieser Art zu filtern.
 
 **Champion-Werte-Tab:** Unterwert-Gesamtwerte summiert über angelegte Teile pro Champion. Filtere nach Standort (**Alle** / **Sammlung** / **Tresor**), schalte **Voll ausgerüstet** ein und schließe Glyphen ein oder aus. Zeigt Min/Ø/Median/Max-Reihen.
 
-**Champion-Ausrüstung:** Ausrüstungsabdeckung pro Champion in zwei kompakten Tabellen (**Sammlung** / **Tresor**). Jede Zeile zeigt ein 3×3-Slot-Raster (gefüllt = ausgerüstet, Umriss = leer, gestrichelt = bis zur Aszension gesperrt). Klicke auf einen gefüllten Slot, um das Teil auszuwählen — die Auswahl wird mit dem Ausrüstungsinspektor geteilt. Aktiviere **Verkauf simulieren**, um verkaufte Slots rot zu zeichnen und als fehlend zu zählen, oder **Voll ausgerüstete zeigen**, um auch vollständig ausgerüstete Champions zu listen.
+**Champion-Ausrüstung:** Ausrüstungsabdeckung pro Champion in zwei kompakten Tabellen (**Sammlung** / **Tresor**). Jede Zeile zeigt ein 3×3-Arten-Raster (gefüllt = ausgerüstet, Umriss = leer, gestrichelt = bis zur Aszension gesperrt). Klicke auf eine gefüllte Art, um das Teil auszuwählen — die Auswahl wird mit dem Ausrüstungsinspektor geteilt. Aktiviere **Verkauf simulieren**, um verkaufte Arten rot zu zeichnen und als fehlend zu zählen, oder **Voll ausgerüstete zeigen**, um auch vollständig ausgerüstete Champions zu listen.
 
 **Buttons:**
 - **Snapshot kopieren:** Rendert die vollständige Analyseansicht als PNG und kopiert sie in die Zwischenablage. Hinweis: Die Champion-Ausrüstung wird nicht im Snapshot mit kopiert.
@@ -250,11 +250,11 @@ Hinweise:
 
 ### Sellfile-Vorschau (Regeln & Ausrüstungsinspektor)
 - Der Header bündelt den `Regeln`/`Ausrüstungsinspektor`-Schalter, den Button „Tools” und „RSL Helper Sellfile laden”, damit du sofort siehst, wo du die Tabelle wechselst oder den Dialog „Ausrüstung” öffnest.
-- Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Slot/Rang/Seltenheit/Level und beide Rezept-Buttons sind immer sichtbar: „Eingrenzen” blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und die „Auswahl” ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Rezept-Chips versteckt (und dabei den Filterzustand für den Ausrüstungsinspektor vormerkt).
+- Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Art/Rang/Seltenheit/Level und beide Rezept-Buttons sind immer sichtbar: „Eingrenzen” blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und die „Auswahl” ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Rezept-Chips versteckt (und dabei den Filterzustand für den Ausrüstungsinspektor vormerkt).
 - Ansicht `Ausrüstungsinspektor`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Tools-Dialog erneut zu öffnen. Zähler wechseln zu Behalten/Verkaufen/Bereich/Kein Treffer (nach der Regel „erste passende Rezept gewinnt”), und die Filterleiste zeigt weiterhin beide Rezept-Buttons nebeneinander: „Eingrenzen” für die Chip-Sichtbarkeit sowie die „Auswahl”, die hier als Tri-State (`Off` → `First-Match-Auswertung` → `Nach Treffer`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
 - Der Button „RSL Helper Sellfile laden” macht genau dasselbe wie Drag & Drop: `.sfc` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in den Ausrüstungsinspektor (ohne deine Rezepte zu ändern). „Leeren” trennt die optionale Basis-`.hsf`.
 - Das Paletten-Icon öffnet „Farben verwalten”, um Text- und Hintergrundfarben für Unterwerte anzupassen.
-- In `Regeln` bleiben die Spalten „Idx” und „Rezept” erhalten (Basisdatei-Zeilen haben einen leeren Rezept-Wert). Im `Ausrüstungsinspektor` zeigen dieselben Flächen Slot/Set, Item-Werte und das Badge der zuerst passenden Rezept, damit du direkt im Vorschau siehst, was mit jedem Artefakt passieren würde.
+- In `Regeln` bleiben die Spalten „Idx” und „Rezept” erhalten (Basisdatei-Zeilen haben einen leeren Rezept-Wert). Im `Ausrüstungsinspektor` zeigen dieselben Flächen Art/Set, Item-Werte und das Badge der zuerst passenden Rezept, damit du direkt im Vorschau siehst, was mit jedem Artefakt passieren würde.
 
 ### Sellfile-Vorschau: Steuerelemente
 - Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.
@@ -270,11 +270,11 @@ Hinweise:
 
 ### Ausrüstungsinspektor
 - Klicke auf „Tools” im Header der Sellfile-Vorschau, um den Dialog „Ausrüstung” zu öffnen. Erstelle Beispielausrüstung. Die Einträge landen sofort in der Vorschau, daher bleibt dein Raster im Ausrüstungsinspektor auch bei geschlossenem Dialog erhalten.
-- Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Slot, Set, Level, Hauptwert, Unterwerte (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die das Sellfile unverändert lassen würde.
-- Die Header-Zähler zeigen Behalten/Verkaufen/Bereich/Kein Treffer. Die vier Ergebnisfilter-Buttons — **Behalten**, **Verkaufen**, **Bereich** und **Kein Treffer** — funktionieren als unabhängige Schalter: jede Kombination lässt sich aktivieren, um die Liste einzugrenzen. **Bereich** dunkelt Items ab (hält sie aber sichtbar), die denselben Set+Slot wie ein zum Verkauf stehendes Stück teilen – so kannst du einen Kandidaten direkt im Vergleich zu seiner Konkurrenz sehen, ohne zwei Filterdurchläufe. Sind zusätzlich eine oder mehrere **Quellen** ausgewählt, fungieren diese als Referenzgruppe – nur als Verkauf markierte Items aus den gewählten Quellen werden zu Haupttreffern, während Begleiter aus *allen* Quellen stammen und du so jedes Exemplar dieser Ausrüstung unabhängig von seinem Standort siehst. **Kein Treffer** zeigt Ausrüstung, die von keiner Regel erfasst wird – nützlich, um Lücken in deinen Rezepten aufzudecken. Kombiniere dies mit dem `First-Match-Auswertung`/`Nach Treffer`-Schalter, um vor dem Export gezielt auf Randfälle zu fokussieren.
+- Verbinde RSL Helper für Live-Synchronisation (der Connect-Button im Vorschau-Header) oder importiere eine `.db`-Datei durch Ziehen oder den Button „RSL Helper Sellfile laden”.- Jede Zeile zeigt Art, Set, Level, Hauptwert, Unterwerte (inkl. Glyphen und Rollen), die Quelle (Inventar vs. Posteingang) sowie Chips für Behalten/Verkaufen und die zuerst passende Regel/Rezept. Deaktivierte Regeln matchen nie, daher stehen „Kein Treffer”-Zeilen für Ausrüstung, die das Sellfile unverändert lassen würde.
+- Die Header-Zähler zeigen Behalten/Verkaufen/Bereich/Kein Treffer. Die vier Ergebnisfilter-Buttons — **Behalten**, **Verkaufen**, **Bereich** und **Kein Treffer** — funktionieren als unabhängige Schalter: jede Kombination lässt sich aktivieren, um die Liste einzugrenzen. **Bereich** dunkelt Items ab (hält sie aber sichtbar), die denselben Set+Art wie ein zum Verkauf stehendes Stück teilen – so kannst du einen Kandidaten direkt im Vergleich zu seiner Konkurrenz sehen, ohne zwei Filterdurchläufe. Sind zusätzlich eine oder mehrere **Quellen** ausgewählt, fungieren diese als Referenzgruppe – nur als Verkauf markierte Items aus den gewählten Quellen werden zu Haupttreffern, während Begleiter aus *allen* Quellen stammen und du so jedes Exemplar dieser Ausrüstung unabhängig von seinem Standort siehst. **Kein Treffer** zeigt Ausrüstung, die von keiner Regel erfasst wird – nützlich, um Lücken in deinen Rezepten aufzudecken. Kombiniere dies mit dem `First-Match-Auswertung`/`Nach Treffer`-Schalter, um vor dem Export gezielt auf Randfälle zu fokussieren.
 - Nutze den Vorschau-Umschalter, um zwischen der Regeln-Tabelle und dem Ausrüstungsinspektor zu wechseln, ohne den Tools-Dialog erneut zu öffnen – perfekt, um die erzeugten Regelzeilen mit der Ausrüstung zu vergleichen, die sie ausgelöst hat.
 
-- **Schutzregel-Rang-Überlagerung:** Im Grid-Menü gibt es eine Schaltfläche **Schutzregel-Rang**, die durchschaltet, was der Rang-Chip jedes Teils anzeigt (nach aktuellem Unterwert, **#1** ist der beste; grün = behalten, rot = würde verkauft). **Aus** blendet ihn aus; **Gruppe** zeigt den Rang innerhalb der eigenen Gruppe des Teils — dem Bereich aus Slot / Set / Fraktion / Hauptwert, den die Regel getrennt behält (z. B. **#2**); **Schutzregel** zeigt den Rang über die gesamte Schutzregel (z. B. **#7**); **Beide** zeigt Gruppe, dann Schutzregel als **#2 · #7** (in seiner Gruppe 2., insgesamt 7.). Chip und Tooltip sind nach dem angezeigten Rang sortiert, der Chip zeigt die bestplatzierte passende Regel des Teils, und ein Klick springt zu dieser Regel. Sind Schutzregeln ausgewählt, bezieht sich der Chip auf diese Regeln; ein Teil, das nur von einer *anderen* Regel eingestuft wird, zeigt trotzdem seinen besten Rang, leicht abgeblendet. Erfordert aktivierte Safeguards.
+- **Schutzregel-Rang-Überlagerung:** Im Grid-Menü gibt es eine Schaltfläche **Schutzregel-Rang**, die durchschaltet, was der Rang-Chip jedes Teils anzeigt (nach aktuellem Unterwert, **#1** ist der beste; grün = behalten, rot = würde verkauft). **Aus** blendet ihn aus; **Gruppe** zeigt den Rang innerhalb der eigenen Gruppe des Teils — dem Bereich aus Art / Set / Fraktion / Hauptwert, den die Regel getrennt behält (z. B. **#2**); **Schutzregel** zeigt den Rang über die gesamte Schutzregel (z. B. **#7**); **Beide** zeigt Gruppe, dann Schutzregel als **#2 · #7** (in seiner Gruppe 2., insgesamt 7.). Chip und Tooltip sind nach dem angezeigten Rang sortiert, der Chip zeigt die bestplatzierte passende Regel des Teils, und ein Klick springt zu dieser Regel. Sind Schutzregeln ausgewählt, bezieht sich der Chip auf diese Regeln; ein Teil, das nur von einer *anderen* Regel eingestuft wird, zeigt trotzdem seinen besten Rang, leicht abgeblendet. Erfordert aktivierte Safeguards.
 
 ### Ausrüstungs-Diff (Vorher / Nachher)
 - Der **Diff**-Schalter in der Kopfzeile des Ausrüstungsinspektors aktiviert einen Vergleich, der zeigt, welche Teile zwischen **Behalten** und **Verkaufen** wechseln, wenn du etwas änderst — praktisch beim Feinjustieren von Rezepten oder beim Ausprobieren der dynamischen Überbrückungen im Notiz-Dialog.

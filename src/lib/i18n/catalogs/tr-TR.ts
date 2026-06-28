@@ -348,7 +348,7 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Setler",
   gearAnalyticsChartOutcome: "Sonuç",
   gearAnalyticsChartMainStat: "Ana Statlar",
-  gearAnalyticsChartMainStatDesc: "Filtrelenmiş ekipmanlardaki her ana stat'ın sıklığı. Belirli bir parça türüne odaklanmak için Yuva halkasını kullanın.",
+  gearAnalyticsChartMainStatDesc: "Filtrelenmiş ekipmanlardaki her ana stat'ın sıklığı. Tek bir yuvaya odaklanmak için Yuva halkasını kullanın.",
   gearAnalyticsChartSubstats: "Alt Stat Sıklığı",
   gearAnalyticsChartSubstatsDesc: "Filtrelenmiş ekipmanlarda her alt stat'ın ne sıklıkla göründüğü. Bir eşya en fazla 4 alt stat katkısı sağlayabilir.",
   gearAnalyticsChartImprovChance: "İyileştirme Şansı",

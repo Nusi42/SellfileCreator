@@ -348,7 +348,7 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Sets",
   gearAnalyticsChartOutcome: "Resultado",
   gearAnalyticsChartMainStat: "Stats principais",
-  gearAnalyticsChartMainStatDesc: "Frequência de cada stat principal no equipamento filtrado. Utilize o donut de Slot para se focar num tipo de peça específico.",
+  gearAnalyticsChartMainStatDesc: "Frequência de cada stat principal no equipamento filtrado. Utilize o donut de Slot para se focar num único slot.",
   gearAnalyticsChartSubstats: "Frequência de substats",
   gearAnalyticsChartSubstatsDesc: "Com que frequência cada substat aparece no equipamento filtrado. Um item pode contribuir até 4 substats.",
   gearAnalyticsChartImprovChance: "Hipótese de melhoria",

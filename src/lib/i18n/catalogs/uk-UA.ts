@@ -348,7 +348,7 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Сети",
   gearAnalyticsChartOutcome: "Результат",
   gearAnalyticsChartMainStat: "Основні стати",
-  gearAnalyticsChartMainStatDesc: "Частота кожного основного стату у відфільтрованому спорядженні. Використовуйте діаграму слотів для фокусування на конкретному типі.",
+  gearAnalyticsChartMainStatDesc: "Частота кожного основного стату у відфільтрованому спорядженні. Використовуйте діаграму слотів для фокусування на одному слоті.",
   gearAnalyticsChartSubstats: "Частота підстатів",
   gearAnalyticsChartSubstatsDesc: "Як часто кожен підстат зустрічається у відфільтрованому спорядженні. Один предмет може мати до 4 підстатів.",
   gearAnalyticsChartImprovChance: "Шанс покращення",

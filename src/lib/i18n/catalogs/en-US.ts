@@ -348,7 +348,7 @@ const enUS: Catalog = {
   gearAnalyticsChartSet: "Sets",
   gearAnalyticsChartOutcome: "Result",
   gearAnalyticsChartMainStat: "Main Stats",
-  gearAnalyticsChartMainStatDesc: "Frequency of each main stat across the filtered gear. Use the Slot donut to focus on a specific piece type.",
+  gearAnalyticsChartMainStatDesc: "Frequency of each main stat across the filtered gear. Use the Slot donut to focus on a single gear slot.",
   gearAnalyticsChartSubstats: "Substat Frequency",
   gearAnalyticsChartSubstatsDesc: "How often each substat appears across the filtered gear. One item can contribute up to 4 substats.",
   gearAnalyticsChartImprovChance: "Improvement Chance",

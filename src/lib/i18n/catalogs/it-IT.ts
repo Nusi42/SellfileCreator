@@ -348,7 +348,7 @@ const overrides: Catalog = {
   gearAnalyticsChartSet: "Set",
   gearAnalyticsChartOutcome: "Risultato",
   gearAnalyticsChartMainStat: "Stat principali",
-  gearAnalyticsChartMainStatDesc: "Frequenza di ogni stat principale nell'equipaggiamento filtrato. Usa il grafico a ciambella Slot per concentrarti su un tipo di pezzo specifico.",
+  gearAnalyticsChartMainStatDesc: "Frequenza di ogni stat principale nell'equipaggiamento filtrato. Usa il grafico a ciambella Slot per concentrarti su un singolo slot.",
   gearAnalyticsChartSubstats: "Frequenza delle sotto-stat",
   gearAnalyticsChartSubstatsDesc: "Frequenza con cui ogni sotto-stat appare nell'equipaggiamento filtrato. Un oggetto può contribuire fino a 4 sotto-stat.",
   gearAnalyticsChartImprovChance: "Probabilità di miglioramento",
