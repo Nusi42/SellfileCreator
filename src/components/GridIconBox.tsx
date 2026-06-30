@@ -53,6 +53,8 @@ type OverlayChip = {
   // When true, the chip renders at reduced opacity (e.g. a rank from outside the current selection).
   dimmed?: boolean
   onClick?: () => void
+  // Right-click handler — receives the native event so callers can anchor a menu at the cursor.
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void
   // Per-chip tooltip content — shown when hovering this chip only.
   // When render is provided it takes priority over markdown (same as MarkdownTooltip behavior).
   tooltipMarkdown?: string
@@ -458,11 +460,14 @@ export default function GridIconBox({
   ): ReactNode => {
     if (!hasContent || !chip) return null
     const clickable = Boolean(chip.onClick)
+    const hasContextMenu = Boolean(chip.onContextMenu)
+    // Either a click or a right-click handler makes the chip a real interactive button.
+    const interactive = clickable || hasContextMenu
     const hasTooltip = Boolean(chip.tooltipMarkdown) || Boolean(chip.tooltipRender)
     const chipEl = (
       <Box
-        component={clickable ? 'button' : 'div'}
-        type={clickable ? 'button' : undefined}
+        component={interactive ? 'button' : 'div'}
+        type={interactive ? 'button' : undefined}
         onClick={clickable
           ? (event: MouseEvent<HTMLButtonElement>) => {
               // Prevent overlay clicks from bubbling to underlying card interactions.
@@ -470,14 +475,22 @@ export default function GridIconBox({
               chip.onClick?.()
             }
           : undefined}
+        onContextMenu={hasContextMenu
+          ? (event: MouseEvent<HTMLButtonElement>) => {
+              // Open the chip's own menu at the cursor instead of the browser/card context menu.
+              event.preventDefault()
+              event.stopPropagation()
+              chip.onContextMenu?.(event)
+            }
+          : undefined}
         sx={{
-          ...overlayChipSx(chip.color, clickable, yPercent),
+          ...overlayChipSx(chip.color, interactive, yPercent),
           // "Dimmed" chips read as quiet/secondary — a recessed pill (see dimmedChipSx above).
           ...(chip.dimmed ? dimmedChipSx : {}),
-          // Chips with click or tooltip must accept pointer events; pure display chips pass through.
-          pointerEvents: (clickable || hasTooltip) ? 'auto' : 'none',
-          cursor: clickable ? 'pointer' : 'default',
-          ...(clickable ? { appearance: 'none', fontFamily: 'inherit' } : {}),
+          // Chips with click, right-click, or tooltip must accept pointer events; pure display chips pass through.
+          pointerEvents: (interactive || hasTooltip) ? 'auto' : 'none',
+          cursor: interactive ? 'pointer' : 'default',
+          ...(interactive ? { appearance: 'none', fontFamily: 'inherit' } : {}),
         }}
       >
         {chip.text}

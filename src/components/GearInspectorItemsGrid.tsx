@@ -128,7 +128,7 @@ import {
   formatGearInspectorRarityLabel,
 } from './GearInspectorGridCard'
 import { parseCssColorToRgb, rgbToCss, mixRgb } from '../lib/colorUtils'
-import { TINT } from '../lib/colorTints'
+import { TINT, ALPHA } from '../lib/colorTints'
 
 // Stable sentinel passed to already-revealed cards so scroll events do not trigger re-renders.
 // Revealed cards ignore priorityBase/priorityOrder in their content-ready hook, so this is safe.
@@ -209,7 +209,7 @@ type GearInspectorItemsGridProps = {
   // Optional safeguard rank overlay: artifact-id → { rank, isWithinQuota, ruleOrdinal, otherRules }.
   // When present, ranked items show "#N" bottom chip.
   // ruleOrdinal (1-based): the rule that gave this artifact its best rank (click-to-jump + tooltip).
-  // otherRules: up to 3 other rules where this artifact is also a candidate (rank + ruleOrdinal).
+  // otherRules: every other rule where this artifact is also a candidate (rank + ruleOrdinal).
   // rank = global rank across the whole rule; groupRank = rank within the piece's count-group.
   // inSelection: false when the rank comes from a rule outside the current safeguard selection — the
   // chip is dimmed in that case so it reads as "ranked elsewhere, not in your selected rule".
@@ -308,6 +308,18 @@ type GroupRowsBySetOptions = {
 // It is imported at the top of this file so the main component can reference it without duplication.
 
 // Maps each card size mode to the i18n key that labels it in the grid-columns menu button.
+
+// One selectable rule in the safeguard-rank right-click menu (a navigable candidacy of one piece).
+// ruleIdx is 0-based (already converted from the 1-based ruleOrdinal) so it feeds onJumpToSafeguardRule directly.
+type SafeguardRankMenuRow = {
+  ruleIdx: number
+  name: string
+  badge: string
+  isPrimary: boolean
+  isWithinQuota: boolean
+  inSelection: boolean
+  fgColor: string | undefined
+}
 
 export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const {
@@ -863,7 +875,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       return g
     }
     // Entry shape: chip data + JSX tooltipRender (MarkdownTooltip custom parser has no table support).
-    const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; onClick?: () => void; tooltipRender: React.ReactNode }>()
+    const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; onClick?: () => void; onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void; tooltipRender: React.ReactNode }>()
     safeguardRankByArtifactId.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules }, artifactId) => {
       if (rank <= 0) return
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
@@ -904,7 +916,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const groupDigits = rankRows.reduce((max, r) => Math.max(max, r.groupRank > 0 ? String(r.groupRank).length : 0), 0)
       // JSX table: localized title + rank badge column (monospace, fixed width) + name column.
       const tooltipRender = rankRows.length > 0 ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, maxHeight: '70vh', overflowY: 'auto' }}>
           <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25 }}>
             {tooltipTitle}
           </Typography>
@@ -949,10 +961,30 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const ruleIdx = topRowOrdinal != null ? topRowOrdinal - 1 : -1
       const canJump = ruleIdx >= 0 && typeof onJumpToSafeguardRule === 'function'
       const onClick = canJump ? () => onJumpToSafeguardRule!(ruleIdx, artifactId) : undefined
+      // Right-click target: every rule this piece is a candidate in, in displayed (sorted) order, so
+      // the user can choose which rule to jump to instead of being sent to the top-ranked one.
+      const menuRows: SafeguardRankMenuRow[] = rankRows
+        .filter((r) => r.ruleOrdinal != null)
+        .map((r) => ({
+          ruleIdx: r.ruleOrdinal! - 1,
+          name: r.name,
+          badge: formatRankBadge(r.rank, r.groupRank, globalDigits, groupDigits),
+          isPrimary: r.isPrimary,
+          isWithinQuota: r.isWithinQuota,
+          inSelection: r.inSelection,
+          fgColor: r.fgColor,
+        }))
+      // Only wire the menu when there is more than one navigable rule AND a jump handler exists —
+      // a single-rule piece has nothing to choose, so left-click already covers it.
+      const onContextMenu = (menuRows.length > 1 && typeof onJumpToSafeguardRule === 'function')
+        ? (event: React.MouseEvent<HTMLElement>) => {
+            setSafeguardRankMenu({ x: event.clientX, y: event.clientY, artifactId, rows: menuRows })
+          }
+        : undefined
       // Chip text per mode: group #M, global #N, or both (#M · #N) — same SSOT formatter, top row.
       const chipText = formatRankBadge(topRow.rank, topRow.groupRank)
       // Dim when the displayed (top) rank comes from a rule outside the current selection.
-      overlays.set(artifactId, { text: chipText, color, dimmed: !topRow.inSelection, tooltipRender, ...(onClick ? { onClick } : {}) })
+      overlays.set(artifactId, { text: chipText, color, dimmed: !topRow.inSelection, tooltipRender, ...(onClick ? { onClick } : {}), ...(onContextMenu ? { onContextMenu } : {}) })
     })
     return overlays.size > 0 ? overlays : null
   }, [safeguardRankMode, safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, paletteSuccessMain, paletteErrorMain, t])
@@ -2019,6 +2051,20 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     // Treat the preset editor menu as "inside" so the parent menu remains open while editing.
     ...(normalizedPresetEditor ? { insideRefs: [normalizedPresetEditorPaperRef] } : {}),
   })
+  // Right-click safeguard-rank menu: cursor position + the piece + its navigable rules.
+  // Anchored at the click point (anchorReference="anchorPosition"), same as the grid context menu.
+  const [safeguardRankMenu, setSafeguardRankMenu] = useState<{ x: number; y: number; artifactId: number; rows: SafeguardRankMenuRow[] } | null>(null)
+  const safeguardRankMenuOpen = Boolean(safeguardRankMenu)
+  const safeguardRankMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const closeSafeguardRankMenu = useCallback(() => {
+    setSafeguardRankMenu(null)
+  }, [])
+  // Guard mirrors the grid menu: an outside click closes the menu instead of leaving a stuck overlay.
+  const { contextMenuGuard: safeguardRankMenuGuard } = useContextMenuPaperGuard({
+    open: safeguardRankMenuOpen,
+    onClose: closeSafeguardRankMenu,
+    menuRef: safeguardRankMenuPaperRef,
+  })
   // Virtualizer data exposes row bounds immediately after scroll, so resolve the first visible card without waiting for DOM effects.
   const firstVisibleRowId = useMemo(() => {
     const viewportStartPx = scrollTop
@@ -2974,6 +3020,70 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           variant={colorBlindCycleVariant(colorBlindMode)}
           onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
         />
+      </Menu>
+      {/* Right-click safeguard-rank menu: pick which of the piece's candidate rules to jump to. */}
+      <Menu
+        open={safeguardRankMenuOpen}
+        onClose={closeSafeguardRankMenu}
+        anchorReference="anchorPosition"
+        {...(safeguardRankMenu ? { anchorPosition: { top: safeguardRankMenu.y, left: safeguardRankMenu.x } } : {})}
+        slotProps={{
+          paper: { ...buildContextMenuPaperSlotProps({
+            component: ContextMenuPaper,
+            contextMenuGuard: safeguardRankMenuGuard,
+            onRequestClose: closeSafeguardRankMenu,
+            closeLabel: t('close'),
+          }), ref: safeguardRankMenuPaperRef },
+        }}
+      >
+        {/* Title mirrors the chip tooltip header so the menu reads as the same feature. */}
+        <Typography variant="body2" sx={{ fontWeight: 700, px: 2, py: 0.5 }}>
+          {t('safeguardRankMenuTitle')}
+        </Typography>
+        {(safeguardRankMenu?.rows ?? []).map((row) => (
+          <MenuItem
+            key={row.ruleIdx}
+            disableRipple
+            sx={{ gap: 1, alignItems: 'baseline' }}
+            onClick={() => {
+              // Same destination as a left-click, but for the rule the user explicitly chose.
+              onJumpToSafeguardRule?.(row.ruleIdx, safeguardRankMenu!.artifactId)
+              closeSafeguardRankMenu()
+            }}
+          >
+            {/* Rank badge: monospace + quota colour (green kept / red sold). */}
+            <Typography
+              component="span"
+              variant="body2"
+              sx={{
+                fontFamily: FONT_FAMILY_MONO,
+                whiteSpace: 'pre',
+                flexShrink: 0,
+                fontWeight: row.isPrimary ? 700 : 400,
+                color: row.isWithinQuota ? paletteSuccessMain : paletteErrorMain,
+              }}
+            >
+              {row.badge}
+            </Typography>
+            {/* Rule name: bold for the primary rule; preset colour applied when the rule defines one. */}
+            <Typography
+              component="span"
+              variant="body2"
+              sx={{
+                fontWeight: row.isPrimary ? 600 : 400,
+                ...(row.fgColor ? { color: row.fgColor } : {}),
+              }}
+            >
+              {row.name}
+            </Typography>
+          </MenuItem>
+        ))}
+        {/* Same out-of-selection note as the chip tooltip, shown when any listed rule is outside the selection. */}
+        {(safeguardRankMenu?.rows ?? []).some((r) => !r.inSelection) ? (
+          <Typography variant="caption" sx={{ display: 'block', px: 2, py: 0.5, opacity: ALPHA.a82 }}>
+            {t('safeguardRankTooltipOutsideSelection')}
+          </Typography>
+        ) : null}
       </Menu>
       {normalizedPresetEditor ? (
         <GearInspectorNormalizedPresetEditorMenu

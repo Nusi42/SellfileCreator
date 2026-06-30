@@ -117,6 +117,7 @@ const overrides: Catalog = {
   safeguardRankTooltipTitleSafeguard: "Rango di salvaguardia",
   safeguardRankTooltipTitleBoth: "Rango di gruppo + salvaguardia",
   safeguardRankTooltipOutsideSelection: "Non nella salvaguardia selezionata — mostra il suo miglior rango di un'altra regola.",
+  safeguardRankMenuTitle: "Vai alla salvaguardia",
   gearInspectorGridSafeguardChanceTooltipHeader: "Probabilità di miglioramento: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "La proiezione simula potenziamenti fino al livello 16 con varianza dei tiri e potenziale glifi.",
   gearInspectorGridSafeguardChanceTooltipRule: "Salvaguardia: {name}",

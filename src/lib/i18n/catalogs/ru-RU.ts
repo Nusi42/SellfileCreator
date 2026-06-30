@@ -117,6 +117,7 @@ const overrides: Catalog = {
   safeguardRankTooltipTitleSafeguard: "Ранг защиты",
   safeguardRankTooltipTitleBoth: "Ранг в группе + защиты",
   safeguardRankTooltipOutsideSelection: "Не в выбранной защите — показан лучший ранг из другого правила.",
+  safeguardRankMenuTitle: "Перейти к страховке",
   gearInspectorGridSafeguardChanceTooltipHeader: "Шанс улучшения: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Проекция симулирует прокачку до уровня 16 с учётом дисперсии бросков и потенциала глифов.",
   gearInspectorGridSafeguardChanceTooltipRule: "Защита: {name}",

@@ -117,6 +117,7 @@ const overrides: Catalog = {
   safeguardRankTooltipTitleSafeguard: "Rang de garde-fou",
   safeguardRankTooltipTitleBoth: "Rang de groupe + garde-fou",
   safeguardRankTooltipOutsideSelection: "Pas dans le garde-fou sélectionné — affiche son meilleur rang d'une autre règle.",
+  safeguardRankMenuTitle: "Aller à la sauvegarde",
   gearInspectorGridSafeguardChanceTooltipHeader: "Chance d’amélioration : {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "La projection simule des améliorations jusqu’au niveau 16 avec la variance des jets et le potentiel de glyphes.",
   gearInspectorGridSafeguardChanceTooltipRule: "Garde-fou : {name}",

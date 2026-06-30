@@ -5790,7 +5790,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (seen.has(o.ruleOrdinal)) continue
         seen.add(o.ruleOrdinal)
         otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, groupRank: o.groupRank, isWithinQuota: o.isWithinQuota, inSelection: o.inSelection })
-        if (otherRules.length === 3) break
       }
       merged.set(artifactId, { rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules })
     })

@@ -117,6 +117,7 @@ const overrides: Catalog = {
   safeguardRankTooltipTitleSafeguard: "Koruyucu sırası",
   safeguardRankTooltipTitleBoth: "Grup + koruyucu sırası",
   safeguardRankTooltipOutsideSelection: "Seçili koruyucuda değil — başka bir kuraldaki en iyi sırası gösteriliyor.",
+  safeguardRankMenuTitle: "Korumaya git",
   gearInspectorGridSafeguardChanceTooltipHeader: "İyileştirme şansı: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "Projeksiyon, atış varyansı ve glif potansiyeli ile 16. seviyeye yükseltmeleri simüle eder.",
   gearInspectorGridSafeguardChanceTooltipRule: "Koruma: {name}",

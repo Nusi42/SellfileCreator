@@ -117,6 +117,7 @@ const overrides: Catalog = {
   safeguardRankTooltipTitleSafeguard: "Posição da salvaguarda",
   safeguardRankTooltipTitleBoth: "Posição no grupo + salvaguarda",
   safeguardRankTooltipOutsideSelection: "Não está na salvaguarda selecionada — a mostrar a sua melhor posição de outra regra.",
+  safeguardRankMenuTitle: "Ir para a salvaguarda",
   gearInspectorGridSafeguardChanceTooltipHeader: "Probabilidade de melhoria: {chance}",
   gearInspectorGridSafeguardChanceTooltipProjection: "A projeção simula upgrades até ao nível 16 com variância de rolagens e potencial de glifos.",
   gearInspectorGridSafeguardChanceTooltipRule: "Salvaguarda: {name}",
