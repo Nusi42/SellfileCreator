@@ -319,7 +319,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
 }: {
   row: GearInspectorPreviewRow
   // Substat rating chip — bottom in triple mode, center otherwise.
-  centerOverlay?: { text: string; color?: string; onClick?: () => void; tooltipMarkdown?: string; tooltipRender?: React.ReactNode } | null
+  // dimmed / onContextMenu / testId are forwarded verbatim to GridIconBox's OverlayChip (used by
+  // the safeguard rank chip: dim = ranked outside the selection, right-click = pick-a-rule menu).
+  centerOverlay?: { text: string; color?: string; dimmed?: boolean; testId?: string; onClick?: () => void; onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void; tooltipMarkdown?: string; tooltipRender?: React.ReactNode } | null
   topOverlay?: GearInspectorCardTopOverlay | null
   // Safeguard rank chip — center in triple mode, collapses to center in single/double.
   bottomOverlay?: { text: string; color?: string; onClick?: () => void; tooltipMarkdown?: string; tooltipRender?: React.ReactNode } | null

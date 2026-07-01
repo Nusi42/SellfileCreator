@@ -875,7 +875,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       return g
     }
     // Entry shape: chip data + JSX tooltipRender (MarkdownTooltip custom parser has no table support).
-    const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; onClick?: () => void; onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void; tooltipRender: React.ReactNode }>()
+    const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; testId?: string; onClick?: () => void; onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void; tooltipRender: React.ReactNode }>()
     safeguardRankByArtifactId.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules }, artifactId) => {
       if (rank <= 0) return
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
@@ -897,19 +897,27 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         const otherName = (otherRule?.appearance?.name ?? '').trim() || undefined
         if (otherName) rankRows.push({ rank: other.rank, groupRank: other.groupRank, isWithinQuota: other.isWithinQuota, inSelection: other.inSelection, ruleOrdinal: other.ruleOrdinal, name: otherName, isPrimary: false, fgColor: otherRule?.appearance?.fgColor ?? undefined })
       }
-      // Sort rows by the number actually shown for the active mode (lower rank = more protected):
-      //  - rank / both: by global safeguard rank.
-      //  - groupRank: by group rank; rules without a group show their global rank instead, so they
-      //    sort AFTER all grouped rows (sentinel) and among themselves by that global fallback.
-      const rowSortKey = (r: RankRow): [number, number] => (
-        groupRankShown && safeguardRankMode === 'groupRank'
+      // Sort rows so the chip (rankRows[0]) and tooltip order match the App's primary-choice rule:
+      //  1. Selection tier FIRST — an in-selection candidacy always outranks an out-of-selection one,
+      //     mirroring App.tsx candWins. Without this, selecting a rule where the piece ranks worse
+      //     (e.g. group #46) would still show a better-ranked UNSELECTED rule (group #19) and stay
+      //     dimmed. When nothing is selected every row is inSelection=true, so this tier is inert.
+      //  2. Then the number actually shown for the active mode (lower rank = more protected):
+      //     - rank / both: by global safeguard rank.
+      //     - groupRank: by group rank; rules without a group show their global rank instead, so they
+      //       sort AFTER all grouped rows (sentinel) and among themselves by that global fallback.
+      const rowSortKey = (r: RankRow): [number, number, number] => {
+        // 0 = in-selection (sorts first), 1 = outside the current selection.
+        const selTier = r.inSelection ? 0 : 1
+        const [rankTier, rankKey] = groupRankShown && safeguardRankMode === 'groupRank'
           ? (r.groupRank > 0 ? [0, r.groupRank] : [1, r.rank])
           : [0, r.rank]
-      )
+        return [selTier, rankTier, rankKey]
+      }
       rankRows.sort((a, b) => {
         const ka = rowSortKey(a)
         const kb = rowSortKey(b)
-        return ka[0] - kb[0] || ka[1] - kb[1]
+        return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2]
       })
       // Per-column width: longest global-rank and longest group-rank digit string across rows.
       const globalDigits = rankRows.reduce((max, r) => Math.max(max, String(r.rank).length), 1)
@@ -984,7 +992,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // Chip text per mode: group #M, global #N, or both (#M · #N) — same SSOT formatter, top row.
       const chipText = formatRankBadge(topRow.rank, topRow.groupRank)
       // Dim when the displayed (top) rank comes from a rule outside the current selection.
-      overlays.set(artifactId, { text: chipText, color, dimmed: !topRow.inSelection, tooltipRender, ...(onClick ? { onClick } : {}), ...(onContextMenu ? { onContextMenu } : {}) })
+      overlays.set(artifactId, { text: chipText, color, dimmed: !topRow.inSelection, testId: `safeguard-rank-chip-${artifactId}`, tooltipRender, ...(onClick ? { onClick } : {}), ...(onContextMenu ? { onContextMenu } : {}) })
     })
     return overlays.size > 0 ? overlays : null
   }, [safeguardRankMode, safeguardRankByArtifactId, onJumpToSafeguardRule, safeguardRules, paletteSuccessMain, paletteErrorMain, t])
@@ -3044,10 +3052,12 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           <MenuItem
             key={row.ruleIdx}
             disableRipple
+            // Stable hook so E2E can click a specific rule row by its 0-based rule index.
+            data-testid={`safeguard-rank-menu-item-${row.ruleIdx}`}
             sx={{ gap: 1, alignItems: 'baseline' }}
             onClick={() => {
               // Same destination as a left-click, but for the rule the user explicitly chose.
-              onJumpToSafeguardRule?.(row.ruleIdx, safeguardRankMenu!.artifactId)
+                onJumpToSafeguardRule?.(row.ruleIdx, safeguardRankMenu!.artifactId)
               closeSafeguardRankMenu()
             }}
           >

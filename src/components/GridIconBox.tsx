@@ -55,6 +55,9 @@ type OverlayChip = {
   onClick?: () => void
   // Right-click handler — receives the native event so callers can anchor a menu at the cursor.
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void
+  // Optional stable test hook (e.g. the rank chip carries its artifact id for E2E lookup).
+  testId?: string
+  // Dimmed state is also surfaced as a data attribute so tests can assert selection dimming.
   // Per-chip tooltip content — shown when hovering this chip only.
   // When render is provided it takes priority over markdown (same as MarkdownTooltip behavior).
   tooltipMarkdown?: string
@@ -468,6 +471,9 @@ export default function GridIconBox({
       <Box
         component={interactive ? 'button' : 'div'}
         type={interactive ? 'button' : undefined}
+        {...(chip.testId ? { 'data-testid': chip.testId } : {})}
+        // Expose dimmed state for tests: 'true' when the rank comes from outside the selection.
+        data-chip-dimmed={chip.dimmed ? 'true' : 'false'}
         onClick={clickable
           ? (event: MouseEvent<HTMLButtonElement>) => {
               // Prevent overlay clicks from bubbling to underlying card interactions.
