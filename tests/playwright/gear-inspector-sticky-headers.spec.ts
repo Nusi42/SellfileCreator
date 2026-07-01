@@ -101,13 +101,18 @@ test.describe('Gear Inspector sticky headers', () => {
         return { left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), inOverlay }
       })
       const rect = container.getBoundingClientRect()
+      // The side-by-side view can apply a CSS `zoom` on an ancestor. getBoundingClientRect() reports
+      // zoom-scaled viewport pixels, whereas clientWidth/offsetWidth report unscaled layout pixels — so
+      // any layout-pixel quantity (the gutter, the content width) must be scaled by the same factor
+      // before it can be compared against the header rects. Derive the factor from the container itself.
+      const scale = rect.width > 0 && container.offsetWidth > 0 ? rect.width / container.offsetWidth : 1
       return {
         containerRight: Math.round(rect.right),
-        contentRight: Math.round(rect.left + container.clientWidth),
-        gutter: container.offsetWidth - container.clientWidth,
+        // rect.left is already scaled; scale clientWidth into the same space to land on the content edge.
+        contentRight: Math.round(rect.left + container.clientWidth * scale),
+        gutter: (container.offsetWidth - container.clientWidth) * scale,
         overlay: all.filter((h) => h.inOverlay),
         real: all.filter((h) => !h.inOverlay),
-
       }
     })
     expect(m).not.toBeNull()
@@ -126,8 +131,9 @@ test.describe('Gear Inspector sticky headers', () => {
       // Regression guard: a pinned clone must stop at the content edge, never reaching into the
       // reserved scrollbar gutter (the original bug rendered clones across the full border box).
       expect(clone.right).toBeLessThanOrEqual(m.contentRight + 1)
-      if (m.gutter > 0) {
-        expect(m.containerRight - clone.right).toBeGreaterThanOrEqual(m.gutter)
+      if (m.gutter > 1) {
+        // Both sides carry sub-pixel rounding (rects rounded, gutter scaled), so allow a 1px slack.
+        expect(m.containerRight - clone.right).toBeGreaterThanOrEqual(m.gutter - 1)
       }
     }
   })
