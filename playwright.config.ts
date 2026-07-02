@@ -36,6 +36,9 @@ const PERF_SPECS = [
   // projects if suite wall-clock becomes a concern.
   '**/midgame-progression.spec.ts',
   '**/large-db-duplication.spec.ts',
+  // Loads the largest account DB + runs the full safeguard pipeline; crashes Firefox-fhd
+  // when a sibling Firefox instance with HD video encoding competes for memory.
+  '**/safeguard-rank-chip-menu.spec.ts',
 ];
 
 // Per-clone preview port — auto-derived from the repo path so parallel clones
