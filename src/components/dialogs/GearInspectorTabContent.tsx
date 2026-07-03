@@ -606,8 +606,13 @@ export function GearInspectorTabContent({
   }, [manualEntries, pruneEasterEggStateForItems, setItems])
 
   const handleAddManualGear = useCallback(() => {
+    // Build the new item (which allocates its id) OUTSIDE the state updater. The updater
+    // must stay pure: makeDefaultItem calls the side-effecting id allocator (and random
+    // rolls), so invoking it inside setItems made StrictMode's double-render consume two
+    // ids (and roll two different items) per click — matching duplicateItemAt's pattern.
+    const newItem = makeDefaultItem(allocGearInspectorItemId)
     setItems((prev) => {
-      const next = prev.concat(makeDefaultItem(allocGearInspectorItemId))
+      const next = prev.concat(newItem)
       pruneEasterEggStateForItems(next)
       return next
     })
