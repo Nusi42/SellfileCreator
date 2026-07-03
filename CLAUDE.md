@@ -20,6 +20,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 - **i18n catalog edits — use double-quoted strings**: Catalog values use TypeScript double-quoted strings (`"..."`). This eliminates the Unicode apostrophe trap — U+2019 (`'`) in languages like Ukrainian is harmless inside double quotes. When adding new entries, use double quotes for values. If a value contains a literal `"`, escape it as `\"`.
 - Keep modules focused and diffs small. Follow existing patterns before introducing new abstractions, unless doing so would violate the single-source-of-truth / One Definition Rule—then factor the shared abstraction instead of duplicating logic.
 - UI code must keep parallel entry points in sync (e.g., toggles, badges, multi-edit). Shared helpers exist for a reason — extend them, don't fork them.
+- **Agent auto-memory is per-clone; clones/branches are disposable.** Never store project-specific knowledge (architecture, fixes, gotchas, perf numbers, workflows) in your agent auto-memory — other checkouts and agents will never see it. Project knowledge belongs in the repo: put it in the appropriate `docs/technical/*.md` file (create one and link it from `docs/TECHNICAL.md` if needed). Auto-memory may only hold project-*unspecific* facts (user preferences, machine/tooling quirks that apply beyond this repo). If your auto-memory contains project-specific entries, migrate them into the docs and delete them from memory during your current session — this rule is the trigger; don't wait to be asked.
 
 ## Workflow Expectations
 

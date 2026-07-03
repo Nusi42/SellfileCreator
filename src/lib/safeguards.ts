@@ -36,6 +36,7 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import type { SafeguardWasmCountMode } from './wasm/generated/rust-types/SafeguardWasmCountMode'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
 import type { NameAppearance } from './nameAppearance'
@@ -126,13 +127,10 @@ export type SafeguardCombination = {
 }
 
 // Count mode decides whether the required total is per rule or enforced per set/faction/main tuple.
-export type SafeguardRuleCountMode = {
-  perRule: boolean
-  perSet: boolean
-  perFaction: boolean
-  perMainStat: boolean
-  perSlot: boolean
-}
+// Pure alias of the ts-rs generated Rust wire type (the five booleans are plain, unbranded
+// scalars, so unlike the other detection mirrors there is nothing to narrow) — one shape
+// definition, and Rust-side field changes surface as TS compile errors at every consumer.
+export type SafeguardRuleCountMode = SafeguardWasmCountMode
 
 // Mirrors the default scope-chip state (slot+set+faction+main) so SFC imports and tutorials stay aligned.
 export const SAFEGUARD_DEFAULT_COUNT_MODE: SafeguardRuleCountMode = {

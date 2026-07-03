@@ -9,7 +9,6 @@
 
 import type {
   SafeguardCombination,
-  SafeguardRuleCountMode,
   SafeguardDetectionSnapshot,
   SafeguardDetectionEntry,
   SafeguardDetectionArtifact,
@@ -29,7 +28,6 @@ import type { RuleSubRawWire } from './generated/rust-types/RuleSubRawWire'
 import type { SafeguardWasmSnapshotOut } from './generated/rust-types/SafeguardWasmSnapshotOut'
 import type { SafeguardWasmEntryOut } from './generated/rust-types/SafeguardWasmEntryOut'
 import type { SafeguardWasmCombination } from './generated/rust-types/SafeguardWasmCombination'
-import type { SafeguardWasmCountMode } from './generated/rust-types/SafeguardWasmCountMode'
 import type { SafeguardWasmArtifactOut } from './generated/rust-types/SafeguardWasmArtifactOut'
 import type { SafeguardWasmPlaceholderOut } from './generated/rust-types/SafeguardWasmPlaceholderOut'
 import type { SafeguardWasmExpectedGroupDomainIn } from './generated/rust-types/SafeguardWasmExpectedGroupDomainIn'
@@ -168,16 +166,31 @@ export const projectSafeguardExpectedGroupDomainForWire = (domain: {
 
 // ─── SafeguardWasmSnapshotOut expansion / projection ─────────────────────────
 
-// Wire→domain casts below bridge the generated WASM types to their brand-typed domain
-// mirrors (SafeguardWasmCombination ↔ SafeguardCombination etc.) — structurally identical
-// by construction; the generated side pins the actual wire field set.
+// ─── Wire ↔ domain bridging (brand-typed mirrors) ─────────────────────────────
+// The detection types exist twice on purpose: the generated Rust wire shapes carry plain
+// scalars, while the domain mirrors narrow them to branded/literal unions (ArtifactSetId,
+// RankValue, 'global' | 'group', …). The bridges below replace blind double-casts with a
+// compiler-checked constraint: the KEY SETS of the two types must be identical, so a field
+// added/removed/renamed on either side fails compilation here. Only the scalar narrowing
+// itself remains unchecked — that is exactly the brand delta the mirrors exist for.
+type SameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? unknown : never) : never
+
+// Bridge one wire/domain object; `From & SameKeys<From, To>` collapses to `never` on any
+// key-set mismatch, turning the call site into a type error instead of a silent re-brand.
+const bridgeMirrorShape = <To, From>(value: From & SameKeys<From, To>): To => value as unknown as To
+
+// Array variant: pins the ELEMENT key sets (an `Array<never>` parameter rejects real input).
+const bridgeMirrorShapes = <To, From>(value: Array<From & SameKeys<From, To>>): To[] => value as unknown as To[]
+
 function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDetectionEntry {
   return {
     hash: wire.h,
-    combination: wire.co as unknown as SafeguardCombination,
+    combination: bridgeMirrorShape<SafeguardCombination, SafeguardWasmCombination>(wire.co),
     ruleOrdinal: wire.ro ?? null,
+    // Single-scalar narrowing (Rust String → activation literal union); no shape to pin.
     ruleActivation: wire.ra as SafeguardRuleActivation,
-    countMode: wire.cm as unknown as SafeguardRuleCountMode,
+    // SafeguardRuleCountMode is a pure alias of the generated type — plain assignment.
+    countMode: wire.cm,
     perGroupRequiredCount: wire.pgc,
     groupsTracked: wire.gt,
     requiredCount: wire.rc,
@@ -186,8 +199,8 @@ function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDet
     deficit: wire.d,
     coveredByExisting: wire.cbe,
     itemKeys: wire.ik,
-    artifacts: wire.ar as unknown as SafeguardDetectionArtifact[],
-    placeholders: wire.pl as unknown as SafeguardPlaceholderRequest[],
+    artifacts: bridgeMirrorShapes<SafeguardDetectionArtifact, SafeguardWasmArtifactOut>(wire.ar),
+    placeholders: bridgeMirrorShapes<SafeguardPlaceholderRequest, SafeguardWasmPlaceholderOut>(wire.pl),
     candidates: wire.ca,
   }
 }
@@ -204,11 +217,12 @@ export const expandSafeguardSnapshotFromWire = (wire: SafeguardWasmSnapshotOutWi
 function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): SafeguardWasmEntryOut {
   return {
     h: entry.hash,
-    co: entry.combination as unknown as SafeguardWasmCombination,
+    co: bridgeMirrorShape<SafeguardWasmCombination, SafeguardCombination>(entry.combination),
     ri: null,
     ro: entry.ruleOrdinal,
     ra: entry.ruleActivation,
-    cm: entry.countMode as unknown as SafeguardWasmCountMode,
+    // SafeguardRuleCountMode is a pure alias of the generated type — plain assignment.
+    cm: entry.countMode,
     pgc: entry.perGroupRequiredCount,
     gt: entry.groupsTracked,
     rc: entry.requiredCount,
@@ -217,8 +231,8 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
     d: entry.deficit,
     cbe: entry.coveredByExisting,
     ik: entry.itemKeys,
-    ar: entry.artifacts as unknown as SafeguardWasmArtifactOut[],
-    pl: entry.placeholders as unknown as SafeguardWasmPlaceholderOut[],
+    ar: bridgeMirrorShapes<SafeguardWasmArtifactOut, SafeguardDetectionArtifact>(entry.artifacts),
+    pl: bridgeMirrorShapes<SafeguardWasmPlaceholderOut, SafeguardPlaceholderRequest>(entry.placeholders),
     ca: entry.candidates ?? [],
   }
 }

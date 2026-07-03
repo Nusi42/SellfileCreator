@@ -1,12 +1,14 @@
-// Minified wire format for compute_merged_rules_value.
+// Minified wire format for the merge/configure family of WASM exports
+// (cache_generated_rules_value, compute_merged_rules_cached_value,
+// merge_cached_and_configure_value, configure/finalize/dedupe rule payloads).
 //
-// compute_merged_rules_value passes a large Vec<RuleRaw> across the wasm
-// boundary (~45k rules × 29 fields on realistic workloads).  With full field
-// names (RecipeID, __safeguardPlaceholderMissing, etc) the JSON payload is
+// These exports pass large Vec<RuleRaw> payloads across the wasm boundary
+// (~45k rules × 29 fields on realistic workloads).  With full field names
+// (RecipeID, __safeguardPlaceholderMissing, etc) the JSON payload is
 // ~27 MiB dominated by property keys.  This module defines parallel "Wire"
 // structs with short serde renames so the JSON actually serialised and
 // parsed at the wasm boundary is ~40% smaller — relieving both wasm-bindgen's
-// string-passing path and talc's allocator pressure, which otherwise surfaced
+// string-passing path and allocator pressure, which otherwise surfaced
 // as "memory access out of bounds" deallocate crashes several pipeline runs
 // after the initial load.
 //
@@ -20,7 +22,7 @@
 use std::sync::Arc;
 use ts_rs::TS;
 use crate::{
-    ComputeMergedRulesIn, FinalSellRemainderIn, RuleRaw, RuleSubRaw,
+    FinalSellRemainderIn, RuleRaw, RuleSubRaw,
     SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
 };
 use serde::{Deserialize, Serialize};
@@ -224,59 +226,12 @@ impl From<RuleRawWire> for RuleRaw {
     }
 }
 
-// Wire form of the merge-payload envelope.  Only the two big rule vecs are
-// minified; the smaller supporting structs (final sell remainder, safeguard
-// rules, detection snapshot) are passed through with their native shapes.
-#[derive(Debug, Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct ComputeMergedRulesInWire {
-    #[serde(rename = "br", alias = "baseRules")]
-    pub base_rules: Vec<RuleRawWire>,
-    #[serde(rename = "cr", alias = "customRules")]
-    pub custom_rules: Vec<RuleRawWire>,
-    #[serde(rename = "fsr", alias = "finalSellRemainder")]
-    pub final_sell_remainder: Option<FinalSellRemainderIn>,
-    #[serde(rename = "aksi", alias = "allKnownSetIds")]
-    pub all_known_set_ids: Vec<i64>,
-    #[serde(rename = "oms", alias = "omitDisabledBeforeSafeguards")]
-    pub omit_disabled_before_safeguards: bool,
-    #[serde(rename = "dds", alias = "dedupeBeforeSafeguards")]
-    pub dedupe_before_safeguards: bool,
-    #[serde(rename = "se", alias = "safeguardEnabled")]
-    pub safeguard_enabled: bool,
-    #[serde(rename = "sr", alias = "safeguardRules")]
-    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    #[serde(rename = "sd", alias = "safeguardDetection")]
-    pub safeguard_detection: Option<SafeguardWasmSnapshotOut>,
-    #[serde(rename = "srb", alias = "safeguardRecipeIdBase")]
-    pub safeguard_recipe_id_base: Option<i64>,
-}
-
-impl From<ComputeMergedRulesInWire> for ComputeMergedRulesIn {
-    // Wire envelope → canonical envelope.  Only the rule vecs need element-
-    // wise conversion; the rest move as-is.
-    fn from(wire: ComputeMergedRulesInWire) -> Self {
-        Self {
-            base_rules: wire.base_rules.into_iter().map(RuleRaw::from).collect(),
-            custom_rules: wire.custom_rules.into_iter().map(RuleRaw::from).collect(),
-            final_sell_remainder: wire.final_sell_remainder,
-            all_known_set_ids: wire.all_known_set_ids,
-            omit_disabled_before_safeguards: wire.omit_disabled_before_safeguards,
-            dedupe_before_safeguards: wire.dedupe_before_safeguards,
-            safeguard_enabled: wire.safeguard_enabled,
-            safeguard_rules: wire.safeguard_rules,
-            safeguard_detection: wire.safeguard_detection,
-            safeguard_recipe_id_base: wire.safeguard_recipe_id_base,
-        }
-    }
-}
-
 // Wire form of the INVARIANT HALF of the merge payload — every input that is constant
 // across endpoint pushes within a session: the base+custom rules that produce the cacheable
 // `generated_rules`, PLUS the safeguard rule definitions (small, but equally session-stable;
 // paired per push with the changing detection snapshot to build candidate keep-rules). Sent
 // to WASM once per rules-change via cache_generated_rules_value, not on every push.
-// Field renames mirror ComputeMergedRulesInWire exactly (SSOT) for the shared subset.
+// This struct and ComputeMergedRulesCachedInWire below are the SSOT for the envelope renames.
 #[derive(Debug, Default, Deserialize, TS)]
 #[serde(default, deny_unknown_fields)]
 #[ts(export)]
@@ -302,7 +257,8 @@ pub struct CacheGeneratedRulesInWire {
 // Wire form of the PER-PUSH HALF of the merge payload — only the inputs that genuinely
 // change per endpoint push: the safeguard detection snapshot (matched artifacts). The
 // rules + safeguard definitions come from the cache. Sent on every push to
-// compute_merged_rules_cached_value. Field renames mirror ComputeMergedRulesInWire (SSOT).
+// compute_merged_rules_cached_value (and, with recipe modes as a second argument, to
+// merge_cached_and_configure_value). SSOT for the sd/srb renames.
 #[derive(Debug, Default, Deserialize, TS)]
 #[serde(default, deny_unknown_fields)]
 #[ts(export)]
@@ -364,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_merged_rules_in_wire_accepts_long_key_aliases() {
+    fn cache_generated_rules_in_wire_accepts_long_key_aliases() {
         let long_json = r#"{
             "baseRules": [],
             "customRules": [],
@@ -373,13 +329,23 @@ mod tests {
             "omitDisabledBeforeSafeguards": false,
             "dedupeBeforeSafeguards": false,
             "safeguardEnabled": false,
-            "safeguardRules": [],
-            "safeguardDetection": null,
-            "safeguardRecipeIdBase": null
+            "safeguardRules": []
         }"#;
-        let wire: ComputeMergedRulesInWire = serde_json::from_str(long_json)
+        let wire: CacheGeneratedRulesInWire = serde_json::from_str(long_json)
             .expect("should parse long-form envelope keys via alias");
         assert!(wire.base_rules.is_empty());
         assert!(wire.custom_rules.is_empty());
+    }
+
+    #[test]
+    fn compute_merged_rules_cached_in_wire_accepts_long_key_aliases() {
+        let long_json = r#"{
+            "safeguardDetection": null,
+            "safeguardRecipeIdBase": null
+        }"#;
+        let wire: ComputeMergedRulesCachedInWire = serde_json::from_str(long_json)
+            .expect("should parse long-form per-push keys via alias");
+        assert!(wire.safeguard_detection.is_none());
+        assert!(wire.safeguard_recipe_id_base.is_none());
     }
 }

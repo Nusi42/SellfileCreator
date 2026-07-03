@@ -46,42 +46,6 @@ pub struct RuleBucket {
 // no slot-specific rules without allocating (Vec::new() is const-evaluable).
 static EMPTY_RULE_BUCKET: RuleBucket = RuleBucket { rules: Vec::new(), groups: Vec::new() };
 
-// Gate identity of a rule — EXACTLY the fields match_rule_gate reads (use_flag, types,
-// sets, faction, rank/rarity masks, level, main-stat id+f). Substats are deliberately
-// excluded: they are the only per-member variation inside a group.
-// Keep this in lockstep with match_rule_gate: a field checked there but missing here
-// would let one head check stand in for members with different gates (wrong matches).
-// Ord (BTreeMap key) per project rule: BTreeMap over HashMap in wasm/ code.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-struct GateKey {
-    use_flag: bool,
-    faction: i64,
-    rank_mask: u8,
-    rarity_mask: u8,
-    level_for_check: i64,
-    main_stat_id: i64,
-    main_stat_f: i64,
-    artifact_types: Vec<i64>,
-    artifact_sets: Vec<i64>,
-}
-
-impl GateKey {
-    // Clone the two small selector vecs; the key only lives during bucket construction.
-    fn of(rule: &PreparedRule) -> Self {
-        Self {
-            use_flag: rule.use_flag,
-            faction: rule.faction,
-            rank_mask: rule.rank_mask,
-            rarity_mask: rule.rarity_mask,
-            level_for_check: rule.level_for_check,
-            main_stat_id: rule.main_stat_id,
-            main_stat_f: rule.main_stat_f,
-            artifact_types: rule.artifact_types.clone(),
-            artifact_sets: rule.artifact_sets.clone(),
-        }
-    }
-}
-
 impl RuleBucket {
     // Group an ordered rule list by gate identity (non-adjacent members included) and
     // permute it so each group's members are contiguous — one gate check then covers
@@ -90,13 +54,15 @@ impl RuleBucket {
         if rules.is_empty() {
             return Self::default();
         }
-        // First-occurrence group id per distinct gate. Transient; dropped after assignment.
-        let mut group_ids: BTreeMap<GateKey, u32> = BTreeMap::new();
+        // First-occurrence group id per distinct gate (the rule's RuleGate IS the key —
+        // grouping and gate-checking consume the same struct by construction).
+        // Transient; dropped after assignment. Clone cost: two small selector vecs per rule.
+        let mut group_ids: BTreeMap<RuleGate, u32> = BTreeMap::new();
         // (group_id, rule) pairs so one stable sort produces the grouped permutation.
         let mut tagged: Vec<(u32, PreparedRule)> = Vec::with_capacity(rules.len());
         for rule in rules {
             let next_id = group_ids.len() as u32;
-            let id = *group_ids.entry(GateKey::of(&rule)).or_insert(next_id);
+            let id = *group_ids.entry(rule.gate.clone()).or_insert(next_id);
             tagged.push((id, rule));
         }
         drop(group_ids);
@@ -140,12 +106,14 @@ impl BucketedRules {
         for (idx, mut rule) in rules.into_iter().enumerate() {
             // Stamp the flat-list position before distributing into buckets.
             rule.original_index = idx;
-            if rule.artifact_types.is_empty() {
+            if rule.gate.artifact_types.is_empty() {
                 // No slot constraint — every item evaluates this rule.
                 shared.push(rule);
             } else {
                 // Push into each declared slot bucket (clone for multi-slot rules).
-                let mut types_iter = rule.artifact_types.iter().copied();
+                // Collect first: the iterator would borrow `rule` across the moves below.
+                let slots: Vec<i64> = rule.gate.artifact_types.clone();
+                let mut types_iter = slots.into_iter();
                 // Move the rule into the first slot bucket; clone for any additional slots.
                 let first_slot = types_iter.next().expect("non-empty artifact_types");
                 for extra_slot in types_iter {
@@ -179,6 +147,25 @@ impl BucketedRules {
     }
 }
 
+// The GATE half of a prepared rule: every field that is constant across a generated rule
+// group (substats are the only per-member variation). ONE struct serves as BOTH the
+// grouping key in RuleBucket::from_ordered_rules AND the input of match_rule_gate, so the
+// two can never drift — a new gate field added here automatically joins grouping and
+// checking together (structural ODR; no comment-enforced lockstep).
+// Ord (BTreeMap grouping key) per project rule: BTreeMap over HashMap in wasm/ code.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RuleGate {
+    pub use_flag: bool,
+    pub faction: i64,
+    pub rank_mask: u8,
+    pub rarity_mask: u8,
+    pub level_for_check: i64,
+    pub main_stat_id: i64,
+    pub main_stat_f: i64,
+    pub artifact_types: Vec<i64>,
+    pub artifact_sets: Vec<i64>,
+}
+
 // Keep only the data needed in hot matcher loops.
 // Masks and recipe indices are precomputed at configure time.
 // Clone is derived so BucketedRules can duplicate multi-slot rules into each relevant bucket.
@@ -187,22 +174,15 @@ pub struct PreparedRule {
     // Position of this rule in the original flat rule list passed to configure_engine.
     // Preserved through bucketing so EvalMatch.rule_index stays consistent with TS rule arrays.
     pub original_index: usize,
-    pub use_flag: bool,
+    // Group-constant matching constraints (see RuleGate).
+    pub gate: RuleGate,
     pub keep_flag: bool,
-    pub artifact_types: Vec<i64>,
-    pub artifact_sets: Vec<i64>,
-    pub faction: i64,
-    pub level_for_check: i64,
-    pub main_stat_id: i64,
-    pub main_stat_f: i64,
     pub substats: Vec<PreparedRuleSub>,
     pub recipe_idx: Option<i64>,
     pub source_bits: u8,
     // Arc<str> matches RuleRaw.source — clone is O(1).
     pub source_fallback: Option<Arc<str>>,
     pub safeguard_item_key: Option<i64>,
-    pub rank_mask: u8,
-    pub rarity_mask: u8,
     pub is_keep_override_source: bool,
 }
 
@@ -521,21 +501,23 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     PreparedRule {
         // original_index is 0 here; configure_engine sets the real value after bucketing.
         original_index: 0,
-        use_flag,
+        gate: RuleGate {
+            use_flag,
+            faction,
+            rank_mask: rank_mask(raw.Rank.unwrap_or(0)),
+            rarity_mask: rarity_mask(raw.Rarity.unwrap_or(0)),
+            level_for_check,
+            main_stat_id,
+            main_stat_f,
+            artifact_types,
+            artifact_sets,
+        },
         keep_flag,
-        artifact_types,
-        artifact_sets,
-        faction,
-        level_for_check,
-        main_stat_id,
-        main_stat_f,
         substats,
         recipe_idx,
         source_bits,
         source_fallback,
         safeguard_item_key: raw.safeguard_item_key,
-        rank_mask: rank_mask(raw.Rank.unwrap_or(0)),
-        rarity_mask: rarity_mask(raw.Rarity.unwrap_or(0)),
         is_keep_override_source,
     }
 }
@@ -569,19 +551,22 @@ fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<
         .and_then(|values| values.iter().find(|(k, _)| *k == variant).map(|(_, v)| *v))
 }
 
-// Gate half of the rule predicate (historically the top of match_rule, copied from
-// src/lib/ruleEval.ts::matchRule): every field that is CONSTANT across a generated rule
+// Gate half of the rule predicate: every field that is CONSTANT across a generated rule
 // group. Substats are the only per-member variation and live in match_rule_substats.
+// This predicate (gate + substats) is the SSOT for rule matching — it mirrors RSL
+// Helper's semantics, and the TS side (src/lib/ruleEval.ts matchRule/evaluateFirst/
+// evaluateMatchesByRecipe) is a thin adapter that DELEGATES here via the WASM engine;
+// there is no JS reimplementation to keep in sync.
 // Keep the field set in lockstep with gates_equal (see its comment for why).
 // item_rank_bit / item_rarity_bit are hoisted per item by the caller — they do not vary
 // across rules, so recomputing them per gate check would be pure waste.
 fn match_rule_gate(
-    rule: &PreparedRule,
+    gate: &RuleGate,
     item: &TestItemRaw,
     item_rank_bit: u8,
     item_rarity_bit: u8,
 ) -> bool {
-    if !rule.use_flag {
+    if !gate.use_flag {
         return false;
     }
 
@@ -590,39 +575,39 @@ fn match_rule_gate(
     // the exported HSF rule carries no item-key restriction, so any item satisfying the
     // set/slot/rank/main-stat/level/substat conditions should be kept.
 
-    if !rule.artifact_types.is_empty() && !rule.artifact_types.contains(&item.slot) {
+    if !gate.artifact_types.is_empty() && !gate.artifact_types.contains(&item.slot) {
         return false;
     }
 
-    if !rule.artifact_sets.is_empty() && !rule.artifact_sets.contains(&item.set) {
+    if !gate.artifact_sets.is_empty() && !gate.artifact_sets.contains(&item.set) {
         return false;
     }
 
     // Non-accessories send faction as None; Helper ignores faction constraints
     // for items that cannot carry faction, so skip the check in that case.
     // Accessories with faction 0 ("Any") still correctly fail faction-specific rules.
-    if rule.faction != 0 {
+    if gate.faction != 0 {
         if let Some(item_faction) = item.faction {
-            if item_faction != rule.faction {
+            if item_faction != gate.faction {
                 return false;
             }
         }
     }
 
-    if (rule.rank_mask & item_rank_bit) == 0 {
+    if (gate.rank_mask & item_rank_bit) == 0 {
         return false;
     }
 
-    if (rule.rarity_mask & item_rarity_bit) == 0 {
+    if (gate.rarity_mask & item_rarity_bit) == 0 {
         return false;
     }
 
-    if rule.level_for_check != LEVEL_ANY_SENTINEL && rule.level_for_check != item.level {
+    if gate.level_for_check != LEVEL_ANY_SENTINEL && gate.level_for_check != item.level {
         return false;
     }
 
-    if rule.main_stat_id != STAT_ID_ANY {
-        let expected_main = main_to_variant(rule.main_stat_id, rule.main_stat_f);
+    if gate.main_stat_id != STAT_ID_ANY {
+        let expected_main = main_to_variant(gate.main_stat_id, gate.main_stat_f);
         let actual_main = item.main.unwrap_or(STAT_ID_ANY);
         if expected_main != actual_main {
             return false;
@@ -633,8 +618,8 @@ fn match_rule_gate(
 }
 
 // Substat half of the rule predicate — the per-member check inside a gate group.
-// match_rule_gate(...) && match_rule_substats(...) together are exactly the historical
-// match_rule semantics (src/lib/ruleEval.ts::matchRule).
+// match_rule_gate(...) && match_rule_substats(...) together form the full rule-match
+// predicate (see the SSOT note on match_rule_gate).
 fn match_rule_substats(rule: &PreparedRule, item: &TestItemRaw) -> bool {
     for sub in &rule.substats {
         let raw_value = read_sub_value(&item.sub_values, sub.variant);
@@ -670,7 +655,8 @@ fn match_rule_substats(rule: &PreparedRule, item: &TestItemRaw) -> bool {
     true
 }
 
-// Recipe visibility gate copied from evaluateMatchesByRecipe.
+// Recipe visibility gate (disabled/separator modes + explicit exclusions). SSOT here;
+// the TS evaluateMatchesByRecipe delegates to this engine rather than re-implementing it.
 fn should_include_recipe(
     recipe_idx: Option<i64>,
     recipe_modes: &[String],
@@ -739,9 +725,9 @@ pub fn evaluate_item(
     for bucket in [shared, slot_rules] {
         for &(start, end) in &bucket.groups {
             let members = &bucket.rules[start as usize..end as usize];
-            // One head check decides the whole run — gates are identical for every
-            // member by RuleBucket construction (gates_equal).
-            if !match_rule_gate(&members[0], item, item_rank_bit, item_rarity_bit) {
+            // One head check decides the whole run — members share one RuleGate value
+            // by RuleBucket construction (the gate IS the grouping key).
+            if !match_rule_gate(&members[0].gate, item, item_rank_bit, item_rarity_bit) {
                 continue;
             }
             for rule in members {
@@ -1000,24 +986,26 @@ mod tests {
     fn make_rule(original_index: usize, recipe_idx: i64, artifact_types: Vec<i64>) -> PreparedRule {
         PreparedRule {
             original_index,
-            use_flag: true,
+            gate: RuleGate {
+                use_flag: true,
+                faction: 0,
+                // 0xFF matches every rank and rarity bit without needing specific values.
+                rank_mask: 0xFF,
+                rarity_mask: 0xFF,
+                // LEVEL_ANY_SENTINEL bypasses the level check in the gate.
+                level_for_check: LEVEL_ANY_SENTINEL,
+                // STAT_ID_ANY bypasses the main-stat check in the gate.
+                main_stat_id: STAT_ID_ANY,
+                main_stat_f: 0,
+                artifact_types,
+                artifact_sets: vec![],
+            },
             keep_flag: true,
-            artifact_types,
-            artifact_sets: vec![],
-            faction: 0,
-            // LEVEL_ANY_SENTINEL bypasses the level check in match_rule.
-            level_for_check: LEVEL_ANY_SENTINEL,
-            // STAT_ID_ANY bypasses the main-stat check in match_rule.
-            main_stat_id: STAT_ID_ANY,
-            main_stat_f: 0,
             substats: vec![],
             recipe_idx: Some(recipe_idx),
             source_bits: 0,
             source_fallback: None,
             safeguard_item_key: None,
-            // 0xFF matches every rank and rarity bit without needing specific values.
-            rank_mask: 0xFF,
-            rarity_mask: 0xFF,
             is_keep_override_source: false,
         }
     }
