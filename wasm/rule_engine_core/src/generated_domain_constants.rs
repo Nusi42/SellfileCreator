@@ -112,6 +112,7 @@ pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [0, 0, 1, 2, 3, 4, 0,
 pub const SAFEGUARD_ACTIVATION_OFF: &str = "off";
 pub const SAFEGUARD_ACTIVATION_PROTECT_EXISTING: &str = "protectExisting";
 pub const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS: &str = "anticipateGaps";
+pub const SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS: &str = "anticipateImprovements";
 pub const SAFEGUARD_SUBSTAT_ANY: &str = "any";
 pub const SAFEGUARD_SUBSTAT_ALL: &str = "all";
 pub const SAFEGUARD_SUBSTAT_PER_SUBSTAT: &str = "perSubstat";

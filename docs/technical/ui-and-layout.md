@@ -74,6 +74,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Chaos Ore | Chaos-Erz (`filterChaosOre`) | |
   | sell file (the file) | Sellfile | one word, no space — never "Sell File"/"Sell-Datei" |
   | rolls / drops | Rolls / Drops | **intentional loanwords** |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Aus / Schützen / Vorbeugen / Verbessern (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   de-DE **intentional loanwords** (do NOT "correct" to German): Set, SPD, Banner, Slot, Rolls, Drops. **"Gear" is NOT a loanword in de-DE** — it is translated to "Ausrüstung" everywhere (catalog, README, preset prose); the lone exception is the proper-noun series title "Gear-Cleanse-Videos". The whole **stat** family is also translated: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` / `gear*` etc. TS **keys** stay English; `[[stat:…]]` tokens are untouched).
 
@@ -105,6 +106,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word |
   | rolls / drops | roll / drop | loanwords (used singular+plural invariant) |
   | rules (HSF) | regole | engine rules; the `Rules`/`Gear Inspector` preview toggle reads `Regole`/`Ispettore Equipaggiamento`. |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Disattiva / Proteggi / Anticipa / Migliora (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   it-IT **intentional loanwords** (do NOT "correct" to Italian): Set, SPD, Slot, Roll(s), Drop(s), Chaos Ore, Sellfile, Metaset, Flex. **"Gear" is translated** to "equipaggiamento" (the *Gear Inspector* mode → "Ispettore Equipaggiamento"). The **substat** family is translated to **feminine "sotto-stat"**; "main stat" → "stat principale"; "stat" stays the loanword "stat". it-IT addresses the user informally (**tu**, not voi) — collapsed the few formal-voi slips ("Passate"/"vostre" → "Passa"/"tue").
 
@@ -133,6 +135,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Gear Inspector | Inspetor de Equipamento | ONE rendering (collapsed the "Gear Inspector" loanword and "Teste de Regras"). Title Case, singular. |
   | rolls / drops | rolagem(ns) / drop(s) | **rolls is TRANSLATED** to "rolagem/rolagens" (dominant; collapsed the stray "roll/rolls"/"quad-rolls" loanwords). **drop(s)** stays the loanword. |
   | vault / inbox / custom | Cofre / Entrada / Personalizado | Gear-Analytics source labels unified to the Gear-Inspector source set (was "Vault"/"Inbox"; `gearInspectorSourceManual` "Manual"→"Personalizado" to match en "Custom"). |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Desativar / Proteger / Antecipar / Melhorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   pt-BR **intentional loanwords** (do NOT "correct" to Portuguese): set/Sets (alongside "conjunto"), SPD, Slot, stat/substat, Chaos Ore, Sellfile, Drops, Flex, RSL Helper. **"Gear" is translated** to "equipamento"; the *Gear Inspector* mode is "Inspetor de Equipamento". **"rolls" is translated** to "rolagem/rolagens" (unlike de-DE which keeps "Rolls"). pt-BR is a SEPARATE locale from pt-PT — keep them distinct.
 
@@ -153,6 +156,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Chaos Ore | Mena de Caos / Chaos | per `filterChaosOre`. |
   | sell file | Sellfile | one word, masculine ("el Sellfile"). |
   | rolls / drops | rolls / drops / tiradas | "tiradas" for the count; "rolls"/"drops" loanwords where idiomatic. |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Apagada / Proteger / Anticipar / Mejorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   es-ES **intentional loanwords:** set, metaset, stat, substat, SPD/CR%/CDMG%/ACC/RES (stat codes), rolls, drops, Sellfile, Normalized, Diff, KPI. **"gear" is translated** to "equipo"; **slot → "ranura"**. Disambiguation: the gear-set game concept = "set"; generic set/pool = "conjunto".
 
@@ -173,6 +177,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Chaos Ore | Chaos Ore | kept English; filter values translated (Tout / Non relancé / Relancé). |
   | sell file | Sellfile | one word. |
   | rolls / drops | rolls (jets / lancers) / drops | loanwords in prose; « jets »/« lancers » also native. |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Désactivé / Protéger / Prévoir / Améliorer (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   fr-FR **intentional loanwords:** Set, SPD, Rolls, Drops, Glyphed/Chaos'd (KPI badges), Vault, Inbox. **"Gear" is translated** to « équipement »; **slot → « emplacement »**.
 
@@ -195,6 +200,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Vault / Inbox | Cofre / Entrada | unified across analytics + inspector. |
   | sell file | Sellfile | one word. |
   | rolls / drops | rolagens / drops | "rolagens" translated (not loanword); "drops" kept. |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Desligar / Proteger / Antecipar / Melhorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   pt-PT **intentional loanwords:** Set, SPD (+stat tokens), Slot, Rank, drops, Flex, metaset, Sellfile, Chaos Ore (label), Normalized. **"gear" → "equipamento"**, **"rolls" → "rolagens"**, **"substat" kept as loanword**. **European Portuguese** spelling throughout (ficheiro, ecrã, predefinição, facção). pt-PT is a SEPARATE locale from pt-BR.
 
@@ -216,6 +222,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Chaos Ore | Chaos Ore | loanword; reroll → Переброшено (was Перековано). Chip values keep English originals. |
   | sell file | Sellfile | one word. |
   | rolls / drops | ролл / дропы | **rolls canonicalized to "ролл"** (eliminated "роль"-style forms and "прок"). |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Выкл. / Хранить / Упреждать / Улучшать (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   ru-RU **intentional loanwords:** сет, Sellfile, ролл, дроп, SPD/ATK/DEF/HP/ACC/RES/CR/CDMG, Flex. **"Gear" → снаряжение**, **"substat" → подстат** (translated, not loanwords).
 
@@ -238,6 +245,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Chaos Ore | Kaos Cevheri | translated `filterChaosOre*` + tooltip; reroll → "yeniden atma". (KPI "Chaos'd"/"Chaos Orb" kept.) |
   | sell file | Sellfile | one word. |
   | rolls / drops | rulo / düşüş | translated. |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Kapalı / Koru / Öngör / İyileştir (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   tr-TR **intentional loanwords:** SPD/ATK/DEF/HP/RES/ACC/CR/CDMG, Set, Flex, Sellfile, Glyph/glif, RSL Helper, Chaos'd/Chaos Orb. **"gear" → ekipman**, **slot → Yuva**, **recipe → Reçete**, **Vault → Kasa**, **faction → Fraksiyon**.
 
@@ -259,6 +267,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | Vault | Сховище | canonicalized (collapsed *Vault*/*У Vault*). |
   | sell file | Sellfile | one word. |
   | rolls / drops | роли / дропи | loanwords (collapsed *рулон* and *проки*). |
+  | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Вимкнути / Захистити / Передбачити / Покращення (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   uk-UA **intentional loanwords:** Sellfile, SPD/ATK/DEF/HP/CR/CDMG/ACC/RES, роли (rolls), дропи (drops), сет (gear set), Chaos Ore, Chaos'd, Glyphed, Flex. **"gear" → спорядження**, **"substat" → підстат** (translated). Catalog strings use DOUBLE quotes (U+2019 apostrophe trap).
 
@@ -454,6 +463,7 @@ http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
   - Tags live on Row 1, directly beside Export Mode, to emphasize that recipe overrides tags can override export mode when answers match.
   - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
   - The Tags button has a right-click context menu with a `Show Tags` toggle (persisted). When off, the inline tag chips next to the button stay hidden.
+  - Inline tag chips render via the shared `BuilderTagChipStrip` (`BuilderTagChips.tsx`), which is width-aware: it measures how many chips fit the remaining row width across at most `maxRows` chip rows (recipe builder 1, safeguard builder 2) and collapses the rest into a `+N` badge whose hover title lists the hidden tags. Chips are never clipped by the panel border; callers give the strip a bounded width (`flex: 1` + `minWidth: 0`).
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; SFC export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).
@@ -555,12 +565,13 @@ Safeguards are edited in a dedicated builder mode accessed via the builder-colum
 
 - Layout mirrors `RecipeBuilderPanel` — a 4-row CSS grid with identical column widths and control heights:
   - **Row 1**: Mode toggle (`KeepOverrideScopeChip` — per-slot / per-set / per-main-stat / total) + Required count spinner.
-  - **Row 2**: Rank / Rarity / Faction selects (nested 3-column sub-grid) + Ignore chips (`ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`).
+  - **Row 2**: Rank / Rarity / Faction selects (nested 3-column sub-grid) + the compact ignore-toggle group (`ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`): a small `Ignore:` caption (`safeguardsIgnoreGroupLabel`) above one row of three glyph-only chips (`»` / `♛` / `⌂` — the same glyphs the rule-chip mode badge uses); each chip's tooltip carries the full label + hint (shared renderer `renderIgnoreGlyphChip`).
   - **Row 3**: Main-stat toggle grid + per-main-stat chip | Substat toggle grid + match chips (`≥1`–`≥4` min-count / `Per Substat`) + sort weight controls (`GearInspectorSortWeightControls`).
   - **Row 4**: Slot icon grid + per-slot chip | Sets selector + per-set chip.
 - **Collapsible sections**: three sections are collapsible independently via `useBuilderSafeguardCollapsedPreference` (shared preference key, same sections as `RecipeBuilderPanel`).
 - **Undo / Redo**: full history with context menu, mirrors `RecipeBuilderPanel` via `useBuilderHistoryMenu`.
-- **Action buttons**: Insert, Apply, Reset — same layout as the recipe builder. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
+- **Action buttons**: Insert, Apply, rules chip, then Scaffold + Reset right-aligned — mirrors the recipe builder's row. Auto-apply and auto-reset preferences are shared with the recipe builder (mutually exclusive toggles).
+- **Rules chip** (`data-testid="safeguard-rule-count-chip"`): shows the emitted HSF rule count for the selected safeguard (keep rows + anticipate placeholders) or the multiselect total. The value is computed in `App.tsx` (`safeguardRuleCounts` from `mergedRules` rows with `__source === RULE_SOURCE_SAFEGUARDS`, grouped by `__safeguardRuleOrdinal`) and reflects the applied state — unsaved draft edits count only after Apply/Insert.
 - **Scaffold from recipe**: a popover lists existing recipes; selecting one pre-fills the safeguard combination from that recipe's slot/set/faction/mainstat selectors, giving a quick starting point.
 - **Metasets**: the Sets picker uses the same filtered set pool as `RecipeBuilderPanel` via `useKeepOverrideCombinationTools`; the Manage Metasets entry point is forwarded from `App.tsx`.
 - **Auto-enable**: the first inserted safeguard rule automatically enables the Safeguards feature.

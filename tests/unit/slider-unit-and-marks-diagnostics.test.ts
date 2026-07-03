@@ -102,7 +102,7 @@ test('an invalid activation= value is flagged instead of silently no-op', () => 
 
 test('a valid activation= value produces no diagnostics', () => {
   // Control: each accepted activation keyword parses cleanly.
-  for (const val of ['off', 'protect_existing', 'anticipate_gaps']) {
+  for (const val of ['off', 'protect_existing', 'anticipate_gaps', 'anticipate_improvements']) {
     const diags = diagsFor(sgOptionBlock(`rb "Y" "" id=a { @tagged { activation=${val} } }`))
     assert.equal(diags.length, 0, `activation=${val} should not be flagged`)
   }

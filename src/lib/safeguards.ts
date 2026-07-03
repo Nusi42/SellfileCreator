@@ -73,6 +73,7 @@ import type { WasmEvaluateAndCollectSnapshot, SafeguardWasmArtifactIn } from './
 export { ensureWasmRuleEngineReady } from './wasm/wasmRuleEngine'
 import {
   SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
+  SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
   SAFEGUARD_ACTIVATION_OFF,
   SAFEGUARD_ACTIVATION_PROTECT_EXISTING,
   SAFEGUARD_DEFAULT_COUNT_MODE_PER_FACTION,
@@ -250,6 +251,9 @@ export const SafeguardRuleActivation = {
   Off: SAFEGUARD_ACTIVATION_OFF,
   ProtectExisting: SAFEGUARD_ACTIVATION_PROTECT_EXISTING,
   AnticipateGaps: SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
+  // Improvement watch: like AnticipateGaps, but placeholders persist at zero deficit
+  // so fresh drops stay protected from autosell until the next sync re-ranks them.
+  AnticipateImprovements: SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
@@ -278,6 +282,33 @@ export type SafeguardSubstatMinCount = '1' | '2' | '3' | '4'
 // SAFEGUARD_SUBSTAT_MIN_COUNTS is the ordered list of valid numeric threshold tokens.
 export const SAFEGUARD_SUBSTAT_MIN_COUNTS: SafeguardSubstatMinCount[] = ['1', '2', '3', '4']
 
+// Maps activation → i18n label key. SSOT for the mode label shown by the builder
+// toggle/badge, the rule chips, and history descriptors (short = compact badge form,
+// long = full toggle/history label). Unknown values fall back to Protect like
+// normalizeSafeguardActivation does.
+export const safeguardActivationShortLabelKey = (
+  activation: SafeguardRuleActivation,
+) => {
+  if (activation === SafeguardRuleActivation.Off) return 'safeguardsRuleModeOffShort'
+  if (activation === SafeguardRuleActivation.AnticipateGaps) return 'safeguardsRuleModeAnticipateShort'
+  if (activation === SafeguardRuleActivation.AnticipateImprovements) {
+    return 'safeguardsRuleModeAnticipateImprovementsShort'
+  }
+  return 'safeguardsRuleModeProtectShort'
+}
+
+// Long-form counterpart of safeguardActivationShortLabelKey (same fallback rules).
+export const safeguardActivationLabelKey = (
+  activation: SafeguardRuleActivation,
+) => {
+  if (activation === SafeguardRuleActivation.Off) return 'safeguardsRuleModeOff'
+  if (activation === SafeguardRuleActivation.AnticipateGaps) return 'safeguardsRuleModeAnticipate'
+  if (activation === SafeguardRuleActivation.AnticipateImprovements) {
+    return 'safeguardsRuleModeAnticipateImprovements'
+  }
+  return 'safeguardsRuleModeProtect'
+}
+
 // normalizeSafeguardActivation keeps activation parsing consistent across keep-override rules.
 export const normalizeSafeguardActivation = (
   value: unknown,
@@ -288,6 +319,9 @@ export const normalizeSafeguardActivation = (
   }
   if (token === SafeguardRuleActivation.AnticipateGaps.toLowerCase()) {
     return SafeguardRuleActivation.AnticipateGaps
+  }
+  if (token === SafeguardRuleActivation.AnticipateImprovements.toLowerCase()) {
+    return SafeguardRuleActivation.AnticipateImprovements
   }
   if (token === SafeguardRuleActivation.ProtectExisting.toLowerCase()) {
     return SafeguardRuleActivation.ProtectExisting
@@ -671,12 +705,24 @@ export type SafeguardDetectionSnapshot = {
   entries: SafeguardDetectionEntry[]
 }
 
+// Generated wire shapes for the improvement-watch placeholder extensions. The mirror
+// below must stay key-set-identical to SafeguardWasmPlaceholderOut (bridgeMirrorShapes
+// in wireProjections.ts pins the key sets at compile time).
+import type { SafeguardWasmGroupSample } from './wasm/generated/rust-types/SafeguardWasmGroupSample'
+import type { SafeguardWatchCornerOut } from './wasm/generated/rust-types/SafeguardWatchCornerOut'
+
 export type SafeguardPlaceholderRequest = {
   combination: SafeguardCombination
   missing: number
   reason: 'global' | 'group'
   // Optional substat filter for per-substat gaps (keeps placeholder rules scoped).
   substatVariants?: StatVariant[]
+  // Concrete group dims on zero-missing improvement-watch placeholders (corner probing);
+  // absent on deficit placeholders and on snapshots persisted before the field existed.
+  sample?: SafeguardWasmGroupSample | null
+  // Improvement-watch corner frontier attached post-detection; merge-time emission pins
+  // one HSF keep rule per corner. Absent until the watch pass attaches (or removes) it.
+  watchCorners?: SafeguardWatchCornerOut[] | null
 }
 
 export type SafeguardCandidate = {

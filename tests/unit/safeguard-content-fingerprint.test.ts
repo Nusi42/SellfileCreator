@@ -58,6 +58,7 @@ test('output-affecting fields each flip the fingerprint', () => {
   const variants: SafeguardRule[] = [
     { ...a, requiredCount: a.requiredCount + 1 },
     { ...a, activation: SafeguardRuleActivation.AnticipateGaps },
+    { ...a, activation: SafeguardRuleActivation.AnticipateImprovements },
     { ...a, ignorePreviousSafeguards: !a.ignorePreviousSafeguards },
     { ...a, ignoreEquippedInCollection: !a.ignoreEquippedInCollection },
     { ...a, ignoreEquippedInVault: !a.ignoreEquippedInVault },

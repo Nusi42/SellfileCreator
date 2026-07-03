@@ -166,7 +166,8 @@
     "activation": {
       "off": "off",
       "protectExisting": "protectExisting",
-      "anticipateGaps": "anticipateGaps"
+      "anticipateGaps": "anticipateGaps",
+      "anticipateImprovements": "anticipateImprovements"
     },
     "substatMatch": {
       "any": "any",

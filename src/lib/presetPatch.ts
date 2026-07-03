@@ -75,7 +75,7 @@ export type PresetPatchSafeguardEdit = {
   target: PresetPatchTarget
   rename?: string
   disable?: boolean
-  activation?: 'off' | 'protectExisting' | 'anticipateGaps'
+  activation?: 'off' | 'protectExisting' | 'anticipateGaps' | 'anticipateImprovements'
   requiredCount?: number
 }
 

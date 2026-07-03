@@ -47,7 +47,8 @@ const UPGRADE_TARGET_LEVEL: i64 = 16;
 // Gear can never hold more than four substats simultaneously.
 const MAX_SUBSTAT_SLOTS: usize = 4;
 // Fixed upgrade event milestones; each triggers either a roll or an addition.
-const ROLL_MILESTONES: [i64; 4] = [4, 8, 12, 16];
+// pub(super) so improvement_watch derives per-level roll multipliers from the same table.
+pub(super) const ROLL_MILESTONES: [i64; 4] = [4, 8, 12, 16];
 // Per-rarity schedules; entries mark which milestones add a new substat.
 const ADDITION_MILESTONES_R1: &[i64] = &[4, 8, 12, 16];
 const ADDITION_MILESTONES_R2: &[i64] = &[8, 12, 16];
@@ -164,7 +165,8 @@ pub struct ImprovementChancePerfDiag {
 // ─── internal structs ────────────────────────────────────────────────────────
 
 // Prepared rule distilled from SafeguardWasmRuleIn; all parsing done once.
-struct PreparedUpgradeRule {
+// pub(super) because pub(super) prepare_upgrade_rules returns it (fields stay private).
+pub(super) struct PreparedUpgradeRule {
     rule_order: usize,
     combination: SafeguardWasmCombination,
     required_per_group: i64,
@@ -183,8 +185,10 @@ struct PreparedUpgradeRule {
 }
 
 // One ranking scenario expanded from a rule; perSubstat splits into N Any scenarios.
-struct UpgradeScenario {
-    rule_order: usize,
+// pub(super) (with rule_order readable) so improvement_watch can regroup scenarios by
+// owning rule and feed them into the shared chance recursion.
+pub(super) struct UpgradeScenario {
+    pub(super) rule_order: usize,
     // Full rule substat list preserved for debug/tie-break (perSubstat expansion splits this).
     rule_selected_substats: Vec<i64>,
     // Original match mode before per-substat expansion.
@@ -389,7 +393,8 @@ const ALL_SUBSTAT_VARIANTS: [i64; 11] = [
 
 // Look up per-star min/max roll range for a variant from the generated ranges table.
 // Returns (min, max) in raw stat units; falls back to legacy average if unavailable.
-fn resolve_roll_range(rank: i64, variant: i64) -> (f64, f64) {
+// pub(super) so improvement_watch derives corner probe value domains from the same ranges.
+pub(super) fn resolve_roll_range(rank: i64, variant: i64) -> (f64, f64) {
     let clamped = clamp_rank(rank);
     // SUBSTAT_ROLL_RANGES_BY_STAR entries are (variant, min, max) triples.
     if let Some(entry) = SUBSTAT_ROLL_RANGES_BY_STAR
@@ -554,8 +559,9 @@ fn compute_score_from_state(
 // State has at most MAX_SUBSTAT_SLOTS (4) entries; event_idx is bounded by milestone count (≤8).
 // Ord is derived so StateKey can be used as a BTreeMap key (avoids large contiguous
 // reallocs that the BTreeMap backing array requires on resize).
+// pub(super) so improvement_watch can own the same scratch-memo map type.
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
-struct StateKey {
+pub(super) struct StateKey {
     event_idx: u8,
     len: u8,
     // Sorted (variant, scaled_value) pairs; zero-filled past `len`.
@@ -1000,73 +1006,85 @@ fn compute_artifact_chance_percent(
     for &s in scenarios {
         scenarios_by_rule.entry(s.rule_order).or_default().push(s);
     }
-    let artifact_id = artifact.id.unwrap_or(0);
-    let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
-    let milestones = resolve_remaining_milestones(level);
-    // mut: compute_probability mutates state in-place (undo-redo) and restores it on return.
-    let mut initial_state = build_initial_scaled_state(artifact);
-    // Pre-build shared per-artifact context fields (independent of which rule we're evaluating).
-    let rarity = clamp_rarity(artifact.rarity);
-    let addition_milestones = resolve_remaining_addition_milestones(rarity, level);
-    let legal_addition_pool = build_legal_addition_pool(artifact);
-    let fallback_gain = build_fallback_gain(artifact.rank);
-    let expected_gain = build_existing_gain(artifact, &fallback_gain);
     // Run the recursion once PER (artifact, rule). The leaf predicate uses only this
     // rule's scenarios — so cross-rule scenarios cannot inflate this rule's probability.
     let mut max_chance: f64 = 0.0;
     for (rule_order, rule_scenarios) in &scenarios_by_rule {
         let rule_ordinal = *rule_order as i64 + 1;
-        let chance = if milestones.is_empty() {
-            // Artifact already at +16: check current state directly without recursion.
-            let ctx = RecursionContext {
-                artifact_id,
-                artifact_slot: artifact.slot,
-                artifact_set: artifact.set,
-                artifact_faction: artifact.faction,
-                artifact_main_stat: artifact.main_stat,
-                artifact_rank: artifact.rank,
-                scenarios: rule_scenarios.as_slice(),
-                milestones: vec![],
-                addition_milestones: HashSet::default(),
-                legal_addition_pool: vec![],
-                expected_gain: BTreeMap::default(),
-                fallback_gain: BTreeMap::default(),
-            };
-            if is_state_selected_by_any_scenario(&initial_state, &ctx) {
-                100.0
-            } else {
-                0.0
-            }
-        } else {
-            let ctx = RecursionContext {
-                artifact_id,
-                artifact_slot: artifact.slot,
-                artifact_set: artifact.set,
-                artifact_faction: artifact.faction,
-                artifact_main_stat: artifact.main_stat,
-                artifact_rank: artifact.rank,
-                scenarios: rule_scenarios.as_slice(),
-                milestones: milestones.clone(),
-                addition_milestones: addition_milestones.clone(),
-                legal_addition_pool: legal_addition_pool.clone(),
-                expected_gain: expected_gain.clone(),
-                fallback_gain: fallback_gain.clone(),
-            };
-            // Clear scratch memo between rules — the leaf predicate is rule-specific,
-            // so a state's cached result is not valid across rules.
-            memo.clear();
-            // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
-            // restored by the time compute_probability returns — callers see no net change.
-            let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
-            // One decimal place (e.g. 47.3) — round to nearest tenth.
-            (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
-        };
+        // Shared single-rule chance helper (also drives improvement-watch corner probes).
+        let chance = compute_artifact_chance_for_scenarios(artifact, rule_scenarios, memo);
         by_rule_ordinal.insert(rule_ordinal, chance);
         if chance > max_chance {
             max_chance = chance;
         }
     }
     (max_chance, by_rule_ordinal)
+}
+
+// Chance (0–100, one decimal) that `artifact` lands in the safeguard top-N at +16 under
+// the given scenario set (all scenarios must belong to ONE rule — the leaf predicate is a
+// within-rule union). Extracted from compute_artifact_chance_percent so improvement-watch
+// corner probing reuses the exact same recursion (ODR).
+// `memo` is caller-owned scratch reused for its allocation only: it is cleared here on
+// every call because cached nodes are valid solely for a fixed (scenarios, milestones,
+// expected-gain) tuple — and expected gains derive from the artifact's own substat values.
+pub(super) fn compute_artifact_chance_for_scenarios(
+    artifact: &SafeguardWasmArtifactIn,
+    scenarios: &[&UpgradeScenario],
+    memo: &mut BTreeMap<StateKey, f64>,
+) -> f64 {
+    let artifact_id = artifact.id.unwrap_or(0);
+    let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
+    let milestones = resolve_remaining_milestones(level);
+    // mut: compute_probability mutates state in-place (undo-redo) and restores it on return.
+    let mut initial_state = build_initial_scaled_state(artifact);
+    if milestones.is_empty() {
+        // Artifact already at +16: check current state directly without recursion.
+        let ctx = RecursionContext {
+            artifact_id,
+            artifact_slot: artifact.slot,
+            artifact_set: artifact.set,
+            artifact_faction: artifact.faction,
+            artifact_main_stat: artifact.main_stat,
+            artifact_rank: artifact.rank,
+            scenarios,
+            milestones: vec![],
+            addition_milestones: HashSet::default(),
+            legal_addition_pool: vec![],
+            expected_gain: BTreeMap::default(),
+            fallback_gain: BTreeMap::default(),
+        };
+        return if is_state_selected_by_any_scenario(&initial_state, &ctx) {
+            100.0
+        } else {
+            0.0
+        };
+    }
+    // Per-artifact context: milestone schedule, legal addition pool, and Q1/Q3 gains.
+    let rarity = clamp_rarity(artifact.rarity);
+    let fallback_gain = build_fallback_gain(artifact.rank);
+    let expected_gain = build_existing_gain(artifact, &fallback_gain);
+    let ctx = RecursionContext {
+        artifact_id,
+        artifact_slot: artifact.slot,
+        artifact_set: artifact.set,
+        artifact_faction: artifact.faction,
+        artifact_main_stat: artifact.main_stat,
+        artifact_rank: artifact.rank,
+        scenarios,
+        milestones,
+        addition_milestones: resolve_remaining_addition_milestones(rarity, level),
+        legal_addition_pool: build_legal_addition_pool(artifact),
+        expected_gain,
+        fallback_gain,
+    };
+    // Clear scratch memo — cached results are not valid across differing contexts.
+    memo.clear();
+    // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
+    // restored by the time compute_probability returns — callers see no net change.
+    let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
+    // One decimal place (e.g. 47.3) — round to nearest tenth.
+    (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
 }
 
 // ─── viability pruning ────────────────────────────────────────────────────────
@@ -1162,7 +1180,9 @@ fn normalize_selected_substats(substats: &[i64]) -> Vec<i64> {
     out
 }
 
-fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRule> {
+// pub(super) so improvement_watch prepares the FULL rule list (rule_order indices then
+// align with detection rule ordinals: ordinal = rule_order + 1).
+pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRule> {
     // Filter and pre-compute; mirrors prepareSubstatSafeguardRules.
     let mut prepared = Vec::<PreparedUpgradeRule>::new();
     for (rule_order, rule) in rules.iter().enumerate() {
@@ -1271,7 +1291,8 @@ fn expand_rule_scenarios(rule: &PreparedUpgradeRule) -> Vec<ScenarioDef> {
     }]
 }
 
-fn build_scenarios(
+// pub(super) so improvement_watch builds the identical challenger model for corner probes.
+pub(super) fn build_scenarios(
     rows: &[SafeguardCollectRowIn],
     rules: &[PreparedUpgradeRule],
 ) -> (Vec<UpgradeScenario>, BTreeMap<i64, Vec<usize>>) {

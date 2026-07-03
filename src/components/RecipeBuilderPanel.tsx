@@ -6234,12 +6234,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </Box>
             </Box>
             {/* Tags sit next to export mode to reinforce the enable/disable connection. */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 1 }}>
+            {/* flex + minWidth let the chip strip measure against real remaining width
+                instead of sizing to content and clipping at the paper border. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 1, flex: '1 1 auto', minWidth: 0 }}>
               <Box
                 component="span"
                 onContextMenu={handleTagsContextMenu}
                 {...tagsHint.triggerProps}
-                sx={{ display: 'inline-flex' }}
+                sx={{ display: 'inline-flex', flexShrink: 0 }}
               >
                 <EllipsisTooltip title={tagsButtonLabel} selector="[data-ellipsis-target]">
                   <Button
@@ -6270,10 +6272,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   onClick={clearTags}
                 />
               ) : null}
+              {/* Strip is its own width-aware flex container — overflow collapses into "+N". */}
               {showTagsChips ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                  <BuilderTagChipStrip tags={tagDisplay} mixedTagSet={mixedTagSet} mixedTagChipSx={mixedTagChipSx} multiEditActive={multiEditActive} />
-                </Box>
+                <BuilderTagChipStrip tags={tagDisplay} mixedTagSet={mixedTagSet} mixedTagChipSx={mixedTagChipSx} multiEditActive={multiEditActive} />
               ) : null}
               {/* Reuse the ContextMenuPaper style so the tags popup matches substat context menus. */}
               {/* Disable menu padding so the inner box owns spacing. */}

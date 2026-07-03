@@ -238,6 +238,17 @@ test('safeguards.edit can update requiredCount and explicit activation', () => {
   assert.equal(sg.activation, 'anticipateGaps')
 })
 
+test('safeguards.edit accepts the anticipateImprovements activation', () => {
+  const patch: PresetPatch = {
+    safeguards: {
+      edit: [{ target: 'Accessories', activation: 'anticipateImprovements' }],
+    },
+  }
+  const out = applyPresetPatch(baseSfc(), patch)
+  const sg = (out.Safeguards as Array<{ activation?: string }>)[0]!
+  assert.equal(sg.activation, 'anticipateImprovements')
+})
+
 test('safeguards.remove by index reaches unnamed entries', () => {
   // The 3rd safeguard is unnamed — only index targeting can address it.
   const patch: PresetPatch = { safeguards: { remove: [3] } }

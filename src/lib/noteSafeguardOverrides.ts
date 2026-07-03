@@ -77,7 +77,7 @@ export const NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD = 'safeguard-overrides'
 
 /** Valid `activation =` values in the DSL (lowercase surface form). */
 export const NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS = [
-  'off', 'protect_existing', 'anticipate_gaps',
+  'off', 'protect_existing', 'anticipate_gaps', 'anticipate_improvements',
 ] as const
 
 /** Valid `substatmatch =` values in the DSL. */
@@ -230,6 +230,9 @@ const ACTIVATION_KEYWORD_MAP: Record<string, SafeguardRuleActivation> = {
   protectexisting:   SafeguardRuleActivation.ProtectExisting,
   anticipate_gaps:   SafeguardRuleActivation.AnticipateGaps,
   anticipategaps:    SafeguardRuleActivation.AnticipateGaps,
+  anticipate_improvements: SafeguardRuleActivation.AnticipateImprovements,
+  // Lowercased enum value — accepted so serialized ops round-trip through the parser.
+  anticipateimprovements:  SafeguardRuleActivation.AnticipateImprovements,
 }
 
 /** Map from DSL surface keyword to SafeguardSubstatMatch enum value. */
@@ -394,7 +397,7 @@ const parseOperations = (
     const valueRaw = valuePrefix + valueToken.value
     const valueLc  = valueRaw.trim().toLowerCase()
 
-    // ── activation = off | protect_existing | anticipate_gaps ────────────────
+    // ── activation = off | protect_existing | anticipate_gaps | anticipate_improvements ──
     if (field === 'activation') {
       const act = ACTIVATION_KEYWORD_MAP[valueLc]
       // Unknown value (e.g. `activation=of`) would silently no-op; flag the typo.

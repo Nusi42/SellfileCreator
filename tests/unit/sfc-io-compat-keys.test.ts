@@ -156,6 +156,39 @@ test('SFC parser preserves safeguard substatWeights from legacy KeepUniques payl
   assert.equal(exportedWeights['ACC'], 0.9)
 })
 
+test('SFC round-trips every safeguard activation mode (incl. anticipateImprovements)', () => {
+  for (const activation of ['off', 'protectExisting', 'anticipateGaps', 'anticipateImprovements']) {
+    const parsed = parseSfcObject(
+      {
+        Version: 'activation-roundtrip',
+        Recipes: [buildRecipe('Activation Roundtrip')],
+        Safeguards: [{
+          id: `act-${activation}`,
+          requiredCount: 2,
+          activation,
+          tuple: { slots: ['Ring'], sets: [], metaSetIds: [], ranks: ['6★'], rarities: ['Legendary'], mainStats: [], factions: [] },
+        }],
+        SafeguardsEnabled: true,
+      },
+      { metasets: [], substatTargets: defaultSubstatTargets() },
+    )
+    const rule = parsed.safeguardRules![0]!
+    // The loader must keep the mode verbatim — an unknown-value fallback to
+    // protectExisting here would silently downgrade the rule.
+    assert.equal(rule.activation, activation, `parse should keep activation=${activation}`)
+    const payload = buildSfcPayload({
+      version: 'activation-roundtrip',
+      metasets: parsed.metasets,
+      substatTargets: parsed.substatTargets,
+      recipes: parsed.recipes,
+      safeguardRules: parsed.safeguardRules!,
+      safeguardsEnabled: parsed.safeguardsEnabled!,
+    }) as Record<string, unknown>
+    const exported = ((payload['Safeguards'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
+    assert.equal(exported?.['activation'], activation, `export should keep activation=${activation}`)
+  }
+})
+
 test('SFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
   const parsed = parseSfcObject(
     {

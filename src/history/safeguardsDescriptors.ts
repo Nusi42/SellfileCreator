@@ -7,7 +7,7 @@
 // safeguardsDescriptors keeps safeguard history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode, SafeguardImprovementChanceLevelThresholds } from '../lib/safeguards'
-import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS } from '../lib/safeguards'
+import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, safeguardActivationLabelKey } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -710,9 +710,7 @@ function makeMainStatsDiffLine(previous: number[], next: number[], t: TranslateF
 
 function formatRuleMode(mode: SafeguardRuleActivation, t: TranslateFn): string {
   // Reuse the Safeguards UI labels so history text stays familiar.
-  if (mode === 'off') return t('safeguardsRuleModeOff')
-  if (mode === 'anticipateGaps') return t('safeguardsRuleModeAnticipate')
-  return t('safeguardsRuleModeProtect')
+  return t(safeguardActivationLabelKey(mode))
 }
 
 function formatCountModeLabel(mode: SafeguardRuleCountMode, t: TranslateFn): string {

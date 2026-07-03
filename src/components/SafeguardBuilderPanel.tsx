@@ -54,6 +54,7 @@ import {
   sanitizeSafeguardCountMode,
   safeguardRedundantCountModeDimensions,
   safeguardEffectiveCountModeForDisplay,
+  safeguardActivationShortLabelKey,
   sortSafeguardCombination,
   sortSafeguardSubstats,
   createFactorySafeguardBuilderDefaults,
@@ -117,7 +118,7 @@ import { summaryParts } from './RecipeChip'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSlotMetrics } from '../hooks/useSlotMetrics'
 import { isAccessorySlot, slotSelectionAllowsAccessories, ACCESSORY_SLOT_IDS } from '../lib/gearInspectorDomain'
-import { useI18n } from '../lib/i18n'
+import { useI18n, formatRulesCount } from '../lib/i18n'
 import { GearFactionSelect, GearRankSelect, GearRaritySelect, GearSetsSelect } from './gear'
 import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -277,6 +278,11 @@ export type SafeguardBuilderPanelProps = {
   // Detection snapshot entry for the currently-editing rule (null when not yet run or rule not found).
   // Used to populate the candidate rank list in the weight popover.
   detectionEntry?: SafeguardDetectionEntry | null
+  // Emitted HSF rule count for the current selection (single rule, or the multiselect
+  // total) from the latest merged ruleset — drives the rules chip in the action row.
+  // Reflects the applied state: keep rows plus anticipate placeholders; unsaved draft
+  // edits count only after Apply/Insert. Null hides the chip.
+  safeguardRuleCount?: number | null
   // Preview rows keyed by safeguard item key — used for the hover card tooltip on candidate rows.
   previewRowByItemKey?: ReadonlyMap<number, GearInspectorPreviewRow> | null
   // Clicking a candidate row selects it in the Gear Inspector, scrolls to it, and switches tabs.
@@ -331,6 +337,7 @@ export default function SafeguardBuilderPanel({
   onRequestClearHistory,
   onManageMetasets,
   detectionEntry,
+  safeguardRuleCount,
   previewRowByItemKey,
   onSelectCandidate,
   multiEdit,
@@ -859,9 +866,7 @@ export default function SafeguardBuilderPanel({
 
   // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
   const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
-    if (a === SafeguardRuleActivation.Off) return t('safeguardsRuleModeOffShort')
-    if (a === SafeguardRuleActivation.ProtectExisting) return t('safeguardsRuleModeProtectShort')
-    return t('safeguardsRuleModeAnticipateShort')
+    return t(safeguardActivationShortLabelKey(a))
   }, [t])
 
   // Maps SafeguardSubstatMatch to a short label for override badge tooltips.
@@ -961,6 +966,53 @@ export default function SafeguardBuilderPanel({
       </MarkdownTooltip>
       {overrideBadge}
     </span>
+  )
+
+  // One glyph-only ignore toggle chip: the visible label is just the glyph (the same
+  // glyph the rule-chip mode badge shows), so the full label + hint live in the tooltip.
+  // Shared by all three ignore toggles — field-specific state/handlers come in as params.
+  const renderIgnoreGlyphChip = ({ glyph, label, hint, active, mixed, overrideActive, storedOn, effectiveOn, onToggle }: {
+    glyph: string
+    label: string
+    hint: string
+    active: boolean
+    mixed: boolean
+    overrideActive: boolean
+    storedOn: boolean
+    effectiveOn: boolean
+    onToggle: () => void
+  }) => (
+    <Box key={glyph} sx={{ position: 'relative' }}>
+      <MarkdownTooltip markdown={`**${label}**\n\n${hint}`}>
+        <Chip
+          size="small"
+          variant="filled"
+          label={glyph}
+          aria-label={label}
+          clickable
+          onClick={onToggle}
+          sx={{
+            // Green when enabled OR mixed — base matches recipe builder flex chip.
+            ...builderStatusChipSx(active || mixed, { dimDisabled: true }),
+            // Keep the lone glyph centred with a stable near-square footprint.
+            minWidth: 28,
+            '& .MuiChip-label': { px: 0.75 },
+            // Full mixed overlay: dashed border + hatched gradient + muted text,
+            // identical to the flex chip pattern in RecipeBuilderPanel.
+            ...(mixed ? {
+              borderStyle: 'dashed',
+              borderColor: mixedBorderColor,
+              color: mixedTextColor,
+              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+            } : {}),
+          }}
+        />
+      </MarkdownTooltip>
+      {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
+      {overrideActive && renderSafeguardOverrideBadge(
+        buildSafeguardOverrideBadgeTooltip(storedOn ? 'on' : 'off', effectiveOn ? 'on' : 'off'),
+      )}
+    </Box>
   )
 
   const setRuleCombination = (updater: (combination: SafeguardRule['combination']) => SafeguardRule['combination']) => {
@@ -1882,6 +1934,24 @@ export default function SafeguardBuilderPanel({
             >
               {t('safeguardsRuleModeAnticipateShort')}
             </ToggleButton>
+            <ToggleButton
+              value={SafeguardRuleActivation.AnticipateImprovements}
+              aria-label={t('safeguardsRuleModeAnticipateImprovements')}
+              sx={(muiTheme) => ({
+                flex: 1,
+                minWidth: 0,
+                px: 1.5,
+                // Info tone mirrors safeguardActivationColor: persistent watch, not a gap alarm.
+                '&.Mui-selected': {
+                  bgcolor: muiTheme.vars?.palette.info.main ?? muiTheme.palette.info.main,
+                  borderColor: muiTheme.vars?.palette.info.main ?? muiTheme.palette.info.main,
+                  color: muiTheme.vars?.palette.info.contrastText ?? muiTheme.palette.info.contrastText,
+                  '&:hover': { bgcolor: muiTheme.vars?.palette.info.dark ?? muiTheme.palette.info.dark },
+                },
+              })}
+            >
+              {t('safeguardsRuleModeAnticipateImprovementsShort')}
+            </ToggleButton>
           </ToggleButtonGroup>
           {/* Dashed-border gradient overlay when activation modes differ across selected rules. */}
           {activationMixed && (
@@ -1964,129 +2034,79 @@ export default function SafeguardBuilderPanel({
           />
         </Box>
 
-        {/* Ignore chips — right of required count, stacked in 2 rows */}
-        {/* position+zIndex raise this column above the header row's zIndex:1 stacking context.
+        {/* Ignore toggles — right of required count, compact two-line group: the
+            `Ignore:` caption sits above one row of glyph-only chips [»] [♛] [⌂]
+            (the same glyphs the rule-chip mode badge shows, so the pairing is already
+            familiar); the full label + hint moved into each chip's tooltip. */}
+        {/* position+zIndex raise this group above the header row's zIndex:1 stacking context.
             The content flex row bleeds 14px upward into the header (mt:-½·SMALL_BUTTON_HEIGHT_PX),
             so without elevation the header's z=1 intercepts clicks on the top strip of Row 1. */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '0 0 auto', position: 'relative', zIndex: 2, ...SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
-
-          {/* Row 1: ignore previous safeguards */}
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', position: 'relative', zIndex: 2, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+            {t('safeguardsIgnoreGroupLabel')}
+          </Typography>
           {/* Derived values (ignPrevMixed, ignPrevValue, …) are computed before the return statement. */}
-          {/* alignSelf:flex-start collapses this box to chip width so the badge's left:50%
-              centres on the chip, not on the full-width column stretch. */}
-          <Box sx={{ position: 'relative', alignSelf: 'flex-start' }}>
-            <MarkdownTooltip markdown={t('safeguardsIgnorePreviousSafeguardsHint')} ellipsisTitle={t('safeguardsIgnorePreviousSafeguards')} ellipsisSelector=".MuiChip-label">
-              <Chip
-                size="small"
-                variant="filled"
-                label={`${GLYPH_IGNORE_PREVIOUS}${NBSP}${t('safeguardsIgnorePreviousSafeguards')}`}
-                aria-label={t('safeguardsIgnorePreviousSafeguards')}
-                clickable
-                onClick={() => {
-                  if (multiEditActive && multiEdit) {
-                    multiEdit.updateField('ignorePreviousSafeguards', { value: !ignPrevValue, status: 'common' })
-                  } else {
-                    updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
-                  }
-                }}
-                sx={{
-                  // Green when enabled OR mixed — base matches recipe builder flex chip.
-                  ...builderStatusChipSx(ignPrevValue || ignPrevMixed, { dimDisabled: true }),
-                  // Full mixed overlay: dashed border + hatched gradient + muted text,
-                  // identical to the flex chip pattern in RecipeBuilderPanel.
-                  ...(ignPrevMixed ? {
-                    borderStyle: 'dashed',
-                    borderColor: mixedBorderColor,
-                    color: mixedTextColor,
-                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                  } : {}),
-                }}
-              />
-            </MarkdownTooltip>
-            {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
-            {ignPrevOverrideActive && renderSafeguardOverrideBadge(
-              buildSafeguardOverrideBadgeTooltip(
-                ignorePreviousSafeguards ? 'on' : 'off',
-                effectiveRule.ignorePreviousSafeguards !== false ? 'on' : 'off',
-              ),
-            )}
-          </Box>
-          {/* Row 2: ignore equipped in collection + vault */}
-          <Box sx={{ display: 'flex', gap: 0.75 }}>
-            <Box sx={{ position: 'relative' }}>
-              <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInCollectionHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInCollection')} ellipsisSelector=".MuiChip-label">
-                <Chip
-                  size="small"
-                  variant="filled"
-                  label={`${GLYPH_IGNORE_COLLECTION}${NBSP}${t('safeguardsIgnoreEquippedInCollection')}`}
-                  aria-label={t('safeguardsIgnoreEquippedInCollection')}
-                  clickable
-                  onClick={() => {
-                    if (multiEditActive && multiEdit) {
-                      multiEdit.updateField('ignoreEquippedInCollection', { value: !ignCollValue, status: 'common' })
-                    } else {
-                      updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
-                    }
-                  }}
-                  sx={{
-                    ...builderStatusChipSx(ignCollValue || ignCollMixed, { dimDisabled: true }),
-                    ...(ignCollMixed ? {
-                      borderStyle: 'dashed',
-                      borderColor: mixedBorderColor,
-                      color: mixedTextColor,
-                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                    } : {}),
-                  }}
-                />
-              </MarkdownTooltip>
-              {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
-              {ignCollOverrideActive && renderSafeguardOverrideBadge(
-                buildSafeguardOverrideBadgeTooltip(
-                  ignoreEquippedInCollection ? 'on' : 'off',
-                  effectiveRule.ignoreEquippedInCollection ? 'on' : 'off',
-                ),
-              )}
-            </Box>
-            <Box sx={{ position: 'relative' }}>
-              <MarkdownTooltip markdown={t('safeguardsIgnoreEquippedInVaultHint')} ellipsisTitle={t('safeguardsIgnoreEquippedInVault')} ellipsisSelector=".MuiChip-label">
-                <Chip
-                  size="small"
-                  variant="filled"
-                  label={`${GLYPH_IGNORE_VAULT}${NBSP}${t('safeguardsIgnoreEquippedInVault')}`}
-                  aria-label={t('safeguardsIgnoreEquippedInVault')}
-                  clickable
-                  onClick={() => {
-                    if (multiEditActive && multiEdit) {
-                      multiEdit.updateField('ignoreEquippedInVault', { value: !ignVaultValue, status: 'common' })
-                    } else {
-                      updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
-                    }
-                  }}
-                  sx={{
-                    ...builderStatusChipSx(ignVaultValue || ignVaultMixed, { dimDisabled: true }),
-                    ...(ignVaultMixed ? {
-                      borderStyle: 'dashed',
-                      borderColor: mixedBorderColor,
-                      color: mixedTextColor,
-                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                    } : {}),
-                  }}
-                />
-              </MarkdownTooltip>
-              {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
-              {ignVaultOverrideActive && renderSafeguardOverrideBadge(
-                buildSafeguardOverrideBadgeTooltip(
-                  ignoreEquippedInVault ? 'on' : 'off',
-                  effectiveRule.ignoreEquippedInVault ? 'on' : 'off',
-                ),
-              )}
-            </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {renderIgnoreGlyphChip({
+            glyph: GLYPH_IGNORE_PREVIOUS,
+            label: t('safeguardsIgnorePreviousSafeguards'),
+            hint: t('safeguardsIgnorePreviousSafeguardsHint'),
+            active: ignPrevValue,
+            mixed: ignPrevMixed,
+            overrideActive: ignPrevOverrideActive,
+            storedOn: ignorePreviousSafeguards,
+            effectiveOn: effectiveRule.ignorePreviousSafeguards !== false,
+            onToggle: () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('ignorePreviousSafeguards', { value: !ignPrevValue, status: 'common' })
+              } else {
+                updateRule((prev) => ({ ...prev, ignorePreviousSafeguards: !ignorePreviousSafeguards }))
+              }
+            },
+          })}
+          {renderIgnoreGlyphChip({
+            glyph: GLYPH_IGNORE_COLLECTION,
+            label: t('safeguardsIgnoreEquippedInCollection'),
+            hint: t('safeguardsIgnoreEquippedInCollectionHint'),
+            active: ignCollValue,
+            mixed: ignCollMixed,
+            overrideActive: ignCollOverrideActive,
+            storedOn: ignoreEquippedInCollection,
+            effectiveOn: effectiveRule.ignoreEquippedInCollection === true,
+            onToggle: () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('ignoreEquippedInCollection', { value: !ignCollValue, status: 'common' })
+              } else {
+                updateRule((prev) => ({ ...prev, ignoreEquippedInCollection: !ignoreEquippedInCollection }))
+              }
+            },
+          })}
+          {renderIgnoreGlyphChip({
+            glyph: GLYPH_IGNORE_VAULT,
+            label: t('safeguardsIgnoreEquippedInVault'),
+            hint: t('safeguardsIgnoreEquippedInVaultHint'),
+            active: ignVaultValue,
+            mixed: ignVaultMixed,
+            overrideActive: ignVaultOverrideActive,
+            storedOn: ignoreEquippedInVault,
+            effectiveOn: effectiveRule.ignoreEquippedInVault === true,
+            onToggle: () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('ignoreEquippedInVault', { value: !ignVaultValue, status: 'common' })
+              } else {
+                updateRule((prev) => ({ ...prev, ignoreEquippedInVault: !ignoreEquippedInVault }))
+              }
+            },
+          })}
           </Box>
         </Box>
-        {/* Tags group — right of the ignore flags chips in the same flex row.
-            Single row: [Tags button] [X clear] [inline chips…] */}
+        {/* Tags group — right of the ignore flags chips in the same flex row:
+            [Tags button] [X clear] [inline chips…]. flex + minWidth bound the chip
+            strip to the remaining row width (it collapses overflow into "+N" instead
+            of clipping at the paper border); bottom-aligned chips may spill onto a
+            second row upward, matching the two-row height of the ignore-flags column. */}
         <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, alignSelf: 'flex-end' }}
+          sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, flex: '1 1 auto', minWidth: 0, alignSelf: 'flex-end' }}
           onContextMenu={handleTagsContextMenu}
           {...tagsHintTriggerProps}
         >
@@ -2117,9 +2137,9 @@ export default function SafeguardBuilderPanel({
               onClick={clearTags}
             />
           ) : null}
-          {/* Inline tag chips to the right of the X — capped at 3 + "+N" badge. */}
+          {/* Inline tag chips to the right of the X — up to two rows, overflow as "+N". */}
           {showTagsChips ? (
-            <BuilderTagChipStrip tags={tagDisplay} mixedTagSet={mixedTagSet} mixedTagChipSx={mixedTagChipSx} multiEditActive={multiEditActive} />
+            <BuilderTagChipStrip tags={tagDisplay} mixedTagSet={mixedTagSet} mixedTagChipSx={mixedTagChipSx} multiEditActive={multiEditActive} maxRows={2} />
           ) : null}
           {/* Tags popover: removable chip list + draft TextField for adding new tags. */}
           <Menu
@@ -3182,7 +3202,7 @@ export default function SafeguardBuilderPanel({
       </Box>
       </Box>{/* end Row 4 flex wrapper */}
 
-      {/* ── Insert / Apply / Reset buttons + Scaffold (mirrors recipe builder) ── */}
+      {/* ── Insert / Apply / rules chip, then Scaffold / Reset right-aligned (mirrors recipe builder) ── */}
       <Box sx={{ gridColumn: '1 / -1' }}>
         <Divider sx={{ my: 1, opacity: 0.5 }} />
         {/* Unified action row — Insert/Scaffold/Reset hidden in multi-edit mode;
@@ -3230,6 +3250,20 @@ export default function SafeguardBuilderPanel({
             </Button>
           </Box>
 
+          {/* Rules chip — emitted keep rows + anticipate placeholders for the selection
+              (applied state), mirroring the recipe builder's chip position after Apply. */}
+          {safeguardRuleCount != null && (
+            <Chip
+              size="small"
+              data-testid="safeguard-rule-count-chip"
+              label={formatRulesCount(t, safeguardRuleCount)}
+              sx={{ ml: 0.5 }}
+            />
+          )}
+
+          {/* Spacer — pushes Scaffold + Reset to the right */}
+          <Box sx={{ flex: 1 }} />
+
           {/* Scaffold from Recipe — hidden in multi-edit mode */}
           {!multiEditActive && (
             <Button
@@ -3242,9 +3276,6 @@ export default function SafeguardBuilderPanel({
               {t('safeguardsScaffoldFromRecipe')}
             </Button>
           )}
-
-          {/* Spacer — pushes Reset to the right */}
-          <Box sx={{ flex: 1 }} />
 
           {/* Reset button — hidden in multi-edit mode */}
           {!multiEditActive && (

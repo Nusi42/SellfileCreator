@@ -65,17 +65,19 @@ const withNbsp = (value: string | undefined | null): string => {
  * Maps a SafeguardRule activation value to its MUI system color token.
  * SSOT for the activation badge color used in SafeguardChipsPanel and SafeguardBuilderPanel.
  */
-export function safeguardActivationColor(activation: SafeguardRule['activation']): 'success.main' | 'warning.main' | 'text.disabled' {
+export function safeguardActivationColor(activation: SafeguardRule['activation']): 'success.main' | 'warning.main' | 'info.main' | 'text.disabled' {
   if (activation === SafeguardRuleActivation.ProtectExisting) return 'success.main'
   if (activation === SafeguardRuleActivation.AnticipateGaps) return 'warning.main'
+  // Improvement watch gets the info tone: persistent anticipation, not a coverage gap.
+  if (activation === SafeguardRuleActivation.AnticipateImprovements) return 'info.main'
   return 'text.disabled'
 }
 
 /**
  * Contrast-adapted activation text color for a concrete rendered surface.
  *
- * Protect/Anticipate resolve the active scheme's success/warning hex and run it through the
- * WCAG adapter against `surface` so the "Protect ≥ N" / "Anticipate ≥ N" badge stays legible
+ * Protect/Anticipate/Improve resolve the active scheme's success/warning/info hex and run it
+ * through the WCAG adapter against `surface` so the "Protect ≥ N" / "Anticipate ≥ N" badge stays legible
  * on tinted (selected) chips in both schemes. "Off" keeps the muted disabled token unchanged —
  * its low contrast is intentional. SSOT for the adapted badge color in SafeguardChipsPanel and
  * the collapsed builder mode label in SafeguardBuilderPanel.
@@ -87,6 +89,8 @@ export function resolveSafeguardActivationTextColor(
 ): string {
   if (activation === SafeguardRuleActivation.ProtectExisting) return ensureContrastOnBg(schemePalette.success.main, surface)
   if (activation === SafeguardRuleActivation.AnticipateGaps) return ensureContrastOnBg(schemePalette.warning.main, surface)
+  // Improvement watch mirrors safeguardActivationColor's info tone, contrast-adapted.
+  if (activation === SafeguardRuleActivation.AnticipateImprovements) return ensureContrastOnBg(schemePalette.info.main, surface)
   return schemePalette.text.disabled
 }
 

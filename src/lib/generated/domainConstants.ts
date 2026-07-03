@@ -111,6 +111,7 @@ export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [0, 0, 1, 2, 3, 4, 0, 1, 2, 3
 export const SAFEGUARD_ACTIVATION_OFF = "off"
 export const SAFEGUARD_ACTIVATION_PROTECT_EXISTING = "protectExisting"
 export const SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS = "anticipateGaps"
+export const SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS = "anticipateImprovements"
 export const SAFEGUARD_SUBSTAT_ANY = "any"
 export const SAFEGUARD_SUBSTAT_ALL = "all"
 export const SAFEGUARD_SUBSTAT_PER_SUBSTAT = "perSubstat"

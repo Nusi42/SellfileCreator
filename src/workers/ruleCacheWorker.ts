@@ -774,7 +774,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const baselineToFinalIndexOffset = mergedRulesFinal.length - baselineRuleCount
 
     // The final ruleset differs from baseline ONLY by the injected safeguard keep-rules +
-    // anticipateGaps placeholders. An item's final gear-inspector verdict can therefore differ
+    // anticipate placeholders (gaps or improvement-watch — both are keep rules, so the
+    // candidate-subset argument below holds for either mode). An item's final gear-inspector
+    // verdict can therefore differ
     // from its baseline verdict ONLY when a safeguard keep-override can fire for it — i.e. when
     // the item is NOT already kept by a non-ignored recipe (`evaluate_item`'s allow_keep_override
     // gate, matcher_evaluator.rs). So the verdict can only change for the CANDIDATE set:

@@ -4241,6 +4241,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const totalLimitHit = recipeRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedRecipeIndices.length > 0
   const recipesExcludedByTotalLimit = useMemo(() => new Set<number>(recipeRulesState.excludedByTotalLimitIndices), [recipeRulesState.excludedByTotalLimitIndices])
+  // Emitted HSF rule counts per safeguard (0-based index): item keep rows + anticipate
+  // placeholders, derived from the latest merged ruleset. Mirrors recipeRuleCounts for
+  // the safeguard builder's rules chip; reflects the applied state (drafts count after Apply).
+  const safeguardRuleCounts = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const rule of mergedRules) {
+      if (rule.__source !== RULE_SOURCE_SAFEGUARDS) continue
+      const ordinal = rule.__safeguardRuleOrdinal
+      if (typeof ordinal !== 'number') continue
+      counts.set(ordinal - 1, (counts.get(ordinal - 1) ?? 0) + 1)
+    }
+    return counts
+  }, [mergedRules])
   const selectedIsDirty = useMemo(() => {
     if (selectedRecipeIdx === null) return false
     const target = customRecipes[selectedRecipeIdx]
@@ -5691,6 +5704,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const targetOrdinal = selectedSafeguardRuleIdx + 1
     return safeguardDetection.entries.find((e) => e.ruleOrdinal === targetOrdinal) ?? null
   }, [safeguardDetection, selectedSafeguardRuleIdx])
+  // Rules-chip value for the safeguard builder: the selected rule's emitted count, or
+  // the multiselect total (mirrors the recipe builder's multi-edit sum). A new unsaved
+  // draft (no selection) shows 0 — it contributes no rules until Insert/Apply.
+  const safeguardBuilderRuleCount = useMemo(() => {
+    if (safeguardMultiselectActive && selectedSafeguardRuleIndices.length >= 2) {
+      return selectedSafeguardRuleIndices.reduce((sum, idx) => sum + (safeguardRuleCounts.get(idx) ?? 0), 0)
+    }
+    return selectedSafeguardRuleIdx !== null ? (safeguardRuleCounts.get(selectedSafeguardRuleIdx) ?? 0) : 0
+  }, [safeguardRuleCounts, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
   // Maps between safeguard item-key space (used by the candidate list) and Gear Inspector artifact ids
   // (used by overlay chips + the improvement-chance map). Declared here so the focus-group and chance
   // memos below can consume them.
@@ -7121,6 +7143,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onRequestClearHistory={requestClearHistory}
       onManageMetasets={() => openMetasetsDialogRef.current()}
       detectionEntry={safeguardBuilderDetectionEntry}
+      safeguardRuleCount={safeguardBuilderRuleCount}
       previewRowByItemKey={safeguardPreviewRowByItemKey}
       onSelectCandidate={handleSafeguardCandidateSelect}
       scoreCandidates={scoreSafeguardCandidatesViaWorker}

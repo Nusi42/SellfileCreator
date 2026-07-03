@@ -42,9 +42,9 @@ import {
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
 import {
-  SafeguardRuleActivation,
   cloneSafeguardRule,
   normalizeSafeguardRule,
+  safeguardActivationShortLabelKey,
   type SafeguardRule,
 } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
@@ -209,11 +209,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   // Activation badge color and label text. Adapt Protect/Anticipate to the actual chip surface
   // (chipBg already composites the selection tint over paper) so it stays legible in both schemes.
   const actColor = resolveSafeguardActivationTextColor(rule.activation, schemePalette, chipBg)
-  const actText = rule.activation === SafeguardRuleActivation.ProtectExisting
-    ? t('safeguardsRuleModeProtectShort')
-    : rule.activation === SafeguardRuleActivation.AnticipateGaps
-      ? t('safeguardsRuleModeAnticipateShort')
-      : t('safeguardsRuleModeOffShort')
+  const actText = t(safeguardActivationShortLabelKey(rule.activation))
   // Ignore-flag glyphs shown after ≥ N in the mode badge.
   const flagParts: string[] = []
   if (rule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)

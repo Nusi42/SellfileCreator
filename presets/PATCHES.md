@@ -267,6 +267,10 @@ Index targeting is the only way to reach them:
 
 ### Tweak requiredCount and activation explicitly
 
+`activation` accepts `"off"`, `"protectExisting"`, `"anticipateGaps"`, or
+`"anticipateImprovements"` (keeps anticipate placeholders active even after
+the quota is met so fresh drops stay protected).
+
 ```json
 {
   "safeguards": {

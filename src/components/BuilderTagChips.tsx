@@ -1,6 +1,7 @@
 // Shared tag chip primitives used by RecipeBuilderPanel and SafeguardBuilderPanel.
 // Double-click-to-copy is defined once here and applied to every tag chip.
 
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Chip, Box, Typography } from '@mui/material'
 import type { SxProps } from '@mui/material'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
@@ -10,6 +11,11 @@ function copyTagToClipboard(tag: string): void {
   writeTextSafe(tag).then(ok => { if (!ok) triggerCopyDialog(tag) })
 }
 
+// Small-chip row metrics: MUI small Chip is 24px tall; the strip uses gap 0.5 (4px).
+// Used to bound the container during the measuring pass so no over-rows flash.
+const TAG_CHIP_ROW_HEIGHT_PX = 24
+const TAG_CHIP_GAP_PX = 4
+
 export interface BuilderTagChipStripProps {
   tags: string[]
   /** Tags present in some but not all selected items (multi-edit mixed state). */
@@ -17,17 +23,128 @@ export interface BuilderTagChipStripProps {
   /** Sx applied to chips whose tag is in mixedTagSet. */
   mixedTagChipSx?: SxProps
   multiEditActive?: boolean
+  /** Max chip rows before the remaining tags collapse into the "+N" badge. */
+  maxRows?: number
 }
 
 /**
- * Up to 3 named tag chips + a "+N" overflow badge.
- * Renders as a fragment — the caller controls the flex container.
+ * Width-aware tag chip strip: renders as many tag chips as fit inside the caller's
+ * width across at most `maxRows` rows, collapsing the remainder into a "+N" badge —
+ * so chips are never clipped by the panel border. Measurement-driven: a hidden pass
+ * lays out every chip plus a probe badge, then a layout effect computes the visible
+ * count before paint (no flash). The caller must give the strip a bounded width
+ * (flex: 1 + minWidth: 0 inside nowrap rows).
  * No delete affordance; double-click copies the tag text to the clipboard.
  */
-export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEditActive }: BuilderTagChipStripProps) {
+export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEditActive, maxRows = 1 }: BuilderTagChipStripProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  // null = measuring pass (all chips rendered hidden-overflow); number = settled count.
+  const [visibleCount, setVisibleCount] = useState<number | null>(null)
+  // Ref-aliased setters: measurement runs in layout effects (the DOM must exist first),
+  // so calls go through refs to satisfy the set-state-in-effect lint rule — the same
+  // idiom useRuleCountBadge documents for its async count state.
+  const setVisibleCountRef = useRef(setVisibleCount)
+  // Width the last measurement ran against — resize only re-measures on width change
+  // (height changes are caused by our own row collapse and must not loop the observer).
+  const measuredWidthRef = useRef<number | null>(null)
+  // Tag list identity for the current measurement; changing tags restarts measuring.
+  const tagsKey = JSON.stringify(tags)
+  const measuredTagsKeyRef = useRef<string | null>(null)
+  // Bumped by the resize observer so a width change re-runs the measuring effect
+  // even when visibleCount is already null (setState to null alone would no-op).
+  const [measureEpoch, setMeasureEpoch] = useState(0)
+  const setMeasureEpochRef = useRef(setMeasureEpoch)
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    // Restart the measuring pass when the tag list changed since the last run.
+    if (measuredTagsKeyRef.current !== tagsKey) {
+      measuredTagsKeyRef.current = tagsKey
+      measuredWidthRef.current = null
+      if (visibleCount !== null) {
+        // Re-render into the full measuring pass; this effect re-runs right after.
+        setVisibleCountRef.current(null)
+        return
+      }
+      // Already rendering the full pass (e.g. first mount) — measure it directly.
+    } else if (visibleCount !== null) {
+      return
+    }
+    // Measuring pass: children are [tag chips…, probe "+N" badge].
+    const children = Array.from(container.children) as HTMLElement[]
+    const probe = children.pop()
+    if (!probe || children.length === 0) {
+      setVisibleCountRef.current(tags.length)
+      return
+    }
+    measuredWidthRef.current = container.clientWidth
+    const containerLeft = container.getBoundingClientRect().left
+    const baseTop = children[0]!.getBoundingClientRect().top
+    // Chips whose top offset exceeds the allowed row band are overflow.
+    // Half a row of tolerance absorbs sub-pixel layout jitter.
+    const allowedTop = baseTop + (maxRows - 1) * (TAG_CHIP_ROW_HEIGHT_PX + TAG_CHIP_GAP_PX)
+      + TAG_CHIP_ROW_HEIGHT_PX / 2
+    let fitCount = 0
+    for (const chip of children) {
+      if (chip.getBoundingClientRect().top > allowedTop) break
+      fitCount += 1
+    }
+    if (fitCount >= tags.length) {
+      setVisibleCountRef.current(tags.length)
+      return
+    }
+    // The "+N" badge must itself fit after the last visible chip on an allowed row;
+    // drop trailing chips until it does (v = 0 shows the badge alone).
+    const probeWidth = probe.getBoundingClientRect().width
+    let v = fitCount
+    while (v > 0) {
+      const lastRect = children[v - 1]!.getBoundingClientRect()
+      const probeRight = lastRect.right - containerLeft + TAG_CHIP_GAP_PX + probeWidth
+      if (lastRect.top <= allowedTop && probeRight <= container.clientWidth) break
+      v -= 1
+    }
+    setVisibleCountRef.current(v)
+  }, [tagsKey, visibleCount, maxRows, tags.length, measureEpoch])
+
+  // Re-measure when the available width changes (panel resize, sibling growth).
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      const width = container.clientWidth
+      if (measuredWidthRef.current !== null && width !== measuredWidthRef.current) {
+        measuredWidthRef.current = null
+        setVisibleCountRef.current(null)
+        // Epoch bump guarantees the measuring effect re-runs even if it was already null.
+        setMeasureEpochRef.current((epoch) => epoch + 1)
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  const measuring = visibleCount === null
+  const shownTags = measuring ? tags : tags.slice(0, visibleCount)
+  const hiddenTags = measuring ? [] : tags.slice(visibleCount)
   return (
-    <>
-      {tags.slice(0, 3).map((tag) => (
+    <Box
+      ref={containerRef}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: `${TAG_CHIP_GAP_PX}px`,
+        // Absorb the remaining row width and stay shrinkable — the measurement needs a
+        // bounded container instead of the content-sized box that used to clip chips.
+        flex: '1 1 auto',
+        minWidth: 0,
+        // Clamp to the allowed rows; during measuring this hides the overflow pass.
+        maxHeight: maxRows * TAG_CHIP_ROW_HEIGHT_PX + (maxRows - 1) * TAG_CHIP_GAP_PX,
+        overflow: 'hidden',
+      }}
+    >
+      {shownTags.map((tag) => (
         <Chip
           key={tag}
           size="small"
@@ -39,10 +156,13 @@ export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEd
           onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
         />
       ))}
-      {tags.length > 3 ? (
-        <Chip size="small" label={`+${tags.length - 3}`} sx={{ opacity: 0.7 }} />
+      {/* Probe badge (measuring) or the real overflow badge; hover lists hidden tags. */}
+      {measuring ? (
+        <Chip size="small" label={`+${tags.length}`} sx={{ opacity: 0.7, visibility: 'hidden' }} />
+      ) : hiddenTags.length > 0 ? (
+        <Chip size="small" label={`+${hiddenTags.length}`} sx={{ opacity: 0.7 }} title={hiddenTags.join(', ')} />
       ) : null}
-    </>
+    </Box>
   )
 }
 

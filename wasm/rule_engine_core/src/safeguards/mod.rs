@@ -14,6 +14,9 @@ pub mod fast_path_types;
 // Improvement-chance probabilistic computation lives in its own submodule so the
 // recursion and scenario-building logic stay separated from snapshot evaluation.
 pub mod improvement_chance;
+// Improvement-watch corner synthesis: post-detection pass that turns zero-missing
+// "watch" placeholders into minimal-substat-value corner frontiers (or removes them).
+mod improvement_watch;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -227,6 +230,18 @@ pub enum ImprovementChanceThresholdIn {
         #[serde(rename = "atLevel12", default)]
         at_level_12: Option<f64>,
     },
+}
+
+// Map an artifact level onto its improvement-chance threshold slot: bands [0..3] → 0,
+// [4..7] → 1, [8..11] → 2, and 12+ (including maxed +16 pieces) → 3 (the level-12 value).
+// SSOT for detection's threshold expansion and improvement-watch corner probing.
+pub(super) fn safeguard_threshold_slot_for_level(level: i64) -> usize {
+    match level {
+        0..=3 => 0usize,
+        4..=7 => 1,
+        8..=11 => 2,
+        _ => 3,
+    }
 }
 
 impl ImprovementChanceThresholdIn {
@@ -513,6 +528,30 @@ pub struct SafeguardWasmCandidateOut {
     pub is_within_quota: bool,
 }
 
+// ts-rs export: one substat threshold of an improvement-watch corner rule.
+// min_value is an absolute raw stat value compared with `>=` semantics at merge time.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWatchCornerSubstatOut {
+    pub variant: i64,
+    pub min_value: f64,
+}
+
+// ts-rs export: one minimal-viable "corner" on the improvement-watch frontier.
+// Each corner pins one exact (rank, rarity, level) cell plus per-substat value floors;
+// merge-time emission turns every corner into one combination-pinned HSF keep rule so
+// only drops whose improvement chance clears the rule threshold stay protected.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWatchCornerOut {
+    pub rank: i64,
+    pub rarity: i64,
+    pub level: i64,
+    pub substats: Vec<SafeguardWatchCornerSubstatOut>,
+}
+
 // ts-rs export: nested by name from SafeguardWasmEntryOut.placeholders.
 // Now `pub` (required by ts-rs `export`).
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
@@ -524,6 +563,15 @@ pub struct SafeguardWasmPlaceholderOut {
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub substat_variants: Option<Vec<i64>>,
+    // Concrete group dimensions observed for satisfied (missing = 0) improvement-watch
+    // groups; corner synthesis probes chances against these dims. None on deficit
+    // placeholders and on snapshots persisted before this field existed (serde default).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sample: Option<SafeguardWasmGroupSample>,
+    // Improvement-watch corner frontier attached post-detection (improvement_watch.rs).
+    // None until attached; zero-missing placeholders without corners are removed there.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub watch_corners: Option<Vec<SafeguardWatchCornerOut>>,
 }
 
 // ts-rs export: composite output entry referenced by SafeguardWasmSnapshotOut.entries.
@@ -633,12 +681,16 @@ struct SafeguardWasmScoredCandidate {
     score: f64,
 }
 
-#[derive(Debug, Clone)]
-struct SafeguardWasmGroupSample {
-    slot: i64,
-    set: i64,
-    faction: i64,
-    main_stat: i64,
+// ts-rs export: concrete count-group dimensions (nested by SafeguardWasmPlaceholderOut.sample).
+// Promoted from a private helper struct so watch placeholders can carry it across the wire.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmGroupSample {
+    pub slot: i64,
+    pub set: i64,
+    pub faction: i64,
+    pub main_stat: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -1633,6 +1685,39 @@ fn safeguard_build_substats_for_artifact(substats: &[SafeguardWasmSubstatOut]) -
     cloned
 }
 
+// Encode improvement-watch corner substat floors with the same `>=` absolute-value
+// semantics as safeguard_build_substats_for_artifact (id + flat bit from the variant,
+// non-finite/negative values clamped to zero, unknown variants skipped).
+fn safeguard_build_watch_corner_substats(
+    substats: &[&SafeguardWatchCornerSubstatOut],
+) -> Vec<RuleSubRaw> {
+    // Start from the Any-padded template so unused slots stay non-constraints.
+    let mut cloned = safeguard_clone_any_substats();
+    let mut idx = 0usize;
+    for sub in substats {
+        // HSF rules carry at most four substat slots; extra corner entries cannot fit.
+        if idx >= HSF_SUBSTAT_SLOT_COUNT {
+            break;
+        }
+        let (id, is_flat) = safeguard_variant_to_sub(sub.variant);
+        // Wildcard/unknown variants encode as non-constraints — skip them entirely.
+        if sub.variant == STAT_VARIANT_ANY || id == STAT_ID_ANY {
+            continue;
+        }
+        // Clamp the floor to a finite non-negative raw value, mirroring artifact encoding.
+        let value = if sub.min_value.is_finite() { sub.min_value.max(0.0) } else { 0.0 };
+        cloned[idx] = RuleSubRaw {
+            ID: Some(id),
+            Value: Some(value),
+            IsFlat: Some(is_flat),
+            NotAvailable: Some(false),
+            Condition: Some(Arc::from(">=")),
+        };
+        idx += 1;
+    }
+    cloned
+}
+
 fn safeguard_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
     let mut cloned = safeguard_clone_any_substats();
     if variant == STAT_VARIANT_ANY {
@@ -1652,9 +1737,35 @@ fn safeguard_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
     cloned
 }
 
+// Slot-scoped allowed-substat table row, applied to single-slot rules only — multi-slot
+// rules skip the filter so a substat legal on SOME slots stays required where it is legal.
+// pub(super) so improvement_watch mirrors the same possibility rule when probing corners.
+pub(super) fn safeguard_slot_substat_filter(effective_slots: &[i64]) -> Option<&'static [i64]> {
+    if effective_slots.len() != 1 {
+        return None;
+    }
+    ALLOWED_SUBS_BY_SLOT
+        .iter()
+        .find(|&&(slot, _)| slot == effective_slots[0])
+        .map(|(_, subs)| *subs)
+}
+
+// Shared possibility predicate for placeholder/corner substats: a substat equal to the
+// concrete mainstat can never appear on the piece, and single-slot rules additionally
+// restrict to the slot's legal substat pool. pub(super) for improvement_watch reuse.
+pub(super) fn safeguard_placeholder_substat_possible(
+    variant: i64,
+    main_variant: i64,
+    slot_filter: Option<&[i64]>,
+) -> bool {
+    (main_variant == SAFEGUARD_MAIN_ANY || variant != main_variant)
+        && slot_filter.map_or(true, |allowed| allowed.contains(&variant))
+}
+
 // Enumerate all combinations of `k` elements from `pool` (order-independent).
 // Used to generate permutation rules for min-count substat anticipation.
-fn safeguard_combinations(pool: &[i64], k: usize) -> Vec<Vec<i64>> {
+// pub(super) so improvement_watch enumerates corner substat subsets with the same helper.
+pub(super) fn safeguard_combinations(pool: &[i64], k: usize) -> Vec<Vec<i64>> {
     if k == 0 { return vec![vec![]]; }
     if k > pool.len() { return Vec::new(); }
     if k == pool.len() { return vec![pool.to_vec()]; }
@@ -2041,13 +2152,71 @@ fn safeguard_build_placeholder_rules(
     let normalized_rule_id = rule.id.as_deref().unwrap_or("");
     let mut rules = Vec::<RuleRaw>::new();
     for placeholder in placeholders {
-        if placeholder.missing <= 0 {
-            continue;
-        }
         let combination = placeholder
             .combination
             .clone();
         let hash = safeguard_hash_combination(&combination);
+        if placeholder.missing <= 0 {
+            // Satisfied groups emit ONLY improvement-watch corner rules. A zero-missing
+            // placeholder without corners means nothing viable can clear the chance bar
+            // (or the rule is not in watch mode) — no rule, fresh drops sell normally.
+            let Some(corners) = placeholder
+                .watch_corners
+                .as_ref()
+                .filter(|corners| !corners.is_empty())
+            else {
+                continue;
+            };
+            // Corners apply to every combination-pinned base variant the placeholder spans.
+            let base_rules = safeguard_build_placeholder_base_rules(
+                &combination,
+                recipe_id,
+                normalized_name.as_deref(),
+            );
+            for (base_rule, main_variant, effective_slots) in &base_rules {
+                // Same possibility filter as the deficit path below (SSOT helpers).
+                let slot_filter = safeguard_slot_substat_filter(effective_slots);
+                for corner in corners.iter() {
+                    // Drop corner substats impossible for this base variant's mainstat/slot.
+                    let possible: Vec<&SafeguardWatchCornerSubstatOut> = corner
+                        .substats
+                        .iter()
+                        .filter(|sub| {
+                            safeguard_placeholder_substat_possible(
+                                sub.variant,
+                                *main_variant,
+                                slot_filter,
+                            )
+                        })
+                        .collect();
+                    // Every probed substat conflicting with this variant means the corner
+                    // cannot describe a real piece here — skip instead of over-keeping.
+                    if possible.is_empty() && !corner.substats.is_empty() {
+                        continue;
+                    }
+                    // One HSF keep rule per corner: exact rank/rarity/level pins plus the
+                    // `>=` substat floors that make the drop's improvement chance viable.
+                    let mut corner_rule = base_rule.clone();
+                    corner_rule.Rank = Some(safeguard_clamp_rank_or_rarity_value(corner.rank));
+                    corner_rule.Rarity = Some(safeguard_rarity_value_to_code(corner.rarity));
+                    corner_rule.LVLForCheck = Some(corner.level);
+                    corner_rule.Substats = Some(safeguard_build_watch_corner_substats(&possible));
+                    safeguard_apply_rule_meta(
+                        &mut corner_rule,
+                        normalized_rule_id,
+                        safeguard_rule_ordinal,
+                        &hash,
+                        entry,
+                        scanned_at,
+                    );
+                    // Keep the placeholder metadata so exports stay attributable in diffs.
+                    corner_rule.safeguard_placeholder = Some(true);
+                    corner_rule.safeguard_placeholder_missing = Some(0);
+                    rules.push(corner_rule);
+                }
+            }
+            continue;
+        }
         let base_rules = safeguard_build_placeholder_base_rules(
             &combination,
             recipe_id,
@@ -2067,24 +2236,15 @@ fn safeguard_build_placeholder_rules(
         let has_placeholder_substat_filter = !placeholder_substats.is_empty();
         for (base_rule, main_variant, effective_slots) in &base_rules {
             if has_placeholder_substat_filter {
-                // Exclude substats that are impossible for this placeholder's mainstat.
-                // A substat that equals the mainstat can never appear on that piece.
-                // Also exclude substats not in ALLOWED_SUBS_BY_SLOT for single-slot rules —
-                // only applied when there is exactly one effective slot to avoid over-filtering
-                // multi-slot rules (where a substat valid on some slots but not others should
-                // still be required on the slots where it is legal).
-                let slot_sub_filter: Option<&[i64]> = if effective_slots.len() == 1 {
-                    ALLOWED_SUBS_BY_SLOT.iter()
-                        .find(|&&(s, _)| s == effective_slots[0])
-                        .map(|(_, subs)| *subs)
-                } else {
-                    None
-                };
+                // Exclude substats impossible for this placeholder's mainstat/slot via the
+                // shared possibility helpers (SSOT with the corner-emission path above).
+                let slot_sub_filter = safeguard_slot_substat_filter(effective_slots);
                 let possible_substats: Vec<i64> = placeholder_substats
                     .iter()
                     .copied()
-                    .filter(|&v| *main_variant == SAFEGUARD_MAIN_ANY || v != *main_variant)
-                    .filter(|v| slot_sub_filter.map_or(true, |allowed| allowed.contains(v)))
+                    .filter(|&v| {
+                        safeguard_placeholder_substat_possible(v, *main_variant, slot_sub_filter)
+                    })
                     .collect();
                 // No possible substats means every selected substat conflicts with this
                 // mainstat — no valid placeholder rule can be emitted for this combination.
@@ -2199,9 +2359,20 @@ pub(super) fn safeguard_is_activation_off(raw: &str) -> bool {
     trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_OFF)
 }
 
+// True for BOTH anticipate variants — any mode that emits placeholder keep rules.
 fn safeguard_is_activation_anticipate(raw: &str) -> bool {
     let trimmed = raw.trim();
     trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS)
+        || safeguard_is_activation_anticipate_improvements(raw)
+}
+
+// `anticipateImprovements` keeps placeholders alive at zero deficit ("improvement watch")
+// when an improvement-chance threshold is configured: qualifying fresh drops stay protected
+// until the next inventory sync re-ranks them. Without a threshold it behaves like
+// `anticipateGaps`. pub(super) so improvement_watch reuses the same token predicate.
+pub(super) fn safeguard_is_activation_anticipate_improvements(raw: &str) -> bool {
+    let trimmed = raw.trim();
+    trimmed.eq_ignore_ascii_case(SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS)
 }
 
 pub fn build_safeguard_rules_core(
@@ -2370,7 +2541,9 @@ fn safeguard_group_sample_from_artifact(artifact: &SafeguardWasmArtifactIn) -> S
     }
 }
 
-fn safeguard_default_group_sample(combination: &SafeguardWasmCombination) -> SafeguardWasmGroupSample {
+// pub(super) so improvement_watch can fall back to the same deterministic sample
+// when a legacy zero-missing placeholder arrives without a detection-attached sample.
+pub(super) fn safeguard_default_group_sample(combination: &SafeguardWasmCombination) -> SafeguardWasmGroupSample {
     // Fallback sample uses first selected slot when present.
     // Otherwise use weapon slot so placeholders stay deterministic.
     SafeguardWasmGroupSample {
@@ -2458,6 +2631,9 @@ fn safeguard_build_placeholder(
     missing: i64,
     reason: &str,
     substat_variants: Option<Vec<i64>>,
+    // Group sample carried only by zero-missing improvement-watch placeholders;
+    // deficit placeholders always pass None (corner synthesis never probes them).
+    sample: Option<SafeguardWasmGroupSample>,
 ) -> SafeguardWasmPlaceholderOut {
     // Keep placeholder payload construction centralized for consistency.
     SafeguardWasmPlaceholderOut {
@@ -2465,6 +2641,9 @@ fn safeguard_build_placeholder(
         missing,
         reason: reason.to_string(),
         substat_variants,
+        sample,
+        // Corners are attached post-detection by improvement_watch::attach_watch_corners.
+        watch_corners: None,
     }
 }
 
@@ -3002,6 +3181,13 @@ fn safeguard_build_entry_for_substats(
     let use_ranking = has_substat_filter;
     // Required count is always at least 1, mirroring TS coercion.
     let required_per_group = prepared_rule.required_per_group.max(1);
+    // Improvement-watch mode (anticipateImprovements WITH a chance threshold) keeps
+    // zero-missing placeholders alive so fresh drops that clear the improvement-chance
+    // bar stay protected until the next sync re-ranks them. Without a threshold the
+    // mode intentionally degrades to anticipateGaps semantics (deficit placeholders only).
+    let improvement_watch =
+        safeguard_is_activation_anticipate_improvements(&prepared_rule.activation)
+            && prepared_rule.improvement_chance_threshold.is_some();
     // Resolve expected-group payload into internal sample struct once.
     let expected_groups = prepared_rule
         .expected_groups
@@ -3156,6 +3342,7 @@ fn safeguard_build_entry_for_substats(
                     deficit_group,
                     SAFEGUARD_REASON_GROUP,
                     placeholder_substats.clone(),
+                    None,
                 ));
                 deficit += deficit_group;
                 continue;
@@ -3192,16 +3379,10 @@ fn safeguard_build_entry_for_substats(
                             continue; // already in top-N
                         }
                         let art_id = candidates[e.candidate_idx].artifact.id.unwrap_or(-1);
-                        // Select the threshold slot for this artifact's current upgrade stage.
-                        // Slots: [0..3, 4..7, 8..11, 12..15]; level ≥16 is never expanded.
+                        // Select the threshold slot for this artifact's current upgrade stage
+                        // via the shared band mapping (SSOT with improvement-watch probing).
                         let art_level = candidates[e.candidate_idx].artifact.level;
-                        let slot = match art_level {
-                            0..=3 => 0usize,
-                            4..=7 => 1,
-                            8..=11 => 2,
-                            _ => 3,
-                        };
-                        let threshold = thresholds[slot];
+                        let threshold = thresholds[safeguard_threshold_slot_for_level(art_level)];
                         // Look up the per-rule chance for this specific (artifact, rule_ordinal)
                         // pair. The chance is "probability this artifact lands in THIS rule's top-N"
                         // — so raising another rule's required_count cannot inflate this rule's
@@ -3253,7 +3434,11 @@ fn safeguard_build_entry_for_substats(
             sold_count += group_sold;
             // Deficit uses bucket size (before tie extension) like TS semantics.
             let deficit_group = (required_per_group - bucket.len() as i64).max(0);
-            if deficit_group > 0 {
+            // Improvement-watch emits a zero-missing placeholder even when the quota is met.
+            if deficit_group > 0 || improvement_watch {
+                // Zero-missing watch placeholders carry the group sample so corner
+                // synthesis can probe the concrete slot/set/faction/main dimensions.
+                let watch_sample = (deficit_group == 0).then(|| expected.sample.clone());
                 placeholders.push(safeguard_build_placeholder(
                     safeguard_build_placeholder_combination(
                         &prepared_rule.combination,
@@ -3263,6 +3448,7 @@ fn safeguard_build_entry_for_substats(
                     deficit_group,
                     SAFEGUARD_REASON_GROUP,
                     placeholder_substats.clone(),
+                    watch_sample,
                 ));
             }
             deficit += deficit_group;
@@ -3275,6 +3461,7 @@ fn safeguard_build_entry_for_substats(
                 required_per_group,
                 SAFEGUARD_REASON_GLOBAL,
                 placeholder_substats.clone(),
+                None,
             ));
             deficit = required_per_group;
         }
@@ -3357,13 +3544,18 @@ fn safeguard_build_entry_for_substats(
             };
         let deficit = (required_total - (kept_count + sold_count)).max(0);
         let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
-        // Global shortfall emits one global placeholder.
-        if deficit > 0 {
+        // Global shortfall emits one global placeholder; improvement-watch also emits at
+        // zero deficit. Per-rule mode has no group sample, so the watch placeholder falls
+        // back to the deterministic combination-derived default sample for corner probes.
+        if deficit > 0 || improvement_watch {
+            let watch_sample =
+                (deficit == 0).then(|| safeguard_default_group_sample(&prepared_rule.combination));
             placeholders.push(safeguard_build_placeholder(
                 prepared_rule.combination.clone(),
                 deficit,
                 SAFEGUARD_REASON_GLOBAL,
                 placeholder_substats.clone(),
+                watch_sample,
             ));
         }
         // item_keys tracks only sold (at-risk) items selected for protection.
@@ -3521,6 +3713,7 @@ fn safeguard_build_entry_for_substats(
                 deficit_group,
                 SAFEGUARD_REASON_GROUP,
                 placeholder_substats.clone(),
+                None,
             ));
             deficit += deficit_group;
             continue;
@@ -3552,9 +3745,11 @@ fn safeguard_build_entry_for_substats(
             safeguard_sort_candidate_indices(&mut sorted_sold, candidates);
             at_risk.extend(sorted_sold.into_iter().take(needed as usize));
         }
-        if deficit_group > 0 {
-            // Only emit placeholders when this group is truly under-covered.
-            // Zero-missing placeholders create noisy/empty rows in UI tables.
+        if deficit_group > 0 || improvement_watch {
+            // Gaps mode only emits placeholders when this group is truly under-covered
+            // (zero-missing placeholders create noisy/empty rows in UI tables);
+            // improvement-watch intentionally emits them to keep qualifying drops protected.
+            let watch_sample = (deficit_group == 0).then(|| expected.sample.clone());
             placeholders.push(safeguard_build_placeholder(
                 safeguard_build_placeholder_combination(
                     &prepared_rule.combination,
@@ -3564,6 +3759,7 @@ fn safeguard_build_entry_for_substats(
                 deficit_group,
                 SAFEGUARD_REASON_GROUP,
                 placeholder_substats.clone(),
+                watch_sample,
             ));
         }
         deficit += deficit_group;
@@ -3576,6 +3772,7 @@ fn safeguard_build_entry_for_substats(
             required_per_group,
             SAFEGUARD_REASON_GLOBAL,
             placeholder_substats.clone(),
+            None,
         ));
         deficit = required_per_group;
     }
@@ -3988,8 +4185,14 @@ pub fn collect_and_compute_safeguard_protection_core(
             artifact: rows[candidate.row_index].artifact.clone(),
         })
         .collect::<Vec<_>>();
+    // Clone the safeguard rules ONLY when an improvement-watch rule exists — detection
+    // consumes parsed_rules, and corner synthesis needs the originals afterwards.
+    let rules_for_watch = parsed_rules
+        .iter()
+        .any(improvement_watch::safeguard_rule_is_improvement_watch)
+        .then(|| parsed_rules.clone());
     // Run detection against collected candidates without a second JS roundtrip.
-    let detection = compute_safeguard_protection_core(
+    let mut detection = compute_safeguard_protection_core(
         protection_candidates,
         parsed_rules,
         expected_payload,
@@ -3997,6 +4200,11 @@ pub fn collect_and_compute_safeguard_protection_core(
         now,
         &improvement_chances,
     );
+    // Attach improvement-watch corner frontiers to zero-missing watch placeholders
+    // (and drop unreachable ones) before the snapshot leaves the engine.
+    if let Some(watch_rules) = rules_for_watch {
+        improvement_watch::attach_watch_corners(&mut detection, &watch_rules, &rows);
+    }
     // Return both candidate and detection payloads for TS call sites.
     Ok(SafeguardCollectedAndProtectedSnapshotOut {
         candidates: collected.candidates,
@@ -4034,14 +4242,26 @@ pub fn compute_safeguard_protection_from_collected_core(
             artifact: rows[candidate.row_index].artifact.clone(),
         })
         .collect::<Vec<_>>();
-    compute_safeguard_protection_core(
+    // Clone the safeguard rules ONLY when an improvement-watch rule exists — detection
+    // consumes safeguard_rules, and corner synthesis needs the originals afterwards.
+    let rules_for_watch = safeguard_rules
+        .iter()
+        .any(improvement_watch::safeguard_rule_is_improvement_watch)
+        .then(|| safeguard_rules.clone());
+    let mut detection = compute_safeguard_protection_core(
         protection_candidates,
         safeguard_rules,
         expected,
         enabled,
         now,
         &improvement_chances,
-    )
+    );
+    // Attach improvement-watch corner frontiers to zero-missing watch placeholders
+    // (and drop unreachable ones) before the snapshot leaves the engine.
+    if let Some(watch_rules) = rules_for_watch {
+        improvement_watch::attach_watch_corners(&mut detection, &watch_rules, rows);
+    }
+    detection
 }
 
 // Input payload for live preview scoring in the weight-configuration popover.
@@ -4617,9 +4837,10 @@ mod improvement_chance_threshold_tests {
     }
 }
 
-// Tests for the no-substat non-ranking path: when a safeguard has no substats
-// set the engine has no quality basis, so it must protect every sold candidate
-// that matches the combination — not just enough to satisfy `requiredCount`.
+// Detection-path tests built on shared minimal fixtures: the no-substat
+// non-ranking path (no quality basis → protect every sold match), the ranking
+// path's ignore-previous-safeguards pool exclusion, and the anticipate modes'
+// placeholder emission (gaps = deficit-gated, improvements = always emitted).
 #[cfg(test)]
 mod no_substat_protect_all_tests {
     use super::*;
@@ -5120,5 +5341,333 @@ mod no_substat_protect_all_tests {
             result.entry.item_keys.len(), 6,
             "non-ranking path must ignore protected_state and protect every sold match",
         );
+    }
+
+    // ── anticipate modes: placeholder emission ────────────────────────────────
+
+    #[test]
+    fn grouped_quota_met_gaps_mode_emits_no_placeholders() {
+        // 3 kept, requiredCount=2 → deficit 0. Anticipate-gaps placeholders must
+        // vanish once the quota is satisfied by real gear.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(601, slot, set, 6, 6, faction),
+            kept(602, slot, set, 6, 6, faction),
+            kept(603, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let rule = make_grouped_rule(2, slot, set);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert!(result.entry.placeholders.is_empty(), "gaps mode must not emit placeholders at zero deficit");
+    }
+
+    #[test]
+    fn grouped_quota_met_improvements_mode_without_threshold_emits_no_placeholders() {
+        // Satisfied-quota fixture: anticipateImprovements WITHOUT a chance threshold
+        // must behave exactly like anticipateGaps — no zero-missing placeholders.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(611, slot, set, 6, 6, faction),
+            kept(612, slot, set, 6, 6, faction),
+            kept(613, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let mut rule = make_grouped_rule(2, slot, set);
+        rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
+        rule.improvement_chance_threshold = None;
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert!(
+            result.entry.placeholders.is_empty(),
+            "improvements mode without a threshold must not emit zero-missing placeholders",
+        );
+    }
+
+    #[test]
+    fn grouped_quota_met_improvements_mode_with_threshold_emits_zero_missing_placeholder() {
+        // Same satisfied-quota fixture, but a configured improvement-chance threshold
+        // keeps a zero-missing "improvement watch" placeholder alive per group.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(611, slot, set, 6, 6, faction),
+            kept(612, slot, set, 6, 6, faction),
+            kept(613, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let mut rule = make_grouped_rule(2, slot, set);
+        rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
+        rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert_eq!(result.entry.placeholders.len(), 1, "improvement watch must emit one placeholder per observed group");
+        let placeholder = &result.entry.placeholders[0];
+        assert_eq!(placeholder.missing, 0, "satisfied quota reports missing=0, not a fake deficit");
+        // Watch placeholders must carry the group sample so corner probing has concrete dims.
+        let sample = placeholder.sample.as_ref().expect("watch placeholder must carry a group sample");
+        assert_eq!(sample.slot, slot);
+        assert_eq!(sample.set, set);
+        assert_eq!(sample.faction, faction);
+    }
+
+    #[test]
+    fn ranking_quota_met_improvements_mode_emits_zero_missing_placeholder() {
+        // Ranking path (substats selected): quota met by kept top-N, improvements
+        // mode WITH a threshold still emits the watch placeholder for the group.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let spd = STAT_VARIANT_SPD;
+        let candidates: Vec<_> = (621..=623)
+            .enumerate()
+            .map(|(i, id)| {
+                let mut c = kept(id, slot, set, 6, 6, faction);
+                c.artifact.substats = vec![SafeguardWasmSubstatIn {
+                    variant: spd,
+                    is_flat: false,
+                    value: (i as f64 + 1.0) * 10.0,
+                    rolls: None,
+                }];
+                c
+            })
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let mut rule = make_grouped_rule(2, slot, set);
+        rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
+        rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
+        rule.selected_substats = vec![spd];
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state,
+            &[spd], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert_eq!(result.entry.placeholders.len(), 1);
+        assert_eq!(result.entry.placeholders[0].missing, 0);
+        // Ranking path also stamps the concrete group sample onto the watch placeholder.
+        assert!(result.entry.placeholders[0].sample.is_some(), "ranking watch placeholder must carry the group sample");
+    }
+
+    #[test]
+    fn ranking_quota_met_improvements_mode_without_threshold_emits_no_placeholders() {
+        // Ranking path: without a threshold the improvements mode must degrade to
+        // anticipateGaps semantics — a satisfied group emits no placeholder at all.
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let spd = STAT_VARIANT_SPD;
+        let candidates: Vec<_> = (641..=643)
+            .enumerate()
+            .map(|(i, id)| {
+                let mut c = kept(id, slot, set, 6, 6, faction);
+                c.artifact.substats = vec![SafeguardWasmSubstatIn {
+                    variant: spd,
+                    is_flat: false,
+                    value: (i as f64 + 1.0) * 10.0,
+                    rolls: None,
+                }];
+                c
+            })
+            .collect();
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let mut rule = make_grouped_rule(2, slot, set);
+        rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
+        rule.improvement_chance_threshold = None;
+        rule.selected_substats = vec![spd];
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state,
+            &[spd], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert!(
+            result.entry.placeholders.is_empty(),
+            "ranking improvements mode without a threshold must not emit zero-missing placeholders",
+        );
+    }
+
+    #[test]
+    fn per_rule_quota_met_improvements_mode_emits_global_placeholder() {
+        // Per-rule count mode: quota met, improvements mode with a threshold emits the
+        // single global watch placeholder (reason "global", missing 0, default sample).
+        let slot = ARTIFACT_TYPE_AMULET;
+        let set = 42i64;
+        let faction = 7i64;
+        let candidates = vec![
+            kept(631, slot, set, 6, 6, faction),
+            kept(632, slot, set, 6, 6, faction),
+        ];
+        let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
+        let protected_state: Vec<bool> = vec![false; candidates.len()];
+        let mut rule = make_per_rule_rule(2, slot, set);
+        rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
+        rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
+        let improvement_chances = BTreeMap::new();
+        let result = safeguard_build_entry_for_substats(
+            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+        );
+        assert_eq!(result.entry.deficit, 0);
+        assert_eq!(result.entry.placeholders.len(), 1);
+        assert_eq!(result.entry.placeholders[0].missing, 0);
+        assert_eq!(result.entry.placeholders[0].reason, SAFEGUARD_REASON_GLOBAL);
+        // Per-rule mode has no observed group sample; the deterministic combination
+        // default (first selected slot) must be attached for corner probing instead.
+        let sample = result.entry.placeholders[0].sample.as_ref().expect("per-rule watch placeholder must carry the default sample");
+        assert_eq!(sample.slot, slot, "default sample uses the first combination slot");
+    }
+
+    #[test]
+    fn placeholder_rule_emission_gated_by_activation_for_zero_missing() {
+        // safeguard_build_placeholder_rules: zero-missing placeholders WITHOUT corners
+        // emit nothing in every activation mode; WITH watch_corners they emit exactly
+        // one rule per corner carrying the corner's Rank/Rarity/LVLForCheck/Substats.
+        let combination = SafeguardWasmCombination {
+            slots: vec![ARTIFACT_TYPE_AMULET],
+            sets: vec![SafeguardWasmSetSelection { id: 42, excluded: false }],
+            meta_set_names: vec![],
+            ranks: vec![6],
+            rarities: vec![5],
+            main_stats: vec![],
+            factions: vec![],
+        };
+        let sample = SafeguardWasmGroupSample {
+            slot: ARTIFACT_TYPE_AMULET,
+            set: 42,
+            faction: 7,
+            main_stat: SAFEGUARD_MAIN_ANY,
+        };
+        // Placeholder factory: zero-missing, optionally carrying a corner frontier.
+        let make_placeholder = |watch_corners: Option<Vec<SafeguardWatchCornerOut>>| SafeguardWasmPlaceholderOut {
+            combination: combination.clone(),
+            missing: 0,
+            reason: SAFEGUARD_REASON_GROUP.to_string(),
+            substat_variants: None,
+            sample: Some(sample.clone()),
+            watch_corners,
+        };
+        let make_entry = |placeholder: SafeguardWasmPlaceholderOut| SafeguardWasmEntryOut {
+            hash: "test-hash".to_string(),
+            combination: combination.clone(),
+            rule_id: Some("test-rule".to_string()),
+            rule_ordinal: Some(1),
+            rule_activation: SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string(),
+            count_mode: SafeguardWasmCountMode {
+                per_rule: true,
+                per_set: false,
+                per_faction: false,
+                per_main_stat: false,
+                per_slot: false,
+            },
+            per_group_required_count: 1,
+            groups_tracked: 1,
+            required_count: 1,
+            current_count: 1,
+            projected_count: 1,
+            deficit: 0,
+            covered_by_existing: true,
+            item_keys: vec![],
+            artifacts: vec![],
+            placeholders: vec![placeholder],
+            candidates: vec![],
+        };
+        let make_rule = |activation: &str| SafeguardWasmRuleIn {
+            id: Some("test-rule".to_string()),
+            name: Some("Test".to_string()),
+            combination: Some(combination.clone()),
+            required_count: Some(1),
+            activation: Some(activation.to_string()),
+            count_mode: None,
+            ignore_previous_safeguards: None,
+            ignore_equipped_in_collection: None,
+            ignore_equipped_in_vault: None,
+            substats: None,
+            substat_match: None,
+            substat_weights: None,
+            weight_main_stat_by_rank: None,
+            improvement_chance_threshold: None,
+            tags: None,
+        };
+        // Corner-less zero-missing placeholders emit NOTHING in any mode — improvements
+        // included: without corners nothing viable clears the bar (or no threshold is set).
+        let bare_entry = make_entry(make_placeholder(None));
+        for activation in [
+            SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
+            SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
+        ] {
+            let rules = safeguard_build_placeholder_rules(
+                &make_rule(activation), &bare_entry, -1, 1, None,
+            );
+            assert!(
+                rules.is_empty(),
+                "zero-missing placeholders without corners must emit no rules ({activation})",
+            );
+        }
+        // With corners: one rule per corner, pinned to the corner's exact cell + floors.
+        let corners = vec![
+            SafeguardWatchCornerOut {
+                rank: 6,
+                rarity: 5,
+                level: 8,
+                // RES is legal on amulets (SPD is not and would be possibility-filtered).
+                substats: vec![SafeguardWatchCornerSubstatOut {
+                    variant: STAT_VARIANT_RES,
+                    min_value: 14.5,
+                }],
+            },
+            SafeguardWatchCornerOut {
+                rank: 5,
+                rarity: 4,
+                level: 0,
+                substats: vec![SafeguardWatchCornerSubstatOut {
+                    variant: STAT_VARIANT_ACC,
+                    min_value: 9.0,
+                }],
+            },
+        ];
+        let corner_entry = make_entry(make_placeholder(Some(corners.clone())));
+        let watch_rules = safeguard_build_placeholder_rules(
+            &make_rule(SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS), &corner_entry, -1, 1, None,
+        );
+        assert_eq!(
+            watch_rules.len(),
+            corners.len(),
+            "one emitted rule per corner (single base variant in this combination)",
+        );
+        for (rule, corner) in watch_rules.iter().zip(&corners) {
+            // Corner cell pins override the base rule's rank/rarity/level.
+            assert_eq!(rule.Rank, Some(safeguard_clamp_rank_or_rarity_value(corner.rank)));
+            assert_eq!(rule.Rarity, Some(safeguard_rarity_value_to_code(corner.rarity)));
+            assert_eq!(rule.LVLForCheck, Some(corner.level));
+            // First substat slot carries the corner floor with `>=` semantics.
+            let subs = rule.Substats.as_ref().expect("corner rule must carry substats");
+            let (expected_id, expected_flat) = safeguard_variant_to_sub(corner.substats[0].variant);
+            assert_eq!(subs[0].ID, Some(expected_id));
+            assert_eq!(subs[0].IsFlat, Some(expected_flat));
+            assert_eq!(subs[0].Value, Some(corner.substats[0].min_value));
+            assert_eq!(subs[0].Condition.as_deref(), Some(">="));
+            // Emitted watch rules stay flagged as placeholders with missing = 0.
+            assert_eq!(rule.safeguard_placeholder, Some(true));
+            assert_eq!(rule.safeguard_placeholder_missing, Some(0));
+        }
     }
 }
