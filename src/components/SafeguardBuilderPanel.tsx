@@ -1700,9 +1700,15 @@ export default function SafeguardBuilderPanel({
             } else {
               updateRule((prev) => {
                 const fgColor = prev.appearance?.fgColor
-                return { ...prev, ...(newName || fgColor
-                  ? { appearance: { name: newName, ...(fgColor ? { fgColor } : {}) } }
-                  : {}) }
+                // Build the next appearance (name may be empty when only a colour remains),
+                // or drop the key entirely when neither name nor colour is set. Spreading
+                // `{}` here previously KEPT prev.appearance, so clearing the name to empty
+                // had no effect — the old name persisted. Explicitly omit the key instead.
+                const nextAppearance = (newName || fgColor)
+                  ? { name: newName, ...(fgColor ? { fgColor } : {}) }
+                  : undefined
+                const { appearance: _dropped, ...rest } = prev
+                return nextAppearance ? { ...rest, appearance: nextAppearance } : rest
               })
             }
           }}

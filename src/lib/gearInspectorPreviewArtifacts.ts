@@ -1,6 +1,7 @@
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem } from './ruleEval'
+import { isGearInspectorCustomItemId } from './itemIdentity'
 import { StatVariant } from './types'
 
 type BuildOptions = {
@@ -81,7 +82,18 @@ export function buildPreviewArtifactFromGearInspectorItem(
   options?: BuildOptions,
 ): NormalizedGearArtifact {
   const extras = item.previewExtras
-  const id = extras?.id ?? options?.fallbackId ?? 0
+  // Manual items carry no extras.id (that field is the real DB id for imported gear).
+  // Surface their synthetic custom itemId as a POSITIVE artifact id so the safeguard
+  // item-key ladder (artifact.id when >0) returns it directly, keeping custom pieces
+  // uniquely keyed and isolated from real DB ids. TestItem does not declare itemId, but
+  // GearInspectorItem attaches one at runtime; read it defensively.
+  const customItemId = (item as TestItem & { itemId?: number }).itemId
+  const customPositiveId = (typeof customItemId === 'number'
+    && Number.isFinite(customItemId)
+    && isGearInspectorCustomItemId(customItemId))
+    ? customItemId
+    : undefined
+  const id = extras?.id ?? customPositiveId ?? options?.fallbackId ?? 0
   const source = extras?.source ?? 'manual'
   const rerollCount = extras?.rerollCount ?? 0
   // Carry the full lookup-record reference forward unchanged when present; manual

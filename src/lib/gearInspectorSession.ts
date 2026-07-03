@@ -3,6 +3,7 @@ import { compressToBase64, decompressFromBase64 } from './compression'
 import { AUTOSAVE_GEAR_INSPECTOR_KEY, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
 import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
 import { allowedGearInspectorSetIds, normalizeGearInspectorSetForSlot } from './gearInspectorDomain'
+import { isGearInspectorCustomItemId } from './itemIdentity'
 import {
   LEVEL_MILESTONES,
   type LevelMilestone,
@@ -829,7 +830,9 @@ export function diffGearInspectorItems(
   return { removalItemIds, nextPendingQueue, additions }
 }
 
-const deserializeGearInspectorItems = (
+// Exported for unit coverage of the legacy-itemId migration below. Callers in the app
+// reach this only through loadGearInspectorAutosaveDraft.
+export const deserializeGearInspectorItems = (
   payload: GearInspectorAutosavePayload | null | undefined,
   opts: { math: GearInspectorMath; allocItemId: () => number },
 ): GearInspectorItem[] | null => {
@@ -840,7 +843,13 @@ const deserializeGearInspectorItems = (
   if (!Array.isArray(savedItems) || savedItems.length === 0) return null
   const { math } = opts
   const restored: GearInspectorItem[] = []
-  savedItems.forEach((raw, idx) => {
+  // Migration: itemId is the row's synthetic Gear-Inspector identity (distinct from the
+  // real DB id, which lives in previewExtras.id). Legacy sessions allocated it ascending
+  // from 1, so custom-gear ids collided with real DB artifact ids in the shared safeguard
+  // item-key space. Relocate any id that is missing/duplicate/outside the reserved custom
+  // band into a fresh descending custom id so restored pieces stay uniquely keyable.
+  const seenItemIds = new Set<number>()
+  savedItems.forEach((raw) => {
     if (!raw || typeof raw !== 'object') return
     const subValues: Record<number, number> = {}
     const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
@@ -851,8 +860,16 @@ const deserializeGearInspectorItems = (
     const payloadItemId = typeof rawItem.itemId === 'number' && Number.isFinite(rawItem.itemId)
       ? rawItem.itemId
       : null
-    const fallbackId = -(idx + 1)
-    const itemId = payloadItemId ?? opts.allocItemId() ?? fallbackId
+    // Keep an already-valid, in-band, not-yet-seen custom id; otherwise allocate a fresh
+    // one. Keep allocating until the id is unseen so a freshly-minted id can never collide
+    // with a kept in-band id from the same payload (the allocator is unaware of them).
+    let itemId: number
+    if (payloadItemId != null && isGearInspectorCustomItemId(payloadItemId) && !seenItemIds.has(payloadItemId)) {
+      itemId = payloadItemId
+    } else {
+      do { itemId = opts.allocItemId() } while (seenItemIds.has(itemId))
+    }
+    seenItemIds.add(itemId)
     restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, itemId }))
   })
   return restored.length > 0 ? restored : null

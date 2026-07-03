@@ -386,6 +386,9 @@ import { ts } from './lib/logTimestamp'
 import { useGearInspectorItemsActions } from './hooks/useGearInspectorItemsActions'
 import {
   resolveArtifactItemIdWithFallback,
+  GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED,
+  nextGearInspectorCustomItemId,
+  reseedGearInspectorCustomIdCursor,
 } from './lib/itemIdentity'
 // Local tag for Gear Inspector reset triggers; persists only in memory.
 // Endpoint pushes get their own reason so the Gear Inspector grid can stay interactive.
@@ -737,11 +740,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // State (not ref) so the useMemo below can read it during render without violating react-hooks/refs.
   const [lastRecipeNames, setLastRecipeNames] = useState<string[]>(recipeNamesForPreview)
   const [lastRecipeFgColors, setLastRecipeFgColors] = useState<Array<string | null>>(recipeFgColorsForPreview)
-  const gearInspectorItemIdRef = useRef(1)
+  // Custom-gear ids are allocated DESCENDING from INT32_MAX so they never collide with
+  // real DB artifact ids (small positives) in the shared safeguard item-key space. The ref
+  // holds the allocator CURSOR (one above the next id); the first alloc returns the sentinel.
+  // See itemIdentity.ts for the reserved band + rationale.
+  const gearInspectorItemIdRef = useRef(GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED)
   const allocGearInspectorItemId = useCallback(() => {
-    const id = gearInspectorItemIdRef.current
-    gearInspectorItemIdRef.current += 1
-    return id
+    const id = nextGearInspectorCustomItemId(gearInspectorItemIdRef.current)
+    // Band exhaustion is unreachable in practice (~1e9 ids); fall back to the sentinel.
+    const next = id ?? GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED - 1
+    gearInspectorItemIdRef.current = next
+    return next
   }, [])
   // Raw JSON endpoints stream their own dataset; keep the normalized snapshot
   // cached so deltas can mutate it without rebuilding from SQL blobs.
@@ -822,6 +831,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     gearInspectorItems.forEach((item, idx) => {
       try {
         const artifact = buildPreviewArtifactFromGearInspectorItem(item, {
+          // Custom items now surface their positive high itemId as the artifact id inside
+          // the builder; this negative fallback only applies to legacy/out-of-band ids that
+          // escaped migration (then the item-key ladder falls back to gearInspectorItem.itemId).
           fallbackId: Number.isFinite(item.itemId) ? -Math.abs(item.itemId) : undefined,
           subOrder: item.subOrder,
         })
@@ -1607,8 +1619,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ? (recipeFgColorsForBuild[recipeIdx] ?? null)
           : null
         // Safeguards use rule ordinals + their own appearance label instead of recipe names.
+        // Resolve the label LIVE from the current safeguard state (by 1-based ordinal), the
+        // same source as fgColor below — the merged `rule` snapshot bakes RecipeName at
+        // rule-build time, so reading the name off it left the chip stale after a rename
+        // while the colour updated. Fall back to the snapshot/ordinal when the live rule is
+        // absent (e.g. mid-rebuild) so the chip never blanks.
+        const liveSafeguardRule = (isSafeguardRule && rule?.__safeguardRuleOrdinal)
+          ? (effectiveSafeguardRules[rule.__safeguardRuleOrdinal - 1] ?? null)
+          : null
         const safeguardLabel = isSafeguardRule
-          ? resolveSafeguardRuleLabel(rule)
+          ? (resolveSafeguardRuleLabel(liveSafeguardRule) ?? resolveSafeguardRuleLabel(rule))
           : null
         // Safeguard fgColor from the rule's appearance — index is 1-based ordinal.
         const ruleLabelFgColor = (isSafeguardRule && rule?.__safeguardRuleOrdinal)
@@ -4475,10 +4495,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (gearInspectorRestoreDraft && !endpointGearDataApplied) {
       beginGearInspectorMatchReset('restore')
       setGearInspectorItemsTransition(gearInspectorRestoreDraft.items)
-      const maxItemId = gearInspectorRestoreDraft.items.reduce((max, item) => (
-        Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
-      ), 0)
-      gearInspectorItemIdRef.current = Math.max(gearInspectorItemIdRef.current, (maxItemId || 0) + 1)
+      // Keep the descending allocator cursor below every restored custom id (SSOT helper).
+      gearInspectorItemIdRef.current = reseedGearInspectorCustomIdCursor(
+        gearInspectorItemIdRef.current,
+        gearInspectorRestoreDraft.items,
+      )
     }
     markNextSnapshotAsSaved()
     setLastExportedHash(null)
@@ -9983,10 +10004,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const restoredItems = gearInspectorRestoreDraft.items
               // Restores can include large Gear Inspector payloads; commit non-urgently like imports.
               setGearInspectorItemsTransition(restoredItems)
-              const maxItemId = gearInspectorRestoreDraft.items.reduce((max, item) => (
-                Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
-              ), 0)
-              gearInspectorItemIdRef.current = Math.max(gearInspectorItemIdRef.current, (maxItemId || 0) + 1)
+              // Keep the descending allocator cursor below every restored custom id (SSOT helper).
+              gearInspectorItemIdRef.current = reseedGearInspectorCustomIdCursor(
+                gearInspectorItemIdRef.current,
+                gearInspectorRestoreDraft.items,
+              )
             }
             const savedAutosaveTab = draft?.LogicHubDialogTab as LogicHubDialogTab | undefined
             if (savedAutosaveTab) {

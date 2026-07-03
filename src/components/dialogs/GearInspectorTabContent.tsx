@@ -176,7 +176,14 @@ const cloneManualGearInspectorItem = (
     next.subOrder = [...subOrder]
   }
   if (previewExtras) {
-    next.previewExtras = cloneGearInspectorPreviewExtras(previewExtras)
+    // A duplicate is a NEW, distinct piece — it must NOT inherit the source's identity.
+    // previewExtras.id is the highest-precedence safeguard item-key (it outranks itemId),
+    // so copying it made every clone resolve to the SAME item-key: the weight-flyout rows
+    // collapsed onto one piece's substats and lost their tooltip. Drop the id (and the
+    // equipped-champion link, which is likewise identity, not shape) so the clone is keyed
+    // by its freshly-allocated itemId instead.
+    const { id: _droppedId, equippedChampion: _droppedChampion, ...previewRest } = cloneGearInspectorPreviewExtras(previewExtras)
+    next.previewExtras = previewRest
   }
   return next
 }
@@ -1490,8 +1497,17 @@ export function GearInspectorTabContent({
               const parsedValue = Number(value)
               const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0
               const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
+              // Slot/main validity for a candidate variant (shared by the free + swap lists).
+              const substatSelectable = (x: number): boolean =>
+                (Number(it.slot) === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !subEqualsMainVariant(x, mainValue)
+              // Free (not-yet-used) options for this slot, in canonical priority order.
               const candidates = STAT_VARIANTS_PRIORITY
-                .filter(x => (Number(it.slot) === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
+                .filter(x => substatSelectable(x) && !usedOthers.has(Number(x)))
+              // Already-used-elsewhere options: kept VISIBLE (not hidden) so the user can pick
+              // one to SWAP the two substats — reordering by hand no longer requires clearing a
+              // slot first. Selecting one below swaps both variants and their values.
+              const swapTargets = STAT_VARIANTS_PRIORITY
+                .filter(x => substatSelectable(x) && usedOthers.has(Number(x)) && Number(x) !== v)
               const clampGearInspectorValue = (raw: number): number => {
                 if (!Number.isFinite(raw)) return 1
                 return Math.max(1, Math.round(raw))
@@ -1544,11 +1560,22 @@ export function GearInspectorTabContent({
                         const beforeVals = it2.subValues || {}
                         const beforeOrder = it2.subOrder && it2.subOrder.length ? [...it2.subOrder] : Object.keys(beforeVals).map(Number)
                         const pos = beforeOrder.indexOf(v)
-                        if (pos !== -1) beforeOrder[pos] = nv
                         const nextVals: Record<number, number> = { ...beforeVals }
-                        delete nextVals[v]
-                        const adjusted = Math.max(1, numericValue)
-                        nextVals[nv] = adjusted
+                        if (Object.prototype.hasOwnProperty.call(beforeVals, nv)) {
+                          // SWAP: nv is already used in another slot. subValues is keyed by
+                          // variant, so each stat's value already travels with it — swapping
+                          // the two positions in subOrder is enough for the rows to exchange
+                          // stat AND value. (Do NOT reassign nextVals: that would cross the
+                          // values, leaving each stat showing the other's number.)
+                          const otherPos = beforeOrder.indexOf(nv)
+                          if (pos !== -1) beforeOrder[pos] = nv
+                          if (otherPos !== -1) beforeOrder[otherPos] = v
+                        } else {
+                          // MOVE: nv is free — retype this slot, carrying its current value.
+                          if (pos !== -1) beforeOrder[pos] = nv
+                          delete nextVals[v]
+                          nextVals[nv] = Math.max(1, numericValue)
+                        }
                         const updated = { ...it2, subValues: nextVals, subOrder: beforeOrder }
                         return adjustSubValuesFor(updated)
                       })
@@ -1564,7 +1591,9 @@ export function GearInspectorTabContent({
                       },
                     }}
                   >
-                    {[v, ...candidates.filter(x => x !== v)].map(opt => (
+                    {/* Current variant first, then free options, then used-elsewhere swap
+                        targets (kept visible so reordering swaps instead of being blocked). */}
+                    {[v, ...candidates.filter(x => x !== v), ...swapTargets].map(opt => (
                       <MenuItem key={opt} value={opt} sx={{ color: colorStatControls ? adaptSubstatFgOnSurface(substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt], substatSurfacePaper) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>

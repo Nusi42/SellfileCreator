@@ -4,6 +4,12 @@ import {
   resolveArtifactItemIdWithFallback,
   resolveCanonicalArtifactItemId,
   resolveCanonicalTestItemId,
+  GEAR_INSPECTOR_CUSTOM_ID_SENTINEL,
+  GEAR_INSPECTOR_CUSTOM_ID_FLOOR,
+  GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED,
+  isGearInspectorCustomItemId,
+  nextGearInspectorCustomItemId,
+  reseedGearInspectorCustomIdCursor,
 } from '../../src/lib/itemIdentity.js'
 import { getSafeguardItemKey } from '../../src/lib/safeguards.js'
 
@@ -72,4 +78,41 @@ test('getSafeguardItemKey follows db-first precedence', () => {
   // Missing every id should keep the historical zero sentinel.
   const withNoIds = {} as unknown as Parameters<typeof getSafeguardItemKey>[0]
   assert.equal(getSafeguardItemKey(withNoIds), 0)
+})
+
+test('isGearInspectorCustomItemId only accepts the reserved high band', () => {
+  // Real DB ids (small positives, observed up to ~264k) must never be custom.
+  assert.equal(isGearInspectorCustomItemId(1), false)
+  assert.equal(isGearInspectorCustomItemId(264_000), false)
+  assert.equal(isGearInspectorCustomItemId(0), false)
+  assert.equal(isGearInspectorCustomItemId(-5), false)
+  assert.equal(isGearInspectorCustomItemId(Number.NaN), false)
+  // Floor and sentinel are inclusive; everything between is custom.
+  assert.equal(isGearInspectorCustomItemId(GEAR_INSPECTOR_CUSTOM_ID_FLOOR), true)
+  assert.equal(isGearInspectorCustomItemId(GEAR_INSPECTOR_CUSTOM_ID_SENTINEL), true)
+  // Just below the floor stays out of band.
+  assert.equal(isGearInspectorCustomItemId(GEAR_INSPECTOR_CUSTOM_ID_FLOOR - 1), false)
+})
+
+test('nextGearInspectorCustomItemId allocates descending from the sentinel', () => {
+  // Seeded cursor yields the sentinel first, then decrements.
+  const first = nextGearInspectorCustomItemId(GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED)
+  assert.equal(first, GEAR_INSPECTOR_CUSTOM_ID_SENTINEL)
+  const second = nextGearInspectorCustomItemId(first!)
+  assert.equal(second, GEAR_INSPECTOR_CUSTOM_ID_SENTINEL - 1)
+  // Exhaustion returns null at the floor boundary.
+  assert.equal(nextGearInspectorCustomItemId(GEAR_INSPECTOR_CUSTOM_ID_FLOOR), null)
+})
+
+test('reseedGearInspectorCustomIdCursor tracks the minimum in-band id', () => {
+  const seed = GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED
+  // Restoring items with high custom ids pushes the cursor below the smallest one.
+  const cursor = reseedGearInspectorCustomIdCursor(seed, [
+    { itemId: GEAR_INSPECTOR_CUSTOM_ID_SENTINEL },
+    { itemId: GEAR_INSPECTOR_CUSTOM_ID_SENTINEL - 5 },
+  ])
+  assert.equal(cursor, GEAR_INSPECTOR_CUSTOM_ID_SENTINEL - 5)
+  // Legacy low ids (out of band) are ignored — the cursor stays at the seed.
+  const unchanged = reseedGearInspectorCustomIdCursor(seed, [{ itemId: 1 }, { itemId: 2 }])
+  assert.equal(unchanged, seed)
 })

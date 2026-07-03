@@ -10,6 +10,55 @@ const MIN_REAL_ITEM_ID = 1
 const FALLBACK_INDEX_OFFSET = 1
 const FALLBACK_MISSING_ITEM_ID = -1
 
+// Manual ("custom") Gear Inspector pieces are keyed by the same positive-int space
+// as real DB artifacts (getSafeguardItemKey / resolveCanonicalArtifactItemId return
+// the artifact id when >0). Ascending ids starting at 1 collided with real DB ids
+// (observed up to ~264k across example DBs) whenever a session mixed custom + imported
+// gear, which quietly folded distinct pieces onto one safeguard item key. To stay
+// isolated, custom ids are allocated DESCENDING from INT32_MAX. The floor keeps a
+// ~2.1-billion band reserved for customs, far above any realistic DB id.
+export const GEAR_INSPECTOR_CUSTOM_ID_SENTINEL = 0x7fffffff // 2_147_483_647 (INT32_MAX)
+// Anything at/above this is treated as a synthetic custom id (never a real DB id).
+// 2^30 leaves >1 billion of real-id headroom below it and >1 billion of custom range above.
+export const GEAR_INSPECTOR_CUSTOM_ID_FLOOR = 0x40000000 // 1_073_741_824 (2^30)
+
+// True when an id sits in the reserved synthetic-custom band (SSOT for the check).
+export const isGearInspectorCustomItemId = (value: unknown): boolean => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric >= GEAR_INSPECTOR_CUSTOM_ID_FLOOR
+}
+
+// The descending allocator's "next id" cursor starts one ABOVE the sentinel so the
+// first allocation returns the sentinel itself. Consumers seed a ref with this.
+export const GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED = GEAR_INSPECTOR_CUSTOM_ID_SENTINEL + 1
+
+// Allocate the next descending custom id below `previousCursor` (the last cursor value;
+// the id handed out is previousCursor - 1). Returns null if the band is exhausted (never
+// in practice — the range holds ~1e9 ids).
+export const nextGearInspectorCustomItemId = (previousCursor: number): number | null => {
+  const candidate = Math.floor(previousCursor) - 1
+  if (!Number.isFinite(candidate) || candidate < GEAR_INSPECTOR_CUSTOM_ID_FLOOR) return null
+  return Math.min(candidate, GEAR_INSPECTOR_CUSTOM_ID_SENTINEL)
+}
+
+// Reseed the descending allocator cursor after restoring a set of items so the next
+// allocation stays below every custom id already present. `currentCursor` is the ref's
+// current value; `items` are the restored pieces. Returns the new cursor (the minimum of
+// currentCursor and one below the smallest in-band custom id seen). Ids outside the custom
+// band (real DB ids, legacy low ids) are ignored — migration relocates those separately.
+export const reseedGearInspectorCustomIdCursor = (
+  currentCursor: number,
+  items: ReadonlyArray<{ itemId?: unknown }>,
+): number => {
+  let minInBand = currentCursor
+  for (const item of items) {
+    const id = Number(item?.itemId)
+    if (isGearInspectorCustomItemId(id) && id < minInBand) minInBand = id
+  }
+  // Cursor must sit at-or-below the smallest custom id so the next alloc goes lower.
+  return Math.min(currentCursor, minInBand)
+}
+
 type IdentityPreviewExtrasLike = {
   id?: unknown
 } | null | undefined
