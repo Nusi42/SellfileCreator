@@ -1030,6 +1030,30 @@ pub fn compute_merged_rules_cached_value(payload: &str) -> Result<String, JsValu
         .map_err(|error| JsValue::from_str(&error))
 }
 
+// Finish the cached merge AND configure the engine in one call, returning ONLY the merged
+// rule count (u32) — no rules cross the boundary in either direction. Used by the worker's
+// baseline configure, whose merged rules have no TS consumer beyond the engine config and
+// the count. `payload` reuses ComputeMergedRulesCachedInWire (sd/srb — the SSOT for the
+// per-push renames; serde cannot flatten under deny_unknown_fields, so the recipe modes
+// travel as a separate plain JSON string array instead of a duplicated wrapper struct).
+// Cache-miss behaviour mirrors compute_merged_rules_cached_value: Err so the TS wrapper
+// self-heals.
+#[wasm_bindgen]
+pub fn merge_cached_and_configure_value(payload: &str, recipe_modes_json: &str) -> Result<u32, JsValue> {
+    prewarm_for_json_parse(payload.len());
+    let wire: ComputeMergedRulesCachedInWire = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid merge-cached-and-configure payload: {error}")))?;
+    let recipe_modes: Vec<String> = serde_json::from_str(recipe_modes_json)
+        .map_err(|error| JsValue::from_str(&format!("Invalid merge-cached-and-configure recipe modes: {error}")))?;
+    let count = merge_cached_and_configure_engine(
+        wire.safeguard_detection,
+        wire.safeguard_recipe_id_base,
+        recipe_modes,
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
+    Ok(count as u32)
+}
+
 // Safeguard injected merge/dedupe/sort delegates to postprocess helpers.
 // Single JSON-string payload (MergeSafeguardInjectedRulesInWire) lets serde_json
 // activate the deny_unknown_fields gate on every top-level key; the three rule

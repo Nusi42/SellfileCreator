@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 
 // Wire form of RuleSubRaw — one substat inside a rule.  Skips serialising
 // None fields to keep the output compact; the original struct does the same.
-// ts-rs generates the short-name TypeScript type so wireProjections.ts can
-// reference it as the typed target of projectRuleSubRawToWire.
+// ts-rs generates the short-name TypeScript type; wireProjections.ts pins its
+// RuleSubRaw rename maps against it via `satisfies` (both key directions).
 #[derive(Debug, Default, Deserialize, Serialize, TS)]
 #[serde(default, deny_unknown_fields)]
 #[ts(export)]
@@ -77,8 +77,9 @@ impl From<RuleSubRawWire> for RuleSubRaw {
 
 // Wire form of RuleRaw — the dominant row type in the merge payload.
 // Short field names match the SSOT defined by these serde rename attrs.
-// ts-rs generates the TypeScript interface so wireProjections.ts can type the
-// projectRuleRawToWire return value against the Rust-declared field names.
+// ts-rs generates the TypeScript interface; wireProjections.ts pins its RuleRaw
+// rename maps against it via `satisfies` (both key directions), so a rename here
+// fails TS compilation instead of silently drifting.
 #[derive(Debug, Default, Deserialize, Serialize, TS)]
 #[serde(default, deny_unknown_fields)]
 #[ts(export)]
@@ -276,8 +277,9 @@ impl From<ComputeMergedRulesInWire> for ComputeMergedRulesIn {
 // paired per push with the changing detection snapshot to build candidate keep-rules). Sent
 // to WASM once per rules-change via cache_generated_rules_value, not on every push.
 // Field renames mirror ComputeMergedRulesInWire exactly (SSOT) for the shared subset.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, TS)]
 #[serde(default, deny_unknown_fields)]
+#[ts(export)]
 pub struct CacheGeneratedRulesInWire {
     #[serde(rename = "br", alias = "baseRules")]
     pub base_rules: Vec<RuleRawWire>,
@@ -301,8 +303,9 @@ pub struct CacheGeneratedRulesInWire {
 // change per endpoint push: the safeguard detection snapshot (matched artifacts). The
 // rules + safeguard definitions come from the cache. Sent on every push to
 // compute_merged_rules_cached_value. Field renames mirror ComputeMergedRulesInWire (SSOT).
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, TS)]
 #[serde(default, deny_unknown_fields)]
+#[ts(export)]
 pub struct ComputeMergedRulesCachedInWire {
     #[serde(rename = "sd", alias = "safeguardDetection")]
     pub safeguard_detection: Option<SafeguardWasmSnapshotOut>,

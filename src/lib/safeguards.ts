@@ -500,12 +500,12 @@ export type SafeguardRule = {
 }
 
 // SSOT for "which fields of a safeguard rule change the generated/exported rules".
-// Both the rule-cache invalidation key (ruleCacheWorker.computeRecipeKey) and the
-// export-dirty signature (App.hsfExportStateSig) must agree on this field set — they
-// previously diverged, and the export-dirty side was MISSING substatMatch and
-// improvementChanceThreshold, so changing either left the "needs export/push" badge
-// falsely clean and the user could ship a stale sell-file. Defining the set once here
-// makes both consumers track the same fields by construction.
+// The worker's rules-cache key (composeRuleCacheKey via ruleCacheWorker) folds this in,
+// which in turn drives the rulesUnchanged send-skip and the export-fingerprint memo —
+// historically two hand-maintained field lists diverged here and the export-dirty side
+// was MISSING substatMatch and improvementChanceThreshold, so changing either left the
+// "needs export/push" badge falsely clean and the user could ship a stale sell-file.
+// Defining the set once here makes every consumer track the same fields by construction.
 //
 // Every field that affects rule generation, safeguard detection, or candidate matching is
 // included. `appearance.name` IS included: projectRuleForWasm maps it to the WASM `name`
@@ -537,6 +537,12 @@ export const safeguardRulesContentFingerprint = (
   enabled: boolean,
   rules: readonly SafeguardRule[],
 ): string => `${enabled ? 1 : 0}:${rules.length}:${rules.map(safeguardRuleContentFingerprint).join('|')}`
+
+// SSOT for “does any safeguard rule use an improvement-chance threshold” — the gate that
+// decides whether the (expensive) WASM improvement-chance pass must run before detection.
+// Consumed by both detection entry points below and the rule-cache worker.
+export const safeguardRulesHaveImprovementThreshold = (rules: readonly SafeguardRule[]): boolean =>
+  rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
 
 /** Build the default Safeguard rule list for new sessions (empty by design). */
 export function buildDefaultSafeguardRules(): SafeguardRule[] {
@@ -1414,7 +1420,7 @@ export function collectAndComputeSafeguardProtection(
   const baseRuleList: HsfRuleWithRecipe[] = Array.isArray(baseRules) ? [...baseRules] : []
   // Pre-compute improvement chances when any rule uses improvementChanceThreshold; the results
   // are passed to the detection WASM call so ranking can gate on the threshold.
-  const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
+  const hasThreshold = safeguardRulesHaveImprovementThreshold(rules)
   // Unwrap the { entries, diag } wrapper; diag is only used in the worker dev-tracing path.
   const improvementChances = hasThreshold ? (computeImprovementChanceWithLoadedWasm({ rules, enabled })?.entries ?? []) : []
   // Pass canonical rows/rules and let wasm produce the detection payload.
@@ -1503,61 +1509,79 @@ export const toWasmArtifactStoreRow = (artifact: NormalizedGearArtifact): WasmAr
   artifact: toWasmArtifactStoreInput(artifact),
 })
 
-// Content fingerprint of the artifact dataset for the pipeline result cache (App.tsx). Two
-// datasets with the same fingerprint produce byte-identical pipeline output (matches, merged
-// rules, detection), so a cache keyed on it lets an add-then-remove endpoint round-trip reuse
-// a prior result instead of recomputing (~3.9 s on large accounts).
-//
-// CRITICAL: it must fold EXACTLY the fields that cross to WASM and affect matching/merge/
-// detection — i.e. the projection in toWasmArtifactStoreInput / toWasmTestItem (the SSOT this
-// mirrors): id, slot, set, rank, rarity, level, exactLevel, faction, mainStat.variant, each
-// substat's (variant, isFlat, totalValue, rolls), and equippedChampion.location. It must NOT
-// fold fields that are display-only or never reach the engine — `lastUseLocalTimestamp`
+// ── Artifact content fold (SSOT) ────────────────────────────────────────────────────────
+// SSOT for "which artifact fields affect pipeline output": exactly the fields that cross to
+// WASM and affect matching/merge/detection — i.e. the projection in toWasmArtifactStoreInput
+// / toWasmTestItem: id, slot, set, rank, rarity, level, exactLevel, faction, mainStat.variant,
+// each substat's (variant, isFlat, totalValue, rolls), and equippedChampion.location. It must
+// NOT fold fields that are display-only or never reach the engine — `lastUseLocalTimestamp`
 // (changes every game round → would defeat round-trip hits), `rerollCount`, `ascension`,
 // `source`, `isLocked`, and champion id/name/rarity — none of which are in the WASM projection.
-// Any output-affecting field omitted here = a stale cache hit; any display field included =
-// missed hits. Keep this in lockstep with toWasmArtifactStoreInput.
+// Any output-affecting field omitted here = a stale cache hit / skipped re-store; any display
+// field included = missed hits. Keep this in lockstep with toWasmArtifactStoreInput.
 //
 // Note on gearInspectorItem: toWasmArtifactStoreInput also forwards `gearInspectorItem`, but
 // toWasmTestItem reads only `previewExtras.id` from it — and that id is `row.ID`, the same value
 // as `artifact.id` (see gearDbNormalizer) — so folding `a.id` covers it. No separate term needed.
 //
-// 53-bit two-lane fold (combined into one decimal string) keeps the collision probability
-// negligible at ~8k artifacts, far better than a single 32-bit hash.
+// Shared by BOTH artifact-content fingerprints so they cannot diverge on field coverage:
+//   - computeArtifactSetContentHash (pipeline result cache key, App.tsx)
+//   - the rule-cache worker's store-rows skip fingerprint (ruleCacheWorker.ts)
+
+// Two independent 32-bit FNV-ish lanes, combined → effectively ~53 bits of key space —
+// collision probability negligible at ~8k artifacts, far better than a single 32-bit hash.
+export type ArtifactContentFold = { h1: number; h2: number }
+
+// Fresh fold state seeded with the FNV offset/prime constants.
+export const createArtifactContentFold = (): ArtifactContentFold => ({ h1: 0x811c9dc5 | 0, h2: 0x1000193 | 0 })
+
+// Mix one integer into both lanes (mutates state; hoisted so the per-artifact fold below
+// does not allocate a closure per artifact).
+const mixArtifactFold = (state: ArtifactContentFold, n: number): void => {
+  const v = n | 0
+  state.h1 = Math.imul(state.h1 ^ v, 0x01000193) | 0
+  state.h2 = Math.imul(state.h2 ^ v, 0x85ebca6b) | 0
+}
+
+// Fold ONE artifact's WASM-projected content into the running state (mutates).
+// Order matters: callers fold artifacts in pipeline consumption order (no sort).
+export const foldArtifactWasmProjection = (state: ArtifactContentFold, a: NormalizedGearArtifact): void => {
+  mixArtifactFold(state, a.id)
+  mixArtifactFold(state, a.slot); mixArtifactFold(state, a.set)
+  mixArtifactFold(state, a.rank); mixArtifactFold(state, a.rarity); mixArtifactFold(state, a.level)
+  mixArtifactFold(state, a.exactLevel ?? -1)
+  mixArtifactFold(state, a.faction)
+  mixArtifactFold(state, a.mainStat?.variant ?? -1)
+  mixArtifactFold(state, a.substats.length)
+  for (const s of a.substats) {
+    mixArtifactFold(state, s.variant)
+    mixArtifactFold(state, s.isFlat ? 1 : 0)
+    // totalValue can be fractional; scale + round so equal values fold identically.
+    mixArtifactFold(state, Math.round((s.totalValue ?? 0) * 1000))
+    mixArtifactFold(state, s.rolls ?? -1)
+  }
+  // equippedChampion.location (collection/vault) drives safeguard ignore-equipped logic; it is
+  // the only champion-derived field in the WASM projection. Fold its string deterministically.
+  const loc = a.equippedChampion?.location ?? ''
+  mixArtifactFold(state, loc.length)
+  for (let i = 0; i < loc.length; i += 1) mixArtifactFold(state, loc.charCodeAt(i))
+  // Per-artifact terminator so [A,B] and [AB] (boundary-ambiguous folds) can't collide.
+  mixArtifactFold(state, 0x9e3779b9)
+}
+
+// Render the fold as a compact string key: unsigned base-36 lanes + element count
+// (the count term is extra safety on top of the per-artifact terminator).
+export const artifactContentFoldKey = (state: ArtifactContentFold, count: number): string =>
+  `${(state.h1 >>> 0).toString(36)}.${(state.h2 >>> 0).toString(36)}.${count}`
+
+// Content fingerprint of the artifact dataset for the pipeline result cache (App.tsx). Two
+// datasets with the same fingerprint produce byte-identical pipeline output (matches, merged
+// rules, detection), so a cache keyed on it lets an add-then-remove endpoint round-trip reuse
+// a prior result instead of recomputing (~3.9 s on large accounts).
 export const computeArtifactSetContentHash = (artifacts: readonly NormalizedGearArtifact[]): string => {
-  // Two independent 32-bit FNV-ish lanes, combined → effectively ~53 bits of key space.
-  let h1 = 0x811c9dc5 | 0
-  let h2 = 0x1000193 | 0
-  const mix = (n: number): void => {
-    const v = n | 0
-    h1 = Math.imul(h1 ^ v, 0x01000193) | 0
-    h2 = Math.imul(h2 ^ v, 0x85ebca6b) | 0
-  }
-  // Order matters: the pipeline consumes artifacts in array order, so we fold in order (no sort).
-  for (const a of artifacts) {
-    mix(a.id)
-    mix(a.slot); mix(a.set); mix(a.rank); mix(a.rarity); mix(a.level)
-    mix(a.exactLevel ?? -1)
-    mix(a.faction)
-    mix(a.mainStat?.variant ?? -1)
-    mix(a.substats.length)
-    for (const s of a.substats) {
-      mix(s.variant)
-      mix(s.isFlat ? 1 : 0)
-      // totalValue can be fractional; scale + round so equal values fold identically.
-      mix(Math.round((s.totalValue ?? 0) * 1000))
-      mix(s.rolls ?? -1)
-    }
-    // equippedChampion.location (collection/vault) drives safeguard ignore-equipped logic; it is
-    // the only champion-derived field in the WASM projection. Fold its string deterministically.
-    const loc = a.equippedChampion?.location ?? ''
-    mix(loc.length)
-    for (let i = 0; i < loc.length; i += 1) mix(loc.charCodeAt(i))
-    // Per-artifact terminator so [A,B] and [AB] (boundary-ambiguous folds) can't collide.
-    mix(0x9e3779b9)
-  }
-  // Combine lanes into one unsigned-decimal string key.
-  return `${(h1 >>> 0).toString(36)}.${(h2 >>> 0).toString(36)}.${artifacts.length}`
+  const state = createArtifactContentFold()
+  for (const a of artifacts) foldArtifactWasmProjection(state, a)
+  return artifactContentFoldKey(state, artifacts.length)
 }
 
 // Project a SafeguardCandidate into the WASM wire shape declared by
@@ -1643,7 +1667,7 @@ export function evaluateAndCollectSafeguardProtection(params: {
   // only when a threshold rule is present. This prevents a second WASM computation (and
   // second peak-allocation for the result Vec) when the worker supplies entries for the
   // payload alongside this detection call.
-  const hasThreshold = rules.some((r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined)
+  const hasThreshold = safeguardRulesHaveImprovementThreshold(rules)
   let improvementChances: readonly ImprovementChanceWasmEntry[]
   // Treat an EMPTY precomputed array as "not supplied" when a threshold rule is present:
   // threshold-driven keep-list expansion needs real chances, and a caller that has a threshold

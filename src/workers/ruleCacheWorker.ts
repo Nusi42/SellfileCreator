@@ -5,16 +5,21 @@ import {
   KEEP_OVERRIDE_RULE_SOURCES as SAFEGUARD_OVERRIDE_RULE_SOURCES,
   buildMergedRulesComponents,
   computeMergedRulesFromComponents,
+  configureMergedRulesFromComponents,
   type MergedRulesComponents,
 } from '../lib/merge'
 import { recipesForRuleBuild, recipeNamesForExport } from '../lib/ruleCacheHelpers'
 import { composeRuleCacheKey } from './ruleCacheKey'
 import { computeExportedHsfFingerprint } from '../lib/hsfIO'
 import {
+  artifactContentFoldKey,
   buildIgnoreSafeguardRecipeIndices,
+  createArtifactContentFold,
   evaluateAndCollectSafeguardProtection,
+  foldArtifactWasmProjection,
   hasActiveSafeguardRules,
   safeguardRulesContentFingerprint,
+  safeguardRulesHaveImprovementThreshold,
   scoreSafeguardCandidates,
   storeArtifactRows,
   toWasmArtifactStoreRow,
@@ -72,25 +77,53 @@ const persistentRuleCache = new Map<string, RecipeRulesCacheEntry>()
 // Fingerprint of the artifact set most recently stored in WASM ENGINE_STATE.
 // Compared before each storeArtifactRows call; if unchanged, the call (and the
 // JS→WASM serialization + Vec alloc on the Rust side) is skipped entirely.
-let lastArtifactStoreFingerprint: number | null = null
+// Derives from the shared WASM-projection fold (foldArtifactWasmProjection, safeguards.ts)
+// so EVERY field the engine can read is covered — an earlier hand-picked "mutable fields
+// only" hash here missed substat-variant swaps that preserve Σ totalValue (possible via
+// custom-gear edits) and would have skipped the re-store, running detection on stale rows.
+let lastArtifactStoreFingerprint: string | null = null
 
-// Sentinels tracking the most recently sent per-recipe rule data.
-// When all four match the current pipeline output, rulesByRecipeEntries/mergedRules/keys
-// are sent as null, skipping the structured-clone of ~50–100 MiB on artifact-only bursts.
-let lastSentKeys: string[] | null = null
-// Composite of: substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity hash,
-// merge flags (omitDisabled, dedupe, safeguards.enabled), safeguard rule content hash
-// (requiredCount, activation, countMode, ignore flags, substats, weights, improvChance),
-// and finalSellRemainder content. Stored as a single string for cheap single-comparison.
-let lastSentRecipeKey: string | null = null
-// Fingerprint of the safeguard detection entries that drove the last sent mergedRulesFinal.
-// scannedAt is excluded (changes every run but does not affect merged rules).
-// Covers which entries were detected, their placeholder contents, and itemKeys identity.
-let lastSentDetectionKey: string | null = null
-// Safety-net sentinel: the merged rule count of the most recently sent full payload.
-// A count change guarantees rule content changed regardless of fingerprint matches,
-// and catches any fingerprint gap not covered by the three keys above.
-let lastSentMergedCount = -1
+// Signature of a merged-final rules output. SSOT for BOTH the send-skip decision
+// (rulesByRecipeEntries/mergedRules/keys sent as null when unchanged, skipping the
+// structured-clone of ~50–100 MiB on artifact-only bursts) and the export-fingerprint
+// memo below, so the two guards can never diverge on what "unchanged" means.
+type MergedOutputSignature = {
+  // Per-recipe rule fingerprints, compared element-wise (net for composite-hash collisions).
+  keys: string[]
+  // Composite of: substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity hash,
+  // merge flags (omitDisabled, dedupe, safeguards.enabled), safeguard rule content hash
+  // (requiredCount, activation, countMode, ignore flags, substats, weights, improvChance),
+  // and finalSellRemainder content.
+  recipeKey: string
+  // Fingerprint of the safeguard detection entries that drove mergedRulesFinal.
+  // scannedAt is excluded (changes every run but does not affect merged rules).
+  // Covers which entries were detected, their placeholder contents, and itemKeys identity.
+  detectionKey: string
+  // Safety net: a merged rule count change guarantees content changed regardless of
+  // fingerprint matches, catching any gap not covered by the three keys above.
+  mergedCount: number
+}
+// Cheapest-first comparison: count, then the two composite strings, then element-wise keys.
+const mergedOutputSignatureEquals = (a: MergedOutputSignature | null, b: MergedOutputSignature): boolean =>
+  a !== null
+  && a.mergedCount === b.mergedCount
+  && a.recipeKey === b.recipeKey
+  && a.detectionKey === b.detectionKey
+  && keysEqual(a.keys, b.keys)
+
+// Signature of the most recently SENT full rule payload (null until the first send).
+let lastSentSignature: MergedOutputSignature | null = null
+
+// Memo for computeExportedHsfFingerprint: the export crc clones + stringifies the whole
+// export (~150 ms at 33k rules) yet its only inputs are the merged output signature and the
+// export recipe names — both unchanged on artifact-only bursts. Reuse the crc when they match.
+let lastExportHash: { signature: MergedOutputSignature; namesKey: string; hash: string } | null = null
+
+// Memo for the WASM improvement-chance pass: safeguard rule content (whose fingerprint
+// folds the enabled flag) + artifact content fully determine the entries, so a recipe-only
+// edit (same safeguards, same artifacts) reuses the previous result instead of re-running
+// the ~300 ms WASM pass.
+let lastImprovementChance: { key: string; entries: ImprovementChanceWasmEntry[] } | null = null
 
 // Sentinel for the baseline rules currently configured into the WASM matcher engine.
 // configure_engine re-sends ~17 MiB of merged baseline rules; that per-push transient
@@ -107,8 +140,12 @@ let lastSentMergedCount = -1
 // `ignore_by_safeguards` (e.g. Chaos Ore "kept for reroll") items a non-ignored keep — so they
 // are NOT flagged at-risk and the safeguard UNDER-protects (the intermittent ~285-rule drop:
 // 1554 → 1270). Forcing a baseline reconfigure before every detection makes the protected set
-// consistent (see tests/playwright/phantom-overprotection-repro.spec.ts).
+// consistent (see tests/repro/repro-phantom-overprotection.ts).
 let lastConfiguredKey: string | null = null
+// Rule count of the baseline config behind lastConfiguredKey. Read ONLY under a matching
+// key: when the full merge+configure is skipped, the baseline→final index-offset math
+// still needs the baseline rule count the engine is holding.
+let lastConfiguredBaselineCount: number | null = null
 // Reset the configured-key sentinel so the next detection-phase configure runs unconditionally.
 // Called by buildPipelineMatches after it loads the FINAL ruleset into the engine.
 const invalidateConfiguredKey = (): void => { lastConfiguredKey = null }
@@ -122,23 +159,6 @@ const keysEqual = (a: string[], b: string[]): boolean => {
   }
   return true
 }
-
-// Thin wrapper over the pure composeRuleCacheKey helper (src/workers/ruleCacheKey.ts).
-// The composition logic lives in that module so it can be unit-tested without the worker's
-// `self`/WASM bootstrap. Here we only derive the safeguard fingerprint via the shared SSOT
-// helper (safeguardRulesContentFingerprint) — keeping this cache key and the export-dirty
-// signature (App.hsfExportStateSig) in agreement on which safeguard fields matter — and
-// forward it. See composeRuleCacheKey for why pipelineState.keys (the recipe dimension)
-// MUST contribute: omitting it let the WASM merge cache go stale across recipe edits and the
-// recipes-enabled toggle.
-const computeRecipeKey = (
-  pipelineState: PipelineState,
-  payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload'],
-): string => composeRuleCacheKey(
-  pipelineState,
-  payload,
-  safeguardRulesContentFingerprint(payload.safeguards.enabled, payload.safeguards.rules),
-)
 
 // Fingerprint of the safeguard detection snapshot that drives placeholder-rule injection.
 // Two snapshots with the same key produce identical injected rules in mergedRulesFinal.
@@ -168,41 +188,16 @@ const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): strin
   }).join('|')
 }
 
-// Compute a 32-bit integer hash over the mutable fields of each store row:
-//   id            — artifact added or removed
-//   level         — upgrade (also bounds which substats are unlocked)
-//   rank          — rank promotion
-//   substats.length — new sub added at levels 4/8/12/16
-//   Σ totalValue  — glyph application or substat value increase on upgrade
-//   equippedChampion.location — artifact moved to/from champion / vault
-// Immutable fields (slot, set, faction, mainStat variant, substat isFlat) are
-// omitted for speed. Cost: O(N) integer multiply/XOR — no string allocation.
+// Fingerprint of the artifact store rows via the shared WASM-projection fold
+// (foldArtifactWasmProjection — the SSOT for which artifact fields reach the engine).
+// The rows sent to WASM are pure functions of each artifact's projected content, so equal
+// fingerprints ⇒ byte-identical stored rows. Cost: O(N) integer multiply/XOR per field.
 const computeArtifactStoreFingerprint = (
   entries: ReadonlyArray<[number, NormalizedGearArtifact]>,
-): number => {
-  // Seed with count so an empty set never collides with a 1-item set.
-  let h = entries.length * 0x9e3779b9 | 0
-  for (const [id, a] of entries) {
-    h ^= id
-    h = Math.imul(h, 0x9e3779b9) | 0
-    // Cover upgrade and rank promotion.
-    h ^= (a.level + (a.rank ?? 0) * 97) | 0
-    h = Math.imul(h, 0x517cc1b7) | 0
-    // Cover equipped-champion change: null=0, vault=1, collection/other=2.
-    const loc = a.equippedChampion?.location
-    const locCode = loc == null ? 0 : /vault/i.test(loc) ? 1 : 2
-    h ^= locCode * 31
-    h = Math.imul(h, 0xbf58476d) | 0
-    // Cover glyph and substat value changes: hash substat count + Σ totalValue.
-    // Scale by 10 so a 0.1-unit glyph gain produces a distinct integer delta.
-    let subHash = a.substats?.length ?? 0
-    for (const s of a.substats ?? []) {
-      subHash += Math.round((s.totalValue ?? 0) * 10)
-    }
-    h ^= subHash
-    h = Math.imul(h, 0x9e3779b9) | 0
-  }
-  return h
+): string => {
+  const state = createArtifactContentFold()
+  for (const [, artifact] of entries) foldArtifactWasmProjection(state, artifact)
+  return artifactContentFoldKey(state, entries.length)
 }
 
 // Batch evaluate so long matcher passes yield between chunks; progress is
@@ -363,14 +358,14 @@ const buildRulesByRecipeIndices = (
   return result
 }
 
-// Baseline matches carry `ruleIndex` relative to mergedRulesBaseline (no injected safeguard
+// Baseline matches carry `ruleIndex` relative to the BASELINE ruleset (no injected safeguard
 // rules). The main thread looks rules up in mergedRulesFinal, where the injected safeguard
 // block is PREPENDED (prependSafeguardRules), shifting every non-safeguard rule forward by the
 // injected count. Reusing a baseline match for a non-candidate without shifting its index makes
 // the chip read the wrong (often a slot-mismatched safeguard) rule — e.g. a Weapon showing a
 // "Best SPD Banner" safeguard. Since baseline has zero safeguard rules (detection=null) and both
 // builds share merge params (identical non-safeguard order), the shift is the uniform offset
-// `mergedRulesFinal.length - mergedRulesBaseline.length`. SSOT for that remap lives here.
+// `mergedRulesFinal.length - baselineRuleCount`. SSOT for that remap lives here.
 // EvalMatch-shaped value (ruleIndex/keep/recipeIdx); typed via the worker result alias so this
 // file keeps using the worker's domain shapes rather than importing lib match types directly.
 type WorkerEvalMatch = GearInspectorMatchWorkerItemResult['firstMatch']
@@ -577,15 +572,21 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       prebuiltCustomRules,
     })
+    // Safeguard rule content fingerprint (SSOT helper) — feeds the rules-cache key AND the
+    // improvement-chance memo so both agree on exactly which safeguard fields matter.
+    const safeguardsFingerprint = safeguardRulesContentFingerprint(payload.safeguards.enabled, payload.safeguards.rules)
     // Rules-cache key: the composite of every rules-PRODUCING input (substatTargets,
     // truncation, omit/dedupe flags, finalSellRemainder, safeguard-rule content). When it
     // is unchanged between pipeline runs the WASM-side generated-rules cache is reused, so
-    // the ~17 MiB of rules are not re-sent per endpoint push. computeRecipeKey is the same
+    // the ~17 MiB of rules are not re-sent per endpoint push. composeRuleCacheKey is the same
     // signal already used to gate re-sending merged rules to the main thread (below), so it
-    // can only over-invalidate (refresh when not strictly needed), never go stale.
+    // can only over-invalidate (refresh when not strictly needed), never go stale. See
+    // composeRuleCacheKey (src/workers/ruleCacheKey.ts) for why pipelineState.keys (the
+    // recipe dimension) MUST contribute: omitting it let the WASM merge cache go stale
+    // across recipe edits and the recipes-enabled toggle.
     // Both the baseline and final merge below share this key so the final call reuses the
     // cache the baseline call populated.
-    const rulesCacheKey = computeRecipeKey(pipelineState, payload)
+    const rulesCacheKey = composeRuleCacheKey(pipelineState, payload, safeguardsFingerprint)
     const mergeParams = {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       omitDisabledBeforeSafeguards: payload.omitDisabledBeforeSafeguards,
@@ -593,11 +594,25 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       rulesCacheKey,
     }
 
-    const mergedRulesBaseline = computeMergedRulesFromComponents(sharedComponents, {
-      ...mergeParams,
-      safeguards: baseSafeguards,
-    })
-    logTalcCounters(`after-mergedRulesBaseline id=${id} rules=${mergedRulesBaseline.length}`)
+    // Single definition of the baseline merge call (ODR) — used by the no-detection path
+    // below and by the defensive fallback in the final-merge expression further down.
+    const materializeBaselineRules = (): HsfRuleWithRecipe[] => computeMergedRulesFromComponents(
+      sharedComponents,
+      { ...mergeParams, safeguards: baseSafeguards },
+    )
+    // Baseline rules. When detection runs, the baseline merged rules have NO TS consumer
+    // besides the engine configuration and their COUNT (baseline→final index offset), so
+    // merge + configure happen in ONE WASM call (configureMergedRulesFromComponents) and
+    // the ~15 MiB of rules never cross the boundary. When detection is skipped, the
+    // baseline IS the final output (snapshot stays null) — materialize it classically so
+    // the response can carry it. mergedRulesBaseline is therefore null iff needsDetection.
+    let mergedRulesBaseline: HsfRuleWithRecipe[] | null = null
+    let baselineRuleCount = 0
+    if (!needsDetection) {
+      mergedRulesBaseline = materializeBaselineRules()
+      baselineRuleCount = mergedRulesBaseline.length
+    }
+    logTalcCounters(`after-mergedRulesBaseline id=${id} materialized=${mergedRulesBaseline !== null}`)
 
     // ignoreSafeguardRecipeIndices is needed by both detection and final passes.
     const ignoreSafeguardRecipeIndices = buildIgnoreSafeguardRecipeIndices(recipesForRules)
@@ -610,18 +625,24 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // but ONLY when the baseline rules or recipe modes actually changed. The engine
       // preserves its BucketedRules across pushes, so on an artifact-only push (same
       // rulesCacheKey + recipeModes) the previously-configured rules are still valid and
-      // re-sending ~17 MiB would just churn talc. computeRecipeKey is the rules signal;
-      // append the recipeModes so a mode flip still reconfigures.
+      // re-sending ~17 MiB would just churn the allocator. rulesCacheKey is the rules
+      // signal; append the recipeModes so a mode flip still reconfigures.
       const recipeModesForConfigure = Array.isArray(payload.recipeModes) ? payload.recipeModes : []
       const configureKey = `${rulesCacheKey}|${recipeModesForConfigure.join(',')}`
-      if (configureKey !== lastConfiguredKey) {
-        await configureWasmRuleEngine({
-          rules: mergedRulesBaseline,
+      if (configureKey === lastConfiguredKey && lastConfiguredBaselineCount !== null) {
+        // Engine still holds exactly this baseline config — skip merge AND configure.
+        baselineRuleCount = lastConfiguredBaselineCount
+      } else {
+        // One WASM call: cached merge + configure, count out (rules stay WASM-resident).
+        baselineRuleCount = configureMergedRulesFromComponents(sharedComponents, {
+          ...mergeParams,
+          safeguards: baseSafeguards,
           recipeModes: recipeModesForConfigure,
         })
         lastConfiguredKey = configureKey
+        lastConfiguredBaselineCount = baselineRuleCount
       }
-      logTalcCounters(`after-configure(baseline) id=${id}`)
+      logTalcCounters(`after-configure(baseline) id=${id} rules=${baselineRuleCount}`)
       if (!wasmVersionLogged) {
         await getWasmRuleEngineVersion()
         wasmVersionLogged = true
@@ -642,24 +663,37 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
       // Compute improvement-chance percentages once, before detection. Two consumers need
       // this result: (a) the detection call uses it for threshold gating on candidate ranking,
-      // (b) the payload sends it to the main thread. Computing here and passing
+      // (b) the payload sends it to the main thread (opt-in). Computing here and passing
       // precomputedImprovementChances to evaluateAndCollectSafeguardProtection suppresses the
       // internal fallback, avoiding a second WASM call and second peak-allocation for the Vec.
       // Gated on either threshold presence (detection needs it) or the caller opt-in flag.
-      const hasThreshold = payload.safeguards.rules.some(
-        (r) => r.improvementChanceThreshold !== null && r.improvementChanceThreshold !== undefined,
-      )
+      const hasThreshold = safeguardRulesHaveImprovementThreshold(payload.safeguards.rules)
       const needsImprovementChance = hasThreshold || payload.computeImprovementChance
+      // Entries actually fed to detection; [] when the pass is not needed at all.
+      let improvementChanceForDetection: ImprovementChanceWasmEntry[] = []
       if (needsImprovementChance) {
-        const improvResult = computeImprovementChanceWithLoadedWasm({
-          rules: payload.safeguards.rules,
-          enabled: payload.safeguards.enabled,
-          debug: false,
-        })
-        // Store entries for the payload (null when caller didn't opt in).
-        improvementChanceEntries = payload.computeImprovementChance ? (improvResult?.entries ?? null) : null
-        logTalcCounters(`after-improvementChance id=${id}`)
-        if (runIsStale()) return
+        // Memo key: safeguard rule content (safeguardsFingerprint already folds the enabled
+        // flag — SSOT) + artifact content. storeFingerprint hashes exactly the store rows
+        // the WASM pass reads, so equal keys ⇒ equal entries.
+        const improvementChanceKey = `${safeguardsFingerprint}|${storeFingerprint}`
+        if (lastImprovementChance !== null && lastImprovementChance.key === improvementChanceKey) {
+          // Inputs unchanged (e.g. a recipe-only edit) — reuse the previous WASM result.
+          improvementChanceForDetection = lastImprovementChance.entries
+        } else {
+          const improvResult = computeImprovementChanceWithLoadedWasm({
+            rules: payload.safeguards.rules,
+            enabled: payload.safeguards.enabled,
+            debug: false,
+          })
+          improvementChanceForDetection = improvResult?.entries ?? []
+          lastImprovementChance = { key: improvementChanceKey, entries: improvementChanceForDetection }
+          logTalcCounters(`after-improvementChance id=${id}`)
+          if (runIsStale()) return
+        }
+        // Forward entries to the main thread only when the caller opted in (overlay / sort
+        // column active). Detection below always receives them — previously a threshold-only
+        // run discarded this result and detection recomputed it internally (double WASM pass).
+        improvementChanceEntries = payload.computeImprovementChance ? improvementChanceForDetection : null
       }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
@@ -673,7 +707,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         rules: payload.safeguards.rules,
         enabled: payload.safeguards.enabled,
         ignoreSafeguardRecipeIndices,
-        precomputedImprovementChances: improvementChanceEntries ?? [],
+        precomputedImprovementChances: improvementChanceForDetection,
       })
       if (runIsStale()) return
       // Populate baseline match map from per-item evaluation results.
@@ -713,14 +747,23 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastArtifactStoreFingerprint = null
     }
 
+    // Final merge differs from baseline ONLY via the detection snapshot. With no snapshot
+    // (safeguards inactive, or no artifacts to detect against) the two calls would receive
+    // content-identical inputs — reuse the baseline array and skip the second WASM merge +
+    // full rule-array expansion entirely. Sharing the array is safe: it is read-only from
+    // here on (structured clone snapshots it on postMessage). A null snapshot implies
+    // !needsDetection, where the baseline IS materialized; the ?? fallback merge only fires
+    // if that invariant ever breaks (defensive — same output either way).
     // Use shared components so flattenRuleBatches is not called a second time.
-    const mergedRulesFinal = computeMergedRulesFromComponents(sharedComponents, {
-      ...mergeParams,
-      safeguards: {
-        ...payload.safeguards,
-        detection: safeguardDetectionSnapshot,
-      },
-    })
+    const mergedRulesFinal = safeguardDetectionSnapshot === null
+      ? (mergedRulesBaseline ?? materializeBaselineRules())
+      : computeMergedRulesFromComponents(sharedComponents, {
+          ...mergeParams,
+          safeguards: {
+            ...payload.safeguards,
+            detection: safeguardDetectionSnapshot,
+          },
+        })
     logTalcCounters(`after-mergedRulesFinal id=${id} rules=${mergedRulesFinal.length}`)
 
     // Offset between baseline-relative and final-relative rule indices: the injected safeguard
@@ -728,7 +771,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // before the main thread looks it up in mergedRulesFinal. Baseline has no safeguard rules
     // (detection=null) and both builds share merge params, so the offset is uniform. SSOT for the
     // baseline→final index space lives in remapBaselineMatchToFinal.
-    const baselineToFinalIndexOffset = mergedRulesFinal.length - mergedRulesBaseline.length
+    const baselineToFinalIndexOffset = mergedRulesFinal.length - baselineRuleCount
 
     // The final ruleset differs from baseline ONLY by the injected safeguard keep-rules +
     // anticipateGaps placeholders. An item's final gear-inspector verdict can therefore differ
@@ -740,7 +783,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // so its baseline verdict is already the final verdict. We therefore re-evaluate ONLY the
     // candidate subset against the final ruleset and reuse baseline for the rest — instead of a
     // second full O(N×M) scan. Verified (changedOutsideCandidate=0) across all example DBs ×
-    // 3 override tiers and gated by tests/repro/safeguard-verdict-golden.ts (per-item equivalence).
+    // 3 override tiers during development of this fast path.
     const detectionFoundNothing = safeguardDetectionSnapshot != null
       && safeguardDetectionSnapshot.entries.length === 0
     let matches: GearInspectorMatchWorkerItemResult[]
@@ -828,24 +871,19 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // substatTargetsKey, totalLimitHit, truncatedRecipeIndices identity, merge flags) +
     // detection key (safeguard detection entries drive placeholder injection).
     const detectionKey = computeDetectionKey(safeguardDetectionSnapshot)
-    // Reuse the key computed for the rules cache above — same composite signal (SSOT).
-    const recipeKey = rulesCacheKey
-    const rulesUnchanged =
-      lastSentKeys !== null &&
-      // Safety net: any change in rule count guarantees content changed, regardless of
-      // whether all fingerprints caught it. Catches gaps in the three keys below.
-      mergedRulesFinal.length === lastSentMergedCount &&
-      recipeKey === lastSentRecipeKey &&
-      detectionKey === lastSentDetectionKey &&
-      keysEqual(lastSentKeys, pipelineState.keys)
-
+    // Signature of this run's merged output. recipeKey reuses the rules-cache key computed
+    // above — same composite signal (SSOT). keys is its own slice so the sentinel and the
+    // response's keys array never alias each other.
+    const outputSignature: MergedOutputSignature = {
+      keys: pipelineState.keys.slice(),
+      recipeKey: rulesCacheKey,
+      detectionKey,
+      mergedCount: mergedRulesFinal.length,
+    }
+    const rulesUnchanged = mergedOutputSignatureEquals(lastSentSignature, outputSignature)
     if (!rulesUnchanged) {
-      // Capture sentinels before the response object is handed off (separate .slice()
-      // calls ensure lastSentKeys and the response's keys array don't alias each other).
-      lastSentKeys = pipelineState.keys.slice()
-      lastSentRecipeKey = recipeKey
-      lastSentDetectionKey = detectionKey
-      lastSentMergedCount = mergedRulesFinal.length
+      // Capture the signature before the response object is handed off.
+      lastSentSignature = outputSignature
     }
 
     // Fingerprint of the EXACT bytes an HSF export would produce from these merged rules.
@@ -858,7 +896,17 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // own export payload, so the two crcs can never diverge. (computeExportedHsfFingerprint
     // SSOT lives in hsfIO; the name-projection SSOT in ruleCacheHelpers.)
     const exportRecipeNames = recipeNamesForExport(recipesForRules)
-    const mergedRulesHash = computeExportedHsfFingerprint(mergedRulesFinal, { recipeNames: exportRecipeNames })
+    // Memo: the crc's only inputs are the merged output signature + the export names —
+    // reuse the previous crc when both match (JSON names key makes boundaries unambiguous).
+    const exportNamesKey = JSON.stringify(exportRecipeNames)
+    const mergedRulesHash = (
+      lastExportHash !== null
+      && lastExportHash.namesKey === exportNamesKey
+      && mergedOutputSignatureEquals(lastExportHash.signature, outputSignature)
+    )
+      ? lastExportHash.hash
+      : computeExportedHsfFingerprint(mergedRulesFinal, { recipeNames: exportRecipeNames })
+    lastExportHash = { signature: outputSignature, namesKey: exportNamesKey, hash: mergedRulesHash }
 
     // Use compact indices when neither dedup nor omitDisabled is active: in that case
     // the same rule objects appear in both mergedRulesFinal and prebuiltCustomRules,
@@ -901,6 +949,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // receiving the postError below; these resets are the fallback for the
       // stale-run path where postError is skipped.
       resetWasmInstance()
+      // The fresh instance holds NO engine state (BucketedRules / stored_rows are gone),
+      // so the skip sentinels that mirror that state must reset with it — otherwise the
+      // next run would skip configure/store against an empty engine and silently
+      // evaluate zero rules. (The WASM merge cache needs no reset here: its wrapper
+      // self-heals on a cache miss by re-caching and retrying.)
+      invalidateConfiguredKey()
+      lastConfiguredBaselineCount = null
+      lastArtifactStoreFingerprint = null
     }
     if (runIsStale()) return
     postError(id, error)

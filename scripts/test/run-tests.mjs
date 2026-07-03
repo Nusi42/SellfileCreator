@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -13,10 +13,6 @@ const tmpOutDir = join(root, 'tmp', 'tsc', 'tests')
 // Compile outputs mirror repo-root-relative paths (e.g., tests/**).
 const tmpTestsDir = join(tmpOutDir, 'tests')
 const testsDir = join(root, 'tests')
-// Keep wasm helper artifacts available in compiled test output when source files
-// import wasm wrappers in shared builder modules.
-const wasmGeneratedSrcDir = join(root, 'src', 'lib', 'wasm', 'generated')
-const wasmGeneratedOutDir = join(tmpOutDir, 'src', 'lib', 'wasm', 'generated')
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -74,13 +70,10 @@ try {
   } else {
     run('tsc', ['-p', 'tsconfig.tests.json'])
   }
-  // Patch ESM imports in compiled artifacts so Node can resolve them.
+  // Patch ESM imports in compiled artifacts so Node can resolve them. This step also
+  // mirrors the generated wasm bindings into tmp/tsc (SSOT for the mirror — see the
+  // stale-engine-trap note in patch-esm-specifiers.cjs).
   run(process.execPath, ['scripts/tooling/patch-esm-specifiers.cjs'])
-  // Mirror generated wasm bindings so compiled test modules can import them.
-  if (existsSync(wasmGeneratedSrcDir)) {
-    mkdirSync(wasmGeneratedOutDir, { recursive: true })
-    cpSync(wasmGeneratedSrcDir, wasmGeneratedOutDir, { recursive: true })
-  }
   // Run the SFC fixture harness before node:test specs.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/sfc-fixtures.runner.js'])
   // Run the sample2-bundle matcher regression harness to guard safeguard

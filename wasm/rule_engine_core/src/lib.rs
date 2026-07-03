@@ -1108,6 +1108,33 @@ pub fn cached_merge_inputs_engine() -> Option<(Vec<RuleRaw>, Vec<SafeguardWasmRu
     })
 }
 
+// Finish the cached merge AND configure the engine from the result in one step.
+// The worker's BASELINE configure has no TS consumer for the merged rules themselves —
+// only the engine configuration and the rule count (baseline→final index offset math) —
+// so serializing ~15 MiB of rules out of WASM and straight back in was pure marshaling
+// waste. Returns the merged rule count; Err on a cache miss so the TS wrapper can
+// self-heal exactly like the cached-merge path (re-cache the invariant half, retry).
+pub fn merge_cached_and_configure_engine(
+    safeguard_detection: Option<SafeguardWasmSnapshotOut>,
+    safeguard_recipe_id_base: Option<i64>,
+    recipe_modes: Vec<String>,
+) -> Result<usize, String> {
+    let (generated, safeguard_rules, safeguard_enabled) = cached_merge_inputs_engine()
+        .ok_or_else(|| "merge-cached-and-configure: no cached merge inputs (cache miss)".to_string())?;
+    // Same per-push merge half as compute_merged_rules_cached_value — byte-identical rules.
+    let merged = finish_merge_with_generated(
+        generated,
+        safeguard_enabled,
+        safeguard_rules,
+        safeguard_detection,
+        safeguard_recipe_id_base,
+    );
+    let count = merged.len();
+    // configure_engine preserves stored_rows + the cached merge inputs across the rebuild.
+    configure_engine(merged, recipe_modes);
+    Ok(count)
+}
+
 // Store pre-parsed artifact rows in ENGINE_STATE so the combined evaluate+collect entry point
 // can read them without re-deserializing on every call. Returns the stored row count.
 // Must be called after configure_engine (engine must exist) and before the combined fn.
@@ -1207,11 +1234,11 @@ pub fn evaluate_engine(
             );
             // Extract recipe data from scratch before any second call overwrites it.
             let matching_recipe_indices: Vec<i64> =
-                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+                scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
             let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
                 .recipe_matches
                 .iter()
-                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
+                .map(|(recipe_idx, keep, _)| MatchingRecipeDecision {
                     recipe_idx: *recipe_idx,
                     keep: *keep,
                 })
@@ -1349,11 +1376,11 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             );
             // Extract recipe data before any baseline call overwrites scratch.
             let matching_recipe_indices: Vec<i64> =
-                scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+                scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
             let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
                 .recipe_matches
                 .iter()
-                .map(|(recipe_idx, keep)| MatchingRecipeDecision {
+                .map(|(recipe_idx, keep, _)| MatchingRecipeDecision {
                     recipe_idx: *recipe_idx,
                     keep: *keep,
                 })

@@ -14,77 +14,53 @@ import type {
   SafeguardDetectionEntry,
   SafeguardDetectionArtifact,
   SafeguardPlaceholderRequest,
-  SafeguardCandidateOut,
   SafeguardRuleActivation,
 } from '../safeguards'
 import type { BuilderRecipe } from '../hsfBuilder'
 import type { LevelMilestone } from '../types'
+// Generated ts-rs bindings pin every wire shape below to the Rust structs (the serde
+// renames in wasm_merged_rules_wire_format.rs / the #[derive(TS)] structs are the SSOT).
+// A Rust-side rename/add/remove regenerates these types and breaks compilation HERE
+// instead of silently drifting at runtime.
+import type { RuleRaw } from './generated/rust-types/RuleRaw'
+import type { RuleRawWire } from './generated/rust-types/RuleRawWire'
+import type { RuleSubRaw } from './generated/rust-types/RuleSubRaw'
+import type { RuleSubRawWire } from './generated/rust-types/RuleSubRawWire'
+import type { SafeguardWasmSnapshotOut } from './generated/rust-types/SafeguardWasmSnapshotOut'
+import type { SafeguardWasmEntryOut } from './generated/rust-types/SafeguardWasmEntryOut'
+import type { SafeguardWasmCombination } from './generated/rust-types/SafeguardWasmCombination'
+import type { SafeguardWasmCountMode } from './generated/rust-types/SafeguardWasmCountMode'
+import type { SafeguardWasmArtifactOut } from './generated/rust-types/SafeguardWasmArtifactOut'
+import type { SafeguardWasmPlaceholderOut } from './generated/rust-types/SafeguardWasmPlaceholderOut'
+import type { SafeguardWasmExpectedGroupDomainIn } from './generated/rust-types/SafeguardWasmExpectedGroupDomainIn'
+import type { AutoFlexRarityRecipeIn } from './generated/rust-types/AutoFlexRarityRecipeIn'
+import type { AutoFlexRarityBoundsIn } from './generated/rust-types/AutoFlexRarityBoundsIn'
 
-// ─── Wire shapes (short-name field names matching Rust serde renames) ────────
+// ─── Wire shapes (aliases of the generated Rust types) ───────────────────────
 
-// SafeguardWasmExpectedGroupDomainIn (so/acs/ams/amb/afi)
-export type SafeguardExpectedGroupDomainWire = {
-  so: number[]
-  acs: number[]
-  ams: number[]
-  amb: Record<string, number[]>
-  afi: number[]
+// SafeguardWasmExpectedGroupDomainIn (so/acs/ams/amb/afi) — generated type used directly.
+export type SafeguardExpectedGroupDomainWire = SafeguardWasmExpectedGroupDomainIn
+
+// Rust declares every field as Option<T> with #[serde(default)], so the PROJECTION side may
+// omit keys entirely (serde fills the defaults) — hence Partial, applied to the nested
+// bounds records too (srb re-declared because Partial is shallow). WASM OUTPUT always
+// carries all fields, so expansion reads the full generated type.
+export type AutoFlexRarityRecipeInWire = Partial<Omit<AutoFlexRarityRecipeIn, 'srb'>> & {
+  srb?: Record<string, Partial<AutoFlexRarityBoundsIn>>
 }
+type AutoFlexRarityBoundsInWire = Partial<AutoFlexRarityBoundsIn>
 
-// AutoFlexRarityBoundsIn (mn/mx/a/n)
-type AutoFlexRarityBoundsInWire = {
-  mn?: number | null
-  mx?: number | null
-  a?: boolean | null
-  n?: boolean | null
-}
+// SafeguardWasmSnapshotOut (sa/e) — generated type used directly.
+export type SafeguardWasmSnapshotOutWire = SafeguardWasmSnapshotOut
 
-// AutoFlexRarityRecipeIn (rm/rc/asf/amc/mc/amr/mrr/sv/fsv/srb/ml/xl)
-export type AutoFlexRarityRecipeInWire = {
-  rm?: string | null
-  rc?: number | null
-  asf?: boolean | null
-  amc?: boolean | null
-  mc?: number | null
-  amr?: boolean | null
-  mrr?: number | null
-  sv: number[]
-  fsv: number[]
-  srb: Record<string, AutoFlexRarityBoundsInWire>
-  ml?: number | null
-  xl?: number | null
-}
+// ─── RuleRaw rename maps ──────────────────────────────────────────────────────
 
-// SafeguardWasmEntryOut (17 short-name fields; nested combination/countMode keep camelCase)
-type SafeguardWasmEntryOutWire = {
-  h: string
-  co: object     // SafeguardWasmCombination runtime shape — compatible with SafeguardCombination
-  ri: string | null
-  ro: number | null
-  ra: string
-  cm: object     // SafeguardWasmCountMode runtime shape — compatible with SafeguardRuleCountMode
-  pgc: number
-  gt: number
-  rc: number
-  cc: number
-  pc: number
-  d: number
-  cbe: boolean
-  ik: number[]
-  ar: object[]   // SafeguardWasmArtifactOut[] — compatible with SafeguardDetectionArtifact[]
-  pl: object[]   // SafeguardWasmPlaceholderOut[] — compatible with SafeguardPlaceholderRequest[]
-  ca: SafeguardCandidateOut[]
-}
-
-// SafeguardWasmSnapshotOut (sa/e)
-export type SafeguardWasmSnapshotOutWire = {
-  sa: number
-  e: SafeguardWasmEntryOutWire[]
-}
-
-// ─── Existing helpers ported from wasmRuleWireFields.ts ──────────────────────
-
-const RuleRaw_LONG_TO_SHORT: Record<string, string> = {
+// Long→short rename map for RuleRaw. `satisfies` pins BOTH sides to the generated types:
+// every long field of RuleRaw must be present as a key, and every value must be an actual
+// RuleRawWire field — a Rust rename/add/remove fails compilation here. (Pairing long names
+// to the WRONG short name is not expressible in the type system; the round-trip unit tests
+// cover that.)
+const RuleRaw_LONG_TO_SHORT = {
   "RecipeID": "r_id",
   "RecipeName": "r_n",
   "Keep": "k",
@@ -114,23 +90,29 @@ const RuleRaw_LONG_TO_SHORT: Record<string, string> = {
   "__safeguardItemKey": "_sik",
   "__safeguardPlaceholder": "_sph",
   "__safeguardPlaceholderMissing": "_spm",
-}
+} as const satisfies Record<keyof RuleRaw, keyof RuleRawWire>
 
-const RuleRaw_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
-  Object.entries(RuleRaw_LONG_TO_SHORT).map(([long, short]) => [short, long]),
-)
+// Invert a literal rename map at runtime while preserving the exact literal key/value
+// pairing at the type level — the ONE definition of the inversion used by both rename
+// maps below (the mapped-type return means callers keep full key inference).
+const invertRenameMap = <const M extends Record<string, string>>(map: M): { [K in keyof M as M[K] & string]: K } =>
+  Object.fromEntries(Object.entries(map).map(([long, short]) => [short, long])) as { [K in keyof M as M[K] & string]: K }
 
-const RuleSubRaw_LONG_TO_SHORT: Record<string, string> = {
+// Inverse map DERIVED from the forward map (never hand-written a second time), then pinned
+// to the generated wire type: totality over `keyof RuleRawWire` is compiler-checked, so a
+// new/renamed short field in Rust also fails compilation here.
+const RuleRaw_SHORT_TO_LONG: Record<keyof RuleRawWire, keyof RuleRaw> = invertRenameMap(RuleRaw_LONG_TO_SHORT)
+
+// Same double-pinned pattern for the nested substat rows.
+const RuleSubRaw_LONG_TO_SHORT = {
   "ID": "id",
   "Value": "v",
   "IsFlat": "if",
   "NotAvailable": "na",
   "Condition": "c",
-}
+} as const satisfies Record<keyof RuleSubRaw, keyof RuleSubRawWire>
 
-const RuleSubRaw_SHORT_TO_LONG: Record<string, string> = Object.fromEntries(
-  Object.entries(RuleSubRaw_LONG_TO_SHORT).map(([long, short]) => [short, long]),
-)
+const RuleSubRaw_SHORT_TO_LONG: Record<keyof RuleSubRawWire, keyof RuleSubRaw> = invertRenameMap(RuleSubRaw_LONG_TO_SHORT)
 
 // Rename top-level keys in an object; values are aliased (not cloned).
 // Undeclared keys pass through unchanged.
@@ -186,13 +168,16 @@ export const projectSafeguardExpectedGroupDomainForWire = (domain: {
 
 // ─── SafeguardWasmSnapshotOut expansion / projection ─────────────────────────
 
-function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOutWire): SafeguardDetectionEntry {
+// Wire→domain casts below bridge the generated WASM types to their brand-typed domain
+// mirrors (SafeguardWasmCombination ↔ SafeguardCombination etc.) — structurally identical
+// by construction; the generated side pins the actual wire field set.
+function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDetectionEntry {
   return {
     hash: wire.h,
-    combination: wire.co as SafeguardCombination,
+    combination: wire.co as unknown as SafeguardCombination,
     ruleOrdinal: wire.ro ?? null,
     ruleActivation: wire.ra as SafeguardRuleActivation,
-    countMode: wire.cm as SafeguardRuleCountMode,
+    countMode: wire.cm as unknown as SafeguardRuleCountMode,
     perGroupRequiredCount: wire.pgc,
     groupsTracked: wire.gt,
     requiredCount: wire.rc,
@@ -201,8 +186,8 @@ function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOutWire): Safeguar
     deficit: wire.d,
     coveredByExisting: wire.cbe,
     itemKeys: wire.ik,
-    artifacts: wire.ar as SafeguardDetectionArtifact[],
-    placeholders: wire.pl as SafeguardPlaceholderRequest[],
+    artifacts: wire.ar as unknown as SafeguardDetectionArtifact[],
+    placeholders: wire.pl as unknown as SafeguardPlaceholderRequest[],
     candidates: wire.ca,
   }
 }
@@ -216,14 +201,14 @@ export const expandSafeguardSnapshotFromWire = (wire: SafeguardWasmSnapshotOutWi
 // Project app-domain SafeguardDetectionSnapshot → wire form for WASM input.
 // Used when sending a prior detection result back in the computeMergedRules payload.
 // rule_id (ri) is omitted; WASM falls back to hash-based entry lookup.
-function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): SafeguardWasmEntryOutWire {
+function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): SafeguardWasmEntryOut {
   return {
     h: entry.hash,
-    co: entry.combination,
+    co: entry.combination as unknown as SafeguardWasmCombination,
     ri: null,
     ro: entry.ruleOrdinal,
     ra: entry.ruleActivation,
-    cm: entry.countMode,
+    cm: entry.countMode as unknown as SafeguardWasmCountMode,
     pgc: entry.perGroupRequiredCount,
     gt: entry.groupsTracked,
     rc: entry.requiredCount,
@@ -232,8 +217,8 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
     d: entry.deficit,
     cbe: entry.coveredByExisting,
     ik: entry.itemKeys,
-    ar: entry.artifacts,
-    pl: entry.placeholders,
+    ar: entry.artifacts as unknown as SafeguardWasmArtifactOut[],
+    pl: entry.placeholders as unknown as SafeguardWasmPlaceholderOut[],
     ca: entry.candidates ?? [],
   }
 }
@@ -287,7 +272,7 @@ export const expandAutoFlexRarityBranchFromWire = (wire: AutoFlexRarityRecipeInW
   ...(wire.sv !== undefined ? { substatsV: wire.sv } : {}),
   ...(wire.fsv !== undefined ? { fixedSubstatsV: wire.fsv } : {}),
   substatRollBoundsV: Object.fromEntries(
-    Object.entries(wire.srb).map(([key, bounds]) => [
+    Object.entries(wire.srb ?? {}).map(([key, bounds]) => [
       Number(key),
       {
         ...(bounds.mn != null ? { min: bounds.mn } : {}),

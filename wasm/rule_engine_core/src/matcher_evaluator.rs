@@ -7,26 +7,133 @@ use ts_rs::TS;
 
 // Rules bucketed by artifact slot for fast per-item evaluation.
 // from_rules partitions the flat rule list into shared (any-type) and per-slot buckets.
-// Shared rules are NOT cloned into per-slot lists; evaluate_item merges the two sorted
-// slices lazily via a zero-allocation two-pointer loop. This keeps BucketedRules at ≈1×
+// Shared rules are NOT cloned into per-slot lists — this keeps BucketedRules at ≈1×
 // the input rule count regardless of how many slots have slot-specific rules, avoiding
 // the previous ~3–5× clone expansion that triggered memory.grow / STATUS_ACCESS_VIOLATION.
 // A rule spanning multiple slot ids is still cloned into each relevant bucket.
+//
+// Each bucket also precomputes gate-group runs (see RuleBucket) so evaluate_item checks
+// each generated recipe's shared gate once per group instead of once per rule.
 #[derive(Debug, Default)]
 pub struct BucketedRules {
     // Slot-agnostic rules in original_index order; evaluated for every item.
-    pub shared: Vec<PreparedRule>,
+    shared: RuleBucket,
     // Slot-specific rules only, in original_index order. No shared copies here.
-    // evaluate_item merges shared + per_slot lazily via two-pointer sorted merge.
-    per_slot: BTreeMap<i64, Vec<PreparedRule>>,
+    per_slot: BTreeMap<i64, RuleBucket>,
+}
+
+// One bucket of rules plus its precomputed gate-group index runs.
+// `groups` holds half-open (start, end) ranges into `rules` where EVERY member shares an
+// identical gate (see GateKey). Recipe generation emits hundreds of substat variants with
+// the same slot/set/rank/rarity/level/main-stat gate, so real rulesets collapse ~13×
+// (33k rules → ~2.5k gate groups on the lategame reference preset) — evaluate_item checks
+// one gate per group and only scans member substats inside passing groups.
+//
+// IMPORTANT: `rules` is PERMUTED into grouped order (same-gate rules made contiguous),
+// NOT flat-list order — generated rulesets interleave gates heavily (19k+ runs of size 1
+// in flat order), so adjacency-only grouping would be worthless. evaluate_item tolerates
+// arbitrary visit order because it resolves "first match wins" via minimum original_index,
+// which each rule still carries.
+#[derive(Debug, Default)]
+pub struct RuleBucket {
+    // Rules in grouped order; each rule keeps its flat-list original_index stamp.
+    pub rules: Vec<PreparedRule>,
+    // Half-open (start, end) same-gate ranges covering `rules` completely.
+    pub groups: Vec<(u32, u32)>,
+}
+
+// Shared empty bucket so rules_for_slot can return a &RuleBucket for slots that have
+// no slot-specific rules without allocating (Vec::new() is const-evaluable).
+static EMPTY_RULE_BUCKET: RuleBucket = RuleBucket { rules: Vec::new(), groups: Vec::new() };
+
+// Gate identity of a rule — EXACTLY the fields match_rule_gate reads (use_flag, types,
+// sets, faction, rank/rarity masks, level, main-stat id+f). Substats are deliberately
+// excluded: they are the only per-member variation inside a group.
+// Keep this in lockstep with match_rule_gate: a field checked there but missing here
+// would let one head check stand in for members with different gates (wrong matches).
+// Ord (BTreeMap key) per project rule: BTreeMap over HashMap in wasm/ code.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct GateKey {
+    use_flag: bool,
+    faction: i64,
+    rank_mask: u8,
+    rarity_mask: u8,
+    level_for_check: i64,
+    main_stat_id: i64,
+    main_stat_f: i64,
+    artifact_types: Vec<i64>,
+    artifact_sets: Vec<i64>,
+}
+
+impl GateKey {
+    // Clone the two small selector vecs; the key only lives during bucket construction.
+    fn of(rule: &PreparedRule) -> Self {
+        Self {
+            use_flag: rule.use_flag,
+            faction: rule.faction,
+            rank_mask: rule.rank_mask,
+            rarity_mask: rule.rarity_mask,
+            level_for_check: rule.level_for_check,
+            main_stat_id: rule.main_stat_id,
+            main_stat_f: rule.main_stat_f,
+            artifact_types: rule.artifact_types.clone(),
+            artifact_sets: rule.artifact_sets.clone(),
+        }
+    }
+}
+
+impl RuleBucket {
+    // Group an ordered rule list by gate identity (non-adjacent members included) and
+    // permute it so each group's members are contiguous — one gate check then covers
+    // the whole group in evaluate_item.
+    fn from_ordered_rules(rules: Vec<PreparedRule>) -> Self {
+        if rules.is_empty() {
+            return Self::default();
+        }
+        // First-occurrence group id per distinct gate. Transient; dropped after assignment.
+        let mut group_ids: BTreeMap<GateKey, u32> = BTreeMap::new();
+        // (group_id, rule) pairs so one stable sort produces the grouped permutation.
+        let mut tagged: Vec<(u32, PreparedRule)> = Vec::with_capacity(rules.len());
+        for rule in rules {
+            let next_id = group_ids.len() as u32;
+            let id = *group_ids.entry(GateKey::of(&rule)).or_insert(next_id);
+            tagged.push((id, rule));
+        }
+        drop(group_ids);
+        // Group members stay in flat-list order within their group (original_index tiebreak
+        // keeps the sort deterministic; PreparedRule moves are plain memcpys, no re-allocs).
+        tagged.sort_unstable_by_key(|(id, rule)| (*id, rule.original_index));
+        // Emit contiguous (start, end) ranges per group id and unwrap the rules.
+        let mut groups: Vec<(u32, u32)> = Vec::new();
+        let mut rules_grouped: Vec<PreparedRule> = Vec::with_capacity(tagged.len());
+        let mut run_start = 0u32;
+        let mut run_id = tagged[0].0;
+        for (pos, (id, rule)) in tagged.into_iter().enumerate() {
+            if id != run_id {
+                groups.push((run_start, pos as u32));
+                run_start = pos as u32;
+                run_id = id;
+            }
+            rules_grouped.push(rule);
+        }
+        groups.push((run_start, rules_grouped.len() as u32));
+        Self { rules: rules_grouped, groups }
+    }
+
+    pub fn len(&self) -> usize {
+        self.rules.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.rules.is_empty()
+    }
 }
 
 impl BucketedRules {
     // Partition the flat rule list into shared vs per-slot buckets.
     // original_index is stamped onto each rule here so EvalMatch.rule_index always
     // refers to the flat-list position that TS callers use to look up rule metadata.
-    // Both shared and per-slot vecs end up in original_index order (enumeration order),
-    // so evaluate_item can merge them with a simple two-pointer loop — no sort needed.
+    // Both shared and per-slot vecs end up in original_index order (enumeration order).
     pub fn from_rules(rules: Vec<PreparedRule>) -> Self {
         let mut shared: Vec<PreparedRule> = Vec::new();
         let mut per_slot: BTreeMap<i64, Vec<PreparedRule>> = BTreeMap::new();
@@ -47,16 +154,22 @@ impl BucketedRules {
                 per_slot.entry(first_slot).or_default().push(rule);
             }
         }
-        // No merge step: shared and per_slot are already in original_index order.
-        // evaluate_item merges them in order via two-pointer loop at evaluation time.
-        Self { shared, per_slot }
+        // Group + permute each bucket by gate identity (see RuleBucket docs — rules keep
+        // their original_index stamp, so flat-list semantics survive the permutation).
+        Self {
+            shared: RuleBucket::from_ordered_rules(shared),
+            per_slot: per_slot
+                .into_iter()
+                .map(|(slot, bucket_rules)| (slot, RuleBucket::from_ordered_rules(bucket_rules)))
+                .collect(),
+        }
     }
 
-    // Returns (shared_rules, slot_specific_rules) — both sorted by original_index.
-    // Callers pass both slices to evaluate_item which merges them in order.
-    // slot_specific_rules is empty for slots with no slot-specific rules.
-    pub fn rules_for_slot(&self, slot: i64) -> (&[PreparedRule], &[PreparedRule]) {
-        let slot_rules = self.per_slot.get(&slot).map_or(&[] as &[_], Vec::as_slice);
+    // Returns (shared_bucket, slot_specific_bucket) — both in original_index order.
+    // Callers pass both to evaluate_item; the slot bucket is empty for slots with
+    // no slot-specific rules.
+    pub fn rules_for_slot(&self, slot: i64) -> (&RuleBucket, &RuleBucket) {
+        let slot_rules = self.per_slot.get(&slot).unwrap_or(&EMPTY_RULE_BUCKET);
         (&self.shared, slot_rules)
     }
 
@@ -131,10 +244,12 @@ pub enum PreparedRuleSubCondition {
 // Scratch buffers reused across items in evaluate_engine so each item avoids
 // per-item HashSet and BTreeMap allocations in the hot evaluation loop.
 pub struct EvaluateItemScratch {
-    // (recipe_idx, first_keep_decision) pairs in encounter order.
-    // Combines the roles of the old matching_recipe_seen HashSet and
-    // matching_recipe_decisions BTreeMap into one linear Vec with no heap churn.
-    pub recipe_matches: Vec<(i64, bool)>,
+    // (recipe_idx, first_keep_decision, first_match_original_index) triples.
+    // The index term lets the group-based scan (which visits buckets out of flat-list
+    // order) keep the LOWEST-index decision per recipe and restore flat-list encounter
+    // order with one sort at the end of evaluate_item. Combines the roles of the old
+    // matching_recipe_seen HashSet and matching_recipe_decisions BTreeMap in one Vec.
+    pub recipe_matches: Vec<(i64, bool, usize)>,
 }
 
 impl EvaluateItemScratch {
@@ -454,8 +569,18 @@ fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<
         .and_then(|values| values.iter().find(|(k, _)| *k == variant).map(|(_, v)| *v))
 }
 
-// Rule-level predicate copied from src/lib/ruleEval.ts::matchRule.
-fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
+// Gate half of the rule predicate (historically the top of match_rule, copied from
+// src/lib/ruleEval.ts::matchRule): every field that is CONSTANT across a generated rule
+// group. Substats are the only per-member variation and live in match_rule_substats.
+// Keep the field set in lockstep with gates_equal (see its comment for why).
+// item_rank_bit / item_rarity_bit are hoisted per item by the caller — they do not vary
+// across rules, so recomputing them per gate check would be pure waste.
+fn match_rule_gate(
+    rule: &PreparedRule,
+    item: &TestItemRaw,
+    item_rank_bit: u8,
+    item_rarity_bit: u8,
+) -> bool {
     if !rule.use_flag {
         return false;
     }
@@ -484,13 +609,11 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         }
     }
 
-    let rank_bit = bit_for_rank_or_rarity(item.rank);
-    if (rule.rank_mask & rank_bit) == 0 {
+    if (rule.rank_mask & item_rank_bit) == 0 {
         return false;
     }
 
-    let rarity_bit = bit_for_rank_or_rarity(item.rarity);
-    if (rule.rarity_mask & rarity_bit) == 0 {
+    if (rule.rarity_mask & item_rarity_bit) == 0 {
         return false;
     }
 
@@ -506,6 +629,13 @@ fn match_rule(rule: &PreparedRule, item: &TestItemRaw) -> bool {
         }
     }
 
+    true
+}
+
+// Substat half of the rule predicate — the per-member check inside a gate group.
+// match_rule_gate(...) && match_rule_substats(...) together are exactly the historical
+// match_rule semantics (src/lib/ruleEval.ts::matchRule).
+fn match_rule_substats(rule: &PreparedRule, item: &TestItemRaw) -> bool {
     for sub in &rule.substats {
         let raw_value = read_sub_value(&item.sub_values, sub.variant);
         let has_value = raw_value.is_some_and(|v| v.is_finite() && v > 0.0);
@@ -559,17 +689,32 @@ fn should_include_recipe(
     true
 }
 
+// Order-independent equivalent of "first hit wins in flat-list walk order": keep the
+// candidate with the lowest original_index across arbitrarily-ordered group visits.
+fn take_min_index(slot: &mut Option<EvalMatch>, candidate: EvalMatch) {
+    // EvalMatch is Copy; map_or reads the current winner without consuming the Option.
+    if slot.map_or(true, |current| candidate.rule_index < current.rule_index) {
+        *slot = Some(candidate);
+    }
+}
+
 // Hot-path evaluator writes recipe matches into scratch to avoid per-item
 // HashSet and BTreeMap allocations. Returns only the two first-match results;
 // callers read recipe data from scratch.recipe_matches after the call.
 //
-// shared: slot-agnostic rules from BucketedRules::shared, sorted by original_index.
-// slot_rules: slot-specific rules from BucketedRules::per_slot, sorted by original_index.
-// Both slices are obtained from BucketedRules::rules_for_slot(item.slot) at the call site.
-// The two-pointer merge below iterates them in flat-list order without any allocation.
+// shared: slot-agnostic bucket from BucketedRules; slot_rules: this slot's bucket.
+// Both come from BucketedRules::rules_for_slot(item.slot) at the call site.
+//
+// Group-based scan: each bucket's rules are pre-partitioned into same-gate runs
+// (RuleBucket::groups), so the gate (slot/set/faction/rank/rarity/level/main-stat) is
+// checked ONCE per group and only passing groups pay the per-member substat scan —
+// ~7× fewer predicate evaluations than the previous per-rule walk on real rulesets.
+// Groups are visited bucket-by-bucket (NOT in global flat-list order); "first match
+// wins" is preserved by tracking the minimum original_index per category instead,
+// which is equivalent because a single ordered walk's first hit IS the min-index hit.
 pub fn evaluate_item(
-    shared: &[PreparedRule],
-    slot_rules: &[PreparedRule],
+    shared: &RuleBucket,
+    slot_rules: &RuleBucket,
     recipe_modes: &[String],
     item: &TestItemRaw,
     options: &EvaluateOptionsPrepared,
@@ -578,97 +723,105 @@ pub fn evaluate_item(
     // Reuse scratch capacity; clear retains the allocation.
     scratch.clear();
 
+    // Min-index winners per category (see take_min_index):
+    //   first_match           — non-override rule, recipe-visible, not source-excluded.
+    //   pending_keep_override — keep-override rule, recipe-visible, not source-excluded.
+    //   prekeep_override      — keep-override rule BEFORE recipe gating (fallback when
+    //                           no post-gate keep_override is available).
     let mut first_match: Option<EvalMatch> = None;
-    let mut first_non_excluded_match: Option<EvalMatch> = None;
-    // First keep_override rule that passes the recipe gate and is not source-excluded.
-    // prekeep_override captures the first keep_override match before recipe gating,
-    // used as a fallback when no post-gate keep_override is available.
     let mut pending_keep_override: Option<EvalMatch> = None;
     let mut prekeep_override: Option<EvalMatch> = None;
 
-    // Merge shared + slot_rules in original_index order without allocation.
-    // Both slices are pre-sorted by original_index from BucketedRules::from_rules.
-    // Two-pointer walk picks the lower-index rule at each step, preserving flat-list order
-    // so a higher-index recipe's any-type rule cannot jump ahead of an earlier slot rule.
-    let mut si = 0usize;
-    let mut pi = 0usize;
-    loop {
-        let rule = match (shared.get(si), slot_rules.get(pi)) {
-            (Some(s), Some(p)) => {
-                if s.original_index <= p.original_index { si += 1; s } else { pi += 1; p }
+    // Item-side gate terms are invariant across rules; hoist them out of the loops.
+    let item_rank_bit = bit_for_rank_or_rarity(item.rank);
+    let item_rarity_bit = bit_for_rank_or_rarity(item.rarity);
+
+    for bucket in [shared, slot_rules] {
+        for &(start, end) in &bucket.groups {
+            let members = &bucket.rules[start as usize..end as usize];
+            // One head check decides the whole run — gates are identical for every
+            // member by RuleBucket construction (gates_equal).
+            if !match_rule_gate(&members[0], item, item_rank_bit, item_rarity_bit) {
+                continue;
             }
-            (Some(s), None) => { si += 1; s }
-            (None, Some(p)) => { pi += 1; p }
-            (None, None) => break,
-        };
-        let rule_index = rule.original_index;
-        if !match_rule(rule, item) {
-            continue;
-        }
+            for rule in members {
+                if !match_rule_substats(rule, item) {
+                    continue;
+                }
+                let rule_index = rule.original_index;
 
-        // Track first keep-override hit before recipe gating so the fallback
-        // semantics match the TypeScript path without an extra pre-scan.
-        if prekeep_override.is_none() && rule.is_keep_override_source {
-            prekeep_override = Some(EvalMatch {
-                rule_index,
-                keep: true,
-                recipe_idx: rule.recipe_idx,
-                is_keep_override_source: true,
-            });
-        }
+                // Track the min-index keep-override hit before recipe gating so the
+                // fallback semantics match the TypeScript path without an extra pre-scan.
+                if rule.is_keep_override_source {
+                    take_min_index(&mut prekeep_override, EvalMatch {
+                        rule_index,
+                        keep: true,
+                        recipe_idx: rule.recipe_idx,
+                        is_keep_override_source: true,
+                    });
+                }
 
-        let is_excluded = options.source_is_excluded(
-            rule.source_bits,
-            rule.source_fallback.as_deref(),
-        );
+                let is_excluded = options.source_is_excluded(
+                    rule.source_bits,
+                    rule.source_fallback.as_deref(),
+                );
 
-        if !should_include_recipe(rule.recipe_idx, recipe_modes, options) {
-            continue;
-        }
+                if !should_include_recipe(rule.recipe_idx, recipe_modes, options) {
+                    continue;
+                }
 
-        let keep = if rule.is_keep_override_source {
-            true
-        } else {
-            rule.keep_flag
-        };
+                // Keep-override sources always keep; regular rules use their own flag.
+                let keep = if rule.is_keep_override_source {
+                    true
+                } else {
+                    rule.keep_flag
+                };
 
-        if rule.is_keep_override_source {
-            // All three former variables (pending/fallback/any) set identically — collapsed to one.
-            if pending_keep_override.is_none() && !is_excluded {
-                pending_keep_override = Some(EvalMatch {
-                    rule_index,
-                    keep,
-                    recipe_idx: rule.recipe_idx,
-                    is_keep_override_source: true,
-                });
-            }
-        } else {
-            if first_match.is_none() && !is_excluded {
-                first_match = Some(EvalMatch {
-                    rule_index,
-                    keep,
-                    recipe_idx: rule.recipe_idx,
-                    is_keep_override_source: false,
-                });
-            }
-            if first_non_excluded_match.is_none() && !is_excluded {
-                first_non_excluded_match = Some(EvalMatch {
-                    rule_index,
-                    keep,
-                    recipe_idx: rule.recipe_idx,
-                    is_keep_override_source: false,
-                });
-            }
-        }
+                if rule.is_keep_override_source {
+                    if !is_excluded {
+                        take_min_index(&mut pending_keep_override, EvalMatch {
+                            rule_index,
+                            keep,
+                            recipe_idx: rule.recipe_idx,
+                            is_keep_override_source: true,
+                        });
+                    }
+                } else if !is_excluded {
+                    take_min_index(&mut first_match, EvalMatch {
+                        rule_index,
+                        keep,
+                        recipe_idx: rule.recipe_idx,
+                        is_keep_override_source: false,
+                    });
+                }
 
-        if let Some(recipe_idx) = rule.recipe_idx {
-            // Linear dedup + first-decision tracking in one pass; recipe counts
-            // are small (typically < 50) so linear scan beats HashSet allocation.
-            if !scratch.recipe_matches.iter().any(|(k, _)| *k == recipe_idx) {
-                scratch.recipe_matches.push((recipe_idx, keep));
+                if let Some(recipe_idx) = rule.recipe_idx {
+                    // Linear dedup + min-index decision tracking in one pass; recipe
+                    // counts are small (typically < 50) so linear scan beats a HashSet.
+                    match scratch.recipe_matches.iter_mut().find(|entry| entry.0 == recipe_idx) {
+                        Some(entry) => {
+                            // A lower-index rule for the same recipe overrides the decision
+                            // (equivalent to "first decision wins" in flat-list order).
+                            if rule_index < entry.2 {
+                                entry.1 = keep;
+                                entry.2 = rule_index;
+                            }
+                        }
+                        None => scratch.recipe_matches.push((recipe_idx, keep, rule_index)),
+                    }
+                }
             }
         }
     }
+
+    // Restore flat-list encounter order for per-recipe decisions — consumers preserve
+    // this order into matchingRecipeIndices/Decisions, which the UI displays as-is.
+    scratch.recipe_matches.sort_unstable_by_key(|entry| entry.2);
+
+    // The historical walk tracked first_non_excluded_match under conditions identical to
+    // first_match (they only diverge in the keep-override resolution below), so it is
+    // seeded from first_match here instead of being tracked separately in the scan.
+    let mut first_non_excluded_match = first_match;
 
     // EvalMatch is Copy; no need for as_ref() to avoid consuming the Option.
     let first_match_is_keep = first_match
@@ -913,7 +1066,7 @@ mod tests {
             "recipe 49 has a lower flat-list index than recipe 181; it must be first_match"
         );
         // matchingRecipeIndices must also respect flat-list order.
-        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
         assert_eq!(indices, vec![49, 181], "recipe 49 must precede recipe 181 in match order");
     }
 
@@ -938,7 +1091,7 @@ mod tests {
             Some(181),
             "recipe 181 has a lower flat-list index here; it must be first_match"
         );
-        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _)| *k).collect();
+        let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
         assert_eq!(indices, vec![181, 49]);
     }
 

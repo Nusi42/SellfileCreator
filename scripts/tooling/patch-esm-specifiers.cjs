@@ -79,3 +79,16 @@ if (files.length > 0) {
 } else {
   console.log('No ESM specifiers patched; no compiled artifacts under', roots.join(', '))
 }
+
+// Mirror the generated WASM bindings into the compiled test tree. tsc only emits .js/.d.ts,
+// so without this the .wasm binaries under tmp/tsc are whatever some earlier run left there —
+// a stale-engine trap: repro/bench harnesses would silently measure an OLD rule engine after
+// a wasm rebuild. Done here (the canonical post-tsc step every harness script runs) so every
+// consumer gets a fresh mirror; scripts/test/run-tests.mjs relies on this too.
+const wasmGeneratedSrc = path.join(__dirname, '..', '..', 'src', 'lib', 'wasm', 'generated')
+const wasmGeneratedOut = path.join(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'src', 'lib', 'wasm', 'generated')
+if (fs.existsSync(wasmGeneratedSrc) && fs.existsSync(path.dirname(wasmGeneratedOut))) {
+  fs.mkdirSync(wasmGeneratedOut, { recursive: true })
+  fs.cpSync(wasmGeneratedSrc, wasmGeneratedOut, { recursive: true })
+  console.log('Mirrored generated wasm bindings into tmp/tsc/tests')
+}

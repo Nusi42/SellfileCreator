@@ -21,6 +21,7 @@ import initRuleEngineWasm, {
   compute_improvement_chance_value as computeImprovementChanceWasmValueBinding,
   cache_generated_rules_value as cacheGeneratedRulesWasmValueBinding,
   compute_merged_rules_cached_value as computeMergedRulesCachedWasmValueBinding,
+  merge_cached_and_configure_value as mergeCachedAndConfigureWasmValueBinding,
   compute_safeguard_protection_value as computeSafeguardProtectionValueWasmBinding,
   dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
   expand_auto_flex_rarity_branches_value as expandAutoFlexRarityBranchesWasmValueBinding,
@@ -85,6 +86,10 @@ import {
 // ObsoleteEntryOut is referenced transitively via ObsoleteReportOut.obsolete[]
 // (ts-rs imports it inside the generated file); no need to import it here.
 import type { ObsoleteReportOut } from './generated/rust-types/ObsoleteReportOut'
+// Generated envelope wire types — used as `satisfies Record<keyof T, unknown>` guards on
+// the JSON.stringify payload literals so envelope-key drift fails compilation.
+import type { CacheGeneratedRulesInWire } from './generated/rust-types/CacheGeneratedRulesInWire'
+import type { ComputeMergedRulesCachedInWire } from './generated/rust-types/ComputeMergedRulesCachedInWire'
 import type { SafeguardWasmCountMode } from './generated/rust-types/SafeguardWasmCountMode'
 import type { SafeguardCollectedCandidateOut } from './generated/rust-types/SafeguardCollectedCandidateOut'
 import type { SafeguardCollectedSnapshotOut } from './generated/rust-types/SafeguardCollectedSnapshotOut'
@@ -1106,6 +1111,9 @@ export const cacheGeneratedRulesWithLoadedWasm = (params: {
   assertWasmInitializedSync()
   // Invariant-half payload: the recipe rules AND the safeguard rule definitions — both
   // session-stable. Same minify + short-key SSOT as the full merge payload.
+  // `satisfies` pins the envelope KEYS to the generated Rust wire type — an added,
+  // removed, or renamed field in CacheGeneratedRulesInWire fails compilation here.
+  // (Value types stay unchecked at this level; deny_unknown_fields guards the rest.)
   const payloadJson = JSON.stringify({
     br: params.baseRules.map(minifyRuleRawForWire),
     cr: params.customRules.map(minifyRuleRawForWire),
@@ -1115,15 +1123,13 @@ export const cacheGeneratedRulesWithLoadedWasm = (params: {
     dds: params.dedupeBeforeSafeguards === true,
     se: params.safeguardEnabled === true,
     sr: resolveRulesForWasm(params.safeguardRules),
-  })
+  } satisfies Record<keyof CacheGeneratedRulesInWire, unknown>)
   cacheGeneratedRulesWasmValueBinding(payloadJson)
 }
 
-// Finish the merge using the WASM-cached invariant inputs + the per-push detection snapshot.
-// Takes the FULL param set so a cache miss can self-heal (re-cache the invariant half, then
-// retry) — never a silently-wrong result. The fast path sends only the detection snapshot,
-// not the ~34 MiB full payload.
-export const computeMergedRulesCachedWithLoadedWasm = (params: {
+// Shared param shape of the cached-merge entry points: the invariant half (accepted by
+// cacheGeneratedRulesWithLoadedWasm for self-heal) + the per-push detection snapshot.
+type CachedMergeParams = {
   baseRules: HsfRuleWithRecipe[]
   customRules: HsfRuleWithRecipe[]
   finalSellRemainder: FinalSellRemainderConfig | null | undefined
@@ -1134,27 +1140,63 @@ export const computeMergedRulesCachedWithLoadedWasm = (params: {
   safeguardRules: readonly SafeguardRule[]
   safeguardDetection: SafeguardDetectionSnapshot | null | undefined
   safeguardRecipeIdBase: number
-}): HsfRuleWithRecipe[] => {
+}
+
+// Per-push half of the cached-merge payload (detection snapshot + recipe-id base). ONE
+// builder for both cached-merge entry points so the envelope literal exists exactly once.
+// Envelope keys compiler-pinned to the generated Rust wire type.
+const buildCachedMergePayloadJson = (params: CachedMergeParams): string => JSON.stringify({
+  sd: params.safeguardDetection ? projectSafeguardSnapshotForWire(params.safeguardDetection) : null,
+  srb: Math.floor(params.safeguardRecipeIdBase),
+} satisfies Record<keyof ComputeMergedRulesCachedInWire, unknown>)
+
+// Cache-miss self-heal shared by the cached-merge entry points: on a miss (engine has no
+// cached generated rules yet — e.g. first merge after a worker respawn or trap reset,
+// before merge.ts's lastCachedRulesKey could know the WASM engine is fresh) populate the
+// cache from the full params and retry once. This keeps the cached path the ONE merge path
+// (no separate legacy merge) while guaranteeing correctness on the rare miss. A second
+// failure is a real bug — rethrow.
+const callWithGeneratedRulesCacheSelfHeal = <T>(params: CachedMergeParams, call: () => T): T => {
+  try {
+    return call()
+  } catch {
+    cacheGeneratedRulesWithLoadedWasm(params)
+    return call()
+  }
+}
+
+// Finish the merge using the WASM-cached invariant inputs + the per-push detection snapshot.
+// Takes the FULL param set so a cache miss can self-heal (re-cache the invariant half, then
+// retry) — never a silently-wrong result. The fast path sends only the detection snapshot,
+// not the ~34 MiB full payload.
+export const computeMergedRulesCachedWithLoadedWasm = (params: CachedMergeParams): HsfRuleWithRecipe[] => {
   assertWasmInitializedSync()
   // Per-push payload: ONLY the detection snapshot (+ recipe-id base). Rules and safeguard
   // definitions are already resident in ENGINE_STATE from the cache call.
-  const payloadJson = JSON.stringify({
-    sd: params.safeguardDetection ? projectSafeguardSnapshotForWire(params.safeguardDetection) : null,
-    srb: Math.floor(params.safeguardRecipeIdBase),
-  })
-  let resultJson: unknown
-  try {
-    resultJson = computeMergedRulesCachedWasmValueBinding(payloadJson)
-  } catch {
-    // Cache miss (engine has no cached generated rules yet — e.g. first merge after a
-    // worker respawn, before merge.ts's lastCachedRulesKey could know the WASM engine is
-    // fresh). Self-heal: populate the cache from this call's full params and retry once.
-    // This keeps the cached path the ONE merge path (no separate legacy merge) while
-    // guaranteeing correctness on the rare miss. A second failure is a real bug — rethrow.
-    cacheGeneratedRulesWithLoadedWasm(params)
-    resultJson = computeMergedRulesCachedWasmValueBinding(payloadJson)
-  }
+  const payloadJson = buildCachedMergePayloadJson(params)
+  const resultJson: unknown = callWithGeneratedRulesCacheSelfHeal(
+    params,
+    () => computeMergedRulesCachedWasmValueBinding(payloadJson),
+  )
   return expandMergedRulesResult(resultJson, 'cached merged-rule orchestrator')
+}
+
+// Finish the cached merge AND configure the engine in one WASM call, returning only the
+// merged rule COUNT. Used for configure passes whose merged rules have no TS consumer
+// (the worker's baseline configure): the rules stay entirely WASM-resident, skipping the
+// serialize-out + expand + minify + serialize-in round-trip of merge-then-configure.
+// The recipe modes travel as a second plain JSON string-array argument — the payload
+// envelope is the SAME ComputeMergedRulesCachedInWire as the cached merge (SSOT).
+export const mergeCachedRulesAndConfigureWithLoadedWasm = (
+  params: CachedMergeParams & { recipeModes: readonly string[] },
+): number => {
+  assertWasmInitializedSync()
+  const payloadJson = buildCachedMergePayloadJson(params)
+  const recipeModesJson = JSON.stringify(params.recipeModes)
+  return callWithGeneratedRulesCacheSelfHeal(
+    params,
+    () => mergeCachedAndConfigureWasmValueBinding(payloadJson, recipeModesJson),
+  )
 }
 
 // Auto-flex rarity branch expansion now runs in Rust so merge.ts keeps one

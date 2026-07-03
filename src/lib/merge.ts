@@ -16,6 +16,7 @@ import {
   buildFinalSellRulesWithLoadedWasm,
   cacheGeneratedRulesWithLoadedWasm,
   computeMergedRulesCachedWithLoadedWasm,
+  mergeCachedRulesAndConfigureWithLoadedWasm,
   expandAutoFlexRarityBranchesWithLoadedWasm,
   flattenRuleBatchesWithTotalLimitWithLoadedWasm,
   finalizeGeneratedRulesWithLoadedWasm,
@@ -326,46 +327,78 @@ let lastCachedRulesKey: string | null = null
  * internally to the full legacy merge on a WASM cache miss, so correctness never depends
  * on the key being right — only performance does.
  */
-export function computeMergedRulesFromComponents(
+// Shared param shape for the cached-merge entry points below.
+type MergedRulesFromComponentsParams = {
+  finalSellRemainder?: FinalSellRemainderConfig
+  safeguards?: SafeguardsMergeInput
+  omitDisabledBeforeSafeguards?: boolean
+  dedupeBeforeSafeguards?: boolean
+  rulesCacheKey?: string
+}
+
+// Build the INVARIANT HALF of the merge payload (recipe rules + transform flags + safeguard
+// rule DEFINITIONS — everything constant across pushes within a session; the detection
+// snapshot is the only per-push input and is NOT part of this) and refresh the WASM-side
+// rules cache when the key changed or no key was supplied. A supplied, matching key means
+// the generated rules are already resident — skip the ~17 MiB rules payload entirely.
+// SSOT for both computeMergedRulesFromComponents and configureMergedRulesFromComponents.
+function ensureCachedMergeInputs(
   components: MergedRulesComponents,
-  params: {
-    finalSellRemainder?: FinalSellRemainderConfig
-    safeguards?: SafeguardsMergeInput
-    omitDisabledBeforeSafeguards?: boolean
-    dedupeBeforeSafeguards?: boolean
-    rulesCacheKey?: string
-  },
-): HsfRuleWithRecipe[] {
+  params: MergedRulesFromComponentsParams,
+) {
   const { base, customs, allKnownSetIds } = components
-  const { finalSellRemainder, safeguards, omitDisabledBeforeSafeguards, dedupeBeforeSafeguards, rulesCacheKey } = params
-  const safeguardsInput = hasActiveSafeguardRules(safeguards) ? safeguards : null
-  // Refresh the WASM-side rules cache when the key changed or no key was supplied.
-  // A supplied, matching key means the generated rules are already resident — skip the
-  // ~17 MiB rules payload entirely and send only the snapshot half below.
-  // The invariant half: recipe rules + transform flags + safeguard rule DEFINITIONS
-  // (everything that is constant across pushes within a session). The detection snapshot
-  // is the only per-push input and is NOT part of this.
+  const safeguardsInput = hasActiveSafeguardRules(params.safeguards) ? params.safeguards : null
   const invariantHalf = {
     baseRules: base,
     customRules: customs,
-    finalSellRemainder: finalSellRemainder ?? null,
+    finalSellRemainder: params.finalSellRemainder ?? null,
     allKnownSetIds,
-    omitDisabledBeforeSafeguards: omitDisabledBeforeSafeguards === true,
-    dedupeBeforeSafeguards: dedupeBeforeSafeguards === true,
+    omitDisabledBeforeSafeguards: params.omitDisabledBeforeSafeguards === true,
+    dedupeBeforeSafeguards: params.dedupeBeforeSafeguards === true,
     safeguardEnabled: safeguardsInput != null,
     safeguardRules: safeguardsInput?.rules ?? [],
   }
-  if (rulesCacheKey === undefined || rulesCacheKey !== lastCachedRulesKey) {
+  if (params.rulesCacheKey === undefined || params.rulesCacheKey !== lastCachedRulesKey) {
     cacheGeneratedRulesWithLoadedWasm(invariantHalf)
     // Record the key only when one was supplied; an absent key means "always refresh".
-    lastCachedRulesKey = rulesCacheKey ?? null
+    lastCachedRulesKey = params.rulesCacheKey ?? null
   }
+  return { invariantHalf, safeguardsInput }
+}
+
+export function computeMergedRulesFromComponents(
+  components: MergedRulesComponents,
+  params: MergedRulesFromComponentsParams,
+): HsfRuleWithRecipe[] {
+  const { invariantHalf, safeguardsInput } = ensureCachedMergeInputs(components, params)
   // Merge using the cached invariant inputs + this call's detection snapshot. Pass the full
   // params so the wrapper can self-heal (re-cache + retry) on a cache miss.
   return computeMergedRulesCachedWithLoadedWasm({
     ...invariantHalf,
     safeguardDetection: safeguardsInput?.detection ?? null,
     safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
+  })
+}
+
+/**
+ * Merge (via the same WASM-cached inputs as computeMergedRulesFromComponents) and configure
+ * the engine with the result in ONE WASM call, returning only the merged rule COUNT.
+ * For configure passes whose merged rules have no TS consumer — the rule-cache worker's
+ * baseline configure — this skips the entire rules round-trip (serialize-out + expand +
+ * minify + serialize-in of ~15 MiB) that merge-then-configure would pay.
+ * The engine ends up holding exactly the ruleset computeMergedRulesFromComponents would
+ * have returned for identical params (same WASM merge half, byte-identical rules).
+ */
+export function configureMergedRulesFromComponents(
+  components: MergedRulesComponents,
+  params: MergedRulesFromComponentsParams & { recipeModes: readonly string[] },
+): number {
+  const { invariantHalf, safeguardsInput } = ensureCachedMergeInputs(components, params)
+  return mergeCachedRulesAndConfigureWithLoadedWasm({
+    ...invariantHalf,
+    safeguardDetection: safeguardsInput?.detection ?? null,
+    safeguardRecipeIdBase: SAFEGUARD_RECIPE_ID_BASE,
+    recipeModes: params.recipeModes,
   })
 }
 

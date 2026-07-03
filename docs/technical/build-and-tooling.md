@@ -51,7 +51,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `dev` now runs an initial `npm run wasm:ensure:rule-engine` pass and then keeps polling Rust/domain inputs so follow-up edits trigger fresh ensure checks while Vite stays running.
 - `build`, `typecheck`, and `test:unit` still run `npm run wasm:ensure:rule-engine` first, so non-dev workflows auto-regenerate wasm/bindings as needed.
 - `src/lib/wasm/generated/rule_engine_bg.wasm` is intentionally gitignored and should be regenerated locally by the ensure/build scripts instead of committed.
-- `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM.
+- `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM, and mirrors `src/lib/wasm/generated/` into `tmp/tsc/tests/` (SSOT for the mirror — tsc emits no `.wasm`, and without a refresh here the repro/bench harnesses silently ran whatever engine binary an earlier `test:unit` run had left behind).
 - `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the SFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
 - `scripts/test/dump-tests-sfc.mjs` — extracts SFC‑readable recipes from compiled tests (`npm run tests:extract`).
 - `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated SFC cases.
