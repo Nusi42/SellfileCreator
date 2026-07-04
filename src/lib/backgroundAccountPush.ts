@@ -63,6 +63,7 @@ import {
   getSellfileAutoPushForAccount,
   getSellfileDedupPreferenceSnapshot,
   getSellfileOmitDisabledPreferenceSnapshot,
+  markSellfileLastPushForAccount,
 } from '../state/exportPreferences'
 import { getPersistEndpointGearPreferenceSnapshot } from '../state/gearDbPreferences'
 
@@ -210,6 +211,8 @@ export const createBackgroundAccountPushService = (
         data: payload,
       })
       if (!response.ok) throw new Error(response.error ?? 'upload rejected')
+      // Record the success for the account menu's "Pushed <date>" summary line.
+      markSellfileLastPushForAccount(account.id)
       // 6. Persist the fresh gear into X's own gearInspector autosave so its next
       // session starts from this data instead of a stale queue — unless the user
       // disabled persisting endpoint gear to localStorage (perf/sanity toggle).

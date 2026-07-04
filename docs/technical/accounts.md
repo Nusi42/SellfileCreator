@@ -80,7 +80,21 @@ is how users pre-bind accounts before RSL Helper passes ids itself), the **per-a
 account routes through the live store so React subscribers stay in sync; other accounts
 write their namespaced key directly with store-parity serialization), the
 **unstamped-data default** flag (below), the **global endpoint-gear persistence** toggle
-(below), and two-step deletion.
+(below), and deletion behind a regular confirmation dialog.
+
+Each switcher row shows a summary block (`lib/accountSummaries.ts`, computed lazily on
+menu open), one fact per line: "Saved <date>", "Pushed <date>" (from
+`sellfile.lastPush.v1`), "N recipes · M safeguards · K rules", and the shared
+`GearInspectorOutcomeSummaryChip` (total / sold / kept / safeguarded). Saved (local
+autosave) and pushed (what RSL Helper has) are different facts, so the push line is
+always present — "Not pushed yet" when no upload has succeeded — to keep the saved line
+from being misread as push state. Recipe/safeguard counts come from the account's SFC
+autosave parse; the generated-rule count and the gear outcome come from the
+`accountStats.v1` snapshot the live session writes whenever its pipeline results change
+(guarded on gear rows existing so app boot cannot clobber a real snapshot with zeros) —
+for non-active accounts they show the last known state from that account's most recent
+live session. Rows mark the ACTIVE account with a leading right arrow; the accent renders
+as a trailing square swatch.
 
 ## Unstamped-data default (`unstampedDefault`)
 
@@ -119,6 +133,8 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `simple.variant.v1` | beginner/lategame tracks account progression |
 | `rulesFilter.state.v3`, `rulesFilter.sync.v1` | filter VALUES applied to the account's document |
 | `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper |
+| `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |
+| `accountStats.v1` | tiny snapshot of live pipeline RESULTS (generated-rule count + gear total/sold/kept/safeguarded) — written by the live session for its own account, since these are not derivable from autosaves at menu-open cost |
 
 Everything else stays global — notably the whole theming system (also required: MUI reads
 its theme keys synchronously before account resolution could run), colour maps, UI
@@ -140,9 +156,15 @@ account cannot be deleted.
 ## Per-account accent
 
 Each account carries an optional `accentColor` (auto-assigned from
-`ACCOUNT_ACCENT_PALETTE`, editable in the manage dialog). It renders as a dot on the
-switcher button and swatches in the menu — an at-a-glance "which account am I on" marker
-without forking the global theme.
+`ACCOUNT_ACCENT_PALETTE`, editable in the account dialog, clearable via the struck-through
+"none" swatch — `setAccountAccent(id, undefined)` deletes the field). The ACTIVE account's
+accent FILLS the switcher button; the label is the runtime scheme's `text.primary` pushed
+through `ensureContrastOnBg` against that fill (colour-SSOT rule for theme text on a user
+colour), and hover blends scheme text over the fill at an `ALPHA` ladder step (the
+variant's own hover background would wipe the fill otherwise). Without an accent the
+button keeps the default theme colour. Menu rows keep raw accent dots (background
+swatches need no adaptation) — an at-a-glance "which account am I on" marker without
+forking the global theme.
 
 ## Shift-switch merge
 

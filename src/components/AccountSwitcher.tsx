@@ -10,9 +10,13 @@
  * offers the merge flow: the current document is staged as a one-shot carry and offered
  * to the target session through the existing shift-import options dialog, so merging
  * reuses the regular selective-import logic instead of forking it. Each row shows the
- * account's saved-at/counts summary (preset-menu style) and carries a gear icon opening
- * the account dialog for THAT account. "New account…" opens the SAME dialog in create
- * mode (staged fields, "Create & switch"), so both flows share one look and feel.
+ * account's summary (saved-at, last successful push, recipe/safeguard/rule counts, and
+ * the shared gear outcome chip) and carries a gear icon opening the account dialog for
+ * THAT account. "New account…" opens the SAME dialog in create mode (staged fields,
+ * "Create & switch"), so both flows share one look and feel. The button itself is FILLED
+ * with the active account's accent (label contrast-adapted); "no accent" is a valid
+ * choice. Rows mark the active account with a leading arrow and show the accent as a
+ * trailing square swatch.
  */
 import React, { useMemo, useState } from 'react'
 import {
@@ -20,8 +24,8 @@ import {
   Divider, FormControlLabel, IconButton, ListItemIcon, Menu, MenuItem,
   Switch, TextField, Typography,
 } from '@mui/material'
-import CheckIcon from '@mui/icons-material/Check'
 import AddIcon from '@mui/icons-material/Add'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
@@ -41,6 +45,11 @@ import {
 } from '../lib/accounts'
 import { readAccountListSummary } from '../lib/accountSummaries'
 import { formatLocalDateTime } from '../lib/dateDisplay'
+import { useTheme, useColorScheme } from '@mui/material/styles'
+import { resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
+import { blendAlpha, ensureContrastOnBg, WCAG_NORMAL_TEXT_CONTRAST } from '../lib/colorUtils'
+import { ALPHA } from '../lib/colorTints'
+import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
 import {
   getSellfileAutoPushForAccount,
   setSellfileAutoPushForAccount,
@@ -59,17 +68,23 @@ export type AccountSwitcherProps = {
 // 'manage' edits the identified account live (registry updates re-render instantly).
 type AccountDialogState = { mode: 'create' } | { mode: 'manage'; accountId: string } | null
 
-// Small round accent swatch; the raw user colour is fine as a *background* (it never
-// renders as text, so no contrast adaptation is needed — same as other colour swatches).
-function AccentDot({ color, size = 10 }: { color: string | undefined; size?: number }) {
+// Small square accent swatch at each row's trailing edge; the raw user colour is fine as
+// a *background* (it never renders as text, so no contrast adaptation is needed — same as
+// other colour swatches). Accounts without an accent render an invisible spacer of the
+// same size so the trailing manage icons stay column-aligned across rows.
+function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: number }) {
   return (
     <Box
       component="span"
       sx={{
-        width: size, height: size, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
-        bgcolor: color ?? 'text.disabled',
-        // Hairline outline keeps light accents visible on light surfaces (and vice versa).
-        border: '1px solid', borderColor: 'divider',
+        width: size, height: size, borderRadius: '2px', flexShrink: 0, display: 'inline-block',
+        ...(color
+          ? {
+              bgcolor: color,
+              // Hairline outline keeps light accents visible on light surfaces (and vice versa).
+              border: '1px solid', borderColor: 'divider',
+            }
+          : { visibility: 'hidden' }),
       }}
     />
   )
@@ -80,6 +95,19 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
   const { accounts, activeAccount } = useAccounts()
   // GLOBAL perf/sanity toggle surfaced in the manager (see state/gearDbPreferences.ts).
   const [persistEndpointGear, setPersistEndpointGear] = usePersistEndpointGearPreference()
+  // The accent FILLS the switcher button, so the label is the active scheme's text
+  // colour pushed to sufficient contrast ON that fill (shared LCH contrast primitive —
+  // the colour-SSOT rule for theme text rendered on a user colour). resolveSchemePalette
+  // reads the RUNTIME scheme (theme.palette is frozen to light under cssVariables).
+  const theme = useTheme()
+  const { colorScheme } = useColorScheme()
+  const schemePalette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
+  const accent = activeAccount.accentColor
+  // 4.5:1 (normal-text AA) — the default 3.0 UI-component target reads too faint for the
+  // small button label on an arbitrary accent fill.
+  const accentLabel = accent ? ensureContrastOnBg(schemePalette.text.primary, accent, WCAG_NORMAL_TEXT_CONTRAST) : undefined
+  // Hover feedback mirrors MUI's action model: scheme text blended over the fill at a low step.
+  const accentHoverBg = accent ? blendAlpha(accent, schemePalette.text.primary, ALPHA.a10) : undefined
 
   // Menu anchor kept in state (not a ref) so the Menu gets a stable render-time value.
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
@@ -93,16 +121,27 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     return new Map(accounts.map((account) => [account.id, readAccountListSummary(account.id)]))
   }, [menuOpen, accounts])
 
-  // Compose the preset-menu-style caption: "saved-at · N recipes · M gear items".
-  const summaryCaption = (accountId: string): string | null => {
+  // Preset-menu-style caption block, one fact per line for scanability: "Saved <date>",
+  // "Pushed <date>", "N recipes · M safeguards · K rules". Saved (local autosave) and
+  // pushed (what RSL Helper has) are DIFFERENT facts — the push line is always present so
+  // the saved line can never be misread as push state. The gear outcome chip (total /
+  // sold / kept / safeguarded) renders separately below these lines.
+  const summaryLines = (accountId: string): string[] => {
     const summary = accountSummaries.get(accountId)
-    if (!summary) return null
-    const parts = [
-      summary.savedAt ? formatLocalDateTime(summary.savedAt) : null,
+    if (!summary) return []
+    // formatLocalDateTime returns null on unparsable input — gate before interpolating.
+    const savedDate = summary.savedAt ? formatLocalDateTime(summary.savedAt) : null
+    const pushedDate = summary.lastPushAt ? formatLocalDateTime(summary.lastPushAt) : null
+    const lines: string[] = []
+    if (savedDate) lines.push(t('accountSummarySavedAt', { date: savedDate }))
+    lines.push(pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'))
+    const countParts = [
       summary.recipeCount !== null ? t('accountSummaryRecipes', { count: summary.recipeCount }) : null,
-      summary.gearItemCount !== null ? t('accountSummaryGearItems', { count: summary.gearItemCount }) : null,
+      summary.safeguardCount !== null ? t('accountSummarySafeguards', { count: summary.safeguardCount }) : null,
+      summary.rulesCount !== null ? t('accountSummaryRules', { count: summary.rulesCount }) : null,
     ].filter((part): part is string => Boolean(part))
-    return parts.length > 0 ? parts.join(' · ') : null
+    if (countParts.length > 0) lines.push(countParts.join(' · '))
+    return lines
   }
 
   // Pending shift-merge target; non-null renders the confirmation dialog.
@@ -117,10 +156,11 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
   // Auto-push is a raw scoped key (not registry state) — mirrored in local state.
   const [autoPushDraft, setAutoPushDraft] = useState(false)
   // Create-mode-only staged values (manage mode applies these live instead).
-  const [accentDraft, setAccentDraft] = useState<string>(ACCOUNT_ACCENT_PALETTE[0]!)
+  // undefined = "no accent colour" — the button then keeps the default theme colour.
+  const [accentDraft, setAccentDraft] = useState<string | undefined>(ACCOUNT_ACCENT_PALETTE[0]!)
   const [unstampedDraft, setUnstampedDraft] = useState(false)
-  // Two-step delete confirmation lives inside the manage dialog.
-  const [deleteArmed, setDeleteArmed] = useState(false)
+  // Delete confirmation is its own dialog (over the manage dialog), like the merge flow.
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   // Full reload after any active-account change: one document per session (see lib/accounts.ts).
   const reload = () => { window.location.reload() }
@@ -131,7 +171,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     setNameDraft(account.displayName)
     setPlayerIdDraft(account.helperAccountId ?? '')
     setAutoPushDraft(getSellfileAutoPushForAccount(account.id))
-    setDeleteArmed(false)
+    setDeleteConfirmOpen(false)
     setAccountDialog({ mode: 'manage', accountId: account.id })
   }
 
@@ -175,6 +215,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     const account = createAccount(nameDraft)
     const trimmedId = playerIdDraft.trim()
     if (trimmedId) bindHelperAccount(account.id, trimmedId)
+    // createAccount auto-assigns a palette accent; undefined here clears it ("no accent").
     setAccountAccent(account.id, accentDraft)
     if (autoPushDraft) setSellfileAutoPushForAccount(account.id, true)
     if (unstampedDraft) setUnstampedDefaultAccount(account.id)
@@ -196,6 +237,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     if (!managedAccount) return
     // deleteAccount reports whether the ACTIVE account changed → then a reload is due.
     const needsReload = deleteAccount(managedAccount.id)
+    setDeleteConfirmOpen(false)
     setAccountDialog(null)
     if (needsReload) reload()
   }
@@ -218,9 +260,18 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
           variant={compact ? 'text' : 'outlined'}
           onClick={(e) => setMenuAnchor(e.currentTarget)}
           aria-label={t('accountSwitcherAriaLabel')}
-          startIcon={<AccentDot color={activeAccount.accentColor} />}
           // Header variant matches the 34px control row; compact fits the dialog title bar.
-          sx={{ height: compact ? 28 : 34, whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 180 }}
+          // The accent FILLS the whole button (hover must restate the fill — the variant's
+          // own hover background would wipe it); no accent → default theme button colour.
+          sx={{
+            height: compact ? 28 : 34, whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 180,
+            ...(accent ? {
+              bgcolor: accent,
+              color: accentLabel,
+              borderColor: accent,
+              '&:hover': { bgcolor: accentHoverBg, borderColor: accent },
+            } : {}),
+          }}
         >
           {/* Ellipsize long names so the header row never overflows. */}
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -236,8 +287,11 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
             selected={account.id === activeAccount.id}
             onClick={(e) => handlePickAccount(e, account)}
           >
-            <ListItemIcon><AccentDot color={account.accentColor} size={12} /></ListItemIcon>
-            {/* Preset-menu row layout: name line + caption lines (Player ID, summary). */}
+            {/* Leading slot marks the ACTIVE account with a right arrow ("you are here"). */}
+            <ListItemIcon>
+              {account.id === activeAccount.id ? <ArrowForwardIcon fontSize="small" /> : null}
+            </ListItemIcon>
+            {/* Preset-menu row layout: name + caption lines (Player ID, summary) + gear chip. */}
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <Typography variant="body2" noWrap>{account.displayName}</Typography>
               {account.helperAccountId ? (
@@ -245,13 +299,21 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
                   {t('accountBoundCaption', { id: account.helperAccountId })}
                 </Typography>
               ) : null}
-              {summaryCaption(account.id) ? (
-                <Typography variant="caption" noWrap sx={captionSx}>
-                  {summaryCaption(account.id)}
+              {summaryLines(account.id).map((line) => (
+                <Typography key={line} variant="caption" noWrap sx={captionSx}>
+                  {line}
                 </Typography>
+              ))}
+              {/* The SAME outcome chip used in the preview headers — last known
+                  total/sold/kept/safeguarded from the account's stats snapshot. */}
+              {accountSummaries.get(account.id)?.gearOutcome ? (
+                <Box sx={{ mt: 0.5, alignSelf: 'flex-start' }}>
+                  <GearInspectorOutcomeSummaryChip summary={accountSummaries.get(account.id)!.gearOutcome} />
+                </Box>
               ) : null}
             </Box>
-            {account.id === activeAccount.id && <CheckIcon fontSize="small" sx={{ ml: 1 }} />}
+            {/* Trailing accent swatch (square) sits where a status glyph would otherwise be. */}
+            <AccentSquare color={account.accentColor} />
             {/* Manage THIS account without switching to it (name, id, auto-push, …). */}
             <IconButton
               size="small"
@@ -268,8 +330,9 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
           {t('accountMenuNew')}
         </MenuItem>
-        {/* Advertise the shift-merge affordance where the user is already looking. */}
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
+        {/* Advertise the shift-merge affordance where the user is already looking —
+            text.disabled matches the app's other purely-informative labels (filter header). */}
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
           {t('accountMenuShiftHint')}
         </Typography>
       </Menu>
@@ -358,6 +421,26 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
             {t('accountManageAccentLabel')}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+            {/* Leading "none" swatch — a struck-through circle clears the accent. */}
+            <Box
+              aria-label={t('accountManageAccentNone')}
+              title={t('accountManageAccentNone')}
+              onClick={() => {
+                if (isCreate) setAccentDraft(undefined)
+                else if (managedAccount) setAccountAccent(managedAccount.id, undefined)
+              }}
+              sx={{
+                width: 22, height: 22, borderRadius: '50%', cursor: 'pointer',
+                position: 'relative', overflow: 'hidden',
+                border: '2px solid',
+                borderColor: dialogAccent === undefined ? 'text.primary' : 'divider',
+                // Diagonal strike marks "no colour" (theme token, not a user colour).
+                '&::after': {
+                  content: '""', position: 'absolute', left: '50%', top: -3, bottom: -3,
+                  width: '2px', ml: '-1px', bgcolor: 'text.disabled', transform: 'rotate(45deg)',
+                },
+              }}
+            />
             {ACCOUNT_ACCENT_PALETTE.map((color) => (
               <Box
                 key={color}
@@ -393,22 +476,11 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
                 {t('accountManagePersistGearHint')}
               </Typography>
               <Divider sx={{ my: 2 }} />
-              {deleteArmed ? (
-                <>
-                  <DialogContentText sx={{ mb: 1 }}>
-                    {t('accountManageDeleteConfirm', { name: managedAccount.displayName })}
-                  </DialogContentText>
-                  <Button color="error" variant="contained" size="small" onClick={handleDelete}>
-                    {t('accountManageDeleteConfirmButton')}
-                  </Button>
-                </>
-              ) : (
-                // Deleting the last account is refused by deleteAccount; disable the entry point too.
-                <Button color="error" size="small" disabled={accounts.length <= 1}
-                  onClick={() => setDeleteArmed(true)}>
-                  {t('accountManageDelete')}
-                </Button>
-              )}
+              {/* Deleting the last account is refused by deleteAccount; disable the entry point too. */}
+              <Button color="error" size="small" disabled={accounts.length <= 1}
+                onClick={() => setDeleteConfirmOpen(true)}>
+                {t('accountManageDelete')}
+              </Button>
             </>
           )}
         </DialogContent>
@@ -423,6 +495,22 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
           ) : (
             <Button onClick={() => setAccountDialog(null)}>{t('close')}</Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete confirmation — a regular dialog over the manage dialog (destructive action). */}
+      <Dialog open={deleteConfirmOpen && managedAccount !== null} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>{t('accountDeleteTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('accountManageDeleteConfirm', { name: managedAccount?.displayName ?? '' })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>{t('cancel')}</Button>
+          <Button color="error" variant="contained" onClick={handleDelete}>
+            {t('accountManageDeleteConfirmButton')}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

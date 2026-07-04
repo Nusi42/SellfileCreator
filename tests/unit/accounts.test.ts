@@ -13,6 +13,7 @@ import {
   getActiveAccount,
   getUnstampedDefaultAccount,
   renameAccount,
+  setAccountAccent,
   setUnstampedDefaultAccount,
   resolveAccountScopedKey,
   resolveAccountScopedKeyFor,
@@ -188,6 +189,18 @@ test('create / switch / rename / delete round-trip', () => {
   // The last remaining account is protected from deletion.
   assert.equal(deleteAccount(first.id), false)
   assert.equal(getAccounts().length, 1)
+})
+
+test('setAccountAccent sets, replaces, and clears the accent (undefined = none)', () => {
+  freshWindow()
+  const account = getActiveAccount()
+  // Migration assigns a default palette accent; replacing and clearing both persist.
+  setAccountAccent(account.id, '#123456')
+  assert.equal(getActiveAccount().accentColor, '#123456')
+  setAccountAccent(account.id, undefined)
+  assert.equal(getActiveAccount().accentColor, undefined)
+  // The cleared accent is DELETED from the persisted record, not stored as null.
+  assert.equal('accentColor' in getActiveAccount(), false)
 })
 
 test('setUnstampedDefaultAccount enforces radio semantics and persists', () => {

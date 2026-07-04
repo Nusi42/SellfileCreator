@@ -44,13 +44,21 @@ const ACCOUNT_KEY_PREFIX = 'sellfileCreator.acc.'
  *  - rulesFilter state/sync hold filter *values* applied to the account's document
  *    (rulesFilter open/collapse are pure UI and stay global),
  *  - sellfile.autoPush is a per-game-account contract: each account decides whether
- *    its sellfile flows to RSL Helper automatically.
+ *    its sellfile flows to RSL Helper automatically,
+ *  - sellfile.lastPush records each account's last successful upload (menu summary).
  */
 // Base keys the background account-push flow rebases onto OTHER accounts — exported so
 // that flow never restates the literals (resolveAccountScopedKeyFor takes these).
 export const ACCOUNT_BASE_KEY_AUTOSAVE_SFC = 'sellfileCreator.autosave.sfc.v1'
 export const ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR = 'sellfileCreator.autosave.gearInspector.v1'
 export const ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH = 'sellfileCreator.sellfile.autoPush.v1'
+// Last SUCCESSFUL sellfile upload to RSL Helper (ISO timestamp) — per account because
+// both the foreground push (active account) and the background push (any account) write it.
+export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH = 'sellfileCreator.sellfile.lastPush.v1'
+// Tiny stats snapshot (generated-rule count + gear sell/keep outcome summary) the LIVE
+// session writes for its own account — pipeline results are not derivable from autosaves
+// at menu-open cost, so the switcher's summary lines read this instead.
+export const ACCOUNT_BASE_KEY_ACCOUNT_STATS = 'sellfileCreator.accountStats.v1'
 
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
@@ -62,6 +70,8 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   'sellfileCreator.rulesFilter.state.v3',
   'sellfileCreator.rulesFilter.sync.v1',
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
+  ACCOUNT_BASE_KEY_ACCOUNT_STATS,
 ])
 
 // Keys that are NOT scoped going forward but must still move into the first account's
@@ -477,10 +487,12 @@ export const renameAccount = (id: string, displayName: string): void => {
   notify()
 }
 
-export const setAccountAccent = (id: string, accentColor: string): void => {
+// undefined clears the accent — "no accent color" is a valid choice (neutral button).
+export const setAccountAccent = (id: string, accentColor: string | undefined): void => {
   const account = getAccountRegistry().accounts.find((a) => a.id === id)
   if (!account || account.accentColor === accentColor) return
-  account.accentColor = accentColor
+  if (accentColor === undefined) delete account.accentColor
+  else account.accentColor = accentColor
   persistRegistry()
   notify()
 }

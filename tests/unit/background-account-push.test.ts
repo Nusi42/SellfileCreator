@@ -17,7 +17,12 @@ import {
   type BackgroundAccountPushOutcome,
 } from '../../src/lib/backgroundAccountPush.js'
 import { buildDocumentOverridesView, resolveOverridesNoteText, type DocumentOverridesInput } from '../../src/lib/documentOverrides.js'
-import { getSellfileAutoPushForAccount, setSellfileAutoPushForAccount } from '../../src/state/exportPreferences.js'
+import { readAccountListSummary, writeAccountStatsSnapshot } from '../../src/lib/accountSummaries.js'
+import {
+  getSellfileAutoPushForAccount,
+  getSellfileLastPushAtForAccount,
+  setSellfileAutoPushForAccount,
+} from '../../src/state/exportPreferences.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import type { ExternalCommand } from '../../src/lib/externalCommands.js'
@@ -193,6 +198,9 @@ test('full background build: pipeline runs on the account document and the uploa
   // The fresh gear burst landed in the INACTIVE account's gearInspector autosave.
   const gearEntry = loadAutosave(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR))
   assert.ok(gearEntry)
+  // The success stamped the account's last-push marker (a parseable ISO timestamp).
+  const lastPush = getSellfileLastPushAtForAccount(inactive.id)
+  assert.ok(lastPush !== null && Number.isFinite(Date.parse(lastPush)))
 })
 
 test('explicit forAccount services UNSTAMPED commands for the flagged default account', async () => {
@@ -242,6 +250,27 @@ test('per-account auto-push helpers write the target namespace and round-trip', 
   assert.equal(storage.getItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)), null)
 })
 
+test('account stats snapshot + list summary round-trip', () => {
+  freshWindow()
+  const account = createAccount('AltHero')
+  // SFC doc: recipe/safeguard counts come straight from the CRC-guarded parse.
+  saveAutosave(resolveAccountScopedKeyFor(account.id, ACCOUNT_BASE_KEY_AUTOSAVE_SFC), {
+    AutosaveSavedAt: '2026-07-04T10:00:00.000Z',
+    Recipes: [{}, {}],
+    Safeguards: [{}],
+  })
+  // Pipeline results (rule count + gear outcome) flow through the stats snapshot.
+  writeAccountStatsSnapshot(account.id, { rules: 42, gear: { total: 10, sold: 4, kept: 6, keptBySafeguards: 2 } })
+  const summary = readAccountListSummary(account.id)
+  assert.equal(summary.savedAt, '2026-07-04T10:00:00.000Z')
+  assert.equal(summary.recipeCount, 2)
+  assert.equal(summary.safeguardCount, 1)
+  assert.equal(summary.rulesCount, 42)
+  assert.deepEqual(summary.gearOutcome, { total: 10, sold: 4, kept: 6, keptBySafeguards: 2 })
+  // No push has happened for this account.
+  assert.equal(summary.lastPushAt, null)
+})
+
 test('upload rejection surfaces as a failed outcome', async () => {
   const storage = freshWindow()
   const inactive = seedBoundInactiveAccount('um2')
@@ -258,6 +287,8 @@ test('upload rejection surfaces as a failed outcome', async () => {
   service.noteInboundGearCommand(artifactsCommand('um2'))
   await new Promise<void>((resolve) => { notify = resolve })
   assert.equal(outcomes[0]?.kind, 'failed')
+  // A rejected upload must NOT stamp the last-push marker.
+  assert.equal(getSellfileLastPushAtForAccount(inactive.id), null)
 })
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { SELLFILE_DEDUP_DEFAULT_KEY, SELLFILE_OMIT_DISABLED_KEY, SELLFILE_AUTO_PUSH_KEY } from '../lib/constants'
-import { ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH, resolveAccountScopedKeyFor } from '../lib/accounts'
+import { ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH, resolveAccountScopedKeyFor } from '../lib/accounts'
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../lib/safeStorage'
 
 // Shared raw→boolean parse for every export preference. Exported because the background
@@ -65,4 +65,16 @@ export const setSellfileAutoPushForAccount = (accountId: string, enabled: boolea
   // Other accounts: raw write mirroring the store's serialize + delete-on-default(false).
   if (enabled) safeSetItem(key, '1')
   else safeRemoveItem(key)
+}
+
+/**
+ * Last SUCCESSFUL sellfile upload per account (ISO timestamp, shown in the account menu).
+ * Written by BOTH push paths — the foreground export (active account) and the background
+ * account push (any account) — so the raw scoped key is the SSOT, not a live store.
+ */
+export const getSellfileLastPushAtForAccount = (accountId: string): string | null =>
+  safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH))
+
+export const markSellfileLastPushForAccount = (accountId: string): void => {
+  safeSetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH), new Date().toISOString())
 }

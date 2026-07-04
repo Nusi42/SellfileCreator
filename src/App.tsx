@@ -160,6 +160,7 @@ import {
 import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE } from './lib/gearInspectorSort'
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
+import { writeAccountStatsSnapshot } from './lib/accountSummaries'
 import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { mergeSortState, subtractSortState, reapplySortScalars, sortStateContains, sortStateHasContribution } from './lib/gearInspectorSortMerge'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
@@ -426,7 +427,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
-import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
+import { markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
@@ -5838,6 +5839,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
     return buildGearInspectorOutcomeSummaryPair(gearInspectorPreviewRows, scopedIds)
   }, [gearInspectorPreviewRows, gearEntriesForTable, gearInspectorContextGroupById])
+  // Persist the live pipeline results as the account's stats snapshot — the switcher's
+  // summary lines (rule count + gear outcome chip) read it per account, since these are
+  // pipeline RESULTS no autosave can provide at menu-open cost (lib/accountSummaries.ts).
+  // Guarded on rows existing so the boot window (gear autosave not yet restored) cannot
+  // clobber a real snapshot with zeros.
+  useEffect(() => {
+    if (gearInspectorPreviewRows.length === 0) return
+    writeAccountStatsSnapshot(getActiveAccount().id, {
+      rules: mergedRules.length,
+      gear: gearInspectorOutcomeSummary,
+    })
+  }, [gearInspectorOutcomeSummary, mergedRules.length, gearInspectorPreviewRows.length])
   // When the diff view is open it acts as a filter narrowing the grid to changed rows; the header
   // chip must mirror that scope instead of the full Gear Inspector count. Project each changed row
   // to its current (after) verdict so the summary reflects the live outcome of the changed items.
@@ -9034,6 +9047,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // A successful request proves endpoint reachability for later pushes.
           updatePushEndpointReachable(true)
           pushToast = 'success'
+          // Record the success for the account menu's "Pushed <date>" summary line.
+          markSellfileLastPushForAccount(getActiveAccount().id)
           setLastExportedHash(currentMergedRulesHash)
           // Notify the express-mode button so it plays its blink animation.
           if (silent) setAutoPushFlashSeq((s) => s + 1)

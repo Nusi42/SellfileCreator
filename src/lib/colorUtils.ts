@@ -215,6 +215,10 @@ function lchToRgb(L: number, C: number, H: number): Rgb {
 // Using 3.0 rather than the normal-text 4.5 prevents extreme darkening of preset colors
 // that were designed for a different background mode; practical readability is preserved.
 const WCAG_MIN_CONTRAST = 3.0
+// WCAG 4.5:1 — AA for NORMAL text (SC 1.4.3). Pass as ensureContrastOnBg's minContrast when
+// the adjusted color is a small text label (not a decorative tint), e.g. text on an
+// arbitrary user-picked fill where the default 3.0 reads too faint.
+export const WCAG_NORMAL_TEXT_CONTRAST = 4.5
 
 // 32-entry result cache: avoids the 20-step binary search for repeated (text, bg) pairs.
 // Map insertion order keeps the oldest entry at keys().next() for eviction.
