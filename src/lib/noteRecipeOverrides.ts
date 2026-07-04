@@ -33,6 +33,7 @@ import {
   NOTE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
   NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
+  NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT,
   stripCommentWrapper,
   collectSelectorTokensAndOpenBlock,
   parseOverridesMarkerBody,
@@ -442,8 +443,10 @@ export type NoteQuestionDefinition = {
   id: string
   index: number
   prompt: string
-  // columns ≥ 1 enables horizontal (grid) option layout; 0 = vertical.
+  // columns ≥ 1 enables horizontal (grid) option layout at N× card width; 0 = vertical.
   layoutColumns: number
+  // Explicit option-grid column count (`optcols=N`); 0 = auto-fit. See NoteDialog layout.
+  optionColumns: number
   groups: NoteQuestionGroup[]
   options: NoteQuestionOption[]
   fallback: NoteQuestionFallback | null
@@ -1960,6 +1963,7 @@ const buildResolvedQuestion = (
     index,
     prompt: localizeDslDisplay(question.prompt, lang),
     layoutColumns: question.layoutColumns,
+    optionColumns: question.optionColumns,
     groups,
     options,
     fallback,
@@ -2353,6 +2357,8 @@ export const parseNoteRecipeOverrides = (
           index: markerIndex,
           prompt: '',
           layoutColumns: spacerColumns,
+          // Spacers have no options, so no option-grid column count.
+          optionColumns: NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT,
           groups: [],
           options: [],
           fallback: null,
@@ -2390,7 +2396,7 @@ export const buildNoteRecipeOverridesSignature = (note: string): string => {
   // Parse the questions using the same parser as the UI.
   const questions = parseNoteRecipeOverrides(note)
   // Preserve marker order plus layout metadata so formatting changes still register.
-  const signature = questions.map((question) => [question.id, question.layoutColumns])
+  const signature = questions.map((question) => [question.id, question.layoutColumns, question.optionColumns])
   // Serialize the signature so comparisons are cheap and stable.
   return JSON.stringify(signature)
 }

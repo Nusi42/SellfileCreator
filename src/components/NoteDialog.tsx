@@ -117,7 +117,7 @@ import {
   DynamicOverridesPresetMenuItems,
   DynamicOverridesPresetDialogs,
 } from './NoteDynamicOverridesPresets'
-import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNoteTagSelector, localizeNoteProse, localizeNoteProseWithSourceMap, type NoteProseSourceSegment, type NoteTagSelector } from '../lib/noteOverridesParser'
+import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNoteTagSelector, localizeNoteProse, localizeNoteProseWithSourceMap, resolveOptionColumnCount, type NoteProseSourceSegment, type NoteTagSelector } from '../lib/noteOverridesParser'
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
@@ -563,40 +563,24 @@ const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
   gap: 0.25,
 }
 
-// Activation radio groups (safeguard mode: None → Just what I own → Plus missing slots →
-// Plus likely upgrades) are an ORDERED SCALE, so they must render as a single left-to-right
-// row — never the auto-fit 2×2 grid, where "Plus missing slots" would sit under "None" and read
-// as its continuation. Four equal columns; long labels wrap within their own cell.
-const NOTE_QUESTION_RADIO_ROW_SX = {
-  display: 'grid',
-  gridAutoFlow: 'column',
-  gridAutoColumns: 'minmax(0, 1fr)',
-  columnGap: 1,
-  rowGap: 0,
-  alignItems: 'flex-start',
-  width: '100%',
-  // Labels may wrap to two lines in the narrow cells; keep the radio dot pinned to the first
-  // line (not vertically centred against the whole wrapped label) so the row stays tidy.
+// Radio labels can wrap to two lines in a narrow `optcols` column; pin the radio dot to the
+// first line (not vertically centred against the whole wrapped label) so the row stays tidy.
+// Merged ONTO the shared option-grid sx so the column layout stays single-sourced (optcols).
+const NOTE_QUESTION_RADIO_LABEL_ALIGN_SX = {
   '& .MuiFormControlLabel-root': { alignItems: 'flex-start' },
   '& .MuiFormControlLabel-root .MuiRadio-root': { pt: 0 },
 } satisfies Record<string, unknown>
 
 function buildNoteQuestionOptionGridSx(
-  minColumnWidth: number,
+  // Effective option-column count (already resolved via resolveOptionColumnCount → always ≥1).
   columns: number,
   rowAlign: 'center' | 'flex-start',
 ) {
-  // Determine whether a fixed column count was provided.
-  const hasFixedColumns = columns > 0
-  // Favor auto-fit with a min width derived from non-horizontal cards.
-  const autoFitColumns = `repeat(auto-fit, minmax(${minColumnWidth}px, 1fr))`
-  // Use a fixed repeat when the marker overrides column count explicitly.
-  const fixedColumns = `repeat(${columns}, minmax(0, 1fr))`
   return {
     // Grid layout prevents odd wrapping in full-width cards.
     display: 'grid',
-    // Choose the grid template based on the marker option.
-    gridTemplateColumns: hasFixedColumns ? fixedColumns : autoFitColumns,
+    // Fixed equal-width columns; callers pass the resolved count (optcols → columns → 1).
+    gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
     // Keep row/column spacing consistent with stacked cards.
     rowGap: 0.35,
     columnGap: 1.5,
@@ -2849,14 +2833,11 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const applyAnswer = (next: string[], preferredId?: string, removedId?: string) => {
     onRecipeOverridesAnswerChange(question, next, preferredId, removedId)
   }
-  // Reuse the non-horizontal min width as the grid's minimum column width.
-  const optionColumnMinWidth = getNoteCardWidthStyles('note').minWidth
   // Pick the option group layout based on the marker-level layout mode.
-  // Always pass 0 (auto-fit) — card width is the constraint, not a fixed column count.
+  // Option-grid column count: authored `optcols`, else the card `columns`, else 1 (SSOT resolver).
   const optionGroupSx = isHorizontal
     ? buildNoteQuestionOptionGridSx(
-      optionColumnMinWidth,
-      0,
+      resolveOptionColumnCount(question.layoutColumns, question.optionColumns),
       // Align the full row to the top when every horizontal option has a label.
       allHorizontalOptionsHaveLabels ? 'flex-start' : 'center',
     )
@@ -3351,8 +3332,9 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
   }
   // Span N base widths when columns>1, else the base width; helper clamps the bounds to the body.
   const cardWidthSx = buildNoteCardWidthSx(isHorizontal ? question.layoutColumns : 0)
+  // Option-grid column count: authored `optcols`, else the card `columns`, else 1 (SSOT resolver).
   const optionGroupSx = isHorizontal
-    ? buildNoteQuestionOptionGridSx(getNoteCardWidthStyles('note').minWidth, 0, 'center')
+    ? buildNoteQuestionOptionGridSx(resolveOptionColumnCount(question.layoutColumns, question.optionColumns), 'center')
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
   // Dim the card when dynamic overrides are disabled, matching the recipe overrides card behaviour.
   const cardOpacity = noteOverridesDisabled ? 0.55 : 1
@@ -3494,10 +3476,9 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       if (value) next.add(value)
                       applyAnswer(Array.from(next), value || undefined)
                     }}
-                    // Activation modes are an ordered scale — force one left-to-right row in
-                    // horizontal cards (avoids the 2×2 grid's misleading column adjacency);
-                    // stack in the rare columns=0 card.
-                    sx={isHorizontal ? NOTE_QUESTION_RADIO_ROW_SX : NOTE_QUESTION_OPTION_GROUP_STACK_SX}
+                    // Reuse the shared option-grid layout (honours `optcols=N`), plus the
+                    // radio-specific first-line dot alignment for wrapped labels.
+                    sx={{ ...optionGroupSx, ...(isHorizontal ? NOTE_QUESTION_RADIO_LABEL_ALIGN_SX : {}) }}
                   >
                     {group.options.map((option) => {
                       const sgRadioLabelNode = renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })

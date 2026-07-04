@@ -55,6 +55,7 @@ import {
   collectSelectorTokensAndOpenBlock,
   parseOverridesMarkerBody,
   parseOverridesMarkerSpacerColumns,
+  NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT,
   buildGlobalExplicitTokenMap,
   buildQuestionImplicitTokenMap,
   parseOverridesBooleanValue,
@@ -758,6 +759,8 @@ export type SafeguardNoteQuestionDefinition = {
   index: number
   prompt: string
   layoutColumns: number
+  // Explicit option-grid column count (`optcols=N`); 0 = auto-fit. See NoteDialog layout.
+  optionColumns: number
   groups: SafeguardNoteQuestionGroup[]
   options: SafeguardNoteQuestionOption[]
   fallback: { blocks: SafeguardOverridesSelectorBlock[]; recipeBlocks: RecipeOverridesSelectorBlock[] } | null
@@ -1115,7 +1118,7 @@ const buildResolvedQuestion = (
   const fallback = question.fallback
     ? { blocks: question.fallback.blocks, recipeBlocks: question.fallback.crossBlocks as RecipeOverridesSelectorBlock[] }
     : null
-  return { id, index, prompt: localizeDslDisplay(question.prompt, lang), layoutColumns: question.layoutColumns, groups, options, fallback, defaultAnswer, answer }
+  return { id, index, prompt: localizeDslDisplay(question.prompt, lang), layoutColumns: question.layoutColumns, optionColumns: question.optionColumns, groups, options, fallback, defaultAnswer, answer }
 }
 
 // Resolve stored or default answers against the current option set.
@@ -1215,6 +1218,8 @@ export const parseNoteSafeguardOverrides = (
           index: markerIndex,
           prompt: '',
           layoutColumns: spacerColumns,
+          // Spacers have no options, so no option-grid column count.
+          optionColumns: NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT,
           groups: [],
           options: [],
           fallback: null,
@@ -1566,7 +1571,7 @@ export const resolveEffectiveSafeguardRule = (
 /** Build a stable hash of the safeguard-overrides section for change detection. */
 export const buildNoteSafeguardOverridesSignature = (note: string): string => {
   const questions = parseNoteSafeguardOverrides(note)
-  const sig = questions.map((q) => [q.id, q.layoutColumns])
+  const sig = questions.map((q) => [q.id, q.layoutColumns, q.optionColumns])
   return JSON.stringify(sig)
 }
 

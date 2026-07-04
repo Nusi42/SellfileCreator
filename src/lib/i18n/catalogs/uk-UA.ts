@@ -1629,6 +1629,7 @@ const overrides: Catalog = {
   noteOverridesEditorKindSafeguard: "Захисні правила",
   noteOverridesEditorPromptLabel: "Питання (перший рядок = заголовок, решта = підтекст)",
   noteOverridesEditorColumnsLabel: "Ширина картки (колонки)",
+  noteOverridesEditorOptionColumnsLabel: "Стовпці варіантів",
   noteOverridesEditorColumnsAuto: "Стандарт",
   noteOverridesEditorOptionsHeader: "Варіанти",
   noteOverridesEditorAddDetail: "Додати опис",

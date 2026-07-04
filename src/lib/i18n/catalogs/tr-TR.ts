@@ -1629,6 +1629,7 @@ const overrides: Catalog = {
   noteOverridesEditorKindSafeguard: "Korumalar",
   noteOverridesEditorPromptLabel: "Soru (ilk satır = başlık, kalanı = alt metin)",
   noteOverridesEditorColumnsLabel: "Kart genişliği (sütun)",
+  noteOverridesEditorOptionColumnsLabel: "Seçenek sütunları",
   noteOverridesEditorColumnsAuto: "Standart",
   noteOverridesEditorOptionsHeader: "Seçenekler",
   noteOverridesEditorAddDetail: "Açıklama ekle",

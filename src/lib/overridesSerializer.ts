@@ -30,6 +30,7 @@ import {
   type NoteTagSelector,
   NOTE_OVERRIDES_CROSS_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
+  NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY,
 } from './noteOverridesParser'
 import {
   type RecipeOverridesOperation,
@@ -585,8 +586,12 @@ export function serializeOverridesBlock(draft: OverridesBlockDraft): string {
   const keyword = draft.domain === 'recipe'
     ? NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD
     : NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD
-  // columns=0 is the parser default — omit the attribute entirely.
-  const columnsAttr = draft.columns > 0 ? ` [${NOTE_OVERRIDES_MARKER_COLUMNS_KEY}=${draft.columns}]` : ''
+  // Build the `[ … ]` attribute list. A count of 0 is the parser default → omit that key.
+  // Spacers only carry width; questions may also carry the option-grid column count (optcols).
+  const attrPairs: Array<[string, number]> = [[NOTE_OVERRIDES_MARKER_COLUMNS_KEY, draft.columns]]
+  if (draft.kind === 'question') attrPairs.push([NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY, draft.optionColumns])
+  const attrBody = attrPairs.filter(([, v]) => v > 0).map(([k, v]) => `${k}=${v}`).join(' ')
+  const columnsAttr = attrBody ? ` [${attrBody}]` : ''
   // Spacer markers are single-line width placeholders with no question body.
   if (draft.kind === 'spacer') return `<!-- ${keyword}${columnsAttr} -->`
 

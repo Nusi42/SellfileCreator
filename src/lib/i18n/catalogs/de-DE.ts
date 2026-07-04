@@ -1629,6 +1629,7 @@ const overrides: Catalog = {
   noteOverridesEditorKindSafeguard: "Schutzregeln",
   noteOverridesEditorPromptLabel: "Frage (erste Zeile = Titel, Rest = Untertext)",
   noteOverridesEditorColumnsLabel: "Kartenbreite (Spalten)",
+  noteOverridesEditorOptionColumnsLabel: "Optionsspalten",
   noteOverridesEditorColumnsAuto: "Standard",
   noteOverridesEditorOptionsHeader: "Optionen",
   noteOverridesEditorAddDetail: "Beschreibung hinzufügen",

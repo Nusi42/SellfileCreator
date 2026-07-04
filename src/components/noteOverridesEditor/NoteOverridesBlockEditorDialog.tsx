@@ -206,18 +206,33 @@ function EditorContent({ request, noteText, metasets, substatColors, onApply, on
               multiline
               testId="overrides-editor-prompt"
             />
-            {/* Labeled select matches the outlined text fields above it. */}
-            <TextField
-              select
-              label={t('noteOverridesEditorColumnsLabel')}
-              value={draft.columns}
-              onChange={(event) => update({ ...draft, columns: Number(event.target.value) })}
-              size="small"
-              sx={{ width: 200 }}
-            >
-              <MenuItem value={0}>{t('noteOverridesEditorColumnsAuto')}</MenuItem>
-              {[1, 2, 3, 4, 5, 6].map((columns) => <MenuItem key={columns} value={columns}>{columns}</MenuItem>)}
-            </TextField>
+            {/* Card width (columns) + option-grid column count (optcols) share one row. */}
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              {/* Labeled select matches the outlined text fields above it. */}
+              <TextField
+                select
+                label={t('noteOverridesEditorColumnsLabel')}
+                value={draft.columns}
+                onChange={(event) => update({ ...draft, columns: Number(event.target.value) })}
+                size="small"
+                sx={{ width: 200 }}
+              >
+                <MenuItem value={0}>{t('noteOverridesEditorColumnsAuto')}</MenuItem>
+                {[1, 2, 3, 4, 5, 6].map((columns) => <MenuItem key={columns} value={columns}>{columns}</MenuItem>)}
+              </TextField>
+              {/* Option-grid column count: 0 = auto-fit by card width, else a fixed column count. */}
+              <TextField
+                select
+                label={t('noteOverridesEditorOptionColumnsLabel')}
+                value={draft.optionColumns}
+                onChange={(event) => update({ ...draft, optionColumns: Number(event.target.value) })}
+                size="small"
+                sx={{ width: 200 }}
+              >
+                <MenuItem value={0}>{t('noteOverridesEditorColumnsAuto')}</MenuItem>
+                {[1, 2, 3, 4, 5, 6].map((cols) => <MenuItem key={cols} value={cols}>{cols}</MenuItem>)}
+              </TextField>
+            </Box>
             {/* Options list with add menu (one accordion expanded at a time). */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
               <Typography variant="subtitle2" sx={{ flex: 1 }}>{t('noteOverridesEditorOptionsHeader')}</Typography>

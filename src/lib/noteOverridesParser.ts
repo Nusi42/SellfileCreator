@@ -303,8 +303,29 @@ export const NOTE_OVERRIDES_CROSS_KEYWORDS = {
 /** Marker option key for the card-width multiplier. */
 export const NOTE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
 
+/**
+ * Marker option key for the option-grid column count (independent of card width).
+ * `columns=N` sizes the CARD (how many base-widths it spans); `optcols=N` sizes the OPTION
+ * GRID inside it (how many option columns). Absent (0) → inherit the card's `columns`; if that
+ * is also absent, fall back to 1. See resolveOptionColumnCount.
+ */
+export const NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY = 'optcols' as const
+
 /** Default columns value: 0 means vertical layout at standard card width. */
 export const NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT = 0
+
+/** Default option-column count: 0 = not authored (inherit `columns`, then 1). */
+export const NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT = 0
+
+/**
+ * Resolve the effective option-grid column count from the two authored values. SSOT for the
+ * `optcols` default rule so every layout consumer agrees:
+ *   • an authored `optcols` (≥1) wins;
+ *   • otherwise inherit the card width `columns` (≥1);
+ *   • otherwise 1 (a single stacked column).
+ */
+export const resolveOptionColumnCount = (layoutColumns: number, optionColumns: number): number =>
+  optionColumns > 0 ? optionColumns : (layoutColumns > 0 ? layoutColumns : 1)
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -649,14 +670,31 @@ export const reportInvalidEnumValue = (
 
 // ── Marker options parser ─────────────────────────────────────────────────────
 
+/** Resolved marker layout options: card-width multiplier + option-grid column count. */
+export type QuestionMarkerOptions = { columns: number; optionColumns: number }
+
+/**
+ * Integer-valued marker keys parsed inside `[ … ]`, mapped to the QuestionMarkerOptions field
+ * they set. SSOT for the marker-option grammar: adding a key here teaches both the parser and
+ * the serializer (which reads the same map) without duplicating the key spelling or parse loop.
+ * Typed as a `string`-indexable record so a lookup on an arbitrary token yields the field or
+ * `undefined` (unknown keys fall through and are skipped).
+ */
+export const NOTE_OVERRIDES_MARKER_INT_KEYS: Record<string, keyof QuestionMarkerOptions> = {
+  [NOTE_OVERRIDES_MARKER_COLUMNS_KEY]: 'columns',
+  [NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY]: 'optionColumns',
+}
+
 /** Parse the optional [key=value, …] marker options block that follows the marker keyword. */
-export const parseQuestionMarkerOptions = (cursor: TokenCursor): { columns: number } => {
-  const token = cursor.peek()
-  if (!token || token.kind !== 'symbol' || token.value !== '[') {
-    return { columns: NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT }
+
+export const parseQuestionMarkerOptions = (cursor: TokenCursor): QuestionMarkerOptions => {
+  const options: QuestionMarkerOptions = {
+    columns: NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
+    optionColumns: NOTE_OVERRIDES_OPTION_COLUMNS_DEFAULT,
   }
+  const token = cursor.peek()
+  if (!token || token.kind !== 'symbol' || token.value !== '[') return options
   cursor.next()
-  let columns = NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT
   while (true) {
     const next = cursor.peek()
     if (!next) break
@@ -664,15 +702,17 @@ export const parseQuestionMarkerOptions = (cursor: TokenCursor): { columns: numb
     if (isQuestionKeyword(next)) break
     if (next.kind === 'symbol' && next.value === ',') { cursor.next(); continue }
     if (next.kind === 'word') {
-      const word = next.value
-      if (word.toLowerCase() === NOTE_OVERRIDES_MARKER_COLUMNS_KEY) {
+      // A recognized integer key (columns/optcols) consumes `= <int>` and updates its field;
+      // one shared parse path for every key keeps the grammar single-sourced.
+      const field = NOTE_OVERRIDES_MARKER_INT_KEYS[next.value.toLowerCase()]
+      if (field) {
         cursor.next()
         if (!cursor.consumeSymbol('=')) continue
         const valueToken = cursor.peek()
         if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
         cursor.next()
         const parsed = Number.parseInt(valueToken.value, 10)
-        if (Number.isFinite(parsed) && parsed >= 0) columns = parsed
+        if (Number.isFinite(parsed) && parsed >= 0) options[field] = parsed
         continue
       }
       cursor.next()
@@ -680,7 +720,7 @@ export const parseQuestionMarkerOptions = (cursor: TokenCursor): { columns: numb
     }
     cursor.next()
   }
-  return { columns }
+  return options
 }
 
 // ── Tag selector ──────────────────────────────────────────────────────────────
@@ -935,8 +975,10 @@ export type ParsedOverridesOption<S, O> = {
 /** A parsed question body, parameterized over selector and operation types. */
 export type ParsedOverridesQuestion<S, O> = {
   prompt: string
-  // columns ≥ 1 enables horizontal (grid) option layout; 0 = vertical.
+  // columns ≥ 1 enables horizontal (grid) option layout at N× card width; 0 = vertical.
   layoutColumns: number
+  // Explicit option-grid column count (from `optcols=N`); 0 = auto-fit by available width.
+  optionColumns: number
   questionId: string
   options: ParsedOverridesOption<S, O>[]
   fallback: { blocks: OverridesSelectorBlock<S, O>[]; crossBlocks: unknown[] } | null
@@ -1536,6 +1578,7 @@ export function parseOverridesMarkerBody<S, O>(
   return {
     prompt,
     layoutColumns: markerOptions.columns,
+    optionColumns: markerOptions.optionColumns,
     questionId,
     options: parsedOptions,
     fallback: (fallbackBlocks || fallbackCrossBlocks.length > 0)

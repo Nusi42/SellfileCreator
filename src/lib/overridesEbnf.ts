@@ -24,6 +24,7 @@ import {
   NOTE_OVERRIDES_GROUP_TYPE_MAP,
   NOTE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
+  NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY,
   NOTE_OVERRIDES_QUESTION_KEYWORDS,
   NOTE_OVERRIDES_SETVAL_KEYWORD,
   NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
@@ -116,7 +117,7 @@ const SLIDER_NUMERIC_PARAMS = SLIDER_PARAM_KEYWORDS
 // ── Shared line fragments (identical in both grammars) ────────────────────────
 
 const MARKER_OPTIONS_LINES = `markerOptions := "[" markerOption ("," markerOption)* "]"
-markerOption  := ${quoteTok(NOTE_OVERRIDES_MARKER_COLUMNS_KEY)} "=" number`
+markerOption  := (${quoteTok(NOTE_OVERRIDES_MARKER_COLUMNS_KEY)} | ${quoteTok(NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY)}) "=" number`
 
 const QUESTION_LINE = `question      := (${alt(NOTE_OVERRIDES_QUESTION_KEYWORDS)}) string group+ [fallbackBlock]`
 

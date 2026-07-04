@@ -1629,6 +1629,7 @@ const overrides: Catalog = {
   noteOverridesEditorKindSafeguard: "Salvaguardie",
   noteOverridesEditorPromptLabel: "Domanda (prima riga = titolo, resto = sottotesto)",
   noteOverridesEditorColumnsLabel: "Larghezza scheda (colonne)",
+  noteOverridesEditorOptionColumnsLabel: "Colonne opzioni",
   noteOverridesEditorColumnsAuto: "Standard",
   noteOverridesEditorOptionsHeader: "Opzioni",
   noteOverridesEditorAddDetail: "Aggiungi descrizione",

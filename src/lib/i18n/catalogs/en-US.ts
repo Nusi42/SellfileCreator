@@ -1629,6 +1629,7 @@ const enUS: Catalog = {
   noteOverridesEditorKindSafeguard: "Safeguards",
   noteOverridesEditorPromptLabel: "Question (first line = title, rest = subtext)",
   noteOverridesEditorColumnsLabel: "Card width (columns)",
+  noteOverridesEditorOptionColumnsLabel: "Option columns",
   noteOverridesEditorColumnsAuto: "Standard",
   noteOverridesEditorOptionsHeader: "Options",
   noteOverridesEditorAddDetail: "Add description",

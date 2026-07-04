@@ -137,6 +137,8 @@ export type OverridesBlockDraft =
       kind: 'question'
       // 0 = omit the `[columns=…]` attribute (vertical layout at standard width).
       columns: number
+      // Option-grid column count (`optcols=N`); 0 = omit the attribute (auto-fit by width).
+      optionColumns: number
       prompt: DraftLocalizedText
       options: DraftOption[]
       fallback: DraftQuestionFallback | null

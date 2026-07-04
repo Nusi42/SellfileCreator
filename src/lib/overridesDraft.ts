@@ -320,6 +320,7 @@ export function parseOverridesBlockDraft(rawBlock: string): OverridesBlockParse 
       domain,
       kind: 'question',
       columns: question.layoutColumns,
+      optionColumns: question.optionColumns,
       prompt: toLocalizedText(question.prompt),
       options: question.options.map((option) => toDraftOption(domain, rawBlock, option, diagnostics)),
       fallback,
@@ -356,7 +357,7 @@ export function createDraftOption(groupType: NoteQuestionGroupType): DraftOption
 export function createEmptyOverridesBlockDraft(domain: OverridesDomain): OverridesBlockDraft {
   const first = createDraftOption('single')
   first.isDefault = true
-  return { domain, kind: 'question', columns: 0, prompt: { base: '', locales: [] }, options: [first], fallback: null }
+  return { domain, kind: 'question', columns: 0, optionColumns: 0, prompt: { base: '', locales: [] }, options: [first], fallback: null }
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -426,11 +427,16 @@ export function validateRawBody(domain: OverridesDomain, rawText: string): Diagn
  */
 export function validateOverridesBlockDraft(draft: OverridesBlockDraft): DiagnosticSpan[] {
   const sink: DiagnosticSpan[] = []
+  // Shared non-negative-integer check for the layout count attributes (columns / optcols).
+  const checkCount = (value: number, name: string): void => {
+    if (!Number.isInteger(value) || value < 0) sink.push(draftDiag(`${name} must be a non-negative integer`))
+  }
   if (draft.kind === 'spacer') {
-    if (!Number.isInteger(draft.columns) || draft.columns < 0) sink.push(draftDiag('columns must be a non-negative integer'))
+    checkCount(draft.columns, 'columns')
     return sink
   }
-  if (!Number.isInteger(draft.columns) || draft.columns < 0) sink.push(draftDiag('columns must be a non-negative integer'))
+  checkCount(draft.columns, 'columns')
+  checkCount(draft.optionColumns, 'optcols')
   if (draft.options.length === 0) sink.push(draftDiag('a question needs at least one option'))
   validateLocalizedText(draft.prompt, 'prompt', sink)
   draft.options.forEach((option, index) => {
