@@ -77,6 +77,20 @@ use super::SAFEGUARD_SUBSTAT_COMBINATION_CAP as WATCH_SUBSET_CAP;
 // verified; the cost is keeping some lower-margin pieces of the lower rarities. When
 // false only the lossless identical-vector merges happen (documented fallback switch).
 const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
+// Keep-biased boundary-quantization dial (normalized-score units; 0.0 = bit-exact path).
+// The boundary challenger's projected score is FLOORED onto this grid before it feeds
+// both the reduced probe scenario and the cross-group cache signature (see
+// reduce_scenarios_for_synthetic for why quantizing the probe input itself keeps cache
+// sharing sound, and why flooring is keep-biased: lower boundary → easier selection →
+// corner floors equal-or-lower → equal-or-more keeps, never extra sells). Coarser values
+// collapse more groups onto shared cache cells at the cost of a slightly wider keep-net.
+// Default from the 2026-07-04 coarseness study (account-d + um12345678, lategame,
+// all-improve; boundary-score distribution n=17.5k, min 1.0 / median 4.06 / p95 10.8):
+// 0.05 ≈ 1.2% of the median is the coarsest grid whose kept-drift stays single-digit on
+// both DBs (+1 and +2 pieces, ~2.5–3% detection speedup); 0.08 already drifted +7/+11
+// kept and 0.2 reached +18/+25 for ~10% speedup — rejected per the negligible-over-keep
+// bar. Finer grids (0.005–0.02) showed no measurable speedup.
+const WATCH_BOUNDARY_QUANTUM: f64 = 0.05;
 
 // ─── cross-group cell signatures ─────────────────────────────────────────────
 
@@ -340,6 +354,7 @@ fn compute_watch_corners(
             sample.faction,
             sample.main_stat,
             rank,
+            WATCH_BOUNDARY_QUANTUM,
         );
         let reduced_refs: Vec<&UpgradeScenario> = reduced_scenarios.iter().collect();
         // Interned cross-group signature: groups of the same rule/slot/main whose
@@ -1249,6 +1264,101 @@ mod improvement_watch_tests {
                     "lowering component {idx} (variant {variant}) by 1 must fail at level {} (got {below})",
                     corner.level,
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn coarser_boundary_quantum_never_raises_floors_or_lowers_chance() {
+        // Keep-bias direction, end to end on a d=1 fixture (single substat → the probed
+        // floor is the unique minimal passing integer, so component-wise comparison is
+        // rigorous): a coarser quantum floors the boundary, which can only RAISE probe
+        // chances and LOWER (or keep) every corner floor — never the other direction.
+        let rules = vec![make_watch_rule(50.0, vec![5])];
+        let prepared = prepare_upgrade_rules(&rules);
+        // Boundary score deliberately off-grid so coarse quanta actually floor it.
+        let rows = vec![make_row(1, 6, 5, 16, 20.7)];
+        let (scenarios, _) = build_scenarios(&rows, &prepared);
+        let refs: Vec<&UpgradeScenario> = scenarios.iter().collect();
+        let sample = SafeguardWasmGroupSample {
+            slot: ARTIFACT_TYPE_BOOTS,
+            set: TEST_SET,
+            faction: 0,
+            main_stat: STAT_VARIANT_HP_PERCENT,
+        };
+        let subset = vec![STAT_VARIANT_SPD];
+        for &quantum in &[0.1f64, 0.5, 2.0] {
+            let (exact, _) = reduce_scenarios_for_synthetic(
+                &refs, sample.slot, sample.set, sample.faction, sample.main_stat, 6, 0.0,
+            );
+            let (coarse, _) = reduce_scenarios_for_synthetic(
+                &refs, sample.slot, sample.set, sample.faction, sample.main_stat, 6, quantum,
+            );
+            let exact_refs: Vec<&UpgradeScenario> = exact.iter().collect();
+            let coarse_refs: Vec<&UpgradeScenario> = coarse.iter().collect();
+            for &level in &WATCH_LEVELS {
+                // Chance never decreases under a floored boundary (selection superset).
+                for value in [6.0, 12.0, 18.0, 24.0] {
+                    let artifact = SafeguardWasmArtifactIn {
+                        id: Some(-1),
+                        slot: sample.slot,
+                        set: sample.set,
+                        rank: 6,
+                        rarity: 5,
+                        level,
+                        exact_level: Some(level),
+                        faction: sample.faction,
+                        main_stat: sample.main_stat,
+                        equipped_in_collection: false,
+                        equipped_in_vault: false,
+                        substats: vec![SafeguardWasmSubstatIn {
+                            variant: STAT_VARIANT_SPD,
+                            is_flat: false,
+                            value,
+                            rolls: None,
+                        }],
+                    };
+                    let mut memo_a: BTreeMap<StateKey, f64> = BTreeMap::new();
+                    let mut memo_b: BTreeMap<StateKey, f64> = BTreeMap::new();
+                    let chance_exact =
+                        compute_synthetic_chance_for_scenarios(&artifact, &exact_refs, &mut memo_a);
+                    let chance_coarse = compute_synthetic_chance_for_scenarios(
+                        &artifact, &coarse_refs, &mut memo_b,
+                    );
+                    assert!(
+                        chance_coarse >= chance_exact,
+                        "quantum {quantum} must never lower a chance (level {level}, value {value}: {chance_coarse} < {chance_exact})",
+                    );
+                }
+                // Corner floors never rise under a coarser quantum.
+                let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+                let floors_exact = probe_subset_profile_floors(
+                    &subset, &sample, 6, 5, level, 50.0, &exact_refs, &mut memo,
+                );
+                let floors_coarse = probe_subset_profile_floors(
+                    &subset, &sample, 6, 5, level, 50.0, &coarse_refs, &mut memo,
+                );
+                match (floors_exact, floors_coarse) {
+                    // Exact-unreachable cells may stay unreachable or open up under the
+                    // floored boundary — both are keep-safe; nothing to compare.
+                    (None, _) => {}
+                    (Some(exact_floors), coarse) => {
+                        let coarse_floors = coarse
+                            .expect("a coarser quantum must never close a reachable cell");
+                        for (exact_profile, coarse_profile) in
+                            exact_floors.iter().zip(&coarse_floors)
+                        {
+                            for (exact_floor, coarse_floor) in
+                                exact_profile.iter().zip(coarse_profile)
+                            {
+                                assert!(
+                                    coarse_floor <= exact_floor,
+                                    "quantum {quantum} raised a floor at level {level} ({coarse_floor} > {exact_floor})",
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
     }

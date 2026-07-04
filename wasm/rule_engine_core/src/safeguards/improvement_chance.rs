@@ -245,6 +245,19 @@ pub(super) struct UpgradeScenario {
 //
 // Side benefit beyond cache collapse: the leaf drops from an O(#challengers) bucket scan
 // to a single comparison per scenario.
+//
+// `boundary_quantum` (normalized-score units; 0.0 disables → bit-exact path) floors the
+// SELECTED boundary's projected score onto the quantum grid — (score / q).floor() * q —
+// before it enters BOTH the reduced scenario the probes run against AND the returned
+// signature triple. Quantizing the actual probe input (not just the cache key) keeps
+// key ↔ behavior consistent by construction: every group whose boundary lands in one
+// grid bucket is genuinely evaluated against the shared bucket-floor boundary, so cache
+// cell sharing stays sound. Keep-bias: a floored (lower) boundary score strictly shrinks
+// the boundary's downward-closed beats-region, so selection can only get EASIER — probed
+// chances are ≥ the exact ones, corner floors come out equal-or-lower, and the emitted
+// keep-net keeps equal-or-more pieces, never selling one the exact path would have kept.
+// The boundary's (main, rank) tie fields stay untouched (they only matter inside the
+// ±ε tie window around the — now floored — score).
 pub(super) fn reduce_scenarios_for_synthetic(
     scenarios: &[&UpgradeScenario],
     slot: i64,
@@ -252,6 +265,7 @@ pub(super) fn reduce_scenarios_for_synthetic(
     faction: i64,
     main_stat: i64,
     cand_rank: i64,
+    boundary_quantum: f64,
 ) -> (Vec<UpgradeScenario>, Vec<Option<(i64, i64, i64)>>) {
     let mut reduced = Vec::<UpgradeScenario>::with_capacity(scenarios.len());
     let mut boundaries = Vec::<Option<(i64, i64, i64)>>::with_capacity(scenarios.len());
@@ -290,7 +304,14 @@ pub(super) fn reduce_scenarios_for_synthetic(
                         // Exact duplicates: deterministic boundary via artifact id.
                         .then_with(|| a.artifact_id.cmp(&b.artifact_id))
                 });
-                Some(order[required - 1].clone())
+                let mut boundary = order[required - 1].clone();
+                // Keep-biased quantization dial (see doc above): floor the selected
+                // boundary's score onto the grid so probes AND signature share it.
+                if boundary_quantum > 0.0 {
+                    boundary.projected_score =
+                        (boundary.projected_score / boundary_quantum).floor() * boundary_quantum;
+                }
+                Some(boundary)
             });
         // 3-decimal score quantization keeps the signature integer/BTreeMap-friendly
         // (boundaries closer than 0.5e-3 collapse — same tolerance the old full-list
@@ -1946,7 +1967,7 @@ mod boundary_reduction_tests {
                 let refs = [&scenario];
                 for &(cand_main, cand_rank) in &cand_contexts {
                     let (reduced, boundaries) =
-                        reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank);
+                        reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank, 0.0);
                     let reduced_ch = reduced_bucket(&reduced[0], cand_main);
                     assert!(reduced_ch.len() <= 1, "reduction keeps at most one challenger");
                     assert_eq!(
@@ -2039,7 +2060,7 @@ mod boundary_reduction_tests {
             let scenario = make_scenario(bucket.clone(), required);
             let refs = [&scenario];
             let (reduced, _) =
-                reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank);
+                reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank, 0.0);
             let reduced_ch = reduced_bucket(&reduced[0], cand_main);
             let mut grid = vec![0.0, 100.0];
             for challenger in &bucket {
@@ -2063,6 +2084,40 @@ mod boundary_reduction_tests {
     }
 
     #[test]
+    fn boundary_quantum_collapses_nearby_boundaries_keep_biasedly() {
+        // Two buckets whose boundary scores sit inside ONE quantum grid bucket
+        // (5.123 and 5.181, q = 0.5 → both floor to 5.0) must produce IDENTICAL
+        // boundary triples (→ shared cache cells) with the shared floored score fed
+        // to the probes; at q = 0 they stay distinct (bit-exact path). Flooring
+        // never raises a boundary (keep-bias direction at the reduction level).
+        let bucket_lo = vec![make_challenger(1, 5.123, STAT_VARIANT_SPD, 6)];
+        let bucket_hi = vec![make_challenger(2, 5.181, STAT_VARIANT_SPD, 6)];
+        let scenario_lo = make_scenario(bucket_lo, 1);
+        let scenario_hi = make_scenario(bucket_hi, 1);
+        let refs_lo = [&scenario_lo];
+        let refs_hi = [&scenario_hi];
+        // q = 0.5: both collapse onto the 5.0 grid floor.
+        let (red_lo, bounds_lo) =
+            reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
+        let (red_hi, bounds_hi) =
+            reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
+        assert_eq!(bounds_lo, bounds_hi, "same grid bucket must share the signature");
+        assert_eq!(bounds_lo[0].expect("boundary expected").0, 5000, "floored to the grid (5.0 → millis)");
+        let floored_lo = reduced_bucket(&red_lo[0], STAT_VARIANT_SPD);
+        let floored_hi = reduced_bucket(&red_hi[0], STAT_VARIANT_SPD);
+        assert_eq!(floored_lo[0].projected_score, 5.0, "probes run against the bucket floor");
+        assert_eq!(floored_hi[0].projected_score, 5.0);
+        assert!(floored_lo[0].projected_score <= 5.123, "flooring never raises a boundary");
+        // q = 0: the exact path keeps the boundaries (and signatures) distinct.
+        let (_, exact_lo) =
+            reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
+        let (_, exact_hi) =
+            reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
+        assert_ne!(exact_lo, exact_hi, "q = 0 must keep distinct boundaries distinct");
+        assert_eq!(exact_lo[0].expect("boundary expected").0, 5123, "exact path is unquantized");
+    }
+
+    #[test]
     fn reduced_chance_matches_full_chance_end_to_end() {
         // Full recursion equivalence: probing a synthetic drop against the FULL
         // scenario and against its boundary reduction must produce bit-identical
@@ -2079,7 +2134,7 @@ mod boundary_reduction_tests {
             let refs = [&scenario];
             for &rank in &[5i64, 6] {
                 let (reduced, _) = reduce_scenarios_for_synthetic(
-                    &refs, ARTIFACT_TYPE_BOOTS, 10, 0, STAT_VARIANT_HP_PERCENT, rank,
+                    &refs, ARTIFACT_TYPE_BOOTS, 10, 0, STAT_VARIANT_HP_PERCENT, rank, 0.0,
                 );
                 let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
                 for &level in &[0i64, 8, 16] {
