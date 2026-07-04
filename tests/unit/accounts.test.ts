@@ -4,16 +4,19 @@ import {
   ACCOUNTS_REGISTRY_KEY,
   ACCOUNT_SCOPED_BASE_KEYS,
   __resetAccountsForTests,
+  accountDisplayLabel,
   bindHelperAccount,
   buildAccountRpcParams,
   classifyInboundAccountStamp,
   createAccount,
   deleteAccount,
+  findAccountByPlayerName,
   getAccounts,
   getActiveAccount,
   getUnstampedDefaultAccount,
   renameAccount,
   setAccountAccent,
+  setAccountNameEllipsis,
   setUnstampedDefaultAccount,
   resolveAccountScopedKey,
   resolveAccountScopedKeyFor,
@@ -245,13 +248,49 @@ test('merge carry is one-shot: staged once, taken once, gone after', () => {
   assert.equal(takeAccountMergeCarry(), null)
 })
 
-test('buildAccountRpcParams includes the Player ID only when bound', () => {
+test('buildAccountRpcParams includes each identity only when present', () => {
   freshWindow()
   const active = getActiveAccount()
   // Unbound: name-only params keep the payload honest (no fabricated ids).
   assert.deepEqual(buildAccountRpcParams(), { playerName: active.displayName })
   bindHelperAccount(active.id, 'um42')
   assert.deepEqual(buildAccountRpcParams(), { playerId: 'um42', playerName: active.displayName })
+  // Names are optional — an empty name is no identity and is omitted like the id.
+  renameAccount(active.id, '')
+  assert.deepEqual(buildAccountRpcParams(), { playerId: 'um42' })
+})
+
+test('optional names: empty displayName, label fallback, and name routing guard', () => {
+  freshWindow()
+  // createAccount accepts an empty name (no more forced default).
+  const nameless = createAccount('')
+  assert.equal(nameless.displayName, '')
+  // Label resolution: name → Player ID → '' (UI supplies the localized fallback).
+  assert.equal(accountDisplayLabel(nameless), '')
+  bindHelperAccount(nameless.id, 'um77')
+  assert.equal(accountDisplayLabel(nameless), 'um77')
+  renameAccount(nameless.id, 'Hero')
+  assert.equal(accountDisplayLabel(getAccounts().find((a) => a.id === nameless.id)!), 'Hero')
+  // Empty is never a name identity: no account is routable by ''.
+  renameAccount(nameless.id, '')
+  assert.equal(findAccountByPlayerName(''), null)
+  // A nameless account SURVIVES a registry reload (sanitizeAccount must not drop '').
+  __resetAccountsForTests()
+  assert.ok(getAccounts().some((a) => a.id === nameless.id && a.displayName === ''))
+})
+
+test('setAccountNameEllipsis stores only the non-default side', () => {
+  freshWindow()
+  const account = getActiveAccount()
+  // Default is left — stored as key absence.
+  assert.equal(account.nameEllipsis, undefined)
+  setAccountNameEllipsis(account.id, 'right')
+  assert.equal(getActiveAccount().nameEllipsis, 'right')
+  // 'right' survives a registry reload (sanitizeAccount must carry the field through).
+  __resetAccountsForTests()
+  assert.equal(getActiveAccount().nameEllipsis, 'right')
+  setAccountNameEllipsis(account.id, 'left')
+  assert.equal('nameEllipsis' in getActiveAccount(), false)
 })
 
 test('classifyInboundAccountStamp: attribute / bind-on-first-stamp / match / mismatch', () => {

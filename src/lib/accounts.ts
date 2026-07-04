@@ -62,6 +62,10 @@ export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR = 'sellfileCreator.sellfi
 // session writes for its own account — pipeline results are not derivable from autosaves
 // at menu-open cost, so the switcher's summary lines read this instead.
 export const ACCOUNT_BASE_KEY_ACCOUNT_STATS = 'sellfileCreator.accountStats.v1'
+// Whether REAL endpoint gear data persists into the account's gearInspector autosave
+// (perf/sanity toggle, default ON) — per account: each game account decides how much
+// storage its inventory may occupy on this device.
+export const ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR = 'sellfileCreator.gearDb.persistEndpointGear.v1'
 
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
@@ -76,6 +80,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
+  ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
 ])
 
 // Keys that are NOT scoped going forward but must still move into the first account's
@@ -98,7 +103,11 @@ export type SfcAccount = {
   // manager (mainly to pre-seed accounts before RSL Helper identifies them), used as the
   // name identity for routing, and ALWAYS refreshed when RSL Helper sends a playerName
   // (in-game renames propagate here; the game is authoritative, there is no second name).
+  // NOT required: may be '' — UI labels then fall back via accountDisplayLabel.
   displayName: string
+  // Which side long names ellipsize on in the switcher button; absent = 'left'
+  // (the END of the name stays visible). Stored only when 'right' is chosen.
+  nameEllipsis?: 'left' | 'right'
   // The game's Player ID when bound. Permanent and unique — the primary identity.
   helperAccountId?: string
   // True once ANY helper identity (id or name) was adopted. Guards the sole-unbound
@@ -180,14 +189,18 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 // Accept only well-formed accounts; a corrupt entry is dropped rather than crashing startup.
 const sanitizeAccount = (value: unknown): SfcAccount | null => {
   if (!isRecord(value)) return null
-  const { id, displayName, helperAccountId, helperBound, accentColor, unstampedDefault, origin, createdAt, lastActiveAt } = value
+  const { id, displayName, nameEllipsis, helperAccountId, helperBound, accentColor, unstampedDefault, origin, createdAt, lastActiveAt } = value
   if (typeof id !== 'string' || !id) return null
-  if (typeof displayName !== 'string' || !displayName) return null
+  // Names are OPTIONAL ('' is valid — the label falls back to the Player ID); only a
+  // wrong TYPE marks the entry as corrupt.
+  if (typeof displayName !== 'string') return null
   // Unknown origins degrade to 'manual' so future origin tokens stay loadable.
   const safeOrigin: SfcAccountOrigin = origin === 'legacy' || origin === 'helper' ? origin : 'manual'
   return {
     id,
     displayName,
+    // 'left' is the default and stored as absence — only an explicit 'right' survives.
+    ...(nameEllipsis === 'right' ? { nameEllipsis: 'right' as const } : {}),
     ...(typeof helperAccountId === 'string' && helperAccountId ? { helperAccountId } : {}),
     ...(helperBound === true ? { helperBound: true } : {}),
     ...(typeof accentColor === 'string' && accentColor ? { accentColor } : {}),
@@ -367,8 +380,15 @@ const adoptHelperIdentity = (
 // Find the account a player name refers to (displayName IS the in-game name). Shared by
 // launch resolution, inbound classification, and the background push lookup so all three
 // route names identically. Duplicate names resolve to the first registry entry.
+// Empty is never an identity: nameless accounts are not routable by name.
 export const findAccountByPlayerName = (name: string): SfcAccount | null =>
-  getAccountRegistry().accounts.find((a) => a.displayName === name) ?? null
+  name ? getAccountRegistry().accounts.find((a) => a.displayName === name) ?? null : null
+
+// UI label for an account: the player name, else the Player ID — the same resolution
+// order the identity ladder uses. '' when both are absent (callers show a localized
+// "Unnamed" fallback; the literal cannot live here, lib code has no i18n access).
+export const accountDisplayLabel = (account: SfcAccount): string =>
+  account.displayName || account.helperAccountId || ''
 
 /**
  * Resolve the ?playerid / ?playerName launch params against the registry. RSL Helper may
@@ -469,8 +489,8 @@ export const createAccount = (displayName: string): SfcAccount => {
   const registry = getAccountRegistry()
   const account: SfcAccount = {
     id: generateAccountId(registry.accounts),
-    // Empty names fall back to a stable default; the rename dialog enforces non-empty too.
-    displayName: displayName.trim() || 'New account',
+    // A name is NOT required — '' is valid; labels fall back via accountDisplayLabel.
+    displayName: displayName.trim(),
     accentColor: pickDefaultAccent(registry.accounts.length),
     origin: 'manual',
     createdAt: nowIso(),
@@ -485,8 +505,22 @@ export const createAccount = (displayName: string): SfcAccount => {
 export const renameAccount = (id: string, displayName: string): void => {
   const account = getAccountRegistry().accounts.find((a) => a.id === id)
   const trimmed = displayName.trim()
-  if (!account || !trimmed || account.displayName === trimmed) return
+  // '' is allowed (clears the name; the label falls back to the Player ID).
+  if (!account || account.displayName === trimmed) return
   account.displayName = trimmed
+  persistRegistry()
+  notify()
+}
+
+// Which side long names ellipsize on in the switcher button. 'left' is the default and
+// stored as key absence; only an explicit 'right' persists.
+export const setAccountNameEllipsis = (id: string, side: 'left' | 'right'): void => {
+  const account = getAccountRegistry().accounts.find((a) => a.id === id)
+  if (!account) return
+  const current: 'left' | 'right' = account.nameEllipsis === 'right' ? 'right' : 'left'
+  if (current === side) return
+  if (side === 'left') delete account.nameEllipsis
+  else account.nameEllipsis = 'right'
   persistRegistry()
   notify()
 }
@@ -633,8 +667,9 @@ export type AccountRpcParams = {
   // The game's Player ID — only present when the active account is bound to one.
   // (`playerName`, not `name`, because uploadSellfile already uses `name` for the filename.)
   playerId?: string
-  // SFC's account name; always present for context/debugging on the Helper side.
-  playerName: string
+  // SFC's account name — only present when the account HAS one (names are optional;
+  // an empty name is no identity and must not be sent as one).
+  playerName?: string
 }
 
 export const buildAccountRpcParams = (): AccountRpcParams => {
@@ -642,7 +677,7 @@ export const buildAccountRpcParams = (): AccountRpcParams => {
   return {
     ...(active.helperAccountId ? { playerId: active.helperAccountId } : {}),
     // displayName IS the in-game player name (kept fresh from helper-sent names).
-    playerName: active.displayName,
+    ...(active.displayName ? { playerName: active.displayName } : {}),
   }
 }
 

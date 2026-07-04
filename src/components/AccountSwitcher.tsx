@@ -22,23 +22,26 @@ import React, { useMemo, useState } from 'react'
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
   Divider, FormControlLabel, IconButton, ListItemIcon, Menu, MenuItem,
-  Switch, TextField, Typography,
+  Switch, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
+import SendIcon from '@mui/icons-material/Send'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
 import { useAccounts } from '../state/useAccounts'
 import {
   ACCOUNT_ACCENT_PALETTE,
+  accountDisplayLabel,
   bindHelperAccount,
   createAccount,
   deleteAccount,
   pickDefaultAccent,
   renameAccount,
   setAccountAccent,
+  setAccountNameEllipsis,
   setUnstampedDefaultAccount,
   stageAccountMergeCarry,
   switchAccount,
@@ -56,7 +59,7 @@ import {
   getSellfileAutoPushForAccount,
   setSellfileAutoPushForAccount,
 } from '../state/exportPreferences'
-import { usePersistEndpointGearPreference } from '../state/gearDbPreferences'
+import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 
 export type AccountSwitcherProps = {
   // Serializes the current document with the regular .sfc writer; staged as the
@@ -99,8 +102,6 @@ function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: 
 export default function AccountSwitcher({ getMergeSfcText, compact = false, flashSeq = 0 }: AccountSwitcherProps) {
   const { t } = useI18n()
   const { accounts, activeAccount } = useAccounts()
-  // GLOBAL perf/sanity toggle surfaced in the manager (see state/gearDbPreferences.ts).
-  const [persistEndpointGear, setPersistEndpointGear] = usePersistEndpointGearPreference()
   // The accent FILLS the switcher button, so the label is the active scheme's text
   // colour pushed to sufficient contrast ON that fill (shared LCH contrast primitive —
   // the colour-SSOT rule for theme text rendered on a user colour). resolveSchemePalette
@@ -127,31 +128,32 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     return new Map(accounts.map((account) => [account.id, readAccountListSummary(account.id)]))
   }, [menuOpen, accounts])
 
+  // Account label with the shared name → Player ID resolution; localized fallback when
+  // an account has neither (names are optional).
+  const accountLabel = (account: SfcAccount): string => accountDisplayLabel(account) || t('accountUnnamed')
+
   // Preset-menu-style caption block, one fact per line for scanability: "Saved <date>",
-  // "Pushed <date>", "N recipes · M safeguards · K rules". Saved (local autosave) and
-  // pushed (what RSL Helper has) are DIFFERENT facts — the push line is always present so
-  // the saved line can never be misread as push state. The gear outcome chip (total /
-  // sold / kept / safeguarded) renders separately below these lines.
-  const summaryLines = (accountId: string): string[] => {
+  // "Pushed <date>" (+ the auto-push state icon), "N recipes · M safeguards · K rules".
+  // Saved (local autosave) and pushed (what RSL Helper has) are DIFFERENT facts — the
+  // push line is always present so the saved line can never be misread as push state.
+  // The gear outcome chip (total / sold / kept / safeguarded) renders separately below.
+  const summaryRow = (accountId: string): { savedLine: string | null; pushedLine: string; countsLine: string | null; autoPush: boolean } | null => {
     const summary = accountSummaries.get(accountId)
-    if (!summary) return []
+    if (!summary) return null
     // formatLocalDateTime returns null on unparsable input — gate before interpolating.
     const savedDate = summary.savedAt ? formatLocalDateTime(summary.savedAt) : null
     const pushedDate = summary.lastPushAt ? formatLocalDateTime(summary.lastPushAt) : null
-    const lines: string[] = []
-    if (savedDate) lines.push(t('accountSummarySavedAt', { date: savedDate }))
-    // Push state + the account's auto-push contract share a line (both are push facts).
-    lines.push([
-      pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'),
-      summary.autoPush ? t('accountSummaryAutoPushOn') : t('accountSummaryAutoPushOff'),
-    ].join(' · '))
     const countParts = [
       summary.recipeCount !== null ? t('accountSummaryRecipes', { count: summary.recipeCount }) : null,
       summary.safeguardCount !== null ? t('accountSummarySafeguards', { count: summary.safeguardCount }) : null,
       summary.rulesCount !== null ? t('accountSummaryRules', { count: summary.rulesCount }) : null,
     ].filter((part): part is string => Boolean(part))
-    if (countParts.length > 0) lines.push(countParts.join(' · '))
-    return lines
+    return {
+      savedLine: savedDate ? t('accountSummarySavedAt', { date: savedDate }) : null,
+      pushedLine: pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'),
+      countsLine: countParts.length > 0 ? countParts.join(' · ') : null,
+      autoPush: summary.autoPush,
+    }
   }
 
   // Pending shift-merge target; non-null renders the confirmation dialog.
@@ -165,12 +167,17 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const [playerIdDraft, setPlayerIdDraft] = useState('')
   // Auto-push is a raw scoped key (not registry state) — mirrored in local state.
   const [autoPushDraft, setAutoPushDraft] = useState(false)
+  // Endpoint-gear persistence is a raw scoped key too — mirrored the same way.
+  const [persistGearDraft, setPersistGearDraft] = useState(true)
   // Create-mode-only staged values (manage mode applies these live instead).
   // undefined = "no accent colour" — the button then keeps the default theme colour.
   const [accentDraft, setAccentDraft] = useState<string | undefined>(ACCOUNT_ACCENT_PALETTE[0]!)
   const [unstampedDraft, setUnstampedDraft] = useState(false)
+  const [nameEllipsisDraft, setNameEllipsisDraft] = useState<'left' | 'right'>('left')
   // Delete confirmation is its own dialog (over the manage dialog), like the merge flow.
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  // Identity (name + Player ID) at manage-dialog open: the both-empty guard reverts to it.
+  const manageOpenSnapshotRef = React.useRef<{ name: string; playerId: string }>({ name: '', playerId: '' })
 
   // Full reload after any active-account change: one document per session (see lib/accounts.ts).
   const reload = () => { window.location.reload() }
@@ -181,7 +188,10 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     setNameDraft(account.displayName)
     setPlayerIdDraft(account.helperAccountId ?? '')
     setAutoPushDraft(getSellfileAutoPushForAccount(account.id))
+    setPersistGearDraft(getPersistEndpointGearForAccount(account.id))
     setDeleteConfirmOpen(false)
+    // Identity snapshot for the both-empty guard (see revertIdentityToOpenSnapshot).
+    manageOpenSnapshotRef.current = { name: account.displayName, playerId: account.helperAccountId ?? '' }
     setAccountDialog({ mode: 'manage', accountId: account.id })
   }
 
@@ -191,8 +201,10 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     setNameDraft('')
     setPlayerIdDraft('')
     setAutoPushDraft(false)
+    setPersistGearDraft(true)
     setAccentDraft(pickDefaultAccent(accounts.length))
     setUnstampedDraft(false)
+    setNameEllipsisDraft('left')
     setAccountDialog({ mode: 'create' })
   }
 
@@ -212,7 +224,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const handleConfirmMerge = () => {
     if (!mergeTarget) return
     try {
-      stageAccountMergeCarry({ fromDisplayName: activeAccount.displayName, sfcText: getMergeSfcText() })
+      stageAccountMergeCarry({ fromDisplayName: accountLabel(activeAccount), sfcText: getMergeSfcText() })
     } catch {
       // Serialization failure: fall back to a plain switch rather than blocking it.
     }
@@ -228,17 +240,47 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     // createAccount auto-assigns a palette accent; undefined here clears it ("no accent").
     setAccountAccent(account.id, accentDraft)
     if (autoPushDraft) setSellfileAutoPushForAccount(account.id, true)
+    if (!persistGearDraft) setPersistEndpointGearForAccount(account.id, false)
     if (unstampedDraft) setUnstampedDefaultAccount(account.id)
+    setAccountNameEllipsis(account.id, nameEllipsisDraft)
     setAccountDialog(null)
     // Creating implies "start working on it" — switch straight into the new account.
     switchAccount(account.id)
     reload()
   }
 
-  // Manage mode: the Player ID field applies on blur/Enter; empty unbinds.
+  // Manage-mode identity guard: an account must keep SOME identity (name or Player ID).
+  // An apply that would empty BOTH reverts the fields to their dialog-open values —
+  // the same invariant the create dialog enforces via its disabled confirm button.
+  const revertIdentityToOpenSnapshot = () => {
+    if (!managedAccount) return
+    const snap = manageOpenSnapshotRef.current
+    setNameDraft(snap.name)
+    setPlayerIdDraft(snap.playerId)
+    renameAccount(managedAccount.id, snap.name)
+    bindHelperAccount(managedAccount.id, snap.playerId || undefined)
+  }
+
+  // Manage mode: the name field applies on blur/Enter; '' is allowed while a Player ID
+  // remains as the identity, otherwise the both-empty guard reverts.
+  const applyNameDraft = () => {
+    if (!managedAccount) return
+    if (nameDraft.trim() === '' && !(managedAccount.helperAccountId ?? '')) {
+      revertIdentityToOpenSnapshot()
+      return
+    }
+    renameAccount(managedAccount.id, nameDraft)
+  }
+
+  // Manage mode: the Player ID field applies on blur/Enter; empty unbinds — unless the
+  // account has no name either (both-empty guard reverts).
   const applyPlayerIdDraft = () => {
     if (!managedAccount) return
     const trimmed = playerIdDraft.trim()
+    if (trimmed === '' && managedAccount.displayName === '') {
+      revertIdentityToOpenSnapshot()
+      return
+    }
     if ((managedAccount.helperAccountId ?? '') === trimmed) return
     bindHelperAccount(managedAccount.id, trimmed || undefined)
   }
@@ -253,7 +295,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   }
 
   // Bold state line + interaction help, mirroring the connect button's tooltip format.
-  const tooltipMd = `**${t('accountSwitcherTooltip', { name: activeAccount.displayName })}**\n\n${t('accountMenuShiftHint')}`
+  const tooltipMd = `**${t('accountSwitcherTooltip', { name: accountLabel(activeAccount) })}**\n\n${t('accountMenuShiftHint')}`
   const isCreate = accountDialog?.mode === 'create'
   // The dialog renders for create mode OR a still-existing managed account.
   const dialogOpen = accountDialog !== null && (isCreate || managedAccount !== null)
@@ -279,7 +321,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           // The accent FILLS the whole button (hover must restate the fill — the variant's
           // own hover background would wipe it); no accent → default theme button colour.
           sx={{
-            ...(compact ? {} : { height: 34 }), whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 180,
+            ...(compact ? {} : { height: 34 }), whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 240,
             ...(accent ? {
               bgcolor: accent,
               color: accentLabel,
@@ -290,9 +332,23 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
             ...(flashSeq > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
           }}
         >
-          {/* Ellipsize long names so the header row never overflows. */}
-          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {activeAccount.displayName}
+          {/* Ellipsize long names so the header row never overflows. The account chooses
+              WHICH side truncates (manager setting): 'left' (default) keeps the END of
+              the name visible — direction:rtl flips the box's overflow edge so the
+              ellipsis lands on the left, and LRM marks (U+200E) pin the characters to
+              their natural LTR order so edge punctuation cannot visually jump. */}
+          <Box
+            component="span"
+            sx={{
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              ...(activeAccount.nameEllipsis === 'right'
+                ? {}
+                : { direction: 'rtl', textAlign: 'left' }),
+            }}
+          >
+            {activeAccount.nameEllipsis === 'right'
+              ? accountLabel(activeAccount)
+              : `\u200E${accountLabel(activeAccount)}\u200E`}
           </Box>
         </Button>
       </MarkdownTooltip>
@@ -300,6 +356,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
       <Menu anchorEl={menuAnchor} open={menuOpen} onClose={closeMenu}>
         {accounts.map((account) => {
           const summary = accountSummaries.get(account.id)
+          const row = summaryRow(account.id)
           // Failed background push → dated error line (toast-free background feedback).
           const errorDate = summary?.lastPushErrorAt ? formatLocalDateTime(summary.lastPushErrorAt) : null
           return (
@@ -314,17 +371,29 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
               </ListItemIcon>
               {/* Preset-menu row layout: name + caption lines (Player ID, summary) + gear chip. */}
               <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography variant="body2" noWrap>{account.displayName}</Typography>
+                <Typography variant="body2" noWrap>{accountLabel(account)}</Typography>
                 {account.helperAccountId ? (
                   <Typography variant="caption" noWrap sx={captionSx}>
                     {t('accountBoundCaption', { id: account.helperAccountId })}
                   </Typography>
                 ) : null}
-                {summaryLines(account.id).map((line) => (
-                  <Typography key={line} variant="caption" noWrap sx={captionSx}>
-                    {line}
+                {row?.savedLine ? (
+                  <Typography variant="caption" noWrap sx={captionSx}>{row.savedLine}</Typography>
+                ) : null}
+                {row ? (
+                  <Typography variant="caption" noWrap sx={{ ...captionSx, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {row.pushedLine}
+                    {/* The account's auto-push contract as a glyph: green send = on, dim = off.
+                        titleAccess carries the localized state for tooltip + screen readers. */}
+                    <SendIcon
+                      titleAccess={t(row.autoPush ? 'accountSummaryAutoPushOn' : 'accountSummaryAutoPushOff')}
+                      sx={{ fontSize: 13, color: row.autoPush ? 'success.main' : 'text.disabled' }}
+                    />
                   </Typography>
-                ))}
+                ) : null}
+                {row?.countsLine ? (
+                  <Typography variant="caption" noWrap sx={captionSx}>{row.countsLine}</Typography>
+                ) : null}
                 {errorDate ? (
                   <Typography
                     variant="caption"
@@ -375,10 +444,10 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
 
       {/* Shift-merge confirmation — a content-changing action, so it names both sides. */}
       <Dialog open={mergeTarget !== null} onClose={() => setMergeTarget(null)}>
-        <DialogTitle>{t('accountMergeTitle', { name: mergeTarget?.displayName ?? '' })}</DialogTitle>
+        <DialogTitle>{t('accountMergeTitle', { name: mergeTarget ? accountLabel(mergeTarget) : '' })}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {t('accountMergeBody', { source: activeAccount.displayName, target: mergeTarget?.displayName ?? '' })}
+            {t('accountMergeBody', { source: accountLabel(activeAccount), target: mergeTarget ? accountLabel(mergeTarget) : '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -401,8 +470,8 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
             onChange={(e) => setNameDraft(e.target.value)}
             // Manage mode applies live on blur/Enter; create mode stages until confirm.
             {...(managedAccount ? {
-              onBlur: () => renameAccount(managedAccount.id, nameDraft),
-              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') renameAccount(managedAccount.id, nameDraft) },
+              onBlur: applyNameDraft,
+              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') applyNameDraft() },
             } : {})}
           />
           {/* Player ID binding — editable so accounts can be (re)bound by hand,
@@ -493,24 +562,47 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
               />
             ))}
           </Box>
+          {/* Which side long names truncate on in the switcher button. Default 'left'
+              keeps the END of the name visible (game names often differ at the tail).
+              Create stages the choice; manage applies it live. */}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            {t('accountManageNameEllipsisLabel')}
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            sx={{ mt: 0.5 }}
+            value={isCreate ? nameEllipsisDraft : (managedAccount?.nameEllipsis === 'right' ? 'right' : 'left')}
+            onChange={(_e, side: 'left' | 'right' | null) => {
+              if (!side) return
+              if (isCreate) setNameEllipsisDraft(side)
+              else if (managedAccount) setAccountNameEllipsis(managedAccount.id, side)
+            }}
+          >
+            <ToggleButton value="left">{t('accountManageNameEllipsisStart')}</ToggleButton>
+            <ToggleButton value="right">{t('accountManageNameEllipsisEnd')}</ToggleButton>
+          </ToggleButtonGroup>
+          <Divider sx={{ my: 2 }} />
+          {/* Per-account: keep THIS account's real endpoint gear out of localStorage. */}
+          <FormControlLabel
+            sx={{ display: 'flex' }}
+            control={(
+              <Switch
+                size="small"
+                checked={persistGearDraft}
+                onChange={(e) => {
+                  setPersistGearDraft(e.target.checked)
+                  if (managedAccount) setPersistEndpointGearForAccount(managedAccount.id, e.target.checked)
+                }}
+              />
+            )}
+            label={t('accountManagePersistGear')}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+            {t('accountManagePersistGearHint')}
+          </Typography>
           {managedAccount && (
             <>
-              <Divider sx={{ my: 2 }} />
-              {/* GLOBAL toggle (all accounts): keep real gear data out of localStorage. */}
-              <FormControlLabel
-                sx={{ display: 'flex' }}
-                control={(
-                  <Switch
-                    size="small"
-                    checked={persistEndpointGear}
-                    onChange={(e) => setPersistEndpointGear(e.target.checked)}
-                  />
-                )}
-                label={t('accountManagePersistGear')}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
-                {t('accountManagePersistGearHint')}
-              </Typography>
               <Divider sx={{ my: 2 }} />
               {/* Deleting the last account is refused by deleteAccount; disable the entry point too. */}
               <Button color="error" size="small" disabled={accounts.length <= 1}
@@ -524,7 +616,8 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           {isCreate ? (
             <>
               <Button onClick={() => setAccountDialog(null)}>{t('cancel')}</Button>
-              <Button variant="contained" disabled={!nameDraft.trim()} onClick={handleCreate}>
+              {/* A name is optional, but the account needs SOME identity: name or Player ID. */}
+              <Button variant="contained" disabled={!nameDraft.trim() && !playerIdDraft.trim()} onClick={handleCreate}>
                 {t('accountCreateConfirm')}
               </Button>
             </>
@@ -539,7 +632,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
         <DialogTitle>{t('accountDeleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {t('accountManageDeleteConfirm', { name: managedAccount?.displayName ?? '' })}
+            {t('accountManageDeleteConfirm', { name: managedAccount ? accountLabel(managedAccount) : '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>

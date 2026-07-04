@@ -62,6 +62,13 @@ docs/orig/sampleLog/captures/<session>/packet_<NN>_<method>_<YYMMDD>_<HHMMSS.mmm
 - The binary gear-DB push (`gearDbFileBinary`) is recorded as a metadata stub only — the raw
   SQLite bytes are not persisted.
 
+The committed reference session lives directly in `docs/orig/sampleLog/` (same
+`packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json` naming; the zero-padded `<index>` is
+the order in which RSL Helper emitted the packet). The current sample (captured
+2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6,
+`lastUsed` ×2, and `ArtifactByHeroID` ×1. (Not referenced from the user-facing
+`websocket-jsonrpc.md` — `docs/orig/` is not shipped.)
+
 ### Outbound frame shape
 
 Outbound frames are shaped like a JSON-RPC request with a `"direction": "send"` marker:

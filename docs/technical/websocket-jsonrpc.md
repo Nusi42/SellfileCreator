@@ -76,9 +76,8 @@ carries two optional params:
 
 - **Outbound (SFC → RSL Helper)**: every request (`uploadSellfile`, `requestSfcSync`,
   `selectArtifacts`) includes `playerId` (the game's Player ID, present only when the active SFC
-  account is bound to one) and `playerName` (the player's name). Servers that do not understand
-  these params can ignore them; once consumed, RSL Helper can save sellfiles per account and
-  validate sync requests.
+  account is bound to one) and `playerName` (the player's name, present only when the account has
+  one).
 - **Inbound (RSL Helper → SFC)**: every notification (`artifacts`, `champions`, `inboxArtifacts`,
   `lastUsed`, and the `gearDbFileBinary` metadata notification) MAY carry top-level `playerId`
   and/or `playerName` params — either alone is a full identity, mirroring the launch params.
@@ -334,8 +333,6 @@ Champion roster. Provides display names and equipped-slot context.
 ```
 
 **Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Rows are merged field-by-field — when an incoming row leaves a field absent, the previously-known value is preserved. This protects the first-send metadata (Name, Rarity) and keeps the data forward-compatible: when a field such as `Affinity` arrives it is recorded, and until then any earlier-known value is not nulled out by a follow-up packet that omits it.
-
-See `docs/orig/sampleLog/` for a full captured session split into per-message files. Each file is one full JSON-RPC envelope, named `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json`; the zero-padded numeric `<index>` is the order in which RSL Helper emitted the packet. The current sample (captured 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6, `lastUsed` ×2, and `ArtifactByHeroID` ×1.
 
 ### ArtifactByHeroID
 

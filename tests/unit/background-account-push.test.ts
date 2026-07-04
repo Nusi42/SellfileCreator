@@ -18,6 +18,7 @@ import {
 } from '../../src/lib/backgroundAccountPush.js'
 import { buildDocumentOverridesView, resolveOverridesNoteText, type DocumentOverridesInput } from '../../src/lib/documentOverrides.js'
 import { readAccountListSummary, writeAccountStatsSnapshot } from '../../src/lib/accountSummaries.js'
+import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount } from '../../src/state/gearDbPreferences.js'
 import {
   getSellfileAutoPushForAccount,
   getSellfileLastPushAtForAccount,
@@ -256,6 +257,24 @@ test('per-account auto-push helpers write the target namespace and round-trip', 
   assert.equal(storage.getItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)), '0')
   assert.equal(getSellfileAutoPushForAccount(inactive.id), false)
   assert.equal(hasExplicitSellfileAutoPushForAccount(inactive.id), true)
+})
+
+test('per-account endpoint-gear persistence gates the background gear autosave write', async () => {
+  const storage = freshWindow()
+  const inactive = seedBoundInactiveAccount('um2')
+  storage.setItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH), '1')
+  seedInactiveDocument(inactive.id)
+  // Default ON (absent key); flip the TARGET account's own flag off.
+  assert.equal(getPersistEndpointGearForAccount(inactive.id), true)
+  setPersistEndpointGearForAccount(inactive.id, false)
+  assert.equal(getPersistEndpointGearForAccount(inactive.id), false)
+  const harness = makeHarness()
+  assert.equal(harness.service.noteInboundGearCommand(artifactsCommand('um2')), true)
+  const outcome = await harness.waitForOutcome()
+  // The push itself still happens — only the gear autosave write is skipped.
+  assert.equal(outcome.kind, 'pushed')
+  assert.equal(harness.uploads.length, 1)
+  assert.equal(loadAutosave(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR)), null)
 })
 
 test('account stats snapshot + list summary round-trip', () => {

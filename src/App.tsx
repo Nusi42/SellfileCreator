@@ -12,7 +12,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
-import { buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
+import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { buildDocumentOverridesView } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
@@ -3854,9 +3854,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Last successful push for the ACTIVE account — the simple dialog labels its auto-push
   // button with it. The raw scoped key has no reactive store, so the two push-signal
   // counters double as recompute triggers (each successful push increments one of them).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const activeAccountLastPushAt = useMemo(
     () => getSellfileLastPushAtForAccount(getActiveAccount().id),
+    // eslint-disable-next-line @eslint-react/exhaustive-deps, react-hooks/exhaustive-deps -- the counters are deliberate recompute triggers for a non-reactive raw storage key
     [autoPushFlashSeq, accountPushFlashSeq],
   )
 
@@ -5865,6 +5865,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Guarded on rows existing so the boot window (gear autosave not yet restored) cannot
   // clobber a real snapshot with zeros.
   useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- persisting the snapshot IS the reaction to pipeline results changing; there is no user event to attach it to
     if (gearInspectorPreviewRows.length === 0) return
     writeAccountStatsSnapshot(getActiveAccount().id, {
       rules: mergedRules.length,
@@ -6876,7 +6877,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (inboundDropToastSeenRef.current.has(dropKey)) return
       inboundDropToastSeenRef.current.add(dropKey)
       showGearDbCommandToast(
-        t('accountInboundMismatchToast', { incoming, active: getActiveAccount().displayName }),
+        // Shared name → Player ID label resolution; names are optional on accounts.
+        t('accountInboundMismatchToast', { incoming, active: accountDisplayLabel(getActiveAccount()) || t('accountUnnamed') }),
         'error',
       )
     }

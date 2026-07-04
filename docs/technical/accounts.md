@@ -14,7 +14,8 @@ the simple-mode Note dialog action bar).
 ```ts
 type SfcAccount = {
   id: string                 // internal SFC id — immutable, generated; storage namespace hangs off it
-  displayName: string        // THE account name = the player's name in the game (see below)
+  displayName: string        // THE account name = the player's name in the game (see below); OPTIONAL — '' is valid
+  nameEllipsis?: 'left'|'right' // which side long names truncate on in the switcher button; absent = 'left' (end of name visible)
   helperAccountId?: string   // the game's Player ID (e.g. "um12345678") — permanent, unique
   helperBound?: boolean      // set on first identity adoption; guards re-claiming
   accentColor?: string       // per-account accent for at-a-glance identification
@@ -24,6 +25,13 @@ type SfcAccount = {
   lastActiveAt: string
 }
 ```
+
+Names are optional: UI labels resolve through `accountDisplayLabel` (name → Player ID →
+'' with a localized "Unnamed" fallback at the call sites), an empty name is never sent as
+a `playerName` identity nor matched by `findAccountByPlayerName`. An account must still
+keep SOME identity (name or Player ID): the create dialog gates its confirm button on
+one being present, and manage-mode edits that would empty both revert the fields to
+their dialog-open values.
 
 The registry (`{ activeAccountId, accounts[] }`) lives in the **global** key
 `sellfileCreator.accounts.v1`. Because the namespace hangs off the internal `id`,
@@ -73,20 +81,24 @@ URL param only overrides that per-launch.
 
 Each row in the switcher menu carries a gear icon that opens the manager for THAT
 account — no switch required (essential for editing a non-active account's auto-push).
-The manager edits: name, accent color, the **Player ID binding** (free-text field,
+The manager edits: name (optional — see label fallback above), accent color, the
+**name-ellipsis side** (which end of a long name the switcher button truncates;
+default left, i.e. the end of the name stays visible), the **Player ID binding** (free-text field,
 opaque string, shown with the game's own "Player ID" terminology; empty unbinds — this
 is how users pre-bind accounts before RSL Helper passes ids itself), the **per-account auto-push** flag
 (`get/setSellfileAutoPushForAccount` in `state/exportPreferences.ts` — the active
 account routes through the live store so React subscribers stay in sync; other accounts
 write their namespaced key directly with store-parity serialization), the
-**unstamped-data default** flag (below), the **global endpoint-gear persistence** toggle
-(below), and deletion behind a regular confirmation dialog.
+**unstamped-data default** flag (below), the **per-account endpoint-gear persistence**
+toggle (below), and deletion behind a regular confirmation dialog (manage mode only).
+The create dialog carries the SAME fields (staged until "Create & switch") so both flows
+share one look and feel — only deletion is manage-exclusive.
 
 Each switcher row shows a summary block (`lib/accountSummaries.ts`, computed lazily on
-menu open), one fact per line: "Saved <date>", "Pushed <date> · Auto-push on/off" (from
-`sellfile.lastPush.v1` + the account's auto-push flag), "N recipes · M safeguards ·
-K rules", and the shared `GearInspectorOutcomeSummaryChip` (total / sold / kept /
-safeguarded). Saved (local
+menu open), one fact per line: "Saved <date>", "Pushed <date>" + a send-glyph showing the
+account's auto-push state (green = on, dimmed = off; localized state in the tooltip),
+"N recipes · M safeguards · K rules", and the shared `GearInspectorOutcomeSummaryChip`
+(total / sold / kept / safeguarded). Saved (local
 autosave) and pushed (what RSL Helper has) are different facts, so the push line is
 always present — "Not pushed yet" when no upload has succeeded — to keep the saved line
 from being misread as push state. Recipe/safeguard counts come from the account's SFC
@@ -110,13 +122,16 @@ active session (legacy behavior); flag on a NON-active account → the packet is
 the background push service for that account (never merged into the active view). A
 binary-DB push cannot be background-serviced and drops with the mismatch toast instead.
 
-## Endpoint-gear persistence toggle (global)
+## Endpoint-gear persistence toggle (per account)
 
-`sellfileCreator.gearDb.persistEndpointGear.v1` (`state/gearDbPreferences.ts`, default
-ON). When OFF, real gear data (endpoint or file import) is kept out of localStorage for
-perf/sanity: the live gearInspector autosave payload filters to manual items
-(`isManualGearInspectorItem`), and the background account-push skips its gear autosave
-write. Deliberately GLOBAL — it is a machine/storage concern, not an account trait.
+`gearDb.persistEndpointGear.v1` (account-scoped; `state/gearDbPreferences.ts`, default
+ON). When OFF, the account's real gear data (endpoint or file import) is kept out of
+localStorage for perf/sanity: the live gearInspector autosave payload filters to manual
+items (`isManualGearInspectorItem`), and the background account-push honors the TARGET
+account's flag before writing its gear autosave. The live store covers the ACTIVE
+account's resolved key; `get/setPersistEndpointGearForAccount` are the raw per-account
+accessors (same pattern as auto-push). Historical note: the flag was global at first —
+that orphaned global key is simply ignored now (no migration, by decision).
 
 ## Storage partitioning
 
@@ -139,6 +154,7 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |
 | `sellfile.lastPushError.v1` | ISO timestamp of the last FAILED background push (toast-free feedback: rendered as the switcher row's error line; cleared by the next successful push) |
 | `accountStats.v1` | tiny snapshot of live pipeline RESULTS (generated-rule count + gear total/sold/kept/safeguarded) — written by the live session for its own account, since these are not derivable from autosaves at menu-open cost |
+| `gearDb.persistEndpointGear.v1` | whether the account's REAL endpoint gear persists into its gearInspector autosave (perf/sanity, default ON) — each account decides its own storage footprint |
 
 Everything else stays global — notably the whole theming system (also required: MUI reads
 its theme keys synchronously before account resolution could run), colour maps, UI

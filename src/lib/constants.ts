@@ -11,6 +11,7 @@ import {
 import {
   ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR,
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
+  ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   resolveAccountScopedKey,
 } from './accounts'
@@ -699,9 +700,10 @@ export const SELLFILE_AUTO_PUSH_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_S
 // that should persist across sessions like the other endpoint toggles.
 export const GEAR_DB_HIDE_UPDATE_TOAST_KEY = 'sellfileCreator.gearDb.hideUpdateToast.v1'
 // Gear DB persistence: when disabled, real endpoint gear stays OUT of localStorage
-// (manual items still persist). GLOBAL on purpose — it is a machine perf/sanity choice,
-// not an account trait; both the live autosave and the background account-push honor it.
-export const GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY = 'sellfileCreator.gearDb.persistEndpointGear.v1'
+// (manual items still persist). PER ACCOUNT: each game account decides how much storage
+// its inventory occupies; both the live autosave and the background account-push honor
+// the owning account's flag. This resolved key covers the ACTIVE account.
+export const GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR)
 // Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
 // payload classes (future uploads can use their own prefixes without guessing).
 export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'

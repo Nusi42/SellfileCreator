@@ -65,7 +65,7 @@ import {
   getSellfileOmitDisabledPreferenceSnapshot,
   markSellfileLastPushForAccount,
 } from '../state/exportPreferences'
-import { getPersistEndpointGearPreferenceSnapshot } from '../state/gearDbPreferences'
+import { getPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 
 // Per-type packets of one burst arrive within moments of each other; flush once the
 // stream has been quiet this long. Mirrors the live path's coalescing intent without
@@ -204,8 +204,9 @@ export const createBackgroundAccountPushService = (
       const payload = buildHsfFileFromMerged(result.mergedRules, { recipeNames: view.exportRecipeNames })
       const response = await deps.sendRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
         ...(account.helperAccountId ? { playerId: account.helperAccountId } : {}),
-        // displayName IS the in-game player name (kept fresh from helper-sent names).
-        playerName: account.displayName,
+        // displayName IS the in-game player name (kept fresh from helper-sent names);
+        // optional — an empty name is no identity and is omitted like the id.
+        ...(account.displayName ? { playerName: account.displayName } : {}),
         fileName: sellfileFilename(),
         contentType: 'application/json',
         data: payload,
@@ -214,9 +215,9 @@ export const createBackgroundAccountPushService = (
       // Record the success for the account menu's "Pushed <date>" summary line.
       markSellfileLastPushForAccount(account.id)
       // 6. Persist the fresh gear into X's own gearInspector autosave so its next
-      // session starts from this data instead of a stale queue — unless the user
-      // disabled persisting endpoint gear to localStorage (perf/sanity toggle).
-      if (getPersistEndpointGearPreferenceSnapshot()) {
+      // session starts from this data instead of a stale queue — unless X disabled
+      // persisting endpoint gear to localStorage (per-account perf/sanity toggle).
+      if (getPersistEndpointGearForAccount(account.id)) {
         saveAutosave(
           resolveAccountScopedKeyFor(account.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR),
           buildGearInspectorAutosavePayload(items),
