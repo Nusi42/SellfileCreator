@@ -184,9 +184,11 @@ function SeparatorRow({
   const countText = separator.count === 1
     ? t('previewGroupSeparatorEntriesOne')
     : t('previewGroupSeparatorEntriesMany', { n: separator.count })
-  // Compose "«index» «name»" — index is omitted for final-sell / base groups.
+  // Compose "«index». «name»" — index is omitted for final-sell / base groups, and the
+  // name is omitted for an unnamed recipe (empty label) so the heading reads "«index»."
+  // instead of a dangling "«index». " with trailing whitespace.
   const heading = separator.indexLabel !== null
-    ? `${separator.indexLabel}. ${separator.label}`
+    ? (separator.label ? `${separator.indexLabel}. ${separator.label}` : `${separator.indexLabel}.`)
     : separator.label
   return (
     <TableRow
@@ -737,12 +739,21 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         }
         // Reuse the row's own name/color resolution for the heading.
         const isSafeguardRow = rule.__source === RULE_SOURCE_SAFEGUARDS
+        // Recipe identity drives both the glyph/index AND the empty-name fallback below, so
+        // resolve it once here (SSOT) rather than recomputing per branch.
+        const separatorRecipeIdx = resolveDisplayRecipeIdx(rule)
         let label = resolvePreviewRuleName(rule, isSafeguardRow)
-        // Imported base / final-sell rows have no authored name — use a fixed group label.
+        // Fill in a group label only when the row carries no authored name.
         if (!label) {
-          label = rule.__source === RULE_SOURCE_FINAL_SELL
-            ? t('finalSellToggleLabel')
-            : t('previewGroupSeparatorBaseLabel')
+          if (rule.__source === RULE_SOURCE_FINAL_SELL) {
+            label = t('finalSellToggleLabel')
+          } else if (separatorRecipeIdx === null) {
+            // Genuine imported base (HSF) rows with no recipe identity — the base label applies.
+            label = t('previewGroupSeparatorBaseLabel')
+          }
+          // An unnamed *recipe* keeps an empty label: the separator shows its index badge with
+          // no name, exactly as the recipe chip renders a nameless recipe ("«n». Keep | …").
+          // "Imported Base Rules" is reserved for true base rows and must never mislabel a recipe.
         }
         const color = resolvePreviewRuleFgColor(rule, isSafeguardRow)
         // Classify the group for glyph + index display.
@@ -754,13 +765,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
           indexLabel = typeof rule.__safeguardRuleOrdinal === 'number' ? rule.__safeguardRuleOrdinal : null
         } else if (rule.__source === RULE_SOURCE_FINAL_SELL) {
           glyphKind = 'finalSell'
-        } else {
-          const recipeIdx = resolveDisplayRecipeIdx(rule)
-          if (recipeIdx !== null) {
-            glyphKind = 'recipe'
-            // resolveDisplayRecipeIdx is 0-based; display the 1-based recipe number.
-            indexLabel = recipeIdx + 1
-          }
+        } else if (separatorRecipeIdx !== null) {
+          glyphKind = 'recipe'
+          // resolveDisplayRecipeIdx is 0-based; display the 1-based recipe number.
+          indexLabel = separatorRecipeIdx + 1
         }
         items.push({ kind: 'separator', groupKey, glyphKind, indexLabel, label, color, count })
       }

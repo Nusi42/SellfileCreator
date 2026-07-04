@@ -107,6 +107,15 @@ const TUTORIAL_INITIAL_BUILDER: BuilderRecipe = {
   autoMinRequiredRolls: true,
 }
 
+// Name applied to the advanced tutorial recipe (Recipe #2). Single source of truth —
+// used by both the 'name' step's before() hook and the handleTutorialSkipTo replay pass
+// so a forward Next and a Back replay produce the identical recipe name.
+const TUTORIAL_ADVANCED_RECIPE_NAME = 'DPS Core Rolls'
+
+// Name applied to the auto-late tutorial recipe (Recipe #3). Same SSOT contract as
+// TUTORIAL_ADVANCED_RECIPE_NAME — shared by the 'auto-late-slot' before() hook and its replay.
+const TUTORIAL_AUTO_LATE_RECIPE_NAME = 'Banner SPD — Late 3 rolls'
+
 const buildTutorialGearInspectorItems = (): GearInspectorItem[] => [
   {
     // Item 1: matches Recipe #3 (Banner, Refresh, SPD substat, ≥3 rolls, Late).
@@ -1090,7 +1099,11 @@ export function useTutorialCoachState({
         title: t('tutAdvNameTitle'),
         body: t('tutAdvNameBody'),
         targetId: 'builder.name',
-        before: () => setBuilder((prev) => ({ ...prev, name: 'DPS Core Rolls' })),
+        // The recipe display name lives in appearance.name (the field the builder input and
+        // preview read) — NOT a top-level `name`. Setting the wrong field left the recipe
+        // nameless on the first forward visit; it only appeared after a Back replay (which
+        // wrote appearance.name). Mirror the replay path exactly so both directions match.
+        before: () => setBuilder((prev) => ({ ...prev, appearance: { ...prev.appearance, name: TUTORIAL_ADVANCED_RECIPE_NAME } })),
       },
       {
         id: 'adv-select-slots-main',
@@ -1179,7 +1192,10 @@ export function useTutorialCoachState({
         id: 'flex-no-flex',
         title: t('tutFlexNoFlexTitle'),
         body: t('tutFlexNoFlexBody'),
-        targetId: 'preview.table',
+        // Spotlight only the upper third of the preview (the preview.table-top overlay) rather
+        // than the whole table — the strict no-flex rows sit at the top after the scroll, and a
+        // full-table highlight over-darkens the surrounding UI for a single-recipe point.
+        targetId: 'preview.table-top',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           // Confirm Recipe #2 is committed with flex=false and keep it selected for preview highlighting.
@@ -1230,7 +1246,9 @@ export function useTutorialCoachState({
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setBuilder((prev) => ({
             ...prev,
-            name: 'Banner SPD — Late 3 rolls',
+            // Recipe display name lives in appearance.name (see the 'name' step) — writing a
+            // top-level `name` here left Recipe #3 nameless until a Back replay. Mirror the replay.
+            appearance: { ...prev.appearance, name: TUTORIAL_AUTO_LATE_RECIPE_NAME },
             artifactTypes: [ArtifactType.Banner],
             artifactSets: [],
             artifactMetaSets: [],
@@ -1631,7 +1649,8 @@ export function useTutorialCoachState({
             break
           }
           case 'name': {
-            nextBuilder = { ...nextBuilder, appearance: { name: 'DPS Core Rolls' } }
+            // Mirror the 'name' step's before() hook — write appearance.name (SSOT constant).
+            nextBuilder = { ...nextBuilder, appearance: { ...nextBuilder.appearance, name: TUTORIAL_ADVANCED_RECIPE_NAME } }
             break
           }
           case 'subs': {
@@ -1737,7 +1756,7 @@ export function useTutorialCoachState({
             // Min Rolls is Auto here — the substats step overrides it to 3.
             nextBuilder = {
               ...nextBuilder,
-              appearance: { name: 'Banner SPD — Late 3 rolls' },
+              appearance: { ...nextBuilder.appearance, name: TUTORIAL_AUTO_LATE_RECIPE_NAME },
               artifactTypes: [ArtifactType.Banner],
               artifactSets: [],
               artifactMetaSets: [],

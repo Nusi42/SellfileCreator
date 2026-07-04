@@ -66,6 +66,7 @@
   - `nextLogicHubOpen` / `nextLogicHubDialogTab` (match whatever the step's `before` expects)
   - `nextSafeguardRules` / `nextSafeguardsEnabled` / `nextBuilderMode` (for safeguard steps)
 - Keep mutations minimal and explicit so later tweaks to a step can be mirrored here safely.
+- **Recipe display name lives in `appearance.name`, not a top-level `name`.** A step that names a recipe must write `appearance: { ...prev.appearance, name: … }` in *both* its `before()` hook and its `handleTutorialSkipTo` replay `case`. Writing a bare `{ ...prev, name: … }` in the `before()` is a silent no-op (the builder input and preview read `appearance.name`), so the name only appears after a Back replay (which historically already used `appearance.name`) — a forward Next leaves the recipe nameless. The `name` (Recipe #2) and `auto-late-slot` (Recipe #3) steps use shared constants (`TUTORIAL_ADVANCED_RECIPE_NAME`, `TUTORIAL_AUTO_LATE_RECIPE_NAME`) so both paths cannot drift.
 - For any new dialogs or menus, add an `ensureXxx(open: boolean)` helper and call it in the step's `before` to guarantee the expected UI state.
 - Add targeted closers to `closeAllTransientUi()` if a new portal needs a direct `Escape`.
 
