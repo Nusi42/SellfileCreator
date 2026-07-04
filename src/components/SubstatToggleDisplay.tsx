@@ -16,6 +16,15 @@ import { buildWarningBadgeBase } from '../lib/badgeStyles'
 // Use MarkdownTooltip for both the lock badge and roll indicator so builders see consistent multi-line copy.
 import MarkdownTooltip from './MarkdownTooltip'
 
+// Gap-separated groups: MUI's grouped rule `.middleButton/.lastButton.Mui-disabled
+// { border-left: transparent }` (meant to defer to a flush neighbor's right border)
+// would visibly erase a disabled button's left edge. Restore a symmetric outline
+// using MUI's standalone-disabled border color so grouped stat toggles match the
+// (ungrouped) slot toggles' disabled look.
+const GAPPED_GROUP_DISABLED_BUTTON_SX = {
+  borderColor: 'action.disabledBackground',
+} as const
+
 const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
 const LOCK_TOGGLE_OFFSET_X_PX = ROLL_BADGE_HOVER_GUTTER_PX
 const LOCK_TOGGLE_OFFSET_Y_PX = ROLL_BADGE_HOVER_GUTTER_PX / 2
@@ -361,6 +370,8 @@ export const mainStatToggleGroupSx = {
     '&.Mui-selected': {
       borderColor: 'divider',
     },
+    // See GAPPED_GROUP_DISABLED_BUTTON_SX — restores the disabled left border.
+    '&.Mui-disabled': GAPPED_GROUP_DISABLED_BUTTON_SX,
   },
   '& .MuiToggleButtonGroup-grouped': {
     margin: '0 !important',
@@ -387,6 +398,8 @@ export const substatToggleGroupSx = {
     '&.Mui-selected': {
       borderColor: 'divider',
     },
+    // See GAPPED_GROUP_DISABLED_BUTTON_SX — restores the disabled left border.
+    '&.Mui-disabled': GAPPED_GROUP_DISABLED_BUTTON_SX,
   },
   '& .MuiToggleButtonGroup-grouped': {
     margin: '0 !important',

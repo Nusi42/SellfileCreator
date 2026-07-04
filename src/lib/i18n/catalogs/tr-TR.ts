@@ -185,6 +185,7 @@ const overrides: Catalog = {
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} gün önce",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} gün önce",
   gearInspectorImprovChanceFilterLabel: "Geliştirme Şansı",
+  gearInspectorImprovChanceFilterLabelShort: "Şans",
   gearInspectorImprovChanceNoDataPrefix: "Veri yok:",
   gearInspectorImprovChanceTooltip: "Yalnızca iyileştirme şansı bu aralığa düşen korunan öğeleri gösterir. Aşağıdaki çip, koruması olmayan öğelerin gösterilip gösterilmeyeceğini belirler.",
   // Common UI bits used in Gear Inspector

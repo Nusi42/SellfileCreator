@@ -92,7 +92,7 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
-import ClearIconButton from './ClearIconButton'
+import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import { ColorField } from './ColorField'
 import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
@@ -1776,19 +1776,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   // Roll indicator sizing and hover gutter come from centralized constants.
   // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
-  const CLEAR_BUTTON_PLACEHOLDER_SX = useMemo(() => ({
-    width: CLEAR_ICON_BUTTON_SIZE_PX,
-    height: CLEAR_ICON_BUTTON_SIZE_PX,
-    flexShrink: 0,
-  }), [])
   // SSOT for collapsible-section header clear buttons: render the ✕ whenever the section is
-  // non-default (dirty), otherwise a same-size placeholder so the header row never reflows.
+  // non-default (dirty), otherwise the shared zero-width strut (CLEAR_BUTTON_STRUT_SX) —
+  // row height stays stable while long labels keep the space until the ✕ actually appears.
   // Keeps every section consistent — blue label + clear ✕ go together (see filter panels).
   const renderSectionClearButton = useCallback((dirty: boolean, label: string, onClear: () => void) => (
     dirty
       ? <ClearIconButton size="small" aria-label={label} tooltip={label} onClick={onClear} />
-      : <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
-  ), [CLEAR_BUTTON_PLACEHOLDER_SX])
+      : <Box sx={CLEAR_BUTTON_STRUT_SX} />
+  ), [])
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -2695,7 +2691,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
           onClick={() => clearMainSelection()}
         />
       )
-      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+      : (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
   })()
 
   // Mainstat toggle button rows (row1: SPD/CR/CDMG/ACC/RES, row2: HP/ATK/DEF and % variants).
@@ -2798,7 +2794,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const substatsClearButton = (() => {
     if (multiEditActive && multiSummary) {
       if (substatsPatch?.clear) {
-        return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+        return (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
       }
       const projectedHas = (() => {
         if (substatsPatch?.replace) return substatsPatch.replace.length > 0
@@ -2836,7 +2832,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
             }}
           />
         )
-        : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+        : (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
     }
     const substatsSelection = (((recipe as unknown) as { substatsV?: number[] }).substatsV) ?? []
     const hasSubstats = substatsSelection.length > 0
@@ -2856,7 +2852,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
           }))}
         />
       )
-      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+      : (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
   })()
 
   // Compute name field end adornment (color picker + optional clear button) before JSX.
@@ -4384,7 +4380,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
   const slotsClearButton = (() => {
     if (multiEditActive && multiSummary) {
       if (slotsPatch?.clear) {
-        return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+        return (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
       }
       const projectedHas = (() => {
         if (slotsPatch?.replace) return slotsPatch.replace.length > 0
@@ -4412,7 +4408,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             }}
           />
         )
-        : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+        : (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
     }
     const hasSlots = Array.isArray(recipe.artifactTypes) && (recipe.artifactTypes?.length ?? 0) > 0
     return hasSlots
@@ -4424,7 +4420,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onClick={() => update('artifactTypes', [])}
         />
       )
-      : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+      : (<Box sx={CLEAR_BUTTON_STRUT_SX} />)
   })()
 
   // Min required rolls section: auto + manual toggles + warning text.

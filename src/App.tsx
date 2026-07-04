@@ -9150,6 +9150,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
       <FileDragOverlay active={dragOverlayVisible} />
       <GlobalStyles styles={(theme) => ({
+        // Root-viewport hardening against transient scrollbar flashes on mouse move:
+        // the full-bleed 100vw header/canvas elements include the scrollbar gutter,
+        // so any momentary vertical scrollbar used to spawn a horizontal one too.
+        // Unlike 'hidden', 'clip' forbids ALL horizontal scrolling without creating
+        // a scroll container. Deliberately NO scrollbar-gutter:stable here: the
+        // forced-SBS canvas and the 100vw spans size against the FULL viewport
+        // width, so a permanently reserved gutter shrinks clientWidth under them
+        // and this clip then cuts off their right edge once the zoom applies.
+        html: {
+          overflowX: 'clip',
+        },
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
           // Thumb color: custom override (--app-scrollbar-thumb) falls back to the divider color.

@@ -11,6 +11,10 @@ type Props = {
 // Flip horizontal anchor when cursor is this close to the right edge (px).
 const HINT_FLIP_THRESHOLD_PX = 220
 const HINT_OFFSET_PX = 10
+// Hover-dwell before the hint appears: a cursor merely passing through the
+// trigger never shows it; only one that lingers does. Keeps the hint useful for
+// discovery without shoving it at users who move with intent.
+const HINT_DWELL_MS = 1000
 // Safety-net radius: once the cursor strays this far from the anchored hint, we
 // treat the trigger's onMouseLeave as having silently failed and self-dismiss.
 const HINT_DISMISS_RADIUS_PX = 48
@@ -28,16 +32,29 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
   // Hold the freshest anchor so the global listener compares against live coords
   // without re-subscribing on every mouse move.
   const posRef = useRef(position)
+  // Hover-dwell gate: the hint only renders once the cursor has lingered on the
+  // trigger for HINT_DWELL_MS, so purposeful mouse travel never flashes it.
+  const [dwellElapsed, setDwellElapsed] = useState(false)
   // A new (non-null) position means the trigger is reporting an active hover, so
-  // clear any prior self-dismissal.
+  // clear any prior self-dismissal; a null one ends the hover, so re-arm the
+  // dwell gate (render-time adjust, same pattern as the dismissal reset).
   if (position !== prevPosition) {
     setPrevPosition(position)
     if (position) setDismissed(false)
+    else setDwellElapsed(false)
   }
   // Keep the anchor ref current for the global safety-net listener below.
   useEffect(() => {
     posRef.current = position
   }, [position])
+  // Arm the dwell timer when a hover starts. Keyed on hasPosition — NOT on the
+  // position object — so continuous mousemove updates don't restart the countdown.
+  const hasPosition = position !== null
+  useEffect(() => {
+    if (!hasPosition) return undefined
+    const timer = window.setTimeout(() => setDwellElapsed(true), HINT_DWELL_MS)
+    return () => window.clearTimeout(timer)
+  }, [hasPosition])
   // While a hint is live, watch for the signals that a normal dismiss would miss.
   useEffect(() => {
     if (!position) return undefined
@@ -66,7 +83,7 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
     }
   }, [position])
 
-  if (!position || dismissed) return null
+  if (!position || dismissed || !dwellElapsed) return null
   // Anchor to the left of the cursor when near the right viewport edge so the
   // tooltip never runs off-screen or wraps.
   const nearRight =

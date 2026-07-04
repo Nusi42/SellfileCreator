@@ -23,6 +23,14 @@ import { CUSTOM_TOKENS } from './lib/themeCustomTokens'
 
 const EMPTY_CUSTOM: ThemeCustomization = EMPTY_THEME_CUSTOMIZATION
 
+// Disabled controls: the stat/rarity color scopes paint label spans directly
+// (StatLabel / RarityLabel / SubstatToggleDisplay), which overrides the
+// action.disabled color MUI sets on the control ROOT — so a disabled toggle kept
+// its full-strength stat color and looked enabled. Draining every descendant via
+// a grayscale filter restores an unmistakable disabled look no matter how (or
+// where) content color is applied; default near-gray labels are visually unchanged.
+const DISABLED_CONTROL_FILTER = { filter: 'grayscale(1)' } as const
+
 // Builds per-scheme palette options. Called twice (dark, light) so both colorSchemes receive
 // their full palette including custom overrides and color-blind alternatives.
 //
@@ -127,9 +135,14 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
         styleOverrides: {
           // Descender-safe line-height so "g"/"y" tails are not clipped under deeper-descender
           // fonts (Segoe UI in RSLH). Buttons flex-center their label, so footprint is unchanged.
-          root: { lineHeight: SAFE_TEXT_LINE_HEIGHT },
+          root: { lineHeight: SAFE_TEXT_LINE_HEIGHT, '&.Mui-disabled': DISABLED_CONTROL_FILTER },
           sizeSmall: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
         },
+      },
+      MuiIconButton: {
+        // Same disabled-desaturation as buttons/toggles — icon-only controls can carry
+        // stat/rarity-colored glyphs too.
+        styleOverrides: { root: { '&.Mui-disabled': DISABLED_CONTROL_FILTER } },
       },
       MuiTab: {
         // Tabs inherit typography.button; give their label the same descender-safe line-height.
@@ -160,6 +173,10 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
           disableInteractive: true,
           slotProps: {
             popper: {
+              // position:fixed poppers never extend the document's scrollable overflow,
+              // so a tooltip momentarily past the viewport edge (Popper positions before
+              // the post-measure --app-zoom scaling settles) cannot flash root scrollbars.
+              popperOptions: { strategy: 'fixed' },
               modifiers: [
                 { name: 'offset',          options: { offset: [0, 8] } },
                 { name: 'preventOverflow', options: { boundary: 'viewport', altAxis: true, tether: true } },
@@ -228,6 +245,7 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
               return {
                 // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
                 lineHeight: SAFE_TEXT_LINE_HEIGHT,
+                '&.Mui-disabled': DISABLED_CONTROL_FILTER,
                 '&.Mui-selected': {
                   // Light: tint from custom toggleColor.
                   ...theme.applyStyles('light', {
@@ -250,6 +268,7 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             return {
               // Descender-safe line-height (see SAFE_TEXT_LINE_HEIGHT) — RSLH's Segoe UI.
               lineHeight: SAFE_TEXT_LINE_HEIGHT,
+              '&.Mui-disabled': DISABLED_CONTROL_FILTER,
               '&.Mui-selected': {
                 ...theme.applyStyles('light', {
                   color: toggleMain,

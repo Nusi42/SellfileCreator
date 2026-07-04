@@ -6,6 +6,22 @@ import { CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 // Wrap the clear affordance with MarkdownTooltip so every consumer gets the same tooltip delay/styling.
 import MarkdownTooltip from './MarkdownTooltip'
 
+/**
+ * Height-only strut rendered in place of ClearIconButton while a section is in
+ * its default (non-dirty) state. Zero width on purpose: reserving the full
+ * button width made long section labels ellipsize even though no ✕ was visible.
+ * The strut keeps only the row HEIGHT stable and lets the label use the space
+ * until the button actually appears (which may then re-ellipsize the label —
+ * that trade is intended). Shared by all collapsible section headers (rules
+ * filter panel + both builder panels).
+ */
+export const CLEAR_BUTTON_STRUT_SX = {
+  width: 0,
+  height: CLEAR_ICON_BUTTON_SIZE_PX,
+  flexShrink: 0,
+  pointerEvents: 'none',
+} as const
+
 const baseClearButtonSx: SxProps<Theme> = (theme) => ({
   color: (theme.vars?.palette.text.secondary ?? theme.palette.text.secondary),
   bgcolor: 'transparent !important',

@@ -1168,8 +1168,17 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   // Ref-based setter so ResizeObserver/rAF callbacks avoid the set-state-in-effect lint rule.
   const setViewportHeightRef = useRef(setViewportHeight)
   useEffect(() => { setViewportHeightRef.current = setViewportHeight }, [setViewportHeight])
-  useEffect(() => {
-    const node = containerRef.current
+  // Tear-down hook for the measurement wiring of the PREVIOUS container instance.
+  const containerMeasureCleanupRef = useRef<(() => void) | null>(null)
+  // Attach measurement via a CALLBACK ref so it re-runs on every container (re)mount.
+  // A mount-once effect missed late container remounts (e.g. the grid re-keying when
+  // data arrives on app start), leaving the sticky overlay at its stale/fallback full
+  // width — the pinned first group header overdrew the scrollbar until the first
+  // scroll re-measured it (see the matching capture in handleScroll).
+  const attachContainer = useCallback((node: HTMLDivElement | null) => {
+    containerMeasureCleanupRef.current?.()
+    containerMeasureCleanupRef.current = null
+    containerRef.current = node
     if (!node) return
     const scheduleViewportMeasure = () => {
       if (typeof window === 'undefined') return
@@ -1184,6 +1193,8 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       setViewportHeightRef.current(nextHeight)
       // Capture the inner content width so the sticky overlay mirrors the real headers' band exactly.
       const nextContentWidth = Math.max(0, node.clientWidth)
+      // Keep the change-guard ref in sync so handleScroll's dedupe compares against the live value.
+      overlayContentWidthValueRef.current = nextContentWidth
       setOverlayContentWidthRef.current(nextContentWidth)
       // Read the actual computed padding-right; browsers like Firefox add extra scrollbar-gutter
       // padding via a browser-specific media query that theme.spacing() does not account for.
@@ -1195,20 +1206,27 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         scheduleViewportMeasure()
       }
     }
-    measure()
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure)
-      return () => window.removeEventListener('resize', measure)
-    }
-    // Observe the container so width updates propagate as layout shifts.
-    const observer = new ResizeObserver(() => { measure() })
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
+    const cancelPendingMeasure = () => {
       if (viewportMeasureRafRef.current != null && typeof window !== 'undefined') {
         window.cancelAnimationFrame(viewportMeasureRafRef.current)
         viewportMeasureRafRef.current = null
       }
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      containerMeasureCleanupRef.current = () => {
+        window.removeEventListener('resize', measure)
+        cancelPendingMeasure()
+      }
+      return
+    }
+    // Observe the container so width updates propagate as layout shifts.
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(node)
+    containerMeasureCleanupRef.current = () => {
+      observer.disconnect()
+      cancelPendingMeasure()
     }
   }, [])
   // Track whether we've read the definitive padding-right from the live container.
@@ -1222,9 +1240,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
-    // The sticky overlay only matters once scrolled, and scroll always fires on the live, laid-out
-    // container — so capture its inner content width here (the standalone measure effect can miss a late
-    // container remount). This keeps pinned-header width matched to the real headers, never the gutter.
+    // Safety net: attachContainer's callback ref re-measures on every container (re)mount,
+    // but scroll always fires on the live, laid-out container — re-capture the inner content
+    // width here too so pinned-header width can never drift from the real headers' band.
     const liveContentWidth = event.currentTarget.clientWidth
     if (liveContentWidth > 0 && liveContentWidth !== overlayContentWidthValueRef.current) {
       overlayContentWidthValueRef.current = liveContentWidth
@@ -2601,7 +2619,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
       <Box
-        ref={containerRef}
+        ref={attachContainer}
         onScroll={handleScroll}
         onMouseMove={gridHintTriggerProps.onMouseMove}
         onMouseLeave={gridHintTriggerProps.onMouseLeave}

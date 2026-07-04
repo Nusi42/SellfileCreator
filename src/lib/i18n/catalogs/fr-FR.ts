@@ -185,6 +185,7 @@ const overrides: Catalog = {
   gearInspectorLastUsedCustomSummaryMin: "≥{minDays} jours",
   gearInspectorLastUsedCustomSummaryMax: "≤{maxDays} jours",
   gearInspectorImprovChanceFilterLabel: "Chance d'amélioration",
+  gearInspectorImprovChanceFilterLabelShort: "Chance",
   gearInspectorImprovChanceNoDataPrefix: "Pas de données:",
   gearInspectorImprovChanceTooltip: "Afficher uniquement les objets sous garde-fou dont la chance d'amélioration tombe dans cette plage. La puce ci-dessous décide si les objets sans garde-fou sont affichés ou masqués.",
   // Common UI bits used in Gear Inspector

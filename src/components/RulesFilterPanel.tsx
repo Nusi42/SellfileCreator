@@ -82,7 +82,7 @@ import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import InlineSelectExtraBadge from './InlineSelectExtraBadge'
 import SelectDropdownActivator from './SelectDropdownActivator'
-import ClearIconButton from './ClearIconButton'
+import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
@@ -121,11 +121,6 @@ const GLYPH_REROLLED = '⟳'
 const GLYPH_GLYPHS_ON = GLYPH_TOGGLE_ON
 const GLYPH_GLYPHS_OFF = GLYPH_TOGGLE_OFF
 const ROLL_FILTER_LABEL_MIN_WIDTH_PX = 72
-const CLEAR_BUTTON_PLACEHOLDER_SX = {
-  width: CLEAR_ICON_BUTTON_SIZE_PX,
-  height: CLEAR_ICON_BUTTON_SIZE_PX,
-  flexShrink: 0,
-} as const
 const CHAMPION_SELECT_WIDTH_PX = 160
 // Champion names can run long; give the dropdown menu extra width without stretching the closed control.
 const CHAMPION_MENU_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 1.35)
@@ -1484,7 +1479,13 @@ function RulesFilterPanel({
   const rankSectionLabel = t('filterRank')
   const raritySectionLabel = t('filterRarity')
   const ascensionSectionLabel = t('filterAscension')
-  const improvChanceSectionLabel = t('gearInspectorImprovChanceFilterLabel')
+  // Improvement Chance is the one section whose full name is very wide in several
+  // locales, so the collapsed header shows the short form ("Chance") and expanding
+  // restores the full name. The clear-button tooltip always uses the full name.
+  const improvChanceSectionFullLabel = t('gearInspectorImprovChanceFilterLabel')
+  const improvChanceSectionLabel = collapsed.improvChance
+    ? t('gearInspectorImprovChanceFilterLabelShort')
+    : improvChanceSectionFullLabel
 
   // Keep the aria-label/tooltip descriptive so screen readers and hover affordances both share the same phrasing.
   const formatSectionClearLabel = React.useCallback((sectionLabel: string) => {
@@ -1494,7 +1495,9 @@ function RulesFilterPanel({
     return trimmed.length > 0 ? `${clearText} · ${trimmed}` : clearText
   }, [t])
 
-  // Every header reserves the clear-button footprint so labels never shift when filters flip between default/dirty.
+  // Non-dirty headers render the shared zero-width strut (see CLEAR_BUTTON_STRUT_SX):
+  // row height stays stable, but the label keeps the horizontal space until the ✕
+  // actually appears — long labels no longer ellipsize for an invisible button.
   const renderSectionClearButton = (dirty: boolean, label: string, onClear: () => void) => (
     dirty
       ? (
@@ -1506,7 +1509,7 @@ function RulesFilterPanel({
         />
       )
       : (
-        <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} aria-hidden="true" />
+        <Box sx={CLEAR_BUTTON_STRUT_SX} aria-hidden="true" />
       )
   )
 
@@ -2155,7 +2158,7 @@ function RulesFilterPanel({
                 dirty={improvChanceSectionDirty}
                 actions={renderSectionClearButton(
                   improvChanceSectionDirty,
-                  formatSectionClearLabel(improvChanceSectionLabel),
+                  formatSectionClearLabel(improvChanceSectionFullLabel),
                   clearImprovChanceSection,
                 )}
                 collapsed={collapsed}
@@ -3745,7 +3748,7 @@ function RulesFilterPanel({
                       onToggle={handleWildcardToggleValue}
                     />
                     {wildcardCounts.length === 0 ? (
-                      <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+                      <Box sx={CLEAR_BUTTON_STRUT_SX} />
                     ) : (
                       <ClearIconButton
                         size="small"
@@ -3799,7 +3802,7 @@ function RulesFilterPanel({
                             onToggle={(value) => handlePerStatToggleValue(variant, value)}
                           />
                           {counts.length === 0 ? (
-                            <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+                            <Box sx={CLEAR_BUTTON_STRUT_SX} />
                           ) : (
                             <ClearIconButton
                               size="small"

@@ -84,7 +84,6 @@ import {
   BUILDER_LABEL_TEXT_SX,
   BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
-  CLEAR_ICON_BUTTON_SIZE_PX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   ELLIPSIS_TEXT_SX,
   FONT_SIZE_BASE_PX,
@@ -140,7 +139,7 @@ import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
-import ClearIconButton from './ClearIconButton'
+import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import { ColorField } from './ColorField'
 import SafeguardCandidateRankList, { computeSafeguardFocusGroupLabel, SafeguardFocusGroupChip } from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
@@ -201,12 +200,6 @@ const SAFEGUARDS_CHIP_LABEL_ELLIPSIS_SX = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-} as const
-
-const CLEAR_PLACEHOLDER_SX = {
-  width: CLEAR_ICON_BUTTON_SIZE_PX,
-  height: CLEAR_ICON_BUTTON_SIZE_PX,
-  flexShrink: 0,
 } as const
 
 // Mirrors BuilderPanel's selectBoxHeightSx / selectContentHeightSx.
@@ -607,12 +600,13 @@ export default function SafeguardBuilderPanel({
   }, [onChange])
 
   // SSOT for collapsible-section header clear buttons: render the ✕ whenever the section is
-  // non-default (dirty), otherwise a same-size placeholder so the header row never reflows.
+  // non-default (dirty), otherwise the shared zero-width strut (CLEAR_BUTTON_STRUT_SX) —
+  // row height stays stable while long labels keep the space until the ✕ actually appears.
   // Mirrors the recipe builder + filter panels — blue label and clear ✕ always go together.
   const renderSectionClearButton = useCallback((dirty: boolean, label: string, onClear: () => void) => (
     dirty
       ? <ClearIconButton size="small" aria-label={label} tooltip={label} onClick={onClear} />
-      : <Box sx={CLEAR_PLACEHOLDER_SX} />
+      : <Box sx={CLEAR_BUTTON_STRUT_SX} />
   ), [])
 
   const commitFgColor = useCallback((color: string | undefined) => {
@@ -2458,7 +2452,7 @@ export default function SafeguardBuilderPanel({
                   }}
                 />
               )
-              : <Box sx={CLEAR_PLACEHOLDER_SX} />
+              : <Box sx={CLEAR_BUTTON_STRUT_SX} />
             }
           </Box>
           <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
@@ -2602,7 +2596,7 @@ export default function SafeguardBuilderPanel({
                   }}
                 />
               )
-              : <Box sx={CLEAR_PLACEHOLDER_SX} />
+              : <Box sx={CLEAR_BUTTON_STRUT_SX} />
             }
             {/* Override badge: shown when a safeguard-overrides block changes the required substats. */}
             {substatsOverrideActive && renderSafeguardOverrideBadge(
@@ -2978,7 +2972,7 @@ export default function SafeguardBuilderPanel({
                   }}
                 />
               )
-              : <Box sx={CLEAR_PLACEHOLDER_SX} />
+              : <Box sx={CLEAR_BUTTON_STRUT_SX} />
             }
           </Box>
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
