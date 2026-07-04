@@ -33,7 +33,7 @@ const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLook
 // the same value they show to users.
 export type ExternalCommand =
   | { kind: 'selectRule'; rowNumber: number | null }
-  | { kind: 'gearDbFileBinary'; name: string; bytes: Uint8Array; contentType?: string | null; accountId?: string | null }
+  | { kind: 'gearDbFileBinary'; name: string; bytes: Uint8Array; contentType?: string | null; playerId?: string | null; playerName?: string | null }
   | GearDbRawSnapshotCommand
   // Separate per-type messages pushed by RSL Helper — the sender streams each
   // collection individually instead of bundling all four in one envelope.
@@ -56,13 +56,15 @@ export type GearDbRawSnapshotCommand = {
 
 // Individual per-type payloads — each carries exactly one collection so the
 // sender can publish them independently rather than in a combined snapshot.
-// `accountId` is RSL Helper's optional per-packet game-account stamp (protocol phase 2);
-// absent from pre-stamping Helper versions — the dispatcher then attributes the data to
-// the active SFC account (see lib/accounts.ts classifyInboundAccountId).
+// `playerId`/`playerName` are RSL Helper's optional per-packet identity stamp (protocol
+// phase 2) — either half may arrive alone; absent from pre-stamping Helper versions, in
+// which case the dispatcher attributes the data to the active SFC account (see
+// lib/accounts.ts classifyInboundAccountStamp).
 export type GearDbArtifactsCommand = {
   kind: 'gearDbArtifacts'
   artifacts: GearDbArtifactRow[]
-  accountId?: string | null
+  playerId?: string | null
+  playerName?: string | null
 }
 export type GearDbChampionsCommand = {
   kind: 'gearDbChampions'
@@ -71,17 +73,20 @@ export type GearDbChampionsCommand = {
   // Built from the endpoint's { "1": artifactId, ... } structure so artifact
   // rows can have their cID field populated without a separate equipped-by feed.
   equippedByArtifact: Map<number, number>
-  accountId?: string | null
+  playerId?: string | null
+  playerName?: string | null
 }
 export type GearDbInboxArtifactsCommand = {
   kind: 'gearDbInboxArtifacts'
   inboxArtifacts: GearDbArtifactRow[]
-  accountId?: string | null
+  playerId?: string | null
+  playerName?: string | null
 }
 export type GearDbLastUsedCommand = {
   kind: 'gearDbLastUsed'
   lastUsed: GearDbLastUsedRow[]
-  accountId?: string | null
+  playerId?: string | null
+  playerName?: string | null
 }
 
 const isObject = (value: unknown): value is UnknownRecord => (
@@ -161,9 +166,10 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   const payloadRecord = isObject(payload) ? (payload as UnknownRecord) : {}
   // Use a case-insensitive lookup so payload casing stays flexible.
   const lookup = createCaseInsensitiveLookup(payloadRecord)
-  // Optional per-packet game-account stamp (RSL Helper protocol phase 2). Read once here
+  // Optional per-packet Player-ID stamp (RSL Helper protocol phase 2). Read once here
   // so every gear branch attaches the same value; null when the Helper doesn't stamp yet.
-  const accountId = extractString(lookup.get('accountid'))
+  const playerId = extractString(lookup.get('playerid'))
+  const playerName = extractString(lookup.get('playername'))
 
   // Handle rule selection aliases from Helper and test tooling.
   if (normalized === 'selectrule' || normalized === 'select' || normalized === 'selectconfig' || normalized === 'selectrow') {
@@ -190,7 +196,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // The endpoint switched to the ArtifactLog shape (kindId/rankId/rarityId),
     // so we delegate to the ArtifactLog parser instead of the raw DB row parser.
     const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'artifacts'), null)
-    const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows, accountId }
+    const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows, playerId, playerName }
     return command
   }
   if (normalized === 'champions') {
@@ -200,7 +206,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     const rawArray = resolveEventCollection(payloadRecord, payload, 'champions')
     const equippedByArtifact = buildEquippedByArtifactMap(rawArray)
     const rows = parseChampionArray(rawArray)
-    const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows, equippedByArtifact, accountId }
+    const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows, equippedByArtifact, playerId, playerName }
     return command
   }
   if (normalized === 'inboxartifacts') {
@@ -208,13 +214,13 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Mirrors the artifacts branch — same schema change applies to inbox items.
     // Also check lowercase variant for protocol flexibility.
     const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'inboxArtifacts', 'inboxartifacts'), null)
-    const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows, accountId }
+    const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows, playerId, playerName }
     return command
   }
   if (normalized === 'lastused') {
     // Params key matches the method name: { lastUsed: GearDbLastUsedRow[] }.
     const rows = parseLastUsedArray(resolveEventCollection(payloadRecord, payload, 'lastUsed', 'lastused'))
-    const command: GearDbLastUsedCommand = { kind: 'gearDbLastUsed', lastUsed: rows, accountId }
+    const command: GearDbLastUsedCommand = { kind: 'gearDbLastUsed', lastUsed: rows, playerId, playerName }
     return command
   }
 

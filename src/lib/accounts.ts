@@ -8,16 +8,16 @@
  *
  * Two ids, deliberately decoupled:
  *  - `id`              — internal SFC id; immutable, generated, namespaces the storage keys.
- *  - `helperAccountId` — RSL Helper's stable per-game-account id (e.g. "account-d"),
+ *  - `helperAccountId` — RSL Helper's stable per-game-account id (e.g. "um12345678"),
  *                        a mutable *binding*. Bind/rebind never moves storage.
  *
  * Initialization is lazy: the first call that needs the registry runs (in order)
- * legacy migration → registry load → URL `?account`/`?accountName` resolution.
+ * legacy migration → registry load → URL `?playerid`/`?playerName` resolution.
  * This makes module import order irrelevant — constants.ts can resolve scoped keys
  * at module scope and the migration is guaranteed to have run first.
  */
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
-import { getAccountIdParam, getAccountNameParam } from './runtimeConfig'
+import { getPlayerIdParam, getPlayerNameParam, stashSimpleModeForSession } from './runtimeConfig'
 
 // ---------------------------------------------------------------------------
 // Storage keys (all global — never account-scoped themselves)
@@ -46,16 +46,22 @@ const ACCOUNT_KEY_PREFIX = 'sellfileCreator.acc.'
  *  - sellfile.autoPush is a per-game-account contract: each account decides whether
  *    its sellfile flows to RSL Helper automatically.
  */
+// Base keys the background account-push flow rebases onto OTHER accounts — exported so
+// that flow never restates the literals (resolveAccountScopedKeyFor takes these).
+export const ACCOUNT_BASE_KEY_AUTOSAVE_SFC = 'sellfileCreator.autosave.sfc.v1'
+export const ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR = 'sellfileCreator.autosave.gearInspector.v1'
+export const ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH = 'sellfileCreator.sellfile.autoPush.v1'
+
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
-  'sellfileCreator.autosave.sfc.v1',
-  'sellfileCreator.autosave.gearInspector.v1',
+  ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
+  ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR,
   'sellfileCreator.autosave.restoreSelection.v1',
   'sellfileCreator.builder.userDefaults.v1',
   'sellfileCreator.safeguardBuilder.userDefaults.v1',
   'sellfileCreator.simple.variant.v1',
   'sellfileCreator.rulesFilter.state.v3',
   'sellfileCreator.rulesFilter.sync.v1',
-  'sellfileCreator.sellfile.autoPush.v1',
+  ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
 ])
 
 // Keys that are NOT scoped going forward but must still move into the first account's
@@ -74,15 +80,25 @@ export type SfcAccountOrigin = 'legacy' | 'helper' | 'manual'
 export type SfcAccount = {
   // Internal SFC id. Immutable; storage namespace hangs off it.
   id: string
-  // User-editable label shown everywhere in the UI.
+  // THE account name — by definition the player's name in the game. Editable in the
+  // manager (mainly to pre-seed accounts before RSL Helper identifies them), used as the
+  // name identity for routing, and ALWAYS refreshed when RSL Helper sends a playerName
+  // (in-game renames propagate here; the game is authoritative, there is no second name).
   displayName: string
-  // RSL Helper's per-game-account id when bound; absent for never-connected accounts.
+  // The game's Player ID when bound. Permanent and unique — the primary identity.
   helperAccountId?: string
+  // True once ANY helper identity (id or name) was adopted. Guards the sole-unbound
+  // auto-bind: a name-only launch claims the legacy account exactly once, so a second,
+  // different name-only launch creates a fresh account instead of re-claiming it.
+  helperBound?: boolean
   // Per-account accent (hex) for at-a-glance identification; rendered through the
   // usual contrast-adaptation helpers at display time like other user colours.
   accentColor?: string
-  // True once the user manually renamed the account — blocks ?accountName= refreshes.
-  nameCustomized?: boolean
+  // At most ONE account carries this flag (radio semantics via setUnstampedDefaultAccount):
+  // endpoint data arriving WITHOUT a playerId stamp belongs to this account. Unset on
+  // every account → unstamped data is attributed to whichever account is active (legacy
+  // behavior, correct for single-account users).
+  unstampedDefault?: boolean
   origin: SfcAccountOrigin
   createdAt: string
   lastActiveAt: string
@@ -150,7 +166,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 // Accept only well-formed accounts; a corrupt entry is dropped rather than crashing startup.
 const sanitizeAccount = (value: unknown): SfcAccount | null => {
   if (!isRecord(value)) return null
-  const { id, displayName, helperAccountId, accentColor, nameCustomized, origin, createdAt, lastActiveAt } = value
+  const { id, displayName, helperAccountId, helperBound, accentColor, unstampedDefault, origin, createdAt, lastActiveAt } = value
   if (typeof id !== 'string' || !id) return null
   if (typeof displayName !== 'string' || !displayName) return null
   // Unknown origins degrade to 'manual' so future origin tokens stay loadable.
@@ -159,8 +175,9 @@ const sanitizeAccount = (value: unknown): SfcAccount | null => {
     id,
     displayName,
     ...(typeof helperAccountId === 'string' && helperAccountId ? { helperAccountId } : {}),
+    ...(helperBound === true ? { helperBound: true } : {}),
     ...(typeof accentColor === 'string' && accentColor ? { accentColor } : {}),
-    ...(nameCustomized === true ? { nameCustomized: true } : {}),
+    ...(unstampedDefault === true ? { unstampedDefault: true } : {}),
     origin: safeOrigin,
     createdAt: typeof createdAt === 'string' ? createdAt : nowIso(),
     lastActiveAt: typeof lastActiveAt === 'string' ? lastActiveAt : nowIso(),
@@ -268,6 +285,10 @@ const migrateLegacyStorage = (): SfcAccountRegistry => {
     id: LEGACY_ACCOUNT_ID,
     displayName: 'Default',
     accentColor: pickDefaultAccent(0),
+    // The migrated account starts as the unstamped-data receiver: pre-stamping RSL
+    // Helper data keeps belonging to the user's original data set even after they
+    // create and switch to additional accounts. Editable in the account manager.
+    unstampedDefault: true,
     origin: 'legacy',
     createdAt: nowIso(),
     lastActiveAt: nowIso(),
@@ -278,47 +299,100 @@ const migrateLegacyStorage = (): SfcAccountRegistry => {
   return { activeAccountId: account.id, accounts: [account] }
 }
 
-// Strip the one-shot account params from the address bar (mirrors the ?endpoint pattern in
-// App.tsx) so reloads and copied URLs don't replay a stale account selection.
-const stripAccountParamsFromUrl = (): void => {
+// Strip the consumed launch params from the address bar (mirrors the ?endpoint pattern in
+// App.tsx): ?playerid/?playerName so reloads and copied URLs don't replay a stale account
+// selection, and ?simple purely for cosmetics — but only after its session marker
+// verifiably persisted, because reloads (F5, account switch) must stay in simple mode.
+const stripLaunchParamsFromUrl = (): void => {
   if (typeof window === 'undefined') return
   try {
     const cleanUrl = new URL(window.location.href)
-    if (!cleanUrl.searchParams.has('account') && !cleanUrl.searchParams.has('accountName')) return
-    cleanUrl.searchParams.delete('account')
-    cleanUrl.searchParams.delete('accountName')
+    const params = cleanUrl.searchParams
+    let changed = false
+    for (const key of ['playerid', 'playerName']) {
+      if (params.has(key)) {
+        params.delete(key)
+        changed = true
+      }
+    }
+    // Without a durable marker the param stays as the reload carrier for simple mode.
+    if (params.has('simple') && stashSimpleModeForSession()) {
+      params.delete('simple')
+      changed = true
+    }
+    if (!changed) return
     window.history.replaceState(window.history.state, '', cleanUrl.toString())
   } catch {
-    // history/URL access can fail on exotic embeds — the param is harmless if it stays.
+    // history/URL access can fail on exotic embeds — the params are harmless if they stay.
   }
 }
 
 /**
- * Resolve the ?account launch param against the registry:
- *  1. id matches a bound account            → activate it,
- *  2. id unknown + exactly one unbound acct → bind that account (the merge/reuse path
- *     that folds legacy data into the user's helper account on first launch),
- *  3. otherwise                             → create a fresh helper-origin account.
- * ?accountName additionally refreshes a bound account's label unless the user renamed it.
+ * Record what a launch/packet proved for this account. The Player ID is permanent and
+ * unique — adopting it releases it from any other account. The player name is OWNED by
+ * the game: whenever a trusted source (an id-matched or first-contact launch/packet)
+ * carries one, it refreshes displayName so in-game renames propagate into the registry.
+ * Either adoption marks the account helper-bound (see the SfcAccount field docs).
+ */
+const adoptHelperIdentity = (
+  registry: SfcAccountRegistry,
+  account: SfcAccount,
+  playerId: string | undefined,
+  playerName: string | undefined,
+): void => {
+  if (playerId) {
+    for (const other of registry.accounts) {
+      if (other !== account && other.helperAccountId === playerId) delete other.helperAccountId
+    }
+    account.helperAccountId = playerId
+  }
+  if (playerName && account.displayName !== playerName) account.displayName = playerName
+  if (playerId || playerName) account.helperBound = true
+}
+
+// Find the account a player name refers to (displayName IS the in-game name). Shared by
+// launch resolution, inbound classification, and the background push lookup so all three
+// route names identically. Duplicate names resolve to the first registry entry.
+export const findAccountByPlayerName = (name: string): SfcAccount | null =>
+  getAccountRegistry().accounts.find((a) => a.displayName === name) ?? null
+
+/**
+ * Resolve the ?playerid / ?playerName launch params against the registry. RSL Helper may
+ * send either or both — each is a full account identity, so any CONSISTENT choice routes
+ * to the same account:
+ *  1. playerid matches a bound account            → activate it,
+ *  2. else playerName matches an account name     → activate it,
+ *  3. else exactly one never-helper-bound account exists → claim it (the merge/reuse
+ *     path that folds legacy data into the user's helper account on first launch),
+ *  4. otherwise                                   → create a fresh helper-origin account.
+ * The identities the launch carried are then recorded on the target: the id binds, and
+ * the name ALWAYS refreshes the account name — in-game renames propagate whenever the
+ * Player ID identifies the account. (With name-only usage a rename cannot be recognized
+ * — the old name is unknown — so sending the Player ID is the recommended contract.)
  */
 const resolveHelperLaunchParam = (registry: SfcAccountRegistry): void => {
-  const helperId = getAccountIdParam()
-  if (!helperId) return
-  const helperName = getAccountNameParam()
-  let target = registry.accounts.find((a) => a.helperAccountId === helperId)
+  const playerId = getPlayerIdParam()
+  // URLSearchParams already percent-decoded the value, so any character is legal here.
+  // Clamp the length defensively — a runaway name would bloat the registry and the UI.
+  const playerName = getPlayerNameParam()?.slice(0, 80)
+  if (!playerId && !playerName) return
+  let target = playerId ? registry.accounts.find((a) => a.helperAccountId === playerId) : undefined
+  if (!target && playerName) {
+    target = registry.accounts.find((a) => a.displayName === playerName)
+  }
   if (!target) {
-    const unbound = registry.accounts.filter((a) => !a.helperAccountId)
+    // Only a UNIQUE never-claimed candidate is auto-bound (helperBound guards re-claiming).
+    const unbound = registry.accounts.filter((a) => !a.helperAccountId && !a.helperBound)
     if (unbound.length === 1) {
       // Auto-bind the sole unbound account — silent merge of pre-account data.
       // `origin` is left as-is: it records how the account was CREATED, not how it was bound.
       target = unbound[0]!
-      target.helperAccountId = helperId
     } else {
       // No unambiguous candidate: a fresh, empty account for this game account.
       target = {
         id: generateAccountId(registry.accounts),
-        displayName: helperName ?? helperId,
-        helperAccountId: helperId,
+        // playerName ?? playerId is non-null here — the early return guards both-absent.
+        displayName: playerName ?? playerId!,
         accentColor: pickDefaultAccent(registry.accounts.length),
         origin: 'helper',
         createdAt: nowIso(),
@@ -327,10 +401,8 @@ const resolveHelperLaunchParam = (registry: SfcAccountRegistry): void => {
       registry.accounts.push(target)
     }
   }
-  // Refresh the decorative label from the helper unless the user customized it.
-  if (helperName && !target.nameCustomized && target.displayName !== helperName) {
-    target.displayName = helperName
-  }
+  // Record the identities: bind the id, refresh the name (game-authoritative).
+  adoptHelperIdentity(registry, target, playerId, playerName)
   registry.activeAccountId = target.id
 }
 
@@ -346,7 +418,7 @@ export const ensureAccountsInitialized = (): void => {
   const active = registryCache.accounts.find((a) => a.id === registryCache!.activeAccountId)
   if (active) active.lastActiveAt = nowIso()
   persistRegistry()
-  stripAccountParamsFromUrl()
+  stripLaunchParamsFromUrl()
 }
 
 // Test-only: reset module state so unit tests can exercise migration repeatedly.
@@ -401,8 +473,6 @@ export const renameAccount = (id: string, displayName: string): void => {
   const trimmed = displayName.trim()
   if (!account || !trimmed || account.displayName === trimmed) return
   account.displayName = trimmed
-  // A manual rename wins over future ?accountName= refreshes permanently.
-  account.nameCustomized = true
   persistRegistry()
   notify()
 }
@@ -411,6 +481,28 @@ export const setAccountAccent = (id: string, accentColor: string): void => {
   const account = getAccountRegistry().accounts.find((a) => a.id === id)
   if (!account || account.accentColor === accentColor) return
   account.accentColor = accentColor
+  persistRegistry()
+  notify()
+}
+
+// The account flagged to receive UNSTAMPED endpoint data, or null when none is flagged
+// (then unstamped data is attributed to the active account, the legacy behavior).
+export const getUnstampedDefaultAccount = (): SfcAccount | null => {
+  ensureAccountsInitialized()
+  return getAccountRegistry().accounts.find((a) => a.unstampedDefault === true) ?? null
+}
+
+// Flag exactly one account (or none, with null) as the unstamped-data receiver.
+// Radio semantics: setting it clears the flag from every other account.
+export const setUnstampedDefaultAccount = (id: string | null): void => {
+  const registry = getAccountRegistry()
+  let changed = false
+  for (const account of registry.accounts) {
+    const shouldFlag = id !== null && account.id === id
+    if (shouldFlag && account.unstampedDefault !== true) { account.unstampedDefault = true; changed = true }
+    if (!shouldFlag && account.unstampedDefault) { delete account.unstampedDefault; changed = true }
+  }
+  if (!changed) return
   persistRegistry()
   notify()
 }
@@ -522,37 +614,84 @@ export const takeAccountMergeCarry = (): AccountMergeCarry | null => {
 // Params stamped onto every outbound JSON-RPC request. RSL Helper ignores unknown params
 // today (confirmed harmless); once it consumes them it can route sellfiles per account.
 export type AccountRpcParams = {
-  // Helper's own id — only present when the active account is bound.
-  accountId?: string
-  // SFC's display label; always present for context/debugging on the Helper side.
-  accountName: string
+  // The game's Player ID — only present when the active account is bound to one.
+  // (`playerName`, not `name`, because uploadSellfile already uses `name` for the filename.)
+  playerId?: string
+  // SFC's account name; always present for context/debugging on the Helper side.
+  playerName: string
 }
 
 export const buildAccountRpcParams = (): AccountRpcParams => {
   const active = getActiveAccount()
   return {
-    ...(active.helperAccountId ? { accountId: active.helperAccountId } : {}),
-    accountName: active.displayName,
+    ...(active.helperAccountId ? { playerId: active.helperAccountId } : {}),
+    // displayName IS the in-game player name (kept fresh from helper-sent names).
+    playerName: active.displayName,
   }
 }
 
-// Verdicts for an inbound packet's (optional) accountId — see classifyInboundAccountId.
+// An inbound packet's optional identity stamp — either half may be present alone.
+export type InboundAccountStamp = {
+  // `undefined` is explicit so exactOptionalPropertyTypes callers can pass through
+  // possibly-absent command fields verbatim.
+  playerId?: string | null | undefined
+  playerName?: string | null | undefined
+}
+
+// Verdicts for an inbound stamp — see classifyInboundAccountStamp.
 export type InboundAccountVerdict = 'attribute' | 'match' | 'bound' | 'mismatch'
 
 /**
- * Classify an inbound packet's accountId against the active account:
- *  - absent            → 'attribute' (pre-stamping Helper: data belongs to the active account),
- *  - equals binding    → 'match',
- *  - active unbound    → bind it now and report 'bound' (the data stream proves ownership),
- *  - differs           → 'mismatch' (caller drops the packet and surfaces a toast — data from
- *                        account A must never merge into account B's inspector).
+ * Classify an inbound packet's identity stamp against the ACTIVE account. RSL Helper may
+ * stamp the Player ID, the name, or both — either is a full identity:
+ *  - both absent  → 'attribute' (pre-stamping Helper: data belongs to the active account),
+ *  - id present   → id decides: equals the active binding → 'match'; active never bound to
+ *                   an id → adopt id (+name) and report 'bound' (the stream proves
+ *                   ownership); different id → 'mismatch',
+ *  - name only    → same ladder against the name binding (display name counts when no name
+ *                   binding exists yet), except a name already bound to ANOTHER account is
+ *                   an immediate 'mismatch' so the caller can route it there.
+ * 'mismatch' data is never merged into the active view — the caller hands it to the
+ * background push service (which builds and uploads THAT account's sellfile if its
+ * auto-push is on) and only drops it, with a toast, when no known account matches.
  */
-export const classifyInboundAccountId = (incoming: string | undefined | null): InboundAccountVerdict => {
-  if (!incoming) return 'attribute'
+export const classifyInboundAccountStamp = (stamp: InboundAccountStamp): InboundAccountVerdict => {
+  const playerId = stamp.playerId ?? undefined
+  const playerName = stamp.playerName ?? undefined
+  if (!playerId && !playerName) return 'attribute'
+  const registry = getAccountRegistry()
   const active = getActiveAccount()
-  if (!active.helperAccountId) {
-    bindHelperAccount(active.id, incoming)
+  if (playerId) {
+    if (active.helperAccountId === playerId) {
+      // The game owns the name: an id-matched stream carrying a NEW name means the
+      // player renamed in-game — update our account data to follow.
+      if (playerName && active.displayName !== playerName) {
+        adoptHelperIdentity(registry, active, undefined, playerName)
+        persistRegistry()
+        notify()
+      }
+      return 'match'
+    }
+    if (!active.helperAccountId) {
+      adoptHelperIdentity(registry, active, playerId, playerName)
+      persistRegistry()
+      notify()
+      return 'bound'
+    }
+    return 'mismatch'
+  }
+  // Name-only stamp: displayName IS the player name.
+  if (active.displayName === playerName) return 'match'
+  // A name that identifies ANOTHER account routes there (background service).
+  if (registry.accounts.some((a) => a.id !== active.id && a.displayName === playerName)) return 'mismatch'
+  if (!active.helperBound && !active.helperAccountId) {
+    // First name stamp on a never-claimed account proves ownership (and names it).
+    adoptHelperIdentity(registry, active, undefined, playerName)
+    persistRegistry()
+    notify()
     return 'bound'
   }
-  return active.helperAccountId === incoming ? 'match' : 'mismatch'
+  // Already claimed under another name: without an id a rename is indistinguishable
+  // from a different account — mismatch (docs recommend sending the Player ID).
+  return 'mismatch'
 }

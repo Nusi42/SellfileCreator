@@ -59,9 +59,9 @@ export function useExternalCommands({
   const reconnectTimerRef = useRef<number | null>(null)
   // Flag that stops reconnect loops during unmount.
   const closedRef = useRef(false)
-  // Stash metadata for the next binary DB payload (accountId = optional per-packet
-  // game-account stamp, absent from pre-stamping RSL Helper versions).
-  const pendingBinaryMetaRef = useRef<{ name: string; contentType?: string | null; accountId?: string | null } | null>(null)
+  // Stash metadata for the next binary DB payload (playerId/playerName = optional
+  // per-packet identity stamp, absent from pre-stamping RSL Helper versions).
+  const pendingBinaryMetaRef = useRef<{ name: string; contentType?: string | null; playerId?: string | null; playerName?: string | null } | null>(null)
 
   useEffect(() => {
     // Keep the ref in sync with the latest callback.
@@ -132,9 +132,10 @@ export function useExternalCommands({
         const nameValue = typeof payload.name === 'string' ? payload.name : null
         const contentTypeValue = typeof payload.contentType === 'string' ? payload.contentType : null
         // Optional game-account stamp travels on the metadata notification, not the binary frame.
-        const accountIdValue = typeof payload.accountId === 'string' ? payload.accountId : null
+        const playerIdValue = typeof payload.playerId === 'string' ? payload.playerId : null
+        const playerNameValue = typeof payload.playerName === 'string' ? payload.playerName : null
         if (nameValue) {
-          pendingBinaryMetaRef.current = { name: nameValue, contentType: contentTypeValue, accountId: accountIdValue }
+          pendingBinaryMetaRef.current = { name: nameValue, contentType: contentTypeValue, playerId: playerIdValue, playerName: playerNameValue }
         }
         return
       }
@@ -266,7 +267,8 @@ export function useExternalCommands({
                   bytes,
                   contentType: meta.contentType ?? null,
                   // Forward the metadata's account stamp so the dispatcher can verify ownership.
-                  accountId: meta.accountId ?? null,
+                  playerId: meta.playerId ?? null,
+                  playerName: meta.playerName ?? null,
                 })
               }
               return

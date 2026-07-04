@@ -671,7 +671,7 @@ private:
     // Validate params before write.
     const json params = message.value("params", json::object());
     const std::string data = params.value("data", "");
-    const std::string requestedName = params.value("name", "");
+    const std::string requestedName = params.value("fileName", "");
     const int id = message.value("id", 0);
 
     if (data.empty()) {

@@ -12,7 +12,10 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
-import { buildAccountRpcParams, classifyInboundAccountId, getActiveAccount, takeAccountMergeCarry } from './lib/accounts'
+import { buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
+import { buildDocumentOverridesView } from './lib/documentOverrides'
+import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
+import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
 import AccountSwitcher from './components/AccountSwitcher'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
@@ -76,7 +79,7 @@ import {
   type SelectionScrollRequest,
   type SelectionScrollSource,
 } from './lib/constants'
-import { buildPreviewArtifactFromGearInspectorItem } from './lib/gearInspectorPreviewArtifacts'
+import { buildPreviewArtifactsFromGearInspectorItems } from './lib/gearInspectorPreviewArtifacts'
 import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -119,7 +122,6 @@ import { getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeInde
 import {
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
-  resolveSafeguardRulesWithMetasets,
   getSafeguardItemKey,
   resolveSafeguardRuleLabel,
   buildSafeguardCombinationFromRecipe,
@@ -141,7 +143,7 @@ import {
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
-import { buildGearInspectorAutosavePayload, createGearInspectorMath, loadGearInspectorAutosaveDraft, type GearInspectorItem } from './lib/gearInspectorSession'
+import { buildGearInspectorAutosavePayload, createGearInspectorMath, isManualGearInspectorItem, loadGearInspectorAutosaveDraft, type GearInspectorItem } from './lib/gearInspectorSession'
 import {
   buildGearDbDiffSummary,
   encodeGearDbDiffToastEntries,
@@ -351,11 +353,12 @@ import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from '.
 import {
   buildArtifactRevisionMap,
   buildRestoredGearDbBaselines,
+  patchArtifactRowsCID,
   createDatasetFromSnapshot,
   type GearDbRawDataset,
 } from './lib/importers/gearDbRawDataset'
 import {
-  mergeChampionRowFields,
+  mergeChampionRows,
   mergeLastUsedRows,
 } from './lib/importers/gearDbLookups'
 import type {
@@ -424,7 +427,7 @@ import {
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
-import { useHideGearDbUpdateToastPreference } from './state/gearDbPreferences'
+import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
@@ -457,21 +460,16 @@ import { buildInsertionLocation, snapshotRecipeLabel } from './history/historyLa
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
   applyRecipeOverrides,
-  applyRecipeOverridesSubstatTargetsOverrides,
-  buildRecipeOverridesExportModeResolution,
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
   NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
   pruneNoteRecipeOverridesAnswers,
   resolveRecipeOverridesExportMode,
   resolveRecipeOverridesEffectiveRecipe,
-  resolveRecipeOverridesTags,
   seedSafeguardAnswersFromRecipeDefaults,
   type RecipeOverridesInstructions,
   type NoteRecipeOverridesAnswers,
 } from './lib/noteRecipeOverrides'
 import {
-  applySafeguardOverrides,
-  resolveNoteSafeguardOverridesTags,
   pruneNoteSafeguardOverridesAnswers,
   NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
   type SafeguardOverridesResolution,
@@ -665,56 +663,55 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
     setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
   }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
-  // Normalize the note text so recipe overrides parsing never sees null.
-  const recipeOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
-  // Resolve recipe overrides tag actions based on the current note + answers.
-  const recipeOverridesResolution = useMemo(
-    () => resolveRecipeOverridesTags(recipeOverridesNoteText, noteRecipeOverridesAnswers),
-    [recipeOverridesNoteText, noteRecipeOverridesAnswers],
-  )
+  // Full note-override derivation chain in ONE memo — the builder in
+  // lib/documentOverrides.ts is the SSOT shared with the background account-push flow,
+  // so App must not re-derive any step inline. Recomputing everything on any input
+  // change is fine: each step is a cheap pure transform, and every input here is
+  // already a pipeline input, so the identity churn adds no extra pipeline runs.
+  const documentOverridesView = useMemo(() => buildDocumentOverridesView({
+    note: sfcNote,
+    noteOverridesDisabled,
+    recipeOverridesAnswers: noteRecipeOverridesAnswers,
+    safeguardOverridesAnswers: noteSafeguardOverridesAnswers,
+    recipes: customRecipes,
+    substatTargets,
+    safeguardRules,
+    metasets,
+    recipesEnabled,
+  }), [
+    sfcNote,
+    noteOverridesDisabled,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    customRecipes,
+    substatTargets,
+    safeguardRules,
+    metasets,
+    recipesEnabled,
+  ])
+  const {
+    // The recipe resolution feeds UI (chips/diagnostics) via its instruction list below.
+    recipeOverridesResolution,
+    // Override-applied recipes for preview consumers (SFC recipes never mutated).
+    recipeOverridesRecipesForRules,
+    // Substat targets with override substat-target overrides applied.
+    effectiveSubstatTargets,
+    substatTargetsOverridesActive,
+    // Build-normalized pipeline recipe list + the export names derived from it —
+    // the SAME list the worker fingerprints, so export bytes match the worker crc.
+    ruleRecipes,
+    exportRecipeNames,
+    // Per-recipe export modes resolved from override instructions.
+    recipeModes,
+    // Safeguards: metaset-resolved + overrides for the pipeline; raw + overrides for display.
+    resolvedSafeguardRules,
+    effectiveSafeguardRules,
+    displaySafeguardRules,
+  } = documentOverridesView
   // Keep a stable instruction map for downstream UI and filter logic.
   const recipeOverridesInstructions = recipeOverridesResolution.instructions
-  // Normalize the safeguard overrides note text — mirrors the recipe overrides gate so disabling
-  // noteOverridesDisabled suppresses safeguard overrides from both display and the pipeline.
-  const safeguardOverridesNoteText = (!noteOverridesDisabled && typeof sfcNote === 'string') ? sfcNote : ''
-  // Resolve safeguard overrides instructions from the current note + session answers.
-  const safeguardOverridesResolution = useMemo(
-    () => resolveNoteSafeguardOverridesTags(safeguardOverridesNoteText, noteSafeguardOverridesAnswers),
-    [safeguardOverridesNoteText, noteSafeguardOverridesAnswers],
-  )
-  // Merge native recipe instructions with cross-domain ones from safeguard-overrides questions.
-  const effectiveRecipeInstructions = useMemo(
-    () => [
-      ...recipeOverridesResolution.instructions,
-      ...safeguardOverridesResolution.recipeInstructions,
-    ],
-    [recipeOverridesResolution.instructions, safeguardOverridesResolution.recipeInstructions],
-  )
-  // Resolve recipe overrides-driven export modes for every recipe.
-  const recipeOverridesExportModes = useMemo(
-    () => buildRecipeOverridesExportModeResolution(customRecipes, effectiveRecipeInstructions),
-    [customRecipes, effectiveRecipeInstructions],
-  )
-  // Apply recipe overrides for preview consumers (rules + note chips) without mutating SFC recipes.
-  const recipeOverridesRecipesForRules = useMemo(
-    () => applyRecipeOverrides(customRecipes, effectiveRecipeInstructions),
-    [customRecipes, effectiveRecipeInstructions],
-  )
-  const recipeOverridesSubstatTargetsResolution = useMemo(
-    () => applyRecipeOverridesSubstatTargetsOverrides(substatTargets, customRecipes, effectiveRecipeInstructions),
-    [substatTargets, customRecipes, effectiveRecipeInstructions],
-  )
-  const effectiveSubstatTargets = recipeOverridesSubstatTargetsResolution.substatTargets
-  const substatTargetsOverridesActive = recipeOverridesSubstatTargetsResolution.overridesActive
-  // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
-  const ruleRecipes = useMemo(() => recipesForRuleBuild(recipeOverridesRecipesForRules), [recipeOverridesRecipesForRules])
   // Display/match labels reflect the recipes as the user sees them in the builder (raw customRecipes).
   const recipeNames = useMemo(() => recipeNamesForExport(customRecipes), [customRecipes])
-  // Names written into an exported HSF must come from the SAME override-applied list the
-  // rule-cache worker fingerprints (ruleRecipes = recipesForRuleBuild(override-applied)), via the
-  // SAME recipeNamesForExport SSOT — so the worker's export crc and this export payload agree
-  // byte-for-byte even if an override ever renames a recipe. See ruleCacheHelpers.recipeNamesForExport.
-  const exportRecipeNames = useMemo(() => recipeNamesForExport(ruleRecipes), [ruleRecipes])
   const recipeFgColors = useMemo(() => customRecipes.map((recipe) => recipe?.appearance?.fgColor ?? null), [customRecipes])
   // Normalize tags once so every filter path uses the same tag tokens.
   const normalizeRecipeTags = useCallback((recipe: BuilderRecipe | null | undefined): string[] => {
@@ -733,7 +730,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => customRecipes.map((recipe) => normalizeRecipeTags(recipe)),
     [customRecipes, normalizeRecipeTags],
   )
-  const recipeModes = useMemo(() => recipeOverridesExportModes.modes, [recipeOverridesExportModes])
   const metasetsForPreview = useDeferredValue(metasets)
   const recipeNamesForPreview = useDeferredValue(recipeNames)
   const recipeFgColorsForPreview = useDeferredValue(recipeFgColors)
@@ -828,34 +824,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     gearInspectorAutosaveItemsRef.current = gearInspectorItems
   }, [gearInspectorItems])
-  const gearInspectorPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
-    const next: NormalizedGearArtifact[] = []
-    gearInspectorItems.forEach((item, idx) => {
-      try {
-        const artifact = buildPreviewArtifactFromGearInspectorItem(item, {
-          // Custom items now surface their positive high itemId as the artifact id inside
-          // the builder; this negative fallback only applies to legacy/out-of-band ids that
-          // escaped migration (then the item-key ladder falls back to gearInspectorItem.itemId).
-          fallbackId: Number.isFinite(item.itemId) ? -Math.abs(item.itemId) : undefined,
-          subOrder: item.subOrder,
-        })
-        next.push(artifact)
-      } catch (err) {
-        // Surface conversion failures so they can be diagnosed — silently skipped items
-        // will not appear in the pipeline and will show in the Gear Inspector without a
-        // match result.  Log enough context to reproduce the issue.
-        if (import.meta.env.DEV) {
-          console.warn(
-            `[sfc-gear] buildPreviewArtifactFromGearInspectorItem failed for item idx=${idx}`,
-            `slot=${item.slot} set=${item.set} rank=${item.rank} rarity=${item.rarity} level=${item.level}`,
-            `itemId=${item.itemId} hasExtras=${item.previewExtras != null}`,
-            err,
-          )
-        }
-      }
-    })
-    return next
-  }, [gearInspectorItems])
+  // Items → pipeline artifacts through the shared projection (SSOT with the background
+  // account-push flow, so both paths key safeguard detection identically).
+  const gearInspectorPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(
+    () => buildPreviewArtifactsFromGearInspectorItems(gearInspectorItems),
+    [gearInspectorItems],
+  )
   // Content fingerprint of the artifact dataset, used in the pipeline cache key so an
   // add-then-remove endpoint round-trip (artifact set returns to a prior matching-identical
   // state) reuses the cached result instead of recomputing. Folds only the WASM-projected,
@@ -929,31 +903,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // pipeline-commit path (fresh/cache-hit/retry); drives the HSF export/push dirty indicator.
   // null until the first pipeline completes.
   const [currentMergedRulesHash, setCurrentMergedRulesHash] = useState<string | null>(null)
-  const resolvedSafeguardRules = useMemo(() => (
-    resolveSafeguardRulesWithMetasets(safeguardRules, metasets)
-  ), [safeguardRules, metasets])
-  // Merge native safeguard instructions with cross-domain ones from recipe-overrides questions.
-  const effectiveSafeguardInstructions = useMemo(
-    () => [
-      ...safeguardOverridesResolution.instructions,
-      ...recipeOverridesResolution.safeguardInstructions,
-    ],
-    [safeguardOverridesResolution.instructions, recipeOverridesResolution.safeguardInstructions],
-  )
-  // Apply safeguard overrides on top of the metaset-resolved rules for the worker pipeline.
-  // The SFC-stored rules are never mutated; this is a session-only view.
-  const effectiveSafeguardRules = useMemo(
-    () => applySafeguardOverrides(resolvedSafeguardRules, effectiveSafeguardInstructions),
-    [resolvedSafeguardRules, effectiveSafeguardInstructions],
-  )
-  // Apply the same overrides to the raw (pre-metaset-resolution) rules for display purposes.
-  // resolvedSafeguardRules expands metaset names into individual sets, which would make chips
-  // show every constituent set instead of the metaset name. Overrides only touch scalar fields
-  // (requiredCount, activation, countMode, etc.) so applying them to safeguardRules is safe.
-  const displaySafeguardRules = useMemo(
-    () => applySafeguardOverrides(safeguardRules, effectiveSafeguardInstructions),
-    [safeguardRules, effectiveSafeguardInstructions],
-  )
+  // resolvedSafeguardRules / effectiveSafeguardRules / displaySafeguardRules now come from
+  // documentOverridesView (lib/documentOverrides.ts SSOT) — destructured near the top.
+  // The instruction merge for prop-drilling below also lives on the view.
+  const effectiveSafeguardInstructions = documentOverridesView.effectiveSafeguardInstructions
   // Keep a stable ref so applySafeguardOverridesToRules always reads the latest display rules
   // even when the callback was memoized before the last override answer changed.
   const displaySafeguardRulesRef = useRef(displaySafeguardRules)
@@ -1507,7 +1460,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Pipeline payloads use immediate state snapshots.
     // Why: deferred snapshots can emit follow-up renders for the same user click
     // and repeatedly restart the debounce window before dispatch.
-    const recipesForBuild = recipesEnabled ? ruleRecipes : []
+    // Master Recipes toggle gating lives on the SSOT view (documentOverrides.pipelineRecipes).
+    const recipesForBuild = documentOverridesView.pipelineRecipes
     // Keep recipe-name snapshots aligned with the same immediate payload so remaps stay deterministic.
     const recipeNamesForBuild = recipeNames
     const recipeFgColorsForBuild = recipeFgColors
@@ -1977,6 +1931,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [
     runPipeline,
     ruleRecipes,
+    // The gated pipeline recipe list (recipesEnabled ? ruleRecipes : []) read inside.
+    documentOverridesView.pipelineRecipes,
     recipeNames,
     recipeFgColors,
     metasets,
@@ -4936,31 +4892,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
-  // RSL Helper sends champions in two bursts: the first includes full metadata; the
-  // second repeats the roster without it. Merging preserves omitted fields from the
-  // prior message so subsequent updates never silently wipe display metadata.
-  // SSOT: the protected-field set lives in mergeChampionRowFields — do not inline a
-  // second field list here. Champions present only in `existing` are also carried
-  // forward so a partial roster push never drops known champions.
-  const mergeChampionRows = (
-    incoming: GearDbChampionRow[],
-    existing: GearDbChampionRow[] | null,
-  ): GearDbChampionRow[] => {
-    if (!existing || existing.length === 0) return incoming
-    // Index prior rows by champion ID for O(1) lookup during merge.
-    const byId = new Map(existing.map((r) => [r.ID, r]))
-    const merged: GearDbChampionRow[] = incoming.map((row) => {
-      const prior = byId.get(row.ID)
-      // Mark the prior row consumed so it is not re-appended as a carry-forward below.
-      if (prior) byId.delete(row.ID)
-      return prior ? mergeChampionRowFields(row, prior) : row
-    })
-    // Any prior champion not present in the incoming burst is retained as-is so a
-    // sparse roster push cannot drop champions known from an earlier message.
-    for (const leftover of byId.values()) merged.push(leftover)
-    return merged
-  }
-
   // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
   // Each message updates one slot of gearDbRawPartsRef and immediately synthesizes a snapshot so
   // that partial updates are never silently dropped — the endpoint may only send one or two types.
@@ -5001,18 +4932,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if ((equippedBy == null || equippedBy.size === 0) && restored.equippedByArtifact.size > 0) {
       equippedBy = restored.equippedByArtifact
     }
-    const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => {
-      if (!equippedBy || equippedBy.size === 0) return rows
-      return rows.map(row => {
-        const championId = equippedBy.get(row.ID)
-        // Apply whenever the map gives us a valid champion. Do NOT short-circuit on a
-        // pre-existing cID: RSL Helper artifact rows always carry cID=0 (the equip link
-        // lives only in the champion `artifacts` slot map), so a `cID != null` guard
-        // would skip every artifact and wipe equip associations → blank champ icons.
-        // The map only contains real equips, so a hit is always authoritative.
-        return championId ? { ...row, cID: championId } : row
-      })
-    }
+    // cID patching is the shared SSOT in gearDbRawDataset (see patchArtifactRowsCID for
+    // the no-short-circuit rationale) — the background account-push flow uses it too.
+    const patchCID = (rows: GearDbArtifactRow[]): GearDbArtifactRow[] => patchArtifactRowsCID(rows, equippedBy)
     // Champions: overlay the packet rows on top of the restored baseline so the
     // synthetic snapshot always carries the equippedChampion reference fields
     // (baseHeroId / name / rarity / location) for ids the packet did not include.
@@ -5442,10 +5364,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearInspectorAutosaveChangedSinceLoad = gearInspectorAutosaveBaseline !== gearInspectorItems
   const gearInspectorAutosaveEnabled = gearInspectorGearTabActive || gearInspectorAutosaveChangedSinceLoad
   // Build compressed Gear Inspector autosave payload only when a save actually runs.
-  const buildGearInspectorAutosavePayloadCallback = useCallback(
-    () => buildGearInspectorAutosavePayload(gearInspectorAutosaveItemsRef.current),
-    [],
-  )
+  const buildGearInspectorAutosavePayloadCallback = useCallback(() => {
+    const items = gearInspectorAutosaveItemsRef.current
+    // Perf/sanity toggle (account manager): with persistence off, REAL gear data
+    // (endpoint or file import) stays out of localStorage; manual items still persist.
+    const persisted = getPersistEndpointGearPreferenceSnapshot()
+      ? items
+      : items.filter((item) => isManualGearInspectorItem(item))
+    return buildGearInspectorAutosavePayload(persisted)
+  }, [])
   useAutosave({
     key: AUTOSAVE_GEAR_INSPECTOR_KEY,
     payloadSignal: gearInspectorItems,
@@ -6873,6 +6800,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [])
 
+  // Background account-push service (lib/backgroundAccountPush.ts): builds and uploads a
+  // NON-active bound account's sellfile when stamped gear data arrives for it. A ref
+  // bridges the hook-order gap — the service needs sendExternalRequest, which comes from
+  // useExternalCommands below, which itself needs handleExternalCommand.
+  const backgroundAccountPushRef = useRef<BackgroundAccountPushService | null>(null)
   // Capture as a stable primitive so the useCallback dep array stays tight.
   const tutorialOpen = tutorial.tutorialOpen
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
@@ -6897,15 +6829,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Verify the packet's optional game-account stamp (RSL Helper protocol phase 2) before
     // any gear data is queued. Absent stamps attribute to the active account (pre-stamping
     // Helper versions); a first stamp on a never-bound account adopts the id ('bound');
-    // a stamp for a DIFFERENT account drops the packet — gear from account A must never
-    // merge into account B's inspector. The toast tells the user to switch (or relaunch).
-    const inboundAccountId = 'accountId' in cmd ? cmd.accountId : undefined
-    if (classifyInboundAccountId(inboundAccountId) === 'mismatch') {
+    // a stamp for a DIFFERENT account never merges into the active inspector — a KNOWN
+    // bound account is handed to the background push service (it builds and uploads THAT
+    // account's sellfile if its auto-push is on); an unknown account drops with a toast.
+    const inboundPlayerId = 'playerId' in cmd ? cmd.playerId : undefined
+    const inboundPlayerName = 'playerName' in cmd ? cmd.playerName : undefined
+    if (classifyInboundAccountStamp({ playerId: inboundPlayerId, playerName: inboundPlayerName }) === 'mismatch') {
+      if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd)) return
       showToast(
-        t('accountInboundMismatchToast', { incoming: inboundAccountId ?? '', active: getActiveAccount().displayName }),
+        t('accountInboundMismatchToast', { incoming: inboundPlayerId ?? inboundPlayerName ?? '', active: getActiveAccount().displayName }),
         { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> },
       )
       return
+    }
+    // UNSTAMPED data with a flagged non-active receiver (account manager's "default for
+    // data without Player ID"): the data belongs to that account, not the active view —
+    // route it to the background service. A binary-DB push cannot be background-serviced,
+    // so it drops with the mismatch toast rather than polluting the active account.
+    if (!inboundPlayerId && !inboundPlayerName) {
+      const unstampedTarget = getUnstampedDefaultAccount()
+      if (unstampedTarget && unstampedTarget.id !== getActiveAccount().id) {
+        if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd, unstampedTarget)) return
+        showToast(
+          t('accountInboundMismatchToast', { incoming: unstampedTarget.displayName, active: getActiveAccount().displayName }),
+          { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> },
+        )
+        return
+      }
     }
     // Endpoint gear data is always wanted — it is newer and authoritative. We do NOT
     // block it while the restore dialog is open; instead, once any gear push lands we
@@ -6958,6 +6908,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     requestSfcSyncRef.current = requestSfcSync
   }, [requestSfcSync])
+  // (Re)create the background account-push service whenever its transport changes.
+  // Outcomes surface as toasts so the user knows a non-active account was serviced.
+  useEffect(() => {
+    const service = createBackgroundAccountPushService({
+      sendRequest: sendExternalRequest,
+      runPipeline: runHeadlessRuleCachePipeline,
+      onOutcome: (outcome) => {
+        const name = outcome.account.displayName
+        if (outcome.kind === 'pushed') {
+          showToast(t('accountBackgroundPushDone', { name, count: outcome.itemCount }))
+        } else if (outcome.kind === 'autoPushOff') {
+          // Informational: data for a known account arrived but its auto-push is off.
+          showToast(t('accountBackgroundPushAutoPushOff', { name }))
+        } else if (outcome.kind === 'noDocument') {
+          showToast(t('accountBackgroundPushNoDocument', { name }), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        } else {
+          showToast(t('accountBackgroundPushFailed', { name }), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        }
+      },
+    })
+    backgroundAccountPushRef.current = service
+    return () => {
+      service.dispose()
+      if (backgroundAccountPushRef.current === service) backgroundAccountPushRef.current = null
+    }
+  }, [sendExternalRequest, showToast, t])
   // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
   // Selection is the source of truth in the app — the endpoint can push a correction
   // event if it needs to override, but we do not revert on a bare error response
@@ -7503,7 +7479,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <RecipeChipsPanel
       containerRef={chipsContainerRef}
       recipes={recipeOverridesRecipesForRules}
-      exportModeOverrides={recipeOverridesExportModes.modes}
+      exportModeOverrides={recipeModes}
       maxHeightPx={chipsMaxHeight}
       chipsAvailableHeight={chipsAvailableHeight}
       selectedIndices={selectedRecipeIndices}
@@ -9036,7 +9012,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Account stamp first so a phase-2 Helper can save sellfiles per game account;
           // pre-stamping versions ignore the extra params (confirmed harmless).
           ...buildAccountRpcParams(),
-          name: filename,
+          fileName: filename,
           contentType: blob.type || 'application/json',
           data: payload,
         })

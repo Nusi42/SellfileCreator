@@ -293,6 +293,18 @@ Araçlar'ı açıp **Ekipman Analizi** sekmesine geçin — içe aktarılan ekip
 - Çalışmanızı korumak için oluşturucu alanındaki «Reçeteleri kaydet»/«Reçeteleri yükle» seçeneklerini kullanın.
 - Varsayılan HSF adı: `Sellfile_YYYYMMDD_HHMM.hsf`.
 
+### Hesaplar
+
+Sellfile Creator, birden fazla oyun hesabı için ayrı belgeler (tarifler, korumalar, not, ekipman) tutabilir. Hesap seçici üst çubuktadır (ve basit görünümün penceresinde): hesap değiştirmek veya yeni hesap oluşturmak için tıklayın; bir hesabın yanındaki dişli simgesi hesap yöneticisini açar. Orada bir hesabı yeniden adlandırabilir, vurgu rengini seçebilir, ait olduğu RSL Helper hesap kimliğini girebilir, hesap başına otomatik gönderimi açıp kapatabilir, kimliksiz gelen veriler için bir hesabı varsayılan olarak işaretleyebilir, alınan ekipman verilerinin bu cihazda kaydedilip kaydedilmeyeceğini belirleyebilir ve bir hesabı tüm verileriyle birlikte silebilirsiniz. Geçerli belgeyi bir hesapla birleştirmek için seçicide hesabı seçerken Shift tuşunu basılı tutun.
+
+**Geçiş nasıl işler:**
+
+- Güncellemeden sonra mevcut tüm verileriniz "Default" adlı tek bir hesapta yaşar — sizin için hiçbir şey değişmez.
+- Hesap desteği RSL Helper ile birlikte adım adım devreye alınıyor; bu yüzden bazı bölümleri henüz tam olarak etkin değil.
+- Şimdilik RSL Helper hangi oyun hesabını gönderdiğini Sellfile Creator'a henüz bildirmiyor. Bu veriler etkin hesabınıza — veya yöneticide "hesap kimliği olmayan veriler için varsayılan" olarak işaretlediğiniz hesaba — gider.
+- RSL Helper, Sellfile Creator'ı açarken hesap kimliğini iletmeye başladığında mevcut "Default" hesabınız bu kimliğe otomatik olarak bağlanır — verileriniz olduğu gibi taşınır. İkinci bir oyun hesabı ise Sellfile Creator'da kendi yeni hesabını alır.
+- RSL Helper veri paketlerini de hesap kimliğiyle etiketlemeye başladığında her şey otomatik yönlendirilir: başka bir hesabın verileri üzerinde çalıştığınız hesaba asla karışmaz ve o hesabın otomatik gönderimi açıksa sellfile'ı arka planda yeniden oluşturulup geri gönderilir.
+
 ## Örnekler
 
 Tüm örneklerde rulo başına 6★ alt stat hedefleri: SPD=5, CR%=5, CDMG%=5.

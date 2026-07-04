@@ -8,20 +8,30 @@ when communicating over WebSockets.
 RSL Helper opens Sellfile Creator by navigating to the distributed HTML file with query parameters:
 
 ```
-file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&account=account-d&accountName=Nasgor
+file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&playerid=um12345678&playerName=MyMainAccount
 ```
 
 - `endpoint` — WebSocket URL of the locally running RSL Helper server (required for any connection).
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
-- `account` — optional; RSL Helper's stable per-game-account id (e.g. `account-d`). Routes the
-  session to the matching SFC account, binding or creating one as needed — see
-  [Accounts](accounts.md) for the resolution rules. Treated as an opaque string.
-- `accountName` — optional, decorative companion to `account`; labels a newly created account and
-  refreshes a not-manually-renamed one. Never used as a lookup key (in-game names are mutable).
+- `playerid` — optional; the game's Player ID for the account (e.g. `um12345678`). Routes the
+  session to the matching Sellfile Creator account, binding or creating one as needed.
+  Treated as an opaque string. Carries the same value the JSON-RPC `playerId` params use
+  (see Account stamping below).
+- `playerName` — optional; the player's name in the game. A FULL alternative identity: when
+  `playerid` is absent, `playerName` alone routes the session to the matching account (and
+  names/creates one as needed). RSL Helper may consistently use `playerid`, `playerName`, or
+  both. Player names MAY change in-game — when the `playerid` identifies the account, a
+  changed name is adopted automatically; with name-only usage a rename cannot be recognized
+  (the old name is unknown), so sending the Player ID is the recommended contract.
 
-Until RSL Helper stamps its notifications with `accountId` (see below), the launch `account` param
-is the ownership contract for inbound data: switching game accounts inside RSL Helper should
-re-navigate Sellfile Creator with the new `account=` value.
+Param values must be **percent-encoded** (UTF-8) — then any character is safe, including `?`.
+Unencoded, `&` would split the value, `#` would truncate the query, and `+` decodes as a space;
+so always encode names (e.g. `My Name & Co` → `My%20Name%20%26%20Co`). Sellfile Creator decodes
+with standard `URLSearchParams` semantics and clamps over-long names.
+
+Until RSL Helper stamps its notifications (see below), the launch `playerid`/`playerName` params are
+the ownership contract for inbound data: switching game accounts inside RSL Helper should
+re-navigate Sellfile Creator with the new values.
 
 ## Transport
 
@@ -36,7 +46,7 @@ Every message includes `"jsonrpc": "2.0"`.
 ### Request
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"uploadSellfile","params":{"name":"Sellfile_2026-01-13.hsf","contentType":"application/json","data":{...}}}
+{"jsonrpc":"2.0","id":1,"method":"uploadSellfile","params":{"fileName":"Sellfile_2026-01-13.hsf","contentType":"application/json","data":{...}}}
 ```
 
 ### Success Response
@@ -61,23 +71,28 @@ Notifications omit `id` and do not receive responses.
 
 ## Account stamping (both directions)
 
-Sellfile Creator supports multiple SFC accounts (see [Accounts](accounts.md)). To route data
-per game account, the protocol carries two optional params:
+Sellfile Creator can manage multiple accounts. To route data per game account, the protocol
+carries two optional params:
 
 - **Outbound (SFC → RSL Helper)**: every request (`uploadSellfile`, `requestSfcSync`,
-  `selectArtifacts`) includes `accountId` (RSL Helper's own id, present only when the active SFC
-  account is bound to one) and `accountName` (the SFC display label, always present). Servers that
-  do not understand these params can ignore them; once consumed, RSL Helper can save sellfiles per
-  account and validate sync requests.
+  `selectArtifacts`) includes `playerId` (the game's Player ID, present only when the active SFC
+  account is bound to one) and `playerName` (the player's name). Servers that do not understand
+  these params can ignore them; once consumed, RSL Helper can save sellfiles per account and
+  validate sync requests.
 - **Inbound (RSL Helper → SFC)**: every notification (`artifacts`, `champions`, `inboxArtifacts`,
-  `lastUsed`, and the `gearDbFileBinary` metadata notification) MAY carry a top-level `accountId`
-  param. Sellfile Creator's handling:
-  - absent → data is attributed to the active SFC account (pre-stamping RSL Helper versions);
-  - matches the active account's binding → applied normally;
-  - active account not yet bound → the id is adopted as its binding (first stamped packet proves
+  `lastUsed`, and the `gearDbFileBinary` metadata notification) MAY carry top-level `playerId`
+  and/or `playerName` params — either alone is a full identity, mirroring the launch params.
+  Sellfile Creator's handling:
+  - both absent → data is attributed to the active SFC account (pre-stamping RSL Helper
+    versions), or to the account flagged as the unstamped-data default;
+  - identity matches the active account → applied normally;
+  - active account not yet bound → the identity is adopted (first stamped packet proves
     ownership);
-  - differs from the active account's binding → the packet is **dropped** with a user-facing toast
-    (gear from one game account must never merge into another account's view).
+  - identity names a DIFFERENT known account → the data never merges into the active view;
+    instead Sellfile Creator rebuilds THAT account's sellfile in the background — from its own
+    saved document — and, if that account has auto-push enabled, uploads it via `uploadSellfile`
+    stamped with that account's identity;
+  - identity matches no known account → the packet is dropped with a user-facing toast.
 
 ## Methods
 
@@ -86,9 +101,9 @@ per game account, the protocol carries two optional params:
 Upload a generated sellfile.
 
 **Params**
-- `accountId` (string, optional): RSL Helper account id the sellfile belongs to (see Account stamping).
-- `accountName` (string, optional): SFC display label of that account.
-- `name` (string, optional): Suggested filename (the server appends `.hsf` if missing).
+- `playerId` (string, optional): Player ID of the account the sellfile belongs to (see Account stamping).
+- `playerName` (string, optional): the player's name.
+- `fileName` (string, optional): Suggested filename (the server appends `.hsf` if missing).
 - `contentType` (string, optional): MIME type (usually `application/json`).
 - `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk.
 
@@ -101,9 +116,10 @@ Upload a generated sellfile.
 Ask RSL Helper to push all its current datasets. Sent automatically on every connection so the app receives a full snapshot without waiting for the next natural push cycle.
 
 **Params**
-- `accountId` (string, optional): the account SFC believes it is syncing (see Account stamping).
-  A server may validate this and answer with an error instead of pushing another account's data.
-- `accountName` (string, optional): SFC display label of that account.
+- `playerId` (string, optional): Player ID of the account SFC believes it is syncing (see Account
+  stamping). A server may validate this and answer with an error instead of pushing another
+  account's data.
+- `playerName` (string, optional): the player's name.
 
 **Result**
 - `ok` (boolean)
@@ -132,8 +148,8 @@ waiting for a response. The response body is not used; servers may respond
 with a standard success for acknowledgement or omit a response entirely.
 
 **Params**
-- `accountId` (string, optional): account the selection belongs to (see Account stamping).
-- `accountName` (string, optional): SFC display label of that account.
+- `playerId` (string, optional): Player ID of the account the selection belongs to (see Account stamping).
+- `playerName` (string, optional): the player's name.
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
   An empty array means "nothing selected".
 

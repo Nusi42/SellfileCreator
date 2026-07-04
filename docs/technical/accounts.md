@@ -13,11 +13,12 @@ the simple-mode Note dialog action bar).
 
 ```ts
 type SfcAccount = {
-  id: string                // internal SFC id — immutable, generated; storage namespace hangs off it
-  displayName: string       // user-editable label
-  helperAccountId?: string  // RSL Helper's stable id (e.g. "account-d") — a mutable BINDING
-  accentColor?: string      // per-account accent for at-a-glance identification
-  nameCustomized?: boolean  // manual rename blocks ?accountName= refreshes
+  id: string                 // internal SFC id — immutable, generated; storage namespace hangs off it
+  displayName: string        // THE account name = the player's name in the game (see below)
+  helperAccountId?: string   // the game's Player ID (e.g. "um12345678") — permanent, unique
+  helperBound?: boolean      // set on first identity adoption; guards re-claiming
+  accentColor?: string       // per-account accent for at-a-glance identification
+  unstampedDefault?: boolean // at most ONE account: receives endpoint data without a playerId stamp
   origin: 'legacy' | 'helper' | 'manual'
   createdAt: string
   lastActiveAt: string
@@ -43,16 +44,62 @@ any endpoint connection are first-class (they simply have no binding yet).
    account-scoped storage. Subsequently created accounts get random ids.
 2. **Registry load** with defensive sanitization (corrupt entries dropped, dangling
    active id clamped to the most recently used account).
-3. **URL resolution** of `?account=` / `?accountName=` (parsed in `runtimeConfig.ts`):
-   - id matches a bound account → activate it;
-   - id unknown + exactly ONE unbound account exists → bind that account (this folds a
-     legacy user's data into their helper account on the first stamped launch);
+3. **URL resolution** of `?playerid=` / `?playerName=` (parsed in `runtimeConfig.ts`).
+   Either param alone is a full identity — RSL Helper may consistently use the Player
+   ID, the name, or both:
+   - Player ID matches a bound account → activate it;
+   - else the name matches an account name (displayName IS the in-game player name)
+     → activate it;
+   - else exactly ONE never-claimed account exists (`helperBound` unset) → claim it
+     (this folds a legacy user's data into their helper account on first launch);
    - otherwise → create a fresh `origin: 'helper'` account and activate it.
-   The params are then stripped from the address bar (same pattern as `?endpoint=`).
+   The identities the launch carried are then recorded (`adoptHelperIdentity`): the id
+   binds permanently, and the name ALWAYS refreshes `displayName` — the game owns the
+   name, so in-game renames propagate whenever the Player ID identifies the account.
+   (Name-only usage cannot recognize renames — the old name is unknown — so the docs
+   recommend RSL Helper sends the Player ID.)
+   The params are then stripped from the address bar (same pattern as `?endpoint=`),
+   together with `?simple` — the latter only after its sessionStorage marker
+   (`SIMPLE_MODE_SESSION_KEY`) verifiably persisted, because F5 and the account-switch
+   reload must stay in simple mode; storage-less environments keep the param instead.
 
 Switching accounts writes `activeAccountId` and performs a full `location.reload()` —
 one document per session; an in-place swap would bleed state across dozens of stores,
-the autosave debouncers, and the WASM pipeline.
+the autosave debouncers, and the WASM pipeline. Because `activeAccountId` persists in the
+registry, the next launch WITHOUT a `?playerid=` param resumes the last-used account; the
+URL param only overrides that per-launch.
+
+## Account manager
+
+Each row in the switcher menu carries a gear icon that opens the manager for THAT
+account — no switch required (essential for editing a non-active account's auto-push).
+The manager edits: name, accent color, the **Player ID binding** (free-text field,
+opaque string, shown with the game's own "Player ID" terminology; empty unbinds — this
+is how users pre-bind accounts before RSL Helper passes ids itself), the **per-account auto-push** flag
+(`get/setSellfileAutoPushForAccount` in `state/exportPreferences.ts` — the active
+account routes through the live store so React subscribers stay in sync; other accounts
+write their namespaced key directly with store-parity serialization), the
+**unstamped-data default** flag (below), the **global endpoint-gear persistence** toggle
+(below), and two-step deletion.
+
+## Unstamped-data default (`unstampedDefault`)
+
+Radio-semantics flag (`setUnstampedDefaultAccount` clears it from all others): endpoint
+data arriving WITHOUT a `playerId` stamp belongs to the flagged account. The legacy
+migration flags the created `Default` account, so pre-stamping RSL Helper data keeps
+belonging to the user's original data set even after they create more accounts. Routing in
+`handleExternalCommand`: no flag, or flag on the active account → attribute to the
+active session (legacy behavior); flag on a NON-active account → the packet is handed to
+the background push service for that account (never merged into the active view). A
+binary-DB push cannot be background-serviced and drops with the mismatch toast instead.
+
+## Endpoint-gear persistence toggle (global)
+
+`sellfileCreator.gearDb.persistEndpointGear.v1` (`state/gearDbPreferences.ts`, default
+ON). When OFF, real gear data (endpoint or file import) is kept out of localStorage for
+perf/sanity: the live gearInspector autosave payload filters to manual items
+(`isManualGearInspectorItem`), and the background account-push skips its gear autosave
+write. Deliberately GLOBAL — it is a machine/storage concern, not an account trait.
 
 ## Storage partitioning
 
@@ -119,46 +166,55 @@ it, reusing the existing selective-import machinery instead of forking merge log
 
 | Phase | RSL Helper implements | SFC behavior |
 |---|---|---|
-| 0 | nothing (today) | No `?account` → last-active account; behavior identical to pre-account versions. Outbound requests already stamped (ignored). |
-| 1 | `?account=` / `?accountName=` launch params | Per-launch account routing with auto-bind/auto-create. Inbound data attributed to the active account. Mid-session game-account switches require re-navigation. |
-| 2 | `accountId` stamped on notifications + consumed on requests | Inbound ownership verification (adopt / match / drop-with-toast, see `classifyInboundAccountId`), per-account sellfile saves on the Helper side. |
+| 0 | nothing (today) | No `?playerid` → last-active account; behavior identical to pre-account versions. Outbound requests already stamped (ignored). |
+| 1 | `?playerid=` / `?playerName=` launch params | Per-launch account routing with auto-bind/auto-create. Inbound data attributed to the active account. Mid-session game-account switches require re-navigation. |
+| 2 | `playerId` stamped on notifications + consumed on requests | Inbound ownership verification (adopt / match / drop-with-toast, see `classifyInboundAccountId`), per-account sellfile saves on the Helper side. |
 
 All three phases' handling is implemented in SFC now; phases 1–2 activate purely by what
 arrives. The wire contract lives in [websocket-jsonrpc.md](websocket-jsonrpc.md).
 
-## Background auto-push for non-active accounts (designed, not yet implemented)
+## Background auto-push for non-active accounts
 
-Requirement: when RSL Helper pushes stamped data for a known-but-INACTIVE account X, and
-X has auto-push enabled (`sellfile.autoPush.v1` in X's namespace), SFC should rebuild X's
+When RSL Helper pushes STAMPED gear data for a known-but-INACTIVE bound account X, and X
+has auto-push enabled (`sellfile.autoPush.v1` in X's namespace), SFC rebuilds X's
 sellfile — from X's own SFC document **including its dynamic-override answers** — against
-the fresh gear data and `uploadSellfile` it with X's `accountId`, without disturbing the
-active session.
+the fresh gear data and `uploadSellfile`s it with X's `accountId`, without disturbing the
+active session. Dormant until RSL Helper ships packet stamping (phase 2); an unknown
+stamped account still drops with a toast. Correctness constraint honored: the background
+build runs the FULL pipeline including safeguard detection/injection — pushing without it
+could sell protected gear.
 
-This is dormant until RSL Helper ships packet stamping (phase 2). Correctness constraint:
-a background-built sellfile MUST run the full safeguard pipeline — pushing without
-safeguard injection could sell protected gear. Design:
+Implementation (`lib/backgroundAccountPush.ts`, wired in App's `handleExternalCommand`
+mismatch branch; every step is a shared SSOT, never re-derived inline):
 
-1. Read X's autosave via `resolveAccountScopedKeyFor(x.id, 'sellfileCreator.autosave.sfc.v1')`
-   → `loadAutosave` → `parseSfcObject` + `normalizeNote*OverridesAnswers`.
-2. Apply the note-override chain (recipe + cross-domain safeguard instructions →
-   `applyRecipeOverrides` / safeguard equivalents → `recipesForRuleBuild`).
-   **Prerequisite refactor (SSOT hard gate):** this chain currently lives as `useMemo`s
-   in `App.tsx` (~lines 671–717, 946). It must be EXTRACTED into one shared pure builder
-   (e.g. `lib/documentOverrides.ts`: document + answers → `{ ruleRecipes,
-   effectiveSubstatTargets, effectiveSafeguardRules, exportRecipeNames }`), and **App's
-   memos must be rewired to call that builder** so it becomes the only implementation.
-   Re-writing the chain a second time for the headless path — even faithfully — is a One
-   Definition Rule violation and is not an acceptable shortcut.
-3. Normalize the inbound gear rows through the same exported projection the live pipeline
-   uses (`NormalizedGearArtifact` parity — same SSOT treatment: extract, don't re-derive),
-   and also persist them into X's `autosave.gearInspector.v1` so X's next session starts
-   fresh.
-4. Run ONE pipeline pass on a **dedicated, properly `init-wasm`'d second worker instance**
-   (the live worker's scheduler is latest-only and its in-worker skip-caches/sentinels are
-   keyed to the active document — interleaving would pollute them). Cost: a temporary
-   second WASM heap (~256–460 MB); terminate the worker after the run.
-5. `buildHsfFileFromMerged(result.state.mergedRules, { recipeNames })` →
-   `uploadSellfile` with X's helper id.
+1. **Burst coalescing** — the four per-type packets accumulate per account (champions
+   merged across RSL Helper's double-send via `mergeChampionRows`; cID patched from the
+   champion slot map via `patchArtifactRowsCID` — both shared with the live accumulator).
+   A quiet period (1.5 s) flushes the burst; builds for different accounts serialize.
+2. **Document load** — X's autosave via `resolveAccountScopedKeyFor` → `loadAutosave`
+   (CRC-verified) → `parseSfcObject` + `normalizeNote*OverridesAnswers` off the raw
+   payload (same parse the restore path uses).
+3. **Override chain** — `lib/documentOverrides.buildDocumentOverridesView`, the single
+   definition of the note-override derivation (App's memos consume the same builder).
+   It also owns the master `recipesEnabled` gate (`pipelineRecipes`).
+4. **Gear normalization** — `createDatasetFromSnapshot` (fresh, no previous dataset) →
+   itemIds assigned from a fresh allocator cursor → the shared
+   `buildPreviewArtifactsFromGearInspectorItems` projection (identical safeguard keying
+   to the live path). The items are also persisted into X's `autosave.gearInspector.v1`
+   so X's next session starts from this data.
+5. **Pipeline** — `lib/headlessRuleCachePipeline.runHeadlessRuleCachePipeline`: a
+   dedicated, one-shot `ruleCacheWorker` instance (same module as live) with the shared
+   `postRuleCacheWasmInit` handshake; the live worker is unsuitable because its scheduler
+   is latest-only and its skip-caches are keyed to the active document. The temporary
+   second WASM heap is reclaimed by terminating the worker in `finally`; a 120 s timeout
+   guards against leaks. Export transforms (dedupe/omit-disabled) read the GLOBAL
+   preference snapshots.
+6. **Upload** — `buildHsfFileFromMerged(mergedRules, { recipeNames })` (the shared
+   writer, names from the same override-applied list the worker fingerprints) →
+   `uploadSellfile` on the live socket with X's `playerId`/`playerName`.
 
-The two prerequisites (override-chain extraction, one-shot worker runner) are the actual
-work; everything else is existing pure functions.
+Outcomes surface as toasts: pushed / auto-push-off / no-saved-document / failed. Only the
+four streamed per-type packets are serviced; the binary-DB transport stays drop+toast.
+Unit coverage: `tests/unit/background-account-push.test.ts` (orchestration with injected
+pipeline/transport) — the pipeline runner is injected (`deps.runPipeline`) precisely so
+tests never load the `?worker&inline` module.

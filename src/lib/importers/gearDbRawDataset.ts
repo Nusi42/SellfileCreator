@@ -25,6 +25,26 @@ import {
 } from './gearDbLookups'
 import type { GearDbRawSnapshotCommand } from '../externalCommands'
 
+/**
+ * Patch equipped-champion ids (cID) onto artifact rows using the champion slot map.
+ * The endpoint reverses the relationship — champions list their artifacts instead of
+ * artifacts carrying cID. Applied whenever the map yields a valid champion: RSL Helper
+ * artifact rows always carry cID=0 (the equip link lives only in the champion
+ * `artifacts` slot map), so a `cID != null` guard would skip every artifact and wipe
+ * equip associations. The map only contains real equips, so a hit is authoritative.
+ * Shared by App's snapshot synthesis AND the background account-push flow.
+ */
+export const patchArtifactRowsCID = (
+  rows: GearDbArtifactRow[],
+  equippedBy: ReadonlyMap<number, number> | null | undefined,
+): GearDbArtifactRow[] => {
+  if (!equippedBy || equippedBy.size === 0) return rows
+  return rows.map((row) => {
+    const championId = equippedBy.get(row.ID)
+    return championId ? { ...row, cID: championId } : row
+  })
+}
+
 export type GearDbRawDataset = {
   snapshotId: string | null
   champions: ChampionLookup

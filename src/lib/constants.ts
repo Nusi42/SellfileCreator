@@ -8,7 +8,12 @@ import {
   ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID,
   SUBSTAT_MAX_ROLLS_PER_SLOT as GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT,
 } from './generated/domainConstants'
-import { resolveAccountScopedKey } from './accounts'
+import {
+  ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR,
+  ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
+  ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  resolveAccountScopedKey,
+} from './accounts'
 
 // Typography scale rooted at 16px (browser default). Why: collapse the UI to
 // predictable tiers while keeping markdown legibility and badge sizing.
@@ -101,9 +106,9 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 // Autosave storage key for SFC sessions. Account-scoped: resolved once at module init
 // through lib/accounts.ts (the active account is fixed for the session — switching
 // accounts reloads the page), so consumers keep using this constant unchanged.
-export const AUTOSAVE_KEY = resolveAccountScopedKey('sellfileCreator.autosave.sfc.v1')
+export const AUTOSAVE_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_AUTOSAVE_SFC)
 // Autosave storage key for the Gear Inspector dialog item queue (account-scoped, see above).
-export const AUTOSAVE_GEAR_INSPECTOR_KEY = resolveAccountScopedKey('sellfileCreator.autosave.gearInspector.v1')
+export const AUTOSAVE_GEAR_INSPECTOR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR)
 // Persisted Sellfile Preview / Gear Inspector toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
@@ -688,11 +693,15 @@ export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled
 // whenever unsaved changes are detected (hsfDirty rising edge).
 // Account-scoped (lib/accounts.ts): auto-push is a per-game-account contract — each account
 // decides for itself whether its sellfile flows to RSL Helper automatically.
-export const SELLFILE_AUTO_PUSH_KEY = resolveAccountScopedKey('sellfileCreator.sellfile.autoPush.v1')
+export const SELLFILE_AUTO_PUSH_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)
 // Gear DB updates: when enabled, suppress the toast shown after the endpoint
 // pushes a new gear database (status badges still update). View-only preference
 // that should persist across sessions like the other endpoint toggles.
 export const GEAR_DB_HIDE_UPDATE_TOAST_KEY = 'sellfileCreator.gearDb.hideUpdateToast.v1'
+// Gear DB persistence: when disabled, real endpoint gear stays OUT of localStorage
+// (manual items still persist). GLOBAL on purpose — it is a machine perf/sanity choice,
+// not an account trait; both the live autosave and the background account-push honor it.
+export const GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY = 'sellfileCreator.gearDb.persistEndpointGear.v1'
 // Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
 // payload classes (future uploads can use their own prefixes without guessing).
 export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'

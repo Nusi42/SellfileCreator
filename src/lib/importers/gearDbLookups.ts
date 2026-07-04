@@ -113,6 +113,34 @@ export const mergeChampionRowFields = (
   return merged
 }
 
+/**
+ * Merge a whole incoming champion burst over the previously accumulated rows.
+ * RSL Helper sends champions in two bursts: the first includes full metadata; the
+ * second repeats the roster without it. Merging preserves omitted fields from the
+ * prior message (per-field via {@link mergeChampionRowFields} — the SSOT for the
+ * protected-field set), and champions present only in `existing` are carried
+ * forward so a partial roster push never drops known champions.
+ * Shared by App's raw-parts accumulator AND the background account-push flow.
+ */
+export const mergeChampionRows = (
+  incoming: GearDbChampionRow[],
+  existing: GearDbChampionRow[] | null,
+): GearDbChampionRow[] => {
+  if (!existing || existing.length === 0) return incoming
+  // Index prior rows by champion ID for O(1) lookup during merge.
+  const byId = new Map(existing.map((r) => [r.ID, r]))
+  const merged: GearDbChampionRow[] = incoming.map((row) => {
+    const prior = byId.get(row.ID)
+    // Mark the prior row consumed so it is not re-appended as a carry-forward below.
+    if (prior) byId.delete(row.ID)
+    return prior ? mergeChampionRowFields(row, prior) : row
+  })
+  // Any prior champion not present in the incoming burst is retained as-is so a
+  // sparse roster push cannot drop champions known from an earlier message.
+  for (const leftover of byId.values()) merged.push(leftover)
+  return merged
+}
+
 // Track baseHeroIds already reported so the dev-only signal logs once per champion type
 // instead of once per owned instance (a roster carries many copies of the same type).
 const unknownStaticChampionsWarned = new Set<number>()

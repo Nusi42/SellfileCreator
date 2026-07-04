@@ -293,6 +293,18 @@ Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma vis�
 - Use «Salvar receitas» e «Carregar receitas» no construtor para salvar o trabalho.
 - O nome padrão do export é `Sellfile_AAAA MM DD_HHMM.hsf`.
 
+### Contas
+
+O Sellfile Creator pode manter documentos separados (receitas, salvaguardas, nota, equipamento) para várias contas do jogo. O seletor de contas fica na barra superior (e no diálogo da visão simples): clique para trocar de conta ou criar novas, e use o ícone de engrenagem ao lado de uma conta para abrir o gerenciador de contas. Lá você pode renomear uma conta, escolher sua cor de destaque, informar o id de conta do RSL Helper ao qual ela pertence, ligar ou desligar o envio automático por conta, marcar uma conta como padrão para dados que chegam sem id, decidir se os dados de equipamento recebidos são salvos neste dispositivo e excluir uma conta com todos os seus dados. Segure Shift ao escolher uma conta no seletor para mesclar o documento atual nela.
+
+**Como funciona a transição:**
+
+- Após atualizar, todos os seus dados existentes passam a viver em uma conta chamada "Default" — nada muda para você.
+- O suporte a contas está sendo lançado em etapas junto com o RSL Helper, então parte dele ainda não está totalmente ativa.
+- Por enquanto, o RSL Helper ainda não informa ao Sellfile Creator qual conta do jogo está enviando. Esses dados vão para a sua conta ativa — ou para a conta que você marcou como "padrão para dados sem id de conta" no gerenciador.
+- Assim que o RSL Helper passar o id da conta ao abrir o Sellfile Creator, sua conta "Default" existente será vinculada automaticamente a esse id — seus dados simplesmente a acompanham. Uma segunda conta do jogo ganha então sua própria conta nova no Sellfile Creator.
+- Quando o RSL Helper também etiquetar seus pacotes de dados com o id da conta, tudo será roteado automaticamente: dados de outra conta nunca se misturam à conta em que você está trabalhando e, se essa outra conta tiver o envio automático ligado, o sellfile dela é reconstruído e enviado de volta em segundo plano.
+
 ## Exemplos
 
 Todos os exemplos usam alvos de substats de 6★ por unidade de rolagem: SPD=5, CR%=5, CDMG%=5.

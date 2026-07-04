@@ -1060,7 +1060,7 @@ function Handle-JsonRpcRequest {
             return
         }
 
-        $name = $params.name
+        $name = $params['fileName']
         $data = $params.data
         # Accept either an inline object (current) or a pre-serialised string (legacy).
         $payloadText = $null

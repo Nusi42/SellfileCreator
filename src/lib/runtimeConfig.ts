@@ -4,12 +4,13 @@ export type RuntimeConfig = {
   pushEndpoint?: string
   // True when the app was opened from RSL Helper via ?simple param — activates streamlined UI.
   simple?: boolean
-  // RSL Helper's stable per-game-account id (?account=account-d). Opaque string — never
-  // parsed. Used once at startup to resolve/bind/create the matching SFC account (lib/accounts.ts).
-  accountId?: string
-  // Optional human-readable account label (?accountName=…). Decorative only: it names a
-  // freshly auto-created account and refreshes a non-customized display name — never a lookup key.
-  accountName?: string
+  // The game's Player ID for the account (?playerid=um12345678), as passed by RSL Helper.
+  // Opaque string — never parsed. Used once at startup to resolve/bind/create the
+  // matching SFC account (lib/accounts.ts).
+  playerId?: string
+  // Optional human-readable account name (?playerName=…). Decorative only: it names a freshly
+  // auto-created account and refreshes a non-customized name — never a lookup key.
+  playerName?: string
   // Dev-only: true when ?capturePackets is present. Streams raw inbound endpoint
   // packets to the dev server so they can be saved as sampleLog fixtures. Always
   // false in production builds — the flag is gated on import.meta.env.DEV.
@@ -99,6 +100,25 @@ function readStringParam(name: string): string | undefined {
   return undefined
 }
 
+// sessionStorage marker keeping simple mode alive across same-tab reloads once the
+// ?simple param has been stripped from the address bar. SESSION-scoped on purpose: a
+// fresh launch (new WebView/tab) must again be told by RSL Helper's URL, while F5 and
+// the account-switch reload stay in simple mode. This is the app's only sessionStorage
+// use — localStorage would wrongly leak simple mode into later normal launches.
+export const SIMPLE_MODE_SESSION_KEY = 'sellfileCreator.simple.session.v1'
+
+// Stash the session marker; returns true only when it verifiably persisted. Callers must
+// NOT strip ?simple from the URL unless this returns true — in storage-less environments
+// (incognito file://) the param stays as the reload carrier instead.
+export function stashSimpleModeForSession(): boolean {
+  try {
+    window.sessionStorage.setItem(SIMPLE_MODE_SESSION_KEY, '1')
+    return window.sessionStorage.getItem(SIMPLE_MODE_SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 function readSimpleMode(): boolean {
   if (typeof window === 'undefined') return false
   try {
@@ -111,6 +131,12 @@ function readSimpleMode(): boolean {
     }
   } catch {
     // ignore
+  }
+  // No URL param: a same-tab reload after the param was stripped rides the session marker.
+  try {
+    if (window.sessionStorage.getItem(SIMPLE_MODE_SESSION_KEY) === '1') return true
+  } catch {
+    // Storage unavailable — then the param was never stripped and absence means "off".
   }
   return false
 }
@@ -169,8 +195,9 @@ function computeRuntimeConfig(): RuntimeConfig {
   const pushEndpoint = readPushEndpoint()
   const simple = readSimpleMode() || undefined
   // Account routing params from RSL Helper (see lib/accounts.ts for the resolution rules).
-  const accountId = readStringParam('account')
-  const accountName = readStringParam('accountName')
+  // `playerid` matches the game's own terminology; `playerName` mirrors the JSON-RPC param.
+  const playerId = readStringParam('playerid')
+  const playerName = readStringParam('playerName')
   // IS_DEV_BUILD resolves to a constant `false` in non-dev builds (see its definition),
   // so this is `false && …` → readCapturePackets() is dead and the packet-capture
   // dev tool (lib/packetCapture.ts) stays out of the release/test bundle. (capturePackets
@@ -180,8 +207,8 @@ function computeRuntimeConfig(): RuntimeConfig {
   return {
     ...(pushEndpoint ? { pushEndpoint } : {}),
     ...(simple ? { simple } : {}),
-    ...(accountId ? { accountId } : {}),
-    ...(accountName ? { accountName } : {}),
+    ...(playerId ? { playerId } : {}),
+    ...(playerName ? { playerName } : {}),
     ...(capturePackets ? { capturePackets } : {}),
     ...(logWasmHeap ? { logWasmHeap } : {}),
   }
@@ -209,15 +236,15 @@ export function getSimpleMode(): boolean {
   return getRuntimeConfig().simple ?? false
 }
 
-// RSL Helper's per-game-account id from ?account= at startup, or undefined when not launched
-// with account routing. Consumed exactly once by the account resolution in lib/accounts.ts.
-export function getAccountIdParam(): string | undefined {
-  return getRuntimeConfig().accountId
+// The game's Player ID from ?playerid= at startup, or undefined when not launched with
+// account routing. Consumed exactly once by the account resolution in lib/accounts.ts.
+export function getPlayerIdParam(): string | undefined {
+  return getRuntimeConfig().playerId
 }
 
-// Optional display label from ?accountName= at startup (decorative companion to ?account=).
-export function getAccountNameParam(): string | undefined {
-  return getRuntimeConfig().accountName
+// Optional account name from ?playerName= at startup (companion to ?playerid=).
+export function getPlayerNameParam(): string | undefined {
+  return getRuntimeConfig().playerName
 }
 
 // Dev-only: true when ?capturePackets was present at startup AND this is a dev build.

@@ -8,7 +8,6 @@ import type {
   RuleCachePipelineResponse,
 } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
-import { getCaptureSessionId } from '../lib/packetCapture'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type {
@@ -22,7 +21,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
-import { ensureWasmRuleEngineReady, getCompiledWasmRuleEngineModule } from '../lib/wasm/wasmRuleEngine'
+import { postRuleCacheWasmInit } from '../lib/headlessRuleCachePipeline'
 import { getLogWasmHeap } from '../lib/runtimeConfig'
 import { ALLOW_TEST_HOOKS } from '../lib/testHooks'
 import { pauseAllDsimWorkers, signalPipelineDone } from '../lib/wasmWorkerSlot'
@@ -425,18 +424,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       attachWorkerListeners(worker)
       workerRef.current = worker
       // Send the compiled WASM module immediately so the worker can call initSync
-      // instead of fetching+compiling its own copy of the WASM bytes. This keeps the
-      // ~1.6 MB binary in the main bundle only; the worker IIFE contains no WASM data.
-      // ensureWasmRuleEngineReady() resolves immediately after app-startup warmup.
-      void ensureWasmRuleEngineReady().then(() => {
-        const mod = getCompiledWasmRuleEngineModule()
-        if (mod) {
-          // Dev-only: hand the worker the active capture session id so its console output
-          // (worker-context [detect-io]/[detect-keys]) tees into the same capture folder.
-          const captureSessionId = import.meta.env.DEV ? getCaptureSessionId() : null
-          worker.postMessage({ kind: 'init-wasm', wasmModule: mod, captureSessionId } satisfies RuleCacheWorkerRequest)
-        }
-      })
+      // instead of fetching+compiling its own copy of the WASM bytes (keeps the ~1.6 MB
+      // binary in the main bundle only). The handshake itself is the shared SSOT in
+      // lib/headlessRuleCachePipeline; a missing module is swallowed here to preserve
+      // this hook's historical "skip init, fail at call time" behavior.
+      void postRuleCacheWasmInit(worker).catch(() => {})
     }
     const replaceWorkerAfterRuntimeError = () => {
       // Runtime faults are recoverable by replacing the worker instance.

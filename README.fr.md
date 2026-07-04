@@ -300,6 +300,18 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 - Utilisez « Enregistrer des recettes » et « Charger des recettes » pour sauvegarder votre travail.
 - Nom par défaut du fichier exporté : `Sellfile_AAAA MM JJ_HHMM.hsf`.
 
+### Comptes
+
+Sellfile Creator peut conserver des documents séparés (recettes, protections, note, équipement) pour plusieurs comptes de jeu. Le sélecteur de comptes se trouve dans la barre supérieure (et dans la boîte de dialogue de la vue simple) : cliquez pour changer de compte ou en créer, et utilisez l’icône d’engrenage à côté d’un compte pour ouvrir le gestionnaire de comptes. Vous pouvez y renommer un compte, choisir sa couleur d’accent, saisir l’identifiant de compte RSL Helper auquel il appartient, activer ou désactiver l’envoi automatique par compte, marquer un compte comme destination par défaut des données arrivant sans identifiant, décider si les données d’équipement reçues sont enregistrées sur cet appareil, et supprimer un compte avec toutes ses données. Maintenez Maj en choisissant un compte dans le sélecteur pour fusionner le document actuel dans ce compte.
+
+**Comment se passe la transition :**
+
+- Après la mise à jour, toutes vos données existantes vivent simplement dans un compte nommé « Default » — rien ne change pour vous.
+- La prise en charge des comptes est déployée par étapes, en coordination avec RSL Helper ; certaines parties ne sont donc pas encore pleinement actives.
+- Pour l’instant, RSL Helper n’indique pas encore à Sellfile Creator quel compte de jeu il envoie. Ces données vont à votre compte actif — ou au compte que vous avez marqué comme « compte par défaut pour les données sans identifiant » dans le gestionnaire.
+- Dès que RSL Helper transmettra l’identifiant de compte au lancement de Sellfile Creator, votre compte « Default » existant sera automatiquement lié à cet identifiant — vos données suivent tout simplement. Un second compte de jeu recevra alors son propre compte Sellfile Creator, vierge.
+- Dès que RSL Helper étiquettera aussi ses paquets de données avec l’identifiant de compte, tout sera routé automatiquement : les données d’un autre compte ne se mélangent jamais à celui sur lequel vous travaillez, et si cet autre compte a l’envoi automatique activé, son sellfile est reconstruit et renvoyé en arrière-plan.
+
 ## Exemples
 
 Les exemples supposent des objectifs de sous-stats 6★ par unité de jet : SPD=5, TRC=5, DCC=5.

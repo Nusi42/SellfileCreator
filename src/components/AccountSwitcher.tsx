@@ -9,12 +9,15 @@
  * registry, then reloads — one document per session, see lib/accounts.ts). Shift+click
  * offers the merge flow: the current document is staged as a one-shot carry and offered
  * to the target session through the existing shift-import options dialog, so merging
- * reuses the regular selective-import logic instead of forking it.
+ * reuses the regular selective-import logic instead of forking it. Each row's gear icon
+ * opens the manager for THAT account (no switch needed) — rename, accent, the RSL Helper
+ * id binding, per-account auto-push, the unstamped-data default flag, and deletion.
  */
 import React, { useState } from 'react'
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  Divider, ListItemIcon, ListItemText, Menu, MenuItem, TextField, Typography,
+  Divider, FormControlLabel, IconButton, ListItemIcon, ListItemText, Menu, MenuItem,
+  Switch, TextField, Typography,
 } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import AddIcon from '@mui/icons-material/Add'
@@ -29,10 +32,16 @@ import {
   deleteAccount,
   renameAccount,
   setAccountAccent,
+  setUnstampedDefaultAccount,
   stageAccountMergeCarry,
   switchAccount,
   type SfcAccount,
 } from '../lib/accounts'
+import {
+  getSellfileAutoPushForAccount,
+  setSellfileAutoPushForAccount,
+} from '../state/exportPreferences'
+import { usePersistEndpointGearPreference } from '../state/gearDbPreferences'
 
 export type AccountSwitcherProps = {
   // Serializes the current document with the regular .sfc writer; staged as the
@@ -61,6 +70,8 @@ function AccentDot({ color, size = 10 }: { color: string | undefined; size?: num
 export default function AccountSwitcher({ getMergeSfcText, compact = false }: AccountSwitcherProps) {
   const { t } = useI18n()
   const { accounts, activeAccount } = useAccounts()
+  // GLOBAL perf/sanity toggle surfaced in the manager (see state/gearDbPreferences.ts).
+  const [persistEndpointGear, setPersistEndpointGear] = usePersistEndpointGearPreference()
 
   // Menu anchor kept in state (not a ref) so the Menu gets a stable render-time value.
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
@@ -72,15 +83,31 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
   // Create-account dialog state; the draft feeds createAccount on confirm.
   const [createOpen, setCreateOpen] = useState(false)
   const [createDraft, setCreateDraft] = useState('')
-  // Manage dialog (rename / accent / unbind / delete) always targets the ACTIVE account —
-  // switch first to manage another one; keeps the dialog free of cross-account foot-guns.
-  const [manageOpen, setManageOpen] = useState(false)
+  // Manager dialog: targets ANY account (row gear icon). Only the id is stored — the
+  // live registry entry is re-derived each render so registry updates reflect instantly.
+  const [manageTargetId, setManageTargetId] = useState<string | null>(null)
+  const managedAccount = manageTargetId !== null
+    ? accounts.find((a) => a.id === manageTargetId) ?? null
+    : null
   const [renameDraft, setRenameDraft] = useState('')
-  // Two-step delete confirmation lives inside the manage dialog.
+  const [helperIdDraft, setHelperIdDraft] = useState('')
+  // Auto-push is a raw scoped key (not registry state) — mirror it in local state.
+  const [autoPushDraft, setAutoPushDraft] = useState(false)
+  // Two-step delete confirmation lives inside the manager dialog.
   const [deleteArmed, setDeleteArmed] = useState(false)
 
   // Full reload after any active-account change: one document per session (see lib/accounts.ts).
   const reload = () => { window.location.reload() }
+
+  // Seed the manager drafts for the picked account and open the dialog.
+  const openManager = (account: SfcAccount) => {
+    closeMenu()
+    setManageTargetId(account.id)
+    setRenameDraft(account.displayName)
+    setHelperIdDraft(account.helperAccountId ?? '')
+    setAutoPushDraft(getSellfileAutoPushForAccount(account.id))
+    setDeleteArmed(false)
+  }
 
   // Plain click switches; shift+click opens the merge confirmation instead.
   const handlePickAccount = (event: React.MouseEvent, account: SfcAccount) => {
@@ -114,11 +141,20 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     reload()
   }
 
+  // Apply the helper-id field: trimmed value binds (releasing it from any other
+  // account), empty unbinds. The id is treated as an opaque string, never parsed.
+  const applyHelperIdDraft = () => {
+    if (!managedAccount) return
+    const trimmed = helperIdDraft.trim()
+    if ((managedAccount.helperAccountId ?? '') === trimmed) return
+    bindHelperAccount(managedAccount.id, trimmed || undefined)
+  }
+
   const handleDelete = () => {
-    // deleteAccount reports whether the ACTIVE account changed (it always does here,
-    // since the manage dialog only ever targets the active account) → reload.
-    const needsReload = deleteAccount(activeAccount.id)
-    setManageOpen(false)
+    if (!managedAccount) return
+    // deleteAccount reports whether the ACTIVE account changed → then a reload is due.
+    const needsReload = deleteAccount(managedAccount.id)
+    setManageTargetId(null)
     if (needsReload) reload()
   }
 
@@ -159,16 +195,21 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
               slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
             />
             {account.id === activeAccount.id && <CheckIcon fontSize="small" sx={{ ml: 1 }} />}
+            {/* Manage THIS account without switching to it (rename, id, auto-push, …). */}
+            <IconButton
+              size="small"
+              aria-label={t('accountMenuManage')}
+              sx={{ ml: 1 }}
+              onClick={(e) => { e.stopPropagation(); openManager(account) }}
+            >
+              <SettingsOutlinedIcon fontSize="small" />
+            </IconButton>
           </MenuItem>
         ))}
         <Divider />
         <MenuItem onClick={() => { closeMenu(); setCreateDraft(''); setCreateOpen(true) }}>
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary={t('accountMenuNew')} />
-        </MenuItem>
-        <MenuItem onClick={() => { closeMenu(); setRenameDraft(activeAccount.displayName); setDeleteArmed(false); setManageOpen(true) }}>
-          <ListItemIcon><SettingsOutlinedIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary={t('accountMenuManage')} />
         </MenuItem>
         {/* Advertise the shift-merge affordance where the user is already looking. */}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
@@ -210,64 +251,121 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
         </DialogActions>
       </Dialog>
 
-      {/* Manage the ACTIVE account: rename, accent, unbind, delete. */}
-      <Dialog open={manageOpen} onClose={() => setManageOpen(false)}>
+      {/* Manage ANY account: rename, accent, helper-id binding, per-account auto-push,
+          the unstamped-data default flag, the global gear-persistence toggle, delete. */}
+      <Dialog open={managedAccount !== null} onClose={() => setManageTargetId(null)}>
         <DialogTitle>{t('accountManageTitle')}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus fullWidth size="small" variant="outlined" sx={{ mt: 1 }}
-            label={t('accountManageRenameLabel')}
-            value={renameDraft}
-            onChange={(e) => setRenameDraft(e.target.value)}
-            // Rename applies on blur/Enter — registry metadata only, no reload needed.
-            onBlur={() => renameAccount(activeAccount.id, renameDraft)}
-            onKeyDown={(e) => { if (e.key === 'Enter') renameAccount(activeAccount.id, renameDraft) }}
-          />
-          {/* Accent palette — fixed swatch row; the accent is an at-a-glance account marker. */}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-            {t('accountManageAccentLabel')}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-            {ACCOUNT_ACCENT_PALETTE.map((color) => (
-              <Box
-                key={color}
-                onClick={() => setAccountAccent(activeAccount.id, color)}
-                sx={{
-                  width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', bgcolor: color,
-                  // Selected swatch gets a visible ring; others a hairline.
-                  border: '2px solid',
-                  borderColor: activeAccount.accentColor === color ? 'text.primary' : 'divider',
-                }}
-              />
-            ))}
-          </Box>
-          {activeAccount.helperAccountId && (
-            // Unbind releases the RSL Helper id without touching any stored data.
-            <Button size="small" sx={{ mt: 2, textTransform: 'none' }}
-              onClick={() => bindHelperAccount(activeAccount.id, undefined)}>
-              {t('accountManageUnbind', { id: activeAccount.helperAccountId })}
-            </Button>
-          )}
-          <Divider sx={{ my: 2 }} />
-          {deleteArmed ? (
-            <>
-              <DialogContentText sx={{ mb: 1 }}>
-                {t('accountManageDeleteConfirm', { name: activeAccount.displayName })}
-              </DialogContentText>
-              <Button color="error" variant="contained" size="small" onClick={handleDelete}>
-                {t('accountManageDeleteConfirmButton')}
+        {managedAccount && (
+          <DialogContent>
+            <TextField
+              autoFocus fullWidth size="small" variant="outlined" sx={{ mt: 1 }}
+              label={t('accountManageRenameLabel')}
+              // The name IS the in-game player name: it routes name-identified data and
+              // helper-sent names overwrite it (in-game renames propagate automatically).
+              helperText={t('accountManageRenameHelper')}
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              // Rename applies on blur/Enter — registry metadata only, no reload needed.
+              onBlur={() => renameAccount(managedAccount.id, renameDraft)}
+              onKeyDown={(e) => { if (e.key === 'Enter') renameAccount(managedAccount.id, renameDraft) }}
+            />
+            {/* RSL Helper id binding — editable so accounts can be (re)bound by hand,
+                e.g. before RSL Helper itself passes the id. Empty unbinds. */}
+            <TextField
+              fullWidth size="small" variant="outlined" sx={{ mt: 2 }}
+              label={t('accountManageHelperIdLabel')}
+              helperText={t('accountManageHelperIdHelper')}
+              value={helperIdDraft}
+              onChange={(e) => setHelperIdDraft(e.target.value)}
+              onBlur={applyHelperIdDraft}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyHelperIdDraft() }}
+            />
+            {/* Per-account auto-push: the account's own contract with RSL Helper —
+                also honored by the BACKGROUND push when this account is not active. */}
+            <FormControlLabel
+              sx={{ mt: 1.5, display: 'flex' }}
+              control={(
+                <Switch
+                  size="small"
+                  checked={autoPushDraft}
+                  onChange={(e) => {
+                    setAutoPushDraft(e.target.checked)
+                    setSellfileAutoPushForAccount(managedAccount.id, e.target.checked)
+                  }}
+                />
+              )}
+              label={t('accountManageAutoPush')}
+            />
+            {/* Unstamped-data default: radio semantics — flagging here unflags others. */}
+            <FormControlLabel
+              sx={{ display: 'flex' }}
+              control={(
+                <Switch
+                  size="small"
+                  checked={managedAccount.unstampedDefault === true}
+                  onChange={(e) => setUnstampedDefaultAccount(e.target.checked ? managedAccount.id : null)}
+                />
+              )}
+              label={t('accountManageUnstampedDefault')}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+              {t('accountManageUnstampedDefaultHint')}
+            </Typography>
+            {/* Accent palette — fixed swatch row; the accent is an at-a-glance account marker. */}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+              {t('accountManageAccentLabel')}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+              {ACCOUNT_ACCENT_PALETTE.map((color) => (
+                <Box
+                  key={color}
+                  onClick={() => setAccountAccent(managedAccount.id, color)}
+                  sx={{
+                    width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', bgcolor: color,
+                    // Selected swatch gets a visible ring; others a hairline.
+                    border: '2px solid',
+                    borderColor: managedAccount.accentColor === color ? 'text.primary' : 'divider',
+                  }}
+                />
+              ))}
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            {/* GLOBAL toggle (all accounts): keep real gear data out of localStorage. */}
+            <FormControlLabel
+              sx={{ display: 'flex' }}
+              control={(
+                <Switch
+                  size="small"
+                  checked={persistEndpointGear}
+                  onChange={(e) => setPersistEndpointGear(e.target.checked)}
+                />
+              )}
+              label={t('accountManagePersistGear')}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+              {t('accountManagePersistGearHint')}
+            </Typography>
+            <Divider sx={{ my: 2 }} />
+            {deleteArmed ? (
+              <>
+                <DialogContentText sx={{ mb: 1 }}>
+                  {t('accountManageDeleteConfirm', { name: managedAccount.displayName })}
+                </DialogContentText>
+                <Button color="error" variant="contained" size="small" onClick={handleDelete}>
+                  {t('accountManageDeleteConfirmButton')}
+                </Button>
+              </>
+            ) : (
+              // Deleting the last account is refused by deleteAccount; disable the entry point too.
+              <Button color="error" size="small" disabled={accounts.length <= 1}
+                onClick={() => setDeleteArmed(true)}>
+                {t('accountManageDelete')}
               </Button>
-            </>
-          ) : (
-            // Deleting the last account is refused by deleteAccount; disable the entry point too.
-            <Button color="error" size="small" disabled={accounts.length <= 1}
-              onClick={() => setDeleteArmed(true)}>
-              {t('accountManageDelete')}
-            </Button>
-          )}
-        </DialogContent>
+            )}
+          </DialogContent>
+        )}
         <DialogActions>
-          <Button onClick={() => setManageOpen(false)}>{t('close')}</Button>
+          <Button onClick={() => setManageTargetId(null)}>{t('close')}</Button>
         </DialogActions>
       </Dialog>
     </>

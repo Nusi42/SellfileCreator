@@ -293,6 +293,18 @@ Hinweise:
 - Nutze „Rezepte speichern“ und „Rezepte laden“ im Builder-Bereich, um deine Arbeit zu sichern.
 - Der Standardname für Exporte lautet `Sellfile_YYYYMMDD_HHMM.hsf`.
 
+### Konten
+
+Sellfile Creator kann getrennte Dokumente (Rezepte, Safeguards, Notiz, Ausrüstung) für mehrere Spielkonten verwalten. Der Kontoumschalter sitzt in der oberen Leiste (und im Dialog der einfachen Ansicht): Klicken zum Wechseln oder Anlegen von Konten; das Zahnrad neben einem Konto öffnet die Kontoverwaltung. Dort lassen sich Konten umbenennen, die Akzentfarbe wählen, die zugehörige RSL-Helper-Konto-ID eintragen, Auto-Push pro Konto ein- oder ausschalten, ein Konto als Standard für Daten ohne Konto-ID markieren, das Speichern empfangener Ausrüstungsdaten auf diesem Gerät abschalten sowie ein Konto samt aller Daten löschen. Mit gedrückter Shift-Taste beim Auswählen eines Kontos wird das aktuelle Dokument in dieses Konto gemergt.
+
+**So läuft der Übergang ab:**
+
+- Nach dem Update liegen alle vorhandenen Daten einfach in einem Konto namens „Default" — für dich ändert sich nichts.
+- Die Kontenunterstützung wird schrittweise zusammen mit RSL Helper eingeführt; Teile davon sind daher noch nicht voll aktiv.
+- Im Moment teilt RSL Helper dem Sellfile Creator noch nicht mit, welches Spielkonto es sendet. Diese Daten gehen an dein aktives Konto — oder an das Konto, das du in der Verwaltung als „Standard für Daten ohne Konto-ID" markiert hast.
+- Sobald RSL Helper beim Start des Sellfile Creators die Konto-ID übergibt, wird dein bestehendes „Default"-Konto automatisch mit dieser ID verknüpft — deine Daten ziehen einfach mit. Ein zweites Spielkonto bekommt dann ein eigenes, frisches Konto im Sellfile Creator.
+- Sobald RSL Helper auch seine Datenpakete mit der Konto-ID versieht, läuft alles automatisch: Daten eines anderen Kontos mischen sich nie in das Konto, an dem du gerade arbeitest, und hat das andere Konto Auto-Push aktiviert, wird sein Sellfile im Hintergrund neu erstellt und zurückgesendet.
+
 ## Beispiele
 
 Alle Beispiele verwenden 6★-Mindestwerte pro Roll-Einheit: SPD=5, CR%=5, CDMG%=5.
