@@ -9,14 +9,15 @@
  * registry, then reloads — one document per session, see lib/accounts.ts). Shift+click
  * offers the merge flow: the current document is staged as a one-shot carry and offered
  * to the target session through the existing shift-import options dialog, so merging
- * reuses the regular selective-import logic instead of forking it. Each row's gear icon
- * opens the manager for THAT account (no switch needed) — rename, accent, the RSL Helper
- * id binding, per-account auto-push, the unstamped-data default flag, and deletion.
+ * reuses the regular selective-import logic instead of forking it. Each row shows the
+ * account's saved-at/counts summary (preset-menu style) and carries a gear icon opening
+ * the account dialog for THAT account. "New account…" opens the SAME dialog in create
+ * mode (staged fields, "Create & switch"), so both flows share one look and feel.
  */
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  Divider, FormControlLabel, IconButton, ListItemIcon, ListItemText, Menu, MenuItem,
+  Divider, FormControlLabel, IconButton, ListItemIcon, Menu, MenuItem,
   Switch, TextField, Typography,
 } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
@@ -30,6 +31,7 @@ import {
   bindHelperAccount,
   createAccount,
   deleteAccount,
+  pickDefaultAccent,
   renameAccount,
   setAccountAccent,
   setUnstampedDefaultAccount,
@@ -37,6 +39,8 @@ import {
   switchAccount,
   type SfcAccount,
 } from '../lib/accounts'
+import { readAccountListSummary } from '../lib/accountSummaries'
+import { formatLocalDateTime } from '../lib/dateDisplay'
 import {
   getSellfileAutoPushForAccount,
   setSellfileAutoPushForAccount,
@@ -50,6 +54,10 @@ export type AccountSwitcherProps = {
   // Compact variant for the simple-mode Note dialog title bar (smaller button, no border).
   compact?: boolean
 }
+
+// The account dialog serves both flows: 'create' stages values until confirmation,
+// 'manage' edits the identified account live (registry updates re-render instantly).
+type AccountDialogState = { mode: 'create' } | { mode: 'manage'; accountId: string } | null
 
 // Small round accent swatch; the raw user colour is fine as a *background* (it never
 // renders as text, so no contrast adaptation is needed — same as other colour swatches).
@@ -78,35 +86,64 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
   const menuOpen = menuAnchor !== null
   const closeMenu = () => setMenuAnchor(null)
 
+  // Per-account saved-at/counts, computed lazily on each menu open (the SFC summary
+  // needs a full document parse per account — cheap enough at menu-open frequency).
+  const accountSummaries = useMemo(() => {
+    if (!menuOpen) return new Map<string, ReturnType<typeof readAccountListSummary>>()
+    return new Map(accounts.map((account) => [account.id, readAccountListSummary(account.id)]))
+  }, [menuOpen, accounts])
+
+  // Compose the preset-menu-style caption: "saved-at · N recipes · M gear items".
+  const summaryCaption = (accountId: string): string | null => {
+    const summary = accountSummaries.get(accountId)
+    if (!summary) return null
+    const parts = [
+      summary.savedAt ? formatLocalDateTime(summary.savedAt) : null,
+      summary.recipeCount !== null ? t('accountSummaryRecipes', { count: summary.recipeCount }) : null,
+      summary.gearItemCount !== null ? t('accountSummaryGearItems', { count: summary.gearItemCount }) : null,
+    ].filter((part): part is string => Boolean(part))
+    return parts.length > 0 ? parts.join(' · ') : null
+  }
+
   // Pending shift-merge target; non-null renders the confirmation dialog.
   const [mergeTarget, setMergeTarget] = useState<SfcAccount | null>(null)
-  // Create-account dialog state; the draft feeds createAccount on confirm.
-  const [createOpen, setCreateOpen] = useState(false)
-  const [createDraft, setCreateDraft] = useState('')
-  // Manager dialog: targets ANY account (row gear icon). Only the id is stored — the
-  // live registry entry is re-derived each render so registry updates reflect instantly.
-  const [manageTargetId, setManageTargetId] = useState<string | null>(null)
-  const managedAccount = manageTargetId !== null
-    ? accounts.find((a) => a.id === manageTargetId) ?? null
+  // The unified account dialog (create or manage) + its staged/managed field drafts.
+  const [accountDialog, setAccountDialog] = useState<AccountDialogState>(null)
+  const managedAccount = accountDialog?.mode === 'manage'
+    ? accounts.find((a) => a.id === accountDialog.accountId) ?? null
     : null
-  const [renameDraft, setRenameDraft] = useState('')
-  const [helperIdDraft, setHelperIdDraft] = useState('')
-  // Auto-push is a raw scoped key (not registry state) — mirror it in local state.
+  const [nameDraft, setNameDraft] = useState('')
+  const [playerIdDraft, setPlayerIdDraft] = useState('')
+  // Auto-push is a raw scoped key (not registry state) — mirrored in local state.
   const [autoPushDraft, setAutoPushDraft] = useState(false)
-  // Two-step delete confirmation lives inside the manager dialog.
+  // Create-mode-only staged values (manage mode applies these live instead).
+  const [accentDraft, setAccentDraft] = useState<string>(ACCOUNT_ACCENT_PALETTE[0]!)
+  const [unstampedDraft, setUnstampedDraft] = useState(false)
+  // Two-step delete confirmation lives inside the manage dialog.
   const [deleteArmed, setDeleteArmed] = useState(false)
 
   // Full reload after any active-account change: one document per session (see lib/accounts.ts).
   const reload = () => { window.location.reload() }
 
-  // Seed the manager drafts for the picked account and open the dialog.
-  const openManager = (account: SfcAccount) => {
+  // Seed drafts for the picked account and open the dialog in manage mode.
+  const openManage = (account: SfcAccount) => {
     closeMenu()
-    setManageTargetId(account.id)
-    setRenameDraft(account.displayName)
-    setHelperIdDraft(account.helperAccountId ?? '')
+    setNameDraft(account.displayName)
+    setPlayerIdDraft(account.helperAccountId ?? '')
     setAutoPushDraft(getSellfileAutoPushForAccount(account.id))
     setDeleteArmed(false)
+    setAccountDialog({ mode: 'manage', accountId: account.id })
+  }
+
+  // Blank drafts (accent pre-picked like createAccount would) and open in create mode.
+  const openCreate = () => {
+    closeMenu()
+    setNameDraft('')
+    setPlayerIdDraft('')
+    setAutoPushDraft(false)
+    setAccentDraft(pickDefaultAccent(accounts.length))
+    setUnstampedDraft(false)
+    setAccountDialog({ mode: 'create' })
   }
 
   // Plain click switches; shift+click opens the merge confirmation instead.
@@ -133,19 +170,24 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     reload()
   }
 
+  // Create mode confirmation: apply every staged field, then switch into the account.
   const handleCreate = () => {
-    const account = createAccount(createDraft)
-    setCreateOpen(false)
+    const account = createAccount(nameDraft)
+    const trimmedId = playerIdDraft.trim()
+    if (trimmedId) bindHelperAccount(account.id, trimmedId)
+    setAccountAccent(account.id, accentDraft)
+    if (autoPushDraft) setSellfileAutoPushForAccount(account.id, true)
+    if (unstampedDraft) setUnstampedDefaultAccount(account.id)
+    setAccountDialog(null)
     // Creating implies "start working on it" — switch straight into the new account.
     switchAccount(account.id)
     reload()
   }
 
-  // Apply the helper-id field: trimmed value binds (releasing it from any other
-  // account), empty unbinds. The id is treated as an opaque string, never parsed.
-  const applyHelperIdDraft = () => {
+  // Manage mode: the Player ID field applies on blur/Enter; empty unbinds.
+  const applyPlayerIdDraft = () => {
     if (!managedAccount) return
-    const trimmed = helperIdDraft.trim()
+    const trimmed = playerIdDraft.trim()
     if ((managedAccount.helperAccountId ?? '') === trimmed) return
     bindHelperAccount(managedAccount.id, trimmed || undefined)
   }
@@ -154,12 +196,19 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     if (!managedAccount) return
     // deleteAccount reports whether the ACTIVE account changed → then a reload is due.
     const needsReload = deleteAccount(managedAccount.id)
-    setManageTargetId(null)
+    setAccountDialog(null)
     if (needsReload) reload()
   }
 
   // Bold state line + interaction help, mirroring the connect button's tooltip format.
   const tooltipMd = `**${t('accountSwitcherTooltip', { name: activeAccount.displayName })}**\n\n${t('accountMenuShiftHint')}`
+  const isCreate = accountDialog?.mode === 'create'
+  // The dialog renders for create mode OR a still-existing managed account.
+  const dialogOpen = accountDialog !== null && (isCreate || managedAccount !== null)
+  // Accent shown in the dialog: staged value in create mode, live registry value in manage.
+  const dialogAccent = isCreate ? accentDraft : managedAccount?.accentColor
+  // Caption style shared with the preset menus (see PreviewHeaderActions rows).
+  const captionSx = { lineHeight: 1.3, color: 'text.secondary', opacity: 0.78 } as const
 
   return (
     <>
@@ -188,28 +237,36 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
             onClick={(e) => handlePickAccount(e, account)}
           >
             <ListItemIcon><AccentDot color={account.accentColor} size={12} /></ListItemIcon>
-            <ListItemText
-              primary={account.displayName}
-              // Bound accounts show the helper id so multi-account users can tell twins apart.
-              secondary={account.helperAccountId ? t('accountBoundCaption', { id: account.helperAccountId }) : undefined}
-              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
-            />
+            {/* Preset-menu row layout: name line + caption lines (Player ID, summary). */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <Typography variant="body2" noWrap>{account.displayName}</Typography>
+              {account.helperAccountId ? (
+                <Typography variant="caption" noWrap sx={captionSx}>
+                  {t('accountBoundCaption', { id: account.helperAccountId })}
+                </Typography>
+              ) : null}
+              {summaryCaption(account.id) ? (
+                <Typography variant="caption" noWrap sx={captionSx}>
+                  {summaryCaption(account.id)}
+                </Typography>
+              ) : null}
+            </Box>
             {account.id === activeAccount.id && <CheckIcon fontSize="small" sx={{ ml: 1 }} />}
-            {/* Manage THIS account without switching to it (rename, id, auto-push, …). */}
+            {/* Manage THIS account without switching to it (name, id, auto-push, …). */}
             <IconButton
               size="small"
               aria-label={t('accountMenuManage')}
               sx={{ ml: 1 }}
-              onClick={(e) => { e.stopPropagation(); openManager(account) }}
+              onClick={(e) => { e.stopPropagation(); openManage(account) }}
             >
               <SettingsOutlinedIcon fontSize="small" />
             </IconButton>
           </MenuItem>
         ))}
         <Divider />
-        <MenuItem onClick={() => { closeMenu(); setCreateDraft(''); setCreateOpen(true) }}>
+        <MenuItem onClick={openCreate}>
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary={t('accountMenuNew')} />
+          {t('accountMenuNew')}
         </MenuItem>
         {/* Advertise the shift-merge affordance where the user is already looking. */}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
@@ -231,141 +288,141 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
         </DialogActions>
       </Dialog>
 
-      {/* Create account — name only; accent is auto-assigned and editable via Manage. */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)}>
-        <DialogTitle>{t('accountCreateTitle')}</DialogTitle>
+      {/* The unified account dialog: identical layout for create (staged) and manage (live). */}
+      <Dialog open={dialogOpen} onClose={() => setAccountDialog(null)}>
+        <DialogTitle>{isCreate ? t('accountCreateTitle') : t('accountManageTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus fullWidth size="small" variant="outlined" sx={{ mt: 1 }}
-            label={t('accountCreateNameLabel')}
-            value={createDraft}
-            onChange={(e) => setCreateDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && createDraft.trim()) handleCreate() }}
+            label={isCreate ? t('accountCreateNameLabel') : t('accountManageRenameLabel')}
+            // The name IS the in-game player name: it routes name-identified data and
+            // helper-sent names overwrite it (in-game renames propagate automatically).
+            helperText={t('accountManageRenameHelper')}
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            // Manage mode applies live on blur/Enter; create mode stages until confirm.
+            {...(managedAccount ? {
+              onBlur: () => renameAccount(managedAccount.id, nameDraft),
+              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') renameAccount(managedAccount.id, nameDraft) },
+            } : {})}
           />
+          {/* Player ID binding — editable so accounts can be (re)bound by hand,
+              e.g. before RSL Helper itself passes the id. Empty unbinds. */}
+          <TextField
+            fullWidth size="small" variant="outlined" sx={{ mt: 2 }}
+            label={t('accountManageHelperIdLabel')}
+            helperText={t('accountManageHelperIdHelper')}
+            value={playerIdDraft}
+            onChange={(e) => setPlayerIdDraft(e.target.value)}
+            {...(managedAccount ? {
+              onBlur: applyPlayerIdDraft,
+              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') applyPlayerIdDraft() },
+            } : {})}
+          />
+          {/* Per-account auto-push: the account's own contract with RSL Helper —
+              also honored by the BACKGROUND push when this account is not active. */}
+          <FormControlLabel
+            sx={{ mt: 1.5, display: 'flex' }}
+            control={(
+              <Switch
+                size="small"
+                checked={autoPushDraft}
+                onChange={(e) => {
+                  setAutoPushDraft(e.target.checked)
+                  if (managedAccount) setSellfileAutoPushForAccount(managedAccount.id, e.target.checked)
+                }}
+              />
+            )}
+            label={t('accountManageAutoPush')}
+          />
+          {/* Unstamped-data default: radio semantics — flagging here unflags others. */}
+          <FormControlLabel
+            sx={{ display: 'flex' }}
+            control={(
+              <Switch
+                size="small"
+                checked={isCreate ? unstampedDraft : managedAccount?.unstampedDefault === true}
+                onChange={(e) => {
+                  if (isCreate) setUnstampedDraft(e.target.checked)
+                  else if (managedAccount) setUnstampedDefaultAccount(e.target.checked ? managedAccount.id : null)
+                }}
+              />
+            )}
+            label={t('accountManageUnstampedDefault')}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+            {t('accountManageUnstampedDefaultHint')}
+          </Typography>
+          {/* Accent palette — fixed swatch row; the accent is an at-a-glance account marker. */}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            {t('accountManageAccentLabel')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+            {ACCOUNT_ACCENT_PALETTE.map((color) => (
+              <Box
+                key={color}
+                onClick={() => {
+                  if (isCreate) setAccentDraft(color)
+                  else if (managedAccount) setAccountAccent(managedAccount.id, color)
+                }}
+                sx={{
+                  width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', bgcolor: color,
+                  // Selected swatch gets a visible ring; others a hairline.
+                  border: '2px solid',
+                  borderColor: dialogAccent === color ? 'text.primary' : 'divider',
+                }}
+              />
+            ))}
+          </Box>
+          {managedAccount && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              {/* GLOBAL toggle (all accounts): keep real gear data out of localStorage. */}
+              <FormControlLabel
+                sx={{ display: 'flex' }}
+                control={(
+                  <Switch
+                    size="small"
+                    checked={persistEndpointGear}
+                    onChange={(e) => setPersistEndpointGear(e.target.checked)}
+                  />
+                )}
+                label={t('accountManagePersistGear')}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+                {t('accountManagePersistGearHint')}
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              {deleteArmed ? (
+                <>
+                  <DialogContentText sx={{ mb: 1 }}>
+                    {t('accountManageDeleteConfirm', { name: managedAccount.displayName })}
+                  </DialogContentText>
+                  <Button color="error" variant="contained" size="small" onClick={handleDelete}>
+                    {t('accountManageDeleteConfirmButton')}
+                  </Button>
+                </>
+              ) : (
+                // Deleting the last account is refused by deleteAccount; disable the entry point too.
+                <Button color="error" size="small" disabled={accounts.length <= 1}
+                  onClick={() => setDeleteArmed(true)}>
+                  {t('accountManageDelete')}
+                </Button>
+              )}
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>{t('cancel')}</Button>
-          <Button variant="contained" disabled={!createDraft.trim()} onClick={handleCreate}>
-            {t('accountCreateConfirm')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Manage ANY account: rename, accent, helper-id binding, per-account auto-push,
-          the unstamped-data default flag, the global gear-persistence toggle, delete. */}
-      <Dialog open={managedAccount !== null} onClose={() => setManageTargetId(null)}>
-        <DialogTitle>{t('accountManageTitle')}</DialogTitle>
-        {managedAccount && (
-          <DialogContent>
-            <TextField
-              autoFocus fullWidth size="small" variant="outlined" sx={{ mt: 1 }}
-              label={t('accountManageRenameLabel')}
-              // The name IS the in-game player name: it routes name-identified data and
-              // helper-sent names overwrite it (in-game renames propagate automatically).
-              helperText={t('accountManageRenameHelper')}
-              value={renameDraft}
-              onChange={(e) => setRenameDraft(e.target.value)}
-              // Rename applies on blur/Enter — registry metadata only, no reload needed.
-              onBlur={() => renameAccount(managedAccount.id, renameDraft)}
-              onKeyDown={(e) => { if (e.key === 'Enter') renameAccount(managedAccount.id, renameDraft) }}
-            />
-            {/* RSL Helper id binding — editable so accounts can be (re)bound by hand,
-                e.g. before RSL Helper itself passes the id. Empty unbinds. */}
-            <TextField
-              fullWidth size="small" variant="outlined" sx={{ mt: 2 }}
-              label={t('accountManageHelperIdLabel')}
-              helperText={t('accountManageHelperIdHelper')}
-              value={helperIdDraft}
-              onChange={(e) => setHelperIdDraft(e.target.value)}
-              onBlur={applyHelperIdDraft}
-              onKeyDown={(e) => { if (e.key === 'Enter') applyHelperIdDraft() }}
-            />
-            {/* Per-account auto-push: the account's own contract with RSL Helper —
-                also honored by the BACKGROUND push when this account is not active. */}
-            <FormControlLabel
-              sx={{ mt: 1.5, display: 'flex' }}
-              control={(
-                <Switch
-                  size="small"
-                  checked={autoPushDraft}
-                  onChange={(e) => {
-                    setAutoPushDraft(e.target.checked)
-                    setSellfileAutoPushForAccount(managedAccount.id, e.target.checked)
-                  }}
-                />
-              )}
-              label={t('accountManageAutoPush')}
-            />
-            {/* Unstamped-data default: radio semantics — flagging here unflags others. */}
-            <FormControlLabel
-              sx={{ display: 'flex' }}
-              control={(
-                <Switch
-                  size="small"
-                  checked={managedAccount.unstampedDefault === true}
-                  onChange={(e) => setUnstampedDefaultAccount(e.target.checked ? managedAccount.id : null)}
-                />
-              )}
-              label={t('accountManageUnstampedDefault')}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
-              {t('accountManageUnstampedDefaultHint')}
-            </Typography>
-            {/* Accent palette — fixed swatch row; the accent is an at-a-glance account marker. */}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-              {t('accountManageAccentLabel')}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-              {ACCOUNT_ACCENT_PALETTE.map((color) => (
-                <Box
-                  key={color}
-                  onClick={() => setAccountAccent(managedAccount.id, color)}
-                  sx={{
-                    width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', bgcolor: color,
-                    // Selected swatch gets a visible ring; others a hairline.
-                    border: '2px solid',
-                    borderColor: managedAccount.accentColor === color ? 'text.primary' : 'divider',
-                  }}
-                />
-              ))}
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            {/* GLOBAL toggle (all accounts): keep real gear data out of localStorage. */}
-            <FormControlLabel
-              sx={{ display: 'flex' }}
-              control={(
-                <Switch
-                  size="small"
-                  checked={persistEndpointGear}
-                  onChange={(e) => setPersistEndpointGear(e.target.checked)}
-                />
-              )}
-              label={t('accountManagePersistGear')}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
-              {t('accountManagePersistGearHint')}
-            </Typography>
-            <Divider sx={{ my: 2 }} />
-            {deleteArmed ? (
-              <>
-                <DialogContentText sx={{ mb: 1 }}>
-                  {t('accountManageDeleteConfirm', { name: managedAccount.displayName })}
-                </DialogContentText>
-                <Button color="error" variant="contained" size="small" onClick={handleDelete}>
-                  {t('accountManageDeleteConfirmButton')}
-                </Button>
-              </>
-            ) : (
-              // Deleting the last account is refused by deleteAccount; disable the entry point too.
-              <Button color="error" size="small" disabled={accounts.length <= 1}
-                onClick={() => setDeleteArmed(true)}>
-                {t('accountManageDelete')}
+          {isCreate ? (
+            <>
+              <Button onClick={() => setAccountDialog(null)}>{t('cancel')}</Button>
+              <Button variant="contained" disabled={!nameDraft.trim()} onClick={handleCreate}>
+                {t('accountCreateConfirm')}
               </Button>
-            )}
-          </DialogContent>
-        )}
-        <DialogActions>
-          <Button onClick={() => setManageTargetId(null)}>{t('close')}</Button>
+            </>
+          ) : (
+            <Button onClick={() => setAccountDialog(null)}>{t('close')}</Button>
+          )}
         </DialogActions>
       </Dialog>
     </>

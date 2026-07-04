@@ -6805,6 +6805,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // bridges the hook-order gap — the service needs sendExternalRequest, which comes from
   // useExternalCommands below, which itself needs handleExternalCommand.
   const backgroundAccountPushRef = useRef<BackgroundAccountPushService | null>(null)
+  // Identities we already toasted an inbound drop for — RSL Helper re-syncs continuously,
+  // so an unroutable identity must complain once per session, not once per packet.
+  const inboundDropToastSeenRef = useRef<Set<string>>(new Set())
   // Capture as a stable primitive so the useCallback dep array stays tight.
   const tutorialOpen = tutorial.tutorialOpen
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
@@ -6834,12 +6837,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // account's sellfile if its auto-push is on); an unknown account drops with a toast.
     const inboundPlayerId = 'playerId' in cmd ? cmd.playerId : undefined
     const inboundPlayerName = 'playerName' in cmd ? cmd.playerName : undefined
+    // Dropped-packet notice: the small corner toast, once per identity per session —
+    // the endpoint re-sends every sync cycle, so per-packet toasting would spam.
+    const toastInboundDrop = (dropKey: string, incoming: string) => {
+      if (inboundDropToastSeenRef.current.has(dropKey)) return
+      inboundDropToastSeenRef.current.add(dropKey)
+      showGearDbCommandToast(
+        t('accountInboundMismatchToast', { incoming, active: getActiveAccount().displayName }),
+        'error',
+      )
+    }
     if (classifyInboundAccountStamp({ playerId: inboundPlayerId, playerName: inboundPlayerName }) === 'mismatch') {
       if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd)) return
-      showToast(
-        t('accountInboundMismatchToast', { incoming: inboundPlayerId ?? inboundPlayerName ?? '', active: getActiveAccount().displayName }),
-        { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> },
-      )
+      toastInboundDrop(`stamp:${inboundPlayerId ?? inboundPlayerName ?? ''}`, inboundPlayerId ?? inboundPlayerName ?? '')
       return
     }
     // UNSTAMPED data with a flagged non-active receiver (account manager's "default for
@@ -6850,10 +6860,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const unstampedTarget = getUnstampedDefaultAccount()
       if (unstampedTarget && unstampedTarget.id !== getActiveAccount().id) {
         if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd, unstampedTarget)) return
-        showToast(
-          t('accountInboundMismatchToast', { incoming: unstampedTarget.displayName, active: getActiveAccount().displayName }),
-          { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> },
-        )
+        toastInboundDrop(`unstamped:${unstampedTarget.id}`, unstampedTarget.displayName)
         return
       }
     }
@@ -6890,7 +6897,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     focusRuleByIndex,
     pauseEndpointUpdates,
     requestSelectionScroll,
-    showToast,
+    showGearDbCommandToast,
     t,
     tutorialOpen,
   ])
@@ -6908,23 +6915,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     requestSfcSyncRef.current = requestSfcSync
   }, [requestSfcSync])
+  // Last background-push outcome kind per account: RSL Helper re-syncs continuously, so
+  // an unchanged outcome (e.g. "auto-push off" every cycle) must not re-toast each time.
+  const backgroundOutcomeKindRef = useRef<Map<string, string>>(new Map())
   // (Re)create the background account-push service whenever its transport changes.
-  // Outcomes surface as toasts so the user knows a non-active account was serviced.
+  // Outcomes surface through the small corner toast (not the centered snackbar) and
+  // only when the outcome CHANGES for that account — except failures, which always show.
   useEffect(() => {
     const service = createBackgroundAccountPushService({
       sendRequest: sendExternalRequest,
       runPipeline: runHeadlessRuleCachePipeline,
       onOutcome: (outcome) => {
         const name = outcome.account.displayName
+        const previousKind = backgroundOutcomeKindRef.current.get(outcome.account.id)
+        backgroundOutcomeKindRef.current.set(outcome.account.id, outcome.kind)
+        if (outcome.kind !== 'failed' && previousKind === outcome.kind) return
         if (outcome.kind === 'pushed') {
-          showToast(t('accountBackgroundPushDone', { name, count: outcome.itemCount }))
+          showGearDbCommandToast(t('accountBackgroundPushDone', { name, count: outcome.itemCount }), 'success')
         } else if (outcome.kind === 'autoPushOff') {
           // Informational: data for a known account arrived but its auto-push is off.
-          showToast(t('accountBackgroundPushAutoPushOff', { name }))
+          showGearDbCommandToast(t('accountBackgroundPushAutoPushOff', { name }), 'success')
         } else if (outcome.kind === 'noDocument') {
-          showToast(t('accountBackgroundPushNoDocument', { name }), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+          showGearDbCommandToast(t('accountBackgroundPushNoDocument', { name }), 'error')
         } else {
-          showToast(t('accountBackgroundPushFailed', { name }), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+          showGearDbCommandToast(t('accountBackgroundPushFailed', { name }), 'error')
         }
       },
     })
@@ -6933,7 +6947,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       service.dispose()
       if (backgroundAccountPushRef.current === service) backgroundAccountPushRef.current = null
     }
-  }, [sendExternalRequest, showToast, t])
+  }, [sendExternalRequest, showGearDbCommandToast, t])
   // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
   // Selection is the source of truth in the app — the endpoint can push a correction
   // event if it needs to override, but we do not revert on a bare error response
