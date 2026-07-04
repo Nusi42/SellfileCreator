@@ -1965,6 +1965,8 @@ const overrides: Catalog = {
   accountSummaryPushedAt: "Gönderildi {date}",
   accountSummaryNeverPushed: "Henüz gönderilmedi",
   accountSummaryPushFailed: "Gönderim başarısız {date}",
+  accountSummaryAutoPushOn: "Otomatik gönder açık",
+  accountSummaryAutoPushOff: "Otomatik gönder kapalı",
   accountCreateTitle: "Yeni hesap",
   accountCreateNameLabel: "Hesap adı",
   accountCreateConfirm: "Oluştur ve geç",

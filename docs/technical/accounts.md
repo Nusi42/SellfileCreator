@@ -83,9 +83,10 @@ write their namespaced key directly with store-parity serialization), the
 (below), and deletion behind a regular confirmation dialog.
 
 Each switcher row shows a summary block (`lib/accountSummaries.ts`, computed lazily on
-menu open), one fact per line: "Saved <date>", "Pushed <date>" (from
-`sellfile.lastPush.v1`), "N recipes · M safeguards · K rules", and the shared
-`GearInspectorOutcomeSummaryChip` (total / sold / kept / safeguarded). Saved (local
+menu open), one fact per line: "Saved <date>", "Pushed <date> · Auto-push on/off" (from
+`sellfile.lastPush.v1` + the account's auto-push flag), "N recipes · M safeguards ·
+K rules", and the shared `GearInspectorOutcomeSummaryChip` (total / sold / kept /
+safeguarded). Saved (local
 autosave) and pushed (what RSL Helper has) are different facts, so the push line is
 always present — "Not pushed yet" when no upload has succeeded — to keep the saved line
 from being misread as push state. Recipe/safeguard counts come from the account's SFC
@@ -94,7 +95,9 @@ autosave parse; the generated-rule count and the gear outcome come from the
 (guarded on gear rows existing so app boot cannot clobber a real snapshot with zeros) —
 for non-active accounts they show the last known state from that account's most recent
 live session. Rows mark the ACTIVE account with a leading right arrow; the accent renders
-as a trailing square swatch.
+as a trailing square swatch. The simple dialog additionally labels its auto-push button
+with the ACTIVE account's "Pushed <date>" (same key; recomputed off the push-signal
+counters since the raw key has no reactive store).
 
 ## Unstamped-data default (`unstampedDefault`)
 
@@ -132,7 +135,7 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `builder.userDefaults.v1`, `safeguardBuilder.userDefaults.v1` | encode the account's gear strategy |
 | `simple.variant.v1` | beginner/lategame tracks account progression |
 | `rulesFilter.state.v3`, `rulesFilter.sync.v1` | filter VALUES applied to the account's document |
-| `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper |
+| `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper; tri-state raw value — '1' / '0' / absent — where "absent" means never configured: express simple mode defaults auto-push ON only then (`hasExplicitSellfileAutoPushForAccount`), so an explicit off survives simple starts and account switches |
 | `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |
 | `sellfile.lastPushError.v1` | ISO timestamp of the last FAILED background push (toast-free feedback: rendered as the switcher row's error line; cleared by the next successful push) |
 | `accountStats.v1` | tiny snapshot of live pipeline RESULTS (generated-rule count + gear total/sold/kept/safeguarded) — written by the live session for its own account, since these are not derivable from autosaves at menu-open cost |

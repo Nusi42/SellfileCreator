@@ -59,6 +59,14 @@ export const useSellfileAutoPushPreference = createLocalStorageStateHook(sellfil
 export const getSellfileAutoPushForAccount = (accountId: string): boolean =>
   parseExportPreferenceRaw(safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)))
 
+/**
+ * Whether the account has EVER configured auto-push ('1'/'0' present vs key absent).
+ * The distinction matters: express simple mode defaults auto-push ON only for accounts
+ * that never chose — an explicit off must survive simple starts and account switches.
+ */
+export const hasExplicitSellfileAutoPushForAccount = (accountId: string): boolean =>
+  safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)) !== null
+
 export const setSellfileAutoPushForAccount = (accountId: string, enabled: boolean): void => {
   const key = resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)
   // The ACTIVE account's key is owned by the live store — route through it so React
@@ -67,9 +75,9 @@ export const setSellfileAutoPushForAccount = (accountId: string, enabled: boolea
     sellfileAutoPushStore.set(enabled)
     return
   }
-  // Other accounts: raw write mirroring the store's serialize + delete-on-default(false).
-  if (enabled) safeSetItem(key, '1')
-  else safeRemoveItem(key)
+  // Other accounts: raw write mirroring the store's serialize ('1'/'0'). Off must WRITE
+  // (not remove) so it counts as an explicit choice — see hasExplicit… above.
+  safeSetItem(key, enabled ? '1' : '0')
 }
 
 /**

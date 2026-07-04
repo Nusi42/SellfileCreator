@@ -1,7 +1,7 @@
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
-import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, GlobalStyles, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, GlobalStyles, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha, keyframes, useColorScheme, useTheme, type Theme } from '@mui/material/styles'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
@@ -10,9 +10,9 @@ import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import SendIcon from '@mui/icons-material/Send'
 import { AUTO_PUSH_BLINK_MS, autoPushBlink } from '../lib/pushFeedbackKeyframes'
+import { formatLocalDateTime } from '../lib/dateDisplay'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { AppTitle } from './AppTitle'
@@ -28,7 +28,7 @@ import { buildRecipeOverridesEbnfText, buildSafeguardOverridesEbnfText } from '.
 import { snapInsertionOffset } from '../lib/overridesDraft'
 import { NoteOverridesEditButton } from './noteOverridesEditor/NoteOverridesEditButton'
 import { NoteOverridesBlockEditorDialog, type NoteOverridesBlockEditorRequest } from './noteOverridesEditor/NoteOverridesBlockEditorDialog'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -4100,6 +4100,7 @@ export default function NoteDialog({
   autoPushExpressEnabled,
   onToggleAutoPushExpress,
   autoPushFlashSeq,
+  autoPushLastPushAt,
   rslHelperConnectEnabled,
   pushEndpointReachable,
   onToggleRslHelperConnect,
@@ -4155,6 +4156,8 @@ export default function NoteDialog({
   onToggleAutoPushExpress?: (enabled: boolean) => void
   // Increments on each successful silent push; drives the blink animation on the button.
   autoPushFlashSeq?: number
+  // ACTIVE account's last successful push (ISO) — labeled beside the auto-push button.
+  autoPushLastPushAt?: string | null
   // Connection state for the RslHelperConnectButton shown in express mode.
   rslHelperConnectEnabled?: boolean
   pushEndpointReachable?: boolean
@@ -4390,9 +4393,9 @@ export default function NoteDialog({
     onEnableOverrides: handleEnableRecipeOverrides,
     onCloseMenu: closeViewRecipeOverridesMenu,
   })
-  // Anchor for the simple-mode (express) save/load override-set menu — opened by the
-  // chevron half of the split Reset button. Kept separate from the view-mode menu so
-  // closing one never tears down the other.
+  // Anchor for the simple-mode (express) overrides menu — opened by the strip's
+  // Dynamic Overrides button (same interaction as the view-mode dialog). Kept separate
+  // from the view-mode menu so closing one never tears down the other.
   const [simpleOverridesPresetMenuAnchor, setSimpleOverridesPresetMenuAnchor] = useState<HTMLElement | null>(null)
   const simpleOverridesPresetMenuOpen = Boolean(simpleOverridesPresetMenuAnchor)
   const openSimpleOverridesPresetMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
@@ -4441,73 +4444,64 @@ export default function NoteDialog({
     viewRecipeOverridesMenuAction,
   ])
   // Full-width action strip for express simple mode.
-  // Layout: [Reset — left] [Connect · AutoPush — center] [Go Expert — right]
+  // Layout: [Overrides menu — left] [Account · Connect · AutoPush — center] [Go Expert — right]
   const simpleActionsNode: React.ReactNode = isSimpleMode ? (
     <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-      {/* Left: Reset to Defaults. When there are override markers to save, it becomes a
-          split control — the main button resets, the attached chevron opens the same
-          save/load override-set menu used in the view/edit dialogs. A long localized
-          reset label truncates within LONG_LABEL_BUTTON_MAX_WIDTH_PX instead of pushing
-          the centre/right groups out of place. */}
-      {/* pr keeps a breathing gap between the chevron and the centre Connect button when
-          the left group's flex:1 stretches its right edge toward the centre. */}
+      {/* Left: the Dynamic Overrides menu button, mirroring the view-mode dialog's control
+          (one button that OPENS the menu — no separate chevron half to discover). Menu:
+          reset, enable (only when overrides were disabled in expert mode — disabling makes
+          no sense in the guided simple flow), save/load override sets. A long localized
+          label truncates within LONG_LABEL_BUTTON_MAX_WIDTH_PX instead of pushing the
+          centre/right groups out of place. */}
+      {/* pr keeps a breathing gap between the button and the centre group when the left
+          group's flex:1 stretches its right edge toward the centre. */}
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', pr: 1.5 }}>
-        <Box
-          sx={{
-            display: 'inline-flex',
-            gap: '1px',
-            minWidth: 0,
-            maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
-          }}
-        >
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={handleResetRecipeOverridesAnswers}
-            sx={{
-              // Allow the button to shrink so the inner span can ellipsize.
-              minWidth: 0,
-              whiteSpace: 'nowrap',
-              ...(hasRecipeOverridesMarkers ? SPLIT_BUTTON_MAIN_SX : {}),
-            }}
-          >
-            {/* Inner span carries the ellipsis so the button's own paddings stay intact. */}
-            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('noteDynamicOverridesResetDefaults')}
-            </Box>
-          </Button>
-          {/* Chevron only appears when there is an override selection worth saving/loading. */}
-          {hasRecipeOverridesMarkers ? (
-            <>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                aria-label={t('noteDynamicOverridesMenu')}
-                aria-haspopup="menu"
-                aria-controls={simpleOverridesPresetMenuOpen ? 'note-recipe-overrides-menu-simple' : undefined}
-                aria-expanded={simpleOverridesPresetMenuOpen ? 'true' : undefined}
-                onClick={openSimpleOverridesPresetMenu}
-                sx={SPLIT_BUTTON_CHEVRON_SX}
+        {hasRecipeOverridesMarkers ? (
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              endIcon={<ExpandMoreIcon fontSize="small" />}
+              onClick={openSimpleOverridesPresetMenu}
+              sx={{ minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, whiteSpace: 'nowrap', px: 1.25 }}
+              aria-haspopup="menu"
+              aria-controls={simpleOverridesPresetMenuOpen ? 'note-recipe-overrides-menu-simple' : undefined}
+              aria-expanded={simpleOverridesPresetMenuOpen ? 'true' : undefined}
+            >
+              {/* Inner span carries the ellipsis so the button's own paddings stay intact. */}
+              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('noteDynamicOverridesMenu')}
+              </Box>
+            </Button>
+            <Menu
+              id="note-recipe-overrides-menu-simple"
+              anchorEl={simpleOverridesPresetMenuAnchor}
+              open={simpleOverridesPresetMenuOpen}
+              onClose={closeSimpleOverridesPresetMenu}
+              slotProps={{ list: { dense: true } }}
+            >
+              {/* Reset needs no confirm dialog — run it directly and close. Red keeps the
+                  destructive signal the standalone reset button used to carry. */}
+              <MenuItem
+                onClick={() => { handleResetRecipeOverridesAnswers(); closeSimpleOverridesPresetMenu() }}
+                sx={{ color: 'error.main' }}
               >
-                <ArrowDropDownIcon fontSize="small" />
-              </Button>
-              <Menu
-                id="note-recipe-overrides-menu-simple"
-                anchorEl={simpleOverridesPresetMenuAnchor}
-                open={simpleOverridesPresetMenuOpen}
-                onClose={closeSimpleOverridesPresetMenu}
-                slotProps={{ list: { dense: true } }}
-              >
-                {/* Express mode exposes only save/load/delete here; reset is the main button. */}
-                <DynamicOverridesPresetMenuItems controller={simpleOverridesPresetController} />
-              </Menu>
-              {/* Dialogs live outside the menu so they survive the menu closing. */}
-              <DynamicOverridesPresetDialogs controller={simpleOverridesPresetController} />
-            </>
-          ) : null}
-        </Box>
+                {t('noteDynamicOverridesResetDefaults')}
+              </MenuItem>
+              {/* Re-enable only: the state is reachable solely by disabling in expert mode
+                  and returning to simple — offering "disable" here would not make sense. */}
+              {noteOverridesDisabled ? (
+                <MenuItem onClick={() => { handleEnableRecipeOverrides(); closeSimpleOverridesPresetMenu() }}>
+                  {t('noteDynamicOverridesEnable')}
+                </MenuItem>
+              ) : null}
+              {/* Save/load/delete the current selection as a reusable override set. */}
+              <DynamicOverridesPresetMenuItems controller={simpleOverridesPresetController} />
+            </Menu>
+            {/* Dialogs live outside the menu so they survive the menu closing. */}
+            <DynamicOverridesPresetDialogs controller={simpleOverridesPresetController} />
+          </>
+        ) : null}
       </Box>
       {/* Center: account switcher + connection notifier + auto-push */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
@@ -4523,30 +4517,35 @@ export default function NoteDialog({
         )}
         {autoPushExpressEnabled !== undefined && (
           <MarkdownTooltip markdown={autoPushExpressEnabled ? t('simpleModeAutoPushOnTooltip') : t('simpleModeAutoPushOffTooltip')}>
-            {/* key change on each push remounts the button so the CSS animation replays. */}
-            <IconButton
+            {/* key change on each push remounts the button so the CSS animation replays.
+                A small Button (not IconButton) so its height matches the strip's other
+                controls exactly; on/off styling mirrors the Connect button's convention. */}
+            <Button
               key={autoPushFlashSeq}
               size="small"
+              variant={autoPushExpressEnabled ? 'contained' : 'outlined'}
+              color={autoPushExpressEnabled ? 'success' : 'primary'}
               onClick={() => onToggleAutoPushExpress?.(!autoPushExpressEnabled)}
               aria-label={t('simpleModeAutoPush')}
-              sx={(theme) => ({
-                borderRadius: 1,
-                border: 1,
-                borderColor: autoPushExpressEnabled ? 'success.main' : 'primary.main',
-                bgcolor: autoPushExpressEnabled ? 'success.main' : 'transparent',
-                color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'primary.main',
-                '&:hover': {
-                  bgcolor: autoPushExpressEnabled ? 'success.dark' : 'primary.main',
-                  borderColor: autoPushExpressEnabled ? 'success.main' : 'primary.main',
-                  color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'primary.contrastText',
-                },
+              sx={{
+                // Icon-only: collapse the label minWidth to a compact square-ish pill.
+                minWidth: 0, px: 1,
                 ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
-              })}
+              }}
             >
               <SendIcon fontSize="small" />
-            </IconButton>
+            </Button>
           </MarkdownTooltip>
         )}
+        {/* Last successful push for the ACTIVE account, only while auto-push is armed —
+            same "Pushed <date>" wording as the account list (shared i18n key).
+            text.secondary (not disabled): this is live data, and the RSLH scheme's
+            disabled shade is too faint to read here. */}
+        {autoPushExpressEnabled && autoPushLastPushAt && formatLocalDateTime(autoPushLastPushAt) ? (
+          <Typography variant="caption" noWrap sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
+            {t('accountSummaryPushedAt', { date: formatLocalDateTime(autoPushLastPushAt)! })}
+          </Typography>
+        ) : null}
       </Box>
       {/* Right: Go Expert */}
       <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>

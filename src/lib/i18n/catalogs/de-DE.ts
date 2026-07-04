@@ -1965,6 +1965,8 @@ const overrides: Catalog = {
   accountSummaryPushedAt: "Gesendet {date}",
   accountSummaryNeverPushed: "Noch nicht gesendet",
   accountSummaryPushFailed: "Senden fehlgeschlagen {date}",
+  accountSummaryAutoPushOn: "Auto-Push an",
+  accountSummaryAutoPushOff: "Auto-Push aus",
   accountCreateTitle: "Neues Konto",
   accountCreateNameLabel: "Kontoname",
   accountCreateConfirm: "Erstellen & wechseln",

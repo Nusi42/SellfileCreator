@@ -1965,6 +1965,8 @@ const overrides: Catalog = {
   accountSummaryPushedAt: "Отправлено {date}",
   accountSummaryNeverPushed: "Ещё не отправлено",
   accountSummaryPushFailed: "Ошибка отправки {date}",
+  accountSummaryAutoPushOn: "Авто-отправка вкл.",
+  accountSummaryAutoPushOff: "Авто-отправка выкл.",
   accountCreateTitle: "Новый аккаунт",
   accountCreateNameLabel: "Название аккаунта",
   accountCreateConfirm: "Создать и переключиться",

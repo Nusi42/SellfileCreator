@@ -1965,6 +1965,8 @@ const enUS: Catalog = {
   accountSummaryPushedAt: "Pushed {date}",
   accountSummaryNeverPushed: "Not pushed yet",
   accountSummaryPushFailed: "Push failed {date}",
+  accountSummaryAutoPushOn: "Auto-push on",
+  accountSummaryAutoPushOff: "Auto-push off",
   accountCreateTitle: "New account",
   accountCreateNameLabel: "Account name",
   accountCreateConfirm: "Create & switch",

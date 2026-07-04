@@ -427,7 +427,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
-import { markSellfileLastPushErrorForAccount, markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
+import { getSellfileLastPushAtForAccount, hasExplicitSellfileAutoPushForAccount, markSellfileLastPushErrorForAccount, markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
@@ -3851,6 +3851,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Increments on every background account-push attempt (success or failure, any account);
   // replays the same pulse on the account switcher button (background work is toast-free).
   const [accountPushFlashSeq, setAccountPushFlashSeq] = useState(0)
+  // Last successful push for the ACTIVE account — the simple dialog labels its auto-push
+  // button with it. The raw scoped key has no reactive store, so the two push-signal
+  // counters double as recompute triggers (each successful push increments one of them).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const activeAccountLastPushAt = useMemo(
+    () => getSellfileLastPushAtForAccount(getActiveAccount().id),
+    [autoPushFlashSeq, accountPushFlashSeq],
+  )
 
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = createRecipesClearedDescriptor(customRecipes.length)
@@ -8175,8 +8183,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!isSimpleViewAtStart || simpleAutoOpenDoneRef.current) return
     simpleAutoOpenDoneRef.current = true
     openNoteViewerRef.current()
-    // Default auto-push to on in express mode if the user has not previously enabled it.
-    if (!autoPushEnabled) setAutoPushEnabled(true)
+    // Default auto-push to on in express mode ONLY when this account never configured it —
+    // auto-push is account-specific and an explicit off must survive simple starts and
+    // account switches (hasExplicit… distinguishes '0' from an absent key).
+    if (!autoPushEnabled && !hasExplicitSellfileAutoPushForAccount(getActiveAccount().id)) {
+      setAutoPushEnabled(true)
+    }
   }, [isSimpleViewAtStart, autoPushEnabled, setAutoPushEnabled])
 
   // When express was requested but expert mode was already on, briefly pulse the Note button
@@ -9826,6 +9838,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           autoPushExpressEnabled={autoPushEnabled}
           onToggleAutoPushExpress={setAutoPushEnabled}
           autoPushFlashSeq={autoPushFlashSeq}
+          autoPushLastPushAt={activeAccountLastPushAt}
           rslHelperConnectEnabled={rslHelperConnectEnabled}
           pushEndpointReachable={pushEndpointReachable}
           onToggleRslHelperConnect={handleToggleRslHelperConnect}

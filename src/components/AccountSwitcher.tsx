@@ -62,7 +62,8 @@ export type AccountSwitcherProps = {
   // Serializes the current document with the regular .sfc writer; staged as the
   // merge carry when the user shift-picks a target account.
   getMergeSfcText: () => string
-  // Compact variant for the simple-mode Note dialog title bar (smaller button, no border).
+  // Compact variant for the simple-mode Note dialog action strip: natural small-button
+  // height so it matches the strip's other outlined controls (header variant is 34px).
   compact?: boolean
   // Increments on every background push attempt (any account) — replays the same pulse
   // the simple-mode send button plays, as the toast-free background-activity signal.
@@ -139,7 +140,11 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     const pushedDate = summary.lastPushAt ? formatLocalDateTime(summary.lastPushAt) : null
     const lines: string[] = []
     if (savedDate) lines.push(t('accountSummarySavedAt', { date: savedDate }))
-    lines.push(pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'))
+    // Push state + the account's auto-push contract share a line (both are push facts).
+    lines.push([
+      pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'),
+      summary.autoPush ? t('accountSummaryAutoPushOn') : t('accountSummaryAutoPushOff'),
+    ].join(' · '))
     const countParts = [
       summary.recipeCount !== null ? t('accountSummaryRecipes', { count: summary.recipeCount }) : null,
       summary.safeguardCount !== null ? t('accountSummarySafeguards', { count: summary.safeguardCount }) : null,
@@ -265,14 +270,16 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           // (same pattern as the simple-mode send button).
           key={flashSeq}
           size="small"
-          variant={compact ? 'text' : 'outlined'}
+          variant="outlined"
           onClick={(e) => setMenuAnchor(e.currentTarget)}
           aria-label={t('accountSwitcherAriaLabel')}
-          // Header variant matches the 34px control row; compact fits the dialog title bar.
+          // Header variant matches the 34px control row; the compact variant (simple-mode
+          // action strip) keeps the natural small-button height so it lines up with its
+          // outlined neighbours (Reset / Connect / Go Expert) instead of reading shorter.
           // The accent FILLS the whole button (hover must restate the fill — the variant's
           // own hover background would wipe it); no accent → default theme button colour.
           sx={{
-            height: compact ? 28 : 34, whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 180,
+            ...(compact ? {} : { height: 34 }), whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 180,
             ...(accent ? {
               bgcolor: accent,
               color: accentLabel,
@@ -358,8 +365,10 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           {t('accountMenuNew')}
         </MenuItem>
         {/* Advertise the shift-merge affordance where the user is already looking —
-            text.disabled matches the app's other purely-informative labels (filter header). */}
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
+            text.disabled matches the app's other purely-informative labels (filter header).
+            The colour must live in sx: the Typography color PROP does not resolve the
+            token here and the text inherits the menu's full-strength foreground. */}
+        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
           {t('accountMenuShiftHint')}
         </Typography>
       </Menu>

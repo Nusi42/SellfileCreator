@@ -22,6 +22,7 @@ import {
   getSellfileAutoPushForAccount,
   getSellfileLastPushAtForAccount,
   getSellfileLastPushErrorAtForAccount,
+  hasExplicitSellfileAutoPushForAccount,
   markSellfileLastPushErrorForAccount,
   markSellfileLastPushForAccount,
   setSellfileAutoPushForAccount,
@@ -243,14 +244,18 @@ test('name-only stamps resolve the target account via its display name', async (
 test('per-account auto-push helpers write the target namespace and round-trip', () => {
   const storage = freshWindow()
   const inactive = seedBoundInactiveAccount('um2')
-  // Off by default; enabling writes the '1' the store's parse accepts.
+  // Off by default, and "off" is indistinguishable from "never configured" until a write.
   assert.equal(getSellfileAutoPushForAccount(inactive.id), false)
+  assert.equal(hasExplicitSellfileAutoPushForAccount(inactive.id), false)
   setSellfileAutoPushForAccount(inactive.id, true)
   assert.equal(storage.getItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)), '1')
   assert.equal(getSellfileAutoPushForAccount(inactive.id), true)
-  // Disabling removes the key (delete-on-default parity with the live store).
+  // Disabling WRITES '0' (store serialize parity): an explicit off must remain an explicit
+  // choice — express simple mode only defaults auto-push ON for never-configured accounts.
   setSellfileAutoPushForAccount(inactive.id, false)
-  assert.equal(storage.getItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)), null)
+  assert.equal(storage.getItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH)), '0')
+  assert.equal(getSellfileAutoPushForAccount(inactive.id), false)
+  assert.equal(hasExplicitSellfileAutoPushForAccount(inactive.id), true)
 })
 
 test('account stats snapshot + list summary round-trip', () => {

@@ -19,7 +19,11 @@ import {
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
   resolveAccountScopedKeyFor,
 } from './accounts'
-import { getSellfileLastPushAtForAccount, getSellfileLastPushErrorAtForAccount } from '../state/exportPreferences'
+import {
+  getSellfileAutoPushForAccount,
+  getSellfileLastPushAtForAccount,
+  getSellfileLastPushErrorAtForAccount,
+} from '../state/exportPreferences'
 import { safeGetItem, safeSetItem } from './safeStorage'
 import type { GearInspectorAutosavePayload } from './gearInspectorSession'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
@@ -75,6 +79,8 @@ export type AccountListSummary = {
   lastPushAt: string | null
   // Last FAILED background push; null once a later push succeeds (see exportPreferences).
   lastPushErrorAt: string | null
+  // The account's own auto-push contract with RSL Helper (honored by the background push).
+  autoPush: boolean
 }
 
 export const readAccountListSummary = (accountId: string): AccountListSummary => {
@@ -98,5 +104,6 @@ export const readAccountListSummary = (accountId: string): AccountListSummary =>
     gearOutcome: stats ? stats.gear : null,
     lastPushAt: getSellfileLastPushAtForAccount(accountId),
     lastPushErrorAt: getSellfileLastPushErrorAtForAccount(accountId),
+    autoPush: getSellfileAutoPushForAccount(accountId),
   }
 }
