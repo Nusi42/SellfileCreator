@@ -14,6 +14,7 @@ import {
   type ExternalWsResponse,
 } from '../lib/externalWsProtocol'
 import { normalizeExternalEvent, type ExternalCommand } from '../lib/externalCommands'
+import { buildAccountRpcParams } from '../lib/accounts'
 import { capturePacket, captureOutboundRequest } from '../lib/packetCapture'
 
 export type UseExternalCommandsOptions = {
@@ -58,8 +59,9 @@ export function useExternalCommands({
   const reconnectTimerRef = useRef<number | null>(null)
   // Flag that stops reconnect loops during unmount.
   const closedRef = useRef(false)
-  // Stash metadata for the next binary DB payload.
-  const pendingBinaryMetaRef = useRef<{ name: string; contentType?: string | null } | null>(null)
+  // Stash metadata for the next binary DB payload (accountId = optional per-packet
+  // game-account stamp, absent from pre-stamping RSL Helper versions).
+  const pendingBinaryMetaRef = useRef<{ name: string; contentType?: string | null; accountId?: string | null } | null>(null)
 
   useEffect(() => {
     // Keep the ref in sync with the latest callback.
@@ -129,8 +131,10 @@ export function useExternalCommands({
         const payload = isRecord(parsed.payload) ? parsed.payload : {}
         const nameValue = typeof payload.name === 'string' ? payload.name : null
         const contentTypeValue = typeof payload.contentType === 'string' ? payload.contentType : null
+        // Optional game-account stamp travels on the metadata notification, not the binary frame.
+        const accountIdValue = typeof payload.accountId === 'string' ? payload.accountId : null
         if (nameValue) {
-          pendingBinaryMetaRef.current = { name: nameValue, contentType: contentTypeValue }
+          pendingBinaryMetaRef.current = { name: nameValue, contentType: contentTypeValue, accountId: accountIdValue }
         }
         return
       }
@@ -198,8 +202,11 @@ export function useExternalCommands({
           // Fire-and-forget: unmatched responses are silently dropped by handleInboundMessage.
           try {
             const id = nextIdRef.current++
-            socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
-            if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, {})
+            // Stamp the active account so a phase-2 RSL Helper can validate/route the sync;
+            // pre-stamping versions ignore the extra params (confirmed harmless).
+            const syncParams = buildAccountRpcParams()
+            socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, syncParams))
+            if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, syncParams)
           } catch {
             // Non-fatal — older RSL Helper versions that do not support requestSfcSync will simply not respond.
             if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on connect')
@@ -258,6 +265,8 @@ export function useExternalCommands({
                   name: meta.name,
                   bytes,
                   contentType: meta.contentType ?? null,
+                  // Forward the metadata's account stamp so the dispatcher can verify ownership.
+                  accountId: meta.accountId ?? null,
                 })
               }
               return
@@ -374,8 +383,10 @@ export function useExternalCommands({
     if (!socket || socket.readyState !== WebSocket.OPEN) return
     try {
       const id = nextIdRef.current++
-      socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, {}))
-      if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, {})
+      // Same account stamp as the on-connect sync (see the onopen handler).
+      const syncParams = buildAccountRpcParams()
+      socket.send(buildExternalWsRequest(protocolRef.current, id, EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, syncParams))
+      if (import.meta.env.DEV) captureOutboundRequest(EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC, id, syncParams)
     } catch {
       if (import.meta.env.DEV) console.warn('[requestSfcSync] failed to send on demand')
     }

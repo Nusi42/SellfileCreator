@@ -1950,6 +1950,30 @@ const catalog: Catalog = {
   gearDiffFilterAny: "Qualquer",
   gearDiffFilterBefore: "Antes",
   gearDiffFilterAfter: "Depois",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Conta: {name}",
+  accountSwitcherAriaLabel: "Seletor de contas",
+  accountMenuNew: "Nova conta…",
+  accountMenuManage: "Gerenciar conta…",
+  accountMenuShiftHint: "Segure Shift ao selecionar uma conta para mesclar o documento atual nela.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Nova conta",
+  accountCreateNameLabel: "Nome da conta",
+  accountCreateConfirm: "Criar e trocar",
+  accountManageTitle: "Gerenciar conta",
+  accountManageRenameLabel: "Nome de exibição",
+  accountManageAccentLabel: "Cor de destaque",
+  accountManageUnbind: "Desvincular do RSL Helper ({id})",
+  accountManageDelete: "Excluir conta…",
+  accountManageDeleteConfirm: "Excluir mesmo \"{name}\" e todos os seus dados? Isso não pode ser desfeito.",
+  accountManageDeleteConfirmButton: "Excluir permanentemente",
+  accountMergeTitle: "Mesclar em \"{name}\"?",
+  accountMergeBody: "Após a troca, o documento atual de \"{source}\" será oferecido para mesclagem em \"{target}\". \"{source}\" permanece inalterada.",
+  accountMergeConfirm: "Trocar e mesclar",
+  accountMergeSourceLabel: "Conta: {name}",
+  accountMergeCarryFailed: "Não foi possível ler o documento transferido da conta anterior.",
+  accountInboundMismatchToast: "Dados do RSL Helper de outra conta ({incoming}) foram ignorados. Conta ativa: {active}.",
 }
 
 export default catalog

@@ -8,11 +8,20 @@ when communicating over WebSockets.
 RSL Helper opens Sellfile Creator by navigating to the distributed HTML file with query parameters:
 
 ```
-file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple
+file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&account=account-d&accountName=Nasgor
 ```
 
 - `endpoint` — WebSocket URL of the locally running RSL Helper server (required for any connection).
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
+- `account` — optional; RSL Helper's stable per-game-account id (e.g. `account-d`). Routes the
+  session to the matching SFC account, binding or creating one as needed — see
+  [Accounts](accounts.md) for the resolution rules. Treated as an opaque string.
+- `accountName` — optional, decorative companion to `account`; labels a newly created account and
+  refreshes a not-manually-renamed one. Never used as a lookup key (in-game names are mutable).
+
+Until RSL Helper stamps its notifications with `accountId` (see below), the launch `account` param
+is the ownership contract for inbound data: switching game accounts inside RSL Helper should
+re-navigate Sellfile Creator with the new `account=` value.
 
 ## Transport
 
@@ -50,6 +59,26 @@ Every message includes `"jsonrpc": "2.0"`.
 
 Notifications omit `id` and do not receive responses.
 
+## Account stamping (both directions)
+
+Sellfile Creator supports multiple SFC accounts (see [Accounts](accounts.md)). To route data
+per game account, the protocol carries two optional params:
+
+- **Outbound (SFC → RSL Helper)**: every request (`uploadSellfile`, `requestSfcSync`,
+  `selectArtifacts`) includes `accountId` (RSL Helper's own id, present only when the active SFC
+  account is bound to one) and `accountName` (the SFC display label, always present). Servers that
+  do not understand these params can ignore them; once consumed, RSL Helper can save sellfiles per
+  account and validate sync requests.
+- **Inbound (RSL Helper → SFC)**: every notification (`artifacts`, `champions`, `inboxArtifacts`,
+  `lastUsed`, and the `gearDbFileBinary` metadata notification) MAY carry a top-level `accountId`
+  param. Sellfile Creator's handling:
+  - absent → data is attributed to the active SFC account (pre-stamping RSL Helper versions);
+  - matches the active account's binding → applied normally;
+  - active account not yet bound → the id is adopted as its binding (first stamped packet proves
+    ownership);
+  - differs from the active account's binding → the packet is **dropped** with a user-facing toast
+    (gear from one game account must never merge into another account's view).
+
 ## Methods
 
 ### uploadSellfile
@@ -57,6 +86,8 @@ Notifications omit `id` and do not receive responses.
 Upload a generated sellfile.
 
 **Params**
+- `accountId` (string, optional): RSL Helper account id the sellfile belongs to (see Account stamping).
+- `accountName` (string, optional): SFC display label of that account.
 - `name` (string, optional): Suggested filename (the server appends `.hsf` if missing).
 - `contentType` (string, optional): MIME type (usually `application/json`).
 - `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk.
@@ -70,7 +101,9 @@ Upload a generated sellfile.
 Ask RSL Helper to push all its current datasets. Sent automatically on every connection so the app receives a full snapshot without waiting for the next natural push cycle.
 
 **Params**
-- _(none — send an empty params object `{}`)_
+- `accountId` (string, optional): the account SFC believes it is syncing (see Account stamping).
+  A server may validate this and answer with an error instead of pushing another account's data.
+- `accountName` (string, optional): SFC display label of that account.
 
 **Result**
 - `ok` (boolean)
@@ -99,6 +132,8 @@ waiting for a response. The response body is not used; servers may respond
 with a standard success for acknowledgement or omit a response entirely.
 
 **Params**
+- `accountId` (string, optional): account the selection belongs to (see Account stamping).
+- `accountName` (string, optional): SFC display label of that account.
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
   An empty array means "nothing selected".
 

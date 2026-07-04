@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Tutti",
   gearDiffFilterBefore: "Prima",
   gearDiffFilterAfter: "Dopo",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Account: {name}",
+  accountSwitcherAriaLabel: "Selettore account",
+  accountMenuNew: "Nuovo account…",
+  accountMenuManage: "Gestisci account…",
+  accountMenuShiftHint: "Tieni premuto Shift selezionando un account per unirvi il documento corrente.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Nuovo account",
+  accountCreateNameLabel: "Nome account",
+  accountCreateConfirm: "Crea e cambia",
+  accountManageTitle: "Gestisci account",
+  accountManageRenameLabel: "Nome visualizzato",
+  accountManageAccentLabel: "Colore d’accento",
+  accountManageUnbind: "Scollega da RSL Helper ({id})",
+  accountManageDelete: "Elimina account…",
+  accountManageDeleteConfirm: "Eliminare davvero \"{name}\" e tutti i suoi dati? L’operazione è irreversibile.",
+  accountManageDeleteConfirmButton: "Elimina definitivamente",
+  accountMergeTitle: "Unire in \"{name}\"?",
+  accountMergeBody: "Dopo il cambio, il documento corrente di \"{source}\" verrà proposto per l’unione in \"{target}\". \"{source}\" resta invariato.",
+  accountMergeConfirm: "Cambia e unisci",
+  accountMergeSourceLabel: "Account: {name}",
+  accountMergeCarryFailed: "Impossibile leggere il documento trasferito dall’account precedente.",
+  accountInboundMismatchToast: "Ignorati dati di RSL Helper di un altro account ({incoming}). Account attivo: {active}.",
 }
 
 export default overrides

@@ -1,9 +1,11 @@
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { RESTORE_SELECTION_KEYS, type RestoreSelection } from '../types/restoreAutosaveSelection'
+import { resolveAccountScopedKey } from '../lib/accounts'
 
 type RestoreSelectionOverrides = Partial<RestoreSelection>
 
-const STORAGE_KEY = 'sellfileCreator.autosave.restoreSelection.v1'
+// Account-scoped (lib/accounts.ts): the selection refers to the account's own autosaves.
+const STORAGE_KEY = resolveAccountScopedKey('sellfileCreator.autosave.restoreSelection.v1')
 
 const restoreSelectionStore = createLocalStorageStore<RestoreSelectionOverrides>({
   key: STORAGE_KEY,

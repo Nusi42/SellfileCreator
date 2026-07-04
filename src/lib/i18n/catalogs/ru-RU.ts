@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Любой",
   gearDiffFilterBefore: "До",
   gearDiffFilterAfter: "После",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Аккаунт: {name}",
+  accountSwitcherAriaLabel: "Переключатель аккаунтов",
+  accountMenuNew: "Новый аккаунт…",
+  accountMenuManage: "Управление аккаунтом…",
+  accountMenuShiftHint: "Удерживайте Shift при выборе аккаунта, чтобы объединить текущий документ с ним.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Новый аккаунт",
+  accountCreateNameLabel: "Название аккаунта",
+  accountCreateConfirm: "Создать и переключиться",
+  accountManageTitle: "Управление аккаунтом",
+  accountManageRenameLabel: "Отображаемое имя",
+  accountManageAccentLabel: "Акцентный цвет",
+  accountManageUnbind: "Отвязать от RSL Helper ({id})",
+  accountManageDelete: "Удалить аккаунт…",
+  accountManageDeleteConfirm: "Действительно удалить «{name}» со всеми данными? Это действие необратимо.",
+  accountManageDeleteConfirmButton: "Удалить навсегда",
+  accountMergeTitle: "Объединить с «{name}»?",
+  accountMergeBody: "После переключения текущий документ «{source}» будет предложен для объединения с «{target}». Сам «{source}» останется без изменений.",
+  accountMergeConfirm: "Переключиться и объединить",
+  accountMergeSourceLabel: "Аккаунт: {name}",
+  accountMergeCarryFailed: "Не удалось прочитать документ, перенесённый из предыдущего аккаунта.",
+  accountInboundMismatchToast: "Данные RSL Helper для другого аккаунта ({incoming}) проигнорированы. Активный аккаунт: {active}.",
 }
 
 export default overrides

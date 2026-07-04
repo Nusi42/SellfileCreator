@@ -8,6 +8,7 @@ import {
   ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID,
   SUBSTAT_MAX_ROLLS_PER_SLOT as GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT,
 } from './generated/domainConstants'
+import { resolveAccountScopedKey } from './accounts'
 
 // Typography scale rooted at 16px (browser default). Why: collapse the UI to
 // predictable tiers while keeping markdown legibility and badge sizing.
@@ -97,10 +98,12 @@ export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
-// Autosave storage key for SFC sessions
-export const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfc.v1'
-// Autosave storage key for the Gear Inspector dialog item queue
-export const AUTOSAVE_GEAR_INSPECTOR_KEY = 'sellfileCreator.autosave.gearInspector.v1'
+// Autosave storage key for SFC sessions. Account-scoped: resolved once at module init
+// through lib/accounts.ts (the active account is fixed for the session — switching
+// accounts reloads the page), so consumers keep using this constant unchanged.
+export const AUTOSAVE_KEY = resolveAccountScopedKey('sellfileCreator.autosave.sfc.v1')
+// Autosave storage key for the Gear Inspector dialog item queue (account-scoped, see above).
+export const AUTOSAVE_GEAR_INSPECTOR_KEY = resolveAccountScopedKey('sellfileCreator.autosave.gearInspector.v1')
 // Persisted Sellfile Preview / Gear Inspector toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
@@ -648,10 +651,11 @@ export const UPDATE_DISMISSED_VERSION_KEY = 'sellfileCreator.update.seen.version
 // User-configurable default builder profile storage key. When present, the
 // builder's "Reset to defaults" uses this profile; otherwise it uses factory
 // defaults. Removing this key restores factory default behavior.
-export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
+// Account-scoped: builder defaults encode an account's gear strategy (lib/accounts.ts).
+export const BUILDER_USER_DEFAULTS_KEY = resolveAccountScopedKey('sellfileCreator.builder.userDefaults.v1')
 // Same concept for the safeguard builder: stores the user's preferred starting
-// state. When absent the builder resets to factory defaults.
-export const SAFEGUARD_BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.safeguardBuilder.userDefaults.v1'
+// state. When absent the builder resets to factory defaults. Account-scoped, see above.
+export const SAFEGUARD_BUILDER_USER_DEFAULTS_KEY = resolveAccountScopedKey('sellfileCreator.safeguardBuilder.userDefaults.v1')
 
 // Builder: when enabled, resets the builder controls to defaults immediately
 // after inserting a recipe (no confirmation). Default Off. Persisted here so
@@ -682,7 +686,9 @@ export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault
 export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled.v1'
 // Sellfile export: when enabled and an endpoint is active, automatically push the sellfile
 // whenever unsaved changes are detected (hsfDirty rising edge).
-export const SELLFILE_AUTO_PUSH_KEY = 'sellfileCreator.sellfile.autoPush.v1'
+// Account-scoped (lib/accounts.ts): auto-push is a per-game-account contract — each account
+// decides for itself whether its sellfile flows to RSL Helper automatically.
+export const SELLFILE_AUTO_PUSH_KEY = resolveAccountScopedKey('sellfileCreator.sellfile.autoPush.v1')
 // Gear DB updates: when enabled, suppress the toast shown after the endpoint
 // pushes a new gear database (status badges still update). View-only preference
 // that should persist across sessions like the other endpoint toggles.

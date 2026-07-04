@@ -12,6 +12,8 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
+import { buildAccountRpcParams, classifyInboundAccountId, getActiveAccount, takeAccountMergeCarry } from './lib/accounts'
+import AccountSwitcher from './components/AccountSwitcher'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   EXTERNAL_WS_METHOD_SELECT_ARTIFACTS,
@@ -38,7 +40,7 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -6891,6 +6893,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // The tutorial manages its own gear items; an endpoint push would corrupt that state.
     // selectRule (above) is left through since it only affects scroll position.
     if (tutorialOpen || pauseEndpointUpdates) return
+
+    // Verify the packet's optional game-account stamp (RSL Helper protocol phase 2) before
+    // any gear data is queued. Absent stamps attribute to the active account (pre-stamping
+    // Helper versions); a first stamp on a never-bound account adopts the id ('bound');
+    // a stamp for a DIFFERENT account drops the packet — gear from account A must never
+    // merge into account B's inspector. The toast tells the user to switch (or relaunch).
+    const inboundAccountId = 'accountId' in cmd ? cmd.accountId : undefined
+    if (classifyInboundAccountId(inboundAccountId) === 'mismatch') {
+      showToast(
+        t('accountInboundMismatchToast', { incoming: inboundAccountId ?? '', active: getActiveAccount().displayName }),
+        { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> },
+      )
+      return
+    }
     // Endpoint gear data is always wanted — it is newer and authoritative. We do NOT
     // block it while the restore dialog is open; instead, once any gear push lands we
     // drop the restore prompt's stale Gear Inspector offer (endpointGearDataApplied),
@@ -6924,6 +6940,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     focusRuleByIndex,
     pauseEndpointUpdates,
     requestSelectionScroll,
+    showToast,
+    t,
     tutorialOpen,
   ])
 
@@ -6947,8 +6965,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleGearItemsSelect = useCallback((nextIds: ReadonlySet<number>) => {
     setSelectedGearItemIds(nextIds)
     if (!pushExportEndpoint) return
-    // Silently swallow errors; the optimistic update stands regardless.
-    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { artifactIds: [...nextIds] }).catch(() => {})
+    // Silently swallow errors; the optimistic update stands regardless. The account stamp
+    // guards against applying the selection to the wrong roster once Helper consumes it.
+    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { ...buildAccountRpcParams(), artifactIds: [...nextIds] }).catch(() => {})
   }, [pushExportEndpoint, sendExternalRequest, setSelectedGearItemIds])
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])
@@ -8665,6 +8684,63 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
+  // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
+  // so the shift-switch merge carry round-trips through the regular parse/normalize path.
+  const getAccountMergeSfcText = useCallback(() => JSON.stringify(buildSfcPayload({
+    version: APP_VERSION,
+    metasets,
+    substatTargets,
+    recipes: customRecipes,
+    finalSellRemainder,
+    ...(sfcNote ? { note: sfcNote } : {}),
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  }), null, 2), [
+    metasets,
+    substatTargets,
+    customRecipes,
+    finalSellRemainder,
+    sfcNote,
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  ])
+
+  // One switcher component, two mount points (header + simple Note dialog) so both entry
+  // points share behavior; the compact variant only changes the button chrome.
+  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} />
+  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} compact />
+
+  // One-shot account-merge carry (shift-switch): taken from storage on mount — clearing it
+  // immediately makes the flow crash-safe (a failed import never replays on the next launch).
+  const [accountMergeCarry] = useState(takeAccountMergeCarry)
+  const accountMergeCarryConsumedRef = useRef(false)
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect -- the carry is EXTERNAL state (localStorage written by the previous account's session before the reload); it can only be surfaced after the restore flow settles, which is inherently an effect, and the consumed-ref guarantees a single fire. */
+  useEffect(() => {
+    // Wait until the startup restore flow settles so the import applies to the target
+    // account's restored document, then surface the carry through the existing
+    // shift-import options dialog (selection + merge modes + metaset conflicts).
+    if (!accountMergeCarry || accountMergeCarryConsumedRef.current || restoreDlgOpen) return
+    accountMergeCarryConsumedRef.current = true
+    // Failure-toast timer captured for cleanup; null when the carry parsed fine.
+    let failureToastTimer: number | null = null
+    try {
+      // Same parser the file-import path uses — the carry is a regular .sfc text.
+      const payload = parseSfcText(accountMergeCarry.sfcText, { metasets, substatTargets })
+      setPendingSfcShiftDialogImport({
+        fileName: t('accountMergeSourceLabel', { name: accountMergeCarry.fromDisplayName }),
+        payload,
+      })
+    } catch {
+      // Unreadable carry: report and continue — the target account is untouched. Deferred a
+      // tick so the toast state flips outside this effect's synchronous commit.
+      failureToastTimer = window.setTimeout(() => showToast(t('accountMergeCarryFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> }), 0)
+    }
+    return () => { if (failureToastTimer !== null) window.clearTimeout(failureToastTimer) }
+  }, [accountMergeCarry, restoreDlgOpen, metasets, substatTargets, setPendingSfcShiftDialogImport, showToast, t])
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect */
+
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
@@ -8957,6 +9033,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Send the upload command using the shared endpoint compatibility shim.
         // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
         const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
+          // Account stamp first so a phase-2 Helper can save sellfiles per game account;
+          // pre-stamping versions ignore the extra params (confirmed harmless).
+          ...buildAccountRpcParams(),
           name: filename,
           contentType: blob.type || 'application/json',
           data: payload,
@@ -9293,6 +9372,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   {t('helpOpenLabel')}
                 </Button>
               </MarkdownTooltip>
+              {/* Account switcher — switch/create/manage accounts; shift-pick merges (see lib/accounts.ts) */}
+              {accountSwitcherElement}
               {/* Connect to RSL Helper — persistent toggle with off/connecting/connected states */}
               <RslHelperConnectButton
                 connectEnabled={rslHelperConnectEnabled}
@@ -9739,6 +9820,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           rslHelperConnectEnabled={rslHelperConnectEnabled}
           pushEndpointReachable={pushEndpointReachable}
           onToggleRslHelperConnect={handleToggleRslHelperConnect}
+          accountSwitcherNode={accountSwitcherCompactElement}
           onLoadSimplePreset={handleLoadSimplePreset}
           simplePresetMatch={simplePresetMatch}
           simpleCustomAvailable={customAvailable}

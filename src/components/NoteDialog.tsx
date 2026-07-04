@@ -4106,6 +4106,7 @@ export default function NoteDialog({
   rslHelperConnectEnabled,
   pushEndpointReachable,
   onToggleRslHelperConnect,
+  accountSwitcherNode,
   onLoadSimplePreset,
   simplePresetMatch,
   simpleCustomAvailable,
@@ -4161,6 +4162,9 @@ export default function NoteDialog({
   rslHelperConnectEnabled?: boolean
   pushEndpointReachable?: boolean
   onToggleRslHelperConnect?: () => void
+  // Pre-rendered compact AccountSwitcher (App owns its props); the switcher must be
+  // reachable in simple view too, where this dialog is the whole UI.
+  accountSwitcherNode?: React.ReactNode
   // Called when the express preset toggle changes; loads the beginner or lategame preset SFC.
   onLoadSimplePreset?: (variant: 'beginner' | 'lategame') => void
   // Which bundled preset the live SFC matches, or null when it matches neither.
@@ -4508,8 +4512,10 @@ export default function NoteDialog({
           ) : null}
         </Box>
       </Box>
-      {/* Center: connection notifier + auto-push */}
+      {/* Center: account switcher + connection notifier + auto-push */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+        {/* Account switcher stays reachable in simple view — the dialog is the whole UI here. */}
+        {accountSwitcherNode}
         {rslHelperConnectEnabled !== undefined && (
           <RslHelperConnectButton
             connectEnabled={rslHelperConnectEnabled ?? false}

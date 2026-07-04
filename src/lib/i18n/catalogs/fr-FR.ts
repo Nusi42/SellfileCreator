@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Tous",
   gearDiffFilterBefore: "Avant",
   gearDiffFilterAfter: "Après",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Compte : {name}",
+  accountSwitcherAriaLabel: "Sélecteur de comptes",
+  accountMenuNew: "Nouveau compte…",
+  accountMenuManage: "Gérer le compte…",
+  accountMenuShiftHint: "Maintenez Maj en sélectionnant un compte pour y fusionner le document actuel.",
+  accountBoundCaption: "RSL Helper : {id}",
+  accountCreateTitle: "Nouveau compte",
+  accountCreateNameLabel: "Nom du compte",
+  accountCreateConfirm: "Créer et changer",
+  accountManageTitle: "Gérer le compte",
+  accountManageRenameLabel: "Nom affiché",
+  accountManageAccentLabel: "Couleur d’accent",
+  accountManageUnbind: "Dissocier de RSL Helper ({id})",
+  accountManageDelete: "Supprimer le compte…",
+  accountManageDeleteConfirm: "Supprimer vraiment « {name} » et toutes ses données ? Cette action est irréversible.",
+  accountManageDeleteConfirmButton: "Supprimer définitivement",
+  accountMergeTitle: "Fusionner dans « {name} » ?",
+  accountMergeBody: "Après le changement, le document actuel de « {source} » sera proposé à la fusion dans « {target} ». « {source} » reste inchangé.",
+  accountMergeConfirm: "Changer et fusionner",
+  accountMergeSourceLabel: "Compte : {name}",
+  accountMergeCarryFailed: "Impossible de lire le document transféré depuis le compte précédent.",
+  accountInboundMismatchToast: "Données RSL Helper d’un autre compte ({incoming}) ignorées. Compte actif : {active}.",
 }
 
 export default overrides

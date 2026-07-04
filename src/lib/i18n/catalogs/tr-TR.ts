@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Herhangi",
   gearDiffFilterBefore: "Önce",
   gearDiffFilterAfter: "Sonra",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Hesap: {name}",
+  accountSwitcherAriaLabel: "Hesap seçici",
+  accountMenuNew: "Yeni hesap…",
+  accountMenuManage: "Hesabı yönet…",
+  accountMenuShiftHint: "Geçerli belgeyi seçilen hesapla birleştirmek için hesabı seçerken Shift tuşunu basılı tutun.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Yeni hesap",
+  accountCreateNameLabel: "Hesap adı",
+  accountCreateConfirm: "Oluştur ve geç",
+  accountManageTitle: "Hesabı yönet",
+  accountManageRenameLabel: "Görünen ad",
+  accountManageAccentLabel: "Vurgu rengi",
+  accountManageUnbind: "RSL Helper bağlantısını kaldır ({id})",
+  accountManageDelete: "Hesabı sil…",
+  accountManageDeleteConfirm: "\"{name}\" hesabı tüm verileriyle birlikte silinsin mi? Bu işlem geri alınamaz.",
+  accountManageDeleteConfirmButton: "Kalıcı olarak sil",
+  accountMergeTitle: "\"{name}\" hesabıyla birleştirilsin mi?",
+  accountMergeBody: "Geçişten sonra \"{source}\" hesabının geçerli belgesi \"{target}\" hesabıyla birleştirilmek üzere önerilecek. \"{source}\" değişmeden kalır.",
+  accountMergeConfirm: "Geç ve birleştir",
+  accountMergeSourceLabel: "Hesap: {name}",
+  accountMergeCarryFailed: "Önceki hesaptan aktarılan belge okunamadı.",
+  accountInboundMismatchToast: "Başka bir hesaba ({incoming}) ait RSL Helper verileri yok sayıldı. Etkin hesap: {active}.",
 }
 
 export default overrides

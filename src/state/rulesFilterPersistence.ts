@@ -14,11 +14,14 @@ import {
 } from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
+import { resolveAccountScopedKey } from '../lib/accounts'
 
+// open/collapse are pure UI chrome and stay global; state/sync hold actual filter VALUES
+// applied to the active account's document, so they partition per account (lib/accounts.ts).
 export const RULES_FILTER_OPEN_STORAGE_KEY = 'sellfileCreator.rulesFilter.open.v2'
-export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v3'
+export const RULES_FILTER_STATE_STORAGE_KEY = resolveAccountScopedKey('sellfileCreator.rulesFilter.state.v3')
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
-const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
+const RULES_FILTER_SYNC_STORAGE_KEY = resolveAccountScopedKey('sellfileCreator.rulesFilter.sync.v1')
 
 export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'gearInspector'] as const)
 export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]

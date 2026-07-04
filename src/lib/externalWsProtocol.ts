@@ -1,5 +1,6 @@
 import type { ExternalCommand } from './externalCommands'
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
+import { resolveAccountScopedKey } from './accounts'
 
 // Default port for a locally running RSL Helper WebSocket server.
 export const RSL_HELPER_DEFAULT_PORT = 8080
@@ -9,8 +10,10 @@ export const RSL_HELPER_PORT_STORAGE_KEY = 'sellfileCreator.rslHelper.port.v1'
 export const RSL_HELPER_CONNECT_ENABLED_KEY = 'sellfileCreator.rslHelper.connectEnabled.v1'
 // localStorage key that persists whether the user last chose Expert mode in a simple-mode session.
 export const SIMPLE_EXPERT_MODE_KEY = 'sellfileCreator.simple.expertMode.v1'
-// localStorage key that persists the toggle variant (preset or custom) the user last had in simple mode.
-export const SIMPLE_VARIANT_KEY = 'sellfileCreator.simple.variant.v1'
+// localStorage key that persists the toggle variant (preset or custom) the user last had in
+// simple mode. Account-scoped (lib/accounts.ts): beginner/lategame tracks account progression,
+// unlike SIMPLE_EXPERT_MODE_KEY above which is a property of the user and stays global.
+export const SIMPLE_VARIANT_KEY = resolveAccountScopedKey('sellfileCreator.simple.variant.v1')
 
 // Autosave payload key marking that the saved setup is (still) an unmodified built-in
 // preset. When present, the simple-mode load path swaps in the CURRENT built-in of that

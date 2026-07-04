@@ -1950,6 +1950,30 @@ const enUS: Catalog = {
   gearDiffFilterAny: "Any",
   gearDiffFilterBefore: "Before",
   gearDiffFilterAfter: "After",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Account: {name}",
+  accountSwitcherAriaLabel: "Account switcher",
+  accountMenuNew: "New account…",
+  accountMenuManage: "Manage account…",
+  accountMenuShiftHint: "Hold Shift while selecting an account to merge the current document into it.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "New account",
+  accountCreateNameLabel: "Account name",
+  accountCreateConfirm: "Create & switch",
+  accountManageTitle: "Manage account",
+  accountManageRenameLabel: "Display name",
+  accountManageAccentLabel: "Accent color",
+  accountManageUnbind: "Unbind from RSL Helper ({id})",
+  accountManageDelete: "Delete account…",
+  accountManageDeleteConfirm: "Really delete \"{name}\" and all of its data? This cannot be undone.",
+  accountManageDeleteConfirmButton: "Delete permanently",
+  accountMergeTitle: "Merge into \"{name}\"?",
+  accountMergeBody: "After switching, the current document of \"{source}\" will be offered for merging into \"{target}\". \"{source}\" itself stays unchanged.",
+  accountMergeConfirm: "Switch & merge",
+  accountMergeSourceLabel: "Account: {name}",
+  accountMergeCarryFailed: "Could not read the document carried over from the previous account.",
+  accountInboundMismatchToast: "Ignored RSL Helper data for another account ({incoming}). Active account: {active}.",
 }
 
 export default enUS

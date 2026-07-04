@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Alle",
   gearDiffFilterBefore: "Vorher",
   gearDiffFilterAfter: "Nachher",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Konto: {name}",
+  accountSwitcherAriaLabel: "Kontoauswahl",
+  accountMenuNew: "Neues Konto…",
+  accountMenuManage: "Konto verwalten…",
+  accountMenuShiftHint: "Shift beim Auswählen gedrückt halten, um das aktuelle Dokument in das gewählte Konto zu mergen.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Neues Konto",
+  accountCreateNameLabel: "Kontoname",
+  accountCreateConfirm: "Erstellen & wechseln",
+  accountManageTitle: "Konto verwalten",
+  accountManageRenameLabel: "Anzeigename",
+  accountManageAccentLabel: "Akzentfarbe",
+  accountManageUnbind: "Verknüpfung mit RSL Helper lösen ({id})",
+  accountManageDelete: "Konto löschen…",
+  accountManageDeleteConfirm: "\"{name}\" mit allen Daten wirklich löschen? Das kann nicht rückgängig gemacht werden.",
+  accountManageDeleteConfirmButton: "Endgültig löschen",
+  accountMergeTitle: "In \"{name}\" mergen?",
+  accountMergeBody: "Nach dem Wechsel wird das aktuelle Dokument von \"{source}\" zum Mergen in \"{target}\" angeboten. \"{source}\" selbst bleibt unverändert.",
+  accountMergeConfirm: "Wechseln & mergen",
+  accountMergeSourceLabel: "Konto: {name}",
+  accountMergeCarryFailed: "Das vom vorherigen Konto übernommene Dokument konnte nicht gelesen werden.",
+  accountInboundMismatchToast: "RSL-Helper-Daten für ein anderes Konto ({incoming}) ignoriert. Aktives Konto: {active}.",
 }
 
 export default overrides

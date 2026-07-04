@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Qualquer",
   gearDiffFilterBefore: "Antes",
   gearDiffFilterAfter: "Depois",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Conta: {name}",
+  accountSwitcherAriaLabel: "Seletor de contas",
+  accountMenuNew: "Nova conta…",
+  accountMenuManage: "Gerir conta…",
+  accountMenuShiftHint: "Mantenha Shift ao selecionar uma conta para fundir o documento atual nela.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Nova conta",
+  accountCreateNameLabel: "Nome da conta",
+  accountCreateConfirm: "Criar e mudar",
+  accountManageTitle: "Gerir conta",
+  accountManageRenameLabel: "Nome apresentado",
+  accountManageAccentLabel: "Cor de destaque",
+  accountManageUnbind: "Desassociar do RSL Helper ({id})",
+  accountManageDelete: "Eliminar conta…",
+  accountManageDeleteConfirm: "Eliminar mesmo \"{name}\" e todos os seus dados? Esta ação não pode ser anulada.",
+  accountManageDeleteConfirmButton: "Eliminar definitivamente",
+  accountMergeTitle: "Fundir em \"{name}\"?",
+  accountMergeBody: "Após a mudança, o documento atual de \"{source}\" será proposto para fusão em \"{target}\". \"{source}\" permanece inalterada.",
+  accountMergeConfirm: "Mudar e fundir",
+  accountMergeSourceLabel: "Conta: {name}",
+  accountMergeCarryFailed: "Não foi possível ler o documento transferido da conta anterior.",
+  accountInboundMismatchToast: "Dados do RSL Helper de outra conta ({incoming}) ignorados. Conta ativa: {active}.",
 }
 
 export default overrides

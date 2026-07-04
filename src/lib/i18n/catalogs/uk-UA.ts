@@ -1950,6 +1950,30 @@ const overrides: Catalog = {
   gearDiffFilterAny: "Будь-який",
   gearDiffFilterBefore: "До",
   gearDiffFilterAfter: "Після",
+
+  // Account Switcher
+  accountSwitcherTooltip: "Обліковий запис: {name}",
+  accountSwitcherAriaLabel: "Перемикач облікових записів",
+  accountMenuNew: "Новий обліковий запис…",
+  accountMenuManage: "Керувати обліковим записом…",
+  accountMenuShiftHint: "Утримуйте Shift під час вибору облікового запису, щоб об’єднати поточний документ із ним.",
+  accountBoundCaption: "RSL Helper: {id}",
+  accountCreateTitle: "Новий обліковий запис",
+  accountCreateNameLabel: "Назва облікового запису",
+  accountCreateConfirm: "Створити й перемкнутися",
+  accountManageTitle: "Керування обліковим записом",
+  accountManageRenameLabel: "Відображуване ім’я",
+  accountManageAccentLabel: "Акцентний колір",
+  accountManageUnbind: "Відв’язати від RSL Helper ({id})",
+  accountManageDelete: "Видалити обліковий запис…",
+  accountManageDeleteConfirm: "Справді видалити «{name}» з усіма даними? Цю дію не можна скасувати.",
+  accountManageDeleteConfirmButton: "Видалити назавжди",
+  accountMergeTitle: "Об’єднати з «{name}»?",
+  accountMergeBody: "Після перемикання поточний документ «{source}» буде запропоновано об’єднати з «{target}». Сам «{source}» залишиться без змін.",
+  accountMergeConfirm: "Перемкнутися й об’єднати",
+  accountMergeSourceLabel: "Обліковий запис: {name}",
+  accountMergeCarryFailed: "Не вдалося прочитати документ, перенесений з попереднього облікового запису.",
+  accountInboundMismatchToast: "Дані RSL Helper для іншого облікового запису ({incoming}) проігноровано. Активний обліковий запис: {active}.",
 }
 
 export default overrides
