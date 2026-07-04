@@ -248,7 +248,7 @@ pub(super) struct UpgradeScenario {
 //
 // `boundary_quantum` (normalized-score units; 0.0 disables → bit-exact path) floors the
 // SELECTED boundary's projected score onto the quantum grid — (score / q).floor() * q —
-// before it enters BOTH the reduced scenario the probes run against AND the returned
+// before it enters BOTH the boundary the probes run against AND the returned
 // signature triple. Quantizing the actual probe input (not just the cache key) keeps
 // key ↔ behavior consistent by construction: every group whose boundary lands in one
 // grid bucket is genuinely evaluated against the shared bucket-floor boundary, so cache
@@ -258,7 +258,18 @@ pub(super) struct UpgradeScenario {
 // keep-net keeps equal-or-more pieces, never selling one the exact path would have kept.
 // The boundary's (main, rank) tie fields stay untouched (they only matter inside the
 // ±ε tie window around the — now floored — score).
-pub(super) fn reduce_scenarios_for_synthetic(
+
+// Per-scenario boundary challengers for ONE synthetic probe context — the complete
+// leaf-decision input for that group's probes: selection of a candidate state depends
+// on the full challenger buckets only through these boundaries (equivalence argument
+// above). Owned clones so improvement_watch can retain one representative per distinct
+// signature without borrowing scenario internals; deliberately opaque outside this
+// module (StaticChallenger stays private).
+pub(super) struct SyntheticBoundaries {
+    per_scenario: Vec<Option<StaticChallenger>>,
+}
+
+pub(super) fn extract_synthetic_boundaries(
     scenarios: &[&UpgradeScenario],
     slot: i64,
     set: i64,
@@ -266,8 +277,8 @@ pub(super) fn reduce_scenarios_for_synthetic(
     main_stat: i64,
     cand_rank: i64,
     boundary_quantum: f64,
-) -> (Vec<UpgradeScenario>, Vec<Option<(i64, i64, i64)>>) {
-    let mut reduced = Vec::<UpgradeScenario>::with_capacity(scenarios.len());
+) -> (SyntheticBoundaries, Vec<Option<(i64, i64, i64)>>) {
+    let mut per_scenario = Vec::<Option<StaticChallenger>>::with_capacity(scenarios.len());
     let mut boundaries = Vec::<Option<(i64, i64, i64)>>::with_capacity(scenarios.len());
     for scenario in scenarios {
         // The synthetic's count key under this scenario's mode — the only bucket the
@@ -278,7 +289,7 @@ pub(super) fn reduce_scenarios_for_synthetic(
             .get(&key)
             .and_then(|bucket| {
                 let required = scenario.required_per_group.max(1) as usize;
-                // Fewer than N challengers → always selected → empty reduced bucket.
+                // Fewer than N challengers → always selected → no boundary.
                 if bucket.len() < required {
                     return None;
                 }
@@ -323,24 +334,54 @@ pub(super) fn reduce_scenarios_for_synthetic(
                 challenger.rank,
             )
         }));
-        let mut boundary_bucket = BTreeMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
-        if let Some(challenger) = boundary {
-            boundary_bucket.insert(key, vec![challenger]);
-        }
-        reduced.push(UpgradeScenario {
-            rule_order: scenario.rule_order,
-            rule_selected_substats: scenario.rule_selected_substats.clone(),
-            rule_substat_match: scenario.rule_substat_match.clone(),
-            selected_substats: scenario.selected_substats.clone(),
-            substat_match: scenario.substat_match.clone(),
-            // The boundary alone decides selection (equivalence argument above).
-            required_per_group: 1,
-            count_mode: scenario.count_mode,
-            weights: scenario.weights.clone(),
-            weight_main_stat_by_rank: scenario.weight_main_stat_by_rank,
-            challengers_by_count_key: boundary_bucket,
-        });
+        per_scenario.push(boundary);
     }
+    (SyntheticBoundaries { per_scenario }, boundaries)
+}
+
+// Legacy single-boundary reduction, kept for the equivalence tests below: wraps each
+// extracted boundary back into a 1-challenger scenario with required 1 so the tests
+// exercise the boundary selection through the ORIGINAL scalar leaf. Production probes
+// consume SyntheticBoundaries through MultiBoundaryLeaf instead — one recursion
+// traversal serves every boundary of a probe family (see compute_synthetic_chance_multi).
+#[cfg(test)]
+pub(super) fn reduce_scenarios_for_synthetic(
+    scenarios: &[&UpgradeScenario],
+    slot: i64,
+    set: i64,
+    faction: i64,
+    main_stat: i64,
+    cand_rank: i64,
+    boundary_quantum: f64,
+) -> (Vec<UpgradeScenario>, Vec<Option<(i64, i64, i64)>>) {
+    let (extracted, boundaries) = extract_synthetic_boundaries(
+        scenarios, slot, set, faction, main_stat, cand_rank, boundary_quantum,
+    );
+    let reduced = scenarios
+        .iter()
+        .zip(extracted.per_scenario)
+        .map(|(scenario, boundary)| {
+            let key =
+                safeguard_count_key_from_parts(slot, set, faction, main_stat, scenario.count_mode);
+            let mut boundary_bucket = BTreeMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
+            if let Some(challenger) = boundary {
+                boundary_bucket.insert(key, vec![challenger]);
+            }
+            UpgradeScenario {
+                rule_order: scenario.rule_order,
+                rule_selected_substats: scenario.rule_selected_substats.clone(),
+                rule_substat_match: scenario.rule_substat_match.clone(),
+                selected_substats: scenario.selected_substats.clone(),
+                substat_match: scenario.substat_match.clone(),
+                // The boundary alone decides selection (equivalence argument above).
+                required_per_group: 1,
+                count_mode: scenario.count_mode,
+                weights: scenario.weights.clone(),
+                weight_main_stat_by_rank: scenario.weight_main_stat_by_rank,
+                challengers_by_count_key: boundary_bucket,
+            }
+        })
+        .collect();
     (reduced, boundaries)
 }
 
@@ -856,7 +897,7 @@ fn is_challenger_strictly_better(
 // Tie-window half of is_challenger_strictly_better, shared verbatim with the
 // boundary-challenger reduction below (ODR): given scores equal within the ±ε window,
 // does the challenger win? Constant per (challenger, candidate-main/rank) pair.
-fn tie_break_favors_challenger(ch_main: i64, ch_rank: i64, cand_main: i64, cand_rank: i64) -> bool {
+pub(super) fn tie_break_favors_challenger(ch_main: i64, ch_rank: i64, cand_main: i64, cand_rank: i64) -> bool {
     // Equal scores: same main breaks by rank (higher = better).
     if ch_main == cand_main {
         return ch_rank > cand_rank;
@@ -943,31 +984,174 @@ fn is_state_selected_by_any_scenario(
     false
 }
 
+// ─── leaf-evaluation strategies ───────────────────────────────────────────────
+
+// The recursion tree below (milestones, additions, gains) is leaf-independent — only
+// the terminal state test differs between callers. ChanceLeaf abstracts that test plus
+// the value algebra the tree accumulates, so ONE recursion body serves both:
+//   * ScalarSelectionLeaf — the production improvement-chance pass: Value = f64, leaf
+//     = is_state_selected_by_any_scenario over the full challenger buckets.
+//   * MultiBoundaryLeaf — improvement-watch synthetic probes: Value = one f64 per
+//     probed boundary context, evaluated against every boundary in ONE traversal.
+// Monomorphization keeps the scalar instantiation identical machine code to the old
+// hardcoded f64 recursion; per index the vector arithmetic performs exactly the same
+// additions in the same order as an independent scalar run — bit-identical results.
+trait ChanceLeaf {
+    type Value: Clone;
+    // Additive identity matching the old `let mut total = 0.0` accumulator seed.
+    fn zero(&self) -> Self::Value;
+    // Terminal evaluation of a fully-projected state (probability 0 or 1 per element).
+    fn eval(&self, state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> Self::Value;
+    // acc += w * child, element-wise — matches the scalar `total += w * p` exactly.
+    fn add_scaled(&self, acc: &mut Self::Value, w: f64, child: &Self::Value);
+}
+
+// Production leaf: full-bucket selection test, scalar probability.
+struct ScalarSelectionLeaf;
+
+impl ChanceLeaf for ScalarSelectionLeaf {
+    type Value = f64;
+    fn zero(&self) -> f64 {
+        0.0
+    }
+    fn eval(&self, state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> f64 {
+        if is_state_selected_by_any_scenario(state, ctx) {
+            1.0
+        } else {
+            0.0
+        }
+    }
+    fn add_scaled(&self, acc: &mut f64, w: f64, child: &f64) {
+        *acc += w * child;
+    }
+}
+
+// Synthetic multi-boundary leaf: evaluates the state against ONE boundary challenger
+// per (scenario × probe context) — the boundary-reduction equivalence argument above
+// guarantees each element equals the full-bucket outcome for its group. Per element
+// this replays the reduced-scenario leaf exactly: state substat gate, scenario score,
+// score > 0 gate, then a single is_challenger_strictly_better comparison (None = the
+// group's bucket sits below quota → always selected). The candidate's self-skip is
+// irrelevant here: synthetic probes carry id −1, which matches no real challenger.
+struct MultiBoundaryLeaf<'a> {
+    // Flat [scenario-major] boundary grid: entry s * width + i is scenario s's
+    // boundary for probe context i (refs into the caller's retained representatives).
+    grid: Vec<Option<&'a StaticChallenger>>,
+    width: usize,
+}
+
+impl<'a> MultiBoundaryLeaf<'a> {
+    fn new(
+        scenario_count: usize,
+        boundary_vecs: &[&'a SyntheticBoundaries],
+    ) -> MultiBoundaryLeaf<'a> {
+        let width = boundary_vecs.len();
+        let mut grid = Vec::with_capacity(scenario_count * width);
+        for s_idx in 0..scenario_count {
+            for vec in boundary_vecs {
+                // Every boundary vector must align with the probed scenario list.
+                debug_assert_eq!(vec.per_scenario.len(), scenario_count);
+                grid.push(vec.per_scenario[s_idx].as_ref());
+            }
+        }
+        MultiBoundaryLeaf { grid, width }
+    }
+}
+
+impl ChanceLeaf for MultiBoundaryLeaf<'_> {
+    type Value = Vec<f64>;
+    fn zero(&self) -> Vec<f64> {
+        vec![0.0; self.width]
+    }
+    fn eval(&self, state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> Vec<f64> {
+        let mut out = vec![0.0f64; self.width];
+        // Once every element is selected no further scenario can change the outcome.
+        let mut remaining = self.width;
+        for (s_idx, scenario) in ctx.scenarios.iter().enumerate() {
+            if remaining == 0 {
+                break;
+            }
+            // Scenario-level gates are index-independent: state substat presence …
+            if !state_matches_substats(
+                state,
+                &scenario.selected_substats,
+                &scenario.substat_match,
+                ctx.artifact_main_stat,
+            ) {
+                continue;
+            }
+            // … and the projected scenario score (mirrors the scalar leaf's scoring).
+            let score = compute_score_from_state(
+                state,
+                &scenario.selected_substats,
+                &scenario.weights,
+                ctx.artifact_rank,
+            ) + super::safeguard_main_stat_rank_bonus_parts(
+                ctx.artifact_rank,
+                ctx.artifact_slot,
+                ctx.artifact_main_stat,
+                scenario.weight_main_stat_by_rank,
+                true,
+            );
+            if !(score > 0.0) {
+                continue;
+            }
+            let row = &self.grid[s_idx * self.width..(s_idx + 1) * self.width];
+            for (out_i, boundary) in out.iter_mut().zip(row) {
+                if *out_i != 0.0 {
+                    continue;
+                }
+                // Selected unless this context's boundary strictly beats the state.
+                let beaten = boundary.map_or(false, |ch| {
+                    is_challenger_strictly_better(
+                        ch.projected_score,
+                        ch.main_stat,
+                        ch.rank,
+                        score,
+                        ctx.artifact_main_stat,
+                        ctx.artifact_rank,
+                    )
+                });
+                if !beaten {
+                    *out_i = 1.0;
+                    remaining -= 1;
+                }
+            }
+        }
+        out
+    }
+    fn add_scaled(&self, acc: &mut Vec<f64>, w: f64, child: &Vec<f64>) {
+        for (acc_i, child_i) in acc.iter_mut().zip(child) {
+            *acc_i += w * child_i;
+        }
+    }
+}
+
 // ─── recursion ────────────────────────────────────────────────────────────────
 
 // Memoized DP over the upgrade event sequence.
 // `state` is mutated in place and restored after each recursive branch (undo-redo)
 // so no BTreeMap is ever cloned — one allocation serves the entire recursion tree.
 // `memo` is a caller-owned scratch map cleared between artifacts; it maps a compact
-// StateKey (stack-allocated, no heap) to the cached probability for that node.
-fn compute_probability(
+// StateKey (stack-allocated, no heap) to the cached leaf value for that node.
+fn compute_probability<L: ChanceLeaf>(
     ctx: &RecursionContext<'_>,
     state: &mut BTreeMap<i64, i64>,
     event_idx: usize,
-    memo: &mut BTreeMap<StateKey, f64>,
-) -> f64 {
+    memo: &mut BTreeMap<StateKey, L::Value>,
+    leaf: &L,
+) -> L::Value {
     // Base case: no more milestones; evaluate the final projected state.
+    // (Deliberately NOT memoized: measured on the reference workload, 78% of terminal
+    // states are distinct — caching them balloons the memo to ~50M vector entries and
+    // slows the whole pass down; see the module perf-history note.)
     if event_idx >= ctx.milestones.len() {
-        return if is_state_selected_by_any_scenario(state, ctx) {
-            1.0
-        } else {
-            0.0
-        };
+        return leaf.eval(state, ctx);
     }
     // Capture key BEFORE any mutation so memo lookup/insert use the same state.
     let key = make_state_key(state, event_idx);
-    if let Some(&cached) = memo.get(&key) {
-        return cached;
+    if let Some(cached) = memo.get(&key) {
+        return cached.clone();
     }
     let milestone = ctx.milestones[event_idx];
     // An addition event fires when the milestone is in the addition schedule
@@ -987,12 +1171,12 @@ fn compute_probability(
         let candidates = &candidate_buf[..candidate_count];
         if candidates.is_empty() {
             // No missing pool candidates; advance without an addition.
-            compute_probability(ctx, state, event_idx + 1, memo)
+            compute_probability(ctx, state, event_idx + 1, memo, leaf)
         } else {
             let p = 1.0 / candidate_count as f64;
             // Early milestones use single average gain; later ones branch Q1/Q3.
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
-            let mut total = 0.0;
+            let mut total = leaf.zero();
             for &variant in candidates {
                 let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
@@ -1004,12 +1188,14 @@ fn compute_probability(
                     // Mutate state in-place, recurse, then remove the key to undo.
                     if low > 0 {
                         state.insert(variant, low);
-                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                        leaf.add_scaled(&mut total, p * 0.5, &child);
                         state.remove(&variant);
                     }
                     if high > 0 {
                         state.insert(variant, high);
-                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                        leaf.add_scaled(&mut total, p * 0.5, &child);
                         state.remove(&variant);
                     }
                 } else {
@@ -1017,7 +1203,8 @@ fn compute_probability(
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
                     if avg <= 0 { continue; }
                     state.insert(variant, avg);
-                    total += p * compute_probability(ctx, state, event_idx + 1, memo);
+                    let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                    leaf.add_scaled(&mut total, p, &child);
                     state.remove(&variant);
                 }
             }
@@ -1035,11 +1222,11 @@ fn compute_probability(
         variant_buf[..variant_count].sort_unstable();
         let variants = &variant_buf[..variant_count];
         if variants.is_empty() {
-            compute_probability(ctx, state, event_idx + 1, memo)
+            compute_probability(ctx, state, event_idx + 1, memo, leaf)
         } else {
             let p = 1.0 / variant_count as f64;
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
-            let mut total = 0.0;
+            let mut total = leaf.zero();
             for &variant in variants {
                 let (low, high) =
                     resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
@@ -1051,26 +1238,29 @@ fn compute_probability(
                 if use_two_value && low != high {
                     if low > 0 {
                         *state.get_mut(&variant).unwrap() = (current + low).max(0);
-                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                        leaf.add_scaled(&mut total, p * 0.5, &child);
                         *state.get_mut(&variant).unwrap() = current;
                     }
                     if high > 0 {
                         *state.get_mut(&variant).unwrap() = (current + high).max(0);
-                        total += p * 0.5 * compute_probability(ctx, state, event_idx + 1, memo);
+                        let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                        leaf.add_scaled(&mut total, p * 0.5, &child);
                         *state.get_mut(&variant).unwrap() = current;
                     }
                 } else {
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
                     if avg <= 0 { continue; }
                     *state.get_mut(&variant).unwrap() = (current + avg).max(0);
-                    total += p * compute_probability(ctx, state, event_idx + 1, memo);
+                    let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
+                    leaf.add_scaled(&mut total, p, &child);
                     *state.get_mut(&variant).unwrap() = current;
                 }
             }
             total
         }
     };
-    memo.insert(key, result);
+    memo.insert(key, result.clone());
     result
 }
 
@@ -1169,6 +1359,12 @@ fn compute_artifact_chance_percent(
     (max_chance, by_rule_ordinal)
 }
 
+// One decimal place (e.g. 47.3) — round a raw probability to a 0–100 percentage.
+// ODR: the single rounding rule every chance entry point applies to recursion output.
+fn round_chance_percent(prob: f64) -> f64 {
+    (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
+}
+
 // Chance (0–100, one decimal) that `artifact` lands in the safeguard top-N at +16 under
 // the given scenario set (all scenarios must belong to ONE rule — the leaf predicate is a
 // within-rule union). Extracted from compute_artifact_chance_percent so improvement-watch
@@ -1181,11 +1377,19 @@ pub(super) fn compute_artifact_chance_for_scenarios(
     scenarios: &[&UpgradeScenario],
     memo: &mut BTreeMap<StateKey, f64>,
 ) -> f64 {
-    compute_artifact_chance_impl(artifact, scenarios, memo, false, true)
+    memo.clear();
+    round_chance_percent(compute_artifact_chance_impl(
+        artifact,
+        scenarios,
+        memo,
+        &ScalarSelectionLeaf,
+        false,
+    ))
 }
 
-// Synthetic-probe variant for improvement-watch corner searches. Two deliberate
-// differences from the real-artifact path:
+// Synthetic-probe scalar variant, kept as the reference implementation the equivalence
+// tests compare the multi-boundary path against (production watch probes go through
+// compute_synthetic_chance_multi). Two deliberate differences from the real path:
 //   1. Value-independent gains: build_existing_gain derives per-roll gain from the
 //      artifact's CURRENT value (rolls: None → divisor 1), so a synthetic's assumed
 //      future roll quality would scale with the probed threshold — circular. Synthetic
@@ -1199,22 +1403,130 @@ pub(super) fn compute_artifact_chance_for_scenarios(
 //      that context (event index + substat variants + scaled values), so probes with
 //      different values/subsets coexist soundly in one memo and identical re-probes
 //      become O(log n) root hits.
+#[cfg(test)]
 pub(super) fn compute_synthetic_chance_for_scenarios(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
     memo: &mut BTreeMap<StateKey, f64>,
 ) -> f64 {
-    compute_artifact_chance_impl(artifact, scenarios, memo, true, false)
+    round_chance_percent(compute_artifact_chance_impl(
+        artifact,
+        scenarios,
+        memo,
+        &ScalarSelectionLeaf,
+        true,
+    ))
 }
 
-// Shared implementation for both chance entry points above.
-fn compute_artifact_chance_impl(
+// Multi-boundary synthetic probing: ONE recursion traversal evaluates a probed value
+// vector against EVERY boundary context simultaneously (one f64 lane per context).
+// Each lane is bit-identical to a scalar synthetic run against that context's reduced
+// boundary: the tree shape, branch weights and accumulation order are lane-independent,
+// so every lane performs exactly the scalar sequence of f64 operations. The win is
+// structural — tree walk, StateKey construction and memo lookups happen once per node
+// instead of once per context.
+//
+// The prober hoists everything value-independent (milestone schedule, addition pools,
+// rank-derived fallback gains, the leaf's boundary grid) out of the per-probe path:
+// corner searches issue millions of oracle calls per attach, and rebuilding those maps
+// per call would dominate the shared-traversal savings. Synthetic probes always use the
+// fallback gains (see the scalar synthetic entry's rationale) — which is precisely what
+// makes the hoist sound: nothing in the context depends on the probed values.
+pub(super) struct SyntheticCellProber<'a, 'b> {
+    ctx: RecursionContext<'a>,
+    leaf: MultiBoundaryLeaf<'b>,
+}
+
+// Build the prober for one probe cell. `template` carries the cell dims (slot/set/
+// faction/main/rank/rarity/level, id −1); its substats are irrelevant here — per-probe
+// values arrive via the artifact passed to synthetic_cell_chance_lane.
+pub(super) fn prepare_synthetic_cell_prober<'a, 'b>(
+    template: &SafeguardWasmArtifactIn,
+    scenarios: &'a [&'a UpgradeScenario],
+    boundary_vecs: &[&'b SyntheticBoundaries],
+) -> SyntheticCellProber<'a, 'b> {
+    let leaf = MultiBoundaryLeaf::new(scenarios.len(), boundary_vecs);
+    let level = clamp_level(template.exact_level.unwrap_or(template.level));
+    let milestones = resolve_remaining_milestones(level);
+    let rarity = clamp_rarity(template.rarity);
+    let fallback_gain = build_fallback_gain(template.rank);
+    // The +16 template ends up with empty schedules exactly like the scalar path's
+    // milestones-empty context (the leaf never reads them).
+    let (addition_milestones, legal_addition_pool) = if milestones.is_empty() {
+        (HashSet::default(), vec![])
+    } else {
+        (
+            resolve_remaining_addition_milestones(rarity, level),
+            build_legal_addition_pool(template),
+        )
+    };
+    SyntheticCellProber {
+        ctx: RecursionContext {
+            artifact_id: template.id.unwrap_or(0),
+            artifact_slot: template.slot,
+            artifact_set: template.set,
+            artifact_faction: template.faction,
+            artifact_main_stat: template.main_stat,
+            artifact_rank: template.rank,
+            scenarios,
+            milestones,
+            addition_milestones,
+            legal_addition_pool,
+            // Synthetic probes force the rank-derived prior (value-independent).
+            expected_gain: fallback_gain.clone(),
+            fallback_gain,
+        },
+        leaf,
+    }
+}
+
+// One oracle call: the 0–100 chance of `artifact` (the prober's template dims + the
+// probed substat values) for boundary lane `lane`. Root memo hits — every re-probe of
+// a value vector another lane's search already visited — return WITHOUT cloning the
+// cached vector; only genuinely new value vectors recurse.
+pub(super) fn synthetic_cell_chance_lane(
+    prober: &SyntheticCellProber<'_, '_>,
+    artifact: &SafeguardWasmArtifactIn,
+    lane: usize,
+    memo: &mut BTreeMap<StateKey, Vec<f64>>,
+) -> f64 {
+    // mut: compute_probability mutates state in-place (undo-redo) and restores it.
+    let mut state = build_initial_scaled_state(artifact);
+    if prober.ctx.milestones.is_empty() {
+        // Already at +16: evaluate the current state directly without recursion.
+        return round_chance_percent(prober.leaf.eval(&state, &prober.ctx)[lane]);
+    }
+    let key = make_state_key(&state, 0);
+    if let Some(cached) = memo.get(&key) {
+        return round_chance_percent(cached[lane]);
+    }
+    round_chance_percent(compute_probability(&prober.ctx, &mut state, 0, memo, &prober.leaf)[lane])
+}
+
+// Whole-vector convenience wrapper over the prober (kept for the equivalence tests;
+// production corner searches call synthetic_cell_chance_lane per probe instead).
+#[cfg(test)]
+pub(super) fn compute_synthetic_chance_multi(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
-    memo: &mut BTreeMap<StateKey, f64>,
+    boundary_vecs: &[&SyntheticBoundaries],
+    memo: &mut BTreeMap<StateKey, Vec<f64>>,
+) -> Vec<f64> {
+    let prober = prepare_synthetic_cell_prober(artifact, scenarios, boundary_vecs);
+    (0..boundary_vecs.len())
+        .map(|lane| synthetic_cell_chance_lane(&prober, artifact, lane, memo))
+        .collect()
+}
+
+// Shared implementation for the chance entry points above; returns RAW leaf values
+// (probabilities in 0–1 per element) — the wrappers apply the percentage rounding.
+fn compute_artifact_chance_impl<L: ChanceLeaf>(
+    artifact: &SafeguardWasmArtifactIn,
+    scenarios: &[&UpgradeScenario],
+    memo: &mut BTreeMap<StateKey, L::Value>,
+    leaf: &L,
     fallback_gains_only: bool,
-    clear_memo: bool,
-) -> f64 {
+) -> L::Value {
     let artifact_id = artifact.id.unwrap_or(0);
     let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
     let milestones = resolve_remaining_milestones(level);
@@ -1236,11 +1548,7 @@ fn compute_artifact_chance_impl(
             expected_gain: BTreeMap::default(),
             fallback_gain: BTreeMap::default(),
         };
-        return if is_state_selected_by_any_scenario(&initial_state, &ctx) {
-            100.0
-        } else {
-            0.0
-        };
+        return leaf.eval(&initial_state, &ctx);
     }
     // Per-artifact context: milestone schedule, legal addition pool, and Q1/Q3 gains.
     let rarity = clamp_rarity(artifact.rarity);
@@ -1265,15 +1573,9 @@ fn compute_artifact_chance_impl(
         expected_gain,
         fallback_gain,
     };
-    // Real-artifact path: cached results are not valid across differing gain contexts.
-    if clear_memo {
-        memo.clear();
-    }
     // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
     // restored by the time compute_probability returns — callers see no net change.
-    let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
-    // One decimal place (e.g. 47.3) — round to nearest tenth.
-    (prob.max(0.0).min(1.0) * 1000.0).round() / 10.0
+    compute_probability(&ctx, &mut initial_state, 0, memo, leaf)
 }
 
 // ─── viability pruning ────────────────────────────────────────────────────────
@@ -2173,6 +2475,168 @@ mod boundary_reduction_tests {
                             "chance must be identical (required {required}, rank {rank}, level {level}, spd {spd_value})",
                         );
                     }
+                }
+            }
+        }
+    }
+
+    // Synthetic SPD-substat probe artifact for the multi-boundary equivalence sweeps.
+    fn make_probe_artifact(rank: i64, level: i64, spd_value: f64) -> SafeguardWasmArtifactIn {
+        SafeguardWasmArtifactIn {
+            id: Some(-1),
+            slot: ARTIFACT_TYPE_BOOTS,
+            set: 10,
+            rank,
+            rarity: 5,
+            level,
+            exact_level: Some(level),
+            faction: 0,
+            main_stat: STAT_VARIANT_HP_PERCENT,
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: vec![SafeguardWasmSubstatIn {
+                variant: STAT_VARIANT_SPD,
+                is_flat: false,
+                value: spd_value,
+                rolls: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn multi_boundary_chance_matches_scalar_reduced_chance() {
+        // One traversal, many lanes: element i of the multi-boundary probe must be
+        // BIT-identical to the scalar synthetic chance over group i's reduced
+        // scenario — the recursion tree, branch weights and accumulation order are
+        // lane-independent. Groups cover a weak boundary, a strong one, a below-quota
+        // bucket (no boundary → always selected) and a flat-main tie case.
+        let groups: Vec<(Vec<StaticChallenger>, i64)> = vec![
+            (vec![make_challenger(1, 5.5, STAT_VARIANT_SPD, 6)], 1),
+            (
+                vec![
+                    make_challenger(2, 9.0, STAT_VARIANT_SPD, 6),
+                    make_challenger(3, 7.0, STAT_VARIANT_HP_PERCENT, 5),
+                ],
+                2,
+            ),
+            (vec![make_challenger(4, 12.0, STAT_VARIANT_SPD, 6)], 3),
+            (vec![make_challenger(5, 4.0, STAT_VARIANT_HP_FLAT, 5)], 1),
+        ];
+        let scenarios: Vec<UpgradeScenario> = groups
+            .iter()
+            .map(|(bucket, required)| make_scenario(bucket.clone(), *required))
+            .collect();
+        // The probe scenario list is shared by every lane; its embedded buckets are
+        // never consulted by the multi-boundary leaf (boundaries replace them).
+        let probe_scenarios: Vec<&UpgradeScenario> = vec![&scenarios[0]];
+        for &rank in &[5i64, 6] {
+            for &quantum in &[0.0f64, 0.5] {
+                // Per group: extract the boundary AND build the legacy reduced scenario.
+                let extracted: Vec<SyntheticBoundaries> = scenarios
+                    .iter()
+                    .map(|scenario| {
+                        extract_synthetic_boundaries(
+                            &[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum,
+                        )
+                        .0
+                    })
+                    .collect();
+                let boundary_refs: Vec<&SyntheticBoundaries> = extracted.iter().collect();
+                for &level in &[0i64, 8, 16] {
+                    for spd_value in [3.0, 6.0, 9.0, 12.0] {
+                        let artifact = make_probe_artifact(rank, level, spd_value);
+                        let mut memo_multi: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+                        let multi = compute_synthetic_chance_multi(
+                            &artifact,
+                            &probe_scenarios,
+                            &boundary_refs,
+                            &mut memo_multi,
+                        );
+                        assert_eq!(multi.len(), groups.len());
+                        for (idx, scenario) in scenarios.iter().enumerate() {
+                            let (reduced, _) = reduce_scenarios_for_synthetic(
+                                &[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum,
+                            );
+                            let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
+                            let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+                            let scalar = compute_synthetic_chance_for_scenarios(
+                                &artifact,
+                                &reduced_refs,
+                                &mut memo,
+                            );
+                            assert_eq!(
+                                multi[idx], scalar,
+                                "lane {idx} must match its scalar reduced probe (rank {rank}, quantum {quantum}, level {level}, spd {spd_value})",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn multi_boundary_lanes_handle_multi_scenario_rules() {
+        // perSubstat rules expand into several scenarios per rule; a lane is selected
+        // when ANY scenario clears its boundary (within-rule union). Each lane must
+        // still match the scalar probe over the group's fully-reduced scenario list.
+        let spd_scenario = make_scenario(vec![make_challenger(1, 6.0, STAT_VARIANT_SPD, 6)], 1);
+        // Second scenario of the same rule, ACC-focused, with its own bucket; the
+        // required count parameterizes the below-quota lane variant.
+        let make_acc_scenario = |required: i64| UpgradeScenario {
+            rule_order: 0,
+            rule_selected_substats: vec![STAT_VARIANT_SPD, STAT_VARIANT_ACC],
+            rule_substat_match: "perSubstat".to_string(),
+            selected_substats: vec![STAT_VARIANT_ACC],
+            substat_match: "any".to_string(),
+            required_per_group: required,
+            count_mode: per_rule_mode(),
+            weights: BTreeMap::new(),
+            weight_main_stat_by_rank: false,
+            challengers_by_count_key: {
+                let mut map = BTreeMap::new();
+                map.insert(
+                    safeguard_count_key_from_parts(0, 0, 0, STAT_VARIANT_SPD, per_rule_mode()),
+                    vec![make_challenger(2, 20.0, STAT_VARIANT_ACC, 6)],
+                );
+                map
+            },
+        };
+        let acc_scenario = make_acc_scenario(1);
+        let scenario_refs: Vec<&UpgradeScenario> = vec![&spd_scenario, &acc_scenario];
+        // Two lanes: the joint extraction (both scenarios' boundaries) and a variant
+        // where the ACC bucket is below quota (required 2 > bucket size 1).
+        let (lane_a, _) = extract_synthetic_boundaries(
+            &scenario_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
+        );
+        let acc_below_quota = make_acc_scenario(2);
+        let below_refs: Vec<&UpgradeScenario> = vec![&spd_scenario, &acc_below_quota];
+        let (lane_b, _) = extract_synthetic_boundaries(
+            &below_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
+        );
+        let boundary_refs: Vec<&SyntheticBoundaries> = vec![&lane_a, &lane_b];
+        for &level in &[0i64, 8, 16] {
+            for spd_value in [4.0, 8.0, 16.0] {
+                let artifact = make_probe_artifact(6, level, spd_value);
+                let mut memo_multi: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+                let multi = compute_synthetic_chance_multi(
+                    &artifact,
+                    &scenario_refs,
+                    &boundary_refs,
+                    &mut memo_multi,
+                );
+                for (idx, refs) in [&scenario_refs, &below_refs].iter().enumerate() {
+                    let (reduced, _) = reduce_scenarios_for_synthetic(
+                        refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
+                    );
+                    let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
+                    let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+                    let scalar =
+                        compute_synthetic_chance_for_scenarios(&artifact, &reduced_refs, &mut memo);
+                    assert_eq!(
+                        multi[idx], scalar,
+                        "multi-scenario lane {idx} must match (level {level}, spd {spd_value})",
+                    );
                 }
             }
         }

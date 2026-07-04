@@ -18,14 +18,22 @@
 // 530.7k probed cells were genuinely distinct), then → 25.1 s after skipping the
 // redundant d=1 lead profile, coarsening the λ search to 4 iterations and switching the
 // integer descent to per-component binary search (total chance recursions 7.09M → 4.50M;
-// λ probes 3.66M → 1.61M at ~5 µs each). The residual cost is intrinsic under this
-// model: distinct cells × ~9 bounded-depth chance recursions per cell.
+// λ probes 3.66M → 1.61M at ~5 µs each), then → 16.0 s with the multi-boundary probe
+// architecture below: the boundary axis is factored OUT of the probe cells (444k probed
+// (cell × boundary) pairs collapse onto 38.5k boundary-free cells, avg 11.5 boundary
+// lanes each), one recursion traversal answers every lane (bit-identical per lane), and
+// a per-cell prepared prober hoists the value-independent prologue; 35% of the 4.18M
+// oracle calls become root-level memo hits across lanes. The residual cost is intrinsic
+// under this model: lane searches DIVERGE once their integer floors differ, and the
+// bushy last tree level enumerates ~63M terminal states of which 78% are genuinely
+// distinct — memoizing terminal states was measured strictly WORSE (27 s: ~50M-entry
+// memo), so the base case deliberately stays unmemoized.
 use super::{
     // Shared chance machinery (improvement_chance.rs, widened to pub(super) for reuse).
     improvement_chance::{
-        build_scenarios, compute_synthetic_chance_for_scenarios, prepare_upgrade_rules,
-        reduce_scenarios_for_synthetic, resolve_roll_range, StateKey, UpgradeScenario,
-        ROLL_MILESTONES,
+        build_scenarios, extract_synthetic_boundaries, prepare_synthetic_cell_prober,
+        prepare_upgrade_rules, resolve_roll_range, synthetic_cell_chance_lane, StateKey,
+        SyntheticBoundaries, UpgradeScenario, ROLL_MILESTONES,
     },
     // Wire structs and SSOT helpers from mod.rs.
     safeguard_combinations, safeguard_default_group_sample,
@@ -41,7 +49,7 @@ use crate::{
     SafeguardCollectRowIn, HSF_SUBSTAT_SLOT_COUNT, SAFEGUARD_SUBSTAT_PER_SUBSTAT,
     STAT_VARIANT_ANY, STAT_VARIANT_ROLL_COUNT,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -80,7 +88,7 @@ const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
 // Keep-biased boundary-quantization dial (normalized-score units; 0.0 = bit-exact path).
 // The boundary challenger's projected score is FLOORED onto this grid before it feeds
 // both the reduced probe scenario and the cross-group cache signature (see
-// reduce_scenarios_for_synthetic for why quantizing the probe input itself keeps cache
+// extract_synthetic_boundaries for why quantizing the probe input itself keeps cache
 // sharing sound, and why flooring is keep-biased: lower boundary → easier selection →
 // corner floors equal-or-lower → equal-or-more keeps, never extra sells). Coarser values
 // collapse more groups onto shared cache cells at the cost of a slightly wider keep-net.
@@ -92,44 +100,74 @@ const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
 // bar. Finer grids (0.005–0.02) showed no measurable speedup.
 const WATCH_BOUNDARY_QUANTUM: f64 = 0.05;
 
-// ─── cross-group cell signatures ─────────────────────────────────────────────
+// ─── cross-group probe planning ──────────────────────────────────────────────
 
-// Everything OUTSIDE the (rank, rarity, level, subset) cell axes that can change a
-// probe's outcome: the owning rule (its scenarios carry the weights, count modes,
-// substat gates, required counts; its thresholds are level-indexed), the group's
-// slot/main (legal substat pools, scoring, tie-breaks), and — per scenario — the
-// BOUNDARY challenger triple (projected-score in thousandths, main_stat, rank; None =
-// bucket below quota → always selected) produced by reduce_scenarios_for_synthetic.
-// Selection depends on the full bucket ONLY through that boundary, so groups with
-// different challenger lists but equal boundaries share every cell — a far bigger
-// collapse than full-list equality. Interned per (placeholder, rank): the boundary is
-// candidate-rank dependent, and the cell key's rank axis keeps contexts separated.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct WatchDimsSignature {
+// Probe context key: everything OUTSIDE the boundary axis and the (rarity, level,
+// subset) cell axes that can change a probe's outcome — the owning rule (its scenarios
+// carry the weights, count modes, substat gates, required counts; its thresholds are
+// level-indexed), the group's slot/main (legal substat pools, scoring, tie-breaks) and
+// the candidate rank (fallback gains, tie-breaks, boundary extraction). The group
+// sample's set/faction are deliberately absent: the multi-boundary leaf never consults
+// challenger buckets by count key, and nothing else in the recursion reads them.
+type WatchContextKey = (i64, i64, i64, i64); // (rule_ordinal, slot, main_stat, rank)
+
+// Per-scenario boundary signature of one group at one rank — the triple form
+// (projected-score thousandths, main_stat, rank; None = bucket below quota → always
+// selected) produced by extract_synthetic_boundaries. Selection depends on the full
+// challenger bucket ONLY through the boundary (equivalence argument documented at
+// extract_synthetic_boundaries), so groups with different challenger lists but equal
+// signatures share one boundary INDEX below — and therefore every probe result.
+type WatchBoundarySignature = Vec<Option<(i64, i64, i64)>>;
+
+// Cell axes within one context: (level, subset, rarity).
+type WatchCellAxes = (i64, Vec<i64>, i64);
+
+// All probe work sharing one context: the distinct boundary vectors (indexed, with the
+// first-seen extraction as the representative — its exact challenger scores serve every
+// signature-equal group, the same sub-milli tolerance the signature rounding always
+// implied) and the cells each boundary index needs. The probe phase walks `cells` once
+// per cell, evaluating ALL needed boundary indices in one traversal via
+// compute_synthetic_chance_multi — the boundary axis costs vector lanes, not tree walks.
+struct WatchContext<'a> {
+    // Scenario refs of the owning rule (the probe leaf reads gates/weights from these).
+    scenarios: &'a [&'a UpgradeScenario],
+    // First-seen group sample: the probe artifact template for every cell in this
+    // context (set/faction are inert here — see WatchContextKey).
+    sample: SafeguardWasmGroupSample,
+    // Rule-scoped per-level thresholds (the context key pins the rule ordinal).
+    thresholds: [f64; 4],
+    // Distinct boundary vectors in first-seen order + the signature intern map.
+    boundary_vecs: Vec<SyntheticBoundaries>,
+    sig_to_index: BTreeMap<WatchBoundarySignature, usize>,
+    // Cells to probe → the boundary indices that need them.
+    cells: BTreeMap<WatchCellAxes, BTreeSet<usize>>,
+    // Probe results per (cell, boundary index): per-profile verified integer floor
+    // vectors, or None when the cell is unreachable under that boundary.
+    results: BTreeMap<(i64, Vec<i64>, i64, usize), Option<Vec<Vec<i64>>>>,
+}
+
+// Per-placeholder assembly inputs, recorded during planning. `probe: None` marks a
+// zero-missing watch placeholder with no viable probe basis (no scenarios / empty
+// substat pool) — assembly emits no corners and the placeholder is removed, exactly
+// like an unreachable frontier.
+struct PlaceholderPlan {
+    entry_idx: usize,
+    placeholder_idx: usize,
+    probe: Option<PlaceholderProbePlan>,
+}
+
+struct PlaceholderProbePlan {
     rule_ordinal: i64,
-    slot: i64,
-    main_stat: i64,
-    boundaries: Vec<Option<(i64, i64, i64)>>,
+    // Context-key dims (slot/main from the group sample) to relocate the contexts.
+    sample_slot: i64,
+    sample_main: i64,
+    weights: BTreeMap<i64, f64>,
+    subsets: Vec<Vec<i64>>,
+    ranks: Vec<i64>,
+    rarities: Vec<i64>,
+    // Boundary index of this group within each rank's context.
+    boundary_index_by_rank: BTreeMap<i64, usize>,
 }
-
-// Interner: the signature collapses to a small integer id once per (placeholder, rank)
-// context, so per-cell cache keys stay cheap to build and compare.
-#[derive(Default)]
-struct WatchDimsInterner {
-    ids: BTreeMap<WatchDimsSignature, u64>,
-}
-
-impl WatchDimsInterner {
-    fn intern(&mut self, signature: WatchDimsSignature) -> u64 {
-        let next_id = self.ids.len() as u64;
-        *self.ids.entry(signature).or_insert(next_id)
-    }
-}
-
-// Cell key inside the cross-group corner cache: interned dims id + the cell axes.
-type WatchCellKey = (u64, i64, i64, i64, Vec<i64>);
-// Per-attach-call cache of probed per-profile floors keyed by distinct cell signature.
-type WatchCornerCache = BTreeMap<WatchCellKey, Option<Vec<Vec<i64>>>>;
 
 // ─── watch-rule predicate ────────────────────────────────────────────────────
 
@@ -148,6 +186,17 @@ pub(super) fn safeguard_rule_is_improvement_watch(rule: &SafeguardWasmRuleIn) ->
 // improvement-watch rule, removing placeholders for which no viable corner exists.
 // `rules` MUST be the full input rule list so prepared rule_order indices align with
 // detection rule ordinals (ordinal = rule_order + 1).
+//
+// Three phases so the boundary axis never multiplies tree traversals:
+//   1. PLAN — walk placeholders in order, resolve their probe axes, intern each
+//      (placeholder, rank) boundary signature into its context and register the cells
+//      each boundary index needs.
+//   2. PROBE — per context per cell, run the corner searches for ALL needed boundary
+//      indices against ONE shared multi-boundary oracle (one recursion tree per probed
+//      value vector, one f64 lane per boundary — see compute_synthetic_chance_multi).
+//   3. ASSEMBLE — rebuild every placeholder's corners from the probed floors in the
+//      same rank/level/subset/rarity order the previous single-boundary path used, so
+//      the emitted corner lists are bit-identical.
 pub(super) fn attach_watch_corners(
     detection: &mut SafeguardWasmSnapshotOut,
     rules: &[SafeguardWasmRuleIn],
@@ -175,14 +224,10 @@ pub(super) fn attach_watch_corners(
             .or_default()
             .push(scenario);
     }
-    // One scratch memo reused for its allocation across all probes (cleared per probe
-    // inside the chance helper — expected gains depend on the probe's substat values).
-    let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-    // Cross-group corner cache + dims interner: live for this attach call so identical
-    // signature cells across groups (and entries) are probed exactly once.
-    let mut interner = WatchDimsInterner::default();
-    let mut cache = WatchCornerCache::new();
-    for entry in &mut detection.entries {
+    // ── phase 1: plan ────────────────────────────────────────────────────────
+    let mut contexts: BTreeMap<WatchContextKey, WatchContext<'_>> = BTreeMap::new();
+    let mut plans: Vec<PlaceholderPlan> = Vec::new();
+    for (entry_idx, entry) in detection.entries.iter().enumerate() {
         // Resolve the entry's rule by ordinal; non-watch rules pass through untouched.
         let Some(ordinal) = entry.rule_ordinal else {
             continue;
@@ -203,23 +248,49 @@ pub(super) fn attach_watch_corners(
             continue;
         };
         let combination = rule.combination.clone().unwrap_or_default();
-        // Zero-missing watch placeholders either gain corners or are dropped entirely;
-        // deficit (missing > 0) placeholders are never touched.
-        entry.placeholders.retain_mut(|placeholder| {
+        for (placeholder_idx, placeholder) in entry.placeholders.iter().enumerate() {
+            // Deficit (missing > 0) placeholders are never touched (and never planned).
             if placeholder.missing > 0 {
-                return true;
+                continue;
             }
-            let corners = compute_watch_corners(
+            plans.push(plan_watch_placeholder(
+                entry_idx,
+                placeholder_idx,
                 rule,
                 ordinal,
                 &combination,
                 placeholder,
                 rule_scenarios,
                 &thresholds,
-                &mut memo,
-                &mut interner,
-                &mut cache,
-            );
+                &mut contexts,
+            ));
+        }
+    }
+    // ── phase 2: probe ───────────────────────────────────────────────────────
+    // One scratch memo reused for its allocation across all cells; cleared per cell —
+    // cached vectors are only valid for a fixed (scenarios, sample dims, rank, rarity,
+    // level, boundary set) tuple, and all of those change cell to cell.
+    let mut memo: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+    for (key, context) in contexts.iter_mut() {
+        probe_watch_context(*key, context, &mut memo);
+    }
+    // ── phase 3: assemble ────────────────────────────────────────────────────
+    let mut corners_by_target: BTreeMap<(usize, usize), Vec<SafeguardWatchCornerOut>> =
+        BTreeMap::new();
+    for plan in plans {
+        let corners = assemble_watch_corners(&plan, &contexts);
+        corners_by_target.insert((plan.entry_idx, plan.placeholder_idx), corners);
+    }
+    for (entry_idx, entry) in detection.entries.iter_mut().enumerate() {
+        // Walk placeholders by their ORIGINAL index (retain_mut visits in order).
+        let mut placeholder_idx = 0usize;
+        entry.placeholders.retain_mut(|placeholder| {
+            let idx = placeholder_idx;
+            placeholder_idx += 1;
+            // Unplanned placeholders (non-watch entries, deficit rows) pass through.
+            let Some(corners) = corners_by_target.remove(&(entry_idx, idx)) else {
+                return true;
+            };
             if corners.is_empty() {
                 // Nothing viable clears the bar → drop the placeholder (sell normally).
                 false
@@ -273,25 +344,28 @@ fn resolve_watch_substat_pool(source: &[i64], sample: &SafeguardWasmGroupSample)
     pool
 }
 
-// ─── corner computation ──────────────────────────────────────────────────────
+// ─── phase 1: planning ───────────────────────────────────────────────────────
 
-// Compute the corner frontier for one zero-missing watch placeholder. Empty result means
-// no viable corner exists (caller removes the placeholder → fresh drops sell normally).
+// Resolve one zero-missing watch placeholder's probe axes, intern its per-rank boundary
+// signatures into the shared contexts and register the cells its corners will need.
+// A plan with `probe: None` (no scenarios / empty pool) assembles to zero corners —
+// the placeholder is then removed (fresh drops sell normally).
 #[allow(clippy::too_many_arguments)]
-fn compute_watch_corners(
+fn plan_watch_placeholder<'a>(
+    entry_idx: usize,
+    placeholder_idx: usize,
     rule: &SafeguardWasmRuleIn,
     rule_ordinal: i64,
     combination: &SafeguardWasmCombination,
     placeholder: &SafeguardWasmPlaceholderOut,
-    scenarios: &[&UpgradeScenario],
+    scenarios: &'a [&'a UpgradeScenario],
     thresholds: &[f64; 4],
-    memo: &mut BTreeMap<StateKey, f64>,
-    interner: &mut WatchDimsInterner,
-    cache: &mut WatchCornerCache,
-) -> Vec<SafeguardWatchCornerOut> {
+    contexts: &mut BTreeMap<WatchContextKey, WatchContext<'a>>,
+) -> PlaceholderPlan {
+    let unviable = PlaceholderPlan { entry_idx, placeholder_idx, probe: None };
     // No challenger model means the chance recursion has nothing to select against.
     if scenarios.is_empty() {
-        return Vec::new();
+        return unviable;
     }
     // Group dimensions: prefer the detection-attached sample; legacy zero-missing
     // placeholders without one fall back to the deterministic combination default.
@@ -321,7 +395,7 @@ fn compute_watch_corners(
         .unwrap_or_else(|| rule.substats.as_deref().unwrap_or(&[]));
     let pool = resolve_watch_substat_pool(pool_source, &sample);
     if pool.is_empty() {
-        return Vec::new();
+        return unviable;
     }
     // Subset size from the shared min-count resolver; perSubstat probes singles. A drop
     // holding MORE focus substats than the minimum still matches the M-subset rule and
@@ -342,12 +416,12 @@ fn compute_watch_corners(
     let weights = rule.substat_weights.clone().unwrap_or_default();
     // Keep only the top-priority subsets so probe cost and export size stay bounded.
     let subsets = rank_and_cap_subsets(subsets, &weights, WATCH_SUBSET_CAP);
-
-    let mut corners = Vec::<SafeguardWatchCornerOut>::new();
+    // Per rank: extract this group's boundary signature, intern it in the rank's
+    // context (creating the context with this group's sample as the probe template on
+    // first sight) and register every (level, subset, rarity) cell under the index.
+    let mut boundary_index_by_rank = BTreeMap::<i64, usize>::new();
     for &rank in &ranks {
-        // Boundary-challenger reduction for this fixed (sample dims, rank) context —
-        // reduce_scenarios_for_synthetic documents the exact-equivalence argument.
-        let (reduced_scenarios, boundaries) = reduce_scenarios_for_synthetic(
+        let (extracted, signature) = extract_synthetic_boundaries(
             scenarios,
             sample.slot,
             sample.set,
@@ -356,39 +430,194 @@ fn compute_watch_corners(
             rank,
             WATCH_BOUNDARY_QUANTUM,
         );
-        let reduced_refs: Vec<&UpgradeScenario> = reduced_scenarios.iter().collect();
-        // Interned cross-group signature: groups of the same rule/slot/main whose
-        // per-scenario BOUNDARIES coincide at this rank share every cell — the full
-        // challenger lists no longer matter, only the decision boundary.
-        let dims_id = interner.intern(WatchDimsSignature {
-            rule_ordinal,
-            slot: sample.slot,
-            main_stat: sample.main_stat,
-            boundaries,
-        });
+        let context = contexts
+            .entry((rule_ordinal, sample.slot, sample.main_stat, rank))
+            .or_insert_with(|| WatchContext {
+                scenarios,
+                sample: sample.clone(),
+                thresholds: *thresholds,
+                boundary_vecs: Vec::new(),
+                sig_to_index: BTreeMap::new(),
+                cells: BTreeMap::new(),
+                results: BTreeMap::new(),
+            });
+        // Intern by signature; the FIRST extraction is the shared representative.
+        let index = match context.sig_to_index.get(&signature) {
+            Some(&existing) => existing,
+            None => {
+                let next = context.boundary_vecs.len();
+                context.boundary_vecs.push(extracted);
+                context.sig_to_index.insert(signature, next);
+                next
+            }
+        };
+        boundary_index_by_rank.insert(rank, index);
         for &level in &WATCH_LEVELS {
-            // Threshold for the drop's upgrade stage (level 16 uses the level-12 slot).
-            let threshold = thresholds[safeguard_threshold_slot_for_level(level)];
             for subset in &subsets {
-                // Probe each rarity of the (rank, level, subset) cell independently,
-                // keeping only rarities where the frontier is reachable at all.
-                let per_rarity: Vec<(i64, Vec<Vec<i64>>)> = rarities
+                for &rarity in &rarities {
+                    context
+                        .cells
+                        .entry((level, subset.clone(), rarity))
+                        .or_default()
+                        .insert(index);
+                }
+            }
+        }
+    }
+    PlaceholderPlan {
+        entry_idx,
+        placeholder_idx,
+        probe: Some(PlaceholderProbePlan {
+            rule_ordinal,
+            sample_slot: sample.slot,
+            sample_main: sample.main_stat,
+            weights,
+            subsets,
+            ranks,
+            rarities,
+            boundary_index_by_rank,
+        }),
+    }
+}
+
+// ─── phase 2: probing ────────────────────────────────────────────────────────
+
+// Probe every registered cell of one context for all boundary indices that need it.
+// The corner searches run per index (their probe sequences differ once pass/fail
+// outcomes diverge), but every chance evaluation goes through ONE shared oracle:
+// compute_synthetic_chance_multi answers all needed indices per traversal and memoizes
+// the whole vector per state, so index k's search re-probing a value vector index j
+// already visited is a root-level memo hit instead of a fresh recursion.
+fn probe_watch_context(
+    key: WatchContextKey,
+    context: &mut WatchContext<'_>,
+    memo: &mut BTreeMap<StateKey, Vec<f64>>,
+) {
+    let (_, _, _, rank) = key;
+    // Split-borrow the context so the oracle closure (boundary_vecs, scenarios, sample)
+    // and the results sink can coexist.
+    let WatchContext {
+        scenarios,
+        sample,
+        thresholds,
+        boundary_vecs,
+        cells,
+        results,
+        ..
+    } = context;
+    for ((level, subset, rarity), needed) in cells.iter() {
+        // Threshold for the drop's upgrade stage (level 16 uses the level-12 slot).
+        let threshold = thresholds[safeguard_threshold_slot_for_level(*level)];
+        // Resolve every variant's (lo, hi) probe domain once per cell; a variant
+        // without roll data makes the whole cell unreachable for every boundary.
+        let mut domains = Vec::<(f64, f64)>::with_capacity(subset.len());
+        let mut domains_ok = true;
+        for &variant in subset {
+            match resolve_watch_value_domain(rank, variant, *level) {
+                Some(domain) => domains.push(domain),
+                None => {
+                    domains_ok = false;
+                    break;
+                }
+            }
+        }
+        if !domains_ok {
+            for &index in needed {
+                results.insert((*level, subset.clone(), *rarity, index), None);
+            }
+            continue;
+        }
+        // ONE memo for every probe of this cell: scenarios, sample dims, rank, rarity,
+        // level and the boundary set are all fixed here, and synthetic probes use
+        // value-independent fallback gains — so cached vectors stay valid across the
+        // gate, every λ-search and every descent step of EVERY index. StateKey
+        // distinguishes all remaining variation (probe values).
+        memo.clear();
+        let needed_indices: Vec<usize> = needed.iter().copied().collect();
+        let boundary_refs: Vec<&SyntheticBoundaries> = needed_indices
+            .iter()
+            .map(|&index| &boundary_vecs[index])
+            .collect();
+        // Value-free probe template carrying the cell dims. id -1 can never collide
+        // with a real challenger id, so the leaf's self-exclusion stays inert.
+        let template = SafeguardWasmArtifactIn {
+            id: Some(-1),
+            slot: sample.slot,
+            set: sample.set,
+            rank,
+            rarity: *rarity,
+            level: *level,
+            exact_level: Some(*level),
+            faction: sample.faction,
+            main_stat: sample.main_stat,
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: Vec::new(),
+        };
+        // Shared multi-boundary oracle, prepared ONCE per cell (milestones, gains and
+        // pools are value-independent) — per probe only the tiny value-carrying
+        // artifact and its root state are built.
+        let prober = prepare_synthetic_cell_prober(&template, scenarios, &boundary_refs);
+        for (local, &index) in needed_indices.iter().enumerate() {
+            let floors = probe_subset_profile_floors(&domains, threshold, &mut |values, memo| {
+                let artifact = SafeguardWasmArtifactIn {
+                    substats: subset
+                        .iter()
+                        .zip(values)
+                        .map(|(&variant, &value)| SafeguardWasmSubstatIn {
+                            variant,
+                            // Flat bit derived from the variant like HSF sub encoding.
+                            is_flat: safeguard_variant_to_sub(variant).1,
+                            value,
+                            rolls: None,
+                        })
+                        .collect(),
+                    ..template.clone()
+                };
+                synthetic_cell_chance_lane(&prober, &artifact, local, memo)
+            }, memo);
+            results.insert((*level, subset.clone(), *rarity, index), floors);
+        }
+    }
+    // The cell registry has served its purpose; results now carry everything assembly
+    // needs. (Leaving cells in place would be harmless — this just frees the memory.)
+    cells.clear();
+}
+
+// ─── phase 3: assembly ───────────────────────────────────────────────────────
+
+// Rebuild one placeholder's corner list from the probed per-cell floors, in exactly
+// the rank → level → subset → rarity order the single-boundary path used. Empty result
+// means no viable corner exists (caller removes the placeholder).
+fn assemble_watch_corners(
+    plan: &PlaceholderPlan,
+    contexts: &BTreeMap<WatchContextKey, WatchContext<'_>>,
+) -> Vec<SafeguardWatchCornerOut> {
+    let Some(probe) = &plan.probe else {
+        return Vec::new();
+    };
+    let mut corners = Vec::<SafeguardWatchCornerOut>::new();
+    for &rank in &probe.ranks {
+        let Some(&index) = probe.boundary_index_by_rank.get(&rank) else {
+            continue;
+        };
+        let Some(context) =
+            contexts.get(&(probe.rule_ordinal, probe.sample_slot, probe.sample_main, rank))
+        else {
+            continue;
+        };
+        for &level in &WATCH_LEVELS {
+            for subset in &probe.subsets {
+                // Collect this cell's reachable rarities under the group's boundary.
+                let per_rarity: Vec<(i64, Vec<Vec<i64>>)> = probe
+                    .rarities
                     .iter()
                     .filter_map(|&rarity| {
-                        // Cross-group corner cache: cells sharing the boundary signature
-                        // + the cell axes are guaranteed identical probe outcomes —
-                        // reuse without probing.
-                        let cell_key: WatchCellKey =
-                            (dims_id, rank, rarity, level, subset.clone());
-                        if let Some(cached) = cache.get(&cell_key) {
-                            return cached.clone().map(|floors| (rarity, floors));
-                        }
-                        let floors = probe_subset_profile_floors(
-                            subset, &sample, rank, rarity, level, threshold,
-                            &reduced_refs, memo,
-                        );
-                        cache.insert(cell_key, floors.clone());
-                        floors.map(|floors| (rarity, floors))
+                        context
+                            .results
+                            .get(&(level, subset.clone(), rarity, index))
+                            .and_then(|floors| floors.clone())
+                            .map(|floors| (rarity, floors))
                     })
                     .collect();
                 if per_rarity.is_empty() {
@@ -430,7 +659,7 @@ fn compute_watch_corners(
     }
     // Dedupe/dominance-prune AFTER integerization + rarity merging (integer floors make
     // far more corners collide), then order the survivors deterministically.
-    sort_watch_corners(prune_watch_corners(corners), &weights)
+    sort_watch_corners(prune_watch_corners(corners), &probe.weights)
 }
 
 // Merge one profile's per-rarity integer floor vectors into corner runs. Input entries
@@ -540,67 +769,25 @@ fn resolve_watch_value_domain(rank: i64, variant: i64, level: i64) -> Option<(f6
     Some((roll_min, roll_max * max_rolls as f64))
 }
 
-// Probe every profile of one (subset, rank, rarity, level) cell. Returns one verified
-// minimal INTEGER floor vector per profile (balanced first, then lead-i in subset order),
-// or None when the cell is unreachable (no roll data, or even all-maximum values fail).
-#[allow(clippy::too_many_arguments)]
-fn probe_subset_profile_floors(
-    subset: &[i64],
-    sample: &SafeguardWasmGroupSample,
-    rank: i64,
-    rarity: i64,
-    level: i64,
+// Probe every profile of one cell against ONE boundary context. `domains` carries the
+// per-variant (lo, hi) probe ranges (resolved by the caller, subset order); `chance_at`
+// is the chance oracle for this cell — in production a single lane of the shared
+// multi-boundary oracle, threaded with the caller-owned memo `scratch` so the oracle
+// can memoize across every probe of the cell (the caller clears it per cell). Returns
+// one verified minimal INTEGER floor vector per profile (balanced first, then lead-i in
+// subset order), or None when the cell is unreachable (even all-maximum values fail).
+fn probe_subset_profile_floors<M>(
+    domains: &[(f64, f64)],
     threshold: f64,
-    scenarios: &[&UpgradeScenario],
-    memo: &mut BTreeMap<StateKey, f64>,
+    chance_at: &mut impl FnMut(&[f64], &mut M) -> f64,
+    scratch: &mut M,
 ) -> Option<Vec<Vec<i64>>> {
-    // Resolve every variant's (lo, hi) domain; a variant without roll data kills the subset.
-    let mut domains = Vec::<(f64, f64)>::with_capacity(subset.len());
-    for &variant in subset {
-        let domain = resolve_watch_value_domain(rank, variant, level)?;
-        domains.push(domain);
-    }
-    // ONE memo for every probe in this call: scenarios, sample dims, rank, rarity and
-    // level are all fixed here, and synthetic probes use value-independent fallback gains
-    // (see compute_synthetic_chance_for_scenarios) — so cached recursion nodes stay valid
-    // across the gate, every λ-search and every descent step. StateKey distinguishes all
-    // remaining variation (probe values), and identical re-probes — e.g. a lead profile
-    // whose descent converges onto the balanced profile's floors — become root-level hits.
-    memo.clear();
-    // Chance probe: synthetic candidate carrying the group dims + the given substat values.
-    // id -1 can never collide with a real challenger id, so self-exclusion stays inert.
-    let chance_for = |values: &[f64], memo: &mut BTreeMap<StateKey, f64>| -> f64 {
-        let artifact = SafeguardWasmArtifactIn {
-            id: Some(-1),
-            slot: sample.slot,
-            set: sample.set,
-            rank,
-            rarity,
-            level,
-            exact_level: Some(level),
-            faction: sample.faction,
-            main_stat: sample.main_stat,
-            equipped_in_collection: false,
-            equipped_in_vault: false,
-            substats: subset
-                .iter()
-                .zip(values)
-                .map(|(&variant, &value)| SafeguardWasmSubstatIn {
-                    variant,
-                    // Flat bit derived from the variant exactly like HSF sub encoding.
-                    is_flat: safeguard_variant_to_sub(variant).1,
-                    value,
-                    rolls: None,
-                })
-                .collect(),
-        };
-        compute_synthetic_chance_for_scenarios(&artifact, scenarios, memo)
-    };
+    let chance_for = chance_at;
     // Gate the whole cell on the all-maximum probe: at λ=1 every profile coincides, so
     // one evaluation decides whether ANY corner can exist here (level 16 included — its
     // deterministic 0/100 chance flows through the same milestones-empty code path).
     let hi_values: Vec<f64> = domains.iter().map(|&(_, hi)| hi).collect();
-    if chance_for(&hi_values, memo) < threshold {
+    if chance_for(&hi_values, scratch) < threshold {
         return None;
     }
     // Profiles: "balanced" scales every variant together; "lead i" pins variant i at its
@@ -609,7 +796,7 @@ fn probe_subset_profile_floors(
     // anchor (component pinned at hi) is exactly the balanced ray's λ=1 endpoint, so the
     // lead search retraces the balanced one and converges on the same integer floor —
     // identical by construction, so skipping it halves d=1 probe cost losslessly.
-    let dims = subset.len();
+    let dims = domains.len();
     let profile_count = if dims == 1 { 1 } else { dims + 1 };
     let mut profile_floors = Vec::<Vec<i64>>::with_capacity(profile_count);
     for profile in 0..profile_count {
@@ -629,7 +816,7 @@ fn probe_subset_profile_floors(
         };
         // Floor short-circuit: when λ=0 already passes, the floor IS the minimal corner.
         let floor = values_at(0.0);
-        let best = if chance_for(&floor, memo) >= threshold {
+        let best = if chance_for(&floor, scratch) >= threshold {
             floor
         } else {
             // Binary-search the minimal passing λ; λ=1 is known-passing from the gate.
@@ -640,7 +827,7 @@ fn probe_subset_profile_floors(
             for _ in 0..WATCH_LAMBDA_ITERATIONS {
                 let mid = (lo_lambda + hi_lambda) / 2.0;
                 let probe = values_at(mid);
-                if chance_for(&probe, memo) >= threshold {
+                if chance_for(&probe, scratch) >= threshold {
                     hi_lambda = mid;
                     best = probe;
                 } else {
@@ -675,7 +862,7 @@ fn probe_subset_profile_floors(
                 let mid = low + (high - low) / 2; // < high, so progress is guaranteed
                 floors[idx] = mid;
                 let probe: Vec<f64> = floors.iter().map(|&floor| floor as f64).collect();
-                if chance_for(&probe, memo) >= threshold {
+                if chance_for(&probe, scratch) >= threshold {
                     high = mid; // mid verified → tighten the passing upper bound
                 } else {
                     low = mid + 1; // mid fails → the minimal integer sits above it
@@ -730,6 +917,11 @@ fn prune_watch_corners(corners: Vec<SafeguardWatchCornerOut>) -> Vec<SafeguardWa
 #[cfg(test)]
 mod improvement_watch_tests {
     use super::*;
+    // Legacy scalar probe entries: the reference implementations the multi-boundary
+    // production path is compared against (both are #[cfg(test)] in improvement_chance).
+    use crate::safeguards::improvement_chance::{
+        compute_synthetic_chance_for_scenarios, reduce_scenarios_for_synthetic,
+    };
     use crate::safeguards::{
         ImprovementChanceThresholdIn, SafeguardWasmCountMode, SafeguardWasmEntryOut,
     };
@@ -740,6 +932,68 @@ mod improvement_watch_tests {
     };
 
     const TEST_SET: i64 = 10;
+
+    // Synthetic probe artifact factory shared by the test oracles (mirrors the
+    // production template in probe_watch_context).
+    fn make_probe_artifact(
+        sample: &SafeguardWasmGroupSample,
+        rank: i64,
+        rarity: i64,
+        level: i64,
+        subset: &[i64],
+        values: &[f64],
+    ) -> SafeguardWasmArtifactIn {
+        SafeguardWasmArtifactIn {
+            id: Some(-1),
+            slot: sample.slot,
+            set: sample.set,
+            rank,
+            rarity,
+            level,
+            exact_level: Some(level),
+            faction: sample.faction,
+            main_stat: sample.main_stat,
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: subset
+                .iter()
+                .zip(values)
+                .map(|(&variant, &value)| SafeguardWasmSubstatIn {
+                    variant,
+                    is_flat: safeguard_variant_to_sub(variant).1,
+                    value,
+                    rolls: None,
+                })
+                .collect(),
+        }
+    }
+
+    // Scalar probe harness: runs the oracle-driven corner search against the legacy
+    // single-boundary reduced scenarios (reference path for equivalence assertions).
+    fn probe_floors_scalar(
+        subset: &[i64],
+        sample: &SafeguardWasmGroupSample,
+        rank: i64,
+        rarity: i64,
+        level: i64,
+        threshold: f64,
+        scenarios: &[&UpgradeScenario],
+    ) -> Option<Vec<Vec<i64>>> {
+        let mut domains = Vec::<(f64, f64)>::with_capacity(subset.len());
+        for &variant in subset {
+            domains.push(resolve_watch_value_domain(rank, variant, level)?);
+        }
+        let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+        probe_subset_profile_floors(
+            &domains,
+            threshold,
+            &mut |values, memo| {
+                let artifact = make_probe_artifact(sample, rank, rarity, level, subset, values);
+                compute_synthetic_chance_for_scenarios(&artifact, scenarios, memo)
+            },
+            &mut memo,
+        )
+    }
 
     // Row factory: one boots challenger carrying a single SPD substat at the given value.
     fn make_row(id: i64, rank: i64, rarity: i64, level: i64, spd_value: f64) -> SafeguardCollectRowIn {
@@ -1331,13 +1585,10 @@ mod improvement_watch_tests {
                     );
                 }
                 // Corner floors never rise under a coarser quantum.
-                let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-                let floors_exact = probe_subset_profile_floors(
-                    &subset, &sample, 6, 5, level, 50.0, &exact_refs, &mut memo,
-                );
-                let floors_coarse = probe_subset_profile_floors(
-                    &subset, &sample, 6, 5, level, 50.0, &coarse_refs, &mut memo,
-                );
+                let floors_exact =
+                    probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &exact_refs);
+                let floors_coarse =
+                    probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &coarse_refs);
                 match (floors_exact, floors_coarse) {
                     // Exact-unreachable cells may stay unreachable or open up under the
                     // floored boundary — both are keep-safe; nothing to compare.
@@ -1363,118 +1614,124 @@ mod improvement_watch_tests {
         }
     }
 
-    #[test]
-    fn cache_collapses_on_equal_boundaries() {
-        // The signature keys on the BOUNDARY challenger, not the full list: with
-        // required 1 the boundary is the strongest challenger, so pool [20] and pool
-        // [20, 15] share every cell (the 15 lies strictly inside the boundary's beats
-        // region and can never change a selection); a stronger pool [25] does not.
-        let rules = vec![make_watch_rule(50.0, vec![5])];
-        let thresholds = [50.0, 50.0, 50.0, 50.0];
-        let combination = rules[0].combination.clone().unwrap_or_default();
-        let placeholder = make_snapshot(&rules[0], vec![]).entries[0].placeholders[0].clone();
-        let prepared = prepare_upgrade_rules(&rules);
-        let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-        let mut interner = WatchDimsInterner::default();
-        let mut cache = WatchCornerCache::new();
-        // Pool A: single challenger at SPD 20 (the boundary).
-        let rows_a = vec![make_row(1, 6, 5, 16, 20.0)];
-        let (scenarios_a, _) = build_scenarios(&rows_a, &prepared);
-        let refs_a: Vec<&UpgradeScenario> = scenarios_a.iter().collect();
-        let first = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_a, &thresholds,
-            &mut memo, &mut interner, &mut cache,
-        );
-        let ids_after_first = interner.ids.len();
-        let cells_after_first = cache.len();
-        assert!(!first.is_empty() && cells_after_first > 0, "fixture must probe cells");
-        // Pool B: DIFFERENT challenger list, same boundary (extra weaker challenger).
-        let rows_b = vec![make_row(1, 6, 5, 16, 20.0), make_row(2, 6, 5, 16, 15.0)];
-        let (scenarios_b, _) = build_scenarios(&rows_b, &prepared);
-        let refs_b: Vec<&UpgradeScenario> = scenarios_b.iter().collect();
-        let second = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_b, &thresholds,
-            &mut memo, &mut interner, &mut cache,
-        );
-        assert_eq!(first, second, "equal boundaries must yield identical corners");
-        assert_eq!(
-            interner.ids.len(),
-            ids_after_first,
-            "equal boundaries intern to the same signature despite differing lists",
-        );
-        assert_eq!(
-            cache.len(),
-            cells_after_first,
-            "every cell of the equal-boundary group must come from the cache",
-        );
-        // Pool C: stronger boundary (25) → new signature, fresh cells, higher floors.
-        let rows_c = vec![make_row(3, 6, 5, 16, 25.0)];
-        let (scenarios_c, _) = build_scenarios(&rows_c, &prepared);
-        let refs_c: Vec<&UpgradeScenario> = scenarios_c.iter().collect();
-        let third = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_c, &thresholds,
-            &mut memo, &mut interner, &mut cache,
-        );
-        assert!(interner.ids.len() > ids_after_first, "new boundary interns a new signature");
-        assert!(cache.len() > cells_after_first, "new boundary probes fresh cells");
-        let tie_16 = third.iter().find(|c| c.level == 16).expect("level-16 corner expected");
-        assert_eq!(tie_16.substats[0].min_value, 25.0);
+    // Plan → probe → assemble harness over explicit per-group scenario sets sharing one
+    // contexts map — the direct pipeline surface for cross-group sharing assertions.
+    // Returns (corners per group, total interned boundary vectors, total probe results).
+    fn run_watch_pipeline<'a>(
+        rule: &SafeguardWasmRuleIn,
+        placeholder: &SafeguardWasmPlaceholderOut,
+        scenario_sets: &'a [Vec<&'a UpgradeScenario>],
+        thresholds: &[f64; 4],
+    ) -> (Vec<Vec<SafeguardWatchCornerOut>>, usize, usize) {
+        let combination = rule.combination.clone().unwrap_or_default();
+        let mut contexts: BTreeMap<WatchContextKey, WatchContext<'a>> = BTreeMap::new();
+        let plans: Vec<PlaceholderPlan> = scenario_sets
+            .iter()
+            .enumerate()
+            .map(|(idx, refs)| {
+                plan_watch_placeholder(
+                    0, idx, rule, 1, &combination, placeholder, refs, thresholds,
+                    &mut contexts,
+                )
+            })
+            .collect();
+        let mut memo: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+        for (key, context) in contexts.iter_mut() {
+            probe_watch_context(*key, context, &mut memo);
+        }
+        let corners = plans
+            .iter()
+            .map(|plan| assemble_watch_corners(plan, &contexts))
+            .collect();
+        let boundary_vecs = contexts.values().map(|c| c.boundary_vecs.len()).sum();
+        let probed = contexts.values().map(|c| c.results.len()).sum();
+        (corners, boundary_vecs, probed)
     }
 
     #[test]
-    fn cross_group_cache_reuses_identical_signatures_only() {
-        // Two groups with IDENTICAL signatures (same rule, dims and challenger bucket)
-        // must produce identical corners with the second group served from the cache;
-        // a differing challenger pool must NOT share cells (and yields different floors).
+    fn boundary_indices_collapse_equal_boundaries_only() {
+        // Cross-group sharing keys on the BOUNDARY challenger, not the full list: with
+        // required 1 the boundary is the strongest challenger, so pool [20], pool
+        // [20, 15] (the 15 lies strictly inside the boundary's beats-region) and an
+        // exact repeat of pool [20] all intern to ONE boundary index; pool [25] adds a
+        // second index with its own probes and higher floors.
         let rules = vec![make_watch_rule(50.0, vec![5])];
         let thresholds = [50.0, 50.0, 50.0, 50.0];
-        let combination = rules[0].combination.clone().unwrap_or_default();
         let placeholder = make_snapshot(&rules[0], vec![]).entries[0].placeholders[0].clone();
         let prepared = prepare_upgrade_rules(&rules);
-        // Challenger pool A: one boots at SPD 20.
         let rows_a = vec![make_row(1, 6, 5, 16, 20.0)];
+        let rows_b = vec![make_row(1, 6, 5, 16, 20.0), make_row(2, 6, 5, 16, 15.0)];
+        let rows_d = vec![make_row(3, 6, 5, 16, 25.0)];
         let (scenarios_a, _) = build_scenarios(&rows_a, &prepared);
-        let refs_a: Vec<&UpgradeScenario> = scenarios_a.iter().collect();
-        let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-        let mut interner = WatchDimsInterner::default();
-        let mut cache = WatchCornerCache::new();
-        let first = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_a, &thresholds,
-            &mut memo, &mut interner, &mut cache,
-        );
-        assert!(!first.is_empty(), "fixture must produce corners");
-        assert_eq!(interner.ids.len(), 1, "one distinct dims signature so far");
-        let cells_after_first = cache.len();
-        assert!(cells_after_first > 0, "probed cells must land in the cache");
-        // Second group, identical signature: every cell answered from the cache —
-        // no new cache entries and no new interned signature appear.
-        let second = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_a, &thresholds,
-            &mut memo, &mut interner, &mut cache,
-        );
-        assert_eq!(first, second, "identical-signature groups get identical corners");
-        assert_eq!(interner.ids.len(), 1, "identical dims re-intern to the same id");
-        assert_eq!(
-            cache.len(),
-            cells_after_first,
-            "the identical group must add no cells (fully served from the cache)",
-        );
-        // Different challenger pool (SPD 25): signature differs → no reuse, new floors.
-        let rows_b = vec![make_row(2, 6, 5, 16, 25.0)];
         let (scenarios_b, _) = build_scenarios(&rows_b, &prepared);
-        let refs_b: Vec<&UpgradeScenario> = scenarios_b.iter().collect();
-        let third = compute_watch_corners(
-            &rules[0], 1, &combination, &placeholder, &refs_b, &thresholds,
-            &mut memo, &mut interner, &mut cache,
+        let (scenarios_d, _) = build_scenarios(&rows_d, &prepared);
+        let sets: Vec<Vec<&UpgradeScenario>> = vec![
+            scenarios_a.iter().collect(),
+            scenarios_b.iter().collect(),
+            scenarios_a.iter().collect(),
+            scenarios_d.iter().collect(),
+        ];
+        let (corners, boundary_vecs, probed) =
+            run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
+        assert_eq!(
+            boundary_vecs, 2,
+            "[20], [20,15] and the repeat share one boundary index; [25] adds the second",
         );
-        assert_eq!(interner.ids.len(), 2, "differing challengers intern a new signature");
-        assert!(
-            cache.len() > cells_after_first,
-            "the differing group must probe (and cache) fresh cells",
-        );
-        // The stronger challenger raises the level-16 tie point from 20 to 25.
-        let tie_16 = third.iter().find(|c| c.level == 16).expect("level-16 corner expected");
-        assert_eq!(tie_16.substats[0].min_value, 25.0);
+        // The fixture pins rank 6, rarity 5 and a single SPD subset → 5 level cells per
+        // boundary index; sharing means exactly 2 × 5 probe results, not 4 × 5.
+        assert_eq!(probed, 10, "shared indices must not multiply probe results");
+        assert!(!corners[0].is_empty(), "fixture must produce corners");
+        assert_eq!(corners[0], corners[1], "equal boundaries must yield identical corners");
+        assert_eq!(corners[0], corners[2], "identical groups must yield identical corners");
+        // Deterministic level-16 tie points: 20 for the shared boundary, 25 for the new.
+        let tie_16 = |list: &Vec<SafeguardWatchCornerOut>| {
+            list.iter()
+                .find(|c| c.level == 16)
+                .expect("level-16 corner expected")
+                .substats[0]
+                .min_value
+        };
+        assert_eq!(tie_16(&corners[0]), 20.0);
+        assert_eq!(tie_16(&corners[3]), 25.0);
+    }
+
+    #[test]
+    fn shared_context_probes_match_isolated_runs_exactly() {
+        // Bit-exactness of the multi-boundary probe path: groups with DIFFERENT
+        // boundaries planned into one shared context must get exactly the corners an
+        // isolated single-group run produces — the vector lanes may share traversals
+        // but never leak across indices. Two rarities exercise the merge path too.
+        let rules = vec![make_watch_rule(50.0, vec![4, 5])];
+        let thresholds = [50.0, 50.0, 50.0, 50.0];
+        let placeholder = make_snapshot(&rules[0], vec![]).entries[0].placeholders[0].clone();
+        let prepared = prepare_upgrade_rules(&rules);
+        let pools: Vec<Vec<SafeguardCollectRowIn>> = vec![
+            vec![make_row(1, 6, 5, 16, 20.0)],
+            vec![make_row(2, 6, 5, 16, 25.0)],
+            vec![make_row(3, 6, 5, 16, 20.7)],
+        ];
+        let scenario_lists: Vec<Vec<UpgradeScenario>> = pools
+            .iter()
+            .map(|rows| build_scenarios(rows, &prepared).0)
+            .collect();
+        let sets: Vec<Vec<&UpgradeScenario>> = scenario_lists
+            .iter()
+            .map(|list| list.iter().collect())
+            .collect();
+        // Shared run: all three groups in one contexts map.
+        let (shared, boundary_vecs, _) =
+            run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
+        assert_eq!(boundary_vecs, 3, "three distinct boundaries expected");
+        // Isolated runs: one group per pipeline.
+        for (idx, set) in sets.iter().enumerate() {
+            let single = vec![set.clone()];
+            let (isolated, _, _) =
+                run_watch_pipeline(&rules[0], &placeholder, &single, &thresholds);
+            assert_eq!(
+                shared[idx], isolated[0],
+                "group {idx} corners must be identical to its isolated run",
+            );
+        }
     }
 
     #[test]
