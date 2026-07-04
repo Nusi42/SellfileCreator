@@ -8,7 +8,8 @@ import { useCallback } from 'react'
 import type { JSX } from 'react'
 import {
   Accordion, AccordionDetails, AccordionSummary, Autocomplete, Box, Button, Checkbox, Chip,
-  Divider, FormControlLabel, IconButton, MenuItem, Select, TextField, Tooltip, Typography,
+  Divider, FormControlLabel, IconButton, MenuItem, Select, TextField, ToggleButton,
+  ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -61,6 +62,8 @@ export interface OptionEditorCardProps {
   onDuplicate: () => void
   // Known `id=` tokens across the note (constraint reference suggestions).
   knownTokens: string[]
+  // Known selector tag values across the note (condition-row suggestions).
+  knownTags: string[]
 }
 
 // Normalize freeSolo chip entries to valid tokens; invalid entries are dropped.
@@ -69,7 +72,7 @@ const normalizeTokens = (values: string[]): string[] => (
 )
 
 export function OptionEditorCard({
-  hostDomain, option, index, count, expanded, onToggle, onChange, onRemove, onMove, onDuplicate, knownTokens,
+  hostDomain, option, index, count, expanded, onToggle, onChange, onRemove, onMove, onDuplicate, knownTokens, knownTags,
 }: OptionEditorCardProps): JSX.Element {
   const { t } = useI18n()
   const patch = useCallback((partial: Partial<DraftOption>) => onChange({ ...option, ...partial }), [onChange, option])
@@ -201,21 +204,34 @@ export function OptionEditorCard({
                   onChange={(label) => patchSlider({ toggle: { ...option.sliderParams!.toggle!, label } })}
                   onRemove={() => patchSlider({ toggle: null })}
                 />
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Select
-                    value={option.sliderParams.toggle.side}
-                    onChange={(event) => patchSlider({ toggle: { ...option.sliderParams!.toggle!, side: event.target.value as SliderToggleSide } })}
-                    size="small"
-                  >
-                    {SLIDER_TOGGLE_SIDE_VALUES.map((side) => <MenuItem key={side} value={side}>{`toggleside=${side}`}</MenuItem>)}
-                  </Select>
-                  <Select
-                    value={option.sliderParams.toggle.default}
-                    onChange={(event) => patchSlider({ toggle: { ...option.sliderParams!.toggle!, default: event.target.value as SliderToggleDefault } })}
-                    size="small"
-                  >
-                    {SLIDER_TOGGLE_DEFAULT_VALUES.map((state) => <MenuItem key={state} value={state}>{`toggledefault=${state}`}</MenuItem>)}
-                  </Select>
+                {/* Enum params as labeled toggle-button pairs — no DSL spellings in the UI. */}
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('noteOverridesEditorSliderToggleSide')}</Typography>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={option.sliderParams.toggle.side}
+                      onChange={(_, side: SliderToggleSide | null) => { if (side) patchSlider({ toggle: { ...option.sliderParams!.toggle!, side } }) }}
+                    >
+                      {SLIDER_TOGGLE_SIDE_VALUES.map((side) => (
+                        <ToggleButton key={side} value={side} sx={{ px: 1, py: 0.25, textTransform: 'none' }}>{side}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('noteOverridesEditorSliderToggleDefault')}</Typography>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={option.sliderParams.toggle.default}
+                      onChange={(_, state: SliderToggleDefault | null) => { if (state) patchSlider({ toggle: { ...option.sliderParams!.toggle!, default: state } }) }}
+                    >
+                      {SLIDER_TOGGLE_DEFAULT_VALUES.map((state) => (
+                        <ToggleButton key={state} value={state} sx={{ px: 1, py: 0.25, textTransform: 'none' }}>{state}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Box>
                 </Box>
               </Box>
             ) : null}
@@ -356,7 +372,7 @@ export function OptionEditorCard({
         )}
         <Divider flexItem />
         {/* Effect body: structured builder or raw DSL fallback. */}
-        <EffectBodyBuilder hostDomain={hostDomain} body={option.body} onChange={(body) => patch({ body })} />
+        <EffectBodyBuilder hostDomain={hostDomain} body={option.body} onChange={(body) => patch({ body })} knownTags={knownTags} />
       </AccordionDetails>
     </Accordion>
   )

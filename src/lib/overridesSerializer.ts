@@ -150,6 +150,18 @@ const rankCodeEmit = (code: RankCode): { op: 'eq' | 'gte' | 'lte'; text: string 
   return entry
 }
 
+/** DSL surface form of a composite rank code (`{op:'>=', text:'5'}` for GTE_Five).
+ *  Exported for the visual selector rows, which display and recompose the same
+ *  spellings this serializer emits (SSOT). */
+export const describeRankCodeDsl = (code: RankCode): { op: '=' | '>=' | '<='; text: string } => {
+  const entry = rankCodeEmit(code)
+  return { op: OP_SYMBOL[entry.op] as '=' | '>=' | '<=', text: entry.text }
+}
+
+/** Lowercase base rarity name for a (possibly composite) rarity code — the value
+ *  spelling the parser accepts. Exported for the visual selector rows (SSOT). */
+export const describeRarityCodeDsl = (code: number): string => rarityCodeBaseName(code)
+
 // Rarity code → lowercase base name (via rarityCodeParts + the rank-value name SSOT).
 const rarityCodeBaseName = (code: number): string => {
   const parts = rarityCodeParts(code)

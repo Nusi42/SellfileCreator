@@ -26,6 +26,7 @@ import {
   parseOverridesBlockDraft,
   validateOverridesBlockDraft,
 } from '../../lib/overridesDraft'
+import { collectKnownSelectorTags } from '../../lib/overridesEditorModel'
 import { serializeOverridesBlock } from '../../lib/overridesSerializer'
 import { OptionEditorCard } from './OptionEditorCard'
 import { LocalizedStringField } from './LocalizedStringField'
@@ -89,6 +90,9 @@ function EditorContent({ request, noteText, onApply, onClose }: NoteOverridesBlo
     }
     return Array.from(tokens).sort()
   }, [noteText])
+
+  // Known selector tag values across the note — condition-row suggestions.
+  const knownTags = useMemo(() => collectKnownSelectorTags(noteText), [noteText])
 
   // Live pre-apply validation (serialize + re-parse round included).
   const problems = useMemo(() => validateOverridesBlockDraft(draft), [draft])
@@ -234,6 +238,7 @@ function EditorContent({ request, noteText, onApply, onClose }: NoteOverridesBlo
                   onMove={(delta) => moveOption(option.key, delta)}
                   onDuplicate={() => duplicateOption(option.key)}
                   knownTokens={knownTokens}
+                  knownTags={knownTags}
                 />
               ))}
             </Box>

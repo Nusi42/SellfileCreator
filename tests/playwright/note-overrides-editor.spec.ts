@@ -87,9 +87,10 @@ test('structured body builder adds an @all export=disabled effect', async ({ pag
   await card.getByTestId('overrides-editor-open').click()
   await expect(page.getByTestId('overrides-editor-dialog')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   await page.getByTestId('overrides-editor-option-0').click()
-  // Add a rule block in the "while selected" section (selector defaults to `all`).
+  // Add a rule block in the "while selected" section; the visual condition row
+  // defaults to the "All rules" kind (selector `all`).
   await page.getByTestId('overrides-editor-add-block-blocks').click()
-  await expect(page.getByTestId('overrides-editor-selector')).toHaveValue('all')
+  await expect(page.getByTestId('overrides-editor-term-kind')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Pick field `export` and value `disabled`, then commit the assignment.
   await page.getByTestId('overrides-editor-op-field').click()
   await page.getByRole('option', { name: 'export', exact: true }).click()

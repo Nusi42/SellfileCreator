@@ -30,11 +30,22 @@ export interface LocalizedStringFieldProps {
   testId?: string
 }
 
-// Locale codes offered by the "add translation" menu: the app's short language codes
-// (the DSL convention is bare prefixes — one `[[de]]` covers de-DE), deduplicated.
-const OFFERED_LOCALE_CODES = Array.from(new Set(
-  PRODUCTION_LANGUAGES.map((lang) => lang.split('-')[0]!).filter((code) => code !== 'en'),
-))
+// Locale codes offered by the "add translation" menu, derived from the app's
+// production languages: a bare prefix when it is unambiguous (one `[[de]]` covers
+// de-DE), the full region code when several languages share the prefix (pt-br +
+// pt-pt — the DSL resolver prefers the exact code over the prefix).
+const OFFERED_LOCALE_CODES = (() => {
+  const nonEnglish = PRODUCTION_LANGUAGES.filter((lang) => !lang.toLowerCase().startsWith('en'))
+  const prefixCounts = new Map<string, number>()
+  for (const lang of nonEnglish) {
+    const prefix = lang.split('-')[0]!.toLowerCase()
+    prefixCounts.set(prefix, (prefixCounts.get(prefix) ?? 0) + 1)
+  }
+  return Array.from(new Set(nonEnglish.map((lang) => {
+    const prefix = lang.split('-')[0]!.toLowerCase()
+    return (prefixCounts.get(prefix) ?? 0) > 1 ? lang.toLowerCase() : prefix
+  })))
+})()
 
 // Keep adornment icons pinned to the first text line of multiline fields.
 const topAlignedAdornmentSx = (multiline: boolean) => (
@@ -104,15 +115,16 @@ export function LocalizedStringField({ label, value, onChange, multiline = false
         }}
       />
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+        {/* Bare locale codes — the [[…]] wrapping is DSL syntax, not UI copy. */}
         {availableCodes.map((code) => (
-          <MenuItem key={code} onClick={() => addLocale(code)}>{`[[${code}]]`}</MenuItem>
+          <MenuItem key={code} onClick={() => addLocale(code)}>{code}</MenuItem>
         ))}
       </Menu>
       {/* One indented row per locale variant; unknown codes from the source are kept. */}
       {value.locales.map((locale) => (
         <TextField
           key={locale.code}
-          label={`[[${locale.code}]]`}
+          label={locale.code}
           value={locale.text}
           onChange={(event) => setLocaleText(locale.code, event.target.value)}
           size="small"

@@ -31,10 +31,14 @@ import {
   buildSafeguardOverridesEbnfText,
 } from '../../src/lib/overridesEbnf.js'
 import {
+  LEVEL_MILESTONE_CHOICES,
   composeOperationText,
-  operationFieldsFor,
+  operationFieldText,
+  operationSupportsSliderValue,
+  operationTermOptionsFor,
   parseOperationText,
   selectorFieldsFor,
+  selectorTermOptionsFor,
 } from '../../src/lib/overridesEditorModel.js'
 
 // ── Why this test exists ──────────────────────────────────────────────────────
@@ -134,24 +138,75 @@ test('safeguard EBNF mentions every SSOT token of its grammar', () => {
 // these runtime checks close the loop on VALUES: dropdown order equals the grammar
 // list, and every enumerated value actually parses as a clean assignment.
 
-test('editor operation dropdowns cover exactly the grammar field lists, in order', () => {
-  assert.deepEqual(operationFieldsFor('recipe').map((m) => m.field), [...NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS])
-  assert.deepEqual(operationFieldsFor('safeguard').map((m) => m.field), [...NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS])
+test('editor assignment dropdown covers every grammar field (dotted families expand)', () => {
+  for (const [domain, fields] of [['recipe', NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS], ['safeguard', NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS]] as const) {
+    const bases = new Set(operationTermOptionsFor(domain).map((option) => option.field.split('.')[0]!))
+    const missing = [...fields].filter((field) => !bases.has(field))
+    assert.deepEqual(missing, [], `${domain} assignment fields with no dropdown entry: ${missing.join(', ')}`)
+  }
 })
 
-test('every enumerated editor value parses as a clean assignment', () => {
+test('every enumerated/listed editor value parses as a clean assignment', () => {
+  const statKey = 'SPD'
   for (const domain of ['recipe', 'safeguard'] as const) {
-    for (const meta of operationFieldsFor(domain)) {
-      if (!meta.values) continue
-      for (const value of meta.values) {
-        const parsed = parseOperationText(domain, domain, composeOperationText(meta.field, value))
-        assert.ok(parsed !== null, `${domain} ${meta.field}=${value} must parse (stale editor enum metadata)`)
+    for (const option of operationTermOptionsFor(domain)) {
+      if (!option.choices) continue
+      const field = operationFieldText(option, '5', statKey)
+      for (const value of option.choices) {
+        // 'enum' choices are single values; 'list' choices parse as one-entry lists.
+        // Multi-word names (gear sets, factions) must survive quoted.
+        const text = composeOperationText(field, /\s/.test(value) ? `"${value}"` : value)
+        assert.ok(parseOperationText(domain, domain, text) !== null, `${domain} ${text} must parse (stale editor metadata)`)
       }
     }
   }
 })
 
+test('every level-milestone choice parses in lvl= (single and range forms)', () => {
+  for (const level of LEVEL_MILESTONE_CHOICES) {
+    assert.ok(parseOperationText('recipe', 'recipe', `lvl=${level}`), `lvl=${level} must parse`)
+  }
+  assert.ok(parseOperationText('recipe', 'recipe', `lvl=${LEVEL_MILESTONE_CHOICES[1]}-${LEVEL_MILESTONE_CHOICES[4]}`))
+})
+
 test('editor selector hints match the grammar selector surfaces', () => {
   assert.deepEqual([...selectorFieldsFor('recipe')], [...NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS])
   assert.deepEqual([...selectorFieldsFor('safeguard')], [...NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS])
+})
+
+test('every $value-capable field accepts $value through the real grammar', () => {
+  // operationSupportsSliderValue drives the visual calc widget; each spelling it
+  // claims must actually resolve $value in the parser (host/block domain matters:
+  // recipe numerics only take $value in cross-domain blocks under a safeguard host).
+  const cases: Array<['recipe' | 'safeguard', 'recipe' | 'safeguard', string]> = [
+    ['safeguard', 'safeguard', 'count'],
+    ['safeguard', 'safeguard', 'improvchance'],
+    ['recipe', 'safeguard', 'count'],  // recipe-hosted safeguard cross block
+    ['safeguard', 'recipe', 'rank'],
+    ['safeguard', 'recipe', 'minrolls'],
+    ['safeguard', 'recipe', 'lockedminrolls'],
+    ['safeguard', 'recipe', 'minsubstats'],
+  ]
+  for (const [host, block, field] of cases) {
+    assert.ok(operationSupportsSliderValue(host, block, field), `${host}/${block} ${field} should support $value`)
+    assert.ok(parseOperationText(host, block, `${field}=$value`), `${host}/${block} ${field}=$value must parse`)
+  }
+  // Negative: a plain recipe block (recipe host) must NOT offer $value on rank.
+  assert.equal(operationSupportsSliderValue('recipe', 'recipe', 'rank'), false)
+})
+
+test('condition-kind dropdown covers every grammar selector field', () => {
+  // The metadata Record is compile-enforced over the selector-field union; this
+  // closes the runtime loop: every field must surface at least one dropdown entry
+  // (dotted families expand to several; `tag` maps onto the shared tag kinds).
+  const recipeOptionTokens = selectorTermOptionsFor('recipe').map((option) => option.token)
+  for (const field of NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS) {
+    assert.ok(
+      recipeOptionTokens.some((token) => token === field || token.startsWith(`${field}.`) || (field === 'tag' && token.startsWith('tag'))),
+      `selector field '${field}' has no condition-kind dropdown entry`,
+    )
+  }
+  // The safeguard dropdown is exactly the tag-grammar surface (bare heads + tag kinds).
+  const safeguardIds = selectorTermOptionsFor('safeguard').map((option) => option.id)
+  assert.deepEqual(safeguardIds, ['all', 'tagged', 'untagged', 'tag', 'tagIn'])
 })
