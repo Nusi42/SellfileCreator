@@ -21,9 +21,9 @@ const SLOT_SELECT_DISPLAY_SX: SxProps<Theme> = (theme) => ({
     display: 'inline-flex',
     alignItems: 'center',
     gap: theme.spacing(1),
-    minHeight: theme.spacing(3),
-    paddingTop: theme.spacing(0.5),
-    paddingBottom: theme.spacing(0.5),
+    // Vertical metrics are left to MUI's size="small" default so the closed control
+    // matches its sibling selects (rank/rarity/substat); callers that want a
+    // different height (e.g. the Gear Inspector rows) override via `sx`.
   },
   '& .MuiSelect-select .slot-value': {
     display: 'inline-flex',

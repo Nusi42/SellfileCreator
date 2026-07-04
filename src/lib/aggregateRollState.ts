@@ -1,9 +1,11 @@
 import type { BuilderRecipe } from './hsfBuilder'
+import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
 // Encapsulates all builder behaviors for Global Min Required Rolls (GMRR) and
 // Locked Min Required Rolls (LMRR) so the UI, multi-edit draft, and SFC
 // normalization share a single source of truth.
 
+// Literal union must span 0..SUBSTAT_TARGET_MAX_ROLLS (the generated per-slot roll cap).
 export type AggregateRollValue = 0 | 1 | 2 | 3 | 4 | 5
 
 export interface AggregateRollState {
@@ -21,7 +23,7 @@ export const clampAggregateRollValue = (value: unknown): AggregateRollValue => {
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num)) return 0
   const rounded = Math.round(num)
-  const clamped = Math.max(0, Math.min(5, rounded)) as AggregateRollValue
+  const clamped = Math.max(0, Math.min(SUBSTAT_TARGET_MAX_ROLLS, rounded)) as AggregateRollValue
   return clamped
 }
 

@@ -105,6 +105,40 @@ To add a new assignment field, you touch only:
    value maps carry `satisfies Record<(typeof *_VALS)[number], I18nKey>`, so a
    new enum value also fails to compile until labeled.
 
+   Two more per-entry contracts:
+
+   - **`valueLabelKeys`** localizes closed-vocabulary VALUES with the same catalog
+     terms as the rest of the UI (star ranks via `starRankValueI18nKey`, rarities
+     via `rarityRankValueI18nKey`, slots via `artifactTypeI18nKey`, on/off via
+     `commonOn`/`commonOff`); the DSL keeps its tokens. Concept-localized
+     vocabularies (rank, rarity, minima.any, slots, autolate, booleans…) must be
+     **fully** covered — pinned by the completeness suite. `minima.any` is the
+     poster child: its literal means "the N★ minima column applies to Rank=Any
+     rules", so the editor offers a star-rank chooser (with `labelDetailKey:
+     'anyRank'` qualifying the dropdown label), never a free number.
+   - **`range`** mirrors the field's apply-side clamp for 'number' widgets, always
+     via the clamp's own exported constant — `SUBSTAT_TARGET_MAX_ROLLS` (minrolls /
+     lockedminrolls / substatmin), `NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX`,
+     `NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN/MAX`, `GEAR_INSPECTOR_SORT_WEIGHT_*`. The
+     number widget clamps typing and stepping, so the editor can never hold a value
+     the resolver would discard. Fields whose resolvers clamp MUST declare a range
+     (pinned by the completeness suite).
+   - **`control`** routes closed vocabularies to the app's shared domain selects
+     (`src/components/gear/*`): the 3×3 slot grid (`GearSlotSelect`), factions,
+     colored substats/main stats (`GearSubstatSelect`/`GearMainStatSelect`, gated by
+     the stat color scope), sets and metasets (`GearSetsSelect`; `showSets={false}`
+     yields the metasets-only picker), star ranks (`GearRankSelect`) and rarities
+     (`GearRaritySelect` / tinted `RarityLabel` words where the grammar adds `auto`).
+     The DSL value stays a token string: the exported converter pairs
+     (`slotTokenToId`/`slotIdToToken`, `factionNameToId`/…, `statKeyToVariant`/…,
+     `gearsetNameToId`/…, `rarityNameToRank`/…) map tokens ⇄ domain ids and are
+     built from the SAME name tables the parser resolves against; the completeness
+     suite round-trips every vocabulary token through them. Values the selects
+     cannot represent (mutate-prefixed lists, unknown metaset names) keep the
+     validated text/chip fallback — never silently dropped. Star/stat pickers for
+     the dotted families (`minima.★.STAT`, `substatmin.STAT`, `weight.STAT`) use
+     the same rank/substat selects.
+
 Everything else is pinned by `tests/unit/overrides-ssot-completeness.test.ts`
 (map spellings are real grammar tokens, no dead fields, EBNF mentions every token,
 editor enum values parse) and `tests/unit/overrides-serializer-roundtrip.test.ts`

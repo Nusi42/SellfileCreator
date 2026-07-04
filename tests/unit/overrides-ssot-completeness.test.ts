@@ -37,9 +37,21 @@ import {
   operationSupportsSliderValue,
   operationTermOptionsFor,
   parseOperationText,
+  parseSelectorText,
   selectorFieldsFor,
   selectorTermOptionsFor,
+  factionIdToName,
+  factionNameToId,
+  gearsetIdToName,
+  gearsetNameToId,
+  rarityNameToRank,
+  rarityRankToName,
+  slotIdToToken,
+  slotTokenToId,
+  statKeyToVariant,
+  statVariantToKey,
 } from '../../src/lib/overridesEditorModel.js'
+import { rarityCodeFromRankValue, rarityCodeToName, rarityRankValueI18nKey, RANK_VALUES } from '../../src/lib/types.js'
 
 // ── Why this test exists ──────────────────────────────────────────────────────
 // The DSL keeps ONE source of truth for its vocabulary: the parser accepts the field
@@ -193,6 +205,128 @@ test('every $value-capable field accepts $value through the real grammar', () =>
   }
   // Negative: a plain recipe block (recipe host) must NOT offer $value on rank.
   assert.equal(operationSupportsSliderValue('recipe', 'recipe', 'rank'), false)
+})
+
+// ── Localized value labels + numeric bounds ───────────────────────────────────
+// Closed vocabularies render through valueLabelKeys (catalog terms) and numeric
+// widgets through range (apply-side clamp mirrors). The compiler pins the tuple-keyed
+// maps; these checks pin what it cannot: spelling membership, full coverage where a
+// vocabulary is concept-localized, and that clamped fields keep their bounds.
+
+// Option ids whose whole vocabulary must carry localized labels (star ranks,
+// rarities, on/off, slots — the user-facing closed sets with catalog terms).
+const FULLY_LABELED_OP_IDS: Record<'recipe' | 'safeguard', readonly string[]> = {
+  recipe: ['export', 'rank', 'rarity', 'flex', 'minima.any', 'keep', 'action', 'autolate', 'slots'],
+  safeguard: ['activation', 'ignprev', 'igncoll', 'ignvault', 'perfaction', 'permainstat', 'perslot', 'perset', 'perrule', 'rank', 'rarity'],
+}
+
+test('every valueLabelKeys entry names a real choice; localized vocabularies are fully covered', () => {
+  for (const domain of ['recipe', 'safeguard'] as const) {
+    for (const option of [...operationTermOptionsFor(domain), ...selectorTermOptionsFor(domain)]) {
+      if (!option.valueLabelKeys) continue
+      const choices = option.choices ?? []
+      // Membership: a label for a token the grammar does not accept is spelling drift.
+      const stray = Object.keys(option.valueLabelKeys).filter((key) => !choices.includes(key))
+      assert.deepEqual(stray, [], `${domain} ${option.id} labels unknown values: ${stray.join(', ')}`)
+    }
+    for (const id of FULLY_LABELED_OP_IDS[domain]) {
+      const option = operationTermOptionsFor(domain).find((entry) => entry.id === id)
+      assert.ok(option, `${domain} dropdown entry '${id}' missing`)
+      const unlabeled = (option.choices ?? []).filter((choice) => !option.valueLabelKeys?.[choice])
+      assert.deepEqual(unlabeled, [], `${domain} ${id} has unlocalized values: ${unlabeled.join(', ')}`)
+    }
+  }
+  // Selector twins of the localized concepts must be labeled too.
+  for (const id of ['rank', 'rarity', 'flex', 'minima.any']) {
+    const option = selectorTermOptionsFor('recipe').find((entry) => entry.id === id)
+    assert.ok(option, `recipe condition entry '${id}' missing`)
+    const unlabeled = (option.choices ?? []).filter((choice) => !option.valueLabelKeys?.[choice])
+    assert.deepEqual(unlabeled, [], `recipe condition ${id} has unlocalized values: ${unlabeled.join(', ')}`)
+  }
+})
+
+test('rarity value labels agree with the domain rarity-name/rank association', () => {
+  // The editor map writes name → rarity*-key literally (compile-pinned keys); this
+  // pins the ASSOCIATION against the types.ts SSOT the serializer derives names from.
+  const option = operationTermOptionsFor('recipe').find((entry) => entry.id === 'rarity')!
+  for (const rankValue of RANK_VALUES) {
+    const dslName = rarityCodeToName(rarityCodeFromRankValue(rankValue)).toLowerCase()
+    assert.equal(
+      option.valueLabelKeys?.[dslName], rarityRankValueI18nKey(rankValue),
+      `rarity '${dslName}' must use the rank-${rankValue} label key`,
+    )
+  }
+})
+
+test('minima.any is a star-rank chooser (its literal means "the N★ minima column")', () => {
+  for (const option of [
+    operationTermOptionsFor('recipe').find((entry) => entry.id === 'minima.any')!,
+    selectorTermOptionsFor('recipe').find((entry) => entry.id === 'minima.any')!,
+  ]) {
+    assert.deepEqual([...(option.choices ?? [])], ['1', '2', '3', '4', '5', '6'])
+    // Free numeric entry is gone: the widget is a closed choice, not a number field.
+    assert.notEqual('widget' in option ? (option as { widget: string }).widget : (option as { value: string }).value, 'number')
+  }
+})
+
+test('clamped numeric fields carry their apply-side bounds; bounds parse through the grammar', () => {
+  // Fields whose resolvers clamp values must expose a range so the editor cannot
+  // hold a value the apply step would discard.
+  const mustHaveRange: Record<'recipe' | 'safeguard', readonly string[]> = {
+    recipe: ['minrolls', 'lockedminrolls', 'minsubstats', 'substatmin', 'substatmin.stat', 'minima.star.stat'],
+    safeguard: ['count', 'weight.stat'],
+  }
+  for (const domain of ['recipe', 'safeguard'] as const) {
+    for (const id of mustHaveRange[domain]) {
+      const option = operationTermOptionsFor(domain).find((entry) => entry.id === id)
+      assert.ok(option?.range, `${domain} ${id} must declare a numeric range`)
+      assert.ok(option.range.min <= (option.range.max ?? Infinity), `${domain} ${id} range must be ordered`)
+      // Both bounds must be values the grammar accepts for the composed field text.
+      const field = operationFieldText(option, '5', 'SPD')
+      for (const bound of [option.range.min, option.range.max]) {
+        if (bound === undefined) continue
+        assert.ok(parseOperationText(domain, domain, composeOperationText(field, String(bound))), `${domain} ${field}=${bound} must parse`)
+      }
+    }
+  }
+})
+
+test('domain-select controls: converters round-trip every vocabulary token', () => {
+  // The Gear*Select value controls map DSL tokens ⇄ domain ids through the model's
+  // converter SSOT; every choice of a control-tagged entry must survive the trip
+  // (a miss would make the select silently unable to show a valid value).
+  const roundTrips: Record<string, (token: string) => string | null> = {
+    slots: (token) => { const id = slotTokenToId(token); return id === null ? null : slotIdToToken(id) },
+    factions: (token) => { const id = factionNameToId(token); return id === null ? null : factionIdToName(id) },
+    substats: (token) => { const variant = statKeyToVariant(token); return variant === null ? null : statVariantToKey(variant) },
+    mainstats: (token) => { const variant = statKeyToVariant(token); return variant === null ? null : statVariantToKey(variant) },
+    gearsets: (token) => { const id = gearsetNameToId(token); return id === null ? null : gearsetIdToName(id) },
+    rankList: (token) => token,   // numeric strings pass through Number()/String()
+    rarityList: (token) => { const rank = rarityNameToRank(token); return rank === null ? null : rarityRankToName(rank) },
+    rankValue: (token) => token,
+    starValue: (token) => token,
+    rarityValue: (token) => (token === 'any' || token === 'auto' ? token : (() => { const rank = rarityNameToRank(token); return rank === null ? null : rarityRankToName(rank) })()),
+  }
+  for (const domain of ['recipe', 'safeguard'] as const) {
+    for (const option of operationTermOptionsFor(domain)) {
+      if (!option.control || option.control === 'metasets' || !option.choices) continue
+      const roundTrip = roundTrips[option.control]
+      assert.ok(roundTrip, `${domain} ${option.id}: control '${option.control}' has no converter round-trip`)
+      for (const token of option.choices) {
+        assert.equal(roundTrip(token), token, `${domain} ${option.id}: '${token}' must round-trip through the ${option.control} converters`)
+      }
+    }
+  }
+})
+
+test('every choice-valued condition value parses as a selector term', () => {
+  for (const option of selectorTermOptionsFor('recipe')) {
+    if (option.value !== 'choice' || !option.choices) continue
+    for (const choice of option.choices) {
+      const text = `${option.token}=${choice}`
+      assert.ok(parseSelectorText('recipe', 'recipe', text) !== null, `recipe selector '${text}' must parse (stale editor metadata)`)
+    }
+  }
 })
 
 test('condition-kind dropdown covers every grammar selector field', () => {

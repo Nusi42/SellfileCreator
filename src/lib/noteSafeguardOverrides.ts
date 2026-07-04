@@ -85,6 +85,10 @@ export const NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS = [
   '1', '2', '3', '4', 'persubstat',
 ] as const
 
+/** Bounds applied to resolved `count =` values (apply-side clamp + editor cap SSOT). */
+export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN = 1
+export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX = 9999
+
 /**
  * Non-numeric `improvchance =` keywords in the DSL (lowercase surface form).
  * Excludes `on`/`off`/`true`/`false` which are handled by the shared boolean-val token.
@@ -366,8 +370,8 @@ const parseOperations = (
       const ast = parseCountExpression(cursor)
       if (ast !== null) {
         if (ast.kind === 'literal') {
-          // Plain numeric literal: apply rounding at parse time, clamp to ≥1.
-          const n = Math.max(1, Math.round(ast.value))
+          // Plain numeric literal: apply rounding at parse time, clamp to the count minimum.
+          const n = Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, Math.round(ast.value))
           operations.push({ kind: 'count', value: n })
         } else if (ast.kind === 'ref' && ast.sliderId === null) {
           // Bare $count / $value self-reference: use legacy null form for compat.
@@ -1316,7 +1320,7 @@ export const resolveNoteSafeguardOverridesTags = (
                 ? evalCountAst(op.ast, resolvedValue, sliderValueByToken)
                 : resolvedValue
               // Emit a resolved count op with no ast — the expression has been evaluated to a literal.
-              return { kind: 'count' as const, value: Math.max(1, Math.min(9999, Math.round(rawResult))) }
+              return { kind: 'count' as const, value: Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, Math.min(NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX, Math.round(rawResult))) }
             }
             // Resolve dynamic improvchance=$value into a flat per-level threshold.
             if (op.kind === 'improvementChance' && op.dynamic) {
@@ -1381,7 +1385,7 @@ export const applySafeguardOverrides = (
             break
           case 'count':
             // null values are resolved before reaching here (in resolveNoteSafeguardOverridesTags).
-            if (op.value !== null) clone.requiredCount = Math.max(1, op.value)
+            if (op.value !== null) clone.requiredCount = Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, op.value)
             break
           case 'ignPrev':
             clone.ignorePreviousSafeguards = op.value

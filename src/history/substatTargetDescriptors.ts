@@ -3,7 +3,8 @@ import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './h
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { GLYPH_ARROW_RIGHT } from '../lib/constants'
-import { statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+// starRankValueI18nKey is the shared star-rank → catalog-key SSOT (no local map).
+import { statVariantI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import type { SubstatTargetsDescriptorMode } from './historyDescriptorTypes'
 import { snapshotSubstatTargets } from './historySnapshotUtils'
@@ -35,15 +36,6 @@ const STAR_ORDER: Array<{ key: SubstatTargetStarKey; star: Star }> = [
   { key: 'two', star: 2 },
   { key: 'one', star: 1 },
 ]
-
-const STAR_LABEL_KEYS: Record<Star, string> = {
-  1: 'star1',
-  2: 'star2',
-  3: 'star3',
-  4: 'star4',
-  5: 'star5',
-  6: 'star6',
-}
 
 const MAX_STAR_LINES = 4
 
@@ -90,7 +82,7 @@ export function describeSubstatTargetsChange(params: DescribeSubstatTargetsChang
     detailLines.push(t('historySubstatTargetsResetLine'))
   }
   if (fallbackChanged) {
-    const fallbackLabel = t(STAR_LABEL_KEYS[normalizeFallback(next.anyRankDefaultsTo)])
+    const fallbackLabel = t(starRankValueI18nKey(normalizeFallback(next.anyRankDefaultsTo)))
     detailLines.push(t('historySubstatTargetsFallbackLine', { star: fallbackLabel }))
   }
   if (starLines.length > 0) {
@@ -181,7 +173,7 @@ function formatStarLine(
     entries.push(t('historySubstatTargetsDiffEntry', { stat: label, previous: prevValue, next: nextValue, arrow: GLYPH_ARROW_RIGHT }))
   }
   if (entries.length === 0) return null
-  const starLabel = t(STAR_LABEL_KEYS[star])
+  const starLabel = t(starRankValueI18nKey(star))
   return t('historySubstatTargetsStarLine', { star: starLabel, diffs: entries.join(', ') })
 }
 

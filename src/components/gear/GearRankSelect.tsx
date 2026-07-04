@@ -3,7 +3,7 @@ import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
-import type { RankValue } from '../../lib/types'
+import { starRankValueI18nKey, type RankValue } from '../../lib/types'
 
 const ANY_SENTINEL = '__rank_any'
 
@@ -54,21 +54,9 @@ export function GearRankSelect({
   const emptyDisplayText = mixedLabel ?? anyText
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
-  const rankLabel = useMemo(() => {
-    const starKey = (n: number): 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6' => {
-      switch (n) {
-        case 1: return 'star1'
-        case 2: return 'star2'
-        case 3: return 'star3'
-        case 4: return 'star4'
-        case 5: return 'star5'
-        case 6: return 'star6'
-        default: return 'star1'
-      }
-    }
-    // Translate lazily to avoid recomputing every render while still honoring locale changes.
-    return (n: number) => t(starKey(n))
-  }, [t])
+  // Star labels come from the shared star-rank key SSOT (translate lazily so locale
+  // changes are honored without recomputing per render).
+  const rankLabel = useMemo(() => (n: number) => t(starRankValueI18nKey(n)), [t])
   const isMulti = Boolean(multiple)
   const multiValues = useMemo<RankValue[]>(() => {
     if (!isMulti) return []

@@ -6912,6 +6912,8 @@ function NoteEditorContent({
       <NoteOverridesBlockEditorDialog
         request={blockEditorRequest}
         noteText={draft}
+        metasets={metasets}
+        substatColors={baseContext.substatColors}
         onApply={handleBlockEditorApply}
         onClose={handleBlockEditorClose}
       />

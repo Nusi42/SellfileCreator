@@ -123,6 +123,9 @@ export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
 ] as const
 /** Artifact slot names accepted by the DSL `slots=` assignment field (SSOT from ArtifactType). */
 export const NOTE_RECIPE_OVERRIDES_SLOT_NAMES = Object.keys(ArtifactType) as readonly string[]
+/** Max required substats (`minsubstats=`): an artifact holds at most 4 substats. SSOT for the
+ *  apply-side clamps below and the visual editor's number-widget cap. */
+export const NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX = 4
 /** Built-in selector and tag-match keywords. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
   'all', 'tagged', 'untagged', 'any', 'none',
@@ -746,7 +749,7 @@ const parseIntegerValue = (value: string): number | null => {
 
 const clampMinSubstats = (value: number): 0 | 1 | 2 | 3 | 4 => {
   if (value <= 0) return 0
-  if (value >= 4) return 4
+  if (value >= NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX) return NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX
   return value as 0 | 1 | 2 | 3 | 4
 }
 
@@ -772,10 +775,10 @@ const resolveEffectiveMinCount = (recipe: Pick<BuilderRecipe, 'autoMinCount' | '
   if (recipe.autoMinCount) {
     // "Not" substats never count toward the positive minimum — exclude them.
     const positiveCount = countPositiveSubstats(recipe.substatsV, recipe.substatRollBoundsV as Record<number, { not?: boolean }>)
-    return Math.min(4, Math.max(0, positiveCount))
+    return Math.min(NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX, Math.max(0, positiveCount))
   }
   const clamped = clampMinSubstats(Number(recipe.minCount ?? 0))
-  return Math.min(4, Math.max(clamped, locked))
+  return Math.min(NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX, Math.max(clamped, locked))
 }
 
 const resolveMinCountOverride = (
@@ -787,7 +790,7 @@ const resolveMinCountOverride = (
   const clamped = clampMinSubstats(value)
   if (selected <= 0) return 0
   const withLocked = Math.max(clamped, locked)
-  const capped = Math.min(withLocked, Math.min(4, selected))
+  const capped = Math.min(withLocked, Math.min(NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX, selected))
   return clampMinSubstats(capped)
 }
 

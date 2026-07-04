@@ -30,6 +30,7 @@ import { collectKnownSelectorTags } from '../../lib/overridesEditorModel'
 import { serializeOverridesBlock } from '../../lib/overridesSerializer'
 import { OptionEditorCard } from './OptionEditorCard'
 import { LocalizedStringField } from './LocalizedStringField'
+import type { Metaset } from '../../lib/metasets'
 
 /** Open request: edit an existing block span, or create a new one at an offset.
  *  `nonce` forces a fresh editor mount per open (same block can be reopened). */
@@ -41,6 +42,9 @@ export interface NoteOverridesBlockEditorDialogProps {
   request: NoteOverridesBlockEditorRequest | null
   // Whole note draft (for cross-question id suggestions and insert framing).
   noteText: string
+  // App metasets + user substat colors for the body builder's domain value controls.
+  metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
   onApply: (result: { from: number; to: number; text: string }) => void
   onClose: () => void
 }
@@ -59,7 +63,7 @@ const cloneOption = (option: DraftOption, freshKeyFrom: DraftOption): DraftOptio
   key: freshKeyFrom.key,
 })
 
-function EditorContent({ request, noteText, onApply, onClose }: NoteOverridesBlockEditorDialogProps & { request: NoteOverridesBlockEditorRequest }): JSX.Element {
+function EditorContent({ request, noteText, metasets, substatColors, onApply, onClose }: NoteOverridesBlockEditorDialogProps & { request: NoteOverridesBlockEditorRequest }): JSX.Element {
   const { t } = useI18n()
   // Initial draft: parse the block being edited, or start a fresh recipe question.
   const [draft, setDraft] = useState<OverridesBlockDraft>(() => (
@@ -239,6 +243,8 @@ function EditorContent({ request, noteText, onApply, onClose }: NoteOverridesBlo
                   onDuplicate={() => duplicateOption(option.key)}
                   knownTokens={knownTokens}
                   knownTags={knownTags}
+                  metasets={metasets}
+                  substatColors={substatColors}
                 />
               ))}
             </Box>

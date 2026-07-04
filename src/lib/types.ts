@@ -912,6 +912,19 @@ export function rarityRankValueI18nKey(rankValue: number): 'rarityCommon' | 'rar
   return 'rarityCommon'
 }
 
+/** i18n key for a star rank (1–6, "1★"…"6★"). UI should use this with `t(...)`. */
+export function starRankValueI18nKey(rankValue: number): 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6' {
+  switch (rankValue) {
+    case 1: return 'star1'
+    case 2: return 'star2'
+    case 3: return 'star3'
+    case 4: return 'star4'
+    case 5: return 'star5'
+    case 6: return 'star6'
+  }
+  return 'star6'
+}
+
 // i18n key for artifact type (slot) label. UI should use this with `t(...)`.
 export function artifactTypeI18nKey(id: ArtifactTypeId): 'slotWeapon' | 'slotHelmet' | 'slotShield' | 'slotGauntlets' | 'slotChestplate' | 'slotBoots' | 'slotRing' | 'slotAmulet' | 'slotBanner' {
   switch (Number(id) as ArtifactType) {

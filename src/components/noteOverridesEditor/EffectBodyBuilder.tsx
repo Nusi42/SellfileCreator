@@ -21,7 +21,16 @@ import CloseIcon from '@mui/icons-material/Close'
 import CodeIcon from '@mui/icons-material/Code'
 import TuneIcon from '@mui/icons-material/Tune'
 import { useI18n } from '../../lib/i18n'
-import type { TranslateFn } from '../../lib/i18n'
+import type { I18nKey, TranslateFn } from '../../lib/i18n'
+// Shared domain selects: closed-vocabulary values render through the SAME controls
+// (and therefore the SAME localization + theme-color SSOTs) as the rest of the app.
+import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
+import { RarityLabel } from '../RarityLabel'
+import type { Metaset } from '../../lib/metasets'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import { useDisplayPreferences } from '../../state/preferencesState'
+import { scopeColorsControls } from '../../lib/colorScope'
+import type { RankValue, StatVariant } from '../../lib/types'
 import type {
   DraftOptionBody,
   DraftSelectorBlock,
@@ -62,9 +71,20 @@ import {
   sliderValueCalcText,
   structuredBodyToRaw,
   tokenListText,
+  factionIdToName,
+  factionNameToId,
+  gearsetIdToName,
+  gearsetNameToId,
+  rarityNameToRank,
+  rarityRankToName,
+  slotIdToToken,
+  slotTokenToId,
+  statKeyToVariant,
+  statVariantToKey,
   LEVEL_MILESTONE_CHOICES,
   type OperationTermOption,
   type SliderValueCalc,
+  type ValueControlKind,
 } from '../../lib/overridesEditorModel'
 import { NOTE_OVERRIDES_LOGIC_KEYWORDS } from '../../lib/noteOverridesParser'
 import type { RecipeOverridesOperation, RecipeOverridesSelector } from '../../lib/noteRecipeOverrides'
@@ -100,6 +120,10 @@ export interface EffectBodyBuilderProps {
   onChange: (next: DraftOptionBody) => void
   // Tag suggestions for the condition rows (tags used anywhere in the note).
   knownTags: string[]
+  // The app's metasets — vocabulary for the `metasets=` value control.
+  metasets: Metaset[]
+  // User substat colors for the stat selects (flag-gated by the stat color scope).
+  substatColors: Record<number, { fg: string; bg: string }>
 }
 
 /** Level-window value widget: from–to milestone pickers (single level when equal). */
@@ -127,12 +151,240 @@ interface SelectorTermRowProps {
   negated: boolean
   leaf: AnyOverridesSelector
   knownTags: string[]
+  substatColors: Record<number, { fg: string; bg: string }>
   onCommit: (term: FlatSelectorTerm) => void
   onRemove: () => void
 }
 
 // Display glyphs for the comparison ops (ASCII stays in the DSL; UI shows ≥/≤).
 const OP_GLYPH: Record<'=' | '>=' | '<=', string> = { '=': '=', '>=': '≥', '<=': '≤' }
+
+// Shared dropdown label for a field/condition concept: the localized catalog term,
+// qualified by its explicit detail (minima's Any-rank fallback) or by the dotted-family
+// suffix so per-★/per-stat variants are distinguishable from their plain twin.
+const conceptLabel = (
+  t: TranslateFn,
+  entry: { labelKey: I18nKey; labelDetailKey?: I18nKey | undefined; star: boolean; stat: boolean },
+): string => {
+  const detail = entry.labelDetailKey ? ` · ${t(entry.labelDetailKey)}` : entry.star ? ' · ★/stat' : entry.stat ? ' · stat' : ''
+  return `${t(entry.labelKey)}${detail}`
+}
+
+// Localized label for one closed-vocabulary VALUE; the DSL token when unlabeled.
+const choiceLabel = (
+  t: TranslateFn,
+  valueLabelKeys: Readonly<Partial<Record<string, I18nKey>>> | undefined,
+  choice: string,
+): string => {
+  const key = valueLabelKeys?.[choice]
+  return key ? t(key) : choice
+}
+
+// ── Shared domain value controls ──────────────────────────────────────────────
+// The metadata `control` tag routes closed vocabularies to the app's Gear*Select
+// family, so the overrides editor shows the SAME pickers (3×3 slot grid, tinted
+// rarity words, colored substats — all flag-gated by their own color scopes) as the
+// Builder/Safeguards panels. Values stay DSL token strings; the converters from
+// overridesEditorModel map tokens ⇄ domain ids losslessly.
+
+const SINGLE_VALUE_CONTROLS: ReadonlySet<ValueControlKind> = new Set(['rankValue', 'starValue', 'rarityValue'])
+const LIST_VALUE_CONTROLS: ReadonlySet<ValueControlKind> = new Set(['slots', 'factions', 'substats', 'mainstats', 'gearsets', 'metasets', 'rankList', 'rarityList'])
+
+// Non-null-filtering mapper (converters are total over validated tokens; the filter
+// only guards against vocabulary drift).
+const mapDefined = <T, R>(values: readonly T[], convert: (value: T) => R | null): R[] => (
+  values.map(convert).filter((entry): entry is R => entry !== null)
+)
+
+// The DSL stat keys as StatVariants — options for the substat/mainstat selects.
+const dslStatVariants = (): StatVariant[] => mapDefined(dslStatKeys(), statKeyToVariant)
+
+/** Single-value control: rank (with Any), star rank, or rarity (with Any/Auto). */
+function SingleValueControl({ control, choices, valueLabelKeys, value, onChange, t }: {
+  control: ValueControlKind
+  choices: readonly string[]
+  valueLabelKeys: Readonly<Partial<Record<string, I18nKey>>> | undefined
+  value: string
+  onChange: (next: string) => void
+  t: TranslateFn
+}): JSX.Element {
+  if (control === 'rankValue' || control === 'starValue') {
+    const numeric = Number.parseInt(value, 10)
+    return (
+      <GearRankSelect
+        value={Number.isFinite(numeric) ? (numeric as RankValue) : null}
+        // Only the rank enum carries the grammar's 'any'; minima.any is 1–6 only.
+        allowAny={control === 'rankValue'}
+        onChange={(next) => onChange(next === null ? 'any' : String(next))}
+        sx={{ minWidth: 96 }}
+      />
+    )
+  }
+  // rarityValue: the grammar adds 'auto' (no GearRaritySelect item exists for it), so
+  // render a plain Select whose rarity words go through RarityLabel — the same tinted,
+  // scope-gated rendering the Builder's rarity dropdown uses.
+  return (
+    <Select
+      value={choices.includes(value) ? value : ''}
+      onChange={(event) => onChange(event.target.value)}
+      size="small"
+      displayEmpty
+      sx={{ minWidth: 140 }}
+      aria-label={t('noteOverridesEditorOperationValue')}
+    >
+      <MenuItem value="" disabled>{t('noteOverridesEditorOperationValue')}</MenuItem>
+      {choices.map((choice) => {
+        const rank = rarityNameToRank(choice)
+        return (
+          <MenuItem key={choice} value={choice}>
+            {rank !== null ? <RarityLabel rarity={rank} inControl /> : choiceLabel(t, valueLabelKeys, choice)}
+          </MenuItem>
+        )
+      })}
+    </Select>
+  )
+}
+
+/** Token-list control: routes to the matching domain select (slots grid, factions,
+ *  substats/mainstats, sets, metasets, ranks, rarities). Tokens are the validated
+ *  canonical choice spellings (parseTokenListValues output). */
+function ListValueControl({ control, tokens, onTokens, metasets, colorStatControls, substatColors }: {
+  control: ValueControlKind
+  tokens: string[]
+  onTokens: (next: string[]) => void
+  metasets: Metaset[]
+  colorStatControls: boolean
+  substatColors: Record<number, { fg: string; bg: string }>
+}): JSX.Element | null {
+  const listSx = { minWidth: 220, flex: 1 } as const
+  switch (control) {
+    case 'slots':
+      // The standard 3×3 slot grid (GearSlotSelect renders its menu as the grid).
+      return (
+        <GearSlotSelect
+          multiple
+          value={mapDefined(tokens, slotTokenToId)}
+          onChange={(ids) => onTokens(mapDefined(ids, slotIdToToken))}
+          sx={listSx}
+        />
+      )
+    case 'factions':
+      return (
+        <GearFactionSelect
+          multiple
+          value={mapDefined(tokens, factionNameToId)}
+          onChange={(ids) => onTokens(mapDefined(ids, factionIdToName))}
+          sx={listSx}
+        />
+      )
+    case 'substats':
+      return (
+        <GearSubstatSelect
+          multiple
+          options={dslStatVariants()}
+          value={mapDefined(tokens, statKeyToVariant)}
+          onChange={(variants) => onTokens(variants.map(statVariantToKey))}
+          colorOverrides={substatColors}
+          showBorderColors={colorStatControls}
+          sx={listSx}
+        />
+      )
+    case 'mainstats':
+      return (
+        <GearMainStatSelect
+          multiple
+          options={dslStatVariants()}
+          value={mapDefined(tokens, statKeyToVariant)}
+          onChange={(variants) => onTokens(variants.map(statVariantToKey))}
+          colorOverrides={substatColors}
+          showBorderColors={colorStatControls}
+          sx={listSx}
+        />
+      )
+    case 'gearsets':
+      return (
+        <GearSetsSelect
+          value={mapDefined(tokens, gearsetNameToId).map((id): ArtifactSetSelectionEntry => ({ id }))}
+          // The replace-list grammar holds plain includes only; exclusions are a
+          // mutate-mode concept, so the context-menu exclusion path is disabled.
+          onChange={(entries) => onTokens(mapDefined(entries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)), gearsetIdToName))}
+          onContextMenuSet={() => {}}
+          showMetasets={false}
+          minWidthPx={220}
+        />
+      )
+    case 'metasets':
+      // Metasets-only picker: same select, sets section hidden. Names are the ids.
+      return (
+        <GearSetsSelect
+          value={[]}
+          onChange={() => {}}
+          metasets={metasets}
+          selectedMetasetIds={tokens}
+          onChangeMetasetIds={onTokens}
+          showSets={false}
+          minWidthPx={220}
+        />
+      )
+    case 'rankList':
+      return (
+        <GearRankSelect
+          multiple
+          value={mapDefined(tokens, (token) => {
+            const numeric = Number.parseInt(token, 10)
+            return Number.isFinite(numeric) ? (numeric as RankValue) : null
+          })}
+          onChange={(ranks) => onTokens(ranks.map(String))}
+          sx={listSx}
+        />
+      )
+    case 'rarityList':
+      return (
+        <GearRaritySelect
+          multiple
+          value={mapDefined(tokens, rarityNameToRank)}
+          onChange={(ranks) => onTokens(mapDefined(ranks.map(Number), rarityRankToName))}
+          sx={listSx}
+        />
+      )
+    default:
+      return null
+  }
+}
+
+/** Stat picker for the dotted field families (substatmin.SPD, weight.CR%…): the app's
+ *  substat select, with user colors when the stat color scope covers controls. */
+function StatKeyPicker({ value, onChange, colorStatControls, substatColors }: {
+  value: string
+  onChange: (next: string) => void
+  colorStatControls: boolean
+  substatColors: Record<number, { fg: string; bg: string }>
+}): JSX.Element {
+  const options = dslStatVariants()
+  const variant = statKeyToVariant(value)
+  return (
+    <GearSubstatSelect
+      value={variant ?? options[0]!}
+      onChange={(next) => onChange(statVariantToKey(next))}
+      options={options}
+      colorOverrides={substatColors}
+      showBorderColors={colorStatControls}
+      sx={{ minWidth: 110 }}
+    />
+  )
+}
+
+/** Star picker for the ★-keyed minima family — the app's rank select. */
+function StarKeyPicker({ value, onChange }: { value: string; onChange: (next: string) => void }): JSX.Element {
+  const numeric = Number.parseInt(value, 10)
+  return (
+    <GearRankSelect
+      value={Number.isFinite(numeric) ? (numeric as RankValue) : null}
+      onChange={(next) => { if (next !== null) onChange(String(next)) }}
+      sx={{ minWidth: 84 }}
+    />
+  )
+}
 
 // Display glyphs for the calc arithmetic operators.
 const CALC_OPS: ReadonlyArray<{ op: '/' | '*' | '+' | '-'; glyph: string }> = [
@@ -186,8 +438,12 @@ function SliderValueCalcEditor({ calc, onText }: { calc: SliderValueCalc; onText
   )
 }
 
-function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, onCommit, onRemove }: SelectorTermRowProps): JSX.Element {
+function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, substatColors, onCommit, onRemove }: SelectorTermRowProps): JSX.Element {
   const { t } = useI18n()
+  // Stat color scope: user substat colors reach the pickers only when the flag
+  // covers control surfaces (same gate as the Builder/Safeguards panels).
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatControls = scopeColorsControls(statColorScope)
   // Local draft view so incomplete edits (empty tag value) don't clobber the
   // committed leaf; commits go upward only when the composed term parses clean.
   const [view, setView] = useState<SelectorTermView>(() => selectorLeafToView(leaf) ?? { kind: 'all' })
@@ -208,7 +464,7 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
 
   // Dropdown labels: the SAME catalog terms the rest of the UI uses for these
   // concepts — labelKey is compile-required on every metadata entry.
-  const kindLabel = useCallback((entry: SelectorTermOption): string => t(entry.labelKey), [t])
+  const kindLabel = useCallback((entry: SelectorTermOption): string => conceptLabel(t, entry), [t])
 
   // Dotted-family pieces (substatmin.SPD / minima.5.SPD) for the stat/star pickers.
   const fieldParts = view.kind === 'compare' ? view.field.split('.') : []
@@ -246,26 +502,20 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
           <MenuItem key={entry.id} value={entry.id}>{kindLabel(entry)}</MenuItem>
         ))}
       </Select>
-      {/* Star + stat pickers for the dotted field families. */}
+      {/* Star + stat pickers for the dotted field families — the app's own selects. */}
       {option?.star && view.kind === 'compare' && (
-        <Select
+        <StarKeyPicker
           value={currentStar ?? '5'}
-          size="small"
-          onChange={(event) => tryCommit({ ...view, field: recomposeField(event.target.value, currentStat) })}
-          sx={TERM_SELECT_SX}
-        >
-          {['1', '2', '3', '4', '5', '6'].map((star) => <MenuItem key={star} value={star} sx={TERM_SELECT_SX}>{`${star}★`}</MenuItem>)}
-        </Select>
+          onChange={(star) => tryCommit({ ...view, field: recomposeField(star, currentStat) })}
+        />
       )}
       {option?.stat && view.kind === 'compare' && (
-        <Select
-          value={currentStat ?? ''}
-          size="small"
-          onChange={(event) => tryCommit({ ...view, field: recomposeField(currentStar, event.target.value) })}
-          sx={TERM_SELECT_SX}
-        >
-          {statKeys.map((key) => <MenuItem key={key} value={key} sx={TERM_SELECT_SX}>{key}</MenuItem>)}
-        </Select>
+        <StatKeyPicker
+          value={currentStat ?? (statKeys[0] ?? '')}
+          onChange={(key) => tryCommit({ ...view, field: recomposeField(currentStar, key) })}
+          colorStatControls={colorStatControls}
+          substatColors={substatColors}
+        />
       )}
       {/* Comparison operator (=/≥/≤) when the kind supports it. */}
       {option && option.ops.length > 0 && view.kind === 'compare' && (
@@ -311,7 +561,18 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
           slotProps={{ chip: { size: 'small', sx: { fontFamily: 'monospace', fontSize: '0.7rem' } } }}
         />
       )}
-      {option?.value === 'choice' && (
+      {option?.value === 'choice' && option.control && SINGLE_VALUE_CONTROLS.has(option.control) && view.kind === 'compare' ? (
+        // Rank/star/rarity conditions use the app's own value selects (tinted words,
+        // star labels) — same controls as the Builder/Safeguards panels.
+        <SingleValueControl
+          control={option.control}
+          choices={option.choices ?? []}
+          valueLabelKeys={option.valueLabelKeys}
+          value={view.value}
+          onChange={(value) => tryCommit({ ...view, value })}
+          t={t}
+        />
+      ) : option?.value === 'choice' ? (
         <Select
           size="small"
           error={invalid}
@@ -322,14 +583,24 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
           }}
           sx={TERM_SELECT_SX}
         >
-          {(option.choices ?? []).map((choice) => <MenuItem key={choice} value={choice} sx={TERM_SELECT_SX}>{choice}</MenuItem>)}
+          {(option.choices ?? []).map((choice) => (
+            // Localized value label where the vocabulary has catalog terms (on/off…);
+            // monospace DSL token otherwise.
+            <MenuItem key={choice} value={choice} sx={option.valueLabelKeys?.[choice] ? undefined : TERM_SELECT_SX}>
+              {choiceLabel(t, option.valueLabelKeys, choice)}
+            </MenuItem>
+          ))}
         </Select>
-      )}
+      ) : null}
       {option?.value === 'number' && view.kind === 'compare' && (
         <OverridesNumberField
           value={Number.parseFloat(view.value) || 0}
           onChange={(next) => tryCommit({ ...view, value: String(next) })}
           ariaLabel={option.token}
+          // Bounds/step mirror the field's apply-side clamp (metadata SSOT).
+          min={option.range?.min}
+          max={option.range?.max}
+          step={option.range?.step ?? 1}
           width={88}
         />
       )}
@@ -348,6 +619,8 @@ interface BlockRowProps {
   hostDomain: OverridesDomain
   block: DraftSelectorBlock
   knownTags: string[]
+  metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
   onChange: (next: DraftSelectorBlock) => void
   onRemove: () => void
 }
@@ -355,8 +628,11 @@ interface BlockRowProps {
 // Widget pieces of the add/edit-operation row (composed into one DSL assignment).
 type OpRowState = { option: OperationTermOption; star: string; stat: string; op: '=' | '>=' | '<='; value: string }
 
-function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: BlockRowProps): JSX.Element {
+function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors, onChange, onRemove }: BlockRowProps): JSX.Element {
   const { t } = useI18n()
+  // Stat color scope gate for the stat pickers/lists (see SelectorTermRow).
+  const { statColorScope } = useDisplayPreferences()
+  const colorStatControls = scopeColorsControls(statColorScope)
   // Visual condition rows are possible when the selector flattens to one connective
   // with row-representable leaves; otherwise the raw DSL field is the only editor.
   const visualFlat = useMemo(() => {
@@ -394,7 +670,9 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
   const seedOpValue = (option: OperationTermOption): string => {
     if (operationSupportsSliderValue(hostDomain, block.domain, option.field)) return '$value'
     if (option.widget === 'level') return `${LEVEL_MILESTONE_CHOICES[0]}-${LEVEL_MILESTONE_CHOICES[LEVEL_MILESTONE_CHOICES.length - 1]!}`
-    if (option.widget === 'number') return '1'
+    if (option.widget === 'number') return String(option.range?.min ?? 1)
+    // Single-value domain selects start on their first grammar value ('any', 1★…).
+    if (option.control && SINGLE_VALUE_CONTROLS.has(option.control)) return option.choices?.[0] ?? ''
     return ''
   }
   // Visual calc state for $value-capable fields; null when the field doesn't take
@@ -402,6 +680,16 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
   // (parens, cross-slider refs) — those keep the free-text editor.
   const calcState = operationSupportsSliderValue(hostDomain, block.domain, opRow.option.field)
     ? parseSliderValueCalc(opRow.value)
+    : null
+  // Domain-select routing: token vocabulary for the list controls (metasets' comes
+  // from the app state, not the static metadata) and the parsed token list. A null
+  // token list (mutate prefixes, unknown names) falls back to the validated text/chip
+  // widgets below — nothing is ever silently dropped.
+  const opListChoices = opRow.option.control === 'metasets'
+    ? metasets.map((meta) => meta.name)
+    : opRow.option.choices
+  const opListTokens = opRow.option.control && LIST_VALUE_CONTROLS.has(opRow.option.control) && opListChoices
+    ? parseTokenListValues(opRow.value, opListChoices)
     : null
 
   // Domain-preserving selector commit (keeps the discriminated union intact).
@@ -563,6 +851,7 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
                 negated={term.negated}
                 leaf={term.leaf}
                 knownTags={knownTags}
+                substatColors={substatColors}
                 onCommit={(next) => updateTerm(index, next)}
                 onRemove={() => removeTerm(index)}
               />
@@ -608,24 +897,23 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
           aria-label={t('noteOverridesEditorOperationField')}
           data-testid="overrides-editor-op-field"
         >
-          {opOptions.map((entry) => {
-            // Localized concept label (compile-required); dotted families keep a short
-            // suffix so the per-stat variant is distinguishable from the plain one.
-            const base = t(entry.labelKey)
-            const label = entry.star ? `${base} · ★/stat` : entry.stat ? `${base} · stat` : base
-            return <MenuItem key={entry.id} value={entry.id}>{label}</MenuItem>
-          })}
+          {opOptions.map((entry) => (
+            // Localized concept label (compile-required), qualified for dotted families
+            // and explicit details (minima's Any-rank fallback) — see conceptLabel.
+            <MenuItem key={entry.id} value={entry.id}>{conceptLabel(t, entry)}</MenuItem>
+          ))}
         </Select>
-        {/* Star + stat pickers for the dotted field families. */}
+        {/* Star + stat pickers for the dotted field families — the app's own selects. */}
         {opRow.option.star && (
-          <Select value={opRow.star} size="small" onChange={(event) => updateOpRow({ star: event.target.value })} sx={TERM_SELECT_SX}>
-            {['1', '2', '3', '4', '5', '6'].map((star) => <MenuItem key={star} value={star} sx={TERM_SELECT_SX}>{`${star}★`}</MenuItem>)}
-          </Select>
+          <StarKeyPicker value={opRow.star} onChange={(star) => updateOpRow({ star })} />
         )}
         {opRow.option.stat && (
-          <Select value={opRow.stat} size="small" onChange={(event) => updateOpRow({ stat: event.target.value })} sx={TERM_SELECT_SX}>
-            {opStatKeys.map((key) => <MenuItem key={key} value={key} sx={TERM_SELECT_SX}>{key}</MenuItem>)}
-          </Select>
+          <StatKeyPicker
+            value={opRow.stat}
+            onChange={(stat) => updateOpRow({ stat })}
+            colorStatControls={colorStatControls}
+            substatColors={substatColors}
+          />
         )}
         {/* Comparison operator when the field supports more than plain '='. */}
         {opRow.option.ops.length > 1 && (
@@ -636,6 +924,27 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
         {calcState !== null ? (
           // $value-capable field with a widget-representable expression → visual calc.
           <SliderValueCalcEditor calc={calcState} onText={(value) => updateOpRow({ value })} />
+        ) : opRow.option.control && SINGLE_VALUE_CONTROLS.has(opRow.option.control) ? (
+          // Rank/star/rarity values via the app's own selects (see SingleValueControl).
+          <SingleValueControl
+            control={opRow.option.control}
+            choices={opRow.option.choices ?? []}
+            valueLabelKeys={opRow.option.valueLabelKeys}
+            value={opRow.value}
+            onChange={(value) => updateOpRow({ value })}
+            t={t}
+          />
+        ) : opRow.option.control && opListTokens !== null ? (
+          // Token lists via the matching domain select (3×3 slot grid, factions,
+          // colored substats, sets, metasets, ranks, rarities).
+          <ListValueControl
+            control={opRow.option.control}
+            tokens={opListTokens}
+            onTokens={(tokens) => updateOpRow({ value: tokenListText(tokens) })}
+            metasets={metasets}
+            colorStatControls={colorStatControls}
+            substatColors={substatColors}
+          />
         ) : opRow.option.widget === 'enum' && opRow.option.choices ? (
           // Closed value set → dropdown (export=active, activation=off, rank=any…).
           <Select
@@ -649,20 +958,21 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
             data-testid="overrides-editor-op-value-select"
           >
             <MenuItem value="" disabled>{t('noteOverridesEditorOperationValue')}</MenuItem>
-            {opRow.option.choices.map((choice) => {
-              const labelKey = opRow.option.valueLabelKeys?.[choice]
-              return (
-                <MenuItem key={choice} value={choice} sx={labelKey ? undefined : TERM_SELECT_SX}>
-                  {labelKey ? t(labelKey) : choice}
-                </MenuItem>
-              )
-            })}
+            {opRow.option.choices.map((choice) => (
+              <MenuItem key={choice} value={choice} sx={opRow.option.valueLabelKeys?.[choice] ? undefined : TERM_SELECT_SX}>
+                {choiceLabel(t, opRow.option.valueLabelKeys, choice)}
+              </MenuItem>
+            ))}
           </Select>
         ) : opRow.option.widget === 'number' ? (
           <OverridesNumberField
             value={Number.parseFloat(opRow.value) || 0}
             onChange={(next) => updateOpRow({ value: String(next) })}
             ariaLabel={t('noteOverridesEditorOperationValue')}
+            // Bounds/step mirror the field's apply-side clamp (metadata SSOT).
+            min={opRow.option.range?.min}
+            max={opRow.option.range?.max}
+            step={opRow.option.range?.step ?? 1}
             width={96}
           />
         ) : opRow.option.widget === 'level' ? (
@@ -677,11 +987,14 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
             options={opRow.option.choices}
             value={parseTokenListValues(opRow.value, opRow.option.choices) ?? []}
             onChange={(_, values) => updateOpRow({ value: tokenListText(values) })}
+            // Options and chips show the localized value labels (star ranks, rarities,
+            // slots) while the committed tokens stay the DSL vocabulary.
+            getOptionLabel={(choice) => choiceLabel(t, opRow.option.valueLabelKeys, String(choice))}
             sx={{ minWidth: 260, flex: 1 }}
             renderInput={(params) => (
               <TextField {...params} size="small" error={opError} label={t('noteOverridesEditorOperationValue')} />
             )}
-            slotProps={{ chip: { size: 'small', sx: { fontFamily: 'monospace', fontSize: '0.7rem' } } }}
+            slotProps={{ chip: { size: 'small', sx: opRow.option.valueLabelKeys ? { fontSize: '0.75rem' } : { fontFamily: 'monospace', fontSize: '0.7rem' } } }}
           />
         ) : (
           // Open vocabulary (metasets, threshold tables, mutate lists): free text with
@@ -725,10 +1038,12 @@ interface SectionProps {
   header: string
   body: DraftStructuredBody
   knownTags: string[]
+  metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
   onChange: (next: DraftStructuredBody) => void
 }
 
-function BlockSection({ hostDomain, section, header, body, knownTags, onChange }: SectionProps): JSX.Element {
+function BlockSection({ hostDomain, section, header, body, knownTags, metasets, substatColors, onChange }: SectionProps): JSX.Element {
   const { t } = useI18n()
   const blocks = body[section]
   const domain = sectionDomain(hostDomain, section)
@@ -764,6 +1079,8 @@ function BlockSection({ hostDomain, section, header, body, knownTags, onChange }
             hostDomain={hostDomain}
             block={block}
             knownTags={knownTags}
+            metasets={metasets}
+            substatColors={substatColors}
             onChange={(next) => updateAt(index, next)}
             onRemove={() => removeAt(index)}
           />
@@ -813,7 +1130,7 @@ function RawBodyEditor({ hostDomain, text, onChange, onSwitchToStructured, t }: 
 
 // ── Top-level builder ─────────────────────────────────────────────────────────
 
-export function EffectBodyBuilder({ hostDomain, body, onChange, knownTags }: EffectBodyBuilderProps): JSX.Element {
+export function EffectBodyBuilder({ hostDomain, body, onChange, knownTags, metasets, substatColors }: EffectBodyBuilderProps): JSX.Element {
   const { t } = useI18n()
   const switchToRaw = useCallback(() => {
     if (body.kind !== 'structured') return
@@ -837,12 +1154,12 @@ export function EffectBodyBuilder({ hostDomain, body, onChange, knownTags }: Eff
     // rows and the divider span both columns.
     <Box sx={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 1.5, rowGap: 1, alignItems: 'center' }}>
       {/* When-selected sections: same-domain blocks, then cross-domain blocks. */}
-      <BlockSection hostDomain={hostDomain} section="blocks" header={t('noteOverridesEditorEffectsHeader')} body={body} knownTags={knownTags} onChange={onChange} />
-      <BlockSection hostDomain={hostDomain} section="crossBlocks" header={t(crossHeaderKey(hostDomain))} body={body} knownTags={knownTags} onChange={onChange} />
+      <BlockSection hostDomain={hostDomain} section="blocks" header={t('noteOverridesEditorEffectsHeader')} body={body} knownTags={knownTags} metasets={metasets} substatColors={substatColors} onChange={onChange} />
+      <BlockSection hostDomain={hostDomain} section="crossBlocks" header={t(crossHeaderKey(hostDomain))} body={body} knownTags={knownTags} metasets={metasets} substatColors={substatColors} onChange={onChange} />
       <Divider flexItem sx={{ gridColumn: '1 / -1' }} />
       {/* Else sections: applied while the option is NOT selected. */}
-      <BlockSection hostDomain={hostDomain} section="elseBlocks" header={t('noteOverridesEditorEffectsElse')} body={body} knownTags={knownTags} onChange={onChange} />
-      <BlockSection hostDomain={hostDomain} section="crossElseBlocks" header={`${t('noteOverridesEditorEffectsElse')} — ${t(crossHeaderKey(hostDomain))}`} body={body} knownTags={knownTags} onChange={onChange} />
+      <BlockSection hostDomain={hostDomain} section="elseBlocks" header={t('noteOverridesEditorEffectsElse')} body={body} knownTags={knownTags} metasets={metasets} substatColors={substatColors} onChange={onChange} />
+      <BlockSection hostDomain={hostDomain} section="crossElseBlocks" header={`${t('noteOverridesEditorEffectsElse')} — ${t(crossHeaderKey(hostDomain))}`} body={body} knownTags={knownTags} metasets={metasets} substatColors={substatColors} onChange={onChange} />
       <Box sx={{ gridColumn: '1 / -1' }}>
         <Button size="small" variant="text" startIcon={<CodeIcon fontSize="small" />} onClick={switchToRaw}>
           {t('noteOverridesEditorRawToggle')}

@@ -44,6 +44,9 @@ type GearSetsSelectProps = {
   size?: SelectProps<string[]>['size']
   dataTourId?: string
   showMetasets?: boolean
+  /** When false, hide the gear-sets section entirely (metasets-only pickers, e.g.
+   *  the overrides editor's `metasets=` value control). Default true. */
+  showSets?: boolean
   menuWidthPx?: number
   disabled?: boolean
   layoutVersion?: number
@@ -100,6 +103,7 @@ export default function GearSetsSelect({
   size = 'small',
   dataTourId,
   showMetasets = true,
+  showSets = true,
   menuWidthPx = SETS_MENU_WIDTH_PX,
   disabled = false,
   layoutVersion,
@@ -796,6 +800,8 @@ export default function GearSetsSelect({
                 </Box>
               </Box>
             ) : null,
+            // Metasets-only pickers suppress the whole sets section (header + list).
+            !showSets ? null : (
             <Box key="sets" component="div" sx={{ display: 'block', p: 0, m: 0 }}>
               <ListSubheader
                 component="div"
@@ -855,7 +861,8 @@ export default function GearSetsSelect({
                   {...(triStateForSet ? { triStateForSet } : {})}
                 />
               </Box>
-            </Box>,
+            </Box>
+            ),
           ]
         ) : closedMenuItems}
       </Select>

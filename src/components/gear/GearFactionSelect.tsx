@@ -149,11 +149,11 @@ export function GearFactionSelect({
     '& .MuiSelect-select': {
       display: 'inline-flex',
       alignItems: 'center',
-      minHeight: 'unset',
       width: '100%',
       gap: 0.5,
-      paddingTop: 0,
-      paddingBottom: 0,
+      // Vertical metrics are left to MUI's size="small" default so the closed control
+      // matches its sibling selects (rank/rarity/substat); callers that want a
+      // different height (e.g. the Gear Inspector rows) override via `sx`.
     },
   }), [])
   const selectSx: SxProps<Theme> | undefined = [baseSelectContentSx, ...normalizedSx]

@@ -23,6 +23,7 @@ import type { I18nKey } from '../../lib/i18n'
 import type { NoteQuestionGroupType, SliderToggleDefault, SliderToggleSide } from '../../lib/noteOverridesParser'
 import { SLIDER_TOGGLE_DEFAULT_VALUES, SLIDER_TOGGLE_SIDE_VALUES, normalizeQuestionToken } from '../../lib/noteOverridesParser'
 import type { DraftOption, DraftSliderParams, OverridesDomain } from '../../lib/overridesDraftTypes'
+import type { Metaset } from '../../lib/metasets'
 import { EffectBodyBuilder } from './EffectBodyBuilder'
 import { LocalizedStringField } from './LocalizedStringField'
 import { OverridesNumberField } from './OverridesNumberField'
@@ -64,6 +65,9 @@ export interface OptionEditorCardProps {
   knownTokens: string[]
   // Known selector tag values across the note (condition-row suggestions).
   knownTags: string[]
+  // App metasets + user substat colors, forwarded to the body builder's value controls.
+  metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
 }
 
 // Normalize freeSolo chip entries to valid tokens; invalid entries are dropped.
@@ -72,7 +76,7 @@ const normalizeTokens = (values: string[]): string[] => (
 )
 
 export function OptionEditorCard({
-  hostDomain, option, index, count, expanded, onToggle, onChange, onRemove, onMove, onDuplicate, knownTokens, knownTags,
+  hostDomain, option, index, count, expanded, onToggle, onChange, onRemove, onMove, onDuplicate, knownTokens, knownTags, metasets, substatColors,
 }: OptionEditorCardProps): JSX.Element {
   const { t } = useI18n()
   const patch = useCallback((partial: Partial<DraftOption>) => onChange({ ...option, ...partial }), [onChange, option])
@@ -372,7 +376,7 @@ export function OptionEditorCard({
         )}
         <Divider flexItem />
         {/* Effect body: structured builder or raw DSL fallback. */}
-        <EffectBodyBuilder hostDomain={hostDomain} body={option.body} onChange={(body) => patch({ body })} knownTags={knownTags} />
+        <EffectBodyBuilder hostDomain={hostDomain} body={option.body} onChange={(body) => patch({ body })} knownTags={knownTags} metasets={metasets} substatColors={substatColors} />
       </AccordionDetails>
     </Accordion>
   )

@@ -15,9 +15,27 @@ import {
   NOTE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
 } from './noteOverridesParser'
-import { STAT_VARIANTS_PRIORITY, artifactSetNames, factionNames, labelOfVariant } from './types'
+import {
+  ArtifactType,
+  RANK_VALUES,
+  STAT_VARIANTS_PRIORITY,
+  artifactSetNames,
+  artifactTypeI18nKey,
+  factionNames,
+  labelOfVariant,
+  rarityCodeFromRankValue,
+  rarityCodeToName,
+  rarityRankValueI18nKey,
+  starRankValueI18nKey,
+  variantFromLabel,
+  type RankValue,
+  type StatVariant,
+} from './types'
 // Type-only: catalog key union, so every labelKey below is COMPILE-checked to exist.
 import type { I18nKey } from './i18n'
+// Numeric widget bounds mirror the apply-side clamp SSOTs — never re-spelled here.
+import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
+import { GEAR_INSPECTOR_SORT_WEIGHT_MAX, GEAR_INSPECTOR_SORT_WEIGHT_MIN, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from './gearInspectorSort'
 import {
   type RecipeOverridesOperation,
   type RecipeOverridesSelector,
@@ -27,6 +45,7 @@ import {
   NOTE_RECIPE_OVERRIDES_EXPORT_VALS,
   NOTE_RECIPE_OVERRIDES_KEEP_VALS,
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
+  NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX,
   NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
@@ -35,6 +54,8 @@ import {
   type SafeguardOverridesOperation,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX,
+  NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
 } from './noteSafeguardOverrides'
@@ -190,9 +211,29 @@ export type OperationTermOption = {
   // this concept (Recipe Builder / Safeguards panel). REQUIRED: adding a grammar
   // field cannot compile without deciding its localized label.
   labelKey: I18nKey
-  // Optional catalog keys for enum VALUES (export modes, milestones, activation…).
+  // Optional qualifier rendered after the label (`base · qualifier`) when one concept
+  // has several dotted variants (Global minima vs its Any-rank fallback entry).
+  labelDetailKey?: I18nKey
+  // Optional catalog keys for enum/list VALUES (export modes, star ranks, rarities…).
   valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>>
+  // Bounds for the 'number' widget, mirrored from the apply-side clamp SSOTs — the
+  // editor refuses values the resolver would clamp away anyway.
+  range?: NumberValueRange
+  // Rich value control: reuse the app's domain selects (Gear*Select family) instead
+  // of a generic dropdown/chip list. The DSL value stays a token string; the UI maps
+  // tokens ⇄ domain ids through the converter SSOT below.
+  control?: ValueControlKind
 }
+
+/** Numeric widget bounds (max/step optional: minima targets are only floored at 0). */
+export type NumberValueRange = { min: number; max?: number; step?: number }
+
+/** Which shared app select renders the value. Single-value kinds pair with 'enum'
+ *  choices; list kinds pair with 'list' (metasets: 'text' + runtime vocabulary). */
+export type ValueControlKind =
+  | 'rankValue' | 'starValue' | 'rarityValue'                       // single value
+  | 'slots' | 'factions' | 'substats' | 'mainstats' | 'gearsets'    // token lists
+  | 'rankList' | 'rarityList' | 'metasets'
 
 // Boolean-flag surface: on/off (the parser also accepts true/false; on/off is canonical).
 const BOOL_VALS = [NOTE_OVERRIDES_BOOLEAN_KEYWORDS[0], NOTE_OVERRIDES_BOOLEAN_KEYWORDS[1]] as const
@@ -205,21 +246,27 @@ const enumOp = (
   field: string,
   choices: readonly string[],
   labelKey: I18nKey,
-  extra?: { ops?: ReadonlyArray<'=' | '>=' | '<='>; valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>> },
+  extra?: { ops?: ReadonlyArray<'=' | '>=' | '<='>; valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>>; control?: ValueControlKind },
 ): OperationTermOption => ({
   id: field, field, ops: extra?.ops ?? EQ_ONLY, widget: 'enum', choices, stat: false, star: false, example: choices[0] ?? '', labelKey,
-  // exactOptionalPropertyTypes: only materialize the prop when it is provided.
+  // exactOptionalPropertyTypes: only materialize the props when they are provided.
   ...(extra?.valueLabelKeys ? { valueLabelKeys: extra.valueLabelKeys } : {}),
+  ...(extra?.control ? { control: extra.control } : {}),
 })
-const numberOp = (field: string, labelKey: I18nKey): OperationTermOption => (
-  { id: field, field, ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '1', labelKey }
+const numberOp = (field: string, labelKey: I18nKey, range?: NumberValueRange): OperationTermOption => (
+  { id: field, field, ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '1', labelKey, ...(range ? { range } : {}) }
 )
-const listOp = (field: string, choices: readonly string[], labelKey: I18nKey): OperationTermOption => (
-  { id: field, field, ops: EQ_ONLY, widget: 'list', choices, stat: false, star: false, example: choices.slice(0, 2).join(','), labelKey }
+const listOp = (field: string, choices: readonly string[], labelKey: I18nKey, valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>>, control?: ValueControlKind): OperationTermOption => (
+  { id: field, field, ops: EQ_ONLY, widget: 'list', choices, stat: false, star: false, example: choices.slice(0, 2).join(','), labelKey, ...(valueLabelKeys ? { valueLabelKeys } : {}), ...(control ? { control } : {}) }
+)
+// Boolean on/off enum field (shared value labels).
+const boolOp = (field: string, labelKey: I18nKey): OperationTermOption => (
+  enumOp(field, BOOL_VALS, labelKey, { valueLabelKeys: BOOL_VALUE_LABEL_KEYS })
 )
 
 // Closed vocabularies derived from the domain SSOTs (never re-spelled here).
-const RANK_NUM_CHOICES = ['1', '2', '3', '4', '5', '6'] as const
+// Exported for the star pickers, which pair these values with STAR_VALUE_LABEL_KEYS.
+export const RANK_NUM_CHOICES = ['1', '2', '3', '4', '5', '6'] as const
 // Rank values accepted by parseRankOverride ('any' only with '=').
 const RANK_VALUE_CHOICES = ['any', ...RANK_NUM_CHOICES] as const
 /** Level milestones the `lvl=` field accepts — mirrors the LevelMilestone union;
@@ -228,6 +275,100 @@ export const LEVEL_MILESTONE_CHOICES = ['0', '4', '8', '12', '16'] as const
 const SG_RARITY_NAME_CHOICES = NOTE_RECIPE_OVERRIDES_RARITY_NAMES.filter((name) => name !== 'any' && name !== 'auto')
 const GEARSET_NAME_CHOICES = Object.values(artifactSetNames)
 const FACTION_NAME_CHOICES = Object.values(factionNames).filter((name) => name && name.trim())
+
+// ── Localized VALUE labels (same catalog terms as the rest of the UI) ─────────
+// Closed-vocabulary values render through these maps so dropdown/chip labels are
+// localized while the DSL keeps its tokens. Where the vocabulary is a tuple, the
+// `satisfies` clause makes the map COMPILE-exhaustive: adding a value to the grammar
+// fails to compile until its label is chosen.
+
+/** Star ranks '1'..'6' → the shared star-rank key SSOT (`star1`…`star6`). */
+export const STAR_VALUE_LABEL_KEYS: Readonly<Record<(typeof RANK_NUM_CHOICES)[number], I18nKey>> = {
+  '1': starRankValueI18nKey(1), '2': starRankValueI18nKey(2), '3': starRankValueI18nKey(3),
+  '4': starRankValueI18nKey(4), '5': starRankValueI18nKey(5), '6': starRankValueI18nKey(6),
+}
+// rank= values: 'any' + the star ranks.
+const RANK_VALUE_LABEL_KEYS = {
+  any: 'any', ...STAR_VALUE_LABEL_KEYS,
+} satisfies Record<(typeof RANK_VALUE_CHOICES)[number], I18nKey>
+// rarity= values: the name↔rank association is pinned at runtime against the parser's
+// own name table by the SSOT completeness test; the keys are compile-pinned here.
+const RARITY_VALUE_LABEL_KEYS = {
+  any: 'any', auto: 'headerMenuAuto',
+  common: rarityRankValueI18nKey(1), uncommon: rarityRankValueI18nKey(2), rare: rarityRankValueI18nKey(3),
+  epic: rarityRankValueI18nKey(4), legendary: rarityRankValueI18nKey(5), mythical: rarityRankValueI18nKey(6),
+} satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_RARITY_NAMES)[number], I18nKey>
+// Subset of a shared value-label map keyed by an actual choice list, so narrower
+// vocabularies (autolate thresholds, the safeguard rarity list) reuse ONE mapping
+// without advertising labels for values their grammar does not accept.
+const pickValueLabelKeys = (
+  map: Readonly<Partial<Record<string, I18nKey>>>,
+  choices: readonly string[],
+): Readonly<Partial<Record<string, I18nKey>>> => (
+  Object.fromEntries(choices.flatMap((choice) => (map[choice] ? [[choice, map[choice]]] : [])))
+)
+// autolate= values are rarity thresholds — reuse the rarity labels (single mapping).
+const AUTOLATE_VALUE_LABEL_KEYS = pickValueLabelKeys(RARITY_VALUE_LABEL_KEYS, NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS)
+// on/off boolean values.
+const BOOL_VALUE_LABEL_KEYS = {
+  on: 'commonOn', off: 'commonOff',
+} satisfies Record<(typeof BOOL_VALS)[number], I18nKey>
+// substatmatch: numeric thresholds display as numbers; only the keyword gets a term.
+const SUBSTAT_MATCH_VALUE_LABEL_KEYS: Readonly<Partial<Record<(typeof NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS)[number], I18nKey>>> = {
+  persubstat: 'safeguardsSubstatRequirementPer',
+}
+// slots= values: slot name → the shared slot label key SSOT (artifactTypeI18nKey).
+const SLOT_VALUE_LABEL_KEYS: Readonly<Partial<Record<string, I18nKey>>> = Object.fromEntries(
+  NOTE_RECIPE_OVERRIDES_SLOT_NAMES.map((name) => [name, artifactTypeI18nKey(ArtifactType[name as keyof typeof ArtifactType])]),
+)
+
+// ── Token ⇄ domain-id converters (for the shared Gear*Select value controls) ──
+// Built from the SAME name tables the parser resolves against (ArtifactType,
+// factionNames, artifactSetNames, the rarity/rank helpers), so a token that passed
+// validation always maps to an id and back to the identical spelling.
+
+const SLOT_ID_BY_TOKEN = new Map<string, number>(Object.entries(ArtifactType).map(([name, id]) => [name, Number(id)]))
+const SLOT_TOKEN_BY_ID = new Map<number, string>(Object.entries(ArtifactType).map(([name, id]) => [Number(id), name]))
+export const slotTokenToId = (token: string): number | null => SLOT_ID_BY_TOKEN.get(token) ?? null
+export const slotIdToToken = (id: number): string | null => SLOT_TOKEN_BY_ID.get(Number(id)) ?? null
+
+const FACTION_ID_BY_NAME = new Map<string, number>(
+  Object.entries(factionNames).filter(([, name]) => name && name.trim()).map(([id, name]) => [name, Number(id)]),
+)
+export const factionNameToId = (name: string): number | null => FACTION_ID_BY_NAME.get(name) ?? null
+export const factionIdToName = (id: number): string | null => factionNames[Number(id)] ?? null
+
+const GEARSET_ID_BY_NAME = new Map<string, number>(
+  Object.entries(artifactSetNames).filter(([, name]) => name && name.trim()).map(([id, name]) => [name, Number(id)]),
+)
+export const gearsetNameToId = (name: string): number | null => GEARSET_ID_BY_NAME.get(name) ?? null
+export const gearsetIdToName = (id: number): string | null => artifactSetNames[Number(id)] ?? null
+
+/** DSL stat key ('SPD', 'HP%') ⇄ StatVariant — the parser's own mapping pair. */
+export const statKeyToVariant = (key: string): StatVariant | null => variantFromLabel(key)
+export const statVariantToKey = (variant: StatVariant): string => labelOfVariant(variant)
+
+// Rarity rank value (1–6) ⇄ lowercase DSL rarity name (the serializer's spelling).
+const RARITY_NAME_BY_RANK = new Map<number, string>(
+  RANK_VALUES.map((rv) => [rv, rarityCodeToName(rarityCodeFromRankValue(rv)).toLowerCase()]),
+)
+const RARITY_RANK_BY_NAME = new Map<string, RankValue>(
+  RANK_VALUES.map((rv) => [RARITY_NAME_BY_RANK.get(rv)!, rv]),
+)
+export const rarityNameToRank = (name: string): RankValue | null => RARITY_RANK_BY_NAME.get(name) ?? null
+export const rarityRankToName = (rank: number): string | null => RARITY_NAME_BY_RANK.get(Number(rank)) ?? null
+
+// ── Numeric widget bounds (apply-side clamp SSOTs) ────────────────────────────
+// minrolls / lockedminrolls / substatmin resolve through clampAggregateRollValue.
+const ROLL_COUNT_RANGE: NumberValueRange = { min: 0, max: SUBSTAT_TARGET_MAX_ROLLS }
+// minsubstats resolves through clampMinSubstats (an artifact holds ≤ 4 substats).
+const MIN_SUBSTATS_RANGE: NumberValueRange = { min: 0, max: NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX }
+// Minima targets are only floored (clampMinimaValue) — flat-stat minima can be large.
+const MINIMA_TARGET_RANGE: NumberValueRange = { min: 0 }
+// Safeguard count resolves through the count clamp.
+const COUNT_RANGE: NumberValueRange = { min: NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, max: NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX }
+// Substat weights share the Gear-Inspector sort-weight bounds/step.
+const WEIGHT_RANGE: NumberValueRange = { min: GEAR_INSPECTOR_SORT_WEIGHT_MIN, max: GEAR_INSPECTOR_SORT_WEIGHT_MAX, step: GEAR_INSPECTOR_SORT_WEIGHT_STEP }
 
 type RecipeAssignmentField = (typeof NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS)[number]
@@ -241,19 +382,21 @@ const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOpt
       active: 'builderExportModeActive', disabled: 'builderExportModeDisabled', toggle: 'noteOverridesEditorValueToggle',
     } satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_EXPORT_VALS)[number], I18nKey>,
   })],
-  rank: [enumOp('rank', RANK_VALUE_CHOICES, 'builderRank', { ops: ALL_OPS })],
-  rarity: [enumOp('rarity', NOTE_RECIPE_OVERRIDES_RARITY_NAMES, 'gearAnalyticsChartRarity', { ops: ALL_OPS })],
-  minrolls: [numberOp('minrolls', 'tutAdvMinRollsTitle')],
-  lockedminrolls: [numberOp('lockedminrolls', 'tutLockedMinRollsTitle')],
-  minsubstats: [numberOp('minsubstats', 'builderRequiredSubstats')],
-  flex: [enumOp('flex', BOOL_VALS, 'tutSectionFlexLabel')],
+  rank: [enumOp('rank', RANK_VALUE_CHOICES, 'builderRank', { ops: ALL_OPS, valueLabelKeys: RANK_VALUE_LABEL_KEYS, control: 'rankValue' })],
+  rarity: [enumOp('rarity', NOTE_RECIPE_OVERRIDES_RARITY_NAMES, 'gearAnalyticsChartRarity', { ops: ALL_OPS, valueLabelKeys: RARITY_VALUE_LABEL_KEYS, control: 'rarityValue' })],
+  minrolls: [numberOp('minrolls', 'tutAdvMinRollsTitle', ROLL_COUNT_RANGE)],
+  lockedminrolls: [numberOp('lockedminrolls', 'tutLockedMinRollsTitle', ROLL_COUNT_RANGE)],
+  minsubstats: [numberOp('minsubstats', 'builderRequiredSubstats', MIN_SUBSTATS_RANGE)],
+  flex: [boolOp('flex', 'tutSectionFlexLabel')],
   substatmin: [
-    numberOp('substatmin', 'builderSubstatMenuMinRolls'),
-    { id: 'substatmin.stat', field: 'substatmin', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '2', labelKey: 'builderSubstatMenuMinRolls' },
+    numberOp('substatmin', 'builderSubstatMenuMinRolls', ROLL_COUNT_RANGE),
+    { id: 'substatmin.stat', field: 'substatmin', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '2', labelKey: 'builderSubstatMenuMinRolls', range: ROLL_COUNT_RANGE },
   ],
   minima: [
-    { id: 'minima.any', field: 'minima.any', ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '5', labelKey: 'noteOverridesEditorFieldMinima' },
-    { id: 'minima.star.stat', field: 'minima', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: true, example: '12', labelKey: 'noteOverridesEditorFieldMinima' },
+    // minima.any sets which ★ column applies to Rank=Any rules — a star-rank CHOICE,
+    // not a free number (the literal '5' means "the 5★ minima table").
+    { id: 'minima.any', field: 'minima.any', ops: EQ_ONLY, widget: 'enum', choices: RANK_NUM_CHOICES, stat: false, star: false, example: '5', labelKey: 'noteOverridesEditorFieldMinima', labelDetailKey: 'anyRank', valueLabelKeys: STAR_VALUE_LABEL_KEYS, control: 'starValue' },
+    { id: 'minima.star.stat', field: 'minima', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: true, example: '12', labelKey: 'noteOverridesEditorFieldMinima', range: MINIMA_TARGET_RANGE },
   ],
   lvl: [{ id: 'lvl', field: 'lvl', ops: EQ_ONLY, widget: 'level', choices: null, stat: false, star: false, example: '0-16', labelKey: 'builderLevelWindow' }],
   keep: [enumOp('keep', NOTE_RECIPE_OVERRIDES_KEEP_VALS, 'builderMilestoneThresholds', {
@@ -266,13 +409,15 @@ const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOpt
       keep: 'keepValueKeep', sell: 'keepValueSell', toggle: 'noteOverridesEditorValueToggle',
     } satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_ACTION_VALS)[number], I18nKey>,
   })],
-  autolate: [enumOp('autolate', NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS, 'builderAutoPlusLate')],
+  autolate: [enumOp('autolate', NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS, 'builderAutoPlusLate', { valueLabelKeys: AUTOLATE_VALUE_LABEL_KEYS })],
   rolltarget: [{ id: 'rolltarget.stat', field: 'rolltarget', ops: EQ_ONLY, widget: 'text', choices: null, stat: true, star: false, example: '300,600,900', labelKey: 'builderSubstatMenuRollTargets' }],
-  slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES, 'builderSlots')],
-  substats: [listOp('substats', dslStatKeys(), 'builderSubstats')],
-  mainstats: [listOp('mainstats', dslStatKeys(), 'builderMain')],
-  gearsets: [listOp('gearsets', GEARSET_NAME_CHOICES, 'colSets')],
-  metasets: [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2', labelKey: 'menuMetasetsSection' }],
+  slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES, 'builderSlots', SLOT_VALUE_LABEL_KEYS, 'slots')],
+  substats: [listOp('substats', dslStatKeys(), 'builderSubstats', undefined, 'substats')],
+  mainstats: [listOp('mainstats', dslStatKeys(), 'builderMain', undefined, 'mainstats')],
+  gearsets: [listOp('gearsets', GEARSET_NAME_CHOICES, 'colSets', undefined, 'gearsets')],
+  // metasets keeps the open 'text' widget as its fallback; the 'metasets' control
+  // swaps in the sets select whenever every listed name matches a known metaset.
+  metasets: [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2', labelKey: 'menuMetasetsSection', control: 'metasets' }],
 }
 
 // Safeguard assignment metadata (same compile gate as the recipe Record above).
@@ -285,22 +430,22 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
       anticipate_improvements: 'safeguardsRuleModeAnticipateImprovements',
     } satisfies Record<(typeof NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS)[number], I18nKey>,
   })],
-  count: [numberOp('count', 'safeguardsRequiredCount')],
-  ignprev: [enumOp('ignprev', BOOL_VALS, 'safeguardsIgnorePreviousSafeguards')],
-  igncoll: [enumOp('igncoll', BOOL_VALS, 'safeguardsIgnoreEquippedInCollection')],
-  ignvault: [enumOp('ignvault', BOOL_VALS, 'safeguardsIgnoreEquippedInVault')],
-  perfaction: [enumOp('perfaction', BOOL_VALS, 'safeguardsCountModePerFaction')],
-  permainstat: [enumOp('permainstat', BOOL_VALS, 'safeguardsCountModePerMain')],
-  perslot: [enumOp('perslot', BOOL_VALS, 'safeguardsCountModePerSlot')],
-  perset: [enumOp('perset', BOOL_VALS, 'safeguardsCountModePerSet')],
-  perrule: [enumOp('perrule', BOOL_VALS, 'safeguardsCountModePerRule')],
-  substats: [listOp('substats', dslStatKeys(), 'safeguardsSubstatLabel')],
-  substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, 'noteOverridesEditorFieldSubstatMatch')],
-  weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5', labelKey: 'safeguardsSubstatWeightsLabel' }],
+  count: [numberOp('count', 'safeguardsRequiredCount', COUNT_RANGE)],
+  ignprev: [boolOp('ignprev', 'safeguardsIgnorePreviousSafeguards')],
+  igncoll: [boolOp('igncoll', 'safeguardsIgnoreEquippedInCollection')],
+  ignvault: [boolOp('ignvault', 'safeguardsIgnoreEquippedInVault')],
+  perfaction: [boolOp('perfaction', 'safeguardsCountModePerFaction')],
+  permainstat: [boolOp('permainstat', 'safeguardsCountModePerMain')],
+  perslot: [boolOp('perslot', 'safeguardsCountModePerSlot')],
+  perset: [boolOp('perset', 'safeguardsCountModePerSet')],
+  perrule: [boolOp('perrule', 'safeguardsCountModePerRule')],
+  substats: [listOp('substats', dslStatKeys(), 'safeguardsSubstatLabel', undefined, 'substats')],
+  substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, 'noteOverridesEditorFieldSubstatMatch', { valueLabelKeys: SUBSTAT_MATCH_VALUE_LABEL_KEYS })],
+  weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5', labelKey: 'safeguardsSubstatWeightsLabel', range: WEIGHT_RANGE }],
   improvchance: [{ id: 'improvchance', field: 'improvchance', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: '25  |  25,35,50,65  |  disabled', labelKey: 'safeguardsImprovementChanceShort' }],
-  rank: [listOp('rank', RANK_NUM_CHOICES, 'noteSafeguardRanksLabel')],
-  rarity: [listOp('rarity', SG_RARITY_NAME_CHOICES, 'noteSafeguardRaritiesLabel')],
-  faction: [listOp('faction', FACTION_NAME_CHOICES, 'noteSafeguardFactionsLabel')],
+  rank: [listOp('rank', RANK_NUM_CHOICES, 'noteSafeguardRanksLabel', STAR_VALUE_LABEL_KEYS, 'rankList')],
+  rarity: [listOp('rarity', SG_RARITY_NAME_CHOICES, 'noteSafeguardRaritiesLabel', pickValueLabelKeys(RARITY_VALUE_LABEL_KEYS, SG_RARITY_NAME_CHOICES), 'rarityList')],
+  faction: [listOp('faction', FACTION_NAME_CHOICES, 'noteSafeguardFactionsLabel', undefined, 'factions')],
 }
 
 /** Assignment dropdown entries for a block of the given domain. The order follows
@@ -564,6 +709,8 @@ export type SelectorTermOption = {
   // Catalog key for the dropdown label (same term as the rest of the UI). REQUIRED —
   // see OperationTermOption.labelKey.
   labelKey: I18nKey
+  // Optional qualifier rendered after the label (see OperationTermOption.labelDetailKey).
+  labelDetailKey?: I18nKey
   // DSL surface token — shown when the UI has no friendly label for the id.
   token: string
   // Comparison ops offered; empty = no op picker.
@@ -571,6 +718,12 @@ export type SelectorTermOption = {
   // Value widget: none | single tag | tag chip list | number | closed choice list.
   value: 'none' | 'tag' | 'tags' | 'number' | 'choice'
   choices: readonly string[] | null
+  // Localized labels for 'choice' values (see OperationTermOption.valueLabelKeys).
+  valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>>
+  // Bounds for the 'number' widget (see OperationTermOption.range).
+  range?: NumberValueRange
+  // Rich value control (see OperationTermOption.control) — single-value kinds only.
+  control?: ValueControlKind
   // Extra pickers for the dotted stat/star field families.
   stat: boolean
   star: boolean
@@ -579,8 +732,8 @@ export type SelectorTermOption = {
 const ALL_COMPARE_OPS = ['=', '>=', '<='] as const
 
 // Compact builder for plain numeric comparison fields.
-const numericTermOption = (field: string, labelKey: I18nKey): SelectorTermOption => (
-  { id: field, token: field, labelKey, ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false }
+const numericTermOption = (field: string, labelKey: I18nKey, range?: NumberValueRange): SelectorTermOption => (
+  { id: field, token: field, labelKey, ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false, ...(range ? { range } : {}) }
 )
 
 // Bare heads (all/tagged/untagged) derived from the tag-grammar SSOT keywords, plus
@@ -607,19 +760,20 @@ type RecipeSelectorField = (typeof NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS)[number
 // entry (or entries, for dotted families) is registered here.
 const RECIPE_SELECTOR_TERM_META: Record<RecipeSelectorField, SelectorTermOption[]> = {
   tag: [],  // covered by the shared TAG_TERM_OPTIONS above
-  rank: [{ id: 'rank', token: 'rank', labelKey: 'builderRank', ops: ALL_COMPARE_OPS, value: 'choice', choices: RANK_VALUE_CHOICES, stat: false, star: false }],
-  rarity: [{ id: 'rarity', token: 'rarity', labelKey: 'gearAnalyticsChartRarity', ops: ALL_COMPARE_OPS, value: 'choice', choices: NOTE_RECIPE_OVERRIDES_RARITY_NAMES, stat: false, star: false }],
-  minrolls: [numericTermOption('minrolls', 'tutAdvMinRollsTitle')],
-  lockedminrolls: [numericTermOption('lockedminrolls', 'tutLockedMinRollsTitle')],
-  minsubstats: [numericTermOption('minsubstats', 'builderRequiredSubstats')],
-  flex: [{ id: 'flex', token: 'flex', labelKey: 'tutSectionFlexLabel', ops: [], value: 'choice', choices: BOOL_VALS, stat: false, star: false }],
+  rank: [{ id: 'rank', token: 'rank', labelKey: 'builderRank', ops: ALL_COMPARE_OPS, value: 'choice', choices: RANK_VALUE_CHOICES, valueLabelKeys: RANK_VALUE_LABEL_KEYS, control: 'rankValue', stat: false, star: false }],
+  rarity: [{ id: 'rarity', token: 'rarity', labelKey: 'gearAnalyticsChartRarity', ops: ALL_COMPARE_OPS, value: 'choice', choices: NOTE_RECIPE_OVERRIDES_RARITY_NAMES, valueLabelKeys: RARITY_VALUE_LABEL_KEYS, control: 'rarityValue', stat: false, star: false }],
+  minrolls: [numericTermOption('minrolls', 'tutAdvMinRollsTitle', ROLL_COUNT_RANGE)],
+  lockedminrolls: [numericTermOption('lockedminrolls', 'tutLockedMinRollsTitle', ROLL_COUNT_RANGE)],
+  minsubstats: [numericTermOption('minsubstats', 'builderRequiredSubstats', MIN_SUBSTATS_RANGE)],
+  flex: [{ id: 'flex', token: 'flex', labelKey: 'tutSectionFlexLabel', ops: [], value: 'choice', choices: BOOL_VALS, valueLabelKeys: BOOL_VALUE_LABEL_KEYS, stat: false, star: false }],
   substatmin: [
-    numericTermOption('substatmin', 'builderSubstatMenuMinRolls'),
-    { id: 'substatmin.stat', token: 'substatmin.', labelKey: 'builderSubstatMenuMinRolls', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: false },
+    numericTermOption('substatmin', 'builderSubstatMenuMinRolls', ROLL_COUNT_RANGE),
+    { id: 'substatmin.stat', token: 'substatmin.', labelKey: 'builderSubstatMenuMinRolls', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: false, range: ROLL_COUNT_RANGE },
   ],
   minima: [
-    { id: 'minima.any', token: 'minima.any', labelKey: 'noteOverridesEditorFieldMinima', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false },
-    { id: 'minima.star.stat', token: 'minima.', labelKey: 'noteOverridesEditorFieldMinima', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: true },
+    // Star-rank CHOICE — compares the Any-rank fallback ★ column (see the op meta twin).
+    { id: 'minima.any', token: 'minima.any', labelKey: 'noteOverridesEditorFieldMinima', labelDetailKey: 'anyRank', ops: ALL_COMPARE_OPS, value: 'choice', choices: RANK_NUM_CHOICES, valueLabelKeys: STAR_VALUE_LABEL_KEYS, control: 'starValue', stat: false, star: false },
+    { id: 'minima.star.stat', token: 'minima.', labelKey: 'noteOverridesEditorFieldMinima', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: true, range: MINIMA_TARGET_RANGE },
   ],
 }
 
