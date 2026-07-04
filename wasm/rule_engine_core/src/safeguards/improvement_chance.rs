@@ -919,6 +919,70 @@ pub(super) fn tie_break_favors_challenger(ch_main: i64, ch_rank: i64, cand_main:
 
 // ─── evaluation: state × scenarios ───────────────────────────────────────────
 
+// Full-bucket selection test for ONE scenario: state substat gate, scenario score,
+// then the quota check against the challenger bucket (with the per-artifact self-skip).
+// Shared by the scalar any-scenario leaf and the grouped-lane leaf (ODR).
+fn scenario_selects_state(
+    scenario: &UpgradeScenario,
+    state: &BTreeMap<i64, i64>,
+    ctx: &RecursionContext<'_>,
+) -> bool {
+    if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
+        return false;
+    }
+    // Mirror detection scoring: substat score plus the per-artifact main-stat rank bonus
+    // (constant during simulation; gated by the rule's "Weight by Rank" toggle).
+    let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank)
+        + super::safeguard_main_stat_rank_bonus_parts(
+            ctx.artifact_rank,
+            ctx.artifact_slot,
+            ctx.artifact_main_stat,
+            scenario.weight_main_stat_by_rank,
+            true,
+        );
+    if !(score > 0.0) {
+        return false;
+    }
+    // Build the count-key for this artifact and look up the challenger bucket.
+    let key = safeguard_count_key_from_parts(
+        ctx.artifact_slot,
+        ctx.artifact_set,
+        ctx.artifact_faction,
+        ctx.artifact_main_stat,
+        scenario.count_mode,
+    );
+    let challengers = scenario
+        .challengers_by_count_key
+        .get(&key)
+        .map(|v| v.as_slice())
+        .unwrap_or(&[]);
+    // Count challengers strictly better than the projected state score.
+    let mut better_count = 0i64;
+    for ch in challengers {
+        if ch.artifact_id == ctx.artifact_id {
+            continue;
+        }
+        if is_challenger_strictly_better(
+            ch.projected_score,
+            ch.main_stat,
+            ch.rank,
+            score,
+            ctx.artifact_main_stat,
+            ctx.artifact_rank,
+        ) {
+            better_count += 1;
+            if better_count >= scenario.required_per_group {
+                break;
+            }
+        }
+    }
+    better_count < scenario.required_per_group
+}
+
+// Test-only since the grouped-lane conversion: production paths partition scenarios
+// into lanes (GroupedSelectionLeaf); this any-scenario union remains as the scalar
+// reference leaf the equivalence tests compare against.
+#[cfg(test)]
 fn is_state_selected_by_any_scenario(
     state: &BTreeMap<i64, i64>,
     ctx: &RecursionContext<'_>,
@@ -927,61 +991,9 @@ fn is_state_selected_by_any_scenario(
     // Mirrors isStateSelectedByAnyScenario in TS.
     // ctx.scenarios is pre-filtered to scenarios applicable to ctx.artifact_id (via scenarios_by_id
     // index built in compute_improvement_chance), so no applicability check is needed here.
-    for scenario in ctx.scenarios {
-        if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
-            continue;
-        }
-        // Mirror detection scoring: substat score plus the per-artifact main-stat rank bonus
-        // (constant during simulation; gated by the rule's "Weight by Rank" toggle).
-        let score = compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank)
-            + super::safeguard_main_stat_rank_bonus_parts(
-                ctx.artifact_rank,
-                ctx.artifact_slot,
-                ctx.artifact_main_stat,
-                scenario.weight_main_stat_by_rank,
-                true,
-            );
-        if !(score > 0.0) {
-            continue;
-        }
-        // Build the count-key for this artifact and look up the challenger bucket.
-        let key = safeguard_count_key_from_parts(
-            ctx.artifact_slot,
-            ctx.artifact_set,
-            ctx.artifact_faction,
-            ctx.artifact_main_stat,
-            scenario.count_mode,
-        );
-        let challengers = scenario
-            .challengers_by_count_key
-            .get(&key)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[]);
-        // Count challengers strictly better than the projected state score.
-        let mut better_count = 0i64;
-        for ch in challengers {
-            if ch.artifact_id == ctx.artifact_id {
-                continue;
-            }
-            if is_challenger_strictly_better(
-                ch.projected_score,
-                ch.main_stat,
-                ch.rank,
-                score,
-                ctx.artifact_main_stat,
-                ctx.artifact_rank,
-            ) {
-                better_count += 1;
-                if better_count >= scenario.required_per_group {
-                    break;
-                }
-            }
-        }
-        if better_count < scenario.required_per_group {
-            return true;
-        }
-    }
-    false
+    ctx.scenarios
+        .iter()
+        .any(|scenario| scenario_selects_state(scenario, state, ctx))
 }
 
 // ─── leaf-evaluation strategies ───────────────────────────────────────────────
@@ -1006,9 +1018,20 @@ trait ChanceLeaf {
     fn add_scaled(&self, acc: &mut Self::Value, w: f64, child: &Self::Value);
 }
 
-// Production leaf: full-bucket selection test, scalar probability.
+// Element-wise `acc += w * child` shared by every Vec<f64>-valued leaf (ODR: the one
+// lane-accumulation rule, matching the scalar `total += w * p` per element).
+fn add_scaled_lanes(acc: &mut [f64], w: f64, child: &[f64]) {
+    for (acc_i, child_i) in acc.iter_mut().zip(child) {
+        *acc_i += w * child_i;
+    }
+}
+
+// Reference scalar leaf: full-bucket any-scenario selection test (test-only since the
+// grouped-lane conversion — see is_state_selected_by_any_scenario).
+#[cfg(test)]
 struct ScalarSelectionLeaf;
 
+#[cfg(test)]
 impl ChanceLeaf for ScalarSelectionLeaf {
     type Value = f64;
     fn zero(&self) -> f64 {
@@ -1023,6 +1046,52 @@ impl ChanceLeaf for ScalarSelectionLeaf {
     }
     fn add_scaled(&self, acc: &mut f64, w: f64, child: &f64) {
         *acc += w * child;
+    }
+}
+
+// Grouped-lane leaf for the real (full-bucket) chance pass: scenarios are partitioned
+// into lanes via `lane_by_scenario`, and a lane is selected when ANY of its scenarios
+// selects the state — the same within-group union the scalar leaf applies to one rule.
+// Two production groupings, one leaf:
+//   * per-rule lanes (compute_artifact_chance_percent) — lane = owning rule, so ONE
+//     traversal replaces the old per-rule recursion loop (the tree is artifact-scoped
+//     and rule-independent);
+//   * singleton lanes (resolve_most_likely_scenario_idx) — lane = scenario, yielding
+//     every standalone chance in one traversal.
+// Per lane the arithmetic is bit-identical to the scalar run over that lane's scenarios.
+struct GroupedSelectionLeaf {
+    // Lane id per scenario, aligned with ctx.scenarios.
+    lane_by_scenario: Vec<usize>,
+    width: usize,
+}
+
+impl ChanceLeaf for GroupedSelectionLeaf {
+    type Value = Vec<f64>;
+    fn zero(&self) -> Vec<f64> {
+        vec![0.0; self.width]
+    }
+    fn eval(&self, state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> Vec<f64> {
+        let mut out = vec![0.0f64; self.width];
+        // Once every lane is selected no further scenario can change the outcome.
+        let mut remaining = self.width;
+        for (s_idx, scenario) in ctx.scenarios.iter().enumerate() {
+            if remaining == 0 {
+                break;
+            }
+            let lane = self.lane_by_scenario[s_idx];
+            // Within-lane short-circuit — mirrors the scalar leaf's early return.
+            if out[lane] != 0.0 {
+                continue;
+            }
+            if scenario_selects_state(scenario, state, ctx) {
+                out[lane] = 1.0;
+                remaining -= 1;
+            }
+        }
+        out
+    }
+    fn add_scaled(&self, acc: &mut Vec<f64>, w: f64, child: &Vec<f64>) {
+        add_scaled_lanes(acc, w, child);
     }
 }
 
@@ -1121,9 +1190,7 @@ impl ChanceLeaf for MultiBoundaryLeaf<'_> {
         out
     }
     fn add_scaled(&self, acc: &mut Vec<f64>, w: f64, child: &Vec<f64>) {
-        for (acc_i, child_i) in acc.iter_mut().zip(child) {
-            *acc_i += w * child_i;
-        }
+        add_scaled_lanes(acc, w, child);
     }
 }
 
@@ -1331,27 +1398,39 @@ fn artifact_matches_substats(
 fn compute_artifact_chance_percent(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
-    memo: &mut BTreeMap<StateKey, f64>,
+    memo: &mut BTreeMap<StateKey, Vec<f64>>,
 ) -> (f64, BTreeMap<i64, f64>) {
     let mut by_rule_ordinal: BTreeMap<i64, f64> = BTreeMap::new();
     if scenarios.is_empty() {
         return (0.0, by_rule_ordinal);
     }
-    // Group scenarios by their owning rule. perSubstat rules expand into multiple
-    // scenarios per rule; those still get OR'd together at the leaf (within-rule union)
-    // so each rule's chance reflects "this rule selects the piece under any of its scenarios".
-    let mut scenarios_by_rule: BTreeMap<usize, Vec<&UpgradeScenario>> = BTreeMap::new();
-    for &s in scenarios {
-        scenarios_by_rule.entry(s.rule_order).or_default().push(s);
-    }
-    // Run the recursion once PER (artifact, rule). The leaf predicate uses only this
-    // rule's scenarios — so cross-rule scenarios cannot inflate this rule's probability.
+    // One lane per owning rule (ascending rule order — the same iteration order the old
+    // per-rule recursion loop used, keeping max-chance tie resolution identical).
+    // perSubstat rules expand into multiple scenarios per rule; those still get OR'd
+    // together at the leaf (within-rule union) so each rule's chance reflects "this rule
+    // selects the piece under any of its scenarios", while cross-rule scenarios live in
+    // separate lanes and cannot inflate it. ONE traversal serves every rule: the tree
+    // (milestones, gains, addition pools) is artifact-scoped and rule-independent, so
+    // the old per-rule recursion loop multiplied identical tree walks by the rule count.
+    let mut rule_orders: Vec<usize> = scenarios.iter().map(|s| s.rule_order).collect();
+    rule_orders.sort_unstable();
+    rule_orders.dedup();
+    let lane_by_scenario: Vec<usize> = scenarios
+        .iter()
+        .map(|s| {
+            rule_orders
+                .binary_search(&s.rule_order)
+                .expect("every scenario's rule order is interned above")
+        })
+        .collect();
+    let leaf = GroupedSelectionLeaf { lane_by_scenario, width: rule_orders.len() };
+    // Cached nodes are valid solely for this artifact's (scenarios, gains) context.
+    memo.clear();
+    let raw = compute_artifact_chance_impl(artifact, scenarios, memo, &leaf, false);
     let mut max_chance: f64 = 0.0;
-    for (rule_order, rule_scenarios) in &scenarios_by_rule {
-        let rule_ordinal = *rule_order as i64 + 1;
-        // Shared single-rule chance helper (also drives improvement-watch corner probes).
-        let chance = compute_artifact_chance_for_scenarios(artifact, rule_scenarios, memo);
-        by_rule_ordinal.insert(rule_ordinal, chance);
+    for (lane, &rule_order) in rule_orders.iter().enumerate() {
+        let chance = round_chance_percent(raw[lane]);
+        by_rule_ordinal.insert(rule_order as i64 + 1, chance);
         if chance > max_chance {
             max_chance = chance;
         }
@@ -1366,12 +1445,14 @@ fn round_chance_percent(prob: f64) -> f64 {
 }
 
 // Chance (0–100, one decimal) that `artifact` lands in the safeguard top-N at +16 under
-// the given scenario set (all scenarios must belong to ONE rule — the leaf predicate is a
-// within-rule union). Extracted from compute_artifact_chance_percent so improvement-watch
-// corner probing reuses the exact same recursion (ODR).
+// the given scenario set (all scenarios must belong to ONE group — the scalar leaf is an
+// any-scenario union). Kept as the reference implementation the grouped-lane equivalence
+// tests compare against; production goes through compute_artifact_chance_percent's
+// grouped lanes (one traversal for every rule) instead.
 // `memo` is caller-owned scratch reused for its allocation only: it is cleared here on
 // every call because cached nodes are valid solely for a fixed (scenarios, milestones,
 // expected-gain) tuple — and expected gains derive from the artifact's own substat values.
+#[cfg(test)]
 pub(super) fn compute_artifact_chance_for_scenarios(
     artifact: &SafeguardWasmArtifactIn,
     scenarios: &[&UpgradeScenario],
@@ -1902,18 +1983,18 @@ fn resolve_most_likely_scenario_idx<'a>(
     if viable.len() == 1 {
         return Some(0);
     }
-    // Compute per-scenario chance in isolation; reuse one memo across all inner
-    // calls so N single-scenario invocations share one BTreeMap instead of N.
-    let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-    let mut chances: Vec<f64> = Vec::with_capacity(viable.len());
-    for &s in viable.iter() {
-        // Wrap single reference in a one-element array slice for the shared signature.
-        let single = [s];
-        // Per-rule map will contain exactly one entry for this single-scenario call; use the max
-        // as the scenario's standalone chance (post-refactor returns (max, by_rule_ordinal)).
-        let (chance, _by_rule) = compute_artifact_chance_percent(artifact, &single, &mut memo);
-        chances.push(chance);
-    }
+    // Compute every scenario's chance in ISOLATION via singleton lanes: lane i is
+    // selected only by scenario i, so one traversal yields all standalone chances —
+    // identical per lane to the old loop of N single-scenario recursions.
+    let mut memo: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+    let leaf = GroupedSelectionLeaf {
+        lane_by_scenario: (0..viable.len()).collect(),
+        width: viable.len(),
+    };
+    let chances: Vec<f64> = compute_artifact_chance_impl(artifact, viable, &mut memo, &leaf, false)
+        .into_iter()
+        .map(round_chance_percent)
+        .collect();
     let &best_chance = chances.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
     let best_idxs: Vec<usize> = chances
         .iter()
@@ -2059,7 +2140,8 @@ pub fn compute_improvement_chance_core(
     // Single scratch memo reused across all per-artifact compute_probability calls.
     // compute_artifact_chance_percent calls memo.clear() at the start of each artifact,
     // so stale entries from the previous artifact never leak into the next one.
-    let mut impr_memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+    // Vec-valued: the grouped-lane leaf caches one chance per rule lane per node.
+    let mut impr_memo: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
     // Perf counters — only accumulated when debug=true so the hot path is unaffected.
     let mut artifacts_with_scenarios = 0u32;
     let mut artifacts_viable = 0u32;
@@ -2636,6 +2718,99 @@ mod boundary_reduction_tests {
                     assert_eq!(
                         multi[idx], scalar,
                         "multi-scenario lane {idx} must match (level {level}, spd {spd_value})",
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grouped_rule_lanes_match_per_rule_scalar_chances() {
+        // The grouped-lane real pass must be bit-identical, rule by rule, to the old
+        // shape (one scalar recursion per rule) — lanes only share the traversal.
+        // Rules: a weak single-scenario one, a stronger quota-2 one, and a two-scenario
+        // rule (perSubstat-style split) exercising the within-rule lane union.
+        let rule_a = make_scenario(vec![make_challenger(1, 6.0, STAT_VARIANT_SPD, 6)], 1);
+        let mut rule_b = make_scenario(
+            vec![
+                make_challenger(2, 9.5, STAT_VARIANT_SPD, 6),
+                make_challenger(3, 8.0, STAT_VARIANT_SPD, 5),
+            ],
+            2,
+        );
+        rule_b.rule_order = 1;
+        let mut rule_c_spd = make_scenario(vec![make_challenger(4, 7.0, STAT_VARIANT_SPD, 6)], 1);
+        rule_c_spd.rule_order = 2;
+        let mut rule_c_hp =
+            make_scenario(vec![make_challenger(5, 20.0, STAT_VARIANT_HP_PERCENT, 6)], 1);
+        rule_c_hp.rule_order = 2;
+        rule_c_hp.selected_substats = vec![STAT_VARIANT_HP_PERCENT];
+        let all_refs: Vec<&UpgradeScenario> = vec![&rule_a, &rule_b, &rule_c_spd, &rule_c_hp];
+        let per_rule: [(i64, Vec<&UpgradeScenario>); 3] = [
+            (1, vec![&rule_a]),
+            (2, vec![&rule_b]),
+            (3, vec![&rule_c_spd, &rule_c_hp]),
+        ];
+        for &rank in &[5i64, 6] {
+            for &level in &[0i64, 8, 16] {
+                for spd_value in [3.0, 6.0, 9.0, 12.0] {
+                    let artifact = make_probe_artifact(rank, level, spd_value);
+                    let mut memo_lanes: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+                    let (max_chance, by_rule) =
+                        compute_artifact_chance_percent(&artifact, &all_refs, &mut memo_lanes);
+                    let mut expected_max = 0.0f64;
+                    for (ordinal, refs) in &per_rule {
+                        let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+                        let scalar =
+                            compute_artifact_chance_for_scenarios(&artifact, refs, &mut memo);
+                        assert_eq!(
+                            by_rule.get(ordinal).copied(),
+                            Some(scalar),
+                            "rule {ordinal} lane must match its scalar run (rank {rank}, level {level}, spd {spd_value})",
+                        );
+                        if scalar > expected_max {
+                            expected_max = scalar;
+                        }
+                    }
+                    assert_eq!(max_chance, expected_max, "max must match the scalar sweep");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn singleton_lanes_match_isolated_scenario_chances() {
+        // resolve_most_likely_scenario_idx's isolation lanes: lane i (selected only by
+        // scenario i) must be bit-identical to a standalone scalar run over [scenario i].
+        let scenario_a = make_scenario(vec![make_challenger(1, 6.0, STAT_VARIANT_SPD, 6)], 1);
+        let mut scenario_b =
+            make_scenario(vec![make_challenger(2, 11.0, STAT_VARIANT_SPD, 6)], 1);
+        scenario_b.rule_order = 1;
+        let mut scenario_c =
+            make_scenario(vec![make_challenger(3, 4.0, STAT_VARIANT_HP_FLAT, 5)], 1);
+        scenario_c.rule_order = 2;
+        let viable: Vec<&UpgradeScenario> = vec![&scenario_a, &scenario_b, &scenario_c];
+        for &level in &[0i64, 8, 16] {
+            for spd_value in [4.0, 8.0, 16.0] {
+                let artifact = make_probe_artifact(6, level, spd_value);
+                let leaf = GroupedSelectionLeaf {
+                    lane_by_scenario: (0..viable.len()).collect(),
+                    width: viable.len(),
+                };
+                let mut memo_lanes: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
+                let lanes: Vec<f64> =
+                    compute_artifact_chance_impl(&artifact, &viable, &mut memo_lanes, &leaf, false)
+                        .into_iter()
+                        .map(round_chance_percent)
+                        .collect();
+                for (idx, &scenario) in viable.iter().enumerate() {
+                    let single = [scenario];
+                    let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
+                    let scalar =
+                        compute_artifact_chance_for_scenarios(&artifact, &single, &mut memo);
+                    assert_eq!(
+                        lanes[idx], scalar,
+                        "isolation lane {idx} must match its standalone run (level {level}, spd {spd_value})",
                     );
                 }
             }
