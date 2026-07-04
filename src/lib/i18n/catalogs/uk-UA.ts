@@ -1964,6 +1964,7 @@ const overrides: Catalog = {
   accountSummarySavedAt: "Збережено {date}",
   accountSummaryPushedAt: "Надіслано {date}",
   accountSummaryNeverPushed: "Ще не надіслано",
+  accountSummaryPushFailed: "Помилка надсилання {date}",
   accountCreateTitle: "Новий обліковий запис",
   accountCreateNameLabel: "Назва облікового запису",
   accountCreateConfirm: "Створити й перемкнутися",
@@ -1989,10 +1990,6 @@ const overrides: Catalog = {
   accountMergeSourceLabel: "Обліковий запис: {name}",
   accountMergeCarryFailed: "Не вдалося прочитати документ, перенесений з попереднього облікового запису.",
   accountInboundMismatchToast: "Дані RSL Helper для іншого облікового запису ({incoming}) проігноровано. Активний обліковий запис: {active}.",
-  accountBackgroundPushDone: "Sellfile для «{name}» перезібрано з {count} предметів і надіслано до RSL Helper.",
-  accountBackgroundPushAutoPushOff: "Отримано дані RSL Helper для «{name}» — автонадсилання вимкнено, нічого не надіслано.",
-  accountBackgroundPushNoDocument: "Отримано дані RSL Helper для «{name}», але немає збереженого документа для збирання.",
-  accountBackgroundPushFailed: "Не вдалося зібрати або надіслати sellfile для «{name}».",
 }
 
 export default overrides

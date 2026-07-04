@@ -26,6 +26,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
@@ -50,6 +51,7 @@ import { resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCus
 import { blendAlpha, ensureContrastOnBg, WCAG_NORMAL_TEXT_CONTRAST } from '../lib/colorUtils'
 import { ALPHA } from '../lib/colorTints'
 import GearInspectorOutcomeSummaryChip from './GearInspectorOutcomeSummaryChip'
+import { AUTO_PUSH_BLINK_MS, autoPushBlink } from '../lib/pushFeedbackKeyframes'
 import {
   getSellfileAutoPushForAccount,
   setSellfileAutoPushForAccount,
@@ -62,6 +64,9 @@ export type AccountSwitcherProps = {
   getMergeSfcText: () => string
   // Compact variant for the simple-mode Note dialog title bar (smaller button, no border).
   compact?: boolean
+  // Increments on every background push attempt (any account) — replays the same pulse
+  // the simple-mode send button plays, as the toast-free background-activity signal.
+  flashSeq?: number
 }
 
 // The account dialog serves both flows: 'create' stages values until confirmation,
@@ -90,7 +95,7 @@ function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: 
   )
 }
 
-export default function AccountSwitcher({ getMergeSfcText, compact = false }: AccountSwitcherProps) {
+export default function AccountSwitcher({ getMergeSfcText, compact = false, flashSeq = 0 }: AccountSwitcherProps) {
   const { t } = useI18n()
   const { accounts, activeAccount } = useAccounts()
   // GLOBAL perf/sanity toggle surfaced in the manager (see state/gearDbPreferences.ts).
@@ -256,6 +261,9 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
     <>
       <MarkdownTooltip markdown={tooltipMd}>
         <Button
+          // key change on each background push remounts the button so the pulse replays
+          // (same pattern as the simple-mode send button).
+          key={flashSeq}
           size="small"
           variant={compact ? 'text' : 'outlined'}
           onClick={(e) => setMenuAnchor(e.currentTarget)}
@@ -271,6 +279,8 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
               borderColor: accent,
               '&:hover': { bgcolor: accentHoverBg, borderColor: accent },
             } : {}),
+            // Background push happened (any account, success or failure) → one pulse.
+            ...(flashSeq > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
           }}
         >
           {/* Ellipsize long names so the header row never overflows. */}
@@ -281,50 +291,67 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false }: Ac
       </MarkdownTooltip>
 
       <Menu anchorEl={menuAnchor} open={menuOpen} onClose={closeMenu}>
-        {accounts.map((account) => (
-          <MenuItem
-            key={account.id}
-            selected={account.id === activeAccount.id}
-            onClick={(e) => handlePickAccount(e, account)}
-          >
-            {/* Leading slot marks the ACTIVE account with a right arrow ("you are here"). */}
-            <ListItemIcon>
-              {account.id === activeAccount.id ? <ArrowForwardIcon fontSize="small" /> : null}
-            </ListItemIcon>
-            {/* Preset-menu row layout: name + caption lines (Player ID, summary) + gear chip. */}
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <Typography variant="body2" noWrap>{account.displayName}</Typography>
-              {account.helperAccountId ? (
-                <Typography variant="caption" noWrap sx={captionSx}>
-                  {t('accountBoundCaption', { id: account.helperAccountId })}
-                </Typography>
-              ) : null}
-              {summaryLines(account.id).map((line) => (
-                <Typography key={line} variant="caption" noWrap sx={captionSx}>
-                  {line}
-                </Typography>
-              ))}
-              {/* The SAME outcome chip used in the preview headers — last known
-                  total/sold/kept/safeguarded from the account's stats snapshot. */}
-              {accountSummaries.get(account.id)?.gearOutcome ? (
-                <Box sx={{ mt: 0.5, alignSelf: 'flex-start' }}>
-                  <GearInspectorOutcomeSummaryChip summary={accountSummaries.get(account.id)!.gearOutcome} />
-                </Box>
-              ) : null}
-            </Box>
-            {/* Trailing accent swatch (square) sits where a status glyph would otherwise be. */}
-            <AccentSquare color={account.accentColor} />
-            {/* Manage THIS account without switching to it (name, id, auto-push, …). */}
-            <IconButton
-              size="small"
-              aria-label={t('accountMenuManage')}
-              sx={{ ml: 1 }}
-              onClick={(e) => { e.stopPropagation(); openManage(account) }}
+        {accounts.map((account) => {
+          const summary = accountSummaries.get(account.id)
+          // Failed background push → dated error line (toast-free background feedback).
+          const errorDate = summary?.lastPushErrorAt ? formatLocalDateTime(summary.lastPushErrorAt) : null
+          return (
+            <MenuItem
+              key={account.id}
+              selected={account.id === activeAccount.id}
+              onClick={(e) => handlePickAccount(e, account)}
             >
-              <SettingsOutlinedIcon fontSize="small" />
-            </IconButton>
-          </MenuItem>
-        ))}
+              {/* Leading slot marks the ACTIVE account with a right arrow ("you are here"). */}
+              <ListItemIcon>
+                {account.id === activeAccount.id ? <ArrowForwardIcon fontSize="small" /> : null}
+              </ListItemIcon>
+              {/* Preset-menu row layout: name + caption lines (Player ID, summary) + gear chip. */}
+              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Typography variant="body2" noWrap>{account.displayName}</Typography>
+                {account.helperAccountId ? (
+                  <Typography variant="caption" noWrap sx={captionSx}>
+                    {t('accountBoundCaption', { id: account.helperAccountId })}
+                  </Typography>
+                ) : null}
+                {summaryLines(account.id).map((line) => (
+                  <Typography key={line} variant="caption" noWrap sx={captionSx}>
+                    {line}
+                  </Typography>
+                ))}
+                {errorDate ? (
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    // Full-strength error colour (not the dimmed caption opacity) — this is
+                    // the only surface where a failed background push is reported.
+                    sx={{ lineHeight: 1.3, color: 'error.main', display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  >
+                    <ErrorOutlineIcon sx={{ fontSize: 14 }} />
+                    {t('accountSummaryPushFailed', { date: errorDate })}
+                  </Typography>
+                ) : null}
+                {/* The SAME outcome chip used in the preview headers — last known
+                    total/sold/kept/safeguarded from the account's stats snapshot. */}
+                {summary?.gearOutcome ? (
+                  <Box sx={{ mt: 0.5, alignSelf: 'flex-start' }}>
+                    <GearInspectorOutcomeSummaryChip summary={summary.gearOutcome} />
+                  </Box>
+                ) : null}
+              </Box>
+              {/* Trailing accent swatch (square) sits where a status glyph would otherwise be. */}
+              <AccentSquare color={account.accentColor} />
+              {/* Manage THIS account without switching to it (name, id, auto-push, …). */}
+              <IconButton
+                size="small"
+                aria-label={t('accountMenuManage')}
+                sx={{ ml: 1 }}
+                onClick={(e) => { e.stopPropagation(); openManage(account) }}
+              >
+                <SettingsOutlinedIcon fontSize="small" />
+              </IconButton>
+            </MenuItem>
+          )
+        })}
         <Divider />
         <MenuItem onClick={openCreate}>
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>

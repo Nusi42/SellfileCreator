@@ -1964,6 +1964,7 @@ const enUS: Catalog = {
   accountSummarySavedAt: "Saved {date}",
   accountSummaryPushedAt: "Pushed {date}",
   accountSummaryNeverPushed: "Not pushed yet",
+  accountSummaryPushFailed: "Push failed {date}",
   accountCreateTitle: "New account",
   accountCreateNameLabel: "Account name",
   accountCreateConfirm: "Create & switch",
@@ -1989,10 +1990,6 @@ const enUS: Catalog = {
   accountMergeSourceLabel: "Account: {name}",
   accountMergeCarryFailed: "Could not read the document carried over from the previous account.",
   accountInboundMismatchToast: "Ignored RSL Helper data for another account ({incoming}). Active account: {active}.",
-  accountBackgroundPushDone: "Sellfile for \"{name}\" rebuilt from {count} items and pushed to RSL Helper.",
-  accountBackgroundPushAutoPushOff: "Received RSL Helper data for \"{name}\" — its auto-push is disabled, nothing was sent.",
-  accountBackgroundPushNoDocument: "Received RSL Helper data for \"{name}\", but it has no saved document to build from.",
-  accountBackgroundPushFailed: "Building or pushing the sellfile for \"{name}\" failed.",
 }
 
 export default enUS

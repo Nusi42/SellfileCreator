@@ -55,6 +55,9 @@ export const ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH = 'sellfileCreator.sellfile.aut
 // Last SUCCESSFUL sellfile upload to RSL Helper (ISO timestamp) — per account because
 // both the foreground push (active account) and the background push (any account) write it.
 export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH = 'sellfileCreator.sellfile.lastPush.v1'
+// Last FAILED background push (ISO timestamp). Background outcomes are toast-free — the
+// switcher list surfaces this marker instead; any later successful push clears it.
+export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR = 'sellfileCreator.sellfile.lastPushError.v1'
 // Tiny stats snapshot (generated-rule count + gear sell/keep outcome summary) the LIVE
 // session writes for its own account — pipeline results are not derivable from autosaves
 // at menu-open cost, so the switcher's summary lines read this instead.
@@ -71,6 +74,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   'sellfileCreator.rulesFilter.sync.v1',
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
 ])
 

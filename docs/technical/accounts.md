@@ -134,6 +134,7 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `rulesFilter.state.v3`, `rulesFilter.sync.v1` | filter VALUES applied to the account's document |
 | `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper |
 | `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |
+| `sellfile.lastPushError.v1` | ISO timestamp of the last FAILED background push (toast-free feedback: rendered as the switcher row's error line; cleared by the next successful push) |
 | `accountStats.v1` | tiny snapshot of live pipeline RESULTS (generated-rule count + gear total/sold/kept/safeguarded) — written by the live session for its own account, since these are not derivable from autosaves at menu-open cost |
 
 Everything else stays global — notably the whole theming system (also required: MUI reads
@@ -235,8 +236,14 @@ mismatch branch; every step is a shared SSOT, never re-derived inline):
    writer, names from the same override-applied list the worker fingerprints) →
    `uploadSellfile` on the live socket with X's `playerId`/`playerName`.
 
-Outcomes surface as toasts: pushed / auto-push-off / no-saved-document / failed. Only the
-four streamed per-type packets are serviced; the binary-DB transport stays drop+toast.
+Outcomes are TOAST-FREE: every attempt (pushed / no-saved-document / failed, any account)
+replays the account switcher button's pulse (the shared `autoPushBlink` in
+`lib/pushFeedbackKeyframes.ts`, same animation as the simple-mode send button), and
+failures — including no-saved-document, where auto-push was expected but could not run —
+persist `sellfile.lastPushError.v1` for the account, which the switcher list renders as a
+dated "Push failed" error line until a later push succeeds (`markSellfileLastPushForAccount`
+clears it). `autoPushOff` outcomes stay silent (nothing was attempted). Only the four
+streamed per-type packets are serviced; the binary-DB transport stays drop+toast.
 Unit coverage: `tests/unit/background-account-push.test.ts` (orchestration with injected
 pipeline/transport) — the pipeline runner is injected (`deps.runPipeline`) precisely so
 tests never load the `?worker&inline` module.

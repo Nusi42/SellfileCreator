@@ -427,7 +427,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
-import { markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
+import { markSellfileLastPushErrorForAccount, markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
@@ -3848,6 +3848,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [isSimpleViewAtStart] = useState(() => simpleMode && !expertMode)
   // Increments each time a silent auto-push succeeds; drives the blink animation on the button.
   const [autoPushFlashSeq, setAutoPushFlashSeq] = useState(0)
+  // Increments on every background account-push attempt (success or failure, any account);
+  // replays the same pulse on the account switcher button (background work is toast-free).
+  const [accountPushFlashSeq, setAccountPushFlashSeq] = useState(0)
 
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = createRecipesClearedDescriptor(customRecipes.length)
@@ -4044,6 +4047,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteAutoOpenedFromSfc(false)
     closeNote()
   }, [closeNote, setNoteAutoOpenedFromSfc])
+
+  // SFC loads close the note dialog when the loaded document carries no note — EXCEPT in
+  // simple view, where the note dialog IS the entire UI: closing it there leaves a black
+  // screen (the shell renders hidden). Keep/force it open instead; a no-note document
+  // simply shows the simple action bar with an empty note. SSOT for every load path.
+  const closeNoteAfterLoad = useCallback(() => {
+    if (isSimpleView) openNoteViewer()
+    else handleCloseNote()
+  }, [isSimpleView, openNoteViewer, handleCloseNote])
 
   const applyNoteChange = useCallback((
     value: React.SetStateAction<string | null>,
@@ -6928,31 +6940,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     requestSfcSyncRef.current = requestSfcSync
   }, [requestSfcSync])
-  // Last background-push outcome kind per account: RSL Helper re-syncs continuously, so
-  // an unchanged outcome (e.g. "auto-push off" every cycle) must not re-toast each time.
-  const backgroundOutcomeKindRef = useRef<Map<string, string>>(new Map())
   // (Re)create the background account-push service whenever its transport changes.
-  // Outcomes surface through the small corner toast (not the centered snackbar) and
-  // only when the outcome CHANGES for that account — except failures, which always show.
+  // Outcomes are deliberately TOAST-FREE: push attempts (success or failure) pulse the
+  // account switcher button instead, and failures additionally persist a per-account
+  // error marker the switcher list renders ("Push failed <date>") until a push succeeds.
   useEffect(() => {
     const service = createBackgroundAccountPushService({
       sendRequest: sendExternalRequest,
       runPipeline: runHeadlessRuleCachePipeline,
       onOutcome: (outcome) => {
-        const name = outcome.account.displayName
-        const previousKind = backgroundOutcomeKindRef.current.get(outcome.account.id)
-        backgroundOutcomeKindRef.current.set(outcome.account.id, outcome.kind)
-        if (outcome.kind !== 'failed' && previousKind === outcome.kind) return
-        if (outcome.kind === 'pushed') {
-          showGearDbCommandToast(t('accountBackgroundPushDone', { name, count: outcome.itemCount }), 'success')
-        } else if (outcome.kind === 'autoPushOff') {
-          // Informational: data for a known account arrived but its auto-push is off.
-          showGearDbCommandToast(t('accountBackgroundPushAutoPushOff', { name }), 'success')
-        } else if (outcome.kind === 'noDocument') {
-          showGearDbCommandToast(t('accountBackgroundPushNoDocument', { name }), 'error')
-        } else {
-          showGearDbCommandToast(t('accountBackgroundPushFailed', { name }), 'error')
+        // autoPushOff means nothing was attempted — no feedback warranted.
+        if (outcome.kind === 'autoPushOff') return
+        // noDocument counts as a failure: auto-push was expected but could not run.
+        if (outcome.kind === 'failed' || outcome.kind === 'noDocument') {
+          markSellfileLastPushErrorForAccount(outcome.account.id)
         }
+        // Any attempt (success or failure), for ANY account, replays the switcher pulse.
+        setAccountPushFlashSeq((s) => s + 1)
       },
     })
     backgroundAccountPushRef.current = service
@@ -6960,7 +6964,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       service.dispose()
       if (backgroundAccountPushRef.current === service) backgroundAccountPushRef.current = null
     }
-  }, [sendExternalRequest, showGearDbCommandToast, t])
+  }, [sendExternalRequest])
   // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
   // Selection is the source of truth in the app — the endpoint can push a correction
   // event if it needs to override, but we do not revert on a bare error response
@@ -7596,7 +7600,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Mark this as an auto-open so the view dialog hides the edit button.
       setNoteAutoOpenedFromSfc(true)
     } else {
-      handleCloseNote()
+      closeNoteAfterLoad()
     }
     // Non-history state — not part of the signature, safe outside the transition.
     setNoteRecipeOverridesAnswers({})
@@ -7665,9 +7669,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyFinalSellChange,
     applyNoteChange,
     applySubstatTargetsChange,
+    closeNoteAfterLoad,
     describeNextChange,
     flushTransientUi,
-    handleCloseNote,
     markNextSnapshotAsSaved,
     metasets,
     openNoteViewer,
@@ -7813,7 +7817,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           openNoteViewer()
         } else {
           applyNoteChange(null, { mode: 'import', publish: false })
-          handleCloseNote()
+          closeNoteAfterLoad()
         }
       } else {
         const importedNote = incomingNoteRaw.trim().length > 0 ? incomingNoteRaw : null
@@ -7823,7 +7827,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           openNoteViewer()
         } else {
           applyNoteChange(null, { mode: 'import', publish: false })
-          handleCloseNote()
+          closeNoteAfterLoad()
         }
       }
       // Shift-load note import resets recipe-overrides answers to canonical defaults; the
@@ -7869,12 +7873,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyNoteChange,
     applySubstatTargetsChange,
     beginGearInspectorMatchReset,
+    closeNoteAfterLoad,
     customRecipes.length,
     describeNextChange,
     finalizeImport,
     flushTransientUi,
     getSelectiveImportMetasetIssues,
-    handleCloseNote,
     markNextSnapshotAsSaved,
     markSavedNow,
     metasets,
@@ -8712,8 +8716,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // One switcher component, two mount points (header + simple Note dialog) so both entry
   // points share behavior; the compact variant only changes the button chrome.
-  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} />
-  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} compact />
+  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} />
+  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} compact />
 
   // One-shot account-merge carry (shift-switch): taken from storage on mount — clearing it
   // immediately makes the flow crash-safe (a failed import never replays on the next launch).

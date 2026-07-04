@@ -21,6 +21,9 @@ import { readAccountListSummary, writeAccountStatsSnapshot } from '../../src/lib
 import {
   getSellfileAutoPushForAccount,
   getSellfileLastPushAtForAccount,
+  getSellfileLastPushErrorAtForAccount,
+  markSellfileLastPushErrorForAccount,
+  markSellfileLastPushForAccount,
   setSellfileAutoPushForAccount,
 } from '../../src/state/exportPreferences.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
@@ -289,6 +292,20 @@ test('upload rejection surfaces as a failed outcome', async () => {
   assert.equal(outcomes[0]?.kind, 'failed')
   // A rejected upload must NOT stamp the last-push marker.
   assert.equal(getSellfileLastPushAtForAccount(inactive.id), null)
+})
+
+test('push error marker round-trip: set on failure, cleared by the next success', () => {
+  freshWindow()
+  const account = createAccount('AltHero')
+  assert.equal(getSellfileLastPushErrorAtForAccount(account.id), null)
+  // Failure (written by App's background outcome handler) → parseable ISO marker.
+  markSellfileLastPushErrorForAccount(account.id)
+  const errorAt = getSellfileLastPushErrorAtForAccount(account.id)
+  assert.ok(errorAt !== null && Number.isFinite(Date.parse(errorAt)))
+  // Any later successful push supersedes the failure and clears the marker.
+  markSellfileLastPushForAccount(account.id)
+  assert.equal(getSellfileLastPushErrorAtForAccount(account.id), null)
+  assert.ok(getSellfileLastPushAtForAccount(account.id) !== null)
 })
 
 // ---------------------------------------------------------------------------

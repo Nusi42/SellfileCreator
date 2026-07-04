@@ -1964,6 +1964,7 @@ const overrides: Catalog = {
   accountSummarySavedAt: "Kaydedildi {date}",
   accountSummaryPushedAt: "Gönderildi {date}",
   accountSummaryNeverPushed: "Henüz gönderilmedi",
+  accountSummaryPushFailed: "Gönderim başarısız {date}",
   accountCreateTitle: "Yeni hesap",
   accountCreateNameLabel: "Hesap adı",
   accountCreateConfirm: "Oluştur ve geç",
@@ -1989,10 +1990,6 @@ const overrides: Catalog = {
   accountMergeSourceLabel: "Hesap: {name}",
   accountMergeCarryFailed: "Önceki hesaptan aktarılan belge okunamadı.",
   accountInboundMismatchToast: "Başka bir hesaba ({incoming}) ait RSL Helper verileri yok sayıldı. Etkin hesap: {active}.",
-  accountBackgroundPushDone: "\"{name}\" için sellfile {count} eşyadan yeniden oluşturuldu ve RSL Helper'a gönderildi.",
-  accountBackgroundPushAutoPushOff: "\"{name}\" için RSL Helper verileri alındı — otomatik gönderim kapalı, hiçbir şey gönderilmedi.",
-  accountBackgroundPushNoDocument: "\"{name}\" için RSL Helper verileri alındı, ancak temel alınacak kayıtlı belge yok.",
-  accountBackgroundPushFailed: "\"{name}\" için sellfile oluşturma veya gönderme başarısız oldu.",
 }
 
 export default overrides

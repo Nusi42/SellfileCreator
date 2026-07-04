@@ -1964,6 +1964,7 @@ const overrides: Catalog = {
   accountSummarySavedAt: "Сохранено {date}",
   accountSummaryPushedAt: "Отправлено {date}",
   accountSummaryNeverPushed: "Ещё не отправлено",
+  accountSummaryPushFailed: "Ошибка отправки {date}",
   accountCreateTitle: "Новый аккаунт",
   accountCreateNameLabel: "Название аккаунта",
   accountCreateConfirm: "Создать и переключиться",
@@ -1989,10 +1990,6 @@ const overrides: Catalog = {
   accountMergeSourceLabel: "Аккаунт: {name}",
   accountMergeCarryFailed: "Не удалось прочитать документ, перенесённый из предыдущего аккаунта.",
   accountInboundMismatchToast: "Данные RSL Helper для другого аккаунта ({incoming}) проигнорированы. Активный аккаунт: {active}.",
-  accountBackgroundPushDone: "Sellfile для «{name}» пересобран из {count} предметов и отправлен в RSL Helper.",
-  accountBackgroundPushAutoPushOff: "Получены данные RSL Helper для «{name}» — автоотправка отключена, ничего не отправлено.",
-  accountBackgroundPushNoDocument: "Получены данные RSL Helper для «{name}», но нет сохранённого документа для сборки.",
-  accountBackgroundPushFailed: "Не удалось собрать или отправить sellfile для «{name}».",
 }
 
 export default overrides

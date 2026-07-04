@@ -12,6 +12,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import SendIcon from '@mui/icons-material/Send'
+import { AUTO_PUSH_BLINK_MS, autoPushBlink } from '../lib/pushFeedbackKeyframes'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { AppTitle } from './AppTitle'
@@ -338,12 +339,8 @@ function loadPanelSnap(): PanelSnapData | null {
 function savePanelSnap(data: PanelSnapData): void {
   try { localStorage.setItem(PANEL_SNAP_KEY, JSON.stringify(data)) } catch { /* storage unavailable */ }
 }
-// Brief glow pulse played on the auto-push button after each successful push.
-const autoPushBlink = keyframes`
-  0%   { box-shadow: 0 0 0 0 ${TINT.successGlow}; }
-  50%  { box-shadow: 0 0 0 8px ${TINT.pulseFadeOut}; transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 ${TINT.pulseFadeOut}; }
-`
+// The auto-push success pulse moved to lib/pushFeedbackKeyframes.ts — the account
+// switcher button plays the same animation for background push activity (SSOT).
 // One-shot highlight pulse for the overlay box flashed over an option's DSL when its preview
 // control is clicked. Fades a primary-tinted background + ring from visible to transparent so
 // the eye is drawn to JUST that range (not the whole editor) after it scrolls into view.
@@ -4543,7 +4540,7 @@ export default function NoteDialog({
                   borderColor: autoPushExpressEnabled ? 'success.main' : 'primary.main',
                   color: autoPushExpressEnabled ? (theme.vars?.palette.success.contrastText ?? theme.palette.success.contrastText) : 'primary.contrastText',
                 },
-                ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} 0.6s ease-out` } : {}),
+                ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
               })}
             >
               <SendIcon fontSize="small" />

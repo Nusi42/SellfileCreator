@@ -5,7 +5,12 @@
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { SELLFILE_DEDUP_DEFAULT_KEY, SELLFILE_OMIT_DISABLED_KEY, SELLFILE_AUTO_PUSH_KEY } from '../lib/constants'
-import { ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH, resolveAccountScopedKeyFor } from '../lib/accounts'
+import {
+  ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
+  resolveAccountScopedKeyFor,
+} from '../lib/accounts'
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../lib/safeStorage'
 
 // Shared raw→boolean parse for every export preference. Exported because the background
@@ -77,4 +82,17 @@ export const getSellfileLastPushAtForAccount = (accountId: string): string | nul
 
 export const markSellfileLastPushForAccount = (accountId: string): void => {
   safeSetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH), new Date().toISOString())
+  // A success supersedes any earlier failure — the list's error marker clears with it.
+  safeRemoveItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR))
+}
+
+/**
+ * Failed BACKGROUND push marker (ISO timestamp). Background outcomes never toast — the
+ * account list shows an error line for the account instead, until a push succeeds.
+ */
+export const getSellfileLastPushErrorAtForAccount = (accountId: string): string | null =>
+  safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR))
+
+export const markSellfileLastPushErrorForAccount = (accountId: string): void => {
+  safeSetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR), new Date().toISOString())
 }

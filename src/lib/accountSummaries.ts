@@ -19,7 +19,7 @@ import {
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
   resolveAccountScopedKeyFor,
 } from './accounts'
-import { getSellfileLastPushAtForAccount } from '../state/exportPreferences'
+import { getSellfileLastPushAtForAccount, getSellfileLastPushErrorAtForAccount } from '../state/exportPreferences'
 import { safeGetItem, safeSetItem } from './safeStorage'
 import type { GearInspectorAutosavePayload } from './gearInspectorSession'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
@@ -73,6 +73,8 @@ export type AccountListSummary = {
   gearOutcome: GearInspectorOutcomeSummary | null
   // Last successful sellfile upload to RSL Helper (foreground or background push).
   lastPushAt: string | null
+  // Last FAILED background push; null once a later push succeeds (see exportPreferences).
+  lastPushErrorAt: string | null
 }
 
 export const readAccountListSummary = (accountId: string): AccountListSummary => {
@@ -95,5 +97,6 @@ export const readAccountListSummary = (accountId: string): AccountListSummary =>
     rulesCount: stats ? stats.rules : null,
     gearOutcome: stats ? stats.gear : null,
     lastPushAt: getSellfileLastPushAtForAccount(accountId),
+    lastPushErrorAt: getSellfileLastPushErrorAtForAccount(accountId),
   }
 }

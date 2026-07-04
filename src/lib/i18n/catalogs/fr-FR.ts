@@ -1964,6 +1964,7 @@ const overrides: Catalog = {
   accountSummarySavedAt: "Enregistré {date}",
   accountSummaryPushedAt: "Envoyé {date}",
   accountSummaryNeverPushed: "Pas encore envoyé",
+  accountSummaryPushFailed: "Échec de l’envoi {date}",
   accountCreateTitle: "Nouveau compte",
   accountCreateNameLabel: "Nom du compte",
   accountCreateConfirm: "Créer et changer",
@@ -1989,10 +1990,6 @@ const overrides: Catalog = {
   accountMergeSourceLabel: "Compte : {name}",
   accountMergeCarryFailed: "Impossible de lire le document transféré depuis le compte précédent.",
   accountInboundMismatchToast: "Données RSL Helper d’un autre compte ({incoming}) ignorées. Compte actif : {active}.",
-  accountBackgroundPushDone: "Sellfile de « {name} » reconstruit à partir de {count} objets et envoyé à RSL Helper.",
-  accountBackgroundPushAutoPushOff: "Données RSL Helper reçues pour « {name} » — son envoi automatique est désactivé, rien n’a été envoyé.",
-  accountBackgroundPushNoDocument: "Données RSL Helper reçues pour « {name} », mais aucun document enregistré ne sert de base.",
-  accountBackgroundPushFailed: "Échec de la création ou de l’envoi du sellfile de « {name} ».",
 }
 
 export default overrides
