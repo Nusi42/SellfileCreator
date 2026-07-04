@@ -24,7 +24,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run dev:vite` — start Vite dev server only (used by `npm run dev` orchestration)
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
-- `npm run typecheck` — run `tsc --noEmit`
+- `npm run typecheck` — run `tsc --noEmit` on the main project, then `npm run typecheck:scripts` (`tsc -p tsconfig.scripts.json --noEmit`). The scripts leg guards the `export:l10n` / `i18n:sync-comments` compile — `tsconfig.scripts.json` carries `vite/client` types so `import.meta.env` resolves there the same as in the app — so a break in that project fails at typecheck time instead of only at `release:win`'s catalog-export step.
+- `npm run typecheck:scripts` — type-check only the scripts project (`tsconfig.scripts.json`); chained into `typecheck`.
 - `npm run wasm:build:rule-engine` — compile `wasm/rule_engine_wasm` (targeting `wasm32-unknown-unknown`) and regenerate `src/lib/wasm/generated/*` bindings via `wasm-bindgen`
 - `npm run wasm:ensure:rule-engine` — rebuild `src/lib/wasm/generated/*` only when relevant Rust/domain inputs are newer than generated outputs
 - `npm run check:wasm-toolchain` — validate `rustc`, `cargo`, `rustup`, `wasm-bindgen`, and installed target `wasm32-unknown-unknown`
@@ -441,7 +442,7 @@ Localization status
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the recipe can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator recipe name, recolors the inline name and context-menu icons.
 - `scripts/tooling/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled artifacts under `tmp/tsc/tests/src/` so Node can resolve them without a bundler. Runs as part of `npm run test:unit`.
 - `npm run tests:extract`: Generates `examples/tests.extracted.sfc` containing all SFC-readable recipes used by tests (useful to load/paste into the app).
-- `scripts/release/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
+- `scripts/release/release-win.ps1`: Build-and-package script for Windows (type-checks, runs tests, builds, stages, archives). A fail-fast `npm run typecheck` runs before the test/build phases (both dev and release) so a scripts-tsconfig break surfaces in seconds rather than after a full build at the `export:l10n` step. Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
 

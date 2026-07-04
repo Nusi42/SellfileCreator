@@ -137,6 +137,16 @@ try {
     throw "Failed to update third-party notices (exit code $LASTEXITCODE)"
   }
 
+  # Fail fast on type errors before the expensive build/e2e phases. This runs the
+  # main project AND the scripts project (tsconfig.scripts.json), the latter being
+  # what `export:l10n` compiles at line ~175 — catching a scripts-tsconfig break here
+  # (seconds) instead of after a full build (minutes). Covers dev builds too.
+  Write-Host 'Type-checking (npm run typecheck)...'
+  npm run --silent typecheck
+  if ($LASTEXITCODE -ne 0) {
+    throw "Typecheck failed with exit code $LASTEXITCODE"
+  }
+
   # Run unit (+ e2e tests for production releases; skip for dev builds to keep iteration fast.
   # don't error out if e2e tests fail
   if (-not $DevBuild) {
