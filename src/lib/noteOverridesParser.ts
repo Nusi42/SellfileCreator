@@ -313,6 +313,14 @@ export const normalizeQuestionText = (value: string): string => (
 /** Matches a `[[xx]]` / `[[xx-YY]]` locale tag (BCP-47-ish: lang + optional region). */
 const DSL_LOCALE_TAG = /\[\[([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\]\]/gi
 
+/** True when `value` contains an inline `[[xx]]` locale tag. Exposed so the visual
+ *  editor's validation can reject tag glyphs typed into a single locale's field
+ *  (they would re-split into bogus segments on the next parse). Same regex SSOT. */
+export const containsDslLocaleTag = (value: string): boolean => {
+  DSL_LOCALE_TAG.lastIndex = 0
+  return DSL_LOCALE_TAG.test(value)
+}
+
 /** Split a localized DSL string into its English base + per-locale segments. */
 export const splitDslLocaleSegments = (raw: string): { base: string; byLang: Map<string, string> } => {
   const byLang = new Map<string, string>()
@@ -902,6 +910,10 @@ export type ParsedOverridesOption<S, O> = {
   // editor preview to select the option's DSL on click. Absent if the span is unknown.
   sourceFrom?: number
   sourceTo?: number
+  // Absolute offset of the option body's opening `{`. Together with sourceTo this bounds
+  // the verbatim `{ … }` slice, letting the visual editor keep an unrepresentable body as
+  // raw text instead of re-serializing it. Absent if the span is unknown.
+  bodyFrom?: number
 }
 
 /** A parsed question body, parameterized over selector and operation types. */
@@ -1263,6 +1275,8 @@ export function parseOverridesOptionBlock<S, O>(
   const setValueTokens: OverridesSetValueDirective[] = []
   let needsDisabledState: 'on' | 'off' | null = null
   let sliderParams: SliderParams | undefined
+  // Offset of the body-opening `{` (captured at the consume site) for raw-body extraction.
+  let bodyFrom: number | undefined
   // Track header parsing order so constraints stay before the selector block.
   let headerPhase: 'id' | 'default' | 'constraints' = 'id'
 
@@ -1272,7 +1286,7 @@ export function parseOverridesOptionBlock<S, O>(
     while (true) {
       const token = cursor.peek()
       if (!token) return null
-      if (token.kind === 'symbol' && token.value === '{') { cursor.next(); break }
+      if (token.kind === 'symbol' && token.value === '{') { bodyFrom = blockOffset + token.index; cursor.next(); break }
       if (token.kind === 'symbol' && token.value === '*') {
         isDefault = true; cursor.next(); continue
       }
@@ -1327,7 +1341,7 @@ export function parseOverridesOptionBlock<S, O>(
       isDefault, explicitToken, implicitToken: null,
       setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState, setValueTokens,
       groupType, sliderParams,
-      sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
+      sourceFrom, sourceTo: blockOffset + cursor.prevEnd(), bodyFrom,
     }
   }
 
@@ -1335,7 +1349,7 @@ export function parseOverridesOptionBlock<S, O>(
   while (true) {
     const token = cursor.peek()
     if (!token) return null
-    if (token.kind === 'symbol' && token.value === '{') { cursor.next(); break }
+    if (token.kind === 'symbol' && token.value === '{') { bodyFrom = blockOffset + token.index; cursor.next(); break }
     if (headerPhase !== 'constraints') {
       if (token.kind === 'symbol' && token.value === '*') {
         isDefault = true; headerPhase = 'default'; cursor.next(); continue
@@ -1412,7 +1426,9 @@ export function parseOverridesOptionBlock<S, O>(
     }
     cursor.next()
   }
-  const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock)
+  // Thread diags/offset like the slider path above so missing-'@' selector shapes
+  // inside rb/cb bodies surface in the error checker too.
+  const { blocks, fallbackBlocks, crossBlocks, crossFallbackBlocks } = parseGroupBlocks(cursor, parseSelectorBlock, parseCrossBlock, diags, blockOffset)
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   const implicitToken = normalizeQuestionToken(String(optionIndex + 1))
@@ -1421,7 +1437,7 @@ export function parseOverridesOptionBlock<S, O>(
     isDefault, explicitToken, implicitToken,
     setTokens, unsetTokens, excludedTokens, onlyTokens, needsTokens, needsDisabledState, setValueTokens,
     groupType,
-    sourceFrom, sourceTo: blockOffset + cursor.prevEnd(),
+    sourceFrom, sourceTo: blockOffset + cursor.prevEnd(), bodyFrom,
   }
 }
 

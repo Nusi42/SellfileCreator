@@ -8,6 +8,7 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import SendIcon from '@mui/icons-material/Send'
@@ -21,6 +22,9 @@ import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
+import { snapInsertionOffset } from '../lib/overridesDraft'
+import { NoteOverridesEditButton } from './noteOverridesEditor/NoteOverridesEditButton'
+import { NoteOverridesBlockEditorDialog, type NoteOverridesBlockEditorRequest } from './noteOverridesEditor/NoteOverridesBlockEditorDialog'
 import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
@@ -952,6 +956,9 @@ type NoteRenderContextValue = {
   // Editor-preview only: global optionId → {token,label} map, so a tooltip can resolve a
   // forces-reference (id of an option in another question) to its unique token + answer label.
   optionLookup?: Map<string, { token: string; label: string }>
+  // Editor-preview only: open the visual override-block editor for the given marker.
+  // Set only by NoteEditorContent; the cards render their pencil button when present.
+  onEditOverridesBlock?: (domain: 'recipe' | 'safeguard', markerIndex: number) => void
 }
 
 // Exported so DungeonSimulatorNoteBlock can consume it without a prop-drilling chain.
@@ -2986,7 +2993,7 @@ function NoteOptionInfoTooltipWrap(
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull recipe overrides wiring from context.
-  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange, isEditorPreview, recipeMarkerSpans } = useNoteRenderContext()
+  const { recipeOverridesResolutions, recipeOverridesEditable, noteOverridesDisabled, onRecipeOverridesAnswerChange, isEditorPreview, recipeMarkerSpans, onEditOverridesBlock } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -3152,9 +3159,14 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
         bgcolor: 'background.paper',
         opacity: cardOpacity,
         // Pointer affordance only when the card-level reveal is wired (editor preview).
-        ...(cardSpan ? { cursor: 'pointer' } : {}),
+        // The pencil edit button (editor preview) is absolutely positioned in this card.
+        ...(cardSpan ? { cursor: 'pointer', position: 'relative' } : {}),
       }}
     >
+      {/* Visual-editor entry point (edit-mode preview only). */}
+      {isEditorPreview && onEditOverridesBlock && markerIndex != null && (
+        <NoteOverridesEditButton onClick={() => onEditOverridesBlock('recipe', markerIndex!)} />
+      )}
       {/* Stack keeps the heading and options tightly grouped. */}
       <Stack spacing={0}>
         {/* Prompt text mirrors the Safeguard card title. */}
@@ -3534,7 +3546,7 @@ function NoteOverridesSlider({
 type NoteSafeguardOverridesBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps): JSX.Element | null {
-  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange, isEditorPreview, safeguardMarkerSpans } = useNoteRenderContext()
+  const { safeguardOverridesResolutions, safeguardOverridesEditable, noteOverridesDisabled, onSafeguardOverridesAnswerChange, isEditorPreview, safeguardMarkerSpans, onEditOverridesBlock } = useNoteRenderContext()
   const theme = useTheme()
   const rawIndexAttr = coerceFirstString(node?.properties?.[SG_QUESTION_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
@@ -3607,9 +3619,14 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
         bgcolor: 'background.paper',
         opacity: cardOpacity,
         // Pointer affordance only when the card-level reveal is wired (editor preview).
-        ...(cardSpan ? { cursor: 'pointer' } : {}),
+        // The pencil edit button (editor preview) is absolutely positioned in this card.
+        ...(cardSpan ? { cursor: 'pointer', position: 'relative' } : {}),
       }}
     >
+      {/* Visual-editor entry point (edit-mode preview only). */}
+      {isEditorPreview && onEditOverridesBlock && markerIndex != null && (
+        <NoteOverridesEditButton onClick={() => onEditOverridesBlock('safeguard', markerIndex!)} />
+      )}
       <Stack spacing={0}>
         {/* Prompt title */}
         <Typography
@@ -5982,6 +5999,12 @@ function useEditorPreviewScrollSync(
   }, [editWrapRef, draft, lang, suppressRef])
 }
 
+// Monotonic open-nonce for the visual override-block editor: each open must remount
+// the editor content so its draft state re-initializes. Module-level (not a ref)
+// because the toolbar command's execute closure runs outside React's render rules.
+let blockEditorNonceCounter = 0
+const nextBlockEditorNonce = (): number => ++blockEditorNonceCounter
+
 function NoteEditorContent({
   note,
   t,
@@ -6323,11 +6346,18 @@ function NoteEditorContent({
     // control focuses the editor textarea, the browser scrolls it to the caret, and that scroll
     // syncs the preview — i.e. "clicking jumps both sides". Capture phase so it runs first.
     const onMouseDown = (e: MouseEvent) => {
-      const hit = (e.target as HTMLElement | null)?.closest('[data-reveal-from]')
+      const target = e.target as HTMLElement | null
+      // Real <button> elements inside the preview (the pencil edit affordance) handle
+      // their own click; never hijack their focus/click for reveal. This guard must
+      // live HERE: React stopPropagation cannot stop these native listeners.
+      if (target?.closest('button')) return
+      const hit = target?.closest('[data-reveal-from]')
       if (hit) e.preventDefault()
     }
     const onClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
+      // Same button guard as onMouseDown — a pencil click opens the editor, not reveal.
+      if (target?.closest('button')) return
       const hit = target?.closest<HTMLElement>('[data-reveal-from]')
       if (!hit) return
       const from = Number(hit.getAttribute('data-reveal-from'))
@@ -6342,6 +6372,30 @@ function NoteEditorContent({
       root.removeEventListener('click', onClick)
     }
   }, [revealOptionSource])
+
+  // ── Visual override-block editor (pencil on cards / toolbar insert) ─────────
+  // Open request for the block editor dialog; null = closed. The nonce forces a
+  // fresh editor mount per open so its draft state re-initializes from the source.
+  const [blockEditorRequest, setBlockEditorRequest] = useState<NoteOverridesBlockEditorRequest | null>(null)
+  // Pencil entry point: resolve the whole-marker span (already memoized per draft)
+  // and capture the source slice. The editor dialog is modal, so the draft cannot
+  // change while it is open and the captured span stays valid until Apply.
+  const handleEditOverridesBlock = React.useCallback((domain: 'recipe' | 'safeguard', markerIndex: number) => {
+    const span = (domain === 'recipe' ? editorRecipeMarkerSpans : editorSafeguardMarkerSpans).get(markerIndex)
+    if (!span) return
+    setBlockEditorRequest({ mode: 'edit', nonce: nextBlockEditorNonce(), from: span.from, to: span.to, source: draft.slice(span.from, span.to) })
+  }, [draft, editorRecipeMarkerSpans, editorSafeguardMarkerSpans])
+  // Apply: splice the serialized block into the draft, close, then pulse the new
+  // span in the source pane. Double-RAF lets MDEditor commit the new value and the
+  // highlight mirror reflow before the pulse measures pixel positions.
+  const handleBlockEditorApply = React.useCallback((result: { from: number; to: number; text: string }) => {
+    setDraft((current) => current.slice(0, result.from) + result.text + current.slice(result.to))
+    setBlockEditorRequest(null)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      revealOptionSource(result.from, result.from + result.text.length)
+    }))
+  }, [revealOptionSource, setDraft])
+  const handleBlockEditorClose = React.useCallback(() => setBlockEditorRequest(null), [])
 
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
@@ -6361,6 +6415,7 @@ function NoteEditorContent({
       recipeMarkerSpans: editorRecipeMarkerSpans,
       safeguardMarkerSpans: editorSafeguardMarkerSpans,
       optionLookup: editorOptionLookup,
+      onEditOverridesBlock: handleEditOverridesBlock,
     }),
     [
       baseContext,
@@ -6375,6 +6430,7 @@ function NoteEditorContent({
       editorRecipeMarkerSpans,
       editorSafeguardMarkerSpans,
       editorOptionLookup,
+      handleEditOverridesBlock,
     ],
   )
 
@@ -6564,6 +6620,22 @@ function NoteEditorContent({
     })
   ), [lang, metasets, t, setDraft])
 
+  // Toolbar entry for the visual override-block editor (create mode). Captures the
+  // caret and opens the editor; the block is spliced in on Apply — nothing is
+  // inserted up front, so cancelling leaves the note untouched.
+  const overridesEditorCommand = useMemo<ICommand>(() => ({
+    name: 'insert-overrides-editor',
+    keyCommand: 'insert-overrides-editor',
+    groupName: 'note-inserts',
+    buttonProps: { 'aria-label': t('noteInsertOverridesBlock'), title: t('noteInsertOverridesBlock'), 'data-testid': 'overrides-editor-create' },
+    icon: <EditNoteIcon fontSize="small" />,
+    execute: (state) => {
+      // Snap to a safe line-start outside any existing block (blocks must not nest).
+      const insertAt = snapInsertionOffset(state.text ?? '', state.selection?.start ?? 0)
+      setBlockEditorRequest({ mode: 'create', nonce: nextBlockEditorNonce(), insertAt })
+    },
+  }), [t])
+
   // Track the latest draft/onChange so unload hooks flush once without resubscribing.
   // Synced via effect so we never write to a ref during render.
   const flushRef = useRef<() => void>(() => {
@@ -6663,6 +6735,7 @@ function NoteEditorContent({
       safeguardCommand,
       metasetCommand,
       recipeOverridesSampleCommand,
+      overridesEditorCommand,
     ]
     // If there is no divider after the title group, add a trailing divider manually.
     if (idxDividerAfterTitle < 0 && idxLink >= 0) {
@@ -6676,6 +6749,7 @@ function NoteEditorContent({
     safeguardCommand,
     metasetCommand,
     recipeOverridesSampleCommand,
+    overridesEditorCommand,
   ])
 
   return (
@@ -6883,6 +6957,9 @@ function NoteEditorContent({
                           <button
                             type="button"
                             aria-label={label || undefined}
+                            // Forward e2e ids from command buttonProps (this renderer replaces
+                            // MDEditor's own button, which would have spread them itself).
+                            data-testid={(btnProps as Record<string, unknown>)['data-testid'] as string | undefined}
                             disabled={Boolean(disabled)}
                             onClick={(evn) => {
                               evn.stopPropagation()
@@ -7094,6 +7171,14 @@ function NoteEditorContent({
           <Button color="error" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('', { mode: 'clear' }) }}>{t('noteClear')}</Button>
         </DialogActions>
       </Dialog>
+      {/* Visual override-block editor: opened via card pencil (edit) or toolbar (create).
+          Modal, so the draft is frozen while it is open and marker spans stay valid. */}
+      <NoteOverridesBlockEditorDialog
+        request={blockEditorRequest}
+        noteText={draft}
+        onApply={handleBlockEditorApply}
+        onClose={handleBlockEditorClose}
+      />
     </>
   )
 }
