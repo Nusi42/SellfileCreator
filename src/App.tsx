@@ -8599,20 +8599,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return currentSfcMatchesAnyPreset(currentSfcFields)
   }, [tutorial.sfcLoadNudgeActive, currentSfcFields])
 
-  // An express SFC counts as "empty" when it has no note and no custom recipes —
-  // the fresh-start state before any preset loads. We resolve empty to the
-  // Midgame+ (lategame) selection and never surface the Old/Custom button for it.
+  // An express SFC counts as "empty" when it has no note and no custom recipes.
+  // Emptiness alone does NOT decide custom-ness: an empty SAVED doc is the user's own
+  // (custom) setup — e.g. a freshly created account — while an empty live doc WITHOUT
+  // a saved doc is the transient fresh-start state that gets a preset loaded into it
+  // (startup does this; handleGoSimple covers the in-session entry). The forbidden
+  // state "preset selected but nothing loaded" must never exist.
   const sfcIsEmpty = !notePresent && customRecipes.length === 0
 
   // Which simple-mode preset the live SFC matches: 'beginner' | 'lategame' | null.
   // Gated on simple view so the ~400k canonicalization stays off the hot path in
-  // normal/expert mode (mirrors the sfcMatchesPreset guard above). Empty resolves
-  // to 'lategame' so the toggle defaults to Midgame+ without showing Custom.
+  // normal/expert mode (mirrors the sfcMatchesPreset guard above). Empty is no match —
+  // it is either a custom (empty saved) setup or about to receive a preset load; the
+  // toggle resolves null to Custom-when-available, Midgame+ otherwise.
   const simplePresetMatch = useMemo<'beginner' | 'lategame' | null>(() => {
     if (!isSimpleView) return null
-    if (sfcIsEmpty) return 'lategame'
+    if (sfcIsEmpty) return null
     return matchedPreset(currentSfcFields)
   }, [isSimpleView, sfcIsEmpty, currentSfcFields])
+
+  // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
+  // the express startup effect; this path must do the same when there is NOTHING yet —
+  // an empty live doc with no saved doc gets the startup source loaded immediately, so
+  // "Midgame+ selected but nothing loaded (empty note)" cannot exist. An existing saved
+  // doc (even an empty one) is the user's own custom setup and stays untouched.
+  const handleGoSimple = useCallback(() => {
+    setExpertMode(false)
+    persistSimpleExpertMode(false)
+    stampSimpleExpertModeIntoAutosave(false)
+    if (sfcIsEmpty && loadAutosave(AUTOSAVE_KEY) === null) {
+      const source = resolveSimpleStartupSource()
+      if (source.kind === 'preset') handleLoadSimplePreset(source.variant)
+      else void loadSavedCustomSfc()
+    }
+  }, [setExpertMode, sfcIsEmpty, resolveSimpleStartupSource, handleLoadSimplePreset, loadSavedCustomSfc])
 
   // Shadow the current setup fields so the debounced autosave-build callback (defined
   // far above) can compute the preset-origin marker lazily — only when a write actually
@@ -8651,7 +8671,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // custom state, so post-preset edits remain restorable.
   useEffect(() => {
     if (!isSimpleView) return
-    if (simplePresetMatch !== null || sfcIsEmpty) return
+    if (simplePresetMatch !== null) return
+    // Empty is custom ONLY when a saved doc exists (the user's own empty setup, e.g. a
+    // fresh account). Empty WITHOUT a saved doc is the transient window while a preset
+    // load is on its way — latching there would snapshot the void and hijack the
+    // persisted variant. The autosave parse is trivial here (the doc is empty).
+    if (sfcIsEmpty && loadAutosave(AUTOSAVE_KEY) === null) return
     // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)).
     customSfcSnapshotRef.current = JSON.stringify(buildSfcPayload({
       version: APP_VERSION,
@@ -9834,7 +9859,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           simpleMode={simpleMode}
           expertMode={expertMode}
           onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true); stampSimpleExpertModeIntoAutosave(true) }}
-          onGoSimple={() => { setExpertMode(false); persistSimpleExpertMode(false); stampSimpleExpertModeIntoAutosave(false) }}
+          onGoSimple={handleGoSimple}
           autoPushExpressEnabled={autoPushEnabled}
           onToggleAutoPushExpress={setAutoPushEnabled}
           autoPushFlashSeq={autoPushFlashSeq}
