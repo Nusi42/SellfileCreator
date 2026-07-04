@@ -14,6 +14,7 @@
  * the editor UI can hold in state and update immutably.
  */
 import type {
+  NOTE_OVERRIDES_CROSS_KEYWORDS,
   NoteQuestionGroupType,
   NoteTagSelector,
   OverridesSetValueDirective,
@@ -23,8 +24,9 @@ import type {
 import type { RecipeOverridesOperation, RecipeOverridesSelector } from './noteRecipeOverrides'
 import type { SafeguardOverridesOperation } from './noteSafeguardOverrides'
 
-/** Which override marker family a draft belongs to. */
-export type OverridesDomain = 'recipe' | 'safeguard'
+/** Which override marker family a draft belongs to. Derived from the cross-keyword
+ *  SSOT so the set of domains has exactly one definition. */
+export type OverridesDomain = keyof typeof NOTE_OVERRIDES_CROSS_KEYWORDS
 
 /**
  * One locale-segmented DSL string, split for per-language editing.

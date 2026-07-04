@@ -28,6 +28,7 @@ import {
   type NoteCountAstNode,
   type NoteQuestionGroupType,
   type NoteTagSelector,
+  NOTE_OVERRIDES_CROSS_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
 } from './noteOverridesParser'
 import {
@@ -409,11 +410,9 @@ export function serializeSafeguardOperation(op: SafeguardOverridesOperation): st
 // ── Selector-block / body emission ────────────────────────────────────────────
 
 /** Cross-domain block keyword by the DRAFT's own domain (a recipe option's cross
- *  blocks target safeguards, and vice versa). */
-export const OVERRIDES_CROSS_KEYWORD: Record<OverridesDomain, string> = {
-  recipe: 'safeguard',
-  safeguard: 'recipe',
-}
+ *  blocks target safeguards, and vice versa). Alias of the parser SSOT so emission
+ *  can never fork from the grammar/highlighter spelling. */
+export const OVERRIDES_CROSS_KEYWORD: Record<OverridesDomain, string> = NOTE_OVERRIDES_CROSS_KEYWORDS
 
 /** Emit one `@selector { operations }` block (without any cross-domain keyword). */
 export function serializeDraftSelectorBlock(block: DraftSelectorBlock): string {

@@ -20,7 +20,7 @@ import {
   NOTE_OVERRIDES_GROUP_TYPE_MAP,
 } from './noteOverridesParser'
 import { NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD } from './noteSafeguardOverrides'
-import { collectRecipeOverridesDiagnostics } from './noteRecipeOverrides'
+import { NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN, collectRecipeOverridesDiagnostics } from './noteRecipeOverrides'
 import { collectSafeguardOverridesDiagnostics } from './noteSafeguardOverrides'
 
 export type { DiagnosticSpan }
@@ -37,11 +37,12 @@ const STRUCTURAL_KW_AT_LINE_START_RE = new RegExp(
   ].join('|')})\\b`,
 )
 
-// Matches recipe-overrides, safeguard-overrides, and config-options blocks.
-// Exported as the single source for "what counts as a dynamic-overrides DSL block"
-// so callers that strip them (e.g. preset-equivalence checks) stay in lock-step.
+// Matches recipe-overrides (incl. the legacy config-options alias) and
+// safeguard-overrides blocks. Exported as the single source for "what counts as a
+// dynamic-overrides DSL block" so callers that strip them (e.g. preset-equivalence
+// checks) stay in lock-step. Keyword spellings come from the marker SSOT constants.
 export const DSL_BLOCK_RE_SOURCE =
-  `<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b[\\s\\S]*?-->`
+  `<!--\\s*(?:${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN}|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD})\\b[\\s\\S]*?-->`
 
 /**
  * Scans `text` for all DSL comment blocks and returns diagnostic spans for

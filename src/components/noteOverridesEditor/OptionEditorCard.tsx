@@ -24,6 +24,7 @@ import { SLIDER_TOGGLE_DEFAULT_VALUES, SLIDER_TOGGLE_SIDE_VALUES, normalizeQuest
 import type { DraftOption, DraftSliderParams, OverridesDomain } from '../../lib/overridesDraftTypes'
 import { EffectBodyBuilder } from './EffectBodyBuilder'
 import { LocalizedStringField } from './LocalizedStringField'
+import { OverridesNumberField } from './OverridesNumberField'
 
 // Kind dropdown entries: canonical DSL keyword per logical group type.
 const KIND_OPTIONS: Array<{ type: NoteQuestionGroupType; labelKey: I18nKey }> = [
@@ -174,18 +175,13 @@ export function OptionEditorCard({
             <Typography variant="caption" sx={SECTION_CAPTION_SX}>{t('noteOverridesEditorSliderHeader')}</Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {(['min', 'max', 'step', 'default'] as const).map((key) => (
-                <TextField
+                <OverridesNumberField
                   key={key}
                   label={key}
-                  type="number"
                   value={option.sliderParams![key]}
-                  onChange={(event) => {
-                    const parsed = Number.parseFloat(event.target.value)
-                    if (Number.isFinite(parsed)) patchSlider({ [key]: parsed })
-                  }}
-                  size="small"
-                  sx={{ width: 92 }}
-                  slotProps={{ htmlInput: { 'data-testid': `overrides-editor-option-${index}-slider-${key}` } }}
+                  onChange={(next) => patchSlider({ [key]: next })}
+                  width={96}
+                  testId={`overrides-editor-option-${index}-slider-${key}`}
                 />
               ))}
             </Box>
@@ -231,16 +227,11 @@ export function OptionEditorCard({
               // Marks are positional (values may collide while typing) — slot identity.
               // eslint-disable-next-line @eslint-react/no-array-index-key
               <Box key={markIndex} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, pl: 1.25 }}>
-                <TextField
-                  type="number"
+                <OverridesNumberField
                   value={mark.value}
-                  onChange={(event) => {
-                    const parsed = Number.parseFloat(event.target.value)
-                    if (!Number.isFinite(parsed)) return
-                    patchSlider({ marks: option.sliderParams!.marks.map((m, i) => (i === markIndex ? { ...m, value: parsed } : m)) })
-                  }}
-                  size="small"
-                  sx={{ width: 84 }}
+                  onChange={(next) => patchSlider({ marks: option.sliderParams!.marks.map((m, i) => (i === markIndex ? { ...m, value: next } : m)) })}
+                  ariaLabel={t('noteOverridesEditorSliderMarks')}
+                  width={88}
                 />
                 <Box sx={{ flex: 1 }}>
                   <LocalizedStringField
@@ -336,16 +327,11 @@ export function OptionEditorCard({
                   sx={{ width: 240 }}
                   renderInput={(params) => <TextField {...params} size="small" placeholder="id" sx={MONO_INPUT_SX} />}
                 />
-                <TextField
-                  type="number"
+                <OverridesNumberField
                   value={directive.value}
-                  onChange={(event) => {
-                    const parsed = Number.parseFloat(event.target.value)
-                    if (!Number.isFinite(parsed)) return
-                    patch({ setValueDirectives: option.setValueDirectives.map((d, i) => (i === dirIndex ? { ...d, value: parsed } : d)) })
-                  }}
-                  size="small"
-                  sx={{ width: 96 }}
+                  onChange={(next) => patch({ setValueDirectives: option.setValueDirectives.map((d, i) => (i === dirIndex ? { ...d, value: next } : d)) })}
+                  ariaLabel={t('noteOverridesEditorConstraintSetval')}
+                  width={96}
                 />
                 <IconButton
                   size="small"

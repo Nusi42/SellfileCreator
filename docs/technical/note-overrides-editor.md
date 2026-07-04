@@ -74,8 +74,41 @@ following options — the lenient parser cannot flag that itself).
 - The custom toolbar renderer forwards `data-testid` from command `buttonProps` (it
   replaces MDEditor's own button, which would have spread them itself).
 
+## Adding a new DSL field / param — the SSOT contract
+
+The DSL vocabulary has exactly one home: the grammar SSOT constants in
+`noteOverridesParser.ts` / `noteRecipeOverrides.ts` / `noteSafeguardOverrides.ts`
+(`NOTE_*_ASSIGNMENT_FIELDS`, `NOTE_*_SELECTOR_FIELDS`, `*_VALS` enum sets,
+`SLIDER_PARAM_KEYWORDS`, `NOTE_OVERRIDES_CONSTRAINT_KEYWORDS`,
+`NOTE_OVERRIDES_CROSS_KEYWORDS`, marker keywords). Every other surface **derives**
+from them or is **compile-/CI-enforced** against them — adding a parameter must
+never require hunting through dozens of files.
+
+To add a new assignment field, you touch only:
+
+1. **Grammar list** — add the token to `NOTE_*_ASSIGNMENT_FIELDS`.
+   → Prism highlighting, the DSL-block regexes, the EBNF reference token lists, and
+   the editor dropdown pick it up **automatically** (all interpolate these arrays);
+   the exhaustive editor-metadata Record now **fails to compile** until step 4.
+2. **Operation union + parse branch** — add the op kind to `*OverridesOperation`
+   and its `parseOperations` branch.
+   → `*_OVERRIDES_OP_FIELD`, `formatXOpValue`, and `serializeXOperation` are
+   exhaustive over the union and **fail to compile** until handled.
+3. **Apply semantics** — the actual effect in the resolver/applier (inherently new
+   code).
+4. **Editor value widget** — one entry in `RECIPE_FIELD_META` /
+   `SAFEGUARD_FIELD_META` (`overridesEditorModel.ts`; compile-forced by step 1).
+
+Everything else is pinned by `tests/unit/overrides-ssot-completeness.test.ts`
+(map spellings are real grammar tokens, no dead fields, EBNF mentions every token,
+editor enum values parse) and `tests/unit/overrides-serializer-roundtrip.test.ts`
+(emit↔parse identity). Never hand-write a token list in a derived surface — the
+EBNF module (`src/lib/overridesEbnf.ts`) exists precisely because the previous
+hand-written reference had silently drifted (`action` was missing).
+
 ## Tests
 
-- Unit: `tests/unit/overrides-serializer-roundtrip.test.ts` (see contract above).
+- Unit: `tests/unit/overrides-serializer-roundtrip.test.ts` (see contract above)
+  and `tests/unit/overrides-ssot-completeness.test.ts` (vocabulary SSOT pinning).
 - E2E: `tests/playwright/note-overrides-editor.spec.ts` — create flow, pencil re-edit
   (guards the `closest('button')` fix), structured body building.

@@ -11,6 +11,8 @@
 import {
   type NoteTagSelector,
   NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
+  NOTE_OVERRIDES_CROSS_KEYWORDS,
+  NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
 } from './noteOverridesParser'
 import {
   type RecipeOverridesOperation,
@@ -20,6 +22,7 @@ import {
   NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS,
   NOTE_RECIPE_OVERRIDES_EXPORT_VALS,
   NOTE_RECIPE_OVERRIDES_KEEP_VALS,
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
   NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
@@ -28,6 +31,7 @@ import {
   type SafeguardOverridesOperation,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
 } from './noteSafeguardOverrides'
 import { type DraftSelectorBlock, type DraftStructuredBody, type OverridesDomain } from './overridesDraftTypes'
@@ -65,8 +69,9 @@ const buildFragmentBlock = (
   selectorText: string,
   operationsText: string,
 ): string => {
-  const keyword = hostDomain === 'recipe' ? 'recipe-overrides' : 'safeguard-overrides'
-  const cross = hostDomain !== blockDomain ? `${blockDomain === 'recipe' ? 'recipe' : 'safeguard'} ` : ''
+  // Marker + cross keywords come from the grammar SSOT constants, never literals.
+  const keyword = hostDomain === 'recipe' ? NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD : NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD
+  const cross = hostDomain !== blockDomain ? `${NOTE_OVERRIDES_CROSS_KEYWORDS[hostDomain]} ` : ''
   return `<!-- ${keyword}\n  q "q"\n  rb "opt" { ${cross}@${selectorText} { ${operationsText} } }\n-->`
 }
 
@@ -134,7 +139,7 @@ export function parseOperationText(
  * exactly "the structured builder can hold it without semantic loss".
  */
 export function rawBodyToStructured(hostDomain: OverridesDomain, rawText: string): DraftStructuredBody | null {
-  const keyword = hostDomain === 'recipe' ? 'recipe-overrides' : 'safeguard-overrides'
+  const keyword = hostDomain === 'recipe' ? NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD : NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD
   const raw = `<!-- ${keyword}\n  q "q"\n  rb "opt" ${rawText}\n-->`
   const { draft, diagnostics } = parseOverridesBlockDraft(raw)
   if (diagnostics.length > 0 || !draft || draft.kind !== 'question') return null
@@ -169,10 +174,15 @@ export type OperationFieldMeta = {
 // Boolean-flag surface: on/off (the parser also accepts true/false; on/off is canonical).
 const BOOL_VALS = [NOTE_OVERRIDES_BOOLEAN_KEYWORDS[0], NOTE_OVERRIDES_BOOLEAN_KEYWORDS[1]] as const
 
-// Recipe assignment fields with their value metadata. Field tokens come from the
-// grammar SSOT list; a field missing here (future addition) still works through the
-// free-form fallback because the dropdown is built from the SSOT list below.
-const RECIPE_FIELD_META: Record<string, Omit<OperationFieldMeta, 'field'>> = {
+// Field-token unions derived from the grammar SSOT lists. Typing the metadata maps
+// over these unions is the SSOT hard gate for this module: ADDING A FIELD TO THE
+// GRAMMAR LIST FAILS TO COMPILE until its editor metadata is registered here — the
+// dropdowns can never silently lag behind the parser.
+type RecipeAssignmentField = (typeof NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS)[number]
+type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS)[number]
+
+// Recipe assignment fields with their value metadata (exhaustive — see gate above).
+const RECIPE_FIELD_META: Record<RecipeAssignmentField, Omit<OperationFieldMeta, 'field'>> = {
   export: { values: NOTE_RECIPE_OVERRIDES_EXPORT_VALS, example: 'active' },
   rank: { values: null, example: '6  |  >=5' },
   rarity: { values: null, example: `${NOTE_RECIPE_OVERRIDES_RARITY_NAMES[4]}  |  >=epic` },
@@ -194,8 +204,8 @@ const RECIPE_FIELD_META: Record<string, Omit<OperationFieldMeta, 'field'>> = {
   metasets: { values: null, example: 'name1,name2' },
 }
 
-// Safeguard assignment fields with their value metadata.
-const SAFEGUARD_FIELD_META: Record<string, Omit<OperationFieldMeta, 'field'>> = {
+// Safeguard assignment fields with their value metadata (exhaustive — see gate above).
+const SAFEGUARD_FIELD_META: Record<SafeguardAssignmentField, Omit<OperationFieldMeta, 'field'>> = {
   activation: { values: NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS, example: 'off' },
   count: { values: null, example: '16  |  $value/8' },
   ignprev: { values: BOOL_VALS, example: 'on' },
@@ -215,19 +225,22 @@ const SAFEGUARD_FIELD_META: Record<string, Omit<OperationFieldMeta, 'field'>> = 
   faction: { values: null, example: 'Banner Lords' },
 }
 
-/** Assignment-field dropdown entries for a block of the given domain. Built from the
- *  grammar SSOT field lists so new parser fields appear automatically (free-form). */
+/** Assignment-field dropdown entries for a block of the given domain. The dropdown
+ *  order IS the grammar SSOT list order; the exhaustive metadata Records above
+ *  guarantee (at compile time) every listed field has its value widget defined. */
 export function operationFieldsFor(blockDomain: OverridesDomain): OperationFieldMeta[] {
-  const fields = blockDomain === 'recipe' ? NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS : NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS
-  const meta = blockDomain === 'recipe' ? RECIPE_FIELD_META : SAFEGUARD_FIELD_META
-  return fields.map((field) => ({ field, values: meta[field]?.values ?? null, example: meta[field]?.example ?? '…' }))
+  return blockDomain === 'recipe'
+    ? NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS.map((field) => ({ field, ...RECIPE_FIELD_META[field] }))
+    : NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS.map((field) => ({ field, ...SAFEGUARD_FIELD_META[field] }))
 }
 
-/** Selector-field hint list for the selector row helper text. */
+/** Selector-field hint list for the selector row helper text. Both lists come from
+ *  the grammar SSOT: the recipe grammar's field comparisons, or the shared tag-only
+ *  subset the safeguard grammar accepts. */
 export function selectorFieldsFor(blockDomain: OverridesDomain): readonly string[] {
   return blockDomain === 'recipe'
     ? NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS
-    : (['tag', 'all', 'tagged', 'untagged'] as const)
+    : NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS
 }
 
 /**

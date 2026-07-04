@@ -284,6 +284,22 @@ export const NOTE_OVERRIDES_CONSTRAINT_KEYWORDS = ['set', 'unset', 'only', 'excl
 /** Boolean logic connectors for compound selector expressions. */
 export const NOTE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
 
+/** Selector keywords of the shared tag-only grammar (parseTagSelector): the surface a
+ *  safeguard `@selector` accepts. SSOT for the editor's selector hints and the EBNF
+ *  reference; the recipe grammar extends this set with its field comparisons. */
+export const NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS = ['tag', 'all', 'tagged', 'untagged'] as const
+
+/**
+ * Cross-domain block keyword per HOST domain: inside a recipe marker, `safeguard @… { }`
+ * targets safeguard rules; inside a safeguard marker, `recipe @… { }` targets recipes.
+ * SSOT consumed by the serializer (emission), the Prism grammar (highlighting), and the
+ * visual editor (section headers) — the spellings must never fork.
+ */
+export const NOTE_OVERRIDES_CROSS_KEYWORDS = {
+  recipe: 'safeguard',
+  safeguard: 'recipe',
+} as const
+
 /** Marker option key for the card-width multiplier. */
 export const NOTE_OVERRIDES_MARKER_COLUMNS_KEY = 'columns' as const
 

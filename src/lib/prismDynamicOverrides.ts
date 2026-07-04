@@ -35,6 +35,7 @@ import {
   NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
+  NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
 } from './noteRecipeOverrides';
 import {
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
@@ -47,7 +48,14 @@ import {
   SLIDER_PARAM_KEYWORDS,
   SLIDER_TOGGLE_SIDE_VALUES,
   NOTE_OVERRIDES_SETVAL_KEYWORD,
+  NOTE_OVERRIDES_CROSS_KEYWORDS,
 } from './noteOverridesParser';
+
+// All marker-opening keywords (recipe + legacy alias + safeguard), derived from the
+// marker SSOT constants so this grammar can never highlight a keyword set that
+// drifts from what the parsers accept.
+const ALL_MARKER_KEYWORDS_PATTERN =
+  `${NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN}|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}`
 
 // Build a \b-bounded alternation regex from a keyword array.
 // Single source of truth: Prism patterns are derived from parser constants, not
@@ -87,12 +95,10 @@ function recipeOverrides(Prism: Refractor): void {
         // note-markers keywords so every block-trigger reads as one family.
         'comment-delimiter': {
             pattern: new RegExp(
-                `^<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b|-->$`
+                `^<!--\\s*(?:${ALL_MARKER_KEYWORDS_PATTERN})\\b|-->$`
             ),
             inside: {
-                'directive-kw': new RegExp(
-                    `(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)`
-                ),
+                'directive-kw': new RegExp(`(?:${ALL_MARKER_KEYWORDS_PATTERN})`),
             },
         },
 
@@ -353,8 +359,11 @@ function recipeOverrides(Prism: Refractor): void {
 
         // Cross-domain block prefix keywords (`safeguard @…` inside recipe-overrides,
         // `recipe @…` inside safeguard-overrides). Colored as structural keywords so they
-        // read as block-level delimiters rather than field assignments.
-        'cross-domain-kw': /\b(?:safeguard|recipe)\b(?=\s*@)/,
+        // read as block-level delimiters rather than field assignments. Keyword spellings
+        // derive from the shared cross-keyword SSOT (also used by the serializer/editor).
+        'cross-domain-kw': new RegExp(
+            `\\b(?:${Object.values(NOTE_OVERRIDES_CROSS_KEYWORDS).join('|')})\\b(?=\\s*@)`
+        ),
 
         // The `@` sigil used before tag names in selector expressions.
         'selector-at': /@/,
@@ -480,7 +489,7 @@ if (mdGrammar) {
             // so token colors remain identical across marker types.
             'dynamic-overrides-block': {
                 pattern: new RegExp(
-                    `<!--\\s*(?:recipe-overrides|${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}|config-options)\\b[\\s\\S]*?-->`
+                    `<!--\\s*(?:${ALL_MARKER_KEYWORDS_PATTERN})\\b[\\s\\S]*?-->`
                 ),
                 inside: refractor.languages['dynamic-overrides'],
             },

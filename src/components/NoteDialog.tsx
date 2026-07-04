@@ -22,6 +22,7 @@ import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
+import { buildRecipeOverridesEbnfText, buildSafeguardOverridesEbnfText } from '../lib/overridesEbnf'
 import { snapInsertionOffset } from '../lib/overridesDraft'
 import { NoteOverridesEditButton } from './noteOverridesEditor/NoteOverridesEditButton'
 import { NoteOverridesBlockEditorDialog, type NoteOverridesBlockEditorRequest } from './noteOverridesEditor/NoteOverridesBlockEditorDialog'
@@ -52,7 +53,6 @@ import {
   factionI18nKey,
   statVariantI18nKey,
   getLocalizedGearSetName,
-  labelOfVariant,
   STAT_VARIANTS_PRIORITY
 } from '../lib/types'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
@@ -84,7 +84,6 @@ import {
   resolveRecipeOverridesTags,
   collectCrossDomainSliderWrites,
   seedSafeguardAnswersFromRecipeDefaults,
-  NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY,
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
   formatRecipeOverridesSelector,
@@ -102,9 +101,6 @@ import {
   buildSafeguardSliderTokenMap,
   applyQuestionSgSelectionRules,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
-  NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
-  NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
-  NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
   SAFEGUARD_OVERRIDES_OP_FIELD,
   SLIDER_TOGGLE_OFF,
   formatSafeguardOverridesOpValue,
@@ -1885,17 +1881,6 @@ function buildMetasetBulletList(
 
 // Keep the recipe overrides EBNF header consistent across samples and tooltips.
 const RECIPE_OVERRIDES_EBNF_HEADER = 'Recipe overrides syntax (EBNF):'
-// Reference line is kept for documentation; the wrap limit is set independently to match the tooltip width.
-const RECIPE_OVERRIDES_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
-const RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH = 126
-// Marker options shown in the EBNF block.
-const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS = [
-  `"${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number`,
-]
-// Render the marker option line from the shared token list.
-const RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE = (
-  `markerOption  := ${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_TOKENS.join(' | ')}`
-)
 // Use fenced-code markers when inserting the EBNF into the note editor.
 const RECIPE_OVERRIDES_EBNF_FENCE_START = '```text'
 const RECIPE_OVERRIDES_EBNF_FENCE_END = '```'
@@ -1907,59 +1892,6 @@ const RECIPE_OVERRIDES_TOOLTIP_EXAMPLE_HEADER = 'Example:'
 const RECIPE_OVERRIDES_SAMPLE_CLOSE = '-->'
 // Shared keyCommand for the toolbar insert button.
 const RECIPE_OVERRIDES_SAMPLE_COMMAND_KEY = 'insert-recipeOverrides-sample'
-
-// Static EBNF text; the statKey row is appended at runtime.
-// Lines are formatted to fit the wider RECIPE_OVERRIDES_TOOLTIP_MAX_WIDTH_PX (~126 chars).
-const RECIPE_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "recipe-overrides" [markerOptions] [question group+ [fallbackBlock]] "-->"
-markerOptions := "[" markerOption ("," markerOption)* "]"
-${RECIPE_OVERRIDES_EBNF_MARKER_OPTION_LINE}
-${RECIPE_OVERRIDES_EBNF_REFERENCE_LINE}
-group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")
-             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)* [elseBlock] "}"
-headerToken   := "id" "=" token | "*" | "default"
-selectorBlock := "@" selector "{" assignment+ "}"
-crossBlock    := "safeguard" "@" selector "{" sgAssignment+ "}"  // targets safeguard rules from a recipe-overrides marker
-selector      := "all" | "tagged" | "untagged" | expr
-expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
-notExpr       := ("not" | "!") notExpr | "(" expr ")" | term
-term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
-             | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
-             | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
-             | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
-             | "substatmin" ("=" | ">=" | "<=") number | "substatmin." statKey ("=" | ">=" | "<=") number
-             | "minima.any" ("=" | ">=" | "<=") number | "minima." starKey "." statKey ("=" | ">=" | "<=") number
-assignment    := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
-             | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
-             | "rolltarget." statKey "=" number ("," [number])*
-elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   // option-level: applied when THIS option is unselected (e.g. unchecked box)
-fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
-constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
-             | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
-             | "needs" ["=" ("on" | "off")] tokenList   // disabled in the UI until a referenced id is selected; =on/off sets the shown state while disabled
-tokenList     := token ("," token)*
-field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
-             | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
-value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
-exportVal     := "active" | "disabled" | "toggle"
-keepVal       := "early" | "late"
-flexVal       := "on" | "off" | "true" | "false"
-rankVal       := "any" | rankNum
-rankNum       := "1" | "2" | "3" | "4" | "5" | "6"
-lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
-lvlMilestone  := "0" | "4" | "8" | "12" | "16"
-string        := '"' {char | escape} '"'
-escape        := "\\" ("n" | "t" | "r" | "\\" | '"')  (\\n = newline, \\\\ = literal backslash)
-comment       := "//" {any} eol | "/*" {any} "*/"
-token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/  (unicode letters/marks, underscore)
-rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto" | "any"
-prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
-gearToken     := ["+" | "+-" | "-"] token
-slotName      := "Weapon" | "Helmet" | "Shield" | "Gauntlets" | "Chestplate" | "Boots" | "Ring" | "Amulet" | "Banner"
-setName       := ["+" | "+-" | "-"] /set name, case-insensitive; quote multi-word: "Crit Damage"/
-metasetName   := ["+" | "-"] /metaset name, case-sensitive; must be unique in the save file/
-starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"`
 
 // Full insertable example used in the markdown sample block.
 const RECIPE_OVERRIDES_SAMPLE_EXAMPLE_TEXT = [
@@ -2072,88 +2004,6 @@ const RECIPE_OVERRIDES_TOOLTIP_CODE_SX = {
 const SAFEGUARD_OVERRIDES_EBNF_HEADER = 'Safeguard overrides syntax (EBNF):'
 const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_HEADER = 'Example:'
 
-// Inline the exported assignment field and value keyword lists so the EBNF is SSOT-derived.
-const _sgFields = NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS.join('" | "')
-const _sgActVals = NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS.join('" | "')
-const _sgMatchVals = NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS.join('" | "')
-
-// Static EBNF text for the safeguard-overrides DSL.
-// Non-terminal names are kept to ≤13 chars. DSL field keywords are ≤13 chars.
-// statKey row is injected at runtime (same list as recipe-overrides).
-const SAFEGUARD_OVERRIDES_EBNF_BASE =
-`marker        := "<!--" "${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}" [markerOptions] [question group+ [fallbackBlock]] "-->"
-markerOptions := "[" markerOption ("," markerOption)* "]"
-markerOption  := "${NOTE_RECIPE_OVERRIDES_MARKER_COLUMNS_KEY}" "=" number
-question      := ("q" | "question") string group+ [fallbackBlock]
-group         := ("single"|"s"|"rb"|"radiobutton"|"radio"|"multi"|"m"|"cb"|"checkbox"|"check")
-             string [string] [headerToken {headerToken}] [constraints] "{" (selectorBlock | crossBlock)* [elseBlock] "}"
-             | ("slider"|"range") string [headerToken {headerToken}] [constraints]
-               sliderParam {sliderParam} "{" (selectorBlock | crossBlock)+ [elseBlock] "}"
-sliderParam   := ("min" | "max" | "step" | "default") "=" number
-             | "marks" "=" markItem ("," markItem)*        // labeled guide ticks
-             | "unit" "=" string                           // display-only suffix on the value (e.g. "%")
-             | "toggle" "=" string                         // adds an on/off checkbox (off ⇒ the else block)
-             | "toggleside" "=" ("left" | "above")         // checkbox placement (default: above)
-             | "toggledefault" "=" ("on" | "off")          // initial checkbox state (default: on)
-markItem      := number ":" string [":" string]            // value : label [: subtext-tooltip]
-headerToken   := "id" "=" token | "*" | "default"
-selectorBlock := "@" selector "{" sgAssignment+ "}"
-crossBlock    := "recipe" "@" selector "{" recipeAssignment+ "}"
-recipeAssignment := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
-             | "gearsets" "=" gearToken ("," gearToken)* | recipeField "=" value
-             | "rolltarget." statKey "=" number ("," [number])*
-recipeField   := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls" | "lockedminrolls"
-             | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey | "minima.any" | "minima." starKey "." statKey
-selector      := "all" | "tagged" | "untagged" | expr
-expr          := notExpr (("and" | "or" | "&&" | "||") notExpr)*
-notExpr       := ("not" | "!") notExpr | "(" expr ")" | term
-term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
-sgAssignment  := "${_sgFields.split('" | "')[0]}" "=" activationVal   // activation
-             | "count" "=" countExpr   // $count/$value expand to current slider position
-             | ("ignprev"|"igncoll"|"ignvault"|"perfaction"|"permainstat"|"perslot"|"perset"|"perrule") "=" flexVal
-             | "substats" "=" prefixToken ("," prefixToken)*
-             | "substatmatch" "=" subMatchVal
-             | "weight." statKey "=" number   // statKey case-insensitive (spd = SPD)
-             | "improvchance" "=" impChanceVal
-             | "rank" "=" prefixNum ("," prefixNum)*     // replace or mutate rank filter
-             | "rarity" "=" prefixRarity ("," prefixRarity)*   // replace or mutate rarity filter
-             | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
-countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
-                 // in slider groups $count/$value expand to the current slider position
-prefixNum     := ["+" | "-"] rankNum
-prefixRarity  := ["+" | "-"] (rankNum | rarityName)
-rankNum       := /1–6/   (integer star rank)
-rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical"
-activationVal := "${_sgActVals}"
-subMatchVal   := "${_sgMatchVals}"
-impChanceVal  := "off" | "disabled" | "$value" | number ("," [number])*
-                 // $value = the enclosing slider's position (flat threshold at every stage)
-                 // 1–4 comma-separated values; omitted slots inherit from the previous stage
-flexVal       := "on" | "off" | "true" | "false"
-elseBlock     := ("else" | "fallback") "{" (selectorBlock | crossBlock)+ "}"   // option-level: applied when THIS option is unselected
-fallbackBlock := ("fallback" | "else") "{" (selectorBlock | crossBlock)+ "}"   // marker-level: applied when NO option in the marker is selected
-constraints   := "!" tokenList | "excl" tokenList | "set" tokenList | "+" tokenList
-             | "unset" tokenList | "-" tokenList | "only" tokenList | "^" tokenList
-             | "setval" valueAssignList
-tokenList     := token ("," token)*
-valueAssignList := token "=" number ("," token "=" number)*
-                 // When THIS option becomes selected, write number into the slider whose
-                 // id=token marker matches (persisted as a real stored value, like a drag). The
-                 // target slider may live in another overrides domain (recipe checkbox ->
-                 // safeguard slider). Afterwards the slider is an ordinary stored answer.
-prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
-gearToken     := ["+" | "+-" | "-"] token
-value         := exportVal | keepVal | flexVal | rankVal | lvlVal | rarityName | number | string
-exportVal     := "active" | "disabled" | "toggle"
-keepVal       := "early" | "late"
-rankVal       := "any" | rankNum
-lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
-lvlMilestone  := "0" | "4" | "8" | "12" | "16"
-starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"
-string        := '"' {char | escape} '"'
-token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/`
-
 const SAFEGUARD_OVERRIDES_TOOLTIP_EXAMPLE_TEXT = [
   `<!-- ${NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD}`,
   '// q introduces a question prompt shown above the option groups',
@@ -2239,66 +2089,6 @@ const SAFEGUARD_OVERRIDES_SAMPLE_TEXT = [
   '}',
   '-->',
 ].join('\n')
-
-function buildRecipeOverridesStatKeys(): string[] {
-  // Enumerate supported stat variants in their canonical order.
-  const variants = [...STAT_VARIANTS_PRIORITY]
-  // Convert variants to human labels while skipping empty entries.
-  const statLabels = variants
-    .map((variant) => labelOfVariant(variant))
-    .filter((label) => Boolean(label && label.trim().length > 0))
-  // De-dupe labels while preserving the original ordering.
-  const seen = new Set<string>()
-  const statKeys: string[] = []
-  statLabels.forEach((label) => {
-    if (seen.has(label)) return
-    seen.add(label)
-    statKeys.push(label)
-  })
-  // Return the ordered labels for EBNF output.
-  return statKeys
-}
-
-function buildRecipeOverridesStatKeyLine(statKeys: string[]): string {
-  // Quote each key so the EBNF literal list is explicit.
-  const quoted = statKeys.map((label) => `"${label.replace(/"/g, '\\"')}"`)
-  // Align the first line with the rest of the EBNF block.
-  const prefix = 'statKey       := '
-  const continuation = '             | '
-  const lines: string[] = []
-  let current = prefix
-  quoted.forEach((token) => {
-    if (current === prefix) {
-      current = `${current}${token}`
-      return
-    }
-    const candidate = `${current} | ${token}`
-    if (candidate.length > RECIPE_OVERRIDES_EBNF_MAX_LINE_LENGTH) {
-      lines.push(current)
-      current = `${continuation}${token}`
-    } else {
-      current = candidate
-    }
-  })
-  // Push the last line if it has content.
-  if (current.trim()) lines.push(current)
-  return lines.join('\n')
-}
-
-function buildRecipeOverridesEbnfText(): string {
-  // Build the runtime statKey list from current variant labels.
-  const statKeys = buildRecipeOverridesStatKeys()
-  // Compose the statKey line for the EBNF block.
-  const statKeyLine = buildRecipeOverridesStatKeyLine(statKeys)
-  // Concatenate the static EBNF base with the runtime statKey row.
-  return `${RECIPE_OVERRIDES_EBNF_BASE}\n${statKeyLine}`
-}
-
-function buildSafeguardOverridesEbnfText(): string {
-  // Reuse the same statKey line as recipe-overrides so both EBNFs stay in sync.
-  const statKeyLine = buildRecipeOverridesStatKeyLine(buildRecipeOverridesStatKeys())
-  return `${SAFEGUARD_OVERRIDES_EBNF_BASE}\n${statKeyLine}`
-}
 
 function buildRecipeOverridesSampleBlock(): string {
   // Build the EBNF block with the runtime statKey row injected.
