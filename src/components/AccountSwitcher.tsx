@@ -26,6 +26,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import PersonIcon from '@mui/icons-material/Person'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import SendIcon from '@mui/icons-material/Send'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
@@ -322,6 +323,8 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           // own hover background would wipe it); no accent → default theme button colour.
           sx={{
             ...(compact ? {} : { height: 34 }), whiteSpace: 'nowrap', textTransform: 'none', maxWidth: 240,
+            // Icon + name sit in a row with a small gap; the name box does the ellipsizing.
+            display: 'inline-flex', alignItems: 'center', gap: 0.5,
             ...(accent ? {
               bgcolor: accent,
               color: accentLabel,
@@ -332,6 +335,9 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
             ...(flashSeq > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
           }}
         >
+          {/* Common person glyph left of the account name/player ID. Inherits the label colour
+              (accent-contrast or theme) via currentColor and never shrinks or truncates. */}
+          <PersonIcon sx={{ fontSize: '1.1rem', flexShrink: 0 }} />
           {/* Ellipsize long names so the header row never overflows. The account chooses
               WHICH side truncates (manager setting): 'left' (default) keeps the END of
               the name visible — direction:rtl flips the box's overflow edge so the
@@ -340,7 +346,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           <Box
             component="span"
             sx={{
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
               ...(activeAccount.nameEllipsis === 'right'
                 ? {}
                 : { direction: 'rtl', textAlign: 'left' }),
