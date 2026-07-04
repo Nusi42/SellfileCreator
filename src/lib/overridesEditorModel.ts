@@ -16,6 +16,8 @@ import {
   NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
 } from './noteOverridesParser'
 import { STAT_VARIANTS_PRIORITY, artifactSetNames, factionNames, labelOfVariant } from './types'
+// Type-only: catalog key union, so every labelKey below is COMPILE-checked to exist.
+import type { I18nKey } from './i18n'
 import {
   type RecipeOverridesOperation,
   type RecipeOverridesSelector,
@@ -184,6 +186,12 @@ export type OperationTermOption = {
   star: boolean
   // Placeholder example for the free-text widget.
   example: string
+  // Catalog key for the dropdown label — the SAME term the rest of the UI uses for
+  // this concept (Recipe Builder / Safeguards panel). REQUIRED: adding a grammar
+  // field cannot compile without deciding its localized label.
+  labelKey: I18nKey
+  // Optional catalog keys for enum VALUES (export modes, milestones, activation…).
+  valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>>
 }
 
 // Boolean-flag surface: on/off (the parser also accepts true/false; on/off is canonical).
@@ -193,14 +201,21 @@ const EQ_ONLY = ['='] as const
 const ALL_OPS = ['=', '>=', '<='] as const
 
 // Compact builders for the common widget shapes.
-const enumOp = (field: string, choices: readonly string[], ops: ReadonlyArray<'=' | '>=' | '<='> = EQ_ONLY): OperationTermOption => (
-  { id: field, field, ops, widget: 'enum', choices, stat: false, star: false, example: choices[0] ?? '' }
+const enumOp = (
+  field: string,
+  choices: readonly string[],
+  labelKey: I18nKey,
+  extra?: { ops?: ReadonlyArray<'=' | '>=' | '<='>; valueLabelKeys?: Readonly<Partial<Record<string, I18nKey>>> },
+): OperationTermOption => ({
+  id: field, field, ops: extra?.ops ?? EQ_ONLY, widget: 'enum', choices, stat: false, star: false, example: choices[0] ?? '', labelKey,
+  // exactOptionalPropertyTypes: only materialize the prop when it is provided.
+  ...(extra?.valueLabelKeys ? { valueLabelKeys: extra.valueLabelKeys } : {}),
+})
+const numberOp = (field: string, labelKey: I18nKey): OperationTermOption => (
+  { id: field, field, ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '1', labelKey }
 )
-const numberOp = (field: string): OperationTermOption => (
-  { id: field, field, ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '1' }
-)
-const listOp = (field: string, choices: readonly string[]): OperationTermOption => (
-  { id: field, field, ops: EQ_ONLY, widget: 'list', choices, stat: false, star: false, example: choices.slice(0, 2).join(',') }
+const listOp = (field: string, choices: readonly string[], labelKey: I18nKey): OperationTermOption => (
+  { id: field, field, ops: EQ_ONLY, widget: 'list', choices, stat: false, star: false, example: choices.slice(0, 2).join(','), labelKey }
 )
 
 // Closed vocabularies derived from the domain SSOTs (never re-spelled here).
@@ -221,52 +236,71 @@ type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIEL
 // TO THE GRAMMAR LIST FAILS TO COMPILE until its dropdown entry (or entries, for
 // dotted families) is registered here — the widgets can never lag the parser.
 const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOption[]> = {
-  export: [enumOp('export', NOTE_RECIPE_OVERRIDES_EXPORT_VALS)],
-  rank: [enumOp('rank', RANK_VALUE_CHOICES, ALL_OPS)],
-  rarity: [enumOp('rarity', NOTE_RECIPE_OVERRIDES_RARITY_NAMES, ALL_OPS)],
-  minrolls: [numberOp('minrolls')],
-  lockedminrolls: [numberOp('lockedminrolls')],
-  minsubstats: [numberOp('minsubstats')],
-  flex: [enumOp('flex', BOOL_VALS)],
+  export: [enumOp('export', NOTE_RECIPE_OVERRIDES_EXPORT_VALS, 'export', {
+    valueLabelKeys: {
+      active: 'builderExportModeActive', disabled: 'builderExportModeDisabled', toggle: 'noteOverridesEditorValueToggle',
+    } satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_EXPORT_VALS)[number], I18nKey>,
+  })],
+  rank: [enumOp('rank', RANK_VALUE_CHOICES, 'builderRank', { ops: ALL_OPS })],
+  rarity: [enumOp('rarity', NOTE_RECIPE_OVERRIDES_RARITY_NAMES, 'gearAnalyticsChartRarity', { ops: ALL_OPS })],
+  minrolls: [numberOp('minrolls', 'tutAdvMinRollsTitle')],
+  lockedminrolls: [numberOp('lockedminrolls', 'tutLockedMinRollsTitle')],
+  minsubstats: [numberOp('minsubstats', 'builderRequiredSubstats')],
+  flex: [enumOp('flex', BOOL_VALS, 'tutSectionFlexLabel')],
   substatmin: [
-    numberOp('substatmin'),
-    { id: 'substatmin.stat', field: 'substatmin', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '2' },
+    numberOp('substatmin', 'builderSubstatMenuMinRolls'),
+    { id: 'substatmin.stat', field: 'substatmin', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '2', labelKey: 'builderSubstatMenuMinRolls' },
   ],
   minima: [
-    { id: 'minima.any', field: 'minima.any', ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '5' },
-    { id: 'minima.star.stat', field: 'minima', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: true, example: '12' },
+    { id: 'minima.any', field: 'minima.any', ops: EQ_ONLY, widget: 'number', choices: null, stat: false, star: false, example: '5', labelKey: 'noteOverridesEditorFieldMinima' },
+    { id: 'minima.star.stat', field: 'minima', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: true, example: '12', labelKey: 'noteOverridesEditorFieldMinima' },
   ],
-  lvl: [{ id: 'lvl', field: 'lvl', ops: EQ_ONLY, widget: 'level', choices: null, stat: false, star: false, example: '0-16' }],
-  keep: [enumOp('keep', NOTE_RECIPE_OVERRIDES_KEEP_VALS)],
-  action: [enumOp('action', NOTE_RECIPE_OVERRIDES_ACTION_VALS)],
-  autolate: [enumOp('autolate', NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS)],
-  rolltarget: [{ id: 'rolltarget.stat', field: 'rolltarget', ops: EQ_ONLY, widget: 'text', choices: null, stat: true, star: false, example: '300,600,900' }],
-  slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES)],
-  substats: [listOp('substats', dslStatKeys())],
-  mainstats: [listOp('mainstats', dslStatKeys())],
-  gearsets: [listOp('gearsets', GEARSET_NAME_CHOICES)],
-  metasets: [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2' }],
+  lvl: [{ id: 'lvl', field: 'lvl', ops: EQ_ONLY, widget: 'level', choices: null, stat: false, star: false, example: '0-16', labelKey: 'builderLevelWindow' }],
+  keep: [enumOp('keep', NOTE_RECIPE_OVERRIDES_KEEP_VALS, 'builderMilestoneThresholds', {
+    valueLabelKeys: {
+      early: 'builderEarlyLabel', late: 'builderLateLabel',
+    } satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_KEEP_VALS)[number], I18nKey>,
+  })],
+  action: [enumOp('action', NOTE_RECIPE_OVERRIDES_ACTION_VALS, 'colKeep', {
+    valueLabelKeys: {
+      keep: 'keepValueKeep', sell: 'keepValueSell', toggle: 'noteOverridesEditorValueToggle',
+    } satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_ACTION_VALS)[number], I18nKey>,
+  })],
+  autolate: [enumOp('autolate', NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS, 'builderAutoPlusLate')],
+  rolltarget: [{ id: 'rolltarget.stat', field: 'rolltarget', ops: EQ_ONLY, widget: 'text', choices: null, stat: true, star: false, example: '300,600,900', labelKey: 'builderSubstatMenuRollTargets' }],
+  slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES, 'builderSlots')],
+  substats: [listOp('substats', dslStatKeys(), 'builderSubstats')],
+  mainstats: [listOp('mainstats', dslStatKeys(), 'builderMain')],
+  gearsets: [listOp('gearsets', GEARSET_NAME_CHOICES, 'colSets')],
+  metasets: [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2', labelKey: 'menuMetasetsSection' }],
 }
 
 // Safeguard assignment metadata (same compile gate as the recipe Record above).
 const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationTermOption[]> = {
-  activation: [enumOp('activation', NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS)],
-  count: [numberOp('count')],
-  ignprev: [enumOp('ignprev', BOOL_VALS)],
-  igncoll: [enumOp('igncoll', BOOL_VALS)],
-  ignvault: [enumOp('ignvault', BOOL_VALS)],
-  perfaction: [enumOp('perfaction', BOOL_VALS)],
-  permainstat: [enumOp('permainstat', BOOL_VALS)],
-  perslot: [enumOp('perslot', BOOL_VALS)],
-  perset: [enumOp('perset', BOOL_VALS)],
-  perrule: [enumOp('perrule', BOOL_VALS)],
-  substats: [listOp('substats', dslStatKeys())],
-  substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS)],
-  weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5' }],
-  improvchance: [{ id: 'improvchance', field: 'improvchance', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: '25  |  25,35,50,65  |  disabled' }],
-  rank: [listOp('rank', RANK_NUM_CHOICES)],
-  rarity: [listOp('rarity', SG_RARITY_NAME_CHOICES)],
-  faction: [listOp('faction', FACTION_NAME_CHOICES)],
+  activation: [enumOp('activation', NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS, 'safeguardsRuleModeLabel', {
+    valueLabelKeys: {
+      off: 'safeguardsRuleModeOff',
+      protect_existing: 'safeguardsRuleModeProtect',
+      anticipate_gaps: 'safeguardsRuleModeAnticipate',
+      anticipate_improvements: 'safeguardsRuleModeAnticipateImprovements',
+    } satisfies Record<(typeof NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS)[number], I18nKey>,
+  })],
+  count: [numberOp('count', 'safeguardsRequiredCount')],
+  ignprev: [enumOp('ignprev', BOOL_VALS, 'safeguardsIgnorePreviousSafeguards')],
+  igncoll: [enumOp('igncoll', BOOL_VALS, 'safeguardsIgnoreEquippedInCollection')],
+  ignvault: [enumOp('ignvault', BOOL_VALS, 'safeguardsIgnoreEquippedInVault')],
+  perfaction: [enumOp('perfaction', BOOL_VALS, 'safeguardsCountModePerFaction')],
+  permainstat: [enumOp('permainstat', BOOL_VALS, 'safeguardsCountModePerMain')],
+  perslot: [enumOp('perslot', BOOL_VALS, 'safeguardsCountModePerSlot')],
+  perset: [enumOp('perset', BOOL_VALS, 'safeguardsCountModePerSet')],
+  perrule: [enumOp('perrule', BOOL_VALS, 'safeguardsCountModePerRule')],
+  substats: [listOp('substats', dslStatKeys(), 'safeguardsSubstatLabel')],
+  substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, 'noteOverridesEditorFieldSubstatMatch')],
+  weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5', labelKey: 'safeguardsSubstatWeightsLabel' }],
+  improvchance: [{ id: 'improvchance', field: 'improvchance', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: '25  |  25,35,50,65  |  disabled', labelKey: 'safeguardsImprovementChanceShort' }],
+  rank: [listOp('rank', RANK_NUM_CHOICES, 'noteSafeguardRanksLabel')],
+  rarity: [listOp('rarity', SG_RARITY_NAME_CHOICES, 'noteSafeguardRaritiesLabel')],
+  faction: [listOp('faction', FACTION_NAME_CHOICES, 'noteSafeguardFactionsLabel')],
 }
 
 /** Assignment dropdown entries for a block of the given domain. The order follows
@@ -527,6 +561,9 @@ export function parseSelectorLeafText(
 /** One entry of the condition-kind dropdown, with its op/value widget shape. */
 export type SelectorTermOption = {
   id: string
+  // Catalog key for the dropdown label (same term as the rest of the UI). REQUIRED —
+  // see OperationTermOption.labelKey.
+  labelKey: I18nKey
   // DSL surface token — shown when the UI has no friendly label for the id.
   token: string
   // Comparison ops offered; empty = no op picker.
@@ -542,18 +579,25 @@ export type SelectorTermOption = {
 const ALL_COMPARE_OPS = ['=', '>=', '<='] as const
 
 // Compact builder for plain numeric comparison fields.
-const numericTermOption = (field: string): SelectorTermOption => (
-  { id: field, token: field, ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false }
+const numericTermOption = (field: string, labelKey: I18nKey): SelectorTermOption => (
+  { id: field, token: field, labelKey, ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false }
 )
 
 // Bare heads (all/tagged/untagged) derived from the tag-grammar SSOT keywords, plus
 // the two tag-match shapes. This is the whole safeguard selector surface.
+// Exhaustive over the tag-grammar keyword SSOT (minus 'tag', which expands to the
+// two tag-match kinds below): a new bare selector keyword fails to compile here.
+const TAG_SELECTOR_LABEL_KEYS: Record<Exclude<(typeof NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS)[number], 'tag'>, I18nKey> = {
+  all: 'noteOverridesEditorSelKindAll',
+  tagged: 'noteOverridesEditorSelKindTagged',
+  untagged: 'noteOverridesEditorSelKindUntagged',
+}
 const TAG_TERM_OPTIONS: SelectorTermOption[] = [
-  ...NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword) => keyword !== 'tag').map((keyword) => (
-    { id: keyword, token: keyword, ops: [], value: 'none', choices: null, stat: false, star: false } as SelectorTermOption
+  ...NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword): keyword is Exclude<(typeof NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS)[number], 'tag'> => keyword !== 'tag').map((keyword) => (
+    { id: keyword, token: keyword, labelKey: TAG_SELECTOR_LABEL_KEYS[keyword], ops: [], value: 'none', choices: null, stat: false, star: false } as SelectorTermOption
   )),
-  { id: 'tag', token: 'tag', ops: [], value: 'tag', choices: null, stat: false, star: false },
-  { id: 'tagIn', token: 'tag in', ops: [], value: 'tags', choices: null, stat: false, star: false },
+  { id: 'tag', token: 'tag', labelKey: 'noteOverridesEditorSelKindTag', ops: [], value: 'tag', choices: null, stat: false, star: false },
+  { id: 'tagIn', token: 'tag in', labelKey: 'noteOverridesEditorSelKindTagIn', ops: [], value: 'tags', choices: null, stat: false, star: false },
 ]
 
 type RecipeSelectorField = (typeof NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS)[number]
@@ -563,19 +607,19 @@ type RecipeSelectorField = (typeof NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS)[number
 // entry (or entries, for dotted families) is registered here.
 const RECIPE_SELECTOR_TERM_META: Record<RecipeSelectorField, SelectorTermOption[]> = {
   tag: [],  // covered by the shared TAG_TERM_OPTIONS above
-  rank: [{ id: 'rank', token: 'rank', ops: ALL_COMPARE_OPS, value: 'choice', choices: RANK_VALUE_CHOICES, stat: false, star: false }],
-  rarity: [{ id: 'rarity', token: 'rarity', ops: ALL_COMPARE_OPS, value: 'choice', choices: NOTE_RECIPE_OVERRIDES_RARITY_NAMES, stat: false, star: false }],
-  minrolls: [numericTermOption('minrolls')],
-  lockedminrolls: [numericTermOption('lockedminrolls')],
-  minsubstats: [numericTermOption('minsubstats')],
-  flex: [{ id: 'flex', token: 'flex', ops: [], value: 'choice', choices: BOOL_VALS, stat: false, star: false }],
+  rank: [{ id: 'rank', token: 'rank', labelKey: 'builderRank', ops: ALL_COMPARE_OPS, value: 'choice', choices: RANK_VALUE_CHOICES, stat: false, star: false }],
+  rarity: [{ id: 'rarity', token: 'rarity', labelKey: 'gearAnalyticsChartRarity', ops: ALL_COMPARE_OPS, value: 'choice', choices: NOTE_RECIPE_OVERRIDES_RARITY_NAMES, stat: false, star: false }],
+  minrolls: [numericTermOption('minrolls', 'tutAdvMinRollsTitle')],
+  lockedminrolls: [numericTermOption('lockedminrolls', 'tutLockedMinRollsTitle')],
+  minsubstats: [numericTermOption('minsubstats', 'builderRequiredSubstats')],
+  flex: [{ id: 'flex', token: 'flex', labelKey: 'tutSectionFlexLabel', ops: [], value: 'choice', choices: BOOL_VALS, stat: false, star: false }],
   substatmin: [
-    numericTermOption('substatmin'),
-    { id: 'substatmin.stat', token: 'substatmin.', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: false },
+    numericTermOption('substatmin', 'builderSubstatMenuMinRolls'),
+    { id: 'substatmin.stat', token: 'substatmin.', labelKey: 'builderSubstatMenuMinRolls', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: false },
   ],
   minima: [
-    { id: 'minima.any', token: 'minima.any', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false },
-    { id: 'minima.star.stat', token: 'minima.', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: true },
+    { id: 'minima.any', token: 'minima.any', labelKey: 'noteOverridesEditorFieldMinima', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: false, star: false },
+    { id: 'minima.star.stat', token: 'minima.', labelKey: 'noteOverridesEditorFieldMinima', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: true },
   ],
 }
 

@@ -91,11 +91,12 @@ test('structured body builder adds an @all export=disabled effect', async ({ pag
   // defaults to the "All rules" kind (selector `all`).
   await page.getByTestId('overrides-editor-add-block-blocks').click()
   await expect(page.getByTestId('overrides-editor-term-kind')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  // Pick field `export` and value `disabled`, then commit the assignment.
+  // Pick field `export` and value `disabled` — the dropdowns show the same
+  // localized labels as the rest of the UI, while the DSL keeps its tokens.
   await page.getByTestId('overrides-editor-op-field').click()
-  await page.getByRole('option', { name: 'export', exact: true }).click()
+  await page.getByRole('option', { name: 'Export', exact: true }).click()
   await page.getByTestId('overrides-editor-op-value-select').click()
-  await page.getByRole('option', { name: 'disabled', exact: true }).click()
+  await page.getByRole('option', { name: 'Disabled', exact: true }).click()
   await page.getByTestId('overrides-editor-op-add').click()
   await page.getByTestId('overrides-editor-apply').click()
   await expect(page.getByTestId('overrides-editor-dialog')).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })

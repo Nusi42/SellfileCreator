@@ -22,11 +22,11 @@ import { useI18n, useLanguageOptions } from '../lib/i18n'
 import '../lib/prismDynamicOverrides'   // registers dynamic-overrides DSL syntax coloring
 import '../lib/prismEbnf'            // registers ebnf grammar for EBNF tooltip blocks
 import { collectOverridesDiagnostics, type DiagnosticSpan } from '../lib/overridesDiagnostics'
+import { renderPrismHighlighted, renderPrismHighlightedCode } from './prismDslRender'
 import { buildRecipeOverridesEbnfText, buildSafeguardOverridesEbnfText } from '../lib/overridesEbnf'
 import { snapInsertionOffset } from '../lib/overridesDraft'
 import { NoteOverridesEditButton } from './noteOverridesEditor/NoteOverridesEditButton'
 import { NoteOverridesBlockEditorDialog, type NoteOverridesBlockEditorRequest } from './noteOverridesEditor/NoteOverridesBlockEditorDialog'
-import { refractor } from 'refractor'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
@@ -122,64 +122,10 @@ import {
   NOTE_COLOR_HEX,
   NOTE_COLOR_SX_SELECTORS,
   RECIPE_OVERRIDES_TOKEN_COLORS,
-  noteTokVar,
   buildNoteColorSchemeStyles,
 } from '../lib/noteColorVars'
 
-// Recursively converts a refractor (HAST) node to React elements.
-// Inline colors reference the per-scheme `--note-tok-*` vars (with the raw hex as
-// fallback), so the tooltip inherits the same contrast-adapted palette as the
-// editor backdrop without extra CSS scope. See src/lib/noteColorVars.ts.
-function renderPrismNode(node: RootContent, key: number): React.ReactNode {
-  if (node.type === 'text') return node.value
-  if (node.type === 'element') {
-    const classes = (node.properties?.className as string[]) ?? []
-    // Pick the first token class that has a mapped color; skip the generic 'token' wrapper.
-    const tokenClass = classes.find((c) => c !== 'token' && Boolean(RECIPE_OVERRIDES_TOKEN_COLORS[c]))
-    // Resolve via the per-scheme var so light mode stays legible; fall back to the
-    // base hex when the GlobalStyles vars aren't mounted.
-    const color = tokenClass
-      ? `var(${noteTokVar(tokenClass)}, ${RECIPE_OVERRIDES_TOKEN_COLORS[tokenClass]})`
-      : undefined
-    return (
-      <span key={key} style={color ? { color } : undefined}>
-        {node.children.map((child, i) => renderPrismNode(child as RootContent, i))}
-      </span>
-    )
-  }
-  return null
-}
-
-// Highlights `text` with the given refractor grammar and returns a styled <pre>.
-// Falls back to plain text if the grammar is not registered or highlighting fails.
-function renderPrismHighlighted(text: string, grammar: string, sx: Record<string, unknown>): React.ReactNode {
-  try {
-    const tree = refractor.highlight(text, grammar)
-    return (
-      <Box component="pre" sx={sx}>
-        {tree.children.map((child, i) => renderPrismNode(child as RootContent, i))}
-      </Box>
-    )
-  } catch {
-    // Grammar not yet registered or unsupported – fall back to plain text.
-    return <Box component="pre" sx={sx}>{text}</Box>
-  }
-}
-
-// Like renderPrismHighlighted but uses <code> so the element is inline-block-capable,
-// suitable for grid cells where a block <pre> would break row alignment.
-function renderPrismHighlightedCode(text: string, grammar: string, sx: Record<string, unknown>): React.ReactNode {
-  try {
-    const tree = refractor.highlight(text, grammar)
-    return (
-      <Box component="code" sx={sx}>
-        {tree.children.map((child, i) => renderPrismNode(child as RootContent, i))}
-      </Box>
-    )
-  } catch {
-    return <Box component="code" sx={sx}>{text}</Box>
-  }
-}
+// Prism HAST → React rendering lives in the shared prismDslRender module (SSOT).
 
 // ── DSL error overlay ───────────────────────────────────────────────────────
 // Renders a transparent pre element portaled into `.w-md-editor-text` (the

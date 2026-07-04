@@ -96,8 +96,14 @@ To add a new assignment field, you touch only:
    exhaustive over the union and **fail to compile** until handled.
 3. **Apply semantics** — the actual effect in the resolver/applier (inherently new
    code).
-4. **Editor value widget** — one entry in `RECIPE_FIELD_META` /
-   `SAFEGUARD_FIELD_META` (`overridesEditorModel.ts`; compile-forced by step 1).
+4. **Editor widgets + label** — one entry in `RECIPE_OPERATION_TERM_META` /
+   `SAFEGUARD_OPERATION_TERM_META` (and `RECIPE_SELECTOR_TERM_META` for selector
+   fields) in `overridesEditorModel.ts`; compile-forced by step 1. Each entry's
+   `labelKey` is a **required `I18nKey`** — the dropdowns use the same catalog
+   terms as the rest of the UI (Recipe Builder / Safeguards panel), and a new
+   field cannot compile without choosing its localized label. Localized enum
+   value maps carry `satisfies Record<(typeof *_VALS)[number], I18nKey>`, so a
+   new enum value also fails to compile until labeled.
 
 Everything else is pinned by `tests/unit/overrides-ssot-completeness.test.ts`
 (map spellings are real grammar tokens, no dead fields, EBNF mentions every token,

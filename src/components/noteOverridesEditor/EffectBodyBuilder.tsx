@@ -70,6 +70,7 @@ import { NOTE_OVERRIDES_LOGIC_KEYWORDS } from '../../lib/noteOverridesParser'
 import type { RecipeOverridesOperation, RecipeOverridesSelector } from '../../lib/noteRecipeOverrides'
 import type { NoteTagSelector } from '../../lib/noteOverridesParser'
 import type { SafeguardOverridesOperation } from '../../lib/noteSafeguardOverrides'
+import { DslHighlightedField } from './DslHighlightedField'
 import { OverridesNumberField } from './OverridesNumberField'
 
 // Monospace styling for DSL fragments (font only — colors stay on theme tokens).
@@ -205,18 +206,9 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
     onCommit({ negated, leaf: parsedLeaf })
   }, [blockDomain, hostDomain, negated, onCommit])
 
-  // Friendly labels for the tag-family kinds; comparison fields read as their own
-  // (Recipe-Builder-familiar) tokens.
-  const kindLabel = useCallback((entry: SelectorTermOption): string => {
-    switch (entry.id) {
-      case 'all': return t('noteOverridesEditorSelKindAll')
-      case 'tagged': return t('noteOverridesEditorSelKindTagged')
-      case 'untagged': return t('noteOverridesEditorSelKindUntagged')
-      case 'tag': return t('noteOverridesEditorSelKindTag')
-      case 'tagIn': return t('noteOverridesEditorSelKindTagIn')
-      default: return entry.token
-    }
-  }, [t])
+  // Dropdown labels: the SAME catalog terms the rest of the UI uses for these
+  // concepts — labelKey is compile-required on every metadata entry.
+  const kindLabel = useCallback((entry: SelectorTermOption): string => t(entry.labelKey), [t])
 
   // Dotted-family pieces (substatmin.SPD / minima.5.SPD) for the stat/star pickers.
   const fieldParts = view.kind === 'compare' ? view.field.split('.') : []
@@ -248,11 +240,10 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, on
           const entry = options.find((candidate) => candidate.id === event.target.value)
           if (entry) tryCommit(defaultViewForOption(entry))
         }}
-        sx={TERM_SELECT_SX}
         data-testid="overrides-editor-term-kind"
       >
         {options.map((entry) => (
-          <MenuItem key={entry.id} value={entry.id} sx={TERM_SELECT_SX}>{kindLabel(entry)}</MenuItem>
+          <MenuItem key={entry.id} value={entry.id}>{kindLabel(entry)}</MenuItem>
         ))}
       </Select>
       {/* Star + stat pickers for the dotted field families. */}
@@ -527,20 +518,19 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
         </Tooltip>
       </Box>
       {dslMode ? (
-        // Raw selector expression (`@` + validated DSL text) for exotic shapes.
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700 }}>@</Typography>
-          <TextField
+        // Raw selector expression (`@` + validated DSL text) for exotic shapes,
+        // rendered with the app's dynamic-overrides syntax highlighting.
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 0.75 }}>@</Typography>
+          <DslHighlightedField
             value={selectorText}
-            onChange={(event) => handleSelectorChange(event.target.value)}
-            size="small"
-            fullWidth
+            onChange={handleSelectorChange}
+            singleLine
             error={selectorError}
             helperText={selectorError
               ? t('noteOverridesEditorSelectorInvalid', { fields: selectorFieldsFor(block.domain).join(', ') })
               : undefined}
-            sx={DSL_INPUT_SX}
-            slotProps={{ htmlInput: { 'data-testid': 'overrides-editor-selector' } }}
+            testId="overrides-editor-selector"
           />
         </Box>
       ) : (
@@ -614,15 +604,17 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
             if (option) updateOpRow({ option, op: '=', value: seedOpValue(option) })
           }}
           size="small"
-          sx={{ minWidth: 130, ...TERM_SELECT_SX }}
+          sx={{ minWidth: 130 }}
           aria-label={t('noteOverridesEditorOperationField')}
           data-testid="overrides-editor-op-field"
         >
-          {opOptions.map((entry) => (
-            <MenuItem key={entry.id} value={entry.id} sx={TERM_SELECT_SX}>
-              {entry.star ? `${entry.field}.★.stat` : entry.stat ? `${entry.field}.stat` : entry.field}
-            </MenuItem>
-          ))}
+          {opOptions.map((entry) => {
+            // Localized concept label (compile-required); dotted families keep a short
+            // suffix so the per-stat variant is distinguishable from the plain one.
+            const base = t(entry.labelKey)
+            const label = entry.star ? `${base} · ★/stat` : entry.stat ? `${base} · stat` : base
+            return <MenuItem key={entry.id} value={entry.id}>{label}</MenuItem>
+          })}
         </Select>
         {/* Star + stat pickers for the dotted field families. */}
         {opRow.option.star && (
@@ -657,9 +649,14 @@ function BlockRowEditor({ hostDomain, block, knownTags, onChange, onRemove }: Bl
             data-testid="overrides-editor-op-value-select"
           >
             <MenuItem value="" disabled>{t('noteOverridesEditorOperationValue')}</MenuItem>
-            {opRow.option.choices.map((choice) => (
-              <MenuItem key={choice} value={choice} sx={TERM_SELECT_SX}>{choice}</MenuItem>
-            ))}
+            {opRow.option.choices.map((choice) => {
+              const labelKey = opRow.option.valueLabelKeys?.[choice]
+              return (
+                <MenuItem key={choice} value={choice} sx={labelKey ? undefined : TERM_SELECT_SX}>
+                  {labelKey ? t(labelKey) : choice}
+                </MenuItem>
+              )
+            })}
           </Select>
         ) : opRow.option.widget === 'number' ? (
           <OverridesNumberField
@@ -793,17 +790,13 @@ function RawBodyEditor({ hostDomain, text, onChange, onSwitchToStructured, t }: 
   const structured = useMemo(() => (diagnostics.length === 0 ? rawBodyToStructured(hostDomain, text) : null), [diagnostics, hostDomain, text])
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      <TextField
+      <DslHighlightedField
         value={text}
-        onChange={(event) => onChange(event.target.value)}
-        size="small"
-        fullWidth
-        multiline
+        onChange={onChange}
         minRows={2}
         error={diagnostics.length > 0}
         label={t('noteOverridesEditorRawToggle')}
         helperText={diagnostics.length > 0 ? diagnostics[0]!.message : t('noteOverridesEditorRawHelper')}
-        sx={DSL_INPUT_SX}
       />
       <Box>
         <Tooltip title={structured ? '' : t('noteOverridesEditorStructuredBlocked')}>
