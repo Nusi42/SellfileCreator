@@ -17,9 +17,6 @@ pub mod improvement_chance;
 // Improvement-watch corner synthesis: post-detection pass that turns zero-missing
 // "watch" placeholders into minimal-substat-value corner frontiers (or removes them).
 mod improvement_watch;
-// Re-export the watch perf-diag host hooks so rule_engine_wasm can inject console.log
-// + performance.now at module start (core cannot bind them on wasm32 by itself).
-pub use improvement_watch::{set_watch_diag_hooks, WatchDiagHooks};
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.

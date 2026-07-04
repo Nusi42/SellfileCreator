@@ -205,42 +205,127 @@ pub(super) struct UpgradeScenario {
     challengers_by_count_key: BTreeMap<SafeguardCountKey, Vec<StaticChallenger>>,
 }
 
-impl UpgradeScenario {
-    // Sorted (projected-score in thousandths, rank, mainstat) triples of the challenger
-    // bucket the given artifact dims select under this scenario's count mode — the
-    // improvement-watch cross-group cell-signature component. Scores round to 3 decimals
-    // for a stable, BTreeMap-friendly integer key; rank and mainstat are included because
-    // exact score ties break on them (is_challenger_strictly_better).
-    pub(super) fn challenger_signature_for(
-        &self,
-        slot: i64,
-        set: i64,
-        faction: i64,
-        main_stat: i64,
-    ) -> Vec<(i64, i64, i64)> {
-        let key = safeguard_count_key_from_parts(slot, set, faction, main_stat, self.count_mode);
-        let mut signature: Vec<(i64, i64, i64)> = self
+// ─── boundary-challenger reduction (synthetic probes ONLY) ───────────────────
+
+// Reduce every scenario of one rule to its BOUNDARY challenger for a fixed synthetic
+// candidate context (count-key dims + candidate main/rank). Returns the reduced
+// scenarios plus, per scenario, the boundary triple (projected-score in thousandths,
+// main_stat, rank) — or None when the bucket cannot reach required_per_group — which
+// improvement_watch uses as its collapsed cross-group cache signature.
+//
+// Exact-equivalence argument (the reduced scenario reuses the leaf comparator VERBATIM):
+//   * The leaf selects a state iff better_count < required_per_group (N), where
+//     better_count counts challengers with is_challenger_strictly_better(ch, cand).
+//     For a FIXED (cand_main, cand_rank), each challenger's "beats" region as a function
+//     of the candidate score is DOWNWARD-CLOSED: with delta = ch_score − cand_score the
+//     comparator returns true outright for delta > ε, and inside the |delta| ≤ ε tie
+//     window it returns this challenger's CONSTANT tie outcome. The region is therefore
+//       (−∞, ch_score + ε]  when the tie-break favors the challenger (inclusive — at
+//                           |delta| = ε the tie branch still fires and returns true), or
+//       (−∞, ch_score − ε)  otherwise (exclusive — at delta = ε the tie branch returns
+//                           false, so beating needs delta strictly above ε).
+//   * Downward-closed regions are totally ordered by inclusion, so for every candidate
+//     score s: better_count(s) < N  ⟺  the N-th strongest region does NOT contain s.
+//     Keeping ONLY that N-th strongest challenger with required_per_group = 1 therefore
+//     selects exactly the same candidate scores, through the same code path:
+//     original selects ⟺ better_count < N ⟺ boundary does not beat ⟺ reduced selects.
+//   * Fewer than N challengers: better_count ≤ len < N → always selected. The reduced
+//     scenario gets an EMPTY bucket with required 1 (better_count 0 < 1) — identical.
+//   * The leaf's only per-challenger identity use is the self-skip on artifact_id,
+//     which never fires for synthetics (probe id −1 matches no challenger).
+//
+// The strength order implements region inclusion directly: primary key is the effective
+// threshold T = ch_score ± ε per the tie outcome (descending); at equal T the
+// tie-favoring (inclusive) region strictly contains the exclusive one and ranks
+// stronger; exact duplicates fall back to artifact_id for a deterministic boundary.
+//
+// SYNTHETIC PROBES ONLY: the real-artifact improvement-chance pass keeps full buckets —
+// its self-skip removes each artifact's own entry from its bucket, making the effective
+// cutoff per-artifact, so one shared boundary would be wrong there (out of scope here).
+//
+// Side benefit beyond cache collapse: the leaf drops from an O(#challengers) bucket scan
+// to a single comparison per scenario.
+pub(super) fn reduce_scenarios_for_synthetic(
+    scenarios: &[&UpgradeScenario],
+    slot: i64,
+    set: i64,
+    faction: i64,
+    main_stat: i64,
+    cand_rank: i64,
+) -> (Vec<UpgradeScenario>, Vec<Option<(i64, i64, i64)>>) {
+    let mut reduced = Vec::<UpgradeScenario>::with_capacity(scenarios.len());
+    let mut boundaries = Vec::<Option<(i64, i64, i64)>>::with_capacity(scenarios.len());
+    for scenario in scenarios {
+        // The synthetic's count key under this scenario's mode — the only bucket the
+        // leaf will ever consult for this probe context.
+        let key = safeguard_count_key_from_parts(slot, set, faction, main_stat, scenario.count_mode);
+        let boundary: Option<StaticChallenger> = scenario
             .challengers_by_count_key
             .get(&key)
-            .map(|bucket| {
-                bucket
-                    .iter()
-                    .map(|challenger| {
-                        (
-                            (challenger.projected_score * 1000.0).round() as i64,
-                            challenger.rank,
-                            challenger.main_stat,
-                        )
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        signature.sort_unstable();
-        signature
+            .and_then(|bucket| {
+                let required = scenario.required_per_group.max(1) as usize;
+                // Fewer than N challengers → always selected → empty reduced bucket.
+                if bucket.len() < required {
+                    return None;
+                }
+                // Rank by beat-region inclusion, strongest first (see doc above).
+                let strength = |ch: &StaticChallenger| -> (f64, bool) {
+                    let tie = tie_break_favors_challenger(ch.main_stat, ch.rank, main_stat, cand_rank);
+                    let threshold = if tie {
+                        ch.projected_score + SCORE_TIE_EPSILON
+                    } else {
+                        ch.projected_score - SCORE_TIE_EPSILON
+                    };
+                    (threshold, tie)
+                };
+                let mut order: Vec<&StaticChallenger> = bucket.iter().collect();
+                order.sort_by(|a, b| {
+                    let (threshold_a, incl_a) = strength(a);
+                    let (threshold_b, incl_b) = strength(b);
+                    threshold_b
+                        .partial_cmp(&threshold_a)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        // Equal thresholds: the inclusive (tie-favoring) region is larger.
+                        .then_with(|| incl_b.cmp(&incl_a))
+                        // Exact duplicates: deterministic boundary via artifact id.
+                        .then_with(|| a.artifact_id.cmp(&b.artifact_id))
+                });
+                Some(order[required - 1].clone())
+            });
+        // 3-decimal score quantization keeps the signature integer/BTreeMap-friendly
+        // (boundaries closer than 0.5e-3 collapse — same tolerance the old full-list
+        // signature used); main/rank ride along because exact ties break on them.
+        boundaries.push(boundary.as_ref().map(|challenger| {
+            (
+                (challenger.projected_score * 1000.0).round() as i64,
+                challenger.main_stat,
+                challenger.rank,
+            )
+        }));
+        let mut boundary_bucket = BTreeMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
+        if let Some(challenger) = boundary {
+            boundary_bucket.insert(key, vec![challenger]);
+        }
+        reduced.push(UpgradeScenario {
+            rule_order: scenario.rule_order,
+            rule_selected_substats: scenario.rule_selected_substats.clone(),
+            rule_substat_match: scenario.rule_substat_match.clone(),
+            selected_substats: scenario.selected_substats.clone(),
+            substat_match: scenario.substat_match.clone(),
+            // The boundary alone decides selection (equivalence argument above).
+            required_per_group: 1,
+            count_mode: scenario.count_mode,
+            weights: scenario.weights.clone(),
+            weight_main_stat_by_rank: scenario.weight_main_stat_by_rank,
+            challengers_by_count_key: boundary_bucket,
+        });
     }
+    (reduced, boundaries)
 }
 
 // Single challenger entry; projected_score fixes the apples-to-oranges Bug 2.
+// Clone: the boundary-challenger reduction copies one entry per scenario.
+#[derive(Clone)]
 struct StaticChallenger {
     artifact_id: i64,
     // Closed-form expected score at +16 (not current score).
@@ -744,6 +829,13 @@ fn is_challenger_strictly_better(
     if delta.abs() > SCORE_TIE_EPSILON {
         return delta > 0.0;
     }
+    tie_break_favors_challenger(ch_main, ch_rank, cand_main, cand_rank)
+}
+
+// Tie-window half of is_challenger_strictly_better, shared verbatim with the
+// boundary-challenger reduction below (ODR): given scores equal within the ±ε window,
+// does the challenger win? Constant per (challenger, candidate-main/rank) pair.
+fn tie_break_favors_challenger(ch_main: i64, ch_rank: i64, cand_main: i64, cand_rank: i64) -> bool {
     // Equal scores: same main breaks by rank (higher = better).
     if ch_main == cand_main {
         return ch_rank > cand_rank;
@@ -1729,3 +1821,305 @@ pub fn compute_improvement_chance_core(
     (output, perf_diag)
 }
 
+
+// ─── boundary-challenger reduction tests ─────────────────────────────────────
+
+#[cfg(test)]
+mod boundary_reduction_tests {
+    use super::*;
+    use crate::safeguards::fast_path_types::SafeguardWasmSubstatIn;
+    use crate::{
+        ARTIFACT_TYPE_BOOTS, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT,
+        STAT_VARIANT_DEF_PERCENT, STAT_VARIANT_HP_FLAT, STAT_VARIANT_HP_PERCENT,
+    };
+
+    // Per-rule counting → one Global bucket regardless of dims: keeps count keys trivial.
+    fn per_rule_mode() -> SafeguardWasmCountMode {
+        SafeguardWasmCountMode {
+            per_rule: true,
+            per_set: false,
+            per_faction: false,
+            per_main_stat: false,
+            per_slot: false,
+        }
+    }
+
+    fn make_challenger(id: i64, score: f64, main: i64, rank: i64) -> StaticChallenger {
+        StaticChallenger {
+            artifact_id: id,
+            projected_score: score,
+            rank,
+            main_stat: main,
+        }
+    }
+
+    // Minimal SPD-focused scenario wrapping the given Global challenger bucket.
+    fn make_scenario(bucket: Vec<StaticChallenger>, required: i64) -> UpgradeScenario {
+        let mode = per_rule_mode();
+        let key = safeguard_count_key_from_parts(0, 0, 0, STAT_VARIANT_SPD, mode);
+        let mut challengers_by_count_key = BTreeMap::new();
+        challengers_by_count_key.insert(key, bucket);
+        UpgradeScenario {
+            rule_order: 0,
+            rule_selected_substats: vec![STAT_VARIANT_SPD],
+            rule_substat_match: "1".to_string(),
+            selected_substats: vec![STAT_VARIANT_SPD],
+            substat_match: "1".to_string(),
+            required_per_group: required,
+            count_mode: mode,
+            weights: BTreeMap::new(),
+            weight_main_stat_by_rank: false,
+            challengers_by_count_key,
+        }
+    }
+
+    // Selection exactly as the leaf computes it: count strictly-better challengers via
+    // the REAL comparator and compare against the quota.
+    fn selected(bucket: &[StaticChallenger], required: i64, cand_score: f64, cand_main: i64, cand_rank: i64) -> bool {
+        let better = bucket
+            .iter()
+            .filter(|ch| {
+                is_challenger_strictly_better(
+                    ch.projected_score, ch.main_stat, ch.rank, cand_score, cand_main, cand_rank,
+                )
+            })
+            .count() as i64;
+        better < required
+    }
+
+    // Pull the reduced Global bucket (0 or 1 challengers) out of a reduced scenario.
+    fn reduced_bucket(scenario: &UpgradeScenario, cand_main: i64) -> Vec<StaticChallenger> {
+        let key = safeguard_count_key_from_parts(0, 0, 0, cand_main, scenario.count_mode);
+        scenario
+            .challengers_by_count_key
+            .get(&key)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn reduced_selection_matches_full_selection_exactly() {
+        // Property-style sweep: pseudo-random buckets (deterministic LCG, no rand dep)
+        // across several candidate (main, rank) contexts and a probe grid that lands
+        // exactly ON challenger scores and exactly AT the ±ε tie-window edges. The
+        // score pool contains duplicates on purpose so exact-tie challengers occur.
+        let mut seed: u64 = 0x00C0FFEE;
+        let mut next = move |bound: u64| -> u64 {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) % bound
+        };
+        let mains = [
+            STAT_VARIANT_SPD,
+            STAT_VARIANT_HP_PERCENT,
+            STAT_VARIANT_HP_FLAT,
+            STAT_VARIANT_ATK_PERCENT,
+            STAT_VARIANT_ATK_FLAT,
+            STAT_VARIANT_DEF_PERCENT,
+        ];
+        // Duplicated pool values force exact-equal challenger scores in most trials.
+        let score_pool = [1.0, 2.5, 2.5, 3.0, 3.0, 3.0, 4.75, 6.25, 6.25, 9.0];
+        // Candidate contexts incl. percent-vs-flat pairings in both directions.
+        let cand_contexts = [
+            (STAT_VARIANT_SPD, 5),
+            (STAT_VARIANT_HP_FLAT, 5),
+            (STAT_VARIANT_HP_PERCENT, 6),
+            (STAT_VARIANT_ATK_PERCENT, 4),
+            (STAT_VARIANT_HP_FLAT, 6),
+        ];
+        for _trial in 0..40 {
+            let len = 5 + next(26) as usize; // 5..=30 challengers
+            let bucket: Vec<StaticChallenger> = (0..len)
+                .map(|i| {
+                    make_challenger(
+                        i as i64 + 1,
+                        score_pool[next(score_pool.len() as u64) as usize],
+                        mains[next(mains.len() as u64) as usize],
+                        4 + next(3) as i64,
+                    )
+                })
+                .collect();
+            // Quotas: below, at, and above the bucket size (N > len ⇒ always selected).
+            for &required in &[1i64, 2, 3, len as i64, len as i64 + 2] {
+                let scenario = make_scenario(bucket.clone(), required);
+                let refs = [&scenario];
+                for &(cand_main, cand_rank) in &cand_contexts {
+                    let (reduced, boundaries) =
+                        reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank);
+                    let reduced_ch = reduced_bucket(&reduced[0], cand_main);
+                    assert!(reduced_ch.len() <= 1, "reduction keeps at most one challenger");
+                    assert_eq!(
+                        boundaries[0].is_some(),
+                        !reduced_ch.is_empty(),
+                        "boundary triple mirrors the reduced bucket",
+                    );
+                    // Probe grid: extremes, every challenger score, and the exact
+                    // tie-window edges (±ε) plus just-outside points (±2ε).
+                    let mut grid = vec![-1.0e6, 0.0, 1.0e9];
+                    for challenger in &bucket {
+                        let score = challenger.projected_score;
+                        grid.extend([
+                            score,
+                            score + SCORE_TIE_EPSILON,
+                            score - SCORE_TIE_EPSILON,
+                            score + 2.0 * SCORE_TIE_EPSILON,
+                            score - 2.0 * SCORE_TIE_EPSILON,
+                            score + 0.37,
+                        ]);
+                    }
+                    for &cand_score in &grid {
+                        let full = selected(&bucket, required, cand_score, cand_main, cand_rank);
+                        let red = selected(&reduced_ch, 1, cand_score, cand_main, cand_rank);
+                        assert_eq!(
+                            full, red,
+                            "selection must match exactly (required {required}, cand ({cand_main},{cand_rank}), score {cand_score})",
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn reduced_selection_matches_on_handcrafted_tie_edges() {
+        // Explicit knife-edge coverage the property sweep also hits statistically:
+        // exact-equal scores with differing main/rank, percent-vs-flat tie outcomes in
+        // both directions, N above the bucket size, and N-th/N+1-th with equal T.
+        let cases: Vec<(Vec<StaticChallenger>, i64, i64, i64)> = vec![
+            // Equal scores, differing rank (same main as candidate): rank tie-break.
+            (
+                vec![
+                    make_challenger(1, 10.0, STAT_VARIANT_SPD, 6),
+                    make_challenger(2, 10.0, STAT_VARIANT_SPD, 4),
+                ],
+                1,
+                STAT_VARIANT_SPD,
+                5,
+            ),
+            // Percent challenger vs flat candidate: tie favors the challenger.
+            (
+                vec![make_challenger(1, 10.0, STAT_VARIANT_HP_PERCENT, 5)],
+                1,
+                STAT_VARIANT_HP_FLAT,
+                5,
+            ),
+            // Flat challenger vs percent candidate: tie favors the candidate.
+            (
+                vec![make_challenger(1, 10.0, STAT_VARIANT_HP_FLAT, 5)],
+                1,
+                STAT_VARIANT_HP_PERCENT,
+                5,
+            ),
+            // Quota above bucket size: always selected on both sides.
+            (
+                vec![
+                    make_challenger(1, 10.0, STAT_VARIANT_SPD, 6),
+                    make_challenger(2, 12.0, STAT_VARIANT_SPD, 6),
+                ],
+                5,
+                STAT_VARIANT_SPD,
+                5,
+            ),
+            // N-th and N+1-th with EQUAL effective threshold (same score, same tie
+            // outcome, ids differ): boundary choice falls to the deterministic id
+            // tie-break and either pick yields the same beats-region.
+            (
+                vec![
+                    make_challenger(1, 10.0, STAT_VARIANT_SPD, 6),
+                    make_challenger(2, 10.0, STAT_VARIANT_SPD, 6),
+                    make_challenger(3, 8.0, STAT_VARIANT_SPD, 6),
+                ],
+                2,
+                STAT_VARIANT_SPD,
+                5,
+            ),
+        ];
+        for (bucket, required, cand_main, cand_rank) in cases {
+            let scenario = make_scenario(bucket.clone(), required);
+            let refs = [&scenario];
+            let (reduced, _) =
+                reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank);
+            let reduced_ch = reduced_bucket(&reduced[0], cand_main);
+            let mut grid = vec![0.0, 100.0];
+            for challenger in &bucket {
+                let score = challenger.projected_score;
+                grid.extend([
+                    score,
+                    score + SCORE_TIE_EPSILON,
+                    score - SCORE_TIE_EPSILON,
+                    score + 2.0 * SCORE_TIE_EPSILON,
+                    score - 2.0 * SCORE_TIE_EPSILON,
+                ]);
+            }
+            for &cand_score in &grid {
+                assert_eq!(
+                    selected(&bucket, required, cand_score, cand_main, cand_rank),
+                    selected(&reduced_ch, 1, cand_score, cand_main, cand_rank),
+                    "tie-edge selection must match (required {required}, cand ({cand_main},{cand_rank}), score {cand_score})",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn reduced_chance_matches_full_chance_end_to_end() {
+        // Full recursion equivalence: probing a synthetic drop against the FULL
+        // scenario and against its boundary reduction must produce bit-identical
+        // chances — the leaf outcomes agree everywhere, and everything else in the
+        // recursion is shared arithmetic.
+        let bucket = vec![
+            make_challenger(1, 5.5, STAT_VARIANT_SPD, 6),
+            make_challenger(2, 4.0, STAT_VARIANT_HP_PERCENT, 5),
+            make_challenger(3, 4.0, STAT_VARIANT_HP_FLAT, 5),
+            make_challenger(4, 2.2, STAT_VARIANT_SPD, 4),
+        ];
+        for &required in &[1i64, 2, 3, 6] {
+            let scenario = make_scenario(bucket.clone(), required);
+            let refs = [&scenario];
+            for &rank in &[5i64, 6] {
+                let (reduced, _) = reduce_scenarios_for_synthetic(
+                    &refs, ARTIFACT_TYPE_BOOTS, 10, 0, STAT_VARIANT_HP_PERCENT, rank,
+                );
+                let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
+                for &level in &[0i64, 8, 16] {
+                    for spd_value in [5.0, 12.0, 20.0, 28.0] {
+                        let artifact = SafeguardWasmArtifactIn {
+                            id: Some(-1),
+                            slot: ARTIFACT_TYPE_BOOTS,
+                            set: 10,
+                            rank,
+                            rarity: 5,
+                            level,
+                            exact_level: Some(level),
+                            faction: 0,
+                            main_stat: STAT_VARIANT_HP_PERCENT,
+                            equipped_in_collection: false,
+                            equipped_in_vault: false,
+                            substats: vec![SafeguardWasmSubstatIn {
+                                variant: STAT_VARIANT_SPD,
+                                is_flat: false,
+                                value: spd_value,
+                                rolls: None,
+                            }],
+                        };
+                        // Fresh memos per call: the synthetic helper does not clear.
+                        let mut memo_full: BTreeMap<StateKey, f64> = BTreeMap::new();
+                        let mut memo_red: BTreeMap<StateKey, f64> = BTreeMap::new();
+                        let full =
+                            compute_synthetic_chance_for_scenarios(&artifact, &refs, &mut memo_full);
+                        let red = compute_synthetic_chance_for_scenarios(
+                            &artifact,
+                            &reduced_refs,
+                            &mut memo_red,
+                        );
+                        assert_eq!(
+                            full, red,
+                            "chance must be identical (required {required}, rank {rank}, level {level}, spd {spd_value})",
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

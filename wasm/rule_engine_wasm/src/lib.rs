@@ -100,26 +100,6 @@ pub fn log_talc_counters(label: &str) {
     log(&format!("{} [talc] {}", ts(), label));
 }
 
-// Plain-fn adapters over the wasm-bindgen console/performance imports so core can hold
-// them as `fn` pointers (closures over extern imports cannot coerce to fn otherwise).
-fn watch_diag_log(line: &str) {
-    log(line);
-}
-fn watch_diag_now_ms() -> f64 {
-    now()
-}
-
-// Wire the improvement-watch perf-diag host hooks into core so attach_watch_corners can
-// log phase timings from inside the rlib. Called at the top of every safeguard entry
-// (idempotent Cell write) rather than via #[wasm_bindgen(start)] — the start hook proved
-// unreliable across the harness init paths, and an explicit call site is trivially cheap.
-fn ensure_watch_diag_hooks() {
-    rule_engine_core::safeguards::set_watch_diag_hooks(rule_engine_core::safeguards::WatchDiagHooks {
-        log: watch_diag_log,
-        now_ms: watch_diag_now_ms,
-    });
-}
-
 // Pre-warm the allocator before a large JSON deserialization.  Allocates a
 // single contiguous block of `bytes` and immediately drops it.  This gives
 // talc a fresh large free chunk that satisfies the initial Vec capacity
@@ -606,8 +586,6 @@ pub fn safeguard_group_key_value(payload: &str) -> Result<String, JsValue> {
 // by configure_value / store_artifact_rows_value / finalize_generated_rules_value.
 #[wasm_bindgen]
 pub fn compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsValue> {
-    // Watch perf-diag hooks must be live before any attach_watch_corners run.
-    ensure_watch_diag_hooks();
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers candidates / rules / expected-groups / improvement-chances.
@@ -639,8 +617,6 @@ pub fn compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsVa
 // migration: one serde_json parse for the whole payload, single dispatch into core.
 #[wasm_bindgen]
 pub fn collect_and_compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsValue> {
-    // Watch perf-diag hooks must be live before any attach_watch_corners run.
-    ensure_watch_diag_hooks();
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers rows / rules / recipe-modes / safeguard-rules / etc.
@@ -1351,8 +1327,6 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     enabled: bool,
     now: f64,
 ) -> Result<JsValue, JsValue> {
-    // Watch perf-diag hooks must be live before any attach_watch_corners run.
-    ensure_watch_diag_hooks();
     // Pre-warm so the Vec growth during deserialization stays in a clean block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers options + ignored-recipes + safeguard rules + expected
