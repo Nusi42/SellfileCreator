@@ -168,15 +168,35 @@ Q "Actually, just **sell** all weak \`Chaos " cols=1
   ore_chaos_master_sell s blk:keepAction
 == SAFEGUARD ==
 Q "How many of the best SPD banners **per f" cols=2
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
   min_spdbanner_pieces s blk:count sld:1-64/16 unit: pieces
 Q "How many speed-set pieces **per slot** s" cols=2
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
   min_spd_pieces s blk:count sld:1-64/16 unit: pieces
 Q "How many debuffer pieces **per slot** sh" cols=2
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
   min_debuffer_pieces s blk:count sld:1-64/32 unit: pieces
 Q "How many damage or survivability pieces " cols=2
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
   min_dmgsurv_pieces s blk:count sld:1-64/32 unit: pieces
 Q "How many damage/survivability/debuffer p" cols=2
-  #1 s blk:count sld:1-64/8 unit: pieces
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
+  #5 s blk:count sld:1-64/8 unit: pieces
 Q "" cols=2 SPACER
 Q "Do you want to protect **artifacts** (no" cols=2
   impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%

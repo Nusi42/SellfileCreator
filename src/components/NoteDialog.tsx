@@ -101,6 +101,8 @@ import {
   buildNoteSafeguardOverridesSignature,
   buildSafeguardSliderTokenMap,
   applyQuestionSgSelectionRules,
+  buildSafeguardAnswerParts,
+  safeguardAnswerMatchesDefault,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   SAFEGUARD_OVERRIDES_OP_FIELD,
   SLIDER_TOGGLE_OFF,
@@ -560,6 +562,24 @@ const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
   // Keep the stacked option groups compact in the default layout.
   gap: 0.25,
 }
+
+// Activation radio groups (safeguard mode: None → Just what I own → Plus missing slots →
+// Plus likely upgrades) are an ORDERED SCALE, so they must render as a single left-to-right
+// row — never the auto-fit 2×2 grid, where "Plus missing slots" would sit under "None" and read
+// as its continuation. Four equal columns; long labels wrap within their own cell.
+const NOTE_QUESTION_RADIO_ROW_SX = {
+  display: 'grid',
+  gridAutoFlow: 'column',
+  gridAutoColumns: 'minmax(0, 1fr)',
+  columnGap: 1,
+  rowGap: 0,
+  alignItems: 'flex-start',
+  width: '100%',
+  // Labels may wrap to two lines in the narrow cells; keep the radio dot pinned to the first
+  // line (not vertically centred against the whole wrapped label) so the row stays tidy.
+  '& .MuiFormControlLabel-root': { alignItems: 'flex-start' },
+  '& .MuiFormControlLabel-root .MuiRadio-root': { pt: 0 },
+} satisfies Record<string, unknown>
 
 function buildNoteQuestionOptionGridSx(
   minColumnWidth: number,
@@ -3382,8 +3402,12 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
               const sliderOpt = group.options[0]
               if (!sliderOpt) return null
               const toggle = sliderOpt.sliderToggle
-              // The single stored answer value is a numeric string, or the toggle-off sentinel.
-              const rawAnswer = selectedSet.values().next().value as string | undefined
+              // A mixed question stores option ids AND the slider value together; split out the
+              // parts so the slider reads its own value (not a leading radio id) and every write
+              // preserves the sibling radio selection. `siblingOptionIds` is that selection.
+              const { optionIds: siblingOptionIds, sliderValue: rawAnswer } = buildSafeguardAnswerParts(selected)
+              // Merge the (possibly new) slider value back with the current option ids for storage.
+              const withSlider = (v: string) => [...siblingOptionIds, v]
               const toggleOff = !!toggle && rawAnswer === SLIDER_TOGGLE_OFF
               const numericValue = Number.parseFloat(rawAnswer ?? '')
               const sliderValue = Number.isFinite(numericValue)
@@ -3401,7 +3425,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       size="small"
                       checked={!toggleOff}
                       disabled={!safeguardOverridesEditable}
-                      onChange={(e) => { applyAnswer([e.target.checked ? String(sliderValue) : SLIDER_TOGGLE_OFF]) }}
+                      onChange={(e) => { applyAnswer(withSlider(e.target.checked ? String(sliderValue) : SLIDER_TOGGLE_OFF)) }}
                     />
                   }
                   label={toggle.label
@@ -3424,7 +3448,7 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                   {...(sliderOpt.sliderUnit ? { unit: sliderOpt.sliderUnit } : {})}
                   disabled={!safeguardOverridesEditable || toggleOff}
                   // Commit the numeric value once on release; the off sentinel is set by the toggle.
-                  onCommit={(numVal) => { applyAnswer([String(numVal)]) }}
+                  onCommit={(numVal) => { applyAnswer(withSlider(String(numVal))) }}
                   // Inline-left toggle sits in the slider's own centred row.
                   {...(inlineLeft && toggleControl ? { leftControl: toggleControl } : {})}
                 />
@@ -3470,7 +3494,10 @@ function NoteSafeguardOverridesBlock({ node }: NoteSafeguardOverridesBlockProps)
                       if (value) next.add(value)
                       applyAnswer(Array.from(next), value || undefined)
                     }}
-                    sx={optionGroupSx}
+                    // Activation modes are an ordered scale — force one left-to-right row in
+                    // horizontal cards (avoids the 2×2 grid's misleading column adjacency);
+                    // stack in the rare columns=0 card.
+                    sx={isHorizontal ? NOTE_QUESTION_RADIO_ROW_SX : NOTE_QUESTION_OPTION_GROUP_STACK_SX}
                   >
                     {group.options.map((option) => {
                       const sgRadioLabelNode = renderTwoColumnOptionLabel({ option: option as unknown as LabelOption, chipSx: promptChipSx, labelSx: promptLabelSx, labelColumnCh: 0, layout: isHorizontal ? 'rows' : 'columns' })
@@ -4647,44 +4674,31 @@ export default function NoteDialog({
     preferredId?: string,
     removedId?: string,
   ) => {
-    // Slider questions store a raw numeric string — constraint rules do not apply.
-    const sliderGroup = question.groups.find((g) => g.type === 'slider')
-    if (sliderGroup) {
-      const sliderOpt = sliderGroup.options[0]
-      const defaultNum = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
-      const numStr = nextSelection[0]
-      // Note: a slider value set by an account-mode `setval` is just a normal stored answer here
-      // (persisted on select), so dragging it is an ordinary value change — no special release.
-      // The toggle-off sentinel passes through unchanged (routes to the else block).
-      if (numStr === SLIDER_TOGGLE_OFF) {
-        onSafeguardOverridesAnswersChange((prev) => ({ ...prev, [question.id]: [SLIDER_TOGGLE_OFF] }))
-        return
-      }
-      const numVal = numStr !== undefined ? Number.parseFloat(numStr) : NaN
-      onSafeguardOverridesAnswersChange((prev) => {
-        const next = { ...prev }
-        // Full storage: record the numeric value even when it equals the default; only an
-        // empty/invalid drag falls back to the default value string so the answer stays present.
-        next[question.id] = (numStr && Number.isFinite(numVal)) ? [numStr] : [String(defaultNum)]
-        return next
-      })
-      return
-    }
-    // Apply within-question rules before the cascade so the selection is already clean.
-    const ruled = applyQuestionSgSelectionRules(nextSelection, question, preferredId, removedId)
-    const defaultSet = new Set(question.defaultAnswer)
+    // A safeguard-overrides question may combine an activation radio group with a count/
+    // improvement slider (e.g. the SPD-banner card: pick a mode AND a piece count). The
+    // answer is therefore a MIX of option ids and one slider value string — never assume a
+    // question is slider-XOR-options. Split the incoming selection into its two parts:
+    //   • sliderValue: the numeric string or the toggle-off sentinel (at most one).
+    //   • optionIds:   the radio/checkbox selections (cascade + constraint rules apply).
+    // buildSafeguardAnswerParts is the SSOT for this split (used again on re-resolve below).
+    const { optionIds: incomingOptionIds, sliderValue: incomingSlider } = buildSafeguardAnswerParts(nextSelection)
+    // Apply within-question rules to the option-id portion only; slider values are opaque here.
+    const ruled = applyQuestionSgSelectionRules(incomingOptionIds, question, preferredId, removedId)
     const ruledSet = new Set(ruled)
-    const matchesDefault = defaultSet.size === ruledSet.size
-      && Array.from(defaultSet).every((id) => ruledSet.has(id))
     const orderedSelection = question.options
       .filter((option) => ruledSet.has(option.id))
       .map((option) => option.id)
+    // The changed question's stored answer keeps its option ids AND its slider value together.
+    const changedAnswer = incomingSlider != null ? [...orderedSelection, incomingSlider] : orderedSelection
+    // A question matches its default only when BOTH parts match: the option-id set equals the
+    // default option ids and the slider (if any) sits at its default value.
+    const changedMatchesDefault = safeguardAnswerMatchesDefault(question, changedAnswer)
     onSafeguardOverridesAnswersChange((prev) => {
       const next = { ...prev }
-      if (matchesDefault) {
+      if (changedMatchesDefault) {
         delete next[question.id]
       } else {
-        next[question.id] = orderedSelection
+        next[question.id] = changedAnswer
       }
       // Re-resolve ALL questions so cross-question exclusions/directives cascade.
       const { questions: allResolved } = resolveNoteSafeguardOverridesTags(
@@ -4695,23 +4709,24 @@ export default function NoteDialog({
       )
       // Persist the FULL resolved selection for every question (defaults included), so the
       // saved state is self-contained and identical in shape to a saved preset. The cascade
-      // already ran in resolveNoteSafeguardOverridesTags above, so we record its output verbatim.
+      // already ran in resolveNoteSafeguardOverridesTags above, so we record its output verbatim,
+      // preserving both option ids AND the slider value for mixed questions.
       const normalized: NoteSafeguardOverridesAnswers = {}
       allResolved.forEach((resolved) => {
-        // Sliders store a numeric value; record the resolved value (or the default when absent).
-        const hasSlider = resolved.groups.some((g) => g.type === 'slider')
-        if (hasSlider) {
-          const sliderOpt = resolved.groups.find((g) => g.type === 'slider')?.options[0]
-          const def = sliderOpt ? (sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1) : 1
-          const storedNum = resolved.answer.find((v) => Number.isFinite(Number.parseFloat(v)))
-          normalized[resolved.id] = [storedNum ?? String(def)]
-          return
-        }
-        // Non-slider: record every selected option id, ordered by option definition.
-        const resolvedSet = new Set(resolved.answer)
-        normalized[resolved.id] = resolved.options
+        const { optionIds: resolvedOptionIds, sliderValue: resolvedSlider } = buildSafeguardAnswerParts(resolved.answer)
+        const resolvedSet = new Set(resolvedOptionIds)
+        const orderedIds = resolved.options
           .filter((option) => resolvedSet.has(option.id))
           .map((option) => option.id)
+        // If the question has a slider, always record a value (falling back to its default so the
+        // answer stays present); append it after the option ids.
+        const sliderOpt = resolved.groups.find((g) => g.type === 'slider')?.options[0]
+        if (sliderOpt) {
+          const def = sliderOpt.sliderDefault ?? sliderOpt.sliderMin ?? 1
+          normalized[resolved.id] = [...orderedIds, resolvedSlider ?? String(def)]
+        } else {
+          normalized[resolved.id] = orderedIds
+        }
       })
       return normalized
     })

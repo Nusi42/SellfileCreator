@@ -645,6 +645,61 @@ type ParsedSgEntry = { index: number; question: ParsedSgQuestion }
 /** Stored answers keyed by question ID. Slider answers are `['<number>']`. */
 export type NoteSafeguardOverridesAnswers = Record<string, string[]>
 
+// ── Answer part classification (SSOT) ─────────────────────────────────────────
+
+/**
+ * A single safeguard question can mix an activation radio group with a count/improvement
+ * slider, so its stored answer is a MIX of option ids and one slider value string. This is
+ * the single source of truth for splitting an answer array into its two parts:
+ *   • sliderValue — the toggle-off sentinel or a finite numeric string (the LAST such value
+ *     wins if several are present; there is at most one slider group per question).
+ *   • optionIds   — everything else (radio/checkbox option ids; `off#0`-style hashes never
+ *     parse as finite numbers, so they never collide with a slider value).
+ * Both the NoteDialog answer handler and any resolver-side normalization use this, so the
+ * two never disagree about which token is the slider value.
+ */
+export const buildSafeguardAnswerParts = (
+  answer: readonly string[],
+): { optionIds: string[]; sliderValue: string | null } => {
+  const isSliderValue = (v: string): boolean =>
+    v === SLIDER_TOGGLE_OFF || Number.isFinite(Number.parseFloat(v))
+  const optionIds: string[] = []
+  let sliderValue: string | null = null
+  for (const v of answer) {
+    if (isSliderValue(v)) sliderValue = v
+    else optionIds.push(v)
+  }
+  return { optionIds, sliderValue }
+}
+
+/**
+ * True when a question's candidate answer equals its default in BOTH parts: the option-id set
+ * matches the default option ids, and the slider value (if the question has a slider) equals the
+ * slider default. Used to decide whether to omit the answer from storage (defaults are implicit).
+ */
+export const safeguardAnswerMatchesDefault = (
+  question: Pick<SafeguardNoteQuestionDefinition, 'defaultAnswer' | 'groups'>,
+  candidate: readonly string[],
+): boolean => {
+  const def = buildSafeguardAnswerParts(question.defaultAnswer)
+  const cand = buildSafeguardAnswerParts(candidate)
+  // Option-id sets must match exactly (order-independent).
+  const defIds = new Set(def.optionIds)
+  const candIds = new Set(cand.optionIds)
+  if (defIds.size !== candIds.size) return false
+  for (const id of defIds) if (!candIds.has(id)) return false
+  // Slider value must match the default when the question carries a slider.
+  const hasSlider = question.groups.some((g) => g.type === 'slider')
+  if (hasSlider) {
+    const sliderOpt = question.groups.find((g) => g.type === 'slider')?.options[0]
+    const defVal = def.sliderValue
+      ?? String(sliderOpt?.sliderDefault ?? sliderOpt?.sliderMin ?? 1)
+    const candVal = cand.sliderValue ?? defVal
+    if (candVal !== defVal) return false
+  }
+  return true
+}
+
 // ── Autosave key ──────────────────────────────────────────────────────────────
 
 export const NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY = 'NoteSafeguardOverridesAnswers'
