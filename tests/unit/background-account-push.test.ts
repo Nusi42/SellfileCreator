@@ -114,7 +114,7 @@ type Harness = {
   waitForOutcome: () => Promise<BackgroundAccountPushOutcome>
 }
 
-const makeHarness = (): Harness => {
+const makeHarness = (claimAutoPushOwnership: (accountId: string) => boolean = () => true): Harness => {
   const outcomes: BackgroundAccountPushOutcome[] = []
   const uploads: Harness['uploads'] = []
   const pipelineParams: HeadlessPipelineParams[] = []
@@ -132,6 +132,9 @@ const makeHarness = (): Harness => {
       outcomes.push(outcome)
       notify?.()
     },
+    // This tab always owns auto-push in these tests unless a scenario overrides it; the
+    // ownership mechanics themselves live in auto-push-ownership.test.ts.
+    claimAutoPushOwnership,
     // Keep the burst quiet-period tiny so tests settle fast.
     coalesceMs: 5,
   })
@@ -154,6 +157,22 @@ test('unknown or unstamped commands are not serviced', () => {
   assert.equal(harness.service.noteInboundGearCommand({ kind: 'gearDbArtifacts', artifacts: [] }), false)
   // Non-gear kinds pass through untouched.
   assert.equal(harness.service.noteInboundGearCommand({ kind: 'selectRule', rowNumber: 1 }), false)
+})
+
+test('a non-owner tab stands down silently: returns true but queues no push', async () => {
+  const storage = freshWindow()
+  const inactive = seedBoundInactiveAccount('um2')
+  storage.setItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH), '1')
+  seedInactiveDocument(inactive.id)
+  // Another tab owns this account's auto-push → our claim is denied.
+  const harness = makeHarness(() => false)
+  // Returns TRUE (the caller stays silent — no drop toast — because the owning tab handles
+  // the same broadcast packet), but nothing is uploaded and no outcome is reported.
+  assert.equal(harness.service.noteInboundGearCommand(artifactsCommand('um2')), true)
+  // Give any (erroneously) scheduled burst time to flush — there must be none.
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(harness.uploads.length, 0)
+  assert.equal(harness.outcomes.length, 0)
 })
 
 test('known inactive account with auto-push disabled reports autoPushOff and sends nothing', async () => {
@@ -309,6 +328,7 @@ test('upload rejection surfaces as a failed outcome', async () => {
     sendRequest: () => Promise.resolve({ ok: false, error: 'nope' }),
     runPipeline: () => Promise.resolve({ mergedRules: [], mergedRulesHash: 'TESTCRC' }),
     onOutcome: (outcome) => { outcomes.push(outcome); notify?.() },
+    claimAutoPushOwnership: () => true,
     coalesceMs: 5,
   })
   service.noteInboundGearCommand(artifactsCommand('um2'))

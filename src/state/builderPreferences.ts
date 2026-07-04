@@ -53,12 +53,16 @@ const parseBuilderPanelCollapsed = (raw: string | null): BuilderPanelCollapsedSe
 const serializeBuilderPanelCollapsed = (value: BuilderPanelCollapsedSections): string =>
   JSON.stringify(value)
 
+// Builder section collapse is part of the restore-dialog "filters" bundle (it rides the
+// autosave Filters payload and the restore-apply writes it), so it behaves as document-view:
+// seeded at load, edited live per-tab, saved back — never mirrored between same-account tabs.
 const builderRecipeCollapsedStore = createLocalStorageStore<BuilderPanelCollapsedSections>({
   key: BUILDER_RECIPE_COLLAPSED_KEY,
   fallback: { ...DEFAULT_BUILDER_PANEL_COLLAPSED },
   parse: parseBuilderPanelCollapsed,
   serialize: serializeBuilderPanelCollapsed,
   equals: builderPanelCollapsedEquals,
+  loadOnce: true,
 })
 
 const builderSafeguardCollapsedStore = createLocalStorageStore<BuilderPanelCollapsedSections>({
@@ -67,6 +71,7 @@ const builderSafeguardCollapsedStore = createLocalStorageStore<BuilderPanelColla
   parse: parseBuilderPanelCollapsed,
   serialize: serializeBuilderPanelCollapsed,
   equals: builderPanelCollapsedEquals,
+  loadOnce: true,
 })
 
 export const useBuilderRecipeCollapsedPreference = createLocalStorageStateHook(builderRecipeCollapsedStore)

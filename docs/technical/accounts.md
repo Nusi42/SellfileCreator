@@ -71,11 +71,49 @@ any endpoint connection are first-class (they simply have no binding yet).
    (`SIMPLE_MODE_SESSION_KEY`) verifiably persisted, because F5 and the account-switch
    reload must stay in simple mode; storage-less environments keep the param instead.
 
-Switching accounts writes `activeAccountId` and performs a full `location.reload()` —
-one document per session; an in-place swap would bleed state across dozens of stores,
-the autosave debouncers, and the WASM pipeline. Because `activeAccountId` persists in the
-registry, the next launch WITHOUT a `?playerid=` param resumes the last-used account; the
-URL param only overrides that per-launch.
+Switching accounts pins the tab's session marker (see below), writes the registry
+`activeAccountId`, and performs a full `location.reload()` — one document per session; an
+in-place swap would bleed state across dozens of stores, the autosave debouncers, and the
+WASM pipeline. The reload re-runs boot, which re-resolves the tab's account and re-freezes
+the scoped key constants against it.
+
+### Per-tab active account (multi-tab safety)
+
+`localStorage` is shared across every tab of the same origin, so the registry's
+`activeAccountId` alone cannot answer "which account does THIS tab edit" — two tabs would
+collide on one global value, and a refresh could silently re-point a tab and overwrite the
+wrong account's autosave. So the tab's active account lives in **`sessionStorage`**
+(`ACTIVE_ACCOUNT_SESSION_KEY`, `lib/activeAccountSession.ts`) — per-tab, surviving a
+same-tab reload (F5, the account-switch reload) but not a new tab.
+
+Boot (`ensureAccountsInitialized`) resolves the tab's account by precedence:
+1. a `?playerid=`/`?playerName=` launch param — RSL Helper opens the app FOR an account, so
+   it wins and re-points the tab (and updates the registry default);
+2. else the tab's stored `sessionStorage` id, if it still names a live account — a plain
+   reload keeps the tab on its account;
+3. else the registry's `activeAccountId` — a fresh tab boots to the last-used default.
+
+The winner is frozen into `activeAccountIdForSession` (session-long, like the scoped key
+constants that depend on it) and written back to `sessionStorage`. `resolveAccountScopedKey`
+and `getActiveAccount` resolve against it, so two tabs edit their OWN accounts without ever
+sharing an autosave key. The registry `activeAccountId` is demoted to "which account a FRESH
+tab boots into" (last-used default). `switchAccount`/`deleteAccount` update both the
+in-session id and the session marker so the caller's reload lands on the right account.
+
+### Registry lost-update merge
+
+Each tab holds its own in-memory `registryCache` and never observes another tab's writes
+(the `storage` event is deliberately unused, see `state/localStorageStore.ts`). A blind
+whole-object write would lose-update: tab A creates account X, tab B (never saw X)
+renames an account and overwrites, erasing X. So `persistRegistry` **re-reads and merges**
+at its single choke point: accounts present only in storage (created by another tab) are
+re-added, this tab's own edits win for its accounts, and ids passed via `deletedIds` (from
+`deleteAccount`) are removed even if a racing tab re-persisted them. The account list is a
+LIST, so the merge is union-by-id, not last-writer-wins.
+
+Because `activeAccountId` persists in the registry, the next FRESH tab WITHOUT a
+`?playerid=` param resumes the last-used account; the URL param only overrides that
+per-launch, and an existing tab's `sessionStorage` marker overrides it per-tab.
 
 ## Account manager
 
@@ -162,6 +200,42 @@ toggles, preset stores (filter/sort/dynamic-overrides — generic reusable tools
 `runtimeGearSets` (game-level catalog; also the largest key), connection settings
 (`rslHelper.port/connectEnabled`), seen-markers, and `simple.expertMode` (a property of
 the user, not the account).
+
+### Cross-tab behaviour of localStorage state (three buckets)
+
+localStorage is shared across all tabs of an origin, and the store layer deliberately does
+NOT broadcast (`state/localStorageStore.ts`). Every localStorage-backed value falls into one
+of three buckets by how it should behave when two tabs are open:
+
+1. **Chrome / global toggles — mirror is fine (default store).** Pure view/UI state whose
+   cross-tab drift is harmless: filter panel open/collapse (`rulesFilter.open/collapse`),
+   grid column toggles, the Gear Inspector/Analytics view toggles, splitter ratio,
+   builder/preview mode. These use the normal `createLocalStorageStore` (re-reads on every
+   snapshot), so a second tab adopts the last write. Which value loads next is unimportant —
+   we do not fix this and do not broadcast it.
+
+2. **Document-view — no live mirror (`loadOnce: true`).** State that is a working VIEW on the
+   account's document: the applied filter VALUES (`rulesFilter.state.v3`), the filter-sync
+   toggle (`rulesFilter.sync.v1`), the applied substat sort
+   (`gearInspector.sort.substats.v1`), and builder section collapse
+   (`builder.recipeCollapsed/safeguardCollapsed`). These are exactly the units the
+   restore-dialog **"filters"** bundle snapshots into the autosave and restores. The
+   `loadOnce` store option (`state/localStorageStore.ts`) reads storage ONCE at boot, then
+   serves the in-memory value — so two same-account tabs each keep their own live view and
+   never mirror mid-session, while writes still persist (a fresh tab/reload boots from the
+   last saved value; last-writer-wins for the persisted copy is accepted). The filter values
+   also ride the autosave document, so they round-trip through restore/load regardless.
+
+3. **Per-tab (`sessionStorage`, gone on tab close).** `activeAccount.session.v1` (the tab's
+   active account — see "Per-tab active account") and `tabId.session.v1` (stable per-tab id
+   for the auto-push single-owner gate).
+
+Preset/customization **libraries** (`sortPresets`, `filterPresets`, `dynamicOverridesPresets`,
+`recentColors`, `themeCustom`) stay shared/global — they are reusable tools, not a view of one
+document. The whole theming system is also required-global (MUI reads its theme keys
+synchronously before account resolution could run), along with `runtimeGearSets` (game-level
+catalog), connection settings (`rslHelper.port/connectEnabled`), seen-markers, and
+`simple.expertMode` (a property of the user, not the account).
 
 Key resolution flows through two exports only:
 - `resolveAccountScopedKey(baseKey)` — resolves for the ACTIVE account; safe at module
@@ -266,3 +340,34 @@ streamed per-type packets are serviced; the binary-DB transport stays drop+toast
 Unit coverage: `tests/unit/background-account-push.test.ts` (orchestration with injected
 pipeline/transport) — the pipeline runner is injected (`deps.runPipeline`) precisely so
 tests never load the `?worker&inline` module.
+
+### Cross-tab single-owner auto-push (`lib/autoPushOwnership.ts`)
+
+Every tab opens its OWN RSL Helper WebSocket and reacts to the same broadcast gear packets,
+so without a guard two open tabs would each auto-push the same account on every inbound
+event (each tab's foreground push, plus the other tab's background push for a non-active
+account). Receiving data in every tab is fine; a MANUAL push in any tab is fine; only the
+AUTOMATIC push must be single-owner so a given change uploads once.
+
+Ownership is **per account**, keyed by a localStorage token
+`sellfileCreator.autoPush.owner.<accountId>.v1` = `{ tabId, ts }`. The tab that has account
+X active owns X's foreground auto-push; the tab that background-services non-active account
+Y owns Y's — so two tabs editing two different accounts each auto-push their own, and the
+gate only stops a SECOND tab from pushing the SAME account. Deliberately **no
+BroadcastChannel / cross-tab messaging** (consistent with the app's per-window isolation,
+`state/localStorageStore.ts`): the token IS the coordination.
+
+Checks are **lazy** — a tab claims/refreshes ownership only at the moment auto-push for that
+account would fire (`claimAutoPushOwnership(accountId)`, gating the foreground effect and,
+via `deps.claimAutoPushOwnership`, the background service's `noteInboundGearCommand`), plus a
+focus/visibility refresh of the active account's claim. That claim doubles as the owner's
+heartbeat, so there is no steady timer to fight Chrome/FF background-tab freezing. If the
+token is absent, ours, or STALE (owner closed/frozen past the 30 s TTL) the acting tab claims
+it and proceeds; otherwise it stands down. A non-owner tab's `noteInboundGearCommand` returns
+`true` (not a drop — the owner tab, receiving the same packet, handles it), so no misleading
+drop toast fires. Last-writer-wins on the token is acceptable: a rare double-claim races two
+near-identical pushes, strictly better than the guaranteed duplicate on every packet that an ungated setup produces.
+Unit coverage: `tests/unit/auto-push-ownership.test.ts` (claim/deny/reclaim/per-account
+independence) and the stand-down case in `background-account-push.test.ts`. Tab identity is a
+per-tab `sessionStorage` id (`sellfileCreator.tabId.session.v1`), volatile fallback when
+storage is blocked.

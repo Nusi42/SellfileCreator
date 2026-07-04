@@ -169,6 +169,10 @@ const filterStateStore = createLocalStorageStore<ModeScoped<RulesFilterState>>({
   fallback: cloneDefaultRulesFilterStateByMode(),
   parse: parseRulesFilterStateMap,
   serialize: serializeRulesFilterStateMap,
+  // Document-view: the applied filter VALUES are seeded at load, edited live per-tab, and
+  // saved back (also into the autosave document) — two same-account tabs must NOT mirror
+  // each other's live filter. Part of the restore-dialog "filters" bundle. See loadOnce.
+  loadOnce: true,
 })
 
 // Collapsed sections are stored per mode; clamp unknown keys back to the default collapsed map.
@@ -229,6 +233,10 @@ const filterSyncStore = createLocalStorageStore<boolean>({
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : null),
+  // The "sync filters across modes" toggle governs the per-tab filter VALUES, so it must be
+  // per-tab-live too (loadOnce) — otherwise a cross-tab-shared boolean would drive values
+  // that are no longer shared. Rides with filterStateStore in the restore "filters" bundle.
+  loadOnce: true,
 })
 const useFilterSync = createLocalStorageStateHook(filterSyncStore)
 

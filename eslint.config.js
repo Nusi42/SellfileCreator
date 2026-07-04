@@ -19,6 +19,12 @@ export default [
       'tmp/tsc/**',
       'scripts/.tmp/**',
       'docs/reference/**',
+      // Playwright e2e output: traces/reports/screenshots are generated artifacts (minified
+      // vendor JS included), gitignored but NOT covered by .gitignore in ESLint flat config —
+      // linting them produces thousands of non-actionable errors on minified bundles.
+      'test-results/**',
+      'playwright-report/**',
+      'blob-report/**',
       // wasm-bindgen output is generated code; linting it creates non-actionable warnings.
       'src/lib/wasm/generated/**',
       // Rust build artifacts — cargo doc generates thousands of .js files that

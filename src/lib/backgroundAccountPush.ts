@@ -86,6 +86,11 @@ export type BackgroundAccountPushDeps = {
   // The one-shot pipeline runner (runHeadlessRuleCachePipeline in the app; a stub in tests).
   runPipeline: (params: HeadlessPipelineParams) => Promise<HeadlessPipelineOutcome>
   onOutcome: (outcome: BackgroundAccountPushOutcome) => void
+  // Cross-tab single-owner gate: claim/refresh THIS tab's ownership of the given account's
+  // auto-push. Returns false when another live tab owns it — then this tab stands down so
+  // the same non-active account is not background-pushed by two tabs at once. Injected
+  // (claimAutoPushOwnership in the app; a stub in tests) so the service stays decoupled.
+  claimAutoPushOwnership: (accountId: string) => boolean
   // Test hook: shrink the burst quiet-period so specs don't wait real seconds.
   coalesceMs?: number
 }
@@ -96,8 +101,11 @@ export type BackgroundAccountPushService = {
    * either its playerId stamp names another account, or it is UNSTAMPED and the
    * user flagged a non-active account as the unstamped-data receiver — then the
    * caller passes that account explicitly via `forAccount` (the stamp lookup is
-   * skipped). Returns true when a known account will be serviced — the caller then
-   * stays silent; false when unhandled and the caller keeps its drop+toast.
+   * skipped). Returns true when a known account will be serviced OR when this tab
+   * stood down for cross-tab ownership (another tab owns that account's auto-push and
+   * handles the same broadcast packet) — the caller stays silent in both cases; false
+   * only when genuinely unhandled (unknown account, disposed) and the caller keeps its
+   * drop+toast.
    */
   noteInboundGearCommand: (cmd: ExternalCommand, forAccount?: SfcAccount) => boolean
   // Cancel pending timers (App unmount); in-flight builds finish but stop reporting.
@@ -269,6 +277,11 @@ export const createBackgroundAccountPushService = (
     // Never the active account — the caller only routes non-active data here, but keep
     // the guard so a race cannot double-apply into the live session.
     if (!account || account.id === getActiveAccount().id) return false
+    // Cross-tab single-owner gate: only ONE tab background-pushes a given non-active
+    // account. If another live tab owns this account's auto-push, stand down — but return
+    // true so the caller stays silent (the owner tab receives the same broadcast packet and
+    // services it; this is not a drop). A stale/absent owner is claimed here and proceeds.
+    if (!deps.claimAutoPushOwnership(account.id)) return true
     const burst: PendingBurst = pending.get(account.id) ?? {
       account,
       artifacts: null,

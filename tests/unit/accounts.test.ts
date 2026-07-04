@@ -25,6 +25,7 @@ import {
   takeAccountMergeCarry,
 } from '../../src/lib/accounts.js'
 import { __resetRuntimeConfigForTests, getSimpleMode, SIMPLE_MODE_SESSION_KEY } from '../../src/lib/runtimeConfig.js'
+import { ACTIVE_ACCOUNT_SESSION_KEY } from '../../src/lib/activeAccountSession.js'
 
 // ---------------------------------------------------------------------------
 // Minimal browser-global stubs: a Map-backed localStorage plus the location and
@@ -390,6 +391,129 @@ test('name-only launches route consistently, including after mixed usage', () =>
   assert.notEqual(resolved.id, first.id)
   // …and the new account is itself marked helper-bound.
   assert.equal(resolved.helperBound, true)
+})
+
+// ---------------------------------------------------------------------------
+// Per-tab active account (sessionStorage) + registry lost-update merge
+// ---------------------------------------------------------------------------
+
+// Install a window that HAS a working sessionStorage, so the per-tab account marker
+// persists (freshWindow deliberately omits it to exercise storage-less degradation).
+// Returns both stores so tests can seed the registry and inspect the session marker.
+const freshWindowWithSession = (
+  href = 'https://app.example/index.html',
+): { local: StorageStub; session: StorageStub } => {
+  const local = makeStorage()
+  const session = makeStorage()
+  ;(globalThis as Record<string, unknown>).window = {
+    localStorage: local,
+    sessionStorage: session,
+    location: { href },
+    history: { state: null, replaceState: () => {} },
+  }
+  __resetRuntimeConfigForTests()
+  __resetAccountsForTests()
+  return { local, session }
+}
+
+test('boot pins the tab account to sessionStorage and a plain reload keeps it', () => {
+  const { local, session } = freshWindowWithSession()
+  local.setItem('sellfileCreator.autosave.sfc.v1', '["CRC",{}]')
+  const first = getActiveAccount()
+  const second = createAccount('Alt')
+  // Switching pins the tab marker so the reload lands on the new account.
+  switchAccount(second.id)
+  assert.equal(session.getItem(ACTIVE_ACCOUNT_SESSION_KEY), second.id)
+  // Persist the registry across the "reload": same sessionStorage, fresh module state.
+  const persisted = local.getItem(ACCOUNTS_REGISTRY_KEY)!
+  __resetAccountsForTests()
+  ;(globalThis as { window: { location: { href: string } } }).window.location.href = 'https://app.example/index.html'
+  __resetRuntimeConfigForTests()
+  local.setItem(ACCOUNTS_REGISTRY_KEY, persisted)
+  // A plain reload (no launch param) rides the session marker → still the second account,
+  // NOT whatever the registry default happens to be.
+  assert.equal(getActiveAccount().id, second.id)
+  assert.notEqual(second.id, first.id)
+})
+
+test('a launch param overrides the tab session marker (RSL Helper opens the app for an account)', () => {
+  const { local, session } = freshWindowWithSession()
+  // Seed two accounts; pin the tab to the first via the session marker.
+  local.setItem('sellfileCreator.autosave.sfc.v1', '["CRC",{}]')
+  const first = getActiveAccount()
+  const second = createAccount('Second')
+  bindHelperAccount(second.id, 'um777')
+  session.setItem(ACTIVE_ACCOUNT_SESSION_KEY, first.id)
+  const persisted = local.getItem(ACCOUNTS_REGISTRY_KEY)!
+  // Reopen the SAME tab (session marker intact) but WITH a launch param for the second
+  // account — the launch param must win and re-point the tab.
+  __resetAccountsForTests()
+  ;(globalThis as { window: { location: { href: string } } }).window.location.href =
+    'https://app.example/index.html?playerid=um777'
+  __resetRuntimeConfigForTests()
+  local.setItem(ACCOUNTS_REGISTRY_KEY, persisted)
+  assert.equal(getActiveAccount().id, second.id)
+  // The tab marker is updated to the launched account for subsequent plain reloads.
+  assert.equal(session.getItem(ACTIVE_ACCOUNT_SESSION_KEY), second.id)
+})
+
+test('a fresh tab (no marker, no launch) boots to the registry last-used default', () => {
+  const { local } = freshWindowWithSession()
+  local.setItem('sellfileCreator.autosave.sfc.v1', '["CRC",{}]')
+  const first = getActiveAccount()
+  const second = createAccount('Second')
+  switchAccount(second.id)
+  const persisted = local.getItem(ACCOUNTS_REGISTRY_KEY)!
+  // A brand-new tab: fresh sessionStorage (no marker), no launch param.
+  const { local: local2, session: session2 } = freshWindowWithSession()
+  local2.setItem(ACCOUNTS_REGISTRY_KEY, persisted)
+  // Boots to the last-used default the switch recorded (second), then pins its own marker.
+  assert.equal(getActiveAccount().id, second.id)
+  assert.equal(session2.getItem(ACTIVE_ACCOUNT_SESSION_KEY), second.id)
+  assert.notEqual(second.id, first.id)
+})
+
+test('persistRegistry merges a concurrent account created by another tab (no lost update)', () => {
+  const { local } = freshWindowWithSession()
+  local.setItem('sellfileCreator.autosave.sfc.v1', '["CRC",{}]')
+  // This tab has [Default]. Simulate ANOTHER tab writing a registry that also contains a
+  // freshly created account this tab's cache never saw.
+  const mine = getActiveAccount()
+  const otherTabRegistry = {
+    activeAccountId: mine.id,
+    accounts: [
+      { id: mine.id, displayName: 'Default', origin: 'legacy', createdAt: '2020-01-01T00:00:00.000Z', lastActiveAt: '2020-01-01T00:00:00.000Z' },
+      { id: 'zz-other', displayName: 'MadeByOtherTab', origin: 'manual', createdAt: '2020-01-02T00:00:00.000Z', lastActiveAt: '2020-01-02T00:00:00.000Z' },
+    ],
+  }
+  local.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(otherTabRegistry))
+  // Now THIS tab renames its own account and persists. A blind write would drop zz-other;
+  // the re-read-merge must keep it.
+  renameAccount(mine.id, 'RenamedHere')
+  const merged = JSON.parse(local.getItem(ACCOUNTS_REGISTRY_KEY)!) as { accounts: { id: string; displayName: string }[] }
+  const ids = merged.accounts.map((a) => a.id)
+  assert.ok(ids.includes('zz-other'), 'concurrent account survived the merge')
+  assert.equal(merged.accounts.find((a) => a.id === mine.id)?.displayName, 'RenamedHere')
+})
+
+test('deleteAccount drops its id even when another tab re-persisted it', () => {
+  const { local } = freshWindowWithSession()
+  local.setItem('sellfileCreator.autosave.sfc.v1', '["CRC",{}]')
+  const first = getActiveAccount()
+  const doomed = createAccount('Doomed')
+  // Another tab writes a registry that STILL contains the doomed account (a stale snapshot
+  // racing our delete). The deletion intent must win over the merge re-add.
+  const stale = {
+    activeAccountId: first.id,
+    accounts: [
+      { id: first.id, displayName: 'Default', origin: 'legacy', createdAt: '2020-01-01T00:00:00.000Z', lastActiveAt: '2020-01-01T00:00:00.000Z' },
+      { id: doomed.id, displayName: 'Doomed', origin: 'manual', createdAt: '2020-01-02T00:00:00.000Z', lastActiveAt: '2020-01-02T00:00:00.000Z' },
+    ],
+  }
+  local.setItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(stale))
+  deleteAccount(doomed.id)
+  const after = JSON.parse(local.getItem(ACCOUNTS_REGISTRY_KEY)!) as { accounts: { id: string }[] }
+  assert.equal(after.accounts.some((a) => a.id === doomed.id), false, 'deleted id stays deleted despite the racing re-add')
 })
 
 export const __accountsTestMarker = true

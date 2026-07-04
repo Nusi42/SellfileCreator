@@ -13,6 +13,7 @@ import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
+import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
 import { buildDocumentOverridesView } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
@@ -6884,6 +6885,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       )
     }
     if (classifyInboundAccountStamp({ playerId: inboundPlayerId, playerName: inboundPlayerName }) === 'mismatch') {
+      // The single-owner gate lives INSIDE noteInboundGearCommand (it resolves the target
+      // account, so it owns the per-account ownership check): a non-owner tab returns false
+      // there without queuing a push, and a stood-down tab is NOT a drop — the owner tab,
+      // which receives the same broadcast packet, handles it. So only toast-drop when the
+      // service genuinely could not service the data (unknown account, disposed, etc.).
       if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd)) return
       toastInboundDrop(`stamp:${inboundPlayerId ?? inboundPlayerName ?? ''}`, inboundPlayerId ?? inboundPlayerName ?? '')
       return
@@ -6895,6 +6901,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!inboundPlayerId && !inboundPlayerName) {
       const unstampedTarget = getUnstampedDefaultAccount()
       if (unstampedTarget && unstampedTarget.id !== getActiveAccount().id) {
+        // Same in-service single-owner gate as the stamped-mismatch path above.
         if (backgroundAccountPushRef.current?.noteInboundGearCommand(cmd, unstampedTarget)) return
         toastInboundDrop(`unstamped:${unstampedTarget.id}`, unstampedTarget.displayName)
         return
@@ -6959,6 +6966,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const service = createBackgroundAccountPushService({
       sendRequest: sendExternalRequest,
       runPipeline: runHeadlessRuleCachePipeline,
+      // Per-account single-owner gate so two tabs never background-push the same account.
+      claimAutoPushOwnership,
       onOutcome: (outcome) => {
         // autoPushOff means nothing was attempted — no feedback warranted.
         if (outcome.kind === 'autoPushOff') return
@@ -9159,12 +9168,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
     // Rising-edge detection requires tracking prev values across renders; an event handler
     // cannot observe the transition from false→true without this effect pattern.
+    // Single-owner gate (per account): with two tabs open each would otherwise auto-push
+    // this tab's active account. Only the tab that owns THIS account's auto-push acts; a
+    // second tab on the same account stands down (manual push and receiving data are
+    // unaffected). The claim doubles as the owner's heartbeat. Evaluated inline so the push
+    // call stays the last statement (the rising-edge effect pattern below).
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
-    if (shouldPush && (justBecameDirty || justEnabledAutoPush)) {
+    if (shouldPush && (justBecameDirty || justEnabledAutoPush) && claimAutoPushOwnership(getActiveAccount().id)) {
       // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
       handleExportSellfileSilent()
     }
   }, [hsfDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
+  // Keep this tab's auto-push claim warm while the user is looking at it, so the tab in
+  // focus stays the auto-push owner without a steady heartbeat (lazy by design — friendly
+  // to background-tab freezing). Only refreshes an existing claim; never steals ownership.
+  useEffect(() => {
+    // Refresh only THIS tab's active-account claim (the account it foreground-owns); the
+    // background service keeps its own accounts' claims warm as their packets arrive.
+    const refresh = () => { if (document.visibilityState === 'visible') refreshAutoPushOwnershipIfOwner(getActiveAccount().id) }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [])
   // Secondary action: always triggers a local file download regardless of push endpoint.
   // Exposed via the split-button dropdown when an endpoint is active.
   const handleExportSellfileLocal = useCallback(() => {

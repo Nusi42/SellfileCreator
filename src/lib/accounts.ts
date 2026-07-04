@@ -18,6 +18,7 @@
  */
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 import { getPlayerIdParam, getPlayerNameParam, stashSimpleModeForSession } from './runtimeConfig'
+import { getTabActiveAccountId, setTabActiveAccountId } from './activeAccountSession'
 
 // ---------------------------------------------------------------------------
 // Storage keys (all global — never account-scoped themselves)
@@ -157,6 +158,12 @@ export const pickDefaultAccent = (index: number): string =>
 // ---------------------------------------------------------------------------
 
 let registryCache: SfcAccountRegistry | null = null
+// The account THIS TAB edits. Resolved once at boot (ensureAccountsInitialized) with the
+// launch-param > session-marker > registry-default precedence, then frozen for the session
+// exactly like the scoped key constants that depend on it — an in-tab switch reloads the
+// page, which re-runs the boot. Distinct from registry.activeAccountId (the last-used
+// default a FRESH tab boots into); see activeAccountSession.ts for the full rationale.
+let activeAccountIdForSession: string | null = null
 // Monotonic snapshot version so useSyncExternalStore gets a cheap referential signal.
 let registryVersion = 0
 const listeners = new Set<() => void>()
@@ -229,8 +236,42 @@ const parseRegistry = (raw: string | null): SfcAccountRegistry | null => {
   }
 }
 
-const persistRegistry = (): void => {
+/**
+ * Persist the registry with a re-read-merge so concurrent tabs cannot silently drop each
+ * other's account changes. localStorage is shared across tabs, but each tab holds its own
+ * `registryCache` and never observes the other's writes (the storage event is deliberately
+ * unused, see localStorageStore.ts) — so a blind whole-object write would lose-update: tab
+ * A creates account X, tab B (never saw X) renames an account and overwrites, erasing X.
+ *
+ * Merge policy — the registry is a LIST of accounts, so union-by-id, not last-writer-wins:
+ *  - accounts present in THIS cache win for their own fields (this tab's edits persist),
+ *  - accounts present ONLY in storage (another tab created them) are re-added — never lost,
+ *  - ids in `deletedIds` are removed even if storage still has them (a concurrent write in
+ *    another tab may have re-persisted the just-deleted account).
+ * activeAccountId (the fresh-tab default) takes THIS tab's value — it is a single scalar,
+ * and the tab that wrote most recently is the most reasonable "last used" signal.
+ */
+const persistRegistry = (opts?: { deletedIds?: readonly string[] }): void => {
   if (!registryCache) return
+  const deleted = new Set(opts?.deletedIds ?? [])
+  // Re-read what's actually in storage right now (another tab may have written since our
+  // cache was seeded). Absent/corrupt storage → nothing to merge, our cache stands.
+  const stored = parseRegistry(safeGetItem(ACCOUNTS_REGISTRY_KEY))
+  if (stored) {
+    // Ids this tab knows about (its own view of the account list).
+    const localIds = new Set(registryCache.accounts.map((a) => a.id))
+    // Re-add any account that exists in storage but not in our cache and wasn't just
+    // deleted here — that account was created by another tab; dropping it is the lost-update
+    // bug we are fixing. Appended after our own so our ordering is otherwise preserved.
+    for (const account of stored.accounts) {
+      if (!localIds.has(account.id) && !deleted.has(account.id)) registryCache.accounts.push(account)
+    }
+  }
+  // Enforce the deletion intent against the merged list (covers both our cache and any
+  // re-added entries a racing tab had re-persisted).
+  if (deleted.size > 0) {
+    registryCache.accounts = registryCache.accounts.filter((a) => !deleted.has(a.id))
+  }
   safeSetItem(ACCOUNTS_REGISTRY_KEY, JSON.stringify(registryCache))
 }
 
@@ -257,17 +298,18 @@ const namespacedKey = (baseKey: string, accountId: string): string =>
   `${ACCOUNT_KEY_PREFIX}${accountId}.${baseKey.slice(APP_KEY_PREFIX.length)}`
 
 /**
- * Resolve a storage key for the ACTIVE account. Scoped base keys (see
+ * Resolve a storage key for THIS TAB's active account. Scoped base keys (see
  * ACCOUNT_SCOPED_BASE_KEYS) come back namespaced; everything else is returned as-is.
- * Safe to call at module scope: the active account is fixed for the whole session
- * (switching accounts reloads the page), so a once-resolved key never goes stale.
+ * Safe to call at module scope: the tab's account is fixed for the whole session
+ * (switching accounts reloads the page, re-running boot), so a once-resolved key never
+ * goes stale — and two tabs resolve to their OWN accounts, never colliding.
  */
 export const resolveAccountScopedKey = (baseKey: string): string => {
   if (!ACCOUNT_SCOPED_BASE_KEYS.has(baseKey)) return baseKey
   ensureAccountsInitialized()
-  // registryCache is set by ensureAccountsInitialized; fall back to the raw key if
-  // storage is unavailable (incognito file://) so the app still renders.
-  return registryCache ? namespacedKey(baseKey, registryCache.activeAccountId) : baseKey
+  // activeAccountIdForSession is seeded by ensureAccountsInitialized; fall back to the raw
+  // key if storage is unavailable (incognito file://) so the app still renders.
+  return activeAccountIdForSession ? namespacedKey(baseKey, activeAccountIdForSession) : baseKey
 }
 
 /**
@@ -403,13 +445,17 @@ export const accountDisplayLabel = (account: SfcAccount): string =>
  * the name ALWAYS refreshes the account name — in-game renames propagate whenever the
  * Player ID identifies the account. (With name-only usage a rename cannot be recognized
  * — the old name is unknown — so sending the Player ID is the recommended contract.)
+ *
+ * Returns the id of the account the launch param routed to, or null when no launch param
+ * was present. The boot uses this to give a launch param precedence over the tab's stored
+ * session account (RSL Helper opens the app FOR a specific account, so it must win).
  */
-const resolveHelperLaunchParam = (registry: SfcAccountRegistry): void => {
+const resolveHelperLaunchParam = (registry: SfcAccountRegistry): string | null => {
   const playerId = getPlayerIdParam()
   // URLSearchParams already percent-decoded the value, so any character is legal here.
   // Clamp the length defensively — a runaway name would bloat the registry and the UI.
   const playerName = getPlayerNameParam()?.slice(0, 80)
-  if (!playerId && !playerName) return
+  if (!playerId && !playerName) return null
   let target = playerId ? registry.accounts.find((a) => a.helperAccountId === playerId) : undefined
   if (!target && playerName) {
     target = registry.accounts.find((a) => a.displayName === playerName)
@@ -437,7 +483,10 @@ const resolveHelperLaunchParam = (registry: SfcAccountRegistry): void => {
   }
   // Record the identities: bind the id, refresh the name (game-authoritative).
   adoptHelperIdentity(registry, target, playerId, playerName)
+  // Update the registry's last-used default too, so a later fresh tab (no launch param,
+  // no session marker) boots to the account this launch just used.
   registry.activeAccountId = target.id
+  return target.id
 }
 
 // Run-once bootstrap; every public API funnels through here.
@@ -447,9 +496,21 @@ export const ensureAccountsInitialized = (): void => {
   // Load or migrate. A throwing/absent storage yields a volatile in-memory registry —
   // persistence degrades but the session still works (matches safeStorage's contract).
   registryCache = parseRegistry(safeGetItem(ACCOUNTS_REGISTRY_KEY)) ?? migrateLegacyStorage()
-  // Apply the launch param, stamp activity, persist, and clean the address bar.
-  resolveHelperLaunchParam(registryCache)
-  const active = registryCache.accounts.find((a) => a.id === registryCache!.activeAccountId)
+  // Apply the launch param first; it returns the account it routed to (or null) and also
+  // updates registry.activeAccountId (the fresh-tab default).
+  const launchAccountId = resolveHelperLaunchParam(registryCache)
+  // Establish THIS TAB's account by precedence:
+  //  1. a launch param wins — RSL Helper opened the app FOR that account,
+  //  2. else the tab's stored session id, if it still names a live account (plain reload),
+  //  3. else the registry's last-used default (a fresh tab).
+  const sessionId = getTabActiveAccountId()
+  const sessionIsLive = sessionId !== null && registryCache.accounts.some((a) => a.id === sessionId)
+  const resolvedTabId = launchAccountId ?? (sessionIsLive ? sessionId : registryCache.activeAccountId)
+  activeAccountIdForSession = resolvedTabId
+  // Pin the tab so a same-tab reload (F5, the account-switch reload) stays on this account.
+  setTabActiveAccountId(resolvedTabId)
+  // Stamp activity on the account this TAB is editing (not the registry default).
+  const active = registryCache.accounts.find((a) => a.id === resolvedTabId)
   if (active) active.lastActiveAt = nowIso()
   persistRegistry()
   stripLaunchParamsFromUrl()
@@ -459,6 +520,7 @@ export const ensureAccountsInitialized = (): void => {
 export const __resetAccountsForTests = (): void => {
   initialized = false
   registryCache = null
+  activeAccountIdForSession = null
   registryVersion = 0
   listeners.clear()
 }
@@ -475,10 +537,15 @@ export const getAccountRegistry = (): SfcAccountRegistry => {
 
 export const getAccounts = (): readonly SfcAccount[] => getAccountRegistry().accounts
 
+// THIS TAB's active account (not necessarily the registry's last-used default). Used by
+// the UI, the background-push guard (which must skip the doc THIS tab has open), and the
+// inbound-stamp routing. activeAccountIdForSession is seeded at boot; fall back to the
+// registry default then the most-recent account so this never returns undefined.
 export const getActiveAccount = (): SfcAccount => {
   const registry = getAccountRegistry()
-  // Registry invariants guarantee the active id resolves; fall back defensively anyway.
-  return registry.accounts.find((a) => a.id === registry.activeAccountId) ?? mostRecent(registry.accounts)
+  const tabId = activeAccountIdForSession ?? registry.activeAccountId
+  // Registry invariants guarantee the id resolves; fall back defensively anyway.
+  return registry.accounts.find((a) => a.id === tabId) ?? mostRecent(registry.accounts)
 }
 
 // ---------------------------------------------------------------------------
@@ -577,10 +644,11 @@ export const bindHelperAccount = (id: string, helperAccountId: string | undefine
 
 /**
  * Delete an account and every `sellfileCreator.acc.<id>.*` key it owns.
- * Refuses to delete the last remaining account. Deleting the active account
- * activates the most recently used survivor; the CALLER must reload afterwards
- * (all in-memory stores still hold the deleted account's session state).
- * Returns true when a reload is required (the active account changed).
+ * Refuses to delete the last remaining account. Deleting the account THIS TAB is editing
+ * repoints the tab (and the registry default, if it pointed there too) to the most recently
+ * used survivor; the CALLER must reload afterwards (all in-memory stores still hold the
+ * deleted account's session state). Returns true when a reload is required — i.e. the tab
+ * was editing the deleted account.
  */
 export const deleteAccount = (id: string): boolean => {
   const registry = getAccountRegistry()
@@ -600,23 +668,43 @@ export const deleteAccount = (id: string): boolean => {
   } catch {
     // Storage unavailable — registry entry is gone either way; orphans are harmless.
   }
-  const wasActive = registry.activeAccountId === id
-  if (wasActive) registry.activeAccountId = mostRecent(registry.accounts).id
-  persistRegistry()
+  const survivorId = mostRecent(registry.accounts).id
+  // Repoint the registry default if it named the deleted account (a fresh tab must not
+  // boot into a gone account).
+  if (registry.activeAccountId === id) registry.activeAccountId = survivorId
+  // Reload only when THIS TAB was editing the deleted account; repoint the tab's session id
+  // to the survivor so the reload boots onto a live account.
+  const tabWasEditing = (activeAccountIdForSession ?? registry.activeAccountId) === id
+  if (tabWasEditing) {
+    activeAccountIdForSession = survivorId
+    setTabActiveAccountId(survivorId)
+  }
+  // Signal the delete intent to persistRegistry's merge so it drops this id from the stored
+  // registry even if another tab wrote a newer snapshot that still contains it.
+  persistRegistry({ deletedIds: [id] })
   notify()
-  return wasActive
+  return tabWasEditing
 }
 
 /**
- * Make another account active. Only writes the registry — the CALLER performs the
- * `location.reload()`. A full reload is deliberate: dozens of stores, the autosave
- * debouncers, and the WASM pipeline all assume one document per session, so an
- * in-place swap could bleed state across accounts.
+ * Make another account active for THIS TAB. Pins the tab's session id (so the caller's
+ * reload boots onto the new account) and updates the registry's last-used default. Only
+ * writes storage — the CALLER performs the `location.reload()`. A full reload is
+ * deliberate: dozens of stores, the autosave debouncers, and the WASM pipeline all assume
+ * one document per session, so an in-place swap could bleed state across accounts. Other
+ * tabs are untouched — each keeps editing its own account.
  */
 export const switchAccount = (id: string): void => {
   const registry = getAccountRegistry()
   const account = registry.accounts.find((a) => a.id === id)
-  if (!account || registry.activeAccountId === id) return
+  // Guard on the TAB's account, not the registry default — a second tab may have moved the
+  // default while this tab still edits its own account, and switching must still work.
+  if (!account || activeAccountIdForSession === id) return
+  // Update the in-session tab id (source of truth for getActiveAccount/key resolution while
+  // this session runs) AND pin the session marker so the caller's reload lands on the new
+  // account even if the registry write races another tab; then update the fresh-tab default.
+  activeAccountIdForSession = id
+  setTabActiveAccountId(id)
   registry.activeAccountId = id
   account.lastActiveAt = nowIso()
   persistRegistry()
