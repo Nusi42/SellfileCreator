@@ -28,7 +28,7 @@ import { buildRecipeOverridesEbnfText, buildSafeguardOverridesEbnfText } from '.
 import { snapInsertionOffset } from '../lib/overridesDraft'
 import { NoteOverridesEditButton } from './noteOverridesEditor/NoteOverridesEditButton'
 import { NoteOverridesBlockEditorDialog, type NoteOverridesBlockEditorRequest } from './noteOverridesEditor/NoteOverridesBlockEditorDialog'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
+import { APP_EDGE_GAP_PX, FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX, NOTE_PANEL_SNAP_KEY, FONT_FAMILY_MONO, SIMPLE_MODE_TRANSITION_MS, SIMPLE_NOTE_DIALOG_HEIGHT, SIMPLE_NOTE_DIALOG_WIDTH, SIMPLE_NOTE_DIALOG_MIN_WIDTH, NOTE_DIALOG_LG_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { appZoomCompensatedLength, getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
@@ -4939,9 +4939,13 @@ export default function NoteDialog({
     if (panel.dataset['gesture']) return
     const zoom = getAppZoom()
     // drawerLeftPx is visual px (from getBoundingClientRect); convert to CSS px.
+    // Right snap reserves the app edge gap (APP_EDGE_GAP_PX, CSS px) so the panel's right edge sits
+    // inside the gap, mirroring the left snap (which inherits the gap via drawerLeftPx — the builder
+    // column's own inset left edge). Without it the right-snapped panel butts against the true
+    // viewport edge and the gap looks asymmetric.
     const cssLeft = panelSide === 'left'
       ? (drawerLeftPx ?? 0) / zoom
-      : window.innerWidth / zoom - panelWidth
+      : window.innerWidth / zoom - panelWidth - APP_EDGE_GAP_PX
     panel.style.setProperty('left', `${Math.max(0, cssLeft)}px`)
     panel.style.setProperty('width', `${panelWidth}px`)
   }, [useFloatingPanel, panelSide, panelWidth, drawerLeftPx])
@@ -4997,12 +5001,14 @@ export default function NoteDialog({
       const dxCss = (e.clientX - mouseX) / zoom
       const viewCssW = window.innerWidth / zoom
       if (handle === 'right') {
-        const newCssW = Math.max(PANEL_MIN_WIDTH_PX, Math.min(viewCssW - startCssLeft - 10, startWidth + dxCss))
+        // Growing the right (free) edge stops at the app edge gap so it never crosses into the gap.
+        const newCssW = Math.max(PANEL_MIN_WIDTH_PX, Math.min(viewCssW - startCssLeft - APP_EDGE_GAP_PX, startWidth + dxCss))
         panel.style.setProperty('left', `${startCssLeft}px`)
         panel.style.setProperty('width', `${newCssW}px`)
       } else {
         const rightCssEdge = startCssLeft + startWidth
-        const newCssLeft = Math.max(0, Math.min(rightCssEdge - PANEL_MIN_WIDTH_PX, startCssLeft + dxCss))
+        // Growing the left (free) edge stops at the app edge gap, mirroring the right-handle clamp.
+        const newCssLeft = Math.max(APP_EDGE_GAP_PX, Math.min(rightCssEdge - PANEL_MIN_WIDTH_PX, startCssLeft + dxCss))
         panel.style.setProperty('left', `${newCssLeft}px`)
         panel.style.setProperty('width', `${rightCssEdge - newCssLeft}px`)
       }
@@ -5024,7 +5030,7 @@ export default function NoteDialog({
       const currentCssWidth = panelWidthRef.current
       const snapCssLeft = newSide === 'left'
         ? (drawerLeftPxRef.current ?? 0) / zoom
-        : Math.max(0, window.innerWidth / zoom - currentCssWidth)
+        : Math.max(0, window.innerWidth / zoom - currentCssWidth - APP_EDGE_GAP_PX)
       panel.style.setProperty('left', `${snapCssLeft}px`)
       setPanelSide(newSide)
       savePanelSnap({ side: newSide, width: currentCssWidth })
@@ -5039,7 +5045,7 @@ export default function NoteDialog({
       const snapSide = panelSideRef.current
       const snapCssLeft = snapSide === 'left'
         ? (drawerLeftPxRef.current ?? 0) / zoom
-        : Math.max(0, window.innerWidth / zoom - newCssWidth)
+        : Math.max(0, window.innerWidth / zoom - newCssWidth - APP_EDGE_GAP_PX)
       panel.style.setProperty('left', `${snapCssLeft}px`)
       panel.style.setProperty('width', `${newCssWidth}px`)
       setPanelWidth(newCssWidth)
@@ -5409,7 +5415,10 @@ export default function NoteDialog({
           sx={{
             position: 'fixed',
             top: drawerTopPx ?? 0,
-            bottom: 0,
+            // Reserve the app edge gap at the bottom so the panel stops inside the gap, matching the
+            // left/right snap insets. In CSS px (the panel's own pre-zoom space); it scales with the
+            // #root zoom to the same visual gap as the #root bottom padding.
+            bottom: APP_EDGE_GAP_PX,
             zIndex: (theme) => theme.zIndex.modal,
             ...NOTE_DRAWER_PAPER_SX,
             // Authoritative width driven by panelWidth state. Without this the Paper has no width
@@ -5426,7 +5435,9 @@ export default function NoteDialog({
             // by --app-zoom pre-compensates: (100vw / z) × z = the full viewport. This also puts
             // the cap in the same CSS-px space as panelWidth and the resize/clamp effects'
             // viewCssW = innerWidth / zoom. Falls back to 1 (no zoom) before the hook's first write.
-            maxWidth: 'calc(100vw / var(--app-zoom, 1))',
+            // Subtract 2×APP_EDGE_GAP_PX (CSS px, one gap per edge) so the cap leaves the app edge gap
+            // on both sides — the panel can never grow flush to the true viewport edge.
+            maxWidth: `calc(100vw / var(--app-zoom, 1) - ${APP_EDGE_GAP_PX * 2}px)`,
             flexShrink: 0,
             boxSizing: 'border-box',
             overscrollBehavior: 'contain',

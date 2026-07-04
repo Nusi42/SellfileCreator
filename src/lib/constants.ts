@@ -253,6 +253,13 @@ export const RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX = 26
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const GRID_COLUMN_GAP_PX = 16
+// Fixed decorative inset around the whole app, on every edge (px). #root owns the vertical scroll
+// and reserves a stable gutter on BOTH sides (scrollbar-gutter: stable both-edges), so the app's own
+// scrollbar — which should virtually never appear — renders inside this gap and never reflows content
+// or shifts the symmetric layout. Sized to comfortably hold even Firefox's non-thin scrollbar (it
+// matches FIREFOX_SCROLLBAR_GUTTER_PX in lib/scrollbar.ts). Scales with the #root CSS zoom in forced
+// side-by-side mode, so the gap stays visually proportional to the shrunken canvas.
+export const APP_EDGE_GAP_PX = 16
 // Comfortable width of a single builder/preview panel in side-by-side. The two-panel canvas width
 // below is derived from this so the relationship stays explicit — change this and the canvas follows.
 export const SIDE_BY_SIDE_PANEL_WIDTH_PX = 1116

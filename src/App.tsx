@@ -64,6 +64,7 @@ import {
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
   GRID_COLUMN_GAP_PX,
+  APP_EDGE_GAP_PX,
   PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
   SMALL_BUTTON_HEIGHT_PX,
@@ -9281,12 +9282,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // the full-bleed 100vw header/canvas elements include the scrollbar gutter,
         // so any momentary vertical scrollbar used to spawn a horizontal one too.
         // Unlike 'hidden', 'clip' forbids ALL horizontal scrolling without creating
-        // a scroll container. Deliberately NO scrollbar-gutter:stable here: the
+        // a scroll container. Deliberately NO scrollbar-gutter:stable on html: the
         // forced-SBS canvas and the 100vw spans size against the FULL viewport
         // width, so a permanently reserved gutter shrinks clientWidth under them
         // and this clip then cuts off their right edge once the zoom applies.
+        // Vertical scroll is OWNED BY #root (see below), so html/body never scroll —
+        // pinning them keeps the app scrollbar off the true viewport edge and inside
+        // the decorative gap instead.
         html: {
           overflowX: 'clip',
+          overflowY: 'hidden',
+        },
+        body: {
+          overflowY: 'hidden',
+        },
+        // #root is the app's single vertical scroll container and carries the fixed
+        // decorative edge gap. scrollbar-gutter:stable both-edges reserves symmetric
+        // space on BOTH sides so the (virtually never shown) app scrollbar renders
+        // inside the gap and never reflows content or breaks the left/right symmetry.
+        // Reserving the gutter on #root is safe where reserving it on html was not:
+        // the forced-SBS zoom math and the 100vw full-bleed spans size against
+        // documentElement (html) clientWidth, NOT #root's, so shrinking #root's
+        // content box here does not clip them. The padding + zoom scale together, so
+        // the gap stays proportional to the shrunken canvas in forced side-by-side.
+        '#root': {
+          height: '100%',
+          overflowY: 'auto',
+          overflowX: 'clip',
+          scrollbarGutter: 'stable both-edges',
+          padding: `${APP_EDGE_GAP_PX}px`,
         },
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
@@ -9340,31 +9364,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           mb: 1,
           // Hide the full header when in express simple mode.
           ...(isSimpleView ? { display: 'none' } : {}),
-          // Side-by-side: escape the MUI Container max-width cap so the header spans
-          // the full two-panel width. Single-column: fill the Container width, same as
-          // the BuilderColumn paper (which uses maxWidth:none / width:100%).
+          // Side-by-side: fill #root's (gap-inset) content box so the header spans the full
+          // two-panel width WITHIN the app edge gap. Single-column: fill the Container width,
+          // same as the BuilderColumn paper (which uses maxWidth:none / width:100%).
           // Forced mode: match the dynamic canvas width so the header spans exactly the two-panel
           // canvas (widens past the target when height drove the zoom, so no side bars).
+          // Native mode uses 100% (not 100vw) so the full-bleed span stops at the edge gap
+          // instead of reaching the true viewport edge and covering it.
           width: (isSideBySide || forceSideBySideLayout)
-            ? (forceSideBySideLayout ? `${sideBySideCanvasWidthPx}px` : '100vw')
+            ? (forceSideBySideLayout ? `${sideBySideCanvasWidthPx}px` : '100%')
             : '100%',
           maxWidth: 'none',
           mx: 0,
-          ...(isSideBySide || forceSideBySideLayout
+          ...(forceSideBySideLayout
             ? {
+                // Forced canvas is a fixed px width centered in #root's content box, then zoomed.
                 position: 'relative',
                 left: '50%',
                 transform: 'translateX(-50%)',
               }
             : {}),
-          // Flash-guard: mirror the native side-by-side escape before React's state fires.
+          // Flash-guard: mirror the native side-by-side layout before React's state fires.
           [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
-            width: '100vw',
+            width: '100%',
             maxWidth: 'none',
             mx: 0,
-            position: 'relative',
-            left: '50%',
-            transform: 'translateX(-50%)',
           },
         }}
       >
@@ -9446,9 +9470,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ...(isSideBySide && forceSideBySideLayout
               ? {
                   // Forced-zoom path: the canvas is rendered at sideBySideCanvasWidthPx and then
-                  // scaled by the zoom. canvasWidthPx = viewportW / zoom, so after scaling it fills
-                  // the viewport exactly — it equals the target when width is binding, and widens
-                  // when height drove the zoom so the spare width is used instead of left as side bars.
+                  // scaled by the zoom. canvasWidthPx = (viewportW − 2·gap) / zoom, so after scaling
+                  // it fills the gap-inset viewport exactly — target width when width is binding, and
+                  // wider when height drove the zoom so the spare width is used instead of side bars.
+                  // Centered in #root's content box (which the app edge gap already insets).
                   flexDirection: 'row',
                   // stretch so the splitter can fill the height of the taller panel.
                   alignItems: 'stretch',
@@ -9459,16 +9484,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
               : isSideBySide
                 ? {
-                    // Native side-by-side: escape the MUI Container's max-width cap so the panels
-                    // can fill the full viewport width. `left:50%` shifts right by half the
-                    // Container width; `translateX(-50%)` shifts left by half the element's own
-                    // width (100vw), netting the element's left edge at the viewport left edge.
+                    // Native side-by-side: fill #root's (gap-inset) content box. The panels stop at
+                    // the app edge gap instead of the true viewport edge, so the decorative gap and
+                    // the app scrollbar gutter stay clear on both sides.
                     flexDirection: 'row',
                     alignItems: 'stretch',
-                    position: 'relative',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '100vw',
+                    width: '100%',
                   }
                 : {}),
             // Flash-guard media query mirrors the native fluid side-by-side layout for the
@@ -9477,10 +9498,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               display: 'flex',
               flexDirection: 'row',
               alignItems: 'stretch',
-              position: 'relative',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '100vw',
+              width: '100%',
             },
           }}
           ref={splitterContainerRef}

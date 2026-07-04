@@ -278,9 +278,12 @@ export function TutorialCoach({
 	    const onResize = () => compute()
 	    const onScroll = () => compute()
     window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, { passive: true })
+    // Capture-phase so this also fires when a nested scroll container scrolls — the app's own vertical
+    // scroll is owned by #root (not the window), and tutorial targets often live inside inner scrollers,
+    // so a non-capture window 'scroll' would never see either and the spotlight rect would go stale.
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
     const id = window.setInterval(compute, 250)
-    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
+    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll, { capture: true }); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
   // Adjust navLocked and clear refs at render time when open/stepIndex changes.
   const openStepKey = `${open}|${stepIndex}`

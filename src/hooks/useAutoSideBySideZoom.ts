@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useEffect, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 
-import { SIDE_BY_SIDE_TARGET_WIDTH_PX } from '../lib/constants'
+import { APP_EDGE_GAP_PX, SIDE_BY_SIDE_TARGET_WIDTH_PX } from '../lib/constants'
 import { APP_ZOOM_CSS_VAR, resolveSideBySideZoom } from '../lib/sideBySideZoom'
 import type { ResolveSideBySideZoomOptions } from '../lib/sideBySideZoom'
 
@@ -102,10 +102,15 @@ export function useAutoSideBySideZoom({ suppressedRef, settingsRef }: UseAutoSid
       // documentElement (<html>) clientWidth/Height give the viewport minus scrollbar gutters, so the
       // zoomed canvas never overflows. (Distinct from `root`, the #root element zoom is applied to.)
       const docEl = document.documentElement
+      // Fit the canvas into the viewport MINUS the fixed app edge gap on every side, so the scaled
+      // forced canvas leaves the same decorative gap that #root's padding gives the non-forced layout.
+      // Both dimensions lose 2·gap (one gap per edge). Clamp at 1px so tiny viewports don't go ≤ 0.
+      const availWidth = Math.max(1, docEl.clientWidth - APP_EDGE_GAP_PX * 2)
+      const availHeight = Math.max(1, docEl.clientHeight - APP_EDGE_GAP_PX * 2)
       // Thread the live enabled/cutoff settings; when disabled the decision falls through to the
       // native breakpoint layout (forceSideBySide:false, zoom 1).
       const decision = resolveSideBySideZoom(
-        { width: docEl.clientWidth, height: docEl.clientHeight },
+        { width: availWidth, height: availHeight },
         settingsRef?.current,
       )
       // 4 decimals is plenty of precision for a CSS zoom and keeps state-change comparisons stable.

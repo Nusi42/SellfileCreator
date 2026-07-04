@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
+  APP_EDGE_GAP_PX,
   BUILDER_RECIPE_CHIPS_DEFAULT_MAX_HEIGHT_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
@@ -58,7 +59,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   // scrollbar flash before the accurate rAF measurement fires and refines the value.
   const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(() => {
     if (!forceSideBySide || typeof window === 'undefined') return 0
-    const vh = window.innerHeight ?? 0
+    // Reserve the app edge gap on BOTH vertical edges: #root owns the scroll and carries a top+bottom
+    // gap (APP_EDGE_GAP_PX each), so the papers must fit within #root's content box — not the raw
+    // viewport — or they overflow it by the gap and spawn the (unwanted) app scrollbar.
+    const vh = (window.innerHeight ?? 0) - APP_EDGE_GAP_PX * 2
     // Seed with the live/derived zoom so the maxHeight constraint is correct from the first render.
     const zoom = getCurrentSideBySideZoom(forceSideBySide)
     return Math.max(0, Math.floor(vh / zoom - BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX))
@@ -164,7 +168,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     const paper = leftPaperRef.current
     if (!paper || typeof window === 'undefined') return
     try {
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
+      // Subtract the bottom app edge gap: #root's content box ends APP_EDGE_GAP_PX above the true
+      // viewport bottom (the top gap is already reflected in paperRect.top below). Filling to the raw
+      // viewport bottom would overshoot #root's scroll box by the gap and spawn the app scrollbar.
+      const viewportHeight = (window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0) - APP_EDGE_GAP_PX
       const paperRect = paper.getBoundingClientRect()
       // In forceSideBySide mode, CSS zoom is applied to #root. getBoundingClientRect() returns
       // visual (zoomed) coordinates while window.innerHeight / visualViewport.height are CSS pixels.
