@@ -1672,6 +1672,7 @@ const enUS: Catalog = {
   noteOverridesEditorOperationValue: "Value",
   noteOverridesEditorOperationInvalid: "Not a valid assignment",
   noteOverridesEditorAddOperation: "Add assignment",
+  noteOverridesEditorOperationRequired: "Add an assignment to make this rule do something",
   noteOverridesEditorRawToggle: "Raw DSL",
   noteOverridesEditorRawHelper: "Verbatim { ... } body text",
   noteOverridesEditorStructuredToggle: "Switch to visual builder",

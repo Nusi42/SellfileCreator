@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Değer",
   noteOverridesEditorOperationInvalid: "Geçersiz atama",
   noteOverridesEditorAddOperation: "Atama ekle",
+  noteOverridesEditorOperationRequired: "Bu kuralın bir işe yaraması için bir atama ekleyin",
   noteOverridesEditorRawToggle: "Ham DSL",
   noteOverridesEditorRawHelper: "Birebir { ... } gövde metni",
   noteOverridesEditorStructuredToggle: "Görsel oluşturucuya geç",

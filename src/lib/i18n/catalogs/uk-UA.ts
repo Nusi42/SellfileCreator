@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Значення",
   noteOverridesEditorOperationInvalid: "Неприпустиме присвоєння",
   noteOverridesEditorAddOperation: "Додати присвоєння",
+  noteOverridesEditorOperationRequired: "Додайте присвоєння, щоб це правило щось робило",
   noteOverridesEditorRawToggle: "Сирий DSL",
   noteOverridesEditorRawHelper: "Дослівний текст тіла { ... }",
   noteOverridesEditorStructuredToggle: "Перейти до візуального конструктора",

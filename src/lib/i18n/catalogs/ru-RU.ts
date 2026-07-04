@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Значение",
   noteOverridesEditorOperationInvalid: "Недопустимое присваивание",
   noteOverridesEditorAddOperation: "Добавить присваивание",
+  noteOverridesEditorOperationRequired: "Добавьте присваивание, чтобы это правило что-то делало",
   noteOverridesEditorRawToggle: "Сырой DSL",
   noteOverridesEditorRawHelper: "Дословный текст тела { ... }",
   noteOverridesEditorStructuredToggle: "Переключиться на визуальный конструктор",

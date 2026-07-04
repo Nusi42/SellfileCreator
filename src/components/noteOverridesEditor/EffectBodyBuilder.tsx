@@ -14,12 +14,16 @@ import { Fragment, useCallback, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import {
   Autocomplete, Box, Button, Chip, Divider, IconButton, MenuItem, Select, TextField,
-  ToggleButton, ToggleButtonGroup, Tooltip, Typography,
+  ToggleButton, ToggleButtonGroup, Tooltip, Typography, alpha,
 } from '@mui/material'
+// Fixed JS alpha for the empty-block warning wash (SSOT — no inline magic numbers).
+import { ALPHA } from '../../lib/colorTints'
 import AddIcon from '@mui/icons-material/Add'
 import CloseIcon from '@mui/icons-material/Close'
 import CodeIcon from '@mui/icons-material/Code'
 import TuneIcon from '@mui/icons-material/Tune'
+// Points at the add-operation button when a block still needs its first assignment.
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useI18n } from '../../lib/i18n'
 import type { I18nKey, TranslateFn } from '../../lib/i18n'
 // Shared domain selects: closed-vocabulary values render through the SAME controls
@@ -692,6 +696,11 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
     ? parseTokenListValues(opRow.value, opListChoices)
     : null
 
+  // A block with no assignments is invalid (the serializer rejects it — "selector
+  // block has no operations" — which blocks Apply). Flag it so the add-operation
+  // button reads as the required next action instead of an ordinary control.
+  const needsOperation = block.operations.length === 0
+
   // Domain-preserving selector commit (keeps the discriminated union intact).
   const commitSelector = useCallback((selector: AnyOverridesSelector) => {
     if (block.domain === 'recipe') onChange({ ...block, selector: selector as RecipeOverridesSelector })
@@ -773,7 +782,20 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
 
   return (
     // Subtle inset surface so each rule block reads as one unit inside the option card.
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.25, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'background.default' }}>
+    // An empty block is invalid, so it gets a warning-tinted border + wash to read as
+    // "unfinished" at a glance (semantic theme tokens — no magic colours).
+    <Box sx={{
+      border: '1px solid',
+      borderColor: needsOperation ? 'warning.main' : 'divider',
+      borderRadius: 1,
+      p: 1.25,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+      bgcolor: needsOperation
+        ? (theme) => alpha(theme.palette.warning.main, ALPHA.a12)
+        : 'background.default',
+    }}>
       {/* Block header: caption, and/or connective, editor-mode toggle, remove. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
@@ -880,6 +902,17 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
               sx={{ '& .MuiChip-label': { fontFamily: 'monospace', fontSize: '0.72rem' } }}
             />
           ))}
+        </Box>
+      )}
+      {/* Persistent (not hover-only) call-to-action while the block has no assignment:
+          the block above is invalid until one is added, so spell it out and point at
+          the add button on the row below. */}
+      {needsOperation && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main' }}>
+          <ArrowForwardIcon sx={{ fontSize: '1rem' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            {t('noteOverridesEditorOperationRequired')}
+          </Typography>
         </Box>
       )}
       {/* Add / edit one operation: field dropdown + typed value widgets, all
@@ -1010,9 +1043,25 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
             helperText={opError ? t('noteOverridesEditorOperationInvalid') : undefined}
           />
         )}
-        <Tooltip title={t('noteOverridesEditorAddOperation')}>
+        {/* When the block still has no assignment, this `+` is the required next action:
+            the warning callout above points here, and the button gets a matching filled
+            warning circle so it reads as the CTA that resolves the error. */}
+        <Tooltip title={t(needsOperation ? 'noteOverridesEditorOperationRequired' : 'noteOverridesEditorAddOperation')}>
           <span>
-            <IconButton size="small" onClick={commitOperation} disabled={!opRow.value.trim() || opError} aria-label={t('noteOverridesEditorAddOperation')} data-testid="overrides-editor-op-add">
+            <IconButton
+              size="small"
+              onClick={commitOperation}
+              disabled={!opRow.value.trim() || opError}
+              color={needsOperation ? 'warning' : 'default'}
+              aria-label={t(needsOperation ? 'noteOverridesEditorOperationRequired' : 'noteOverridesEditorAddOperation')}
+              data-testid="overrides-editor-op-add"
+              sx={needsOperation ? {
+                // Filled warning circle so an empty block's add button stands out as the
+                // CTA (semantic theme token + the shared ALPHA scale — no magic numbers).
+                bgcolor: (theme) => alpha(theme.palette.warning.main, ALPHA.a20),
+                '&:hover': { bgcolor: (theme) => alpha(theme.palette.warning.main, ALPHA.a30) },
+              } : undefined}
+            >
               <AddIcon fontSize="small" />
             </IconButton>
           </span>

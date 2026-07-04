@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Valeur",
   noteOverridesEditorOperationInvalid: "Affectation invalide",
   noteOverridesEditorAddOperation: "Ajouter une affectation",
+  noteOverridesEditorOperationRequired: "Ajoutez une affectation pour que cette règle fasse quelque chose",
   noteOverridesEditorRawToggle: "DSL brut",
   noteOverridesEditorRawHelper: "Texte du corps { ... } tel quel",
   noteOverridesEditorStructuredToggle: "Passer à l'éditeur visuel",

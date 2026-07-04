@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Valor",
   noteOverridesEditorOperationInvalid: "Asignación no válida",
   noteOverridesEditorAddOperation: "Añadir asignación",
+  noteOverridesEditorOperationRequired: "Añade una asignación para que esta regla haga algo",
   noteOverridesEditorRawToggle: "DSL sin procesar",
   noteOverridesEditorRawHelper: "Texto literal del cuerpo { ... }",
   noteOverridesEditorStructuredToggle: "Cambiar al editor visual",

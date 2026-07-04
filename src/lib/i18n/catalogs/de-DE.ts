@@ -1672,6 +1672,7 @@ const overrides: Catalog = {
   noteOverridesEditorOperationValue: "Wert",
   noteOverridesEditorOperationInvalid: "Keine gültige Zuweisung",
   noteOverridesEditorAddOperation: "Zuweisung hinzufügen",
+  noteOverridesEditorOperationRequired: "Füge eine Zuweisung hinzu, damit diese Regel etwas bewirkt",
   noteOverridesEditorRawToggle: "Roh-DSL",
   noteOverridesEditorRawHelper: "Wörtlicher { ... }-Rumpftext",
   noteOverridesEditorStructuredToggle: "Zum visuellen Builder wechseln",
