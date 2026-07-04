@@ -3,10 +3,9 @@ node_modules/
 npm-debug.log*
 package-lock.json
 
-# Vite/Tauri builds
+# Vite builds
 dist.app/
 dist.web/
-src-tauri/target/
 wasm/target/
 # ts-rs default fallback dir if TS_RS_EXPORT_DIR is unset (e.g. when a dev runs
 # `cargo test -p rule_engine_core` directly instead of `npm run wasm:ensure:rule-engine`).

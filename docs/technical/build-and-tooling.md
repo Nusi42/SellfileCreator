@@ -476,28 +476,3 @@ Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on s
 3. **Gate the release** — Before packaging, confirm `docs/HISTORY.txt` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
 
 Claude inspects diffs, not just commit messages — some commits run thousands of lines, which is why the chunker budgets by changed lines rather than commit count. Large asset updates under `examples/` are skipped unless they change player-facing behaviour. The final notes list English bullets first, then German translations covering the same points.
-
-## Desktop App (Tauri)
-
-This project includes a Tauri v2 desktop wrapper in `src-tauri` that loads the existing Vite app.
-
-- Prerequisites:
-  - Rust (stable toolchain) and a C compiler. On Windows, install Visual Studio Build Tools and ensure the WebView2 Runtime is present.
-  - Node.js 20.19+ (for Vite) and `@tauri-apps/cli` (installed by `npm install`).
-
-- Development (opens a desktop window and runs Vite dev server):
-
-```bash
-npm install
-npm run tauri:dev
-```
-
-- Build a release desktop app (creates platform installers):
-
-```bash
-npm run tauri:build
-```
-
-Notes:
-- Tauri config (`src-tauri/tauri.conf.json`) uses `npm run dev` for development and the Vite `dist` output for production builds.
-- If you need native capabilities (filesystem, shell, tray, etc.), add Tauri v2 plugins and capabilities later.

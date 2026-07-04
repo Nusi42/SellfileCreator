@@ -16,7 +16,6 @@ export default [
       'dist.app/**',
       'dist.web/**',
       'node_modules/**',
-      'src-tauri/**',
       'tmp/tsc/**',
       'scripts/.tmp/**',
       'docs/reference/**',
