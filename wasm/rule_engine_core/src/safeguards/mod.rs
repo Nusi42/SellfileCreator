@@ -17,6 +17,9 @@ pub mod improvement_chance;
 // Improvement-watch corner synthesis: post-detection pass that turns zero-missing
 // "watch" placeholders into minimal-substat-value corner frontiers (or removes them).
 mod improvement_watch;
+// Re-export the watch perf-diag host hooks so rule_engine_wasm can inject console.log
+// + performance.now at module start (core cannot bind them on wasm32 by itself).
+pub use improvement_watch::{set_watch_diag_hooks, WatchDiagHooks};
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -530,7 +533,10 @@ pub struct SafeguardWasmCandidateOut {
 
 // ts-rs export: one substat threshold of an improvement-watch corner rule.
 // min_value is an absolute raw stat value compared with `>=` semantics at merge time.
-#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+// Always a whole number: gear substats only roll integers, so decimal thresholds are
+// fake precision — corners are integerized and probe-verified in improvement_watch.rs.
+// PartialEq: corner equality drives the cross-group cache test assertions.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWatchCornerSubstatOut {
@@ -539,15 +545,20 @@ pub struct SafeguardWatchCornerSubstatOut {
 }
 
 // ts-rs export: one minimal-viable "corner" on the improvement-watch frontier.
-// Each corner pins one exact (rank, rarity, level) cell plus per-substat value floors;
-// merge-time emission turns every corner into one combination-pinned HSF keep rule so
-// only drops whose improvement chance clears the rule threshold stay protected.
-#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+// Each corner pins one exact rank + a contiguous rarity run + one level milestone plus
+// per-substat value floors; merge-time emission turns every corner into HSF keep rules
+// so only drops whose improvement chance clears the rule threshold stay protected.
+// PartialEq: corner equality drives the cross-group cache test assertions.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWatchCornerOut {
     pub rank: i64,
-    pub rarity: i64,
+    // Sorted-ascending CONTIGUOUS rarity run this corner covers. Rarity only affects the
+    // substat reveal schedule (roll values depend on rank), so per-rarity frontiers often
+    // coincide — always at +16 — and improvement_watch.rs consolidates them into runs.
+    // Emission maps a run onto HSF rarity codes via safeguard_consolidate_rarity_codes.
+    pub rarities: Vec<i64>,
     pub level: i64,
     pub substats: Vec<SafeguardWatchCornerSubstatOut>,
 }
@@ -2194,25 +2205,30 @@ fn safeguard_build_placeholder_rules(
                     if possible.is_empty() && !corner.substats.is_empty() {
                         continue;
                     }
-                    // One HSF keep rule per corner: exact rank/rarity/level pins plus the
+                    // One HSF keep rule per corner × rarity code: exact rank/level pins,
+                    // the corner's rarity run consolidated through the shared placeholder
+                    // helper (single rarity → exact code; contiguous run ending at max →
+                    // one GTE code; other runs → one exact code per value), plus the
                     // `>=` substat floors that make the drop's improvement chance viable.
-                    let mut corner_rule = base_rule.clone();
-                    corner_rule.Rank = Some(safeguard_clamp_rank_or_rarity_value(corner.rank));
-                    corner_rule.Rarity = Some(safeguard_rarity_value_to_code(corner.rarity));
-                    corner_rule.LVLForCheck = Some(corner.level);
-                    corner_rule.Substats = Some(safeguard_build_watch_corner_substats(&possible));
-                    safeguard_apply_rule_meta(
-                        &mut corner_rule,
-                        normalized_rule_id,
-                        safeguard_rule_ordinal,
-                        &hash,
-                        entry,
-                        scanned_at,
-                    );
-                    // Keep the placeholder metadata so exports stay attributable in diffs.
-                    corner_rule.safeguard_placeholder = Some(true);
-                    corner_rule.safeguard_placeholder_missing = Some(0);
-                    rules.push(corner_rule);
+                    for rarity_code in safeguard_consolidate_rarity_codes(&corner.rarities) {
+                        let mut corner_rule = base_rule.clone();
+                        corner_rule.Rank = Some(safeguard_clamp_rank_or_rarity_value(corner.rank));
+                        corner_rule.Rarity = Some(rarity_code);
+                        corner_rule.LVLForCheck = Some(corner.level);
+                        corner_rule.Substats = Some(safeguard_build_watch_corner_substats(&possible));
+                        safeguard_apply_rule_meta(
+                            &mut corner_rule,
+                            normalized_rule_id,
+                            safeguard_rule_ordinal,
+                            &hash,
+                            entry,
+                            scanned_at,
+                        );
+                        // Keep the placeholder metadata so exports stay attributable in diffs.
+                        corner_rule.safeguard_placeholder = Some(true);
+                        corner_rule.safeguard_placeholder_missing = Some(0);
+                        rules.push(corner_rule);
+                    }
                 }
             }
             continue;
@@ -2295,10 +2311,8 @@ fn safeguard_build_placeholder_rules(
                     // one AND-style grouped rule per combination. Each rule keeps a piece
                     // only when it has all N substats in that specific combination, so the
                     // union of all rules correctly keeps any piece with at least N matches.
-                    // Cap at 70 combinations (C(8,4)) to prevent rule-count explosion.
-                    const MAX_COMBINATIONS: usize = 70;
                     let combos = safeguard_combinations(&possible_substats, min_count);
-                    if combos.len() <= MAX_COMBINATIONS {
+                    if combos.len() <= SAFEGUARD_SUBSTAT_COMBINATION_CAP {
                         for combo in &combos {
                             let mut substat_rule = base_rule.clone();
                             substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(combo));
@@ -2351,6 +2365,12 @@ fn safeguard_build_placeholder_rules(
 }
 
 // pub(super) so improvement_chance can skip disabled rules using the shared token check.
+// SSOT cap for substat-combination enumeration: C(8, 4) = 70 covers the widest
+// legitimate focus set (8 substats, ≥4 match). Shared by the deficit-placeholder
+// emission above (skip AND-group expansion beyond the cap) and the improvement-watch
+// subset ranking (keep the top-weighted subsets) so the two paths can never drift.
+pub(super) const SAFEGUARD_SUBSTAT_COMBINATION_CAP: usize = 70;
+
 pub(super) fn safeguard_is_activation_off(raw: &str) -> bool {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -5622,25 +5642,36 @@ mod no_substat_protect_all_tests {
                 "zero-missing placeholders without corners must emit no rules ({activation})",
             );
         }
-        // With corners: one rule per corner, pinned to the corner's exact cell + floors.
+        // With corners: rules pinned to each corner's exact cell + floors. The rarity run
+        // consolidates through safeguard_consolidate_rarity_codes: singletons map to their
+        // exact code, a contiguous run ending at Mythical maps to one GTE code.
         let corners = vec![
             SafeguardWatchCornerOut {
                 rank: 6,
-                rarity: 5,
+                rarities: vec![5],
                 level: 8,
                 // RES is legal on amulets (SPD is not and would be possibility-filtered).
                 substats: vec![SafeguardWatchCornerSubstatOut {
                     variant: STAT_VARIANT_RES,
-                    min_value: 14.5,
+                    min_value: 14.0,
                 }],
             },
             SafeguardWatchCornerOut {
                 rank: 5,
-                rarity: 4,
+                rarities: vec![4],
                 level: 0,
                 substats: vec![SafeguardWatchCornerSubstatOut {
                     variant: STAT_VARIANT_ACC,
                     min_value: 9.0,
+                }],
+            },
+            SafeguardWatchCornerOut {
+                rank: 6,
+                rarities: vec![4, 5, 6],
+                level: 12,
+                substats: vec![SafeguardWatchCornerSubstatOut {
+                    variant: STAT_VARIANT_RES,
+                    min_value: 21.0,
                 }],
             },
         ];
@@ -5648,15 +5679,25 @@ mod no_substat_protect_all_tests {
         let watch_rules = safeguard_build_placeholder_rules(
             &make_rule(SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS), &corner_entry, -1, 1, None,
         );
+        // Every corner here maps to exactly ONE rarity code (exact codes for singleton
+        // runs; GTE_EPIC for the 4..6 run), so rules and corners still pair one-to-one.
         assert_eq!(
             watch_rules.len(),
             corners.len(),
-            "one emitted rule per corner (single base variant in this combination)",
+            "one emitted rule per corner (single base variant, single rarity code each)",
         );
-        for (rule, corner) in watch_rules.iter().zip(&corners) {
+        let expected_rarity_codes = [RARITY_CODE_LEGENDARY, RARITY_CODE_EPIC, RARITY_CODE_GTE_EPIC];
+        for ((rule, corner), expected_code) in
+            watch_rules.iter().zip(&corners).zip(expected_rarity_codes)
+        {
             // Corner cell pins override the base rule's rank/rarity/level.
             assert_eq!(rule.Rank, Some(safeguard_clamp_rank_or_rarity_value(corner.rank)));
-            assert_eq!(rule.Rarity, Some(safeguard_rarity_value_to_code(corner.rarity)));
+            assert_eq!(
+                rule.Rarity,
+                Some(expected_code),
+                "rarity run {:?} must consolidate to code {expected_code}",
+                corner.rarities,
+            );
             assert_eq!(rule.LVLForCheck, Some(corner.level));
             // First substat slot carries the corner floor with `>=` semantics.
             let subs = rule.Substats.as_ref().expect("corner rule must carry substats");

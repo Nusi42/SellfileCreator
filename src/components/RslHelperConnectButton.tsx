@@ -11,6 +11,7 @@ import React, { useRef, useState } from 'react'
 import { Box, Button, CircularProgress, IconButton, Popover, TextField } from '@mui/material'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
+import { NumberSpinnerAdornment, HIDE_NATIVE_NUMBER_SPINNER_SX } from './NumberSpinnerAdornment'
 import ContextMenuTitle from './ContextMenuTitle'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
@@ -88,8 +89,7 @@ export default function RslHelperConnectButton({
 
   // Apply the port immediately on every valid keystroke — no Save button needed,
   // matching the pattern used by other config popouts (e.g. Last Used range).
-  const handlePortChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value
+  const applyPortValue = (raw: string) => {
     setDraft(raw)
     const n = parseInt(raw, 10)
     if (!Number.isFinite(n) || n < 1 || n > 65535) return
@@ -100,6 +100,12 @@ export default function RslHelperConnectButton({
       localStorage.setItem(RSL_HELPER_PORT_STORAGE_KEY, String(n))
     }
     setPort(n)
+  }
+  const handlePortChange = (e: React.ChangeEvent<HTMLInputElement>) => applyPortValue(e.target.value)
+  // Spinner step shares the apply path; an invalid draft steps from the persisted port.
+  const stepPort = (delta: number) => {
+    const base = parsedDraft ?? port
+    applyPortValue(String(Math.min(65535, Math.max(1, base + delta))))
   }
 
   // Label text changes with state.
@@ -211,7 +217,20 @@ export default function RslHelperConnectButton({
           label={t('rslHelperPortLabel')}
           helperText={t('rslHelperPortHelper')}
           type="number"
-          slotProps={{ htmlInput: { min: 1, max: 65535, step: 1 } }}
+          slotProps={{
+            htmlInput: { min: 1, max: 65535, step: 1 },
+            // Shared custom spinner (SSOT with the Minima/Roll-Targets inputs) in place
+            // of the browser-native number arrows.
+            input: {
+              endAdornment: (
+                <NumberSpinnerAdornment
+                  ariaLabel={t('rslHelperPortLabel')}
+                  onStep={stepPort}
+                />
+              ),
+              sx: { ...HIDE_NATIVE_NUMBER_SPINNER_SX },
+            },
+          }}
           value={draft}
           onChange={handlePortChange}
           onKeyDown={(e) => { if (e.key === 'Enter' && parsedDraft !== null) closePopover() }}

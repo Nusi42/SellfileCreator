@@ -317,11 +317,15 @@ export const SIMPLE_NOTE_DIALOG_MIN_WIDTH = `min(${SIMPLE_NOTE_DIALOG_MIN_WIDTH_
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
 // Extremely broad recipes can explode into millions of permutations and stall the worker.
 // We surface a "≥ limit" hint instead of blocking the UI indefinitely.
-export const RULE_COUNT_LIMIT = 35_000
+// Raised 35k → 50k (2026-07): the gate-grouped matcher and WASM-resident pipeline made
+// large rulesets cheap enough that the old ceiling capped legitimate safeguard output.
+export const RULE_COUNT_LIMIT = 50_000
 
 // Global preview safeguard: cap the combined base + custom builder rules rendered at once.
 // Final Sell remainder rows are exempt so the toggle always reflects user intent.
-export const TOTAL_RULE_COUNT_LIMIT = 150_000
+// Raised 150k → 250k (2026-07) alongside RULE_COUNT_LIMIT: improvement-watch exports on
+// fully developed accounts legitimately exceed the old cap (~151k observed).
+export const TOTAL_RULE_COUNT_LIMIT = 250_000
 
 // Safeguard rule metadata: assign RecipeID values at or below this sentinel so they never collide
 // with builder-generated recipes (which map to positive IDs).

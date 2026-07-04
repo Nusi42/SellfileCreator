@@ -205,6 +205,41 @@ pub(super) struct UpgradeScenario {
     challengers_by_count_key: BTreeMap<SafeguardCountKey, Vec<StaticChallenger>>,
 }
 
+impl UpgradeScenario {
+    // Sorted (projected-score in thousandths, rank, mainstat) triples of the challenger
+    // bucket the given artifact dims select under this scenario's count mode — the
+    // improvement-watch cross-group cell-signature component. Scores round to 3 decimals
+    // for a stable, BTreeMap-friendly integer key; rank and mainstat are included because
+    // exact score ties break on them (is_challenger_strictly_better).
+    pub(super) fn challenger_signature_for(
+        &self,
+        slot: i64,
+        set: i64,
+        faction: i64,
+        main_stat: i64,
+    ) -> Vec<(i64, i64, i64)> {
+        let key = safeguard_count_key_from_parts(slot, set, faction, main_stat, self.count_mode);
+        let mut signature: Vec<(i64, i64, i64)> = self
+            .challengers_by_count_key
+            .get(&key)
+            .map(|bucket| {
+                bucket
+                    .iter()
+                    .map(|challenger| {
+                        (
+                            (challenger.projected_score * 1000.0).round() as i64,
+                            challenger.rank,
+                            challenger.main_stat,
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        signature.sort_unstable();
+        signature
+    }
+}
+
 // Single challenger entry; projected_score fixes the apples-to-oranges Bug 2.
 struct StaticChallenger {
     artifact_id: i64,
@@ -1033,6 +1068,40 @@ pub(super) fn compute_artifact_chance_for_scenarios(
     scenarios: &[&UpgradeScenario],
     memo: &mut BTreeMap<StateKey, f64>,
 ) -> f64 {
+    compute_artifact_chance_impl(artifact, scenarios, memo, false, true)
+}
+
+// Synthetic-probe variant for improvement-watch corner searches. Two deliberate
+// differences from the real-artifact path:
+//   1. Value-independent gains: build_existing_gain derives per-roll gain from the
+//      artifact's CURRENT value (rolls: None → divisor 1), so a synthetic's assumed
+//      future roll quality would scale with the probed threshold — circular. Synthetic
+//      drops have no roll history, so the rank-derived fallback Q1/Q3 pair is the
+//      principled prior — and it makes the recursion independent of probe values except
+//      through the state itself, which is what enables sharing the memo below.
+//   2. No memo clear: the CALLER owns memo validity. Cached nodes are valid while the
+//      full non-state context is fixed — scenario set (rule), slot/set/faction/main
+//      (sample), rank (fallback gains + tie-breaks), rarity (addition schedule) and
+//      level (milestones). StateKey captures everything that varies across probes within
+//      that context (event index + substat variants + scaled values), so probes with
+//      different values/subsets coexist soundly in one memo and identical re-probes
+//      become O(log n) root hits.
+pub(super) fn compute_synthetic_chance_for_scenarios(
+    artifact: &SafeguardWasmArtifactIn,
+    scenarios: &[&UpgradeScenario],
+    memo: &mut BTreeMap<StateKey, f64>,
+) -> f64 {
+    compute_artifact_chance_impl(artifact, scenarios, memo, true, false)
+}
+
+// Shared implementation for both chance entry points above.
+fn compute_artifact_chance_impl(
+    artifact: &SafeguardWasmArtifactIn,
+    scenarios: &[&UpgradeScenario],
+    memo: &mut BTreeMap<StateKey, f64>,
+    fallback_gains_only: bool,
+    clear_memo: bool,
+) -> f64 {
     let artifact_id = artifact.id.unwrap_or(0);
     let level = clamp_level(artifact.exact_level.unwrap_or(artifact.level));
     let milestones = resolve_remaining_milestones(level);
@@ -1063,7 +1132,12 @@ pub(super) fn compute_artifact_chance_for_scenarios(
     // Per-artifact context: milestone schedule, legal addition pool, and Q1/Q3 gains.
     let rarity = clamp_rarity(artifact.rarity);
     let fallback_gain = build_fallback_gain(artifact.rank);
-    let expected_gain = build_existing_gain(artifact, &fallback_gain);
+    // Synthetic probes force the rank-derived prior; real artifacts keep observed gains.
+    let expected_gain = if fallback_gains_only {
+        fallback_gain.clone()
+    } else {
+        build_existing_gain(artifact, &fallback_gain)
+    };
     let ctx = RecursionContext {
         artifact_id,
         artifact_slot: artifact.slot,
@@ -1078,8 +1152,10 @@ pub(super) fn compute_artifact_chance_for_scenarios(
         expected_gain,
         fallback_gain,
     };
-    // Clear scratch memo — cached results are not valid across differing contexts.
-    memo.clear();
+    // Real-artifact path: cached results are not valid across differing gain contexts.
+    if clear_memo {
+        memo.clear();
+    }
     // initial_state is mutated in-place during recursion (undo-redo pattern) and fully
     // restored by the time compute_probability returns — callers see no net change.
     let prob = compute_probability(&ctx, &mut initial_state, 0, memo);
