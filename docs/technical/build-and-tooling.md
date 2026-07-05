@@ -248,9 +248,34 @@ The test verifies: `rules` array non-empty, at least one rule with `Keep=true`,
 `improvementChances` key present, no `error` key.  The CI build treats a non-zero
 exit as a regression.
 
+**Input schema** — `NativeInput` accepts the **raw RSL-Helper wire format**, i.e. the
+exact JSON-RPC payloads the endpoint sends, so RSL Helper can pipe its packets straight
+in without running the app's TypeScript:
+
+```jsonc
+{
+  "sfc": "<.sfc file contents as a JSON string>",
+  // Raw ArtifactLog rows (params.artifacts / inboxArtifacts element shape).
+  "artifacts": [ { "id": 1, "kindId": 7, "rankId": 6, "rarityId": 5, "level": 16,
+                   "setKindId": 0, "requiredFraction": 10,
+                   "primary": { "id": 3, "isAbsolute": 1, "statValue": … },
+                   "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1 }, … ] }, … ],
+  // Optional raw champion rows — only id + artifacts slot-map are read, to fill cID.
+  "champions": [ { "id": 900, "artifacts": { "7": 1 } }, … ]
+}
+```
+
+The raw→compact normalization (ports of `parseArtifactLogRow`,
+`buildEquippedByArtifactMap`, and the `accset→faction` resolve) lives in
+`wasm/rule_engine_native/src/artifact_log.rs`. `ArtifactByHeroID` is ignored exactly as
+the app ignores it (the `champions` slot-map is authoritative).
+
 **Internal pipeline** (per call to `sfc_generate`)
 
-1. Deserialize `NativeInput` JSON.
+1. Deserialize `NativeInput` JSON (raw wire shape).
+1b. Build the artifact→champion equipped map from `champions`, then normalize the raw
+    `artifacts` into compact rows via `artifact_log::parse_artifact_log_array` (fills
+    `cID` from the map; resolves `faction` from the accessory code on accessory slots).
 2. Parse human-readable SFC via `sfc_reader::parse_sfc` (label strings → numeric codes).
 3. For each recipe, call `recipe_builder::prepare_recipe` then `build_hsf_rules_for_recipe`.
 4. Normalize compact artifact rows to `SafeguardWasmArtifactIn` + `TestItemRaw`.
@@ -267,38 +292,76 @@ The WASM crate uses `#[wasm_bindgen]` and `JsValue`; the native crate uses
 recipe normalizer (`recipe_builder`) live in `rule_engine_core` so both
 compilation targets share the same parsing logic without duplication.
 
-**State & known gaps** (as of 2026-07-05)
+**Raw-wire normalization + TS↔Rust parity**
 
-The crate is *self-contained and un-integrated*: the Rust compiles cleanly
-(`cargo build -p rule_engine_native`), its 4 unit tests pass, and the C++ smoke
-test in `example/` loads the `.so` and gets valid rules out.  What is missing is
-productionization, not core logic:
+Because RSL Helper hands the DLL the raw endpoint payloads (not the app's compact rows),
+`artifact_log.rs` **duplicates** the app's ingest logic in Rust: `parse_artifact_log_row`
+/ `parse_artifact_log_array` (ArtifactLog→compact, incl. the reject gate and inbox-item
+envelope unwrap), `build_equipped_by_artifact_map` (champions slot-map → `cID`), a
+`to_number` that mirrors JS `Number()` coercion, and `resolve_accessory_faction`. The
+`accset→faction` map is NOT hand-written: it is generated from
+`shared/domain-constants.json` into both `domainConstants.ts`
+(`ACCESSORY_FACTION_BY_CODE`, consumed by `gearDbNormalizer.ts`) and
+`generated_domain_constants.rs` (`resolve_accessory_faction`), so the single source of
+truth holds across languages.
+
+This deliberate duplication is guarded by a **parity test** (`wasm/rule_engine_native/
+tests/parity.rs`): it drives a committed real capture slice
+(`tests/fixtures/{artifacts,champions}_packet.json`) through the Rust normalizer and
+asserts field-for-field equality (on the DLL-consumed columns —
+`ID/type/rank/rarity/lvl/aset/accset/mid/mfl/s{1..4}{id,lvl,fl}/cID/faction`) against
+`expected.json`, which `tests/repro/native-dll-parity-expected.ts` regenerates from the
+app's own `normalizeExternalEvent`. Run the whole loop with `npm run native-dll:parity`
+(regenerates `expected.json`, then `cargo test`). If the TS ingest changes, regenerate
+and the mismatch surfaces immediately.
+
+**SFC schema — kept strict, in sync with today's format**
+
+`sfc_reader`'s readable structs use `deny_unknown_fields` **by design**: the DLL targets
+*today's* `.sfc`, so any future format drift must fail loudly and get a matching reader
+change (do not relax to silently-ignore). The reader was synced to the current `sfcIO.ts`
+output — the fields that previously hard-rejected a real preset are now handled:
+
+- Metaset `show` + `iconId` (tolerated — UI-only).
+- Recipe `appearance {name, fgColor?}` (tolerated) and `substatRollTargets` (tolerated).
+- Substat `rollBounds` (camelCase; the old field was `roll_bounds` and never matched).
+- **`artifactSetNames` (name-based) is resolved to set ids**, not just tolerated — the app
+  now writes set filters by name and stopped writing numeric `artifactSetIds`. Resolution
+  goes through `set_id_from_name`, generated from `shared/domain-constants.json` (the
+  `artifactSet` catalog) into both `ARTIFACT_SET_NAMES` (TS, consumed by `types.ts`
+  `artifactSetNames`) and `SET_NAME_IDS` (Rust) — one SSOT for ~69 sets. The same resolver
+  fixes safeguard `tuple.sets` and metaset `setNames` expansion (both were name-based and
+  previously dropped). A `parse_sfc_accepts_current_format` unit test in `sfc_reader.rs`
+  pins this.
+
+Result: `sfc_generate` runs end-to-end on `presets/lategame.sfc` + a full real account
+(7,734 artifacts, 1,430 champions) → ~40k rules with set/faction filters resolved.
+
+Known non-fatal follow-ups (silent data loss, not parse errors — the writer/reader key
+names disagree): safeguard `ignorePreviousSafeguards_v2` (reader reads
+`ignorePreviousSafeguards`) and Minima `anyRankDefaultsTo` (never read). Fix when those
+paths matter.
+
+**Faction id typing** — the generated `ACCESSORY_FACTION_BY_CODE` / `FACTION_NAMES` /
+`FACTION_NAMES_TO_ID` are typed `FactionId` (not bare `number`); `FactionId`'s single
+definition lives in the generated layer (which owns the id domain) and is re-exported from
+`types.ts`. Rust stays `i64` at the FFI/engine boundary by design.
+
+**Productionization gaps** (still open — not core logic):
 
 - **No Windows `.dll` has been built/verified here** — only the Linux `.so` is
   proven.  The MSVC/MinGW commands above are documented but unrun in WSL.
 - **No header/`.def`/cbindgen, no build-or-CI wiring** — nothing in
   `package.json`, the release `.ps1` scripts, or CI builds, ships, or gates on
   this crate.  RSL Helper would `GetProcAddress` the two symbols directly.
-- **`sfc_reader` has drifted behind the live SFC schema.** `parse_sfc` on a
-  current preset (`presets/lategame.sfc`) fails with `unknown field 'show'`:
-  `ReadableMetaset` in `sfc_reader.rs` is `deny_unknown_fields` and predates the
-  `show` (metaset UI-visibility) field the app now writes.  Any real-data run
-  must first bring the reader's structs in sync with the current `sfcIO.ts`
-  output (add the new fields or relax `deny_unknown_fields` where safe).
-- **Input-contract mismatch on `faction`.** `NativeArtifactIn` expects a
-  *pre-resolved* `faction` id, but the app's compact `GearDbArtifactRow` only
-  carries the raw `accset` (requiredFraction) code; resolution via
-  `ACCESSORY_FACTION_MAP` is a stage-2 concern the DLL skips.  A caller feeding
-  compact rows must resolve accset→faction first, or the DLL must gain that map.
 
-**Real-data test harness**
+**Real-data input harness**
 
-`tests/repro/native-dll-realdata-input.ts` converts a captured raw endpoint
-`artifacts` packet (`docs/orig/sampleLog/packet_*_artifacts_*.json`) into a
-`NativeInput` JSON by reusing the app's own `normalizeExternalEvent` (no logic
-duplicated), pairs it with a `.sfc` preset, and writes the file the DLL consumes.
-This is how the schema-drift gaps above were found; re-run it after fixing
-`sfc_reader` to validate the DLL against real accounts.
+`tests/repro/native-dll-realdata-input.ts` lifts a captured raw endpoint `artifacts`
+packet (`docs/orig/sampleLog/packet_*_artifacts_*.json`) and optional `champions` packet
+straight into a `NativeInput` JSON (the DLL now parses the raw wire shape itself), pairs it
+with a `.sfc` preset, and writes the file the DLL consumes — used for the end-to-end
+`sfc_generate` run above.
 
 ### WASM Linear Memory Management
 

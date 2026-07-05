@@ -1,9 +1,11 @@
 import { ACCESSORY_NO_SET_ID } from '../constants'
+// Accessory code → faction id resolver, generated from shared/domain-constants.json
+// (SSOT). Replaces the hand-written ACCESSORY_FACTION_MAP that used to live here.
+import { ACCESSORY_FACTION_BY_CODE } from '../generated/domainConstants'
 import {
   type ArtifactSetId,
   ArtifactType,
   type ArtifactTypeId,
-  Faction,
   type FactionId,
   type LevelMilestone,
   StatId,
@@ -42,28 +44,6 @@ const DB_SLOT_TO_ARTIFACT_TYPE: Record<number, ArtifactTypeId> = {
   7: ArtifactType.Ring,
   8: ArtifactType.Amulet,
   9: ArtifactType.Banner,
-}
-
-const ACCESSORY_FACTION_MAP: Record<number, FactionId> = {
-  0: 0 as FactionId,
-  1: Faction.BannerLords,
-  2: Faction.HighElves,
-  3: Faction.SacredOrder,
-  4: Faction.Barbarians, // keep classic mapping for completeness
-  5: Faction.OgrynTribes,
-  6: Faction.Lizardmen,
-  7: Faction.Skinwalkers,
-  8: Faction.Orcs,
-  9: Faction.Demonspawn,
-  10: Faction.UndeadHordes,
-  11: Faction.DarkElves,
-  12: Faction.KnightRevenant,
-  13: Faction.Barbarians, // DB alias
-  14: Faction.SylvanWatchers,
-  15: Faction.Shadowkin,
-  16: Faction.Dwarves,
-  // Assume new accset code 17 maps to Argonites for forward compatibility.
-  17: Faction.Argonites,
 }
 
 const PERCENT_STATS = new Set<number>([
@@ -436,10 +416,11 @@ const determineSet = (slot: ArtifactTypeId, value: number | null | undefined): n
 }
 
 const determineFaction = (slot: ArtifactTypeId, accset: number | null | undefined): FactionId => {
-  if (!isAccessorySlot(slot)) return 0 as FactionId
+  if (!isAccessorySlot(slot)) return 0
   const numeric = toNumber(accset)
-  if (numeric === null) return 0 as FactionId
-  return ACCESSORY_FACTION_MAP[numeric] ?? 0 as FactionId
+  if (numeric === null) return 0
+  // Resolve via the generated code→faction map (SSOT, typed FactionId); unknown → 0 (Any).
+  return ACCESSORY_FACTION_BY_CODE[numeric] ?? 0
 }
 
 const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {

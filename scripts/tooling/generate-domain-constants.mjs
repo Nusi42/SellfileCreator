@@ -453,6 +453,12 @@ const rustLines = [
 // ---------------------------------------------------------------------------
 
 const factionSpec = spec.faction
+// Non-identity accessory-code → faction aliases (legacy DB codes). The full
+// resolver is identity over every real faction id PLUS these aliases; code 0 = none.
+const accessoryFactionAliasesSpec = spec.accessoryFactionAliases ?? {}
+// Artifact/accessory set catalog (id ↔ name). SSOT for both the TS artifactSetNames map
+// and the native DLL's set-name → id resolver.
+const artifactSetSpec = spec.artifactSet ?? {}
 const artifactTypeNamesSpec = spec.artifactTypeNames
 const statVariantLabelsSpec = spec.statVariantLabels
 const allowedMainsBySlotSpec = spec.allowedMainsBySlot
@@ -495,11 +501,33 @@ const factionEntries = Object.entries(factionSpec)
 const toScreamingSnake = (key) =>
   key.replace(/([A-Z])/g, '_$1').toUpperCase()
 
-// ── TS: faction individual constants ──────────────────────────────────────
+// Build the accessory-code → faction-id resolver map shared by both emitters.
+// Identity over every real faction id (a code IS a faction id), plus 0 → 0 (none),
+// plus the legacy non-identity aliases from the spec. Sorted by code for stable output.
+const accessoryFactionByCode = new Map([[0, 0]])
+for (const { id } of factionEntries) accessoryFactionByCode.set(id, id)
+for (const [code, factionId] of Object.entries(accessoryFactionAliasesSpec)) {
+  accessoryFactionByCode.set(Number(code), Number(factionId))
+}
+const accessoryFactionEntries = [...accessoryFactionByCode.entries()].sort((a, b) => a[0] - b[0])
+
+// Artifact-set catalog entries, sorted by id for stable output.
+const artifactSetEntries = Object.entries(artifactSetSpec)
+  .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
+  .sort((a, b) => a.id - b.id)
+
+// ── TS: faction id type + individual constants ────────────────────────────
+// FactionId is defined HERE (the generated layer owns the faction id domain) and
+// re-exported from types.ts. Faction maps below are typed with it so faction ids are
+// never bare `number` at the type level — while staying assignment-compatible (0 = Any).
+tsLines.push('')
+tsLines.push('// Faction id domain (1..17 in-game factions; 0 = Any/none). SSOT for the')
+tsLines.push('// FactionId type re-exported from types.ts.')
+tsLines.push('export type FactionId = number')
 tsLines.push('')
 tsLines.push('// Faction IDs — one constant per faction (mirrors Faction enum in types.ts).')
 for (const { key, id } of factionEntries) {
-  tsLines.push(`export const FACTION_ID_${toScreamingSnake(key)} = ${id}`)
+  tsLines.push(`export const FACTION_ID_${toScreamingSnake(key)}: FactionId = ${id}`)
 }
 
 // TS: FACTION_NAMES record (0 → '' plus all factions).
@@ -510,7 +538,7 @@ for (const { id, name } of factionEntries) {
 tsLines.push('')
 tsLines.push('// Map of faction ID → display name (0 = Any/none).')
 tsLines.push(
-  `export const FACTION_NAMES: Record<number, string> = { ${factionNamesEntries.map(([k, v]) => `${k}: ${v}`).join(', ')} }`
+  `export const FACTION_NAMES: Record<FactionId, string> = { ${factionNamesEntries.map(([k, v]) => `${k}: ${v}`).join(', ')} }`
 )
 
 // TS: FACTION_NAMES_TO_ID record.
@@ -518,7 +546,23 @@ const factionNamesToIdEntries = factionEntries.map(({ id, name }) => `${JSON.str
 tsLines.push('')
 tsLines.push('// Map of faction display name → faction ID.')
 tsLines.push(
-  `export const FACTION_NAMES_TO_ID: Record<string, number> = { ${factionNamesToIdEntries.join(', ')} }`
+  `export const FACTION_NAMES_TO_ID: Record<string, FactionId> = { ${factionNamesToIdEntries.join(', ')} }`
+)
+
+// TS: ACCESSORY_FACTION_BY_CODE — accessory requiredFraction/accset code → faction ID.
+const accessoryFactionTsEntries = accessoryFactionEntries.map(([code, id]) => `${code}: ${id}`)
+tsLines.push('')
+tsLines.push('// Accessory `requiredFraction`/`accset` code → faction ID (0 = Any/none).')
+tsLines.push(
+  `export const ACCESSORY_FACTION_BY_CODE: Record<number, FactionId> = { ${accessoryFactionTsEntries.join(', ')} }`
+)
+
+// TS: ARTIFACT_SET_NAMES — set id → display name (consumed by artifactSetNames in types.ts).
+const artifactSetNamesTsEntries = artifactSetEntries.map(({ id, name }) => `${id}: ${JSON.stringify(name)}`)
+tsLines.push('')
+tsLines.push('// Artifact/accessory set id → display name.')
+tsLines.push(
+  `export const ARTIFACT_SET_NAMES: Record<number, string> = { ${artifactSetNamesTsEntries.join(', ')} }`
 )
 
 // ── TS: artifactTypeNames display map ────────────────────────────────────
@@ -655,6 +699,42 @@ rustLines.push('// Faction names sorted alphabetically for binary-compatible lin
 rustLines.push(
   `pub const FACTION_NAME_IDS: &[(&str, i64)] = &[${factionNameIdsRust}];`
 )
+
+// Rust: ACCESSORY_FACTION_BY_CODE — accessory requiredFraction/accset code → faction ID.
+// Sorted by code so a caller may binary-search; a linear scan is fine at this size.
+const accessoryFactionRust = accessoryFactionEntries
+  .map(([code, id]) => `(${code}, ${id})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Accessory `requiredFraction`/`accset` code → faction ID (0 = Any/none).')
+rustLines.push(
+  `pub const ACCESSORY_FACTION_BY_CODE: &[(i64, i64)] = &[${accessoryFactionRust}];`
+)
+rustLines.push('')
+rustLines.push('// Resolve an accessory faction code to its faction id (0 = Any/none for unknown codes).')
+rustLines.push('pub fn resolve_accessory_faction(code: i64) -> i64 {')
+rustLines.push('    // Linear scan over the sorted code→faction pairs; unknown codes fall back to 0.')
+rustLines.push('    ACCESSORY_FACTION_BY_CODE.iter().find(|(c, _)| *c == code).map(|(_, id)| *id).unwrap_or(0)')
+rustLines.push('}')
+
+// Rust: SET_NAME_IDS — artifact/accessory set display name → set id (sorted by name).
+const setNameIdsRust = [...artifactSetEntries]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map(({ id, name }) => `(${asRustStringLiteral(name)}, ${id})`)
+  .join(', ')
+rustLines.push('')
+rustLines.push('// Artifact/accessory set names sorted alphabetically for a linear-scan resolver.')
+rustLines.push(
+  `pub const SET_NAME_IDS: &[(&str, i64)] = &[${setNameIdsRust}];`
+)
+rustLines.push('')
+rustLines.push('// Resolve an artifact/accessory set display name to its set id (None for unknown names).')
+rustLines.push('pub fn set_id_from_name(raw: &str) -> Option<i64> {')
+rustLines.push('    // Trim + case-insensitive match, mirroring faction_code_from_label in sfc_reader.')
+rustLines.push('    let s = raw.trim();')
+rustLines.push('    if s.is_empty() { return None; }')
+rustLines.push('    SET_NAME_IDS.iter().find(|(name, _)| name.eq_ignore_ascii_case(s)).map(|(_, id)| *id)')
+rustLines.push('}')
 
 // ── Rust: ARTIFACT_TYPE_DISPLAY_NAMES ────────────────────────────────────
 const artifactTypeDisplayRust = artifactTypeDisplayEntries

@@ -160,6 +160,26 @@ pub const FACTION_ID_ARGONITES: i64 = 17;
 // Faction names sorted alphabetically for binary-compatible linear scan.
 pub const FACTION_NAME_IDS: &[(&str, i64)] = &[("Argonites", 17), ("Banner Lords", 1), ("Barbarians", 13), ("Dark Elves", 11), ("Demonspawn", 9), ("Dwarves", 16), ("High Elves", 2), ("Knight Revenant", 12), ("Lizardmen", 6), ("Ogryn Tribes", 5), ("Orcs", 8), ("Sacred Order", 3), ("Shadowkin", 15), ("Skinwalkers", 7), ("Sylvan Watchers", 14), ("Undead Hordes", 10)];
 
+// Accessory `requiredFraction`/`accset` code → faction ID (0 = Any/none).
+pub const ACCESSORY_FACTION_BY_CODE: &[(i64, i64)] = &[(0, 0), (1, 1), (2, 2), (3, 3), (4, 13), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), (13, 13), (14, 14), (15, 15), (16, 16), (17, 17)];
+
+// Resolve an accessory faction code to its faction id (0 = Any/none for unknown codes).
+pub fn resolve_accessory_faction(code: i64) -> i64 {
+    // Linear scan over the sorted code→faction pairs; unknown codes fall back to 0.
+    ACCESSORY_FACTION_BY_CODE.iter().find(|(c, _)| *c == code).map(|(_, id)| *id).unwrap_or(0)
+}
+
+// Artifact/accessory set names sorted alphabetically for a linear-scan resolver.
+pub const SET_NAME_IDS: &[(&str, i64)] = &[("Accuracy", 7), ("Affinitybreaker", 39), ("Avenging", 25), ("Bloodshield", 1002), ("Bloodthirst", 43), ("Bolster", 51), ("Chronophage", 65), ("Cleansing", 1001), ("Crit Damage", 6), ("Critical Rate", 5), ("Cruel", 29), ("Curing", 28), ("Cursed", 12), ("Daze", 11), ("Defense", 3), ("Defiant", 52), ("Deflection", 36), ("Destroy", 20), ("Divine Critical Rate", 32), ("Divine Life", 33), ("Divine Offense", 31), ("Divine Speed", 34), ("Fatal", 41), ("Feral", 61), ("Fortitude", 45), ("Frenzy", 14), ("Frost", 13), ("Frostbite", 42), ("Fury", 10), ("Guardian", 44), ("Immortal", 30), ("Immunity", 16), ("Impulse", 53), ("Instinct", 50), ("Killstroke", 49), ("Lethal", 46), ("Life", 1), ("Lifesteal", 9), ("Merciless", 59), ("Mercurial", 66), ("Offense", 2), ("Perception", 38), ("Pinpoint", 62), ("Protection", 47), ("Provoke", 23), ("Reaction", 1003), ("Rebirth", 64), ("Reflex", 27), ("Refresh", 1000), ("Regeneration", 15), ("Relentless", 18), ("Resilience", 37), ("Resistance", 8), ("Retaliation", 24), ("Revenge", 1004), ("Righteous", 57), ("Savage", 19), ("Shield", 17), ("Slayer", 60), ("Speed", 4), ("Stalwart", 26), ("Stonecleaver", 63), ("Stoneskin", 48), ("Stun", 21), ("Supersonic", 58), ("Swift Parry", 35), ("Toxic", 22), ("Untouchable", 40), ("Zeal", 54)];
+
+// Resolve an artifact/accessory set display name to its set id (None for unknown names).
+pub fn set_id_from_name(raw: &str) -> Option<i64> {
+    // Trim + case-insensitive match, mirroring faction_code_from_label in sfc_reader.
+    let s = raw.trim();
+    if s.is_empty() { return None; }
+    SET_NAME_IDS.iter().find(|(name, _)| name.eq_ignore_ascii_case(s)).map(|(_, id)| *id)
+}
+
 // Artifact slot display names by numeric ID, sorted by ID ascending.
 pub const ARTIFACT_TYPE_DISPLAY_NAMES: &[(i64, &str)] = &[(1, "Helmet"), (2, "Chestplate"), (3, "Gauntlets"), (4, "Boots"), (5, "Weapon"), (6, "Shield"), (7, "Ring"), (8, "Amulet"), (9, "Banner")];
 

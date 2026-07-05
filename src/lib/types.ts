@@ -91,6 +91,8 @@ import {
   FACTION_ID_DWARVES,
   FACTION_ID_ARGONITES,
   FACTION_NAMES as GENERATED_FACTION_NAMES,
+  type FactionId,
+  ARTIFACT_SET_NAMES as GENERATED_ARTIFACT_SET_NAMES,
   ALLOWED_MAINS_BY_SLOT as GENERATED_ALLOWED_MAINS_BY_SLOT,
   ALLOWED_SUBS_BY_SLOT as GENERATED_ALLOWED_SUBS_BY_SLOT,
   ARTIFACT_TYPE_DISPLAY_NAMES as GENERATED_ARTIFACT_TYPE_DISPLAY_NAMES,
@@ -151,79 +153,10 @@ export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): numb
 
 // Artifact set IDs live in `artifactSets.ts` to keep them import-cycle-free.
 
-// Artifact Set IDs mapped to names (ascending by ID).
-// Uses enum keys to avoid magic numbers while remaining numeric at runtime.
-export const artifactSetNames: Record<number, string> = {
-  [ArtifactSet.Life]: 'Life',
-  [ArtifactSet.Offense]: 'Offense',
-  [ArtifactSet.Defense]: 'Defense',
-  [ArtifactSet.Speed]: 'Speed',
-  [ArtifactSet.CriticalRate]: 'Critical Rate',
-  [ArtifactSet.CritDamage]: 'Crit Damage',
-  [ArtifactSet.Accuracy]: 'Accuracy',
-  [ArtifactSet.Resistance]: 'Resistance',
-  [ArtifactSet.Lifesteal]: 'Lifesteal',
-  [ArtifactSet.Fury]: 'Fury',
-  [ArtifactSet.Daze]: 'Daze',
-  [ArtifactSet.Cursed]: 'Cursed',
-  [ArtifactSet.Frost]: 'Frost',
-  [ArtifactSet.Frenzy]: 'Frenzy',
-  [ArtifactSet.Regeneration]: 'Regeneration',
-  [ArtifactSet.Immunity]: 'Immunity',
-  [ArtifactSet.Shield]: 'Shield',
-  [ArtifactSet.Relentless]: 'Relentless',
-  [ArtifactSet.Savage]: 'Savage',
-  [ArtifactSet.Destroy]: 'Destroy',
-  [ArtifactSet.Stun]: 'Stun',
-  [ArtifactSet.Toxic]: 'Toxic',
-  [ArtifactSet.Provoke]: 'Provoke',
-  [ArtifactSet.Retaliation]: 'Retaliation',
-  [ArtifactSet.Avenging]: 'Avenging',
-  [ArtifactSet.Stalwart]: 'Stalwart',
-  [ArtifactSet.Reflex]: 'Reflex',
-  [ArtifactSet.Curing]: 'Curing',
-  [ArtifactSet.Cruel]: 'Cruel',
-  [ArtifactSet.Immortal]: 'Immortal',
-  [ArtifactSet.DivineOffense]: 'Divine Offense',
-  [ArtifactSet.DivineCriticalRate]: 'Divine Critical Rate',
-  [ArtifactSet.DivineLife]: 'Divine Life',
-  [ArtifactSet.DivineSpeed]: 'Divine Speed',
-  [ArtifactSet.SwiftParry]: 'Swift Parry',
-  [ArtifactSet.Deflection]: 'Deflection',
-  [ArtifactSet.Resilience]: 'Resilience',
-  [ArtifactSet.Perception]: 'Perception',
-  [ArtifactSet.Affinitybreaker]: 'Affinitybreaker',
-  [ArtifactSet.Untouchable]: 'Untouchable',
-  [ArtifactSet.Fatal]: 'Fatal',
-  [ArtifactSet.Frostbite]: 'Frostbite',
-  [ArtifactSet.Bloodthirst]: 'Bloodthirst',
-  [ArtifactSet.Guardian]: 'Guardian',
-  [ArtifactSet.Fortitude]: 'Fortitude',
-  [ArtifactSet.Lethal]: 'Lethal',
-  [ArtifactSet.Protection]: 'Protection',
-  [ArtifactSet.Stoneskin]: 'Stoneskin',
-  [ArtifactSet.Killstroke]: 'Killstroke',
-  [ArtifactSet.Instinct]: 'Instinct',
-  [ArtifactSet.Bolster]: 'Bolster',
-  [ArtifactSet.Defiant]: 'Defiant',
-  [ArtifactSet.Impulse]: 'Impulse',
-  [ArtifactSet.Zeal]: 'Zeal',
-  [ArtifactSet.Righteous]: 'Righteous',
-  [ArtifactSet.Supersonic]: 'Supersonic',
-  [ArtifactSet.Merciless]: 'Merciless',
-  [ArtifactSet.Slayer]: 'Slayer',
-  [ArtifactSet.Feral]: 'Feral',
-  [ArtifactSet.Pinpoint]: 'Pinpoint',
-  [ArtifactSet.Stonecleaver]: 'Stonecleaver',
-  [ArtifactSet.Rebirth]: 'Rebirth',
-  [ArtifactSet.Chronophage]: 'Chronophage',
-  [ArtifactSet.Mercurial]: 'Mercurial',
-  [ArtifactSet.Refresh]: 'Refresh',
-  [ArtifactSet.Cleansing]: 'Cleansing',
-  [ArtifactSet.Bloodshield]: 'Bloodshield',
-  [ArtifactSet.Reaction]: 'Reaction',
-  [ArtifactSet.Revenge]: 'Revenge',
-}
+// Artifact Set IDs mapped to names (ascending by ID). The id→name catalog is generated
+// from shared/domain-constants.json (SSOT, also feeds the native DLL's set-name resolver);
+// spread into a fresh object so this stays a plain mutable Record for existing consumers.
+export const artifactSetNames: Record<number, string> = { ...GENERATED_ARTIFACT_SET_NAMES }
 
 type ArtifactSetPieceMeta = { id: number; group: ArtifactSetPieceGroup }
 
@@ -1143,7 +1076,9 @@ export const Faction = {
 
 // eslint-disable-next-line no-redeclare -- expose the Faction identifier in both namespaces
 export type Faction = number
-export type FactionId = Faction | number
+// FactionId's single definition lives in the generated constants layer (which owns the
+// faction id domain); re-export it here so existing `types` consumers are unaffected.
+export type { FactionId }
 
 // Faction name map from generated constants (includes 0: '' for Any).
 export const factionNames: Record<number, string> = { ...GENERATED_FACTION_NAMES }

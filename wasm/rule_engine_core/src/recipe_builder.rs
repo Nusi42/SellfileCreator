@@ -161,8 +161,8 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
 // ---------------------------------------------------------------------------
 
 /// Map a rank code to its effective star bucket (1..6).
-/// Defaults to 6 for Any (0).
-pub(crate) fn star_for_rank_code(rank_code: i64) -> i64 {
+/// `any_fallback` is the star to use for Any (0) — the recipe's anyRankDefaultsTo (default 6).
+pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
     // Exact 1..6.
     if rank_code >= RANK_CODE_ONE && rank_code <= RANK_CODE_SIX {
         return rank_code;
@@ -174,8 +174,8 @@ pub(crate) fn star_for_rank_code(rank_code: i64) -> i64 {
     if rank_code >= RANK_CODE_LTE_TWO && rank_code <= RANK_CODE_LTE_FOUR { return 4; }
     if rank_code == RANK_CODE_LTE_FIVE { return 5; }
     if rank_code == RANK_CODE_LTE_SIX  { return 6; }
-    // Any (0) → 6-star conservative fallback.
-    6
+    // Any (0) → caller-provided fallback (anyRankDefaultsTo), clamped to a valid star.
+    any_fallback.clamp(1, 6)
 }
 
 // ---------------------------------------------------------------------------
@@ -384,8 +384,10 @@ pub fn build_hsf_rules_for_recipe(
         &recipe.main_stat_variants,
     );
 
-    // 2. Star bucket from rank code.
-    let star = star_for_rank_code(recipe.rank_code);
+    // 2. Star bucket from rank code. Any-rank recipes fall back to the table's
+    //    anyRankDefaultsTo (6 when no minima table is present), mirroring hsfBuilder.ts.
+    let any_rank_fallback = minima.map(|t| t.any_rank_defaults_to).unwrap_or(6);
+    let star = star_for_rank_code(recipe.rank_code, any_rank_fallback);
 
     // 3. Factory minima for star (always from hardcoded tables, like the TS constant).
     let factory_base_for_star = factory_minima_for_star(star);
@@ -549,4 +551,40 @@ pub fn build_hsf_rules_for_recipe(
     }).map_err(|e| format!("build_hsf_rules_for_recipe: {e}"))?;
 
     Ok(runtime_out.rules)
+}
+
+// ---------------------------------------------------------------------------
+// Tests — star_for_rank_code branch behavior incl. the Any-rank fallback.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn star_for_rank_code_branches() {
+        // Exact ranks map to themselves regardless of the Any fallback.
+        for r in RANK_CODE_ONE..=RANK_CODE_SIX {
+            assert_eq!(star_for_rank_code(r, 6), r);
+            assert_eq!(star_for_rank_code(r, 4), r, "exact rank ignores fallback");
+        }
+        // GTE / LTE ranges collapse to representative stars (fallback irrelevant).
+        assert_eq!(star_for_rank_code(RANK_CODE_GTE_ONE, 6), 4);
+        assert_eq!(star_for_rank_code(RANK_CODE_GTE_FOUR, 6), 4);
+        assert_eq!(star_for_rank_code(RANK_CODE_GTE_FIVE, 6), 5);
+        assert_eq!(star_for_rank_code(RANK_CODE_LTE_FOUR, 6), 4);
+        assert_eq!(star_for_rank_code(RANK_CODE_LTE_FIVE, 6), 5);
+        assert_eq!(star_for_rank_code(RANK_CODE_LTE_SIX, 6), 6);
+    }
+
+    #[test]
+    fn any_rank_uses_fallback() {
+        // Any rank (0) honours anyRankDefaultsTo — the whole point of the port.
+        assert_eq!(star_for_rank_code(RANK_CODE_ANY, 6), 6);
+        assert_eq!(star_for_rank_code(RANK_CODE_ANY, 4), 4);
+        assert_eq!(star_for_rank_code(RANK_CODE_ANY, 1), 1);
+        // Out-of-range fallbacks clamp into 1..6.
+        assert_eq!(star_for_rank_code(RANK_CODE_ANY, 0), 1);
+        assert_eq!(star_for_rank_code(RANK_CODE_ANY, 99), 6);
+    }
 }

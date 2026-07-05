@@ -214,6 +214,13 @@ pub struct ReadableMetaset {
     pub name: Option<String>,
     #[serde(default)]
     pub set_names: Option<Vec<String>>,
+    // UI-only fields the app writes (sfcIO.ts buildSfcPayload): `show` gates metaset
+    // visibility and `iconId` picks its icon. The rule engine ignores both, but they
+    // must be declared so deny_unknown_fields does not reject current .sfc files.
+    #[serde(default)]
+    pub show: Option<bool>,
+    #[serde(default)]
+    pub icon_id: Option<String>,
 }
 
 /// Readable recipe entry as stored in the SFC "Recipes" array.
@@ -224,6 +231,11 @@ pub struct ReadableRecipe {
     // Identity / metadata
     #[serde(default, rename = "name")]
     pub name: Option<String>,
+    // Display appearance { name, fgColor? } written by sfcIO.ts for named recipes. The rule
+    // engine ignores it (name/colour are UI-only), but it must be declared so
+    // deny_unknown_fields accepts current .sfc files.
+    #[serde(default, rename = "appearance")]
+    pub appearance: Option<ReadableAppearance>,
     #[serde(default, rename = "Tags", alias = "tags")]
     pub tags: Option<Vec<String>>,
     // Keep vs sell decision
@@ -257,6 +269,10 @@ pub struct ReadableRecipe {
     pub main_stats: Option<Vec<String>>,
     #[serde(default, rename = "substats")]
     pub substats: Option<Vec<ReadableSubstat>>,
+    // Per-substat roll targets { "<label>": <entry> }, written by sfcIO.ts rollTargetsToReadable.
+    // The DLL rule build does not consume roll targets; declared so parsing tolerates them.
+    #[serde(default, rename = "substatRollTargets")]
+    pub substat_roll_targets: Option<serde_json::Value>,
 
     // Level window
     #[serde(default, rename = "minLevel")]
@@ -281,6 +297,10 @@ pub struct ReadableRecipe {
     // Slot / set / metaset filters
     #[serde(default, rename = "artifactTypeNames")]
     pub artifact_type_names: Option<Vec<String>>,
+    // Name-based set entries { name, excluded? } — the shape the current app writes.
+    #[serde(default, rename = "artifactSetNames")]
+    pub artifact_set_names: Option<Vec<ReadableArtifactSetNameEntry>>,
+    // Legacy numeric set entries { id, excluded? } or bare id — accepted for back-compat.
     #[serde(default, rename = "artifactSetIds")]
     pub artifact_set_ids: Option<Vec<ReadableArtifactSetEntry>>,
     #[serde(default, rename = "artifactMetaSetNames", alias = "artifactMetaSetIds")]
@@ -305,7 +325,8 @@ pub enum ReadableSubstat {
         stat: String,
         #[serde(default)]
         fixed: Option<bool>,
-        #[serde(default)]
+        // The app writes camelCase `rollBounds`; accept the snake_case alias for older files.
+        #[serde(default, rename = "rollBounds", alias = "roll_bounds")]
         roll_bounds: Option<ReadableSubstatBoundsEntry>,
         // Legacy flat fields (min/max/any at the top level of the substat object).
         #[serde(rename = "min")]
@@ -337,6 +358,28 @@ pub struct ReadableSubstatBoundsEntry {
 pub enum ReadableArtifactSetEntry {
     Object { id: i64, #[serde(default)] excluded: Option<bool> },
     Id(i64),
+}
+
+/// Name-based artifact set entry { name, excluded? } — the shape the current app writes.
+/// Resolved to a numeric set id via set_id_from_name at parse time.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadableArtifactSetNameEntry {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub excluded: Option<bool>,
+}
+
+/// Display appearance { name, fgColor? } for named recipes/safeguards. UI-only; the rule
+/// engine ignores both fields but must accept them (deny_unknown_fields on the recipe).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadableAppearance {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default, rename = "fgColor")]
+    pub fg_color: Option<String>,
 }
 
 /// Final Sell Remainder section in the SFC.
@@ -400,7 +443,10 @@ pub struct ReadableRecipeParsed {
 }
 
 /// Minimal substat target table parsed from SFC Minima section.
-#[derive(Debug, Deserialize, Default, Serialize)]
+// Default star used when a recipe targets "Any" rank (mirrors anyRankDefaultsTo ?? 6).
+fn default_any_rank_star() -> i64 { 6 }
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubstatTargetTableIn {
     #[serde(default)]
@@ -415,6 +461,25 @@ pub struct SubstatTargetTableIn {
     pub five:  BTreeMap<i64, i64>,
     #[serde(default)]
     pub six:   BTreeMap<i64, i64>,
+    // Star bucket to use for "Any"-rank recipes (1..6); mirrors anyRankDefaultsTo in
+    // sfcIO.ts. Defaults to 6 (strictest) when absent, matching coerceFallback.
+    #[serde(default = "default_any_rank_star", rename = "anyRankDefaultsTo")]
+    pub any_rank_defaults_to: i64,
+}
+
+// Hand-written Default so the fallback star defaults to 6, not i64's 0.
+impl Default for SubstatTargetTableIn {
+    fn default() -> Self {
+        SubstatTargetTableIn {
+            one:   BTreeMap::new(),
+            two:   BTreeMap::new(),
+            three: BTreeMap::new(),
+            four:  BTreeMap::new(),
+            five:  BTreeMap::new(),
+            six:   BTreeMap::new(),
+            any_rank_defaults_to: default_any_rank_star(),
+        }
+    }
 }
 
 // Metaset entry forwarded to WASM safeguard resolver.
@@ -452,9 +517,13 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
         .filter_map(|m| {
             let name = m.name.as_deref()?.trim().to_string();
             if name.is_empty() { return None; }
-            // Metasets for the DLL contain set IDs directly (no name→ID lookup needed).
-            // set_names is ignored; callers should use numeric IDs in metasets.
-            Some(SafeguardWasmMetasetIn { name, sets: vec![] })
+            // Expand the metaset's member set names → ids via the generated catalog so
+            // safeguard combinations referencing this metaset resolve to real sets.
+            let sets: Vec<i64> = m.set_names.as_deref().unwrap_or(&[])
+                .iter()
+                .filter_map(|n| set_id_from_name(n))
+                .collect();
+            Some(SafeguardWasmMetasetIn { name, sets })
         })
         .collect();
 
@@ -619,16 +688,27 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
         .filter_map(|name| slot_id_from_name(name))
         .collect();
 
-    // Set IDs.
-    let artifact_set_ids: Vec<i64> = rec.artifact_set_ids.as_deref().unwrap_or(&[])
+    // Set IDs. The current app writes `artifactSetNames` (name-based); older files used
+    // numeric `artifactSetIds`. Resolve names → ids via the generated catalog and merge
+    // both sources. Excluded entries are filters we drop (an excluded set is not required).
+    let mut artifact_set_ids: Vec<i64> = rec.artifact_set_names.as_deref().unwrap_or(&[])
         .iter()
-        .filter_map(|entry| match entry {
-            ReadableArtifactSetEntry::Object { id, excluded } => {
-                if excluded.unwrap_or(false) { None } else { Some(*id) }
-            }
-            ReadableArtifactSetEntry::Id(id) => Some(*id),
-        })
+        .filter(|entry| !entry.excluded.unwrap_or(false))
+        .filter_map(|entry| entry.name.as_deref().and_then(set_id_from_name))
         .collect();
+    // Legacy numeric entries (back-compat); append any not already present.
+    for entry in rec.artifact_set_ids.as_deref().unwrap_or(&[]) {
+        let id = match entry {
+            ReadableArtifactSetEntry::Object { id, excluded } => {
+                if excluded.unwrap_or(false) { continue; }
+                *id
+            }
+            ReadableArtifactSetEntry::Id(id) => *id,
+        };
+        if !artifact_set_ids.contains(&id) {
+            artifact_set_ids.push(id);
+        }
+    }
 
     let artifact_meta_set_names: Vec<String> = rec.artifact_meta_set_names.as_deref().unwrap_or(&[])
         .iter()
@@ -698,7 +778,12 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // Activation string is already in canonical form in the SFC ("protectExisting" etc.).
     let activation = rec.get("activation").and_then(|v| v.as_str()).map(|s| s.to_string());
     let required_count = rec.get("requiredCount").and_then(|v| v.as_i64());
-    let ignore_prev = rec.get("ignorePreviousSafeguards").and_then(|v| v.as_bool());
+    // The current app writes `ignorePreviousSafeguards_v2`; older files used the un-suffixed
+    // key. Mirror safeguards.ts loader precedence: prefer _v2, fall back to the legacy name.
+    // (Reading only the legacy key silently dropped the flag on every current .sfc.)
+    let ignore_prev = rec.get("ignorePreviousSafeguards_v2")
+        .or_else(|| rec.get("ignorePreviousSafeguards"))
+        .and_then(|v| v.as_bool());
     let ignore_coll = rec.get("ignoreEquippedInCollection").and_then(|v| v.as_bool());
     let ignore_vault = rec.get("ignoreEquippedInVault").and_then(|v| v.as_bool());
     // "Weight by Rank" toggle; absent in older SFC files → None → treated as off downstream.
@@ -784,19 +869,17 @@ fn parse_sfc_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
         .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(slot_id_from_name)).collect())
         .unwrap_or_default();
 
-    // Sets: the SFC stores set names (e.g. {name:"Lifesteal"}) but the DLL cannot
-    // resolve names without a game-data catalog.  For V1 we accept numeric id fields
-    // and silently skip entries that only have a string name.
+    // Sets: the current app writes set names (e.g. {name:"Lifesteal"}); older files used
+    // {id}. Resolve names via the generated set catalog (set_id_from_name) and accept
+    // numeric ids for back-compat. The excluded flag is carried through either way.
     let sets = obj.and_then(|o| o.get("sets")).and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter().filter_map(|v| {
-                if let Some(id) = v.get("id").and_then(|n| n.as_i64()) {
-                    let excluded = v.get("excluded").and_then(|e| e.as_bool()).unwrap_or(false);
-                    Some(SafeguardWasmSetSelection { id, excluded })
-                } else {
-                    // No numeric id present; skip this entry.
-                    None
-                }
+                let excluded = v.get("excluded").and_then(|e| e.as_bool()).unwrap_or(false);
+                // Prefer a numeric id; else resolve the set name to an id.
+                let id = v.get("id").and_then(|n| n.as_i64())
+                    .or_else(|| v.get("name").and_then(|n| n.as_str()).and_then(set_id_from_name));
+                id.map(|id| SafeguardWasmSetSelection { id, excluded })
             }).collect()
         })
         .unwrap_or_default();
@@ -837,11 +920,36 @@ fn parse_sfc_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
 // Substat target table parser (SFC Minima section)
 // ---------------------------------------------------------------------------
 
+// Coerce an anyRankDefaultsTo value (number 1..6 or the labels "one".."six" / "1".."6",
+// case-insensitive) into a star. Mirrors coerceFallback in sfcIO.ts; unknown → 6.
+fn coerce_any_rank_star(value: &serde_json::Value) -> i64 {
+    if let Some(n) = value.as_i64() {
+        if (1..=6).contains(&n) { return n; }
+    }
+    if let Some(s) = value.as_str() {
+        match s.to_lowercase().as_str() {
+            "one"   | "1" => return 1,
+            "two"   | "2" => return 2,
+            "three" | "3" => return 3,
+            "four"  | "4" => return 4,
+            "five"  | "5" => return 5,
+            "six"   | "6" => return 6,
+            _ => {}
+        }
+    }
+    6
+}
+
 fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTableIn> {
     let obj = raw.as_object()?;
     let mut table = SubstatTargetTableIn::default();
     for (key, value) in obj {
-        // Keys are star labels "one".."six" or stat variant labels per star bucket.
+        // Keys are star labels "one".."six" (each a stat→min map), plus the "anyRankDefaultsTo"
+        // fallback selector; unknown keys are ignored.
+        if key == "anyRankDefaultsTo" {
+            table.any_rank_defaults_to = coerce_any_rank_star(value);
+            continue;
+        }
         let bucket_map = match key.as_str() {
             "one"   => &mut table.one,
             "two"   => &mut table.two,
@@ -970,5 +1078,81 @@ mod label_tests {
                 "faction_code_from_label({input:?}) should be {expected}"
             );
         }
+    }
+
+    // ── set_id_from_name (generated resolver) ─────────────────────────────
+    #[test]
+    fn set_name_resolves_to_id() {
+        // Names must resolve to the ArtifactSet enum ids (trim + case-insensitive).
+        assert_eq!(set_id_from_name("Relentless"), Some(18));
+        assert_eq!(set_id_from_name("  lifesteal "), Some(9)); // trimmed + case-insensitive
+        assert_eq!(set_id_from_name("Divine Life"), Some(33)); // multi-word
+        assert_eq!(set_id_from_name("NotARealSet"), None);
+        assert_eq!(set_id_from_name(""), None);
+    }
+
+    // ── parse_sfc on the CURRENT .sfc format ──────────────────────────────
+    // Exercises every field that used to hard-reject: metaset show/iconId, recipe
+    // appearance, name-based artifactSetNames, camelCase rollBounds, substatRollTargets.
+    #[test]
+    fn parse_sfc_accepts_current_format() {
+        let sfc = r##"{
+            "Version": "1.0",
+            "Metasets": [
+                { "name": "Speedy", "setNames": ["Speed", "Swift Parry"], "show": true, "iconId": "bolt" }
+            ],
+            "Recipes": [
+                {
+                    "keep": true,
+                    "appearance": { "name": "Keep Speed Boots", "fgColor": "#abcdef" },
+                    "Rank": "6*",
+                    "Rarity": "Legendary",
+                    "artifactSetNames": [ { "name": "Speed" }, { "name": "Lifesteal", "excluded": true } ],
+                    "substats": [
+                        { "stat": "SPD", "fixed": true, "rollBounds": { "min": 2 } }
+                    ],
+                    "substatRollTargets": { "SPD": { "min": 2 } },
+                    "minCount": 1
+                }
+            ],
+            "Safeguards": [],
+            "SafeguardsEnabled": false
+        }"##;
+        let parsed = parse_sfc(sfc).expect("current-format SFC must parse");
+        assert_eq!(parsed.recipes.len(), 1);
+        let recipe = &parsed.recipes[0];
+        // "Speed" resolved to id 4; the excluded "Lifesteal" is dropped from the filter.
+        assert_eq!(recipe.artifact_set_ids, vec![4]);
+        // SPD is a fixed substat with a min-roll bound recorded.
+        assert!(recipe.fixed_substats_v.contains(&STAT_VARIANT_SPD));
+        assert!(recipe.substat_roll_bounds_v.contains_key(&STAT_VARIANT_SPD));
+        // Metaset member set names expanded to ids (Speed=4, Swift Parry=35).
+        assert_eq!(parsed.metasets.len(), 1);
+        assert_eq!(parsed.metasets[0].sets, vec![4, 35]);
+    }
+
+    // The app writes the safeguard "ignore previous" flag under `ignorePreviousSafeguards_v2`;
+    // the reader must read that key (with a fallback to the legacy un-suffixed name).
+    #[test]
+    fn safeguard_ignore_previous_reads_v2_key() {
+        let base = r#"{
+            "Version": "1.0", "Recipes": [], "Metasets": [], "SafeguardsEnabled": true,
+            "Safeguards": [ { "activation": "protectExisting", "requiredCount": 1, KEY } ]
+        }"#;
+        // Current key form.
+        let sfc_v2 = base.replace("KEY", r#""ignorePreviousSafeguards_v2": true"#);
+        let parsed = parse_sfc(&sfc_v2).expect("v2 SFC must parse");
+        assert_eq!(parsed.safeguard_rules.len(), 1);
+        assert_eq!(
+            parsed.safeguard_rules[0].ignore_previous_safeguards, Some(true),
+            "ignorePreviousSafeguards_v2 must be read"
+        );
+        // Legacy key form still honoured as a fallback.
+        let sfc_legacy = base.replace("KEY", r#""ignorePreviousSafeguards": true"#);
+        let parsed = parse_sfc(&sfc_legacy).expect("legacy SFC must parse");
+        assert_eq!(
+            parsed.safeguard_rules[0].ignore_previous_safeguards, Some(true),
+            "legacy ignorePreviousSafeguards must still be read as a fallback"
+        );
     }
 }

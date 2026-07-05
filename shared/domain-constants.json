@@ -242,6 +242,10 @@
     ]
   },
   "accessoryNoSetId": -99,
+  "_comment_accessoryFactionAliases": "Accessory `requiredFraction`/`accset` codes resolve to a faction id. The mapping is identity for every real faction id below; these entries capture the ONLY non-identity codes (legacy DB aliases). Code 0 = Any/none. SSOT for ACCESSORY_FACTION_MAP in gearDbNormalizer.ts and resolve_accessory_faction in the native DLL.",
+  "accessoryFactionAliases": {
+    "4": 13
+  },
   "faction": {
     "bannerLords": {
       "id": 1,
@@ -306,6 +310,285 @@
     "argonites": {
       "id": 17,
       "name": "Argonites"
+    }
+  },
+  "_comment_artifactSet": "Artifact/accessory set catalog (id<->name). SSOT for artifactSetNames in types.ts and the set-name resolver in the native DLL's sfc_reader. Ids match the ArtifactSet enum in artifactSets.ts.",
+  "artifactSet": {
+    "life": {
+      "id": 1,
+      "name": "Life"
+    },
+    "offense": {
+      "id": 2,
+      "name": "Offense"
+    },
+    "defense": {
+      "id": 3,
+      "name": "Defense"
+    },
+    "speed": {
+      "id": 4,
+      "name": "Speed"
+    },
+    "criticalRate": {
+      "id": 5,
+      "name": "Critical Rate"
+    },
+    "critDamage": {
+      "id": 6,
+      "name": "Crit Damage"
+    },
+    "accuracy": {
+      "id": 7,
+      "name": "Accuracy"
+    },
+    "resistance": {
+      "id": 8,
+      "name": "Resistance"
+    },
+    "lifesteal": {
+      "id": 9,
+      "name": "Lifesteal"
+    },
+    "fury": {
+      "id": 10,
+      "name": "Fury"
+    },
+    "daze": {
+      "id": 11,
+      "name": "Daze"
+    },
+    "cursed": {
+      "id": 12,
+      "name": "Cursed"
+    },
+    "frost": {
+      "id": 13,
+      "name": "Frost"
+    },
+    "frenzy": {
+      "id": 14,
+      "name": "Frenzy"
+    },
+    "regeneration": {
+      "id": 15,
+      "name": "Regeneration"
+    },
+    "immunity": {
+      "id": 16,
+      "name": "Immunity"
+    },
+    "shield": {
+      "id": 17,
+      "name": "Shield"
+    },
+    "relentless": {
+      "id": 18,
+      "name": "Relentless"
+    },
+    "savage": {
+      "id": 19,
+      "name": "Savage"
+    },
+    "destroy": {
+      "id": 20,
+      "name": "Destroy"
+    },
+    "stun": {
+      "id": 21,
+      "name": "Stun"
+    },
+    "toxic": {
+      "id": 22,
+      "name": "Toxic"
+    },
+    "provoke": {
+      "id": 23,
+      "name": "Provoke"
+    },
+    "retaliation": {
+      "id": 24,
+      "name": "Retaliation"
+    },
+    "avenging": {
+      "id": 25,
+      "name": "Avenging"
+    },
+    "stalwart": {
+      "id": 26,
+      "name": "Stalwart"
+    },
+    "reflex": {
+      "id": 27,
+      "name": "Reflex"
+    },
+    "curing": {
+      "id": 28,
+      "name": "Curing"
+    },
+    "cruel": {
+      "id": 29,
+      "name": "Cruel"
+    },
+    "immortal": {
+      "id": 30,
+      "name": "Immortal"
+    },
+    "divineOffense": {
+      "id": 31,
+      "name": "Divine Offense"
+    },
+    "divineCriticalRate": {
+      "id": 32,
+      "name": "Divine Critical Rate"
+    },
+    "divineLife": {
+      "id": 33,
+      "name": "Divine Life"
+    },
+    "divineSpeed": {
+      "id": 34,
+      "name": "Divine Speed"
+    },
+    "swiftParry": {
+      "id": 35,
+      "name": "Swift Parry"
+    },
+    "deflection": {
+      "id": 36,
+      "name": "Deflection"
+    },
+    "resilience": {
+      "id": 37,
+      "name": "Resilience"
+    },
+    "perception": {
+      "id": 38,
+      "name": "Perception"
+    },
+    "affinitybreaker": {
+      "id": 39,
+      "name": "Affinitybreaker"
+    },
+    "untouchable": {
+      "id": 40,
+      "name": "Untouchable"
+    },
+    "fatal": {
+      "id": 41,
+      "name": "Fatal"
+    },
+    "frostbite": {
+      "id": 42,
+      "name": "Frostbite"
+    },
+    "bloodthirst": {
+      "id": 43,
+      "name": "Bloodthirst"
+    },
+    "guardian": {
+      "id": 44,
+      "name": "Guardian"
+    },
+    "fortitude": {
+      "id": 45,
+      "name": "Fortitude"
+    },
+    "lethal": {
+      "id": 46,
+      "name": "Lethal"
+    },
+    "protection": {
+      "id": 47,
+      "name": "Protection"
+    },
+    "stoneskin": {
+      "id": 48,
+      "name": "Stoneskin"
+    },
+    "killstroke": {
+      "id": 49,
+      "name": "Killstroke"
+    },
+    "instinct": {
+      "id": 50,
+      "name": "Instinct"
+    },
+    "bolster": {
+      "id": 51,
+      "name": "Bolster"
+    },
+    "defiant": {
+      "id": 52,
+      "name": "Defiant"
+    },
+    "impulse": {
+      "id": 53,
+      "name": "Impulse"
+    },
+    "zeal": {
+      "id": 54,
+      "name": "Zeal"
+    },
+    "righteous": {
+      "id": 57,
+      "name": "Righteous"
+    },
+    "supersonic": {
+      "id": 58,
+      "name": "Supersonic"
+    },
+    "merciless": {
+      "id": 59,
+      "name": "Merciless"
+    },
+    "slayer": {
+      "id": 60,
+      "name": "Slayer"
+    },
+    "feral": {
+      "id": 61,
+      "name": "Feral"
+    },
+    "pinpoint": {
+      "id": 62,
+      "name": "Pinpoint"
+    },
+    "stonecleaver": {
+      "id": 63,
+      "name": "Stonecleaver"
+    },
+    "rebirth": {
+      "id": 64,
+      "name": "Rebirth"
+    },
+    "chronophage": {
+      "id": 65,
+      "name": "Chronophage"
+    },
+    "mercurial": {
+      "id": 66,
+      "name": "Mercurial"
+    },
+    "refresh": {
+      "id": 1000,
+      "name": "Refresh"
+    },
+    "cleansing": {
+      "id": 1001,
+      "name": "Cleansing"
+    },
+    "bloodshield": {
+      "id": 1002,
+      "name": "Bloodshield"
+    },
+    "reaction": {
+      "id": 1003,
+      "name": "Reaction"
+    },
+    "revenge": {
+      "id": 1004,
+      "name": "Revenge"
     }
   },
   "artifactTypeNames": {
