@@ -26,6 +26,9 @@ import { getTabActiveAccountId, setTabActiveAccountId } from './activeAccountSes
 
 // The registry document: { activeAccountId, accounts: SfcAccount[] }.
 export const ACCOUNTS_REGISTRY_KEY = 'sellfileCreator.accounts.v1'
+// One-shot carry for the shift-switch merge flow: written just before the reload, consumed
+// (and removed) by the target account's session right after restore — see App.tsx.
+export const ACCOUNT_MERGE_CARRY_KEY = 'sellfileCreator.accountMergeCarry.v1'
 
 // Every app key lives under this prefix; scoped keys are rewritten under the account prefix.
 const APP_KEY_PREFIX = 'sellfileCreator.'
@@ -711,6 +714,40 @@ export const switchAccount = (id: string): void => {
   account.lastActiveAt = nowIso()
   persistRegistry()
   notify()
+}
+
+// ---------------------------------------------------------------------------
+// Shift-switch merge carry (one-shot, global key)
+// ---------------------------------------------------------------------------
+
+export type AccountMergeCarry = {
+  // Display name of the SOURCE account, used to label the import dialog.
+  fromDisplayName: string
+  // The source document serialized with the regular .sfc writer — the target session
+  // re-parses it with the regular reader, so both sides share the file-format SSOT.
+  sfcText: string
+}
+
+// Stage the carry just before switching; consumed exactly once after the reload.
+export const stageAccountMergeCarry = (carry: AccountMergeCarry): void => {
+  safeSetItem(ACCOUNT_MERGE_CARRY_KEY, JSON.stringify(carry))
+}
+
+// Read-and-clear the staged carry (null when none). Clearing first makes the flow
+// crash-safe: a failed import never replays on the next launch.
+export const takeAccountMergeCarry = (): AccountMergeCarry | null => {
+  const raw = safeGetItem(ACCOUNT_MERGE_CARRY_KEY)
+  if (!raw) return null
+  safeRemoveItem(ACCOUNT_MERGE_CARRY_KEY)
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!isRecord(parsed)) return null
+    const { fromDisplayName, sfcText } = parsed
+    if (typeof fromDisplayName !== 'string' || typeof sfcText !== 'string' || !sfcText) return null
+    return { fromDisplayName, sfcText }
+  } catch {
+    return null
+  }
 }
 
 // ---------------------------------------------------------------------------

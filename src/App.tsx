@@ -12,7 +12,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
-import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount } from './lib/accounts'
+import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
 import { buildDocumentOverridesView } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
@@ -44,7 +44,7 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -8633,10 +8633,62 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
+  // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
+  // so the shift-switch merge carry round-trips through the regular parse/normalize path.
+  const getAccountMergeSfcText = useCallback(() => JSON.stringify(buildSfcPayload({
+    version: APP_VERSION,
+    metasets,
+    substatTargets,
+    recipes: customRecipes,
+    finalSellRemainder,
+    ...(sfcNote ? { note: sfcNote } : {}),
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  }), null, 2), [
+    metasets,
+    substatTargets,
+    customRecipes,
+    finalSellRemainder,
+    sfcNote,
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+  ])
+
   // One switcher component, two mount points (header + simple Note dialog) so both entry
   // points share behavior; the compact variant only changes the button chrome.
-  const accountSwitcherElement = <AccountSwitcher flashSeq={accountPushFlashSeq} />
-  const accountSwitcherCompactElement = <AccountSwitcher flashSeq={accountPushFlashSeq} compact />
+  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} />
+  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} compact />
+
+  // One-shot account-merge carry (shift-switch): taken from storage on mount — clearing it
+  // immediately makes the flow crash-safe (a failed import never replays on the next launch).
+  const [accountMergeCarry] = useState(takeAccountMergeCarry)
+  const accountMergeCarryConsumedRef = useRef(false)
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect -- the carry is EXTERNAL state (localStorage written by the previous account's session before the reload); it can only be surfaced after the restore flow settles, which is inherently an effect, and the consumed-ref guarantees a single fire. */
+  useEffect(() => {
+    // Wait until the startup restore flow settles so the import applies to the target
+    // account's restored document, then surface the carry through the existing
+    // shift-import options dialog (selection + merge modes + metaset conflicts).
+    if (!accountMergeCarry || accountMergeCarryConsumedRef.current || restoreDlgOpen) return
+    accountMergeCarryConsumedRef.current = true
+    // Failure-toast timer captured for cleanup; null when the carry parsed fine.
+    let failureToastTimer: number | null = null
+    try {
+      // Same parser the file-import path uses — the carry is a regular .sfc text.
+      const payload = parseSfcText(accountMergeCarry.sfcText, { metasets, substatTargets })
+      setPendingSfcShiftDialogImport({
+        fileName: t('accountMergeSourceLabel', { name: accountMergeCarry.fromDisplayName }),
+        payload,
+      })
+    } catch {
+      // Unreadable carry: report and continue — the target account is untouched. Deferred a
+      // tick so the toast state flips outside this effect's synchronous commit.
+      failureToastTimer = window.setTimeout(() => showToast(t('accountMergeCarryFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> }), 0)
+    }
+    return () => { if (failureToastTimer !== null) window.clearTimeout(failureToastTimer) }
+  }, [accountMergeCarry, restoreDlgOpen, metasets, substatTargets, setPendingSfcShiftDialogImport, showToast, t])
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect */
 
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (

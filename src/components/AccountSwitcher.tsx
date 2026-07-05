@@ -41,6 +41,7 @@ import {
   setAccountAccent,
   setAccountNameEllipsis,
   setUnstampedDefaultAccount,
+  stageAccountMergeCarry,
   switchAccount,
   type SfcAccount,
 } from '../lib/accounts'
@@ -59,6 +60,9 @@ import {
 import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 
 export type AccountSwitcherProps = {
+  // Serializes the current document with the regular .sfc writer; staged as the merge carry
+  // when the user shift-picks a target account (offered through the shift-import dialog there).
+  getMergeSfcText: () => string
   // Compact variant for the simple-mode Note dialog action strip: natural small-button
   // height so it matches the strip's other outlined controls (header variant is 34px).
   compact?: boolean
@@ -93,7 +97,7 @@ function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: 
   )
 }
 
-export default function AccountSwitcher({ compact = false, flashSeq = 0 }: AccountSwitcherProps) {
+export default function AccountSwitcher({ getMergeSfcText, compact = false, flashSeq = 0 }: AccountSwitcherProps) {
   const { t } = useI18n()
   const { accounts, activeAccount } = useAccounts()
   // The accent FILLS the switcher button, so the label is the active scheme's text
@@ -200,9 +204,18 @@ export default function AccountSwitcher({ compact = false, flashSeq = 0 }: Accou
     setAccountDialog({ mode: 'create' })
   }
 
-  // Clicking a non-active account switches to it (write the registry, then reload).
-  const handlePickAccount = (account: SfcAccount) => {
+  // Plain click switches (write the registry, then reload). Shift+click additionally stages
+  // the current document as a one-shot carry, so the target account opens the shift-import
+  // merge dialog on boot (same dialog as shift-loading an .sfc) — no extra confirmation step.
+  const handlePickAccount = (event: React.MouseEvent, account: SfcAccount) => {
     if (account.id === activeAccount.id) { closeMenu(); return }
+    if (event.shiftKey) {
+      try {
+        stageAccountMergeCarry({ fromDisplayName: accountLabel(activeAccount), sfcText: getMergeSfcText() })
+      } catch {
+        // Serialization failure: fall back to a plain switch rather than blocking it.
+      }
+    }
     switchAccount(account.id)
     reload()
   }
@@ -270,7 +283,7 @@ export default function AccountSwitcher({ compact = false, flashSeq = 0 }: Accou
   }
 
   // Bold state line + interaction help, mirroring the connect button's tooltip format.
-  const tooltipMd = `**${t('accountSwitcherTooltip', { name: accountLabel(activeAccount) })}**`
+  const tooltipMd = `**${t('accountSwitcherTooltip', { name: accountLabel(activeAccount) })}**\n\n${t('accountMenuShiftHint')}`
   const isCreate = accountDialog?.mode === 'create'
   // The dialog renders for create mode OR a still-existing managed account.
   const dialogOpen = accountDialog !== null && (isCreate || managedAccount !== null)
@@ -343,7 +356,7 @@ export default function AccountSwitcher({ compact = false, flashSeq = 0 }: Accou
             <MenuItem
               key={account.id}
               selected={account.id === activeAccount.id}
-              onClick={() => handlePickAccount(account)}
+              onClick={(e) => handlePickAccount(e, account)}
             >
               {/* Leading slot marks the ACTIVE account with a right arrow ("you are here"). */}
               <ListItemIcon>
@@ -413,6 +426,13 @@ export default function AccountSwitcher({ compact = false, flashSeq = 0 }: Accou
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
           {t('accountMenuNew')}
         </MenuItem>
+        {/* Advertise the shift-merge affordance where the user is already looking —
+            text.disabled matches the app's other purely-informative labels (filter header).
+            The colour must live in sx: the Typography color PROP does not resolve the
+            token here and the text inherits the menu's full-strength foreground. */}
+        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
+          {t('accountMenuShiftHint')}
+        </Typography>
       </Menu>
 
       {/* The unified account dialog: identical layout for create (staged) and manage (live). */}

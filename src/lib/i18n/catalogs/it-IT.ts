@@ -1986,6 +1986,9 @@ const overrides: Catalog = {
   accountDeleteTitle: "Elimina account",
   accountManageDeleteConfirm: "Eliminare davvero \"{name}\" e tutti i suoi dati? L’operazione è irreversibile.",
   accountManageDeleteConfirmButton: "Elimina definitivamente",
+  accountMenuShiftHint: "Tieni premuto Shift selezionando un account per unirvi il documento corrente.",
+  accountMergeSourceLabel: "Account: {name}",
+  accountMergeCarryFailed: "Impossibile leggere il documento trasferito dall’account precedente.",
   accountInboundMismatchToast: "Ignorati dati di RSL Helper di un altro account ({incoming}). Account attivo: {active}.",
 }
 

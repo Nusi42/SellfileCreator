@@ -1986,6 +1986,9 @@ const overrides: Catalog = {
   accountDeleteTitle: "Hesabı sil",
   accountManageDeleteConfirm: "\"{name}\" hesabı tüm verileriyle birlikte silinsin mi? Bu işlem geri alınamaz.",
   accountManageDeleteConfirmButton: "Kalıcı olarak sil",
+  accountMenuShiftHint: "Geçerli belgeyi seçilen hesapla birleştirmek için hesabı seçerken Shift tuşunu basılı tutun.",
+  accountMergeSourceLabel: "Hesap: {name}",
+  accountMergeCarryFailed: "Önceki hesaptan aktarılan belge okunamadı.",
   accountInboundMismatchToast: "Başka bir hesaba ({incoming}) ait RSL Helper verileri yok sayıldı. Etkin hesap: {active}.",
 }
 

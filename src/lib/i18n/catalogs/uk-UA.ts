@@ -1986,6 +1986,9 @@ const overrides: Catalog = {
   accountDeleteTitle: "Видалити обліковий запис",
   accountManageDeleteConfirm: "Справді видалити «{name}» з усіма даними? Цю дію не можна скасувати.",
   accountManageDeleteConfirmButton: "Видалити назавжди",
+  accountMenuShiftHint: "Утримуйте Shift під час вибору облікового запису, щоб об’єднати поточний документ із ним.",
+  accountMergeSourceLabel: "Обліковий запис: {name}",
+  accountMergeCarryFailed: "Не вдалося прочитати документ, перенесений з попереднього облікового запису.",
   accountInboundMismatchToast: "Дані RSL Helper для іншого облікового запису ({incoming}) проігноровано. Активний обліковий запис: {active}.",
 }
 

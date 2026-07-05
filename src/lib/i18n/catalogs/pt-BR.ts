@@ -1986,6 +1986,9 @@ const catalog: Catalog = {
   accountDeleteTitle: "Excluir conta",
   accountManageDeleteConfirm: "Excluir mesmo \"{name}\" e todos os seus dados? Isso não pode ser desfeito.",
   accountManageDeleteConfirmButton: "Excluir permanentemente",
+  accountMenuShiftHint: "Segure Shift ao selecionar uma conta para mesclar o documento atual nela.",
+  accountMergeSourceLabel: "Conta: {name}",
+  accountMergeCarryFailed: "Não foi possível ler o documento transferido da conta anterior.",
   accountInboundMismatchToast: "Dados do RSL Helper de outra conta ({incoming}) foram ignorados. Conta ativa: {active}.",
 }
 

@@ -1986,6 +1986,9 @@ const enUS: Catalog = {
   accountDeleteTitle: "Delete account",
   accountManageDeleteConfirm: "Really delete \"{name}\" and all of its data? This cannot be undone.",
   accountManageDeleteConfirmButton: "Delete permanently",
+  accountMenuShiftHint: "Hold Shift while selecting an account to merge the current document into it.",
+  accountMergeSourceLabel: "Account: {name}",
+  accountMergeCarryFailed: "Could not read the document carried over from the previous account.",
   accountInboundMismatchToast: "Ignored RSL Helper data for another account ({incoming}). Active account: {active}.",
 }
 
