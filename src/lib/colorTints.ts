@@ -101,6 +101,7 @@ export const TINT = {
   primaryActiveBg:       tint('primary-main', ALPHA.a20), // active border bg (NoteDialog)
   primarySelectedShadow: tint('primary-main', ALPHA.a25), // selected-card inset shadow (GearInspectorGridCard)
   primaryGlow:           tint('primary-main', ALPHA.a60), // primary halo (a60 glow step): hover/selection glow + focus-pulse start (GearAnalyticsDonut, RecipeChipsPanel, NoteDialog, App.tsx)
+  primaryDemoTrail:      tint('primary-main', ALPHA.a15), // very-dim Knight-Rider sweep behind the go-expert demo slide (goExpertDemo) — reads as a faint vanishing streak, never competes with real UI
   pulseFadeOut:          tint('primary-main', 0),         // transparent end of any expanding pulse keyframe (alpha 0 → channel irrelevant) — keep + focus pulses
 
   // ── Info accent (card focus ring / highlight chip) ───────────────────────────
