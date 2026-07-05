@@ -104,7 +104,7 @@ const note: string = (sfc.Note as string[]).join('\n')
 const EXPECTED = `== RECIPE ==
 Q "Which account level do you think you hav" cols=4
   midgame m +[keep_general,keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_22,acc_rolls_22,marius_open,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] -[ore6as_epic] ![lategame,endgame,endgameplus] setval[min_spdbanner_pieces=8,min_spd_pieces=8,min_debuffer_pieces=16,min_dmgsurv_pieces=16,impr_art=25,impr_acc=50]
-  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap] ![midgame,endgame,endgameplus]
+  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap] ![midgame,endgame,endgameplus] setval[min_spdbanner_pieces=12,min_spd_pieces=12,min_debuffer_pieces=24,min_dmgsurv_pieces=24,impr_art=33,impr_acc=50]
   endgame m +[keep_limited,keep_acc,keep_spd,rolls_43,acc_rolls_33,marius_finished,fwh_yes16,la_yes16,eg_early,acc_early_yesspider,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] -[keep_general,keep_safeguards,ore5_nbr,ore6as_epic,ore6as_legendary] ![midgame,lategame,endgameplus] setval[min_spdbanner_pieces=16,min_spd_pieces=16,min_debuffer_pieces=32,min_dmgsurv_pieces=32,impr_art=50,impr_acc=50]
   endgameplus m +[marius_finished,rolls_43,acc_rolls_43,fwh_yes,la_yes,eg_yes,acc_early_yes] -[keep_safeguards,keep_general,keep_limited,keep_acc,keep_spd,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_epic,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] ![midgame,lategame,endgame] setval[min_spdbanner_pieces=4,min_spd_pieces=4,min_debuffer_pieces=4,min_dmgsurv_pieces=4,impr_art=60,impr_acc=60]
 Q "" cols=1 SPACER
@@ -172,25 +172,25 @@ Q "How many of the best SPD banners **per f" cols=2
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_spdbanner_pieces s blk:count sld:1-64/12 unit: pieces
+  min_spdbanner_pieces s blk:count sld:1-64/16 unit: pieces
 Q "How many speed-set pieces **per slot** s" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_spd_pieces s blk:count sld:1-64/12 unit: pieces
+  min_spd_pieces s blk:count sld:1-64/16 unit: pieces
 Q "How many debuffer pieces **per slot** sh" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_debuffer_pieces s blk:count sld:1-64/24 unit: pieces
+  min_debuffer_pieces s blk:count sld:1-64/32 unit: pieces
 Q "How many damage or survivability pieces " cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_dmgsurv_pieces s blk:count sld:1-64/24 unit: pieces
+  min_dmgsurv_pieces s blk:count sld:1-64/32 unit: pieces
 Q "How many damage/survivability/debuffer p" cols=2
   #1 s blk:activation
   #2 s blk:activation
@@ -199,9 +199,9 @@ Q "How many damage/survivability/debuffer p" cols=2
   #5 s blk:count sld:1-64/8 unit: pieces
 Q "" cols=2 SPACER
 Q "Do you want to protect **artifacts** (no" cols=2
-  impr_art s blk:improvementChance else:improvementChance sld:0-90/33 tgl:left/on marks:4 unit:%
+  impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%
 Q "Do you want to protect **accessories** (" cols=2
-  impr_acc s blk:improvementChance else:improvementChance sld:0-90/50 tgl:left/on marks:4 unit:%`
+  impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%`
 
 test('lategame.sfc overrides parse to the golden behavioural digest', () => {
   const recipe = resolveRecipeOverridesTags(note)

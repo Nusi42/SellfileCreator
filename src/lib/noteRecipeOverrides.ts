@@ -579,11 +579,11 @@ export const collectCrossDomainSliderWrites = (
  * slider questionId any option in the passed questions targets via `setval`/`+`/`-` (regardless
  * of whether that option is currently selected). Callers pass the account-tier question's options.
  *
- * Why this exists: the default `* Lategame` tier carries NO slider forces (its values live in the
- * re-baselined slider `default=`), so switching a stricter tier → Lategame writes nothing and would
- * leave the prior tier's slider answers stuck. The change handler uses this set to clear every
- * tier-owned slider the newly-selected tier does not itself write, so those sliders fall back to
- * their (Lategame) `default=`. Reads the same directive fields as {@link collectCrossDomainSliderWrites}.
+ * Why this exists: cross-domain slider writes only fire for a newly-selected option, with no undo. If
+ * a tier option omits a force for a slider another tier sets, switching to it would leave the prior
+ * tier's slider answer stuck. The change handler uses this owned-set to clear every tier-owned slider
+ * the newly-selected option does not itself write, so those sliders fall back to their `default=`.
+ * Reads the same directive fields as {@link collectCrossDomainSliderWrites}.
  */
 export const collectTierOwnedSliderQuestionIds = (
   tierQuestions: readonly NoteQuestionDefinition[],

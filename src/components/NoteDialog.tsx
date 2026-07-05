@@ -4625,10 +4625,12 @@ export default function NoteDialog({
       sliderByToken,
       (optionId) => !before.has(optionId),
     )
-    // Clear-forces on tier switch-back: a tier question whose newly-selected option carries no force
-    // for a slider it OWNS (e.g. the default Lategame tier, which now forces nothing) must release that
-    // slider back to its `default=` instead of leaving the previous tier's stuck value. `question` is
-    // the changed question; if it owns any tier sliders, drop every owned slider the writes don't set.
+    // Clear-forces on tier switch-back: when a newly-selected option does NOT (re)write a slider it
+    // OWNS (i.e. a token in the tier's own setval/±set — but this specific selection left it unforced),
+    // release that slider back to its `default=` instead of leaving the previous tier's stuck value.
+    // Without this, selecting a tier that omits a force would keep the prior tier's stored slider value.
+    // `question` is the changed question; if it owns any tier sliders, drop every owned slider the
+    // writes don't set. (On a preset where every tier forces every slider, `toClear` stays empty.)
     const ownedByThisQuestion = collectTierOwnedSliderQuestionIds([question], sliderByToken)
     const writtenIds = new Set(writes.map((w) => w.questionId))
     // Owned sliders NOT (re)written by the new selection → delete so they fall back to `default=`.
