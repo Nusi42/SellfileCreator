@@ -35,6 +35,10 @@ old_releases/*-dev.html
 # become a committed fixture.
 /docs/orig/sampleLog/captures/
 
+# Compiled C/C++ smoke-test binary for the native DLL (rebuilt via its Makefile).
+/wasm/rule_engine_native/example/run_example
+/wasm/rule_engine_native/example/run_example.exe
+
 # Playwright
 /test-results/
 /playwright-report/

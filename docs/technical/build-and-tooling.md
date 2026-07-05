@@ -234,13 +234,14 @@ Output locations:
 
 **C/C++ smoke test**
 
-`example/main.cpp` is both integration-test and sample code.  It loads the
-DLL at runtime, calls `sfc_generate` with a hardcoded minimal payload, validates
-the output, and exits 0 on success / 1 on any failure.
+`wasm/rule_engine_native/example/main.cpp` is both integration-test and sample
+code.  It loads the DLL at runtime, calls `sfc_generate` with a hardcoded minimal
+payload, validates the output, and exits 0 on success / 1 on any failure.  The
+compiled `run_example` binary is gitignored — it is rebuilt from the Makefile.
 
 ```sh
 # Build and run (Linux/WSL):
-cd example && make run
+cd wasm/rule_engine_native/example && make run
 ```
 
 The test verifies: `rules` array non-empty, at least one rule with `Keep=true`,
@@ -265,6 +266,39 @@ The WASM crate uses `#[wasm_bindgen]` and `JsValue`; the native crate uses
 `extern "C"` and JSON strings.  The SFC label-parser module (`sfc_reader`) and
 recipe normalizer (`recipe_builder`) live in `rule_engine_core` so both
 compilation targets share the same parsing logic without duplication.
+
+**State & known gaps** (as of 2026-07-05)
+
+The crate is *self-contained and un-integrated*: the Rust compiles cleanly
+(`cargo build -p rule_engine_native`), its 4 unit tests pass, and the C++ smoke
+test in `example/` loads the `.so` and gets valid rules out.  What is missing is
+productionization, not core logic:
+
+- **No Windows `.dll` has been built/verified here** — only the Linux `.so` is
+  proven.  The MSVC/MinGW commands above are documented but unrun in WSL.
+- **No header/`.def`/cbindgen, no build-or-CI wiring** — nothing in
+  `package.json`, the release `.ps1` scripts, or CI builds, ships, or gates on
+  this crate.  RSL Helper would `GetProcAddress` the two symbols directly.
+- **`sfc_reader` has drifted behind the live SFC schema.** `parse_sfc` on a
+  current preset (`presets/lategame.sfc`) fails with `unknown field 'show'`:
+  `ReadableMetaset` in `sfc_reader.rs` is `deny_unknown_fields` and predates the
+  `show` (metaset UI-visibility) field the app now writes.  Any real-data run
+  must first bring the reader's structs in sync with the current `sfcIO.ts`
+  output (add the new fields or relax `deny_unknown_fields` where safe).
+- **Input-contract mismatch on `faction`.** `NativeArtifactIn` expects a
+  *pre-resolved* `faction` id, but the app's compact `GearDbArtifactRow` only
+  carries the raw `accset` (requiredFraction) code; resolution via
+  `ACCESSORY_FACTION_MAP` is a stage-2 concern the DLL skips.  A caller feeding
+  compact rows must resolve accset→faction first, or the DLL must gain that map.
+
+**Real-data test harness**
+
+`tests/repro/native-dll-realdata-input.ts` converts a captured raw endpoint
+`artifacts` packet (`docs/orig/sampleLog/packet_*_artifacts_*.json`) into a
+`NativeInput` JSON by reusing the app's own `normalizeExternalEvent` (no logic
+duplicated), pairs it with a `.sfc` preset, and writes the file the DLL consumes.
+This is how the schema-drift gaps above were found; re-run it after fixing
+`sfc_reader` to validate the DLL against real accounts.
 
 ### WASM Linear Memory Management
 

@@ -5,15 +5,17 @@
  * validates the output, and exits 0 on success / 1 on any failure.
  * Suitable as a CI sanity test on both Linux (debug .so) and Windows (.dll).
  *
- * Build & run — Linux/WSL (debug .so):
+ * Build & run — Linux/WSL (debug .so), from wasm/rule_engine_native/example/:
+ *   make run                         # builds the .so and the binary, then runs
+ * or manually, from the repo root:
  *   cargo build -p rule_engine_native
- *   g++ example/main.cpp -o example/run_example -ldl
- *   ./example/run_example ./target/debug/librule_engine_native.so
+ *   g++ wasm/rule_engine_native/example/main.cpp -o wasm/rule_engine_native/example/run_example -ldl
+ *   wasm/rule_engine_native/example/run_example wasm/target/debug/librule_engine_native.so
  *
- * Build & run — Windows release .dll (Developer Command Prompt):
+ * Build & run — Windows release .dll (Developer Command Prompt), from the repo root:
  *   cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
- *   cl /EHsc example\main.cpp /Fe:example\run_example.exe
- *   example\run_example.exe target\release\rule_engine_native.dll
+ *   cl /EHsc wasm\rule_engine_native\example\main.cpp /Fe:run_example.exe
+ *   run_example.exe wasm\target\x86_64-pc-windows-msvc\release\rule_engine_native.dll
  */
 
 #include <cstdio>
