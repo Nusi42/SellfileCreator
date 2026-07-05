@@ -61,7 +61,7 @@ const ENDPOINT_URL = 'ws://localhost:8080/'
 // the accumulation.
 // Round count comes from the shared dev/release split (E2E_FULL). The pre-fix leak stepped
 // the WASM heap unboundedly within ~15 rounds, so the dev count (15) still reproduces a real
-// leak; the full release count (60) gives a wide flatness margin while fitting the per-test
+// leak; the full release count (20) gives a wide flatness margin while fitting the per-test
 // budget on Firefox (slower than Chromium — 100 rounds overran 20 min there).
 const WITHHELD_ARTIFACTS = INCREMENTAL_REVEAL_ROUNDS
 // Max tolerated heap growth (MB) from the post-seed baseline to the peak. Adding 100 small

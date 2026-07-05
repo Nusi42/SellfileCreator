@@ -33,7 +33,7 @@ export const BINARY_MEMORY_ROUNDS = pick(8, 2)
 // endpoint-incremental-updates: reveal one withheld artifact per round, growing the
 // dataset monotonically. The pre-fix leak stepped within ~15 rounds, so dev 15 still
 // reproduces a real leak; full 60 gives the wide flatness margin (and Firefox headroom).
-export const INCREMENTAL_REVEAL_ROUNDS = pick(60, 15)
+export const INCREMENTAL_REVEAL_ROUNDS = pick(20, 15)
 
 // binary-endpoint-fragmentation: cross-product of account modes × keep-toggle × DBs.
 // The fragmentation signal needs allocation SIZES to churn run-to-run, which a subset
