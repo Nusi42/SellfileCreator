@@ -1364,6 +1364,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const keepActionOverrideTarget: 'keep' | 'sell' | null = keepBooleanOverrideActive
     ? (recipe.keep ? 'keep' : 'sell')
     : null
+  // Override badges live on their individual controls inside each section's <Collapse>, so they
+  // unmount when the section is collapsed. Collapsed sections intentionally show no override
+  // marker on the chevron — the detail is only relevant while the user has the section expanded.
   // Localized Keep/Sell label for the override badge tooltip (in sync with the toggle text).
   const keepActionLabel = React.useCallback(
     (value: 'keep' | 'sell'): string => (value === 'keep' ? t('keepValueKeep') : t('keepValueSell')),
@@ -4525,7 +4528,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       <>
         {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-          <BuilderSectionHeader id="minRolls" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.min-rolls.label">
+          <BuilderSectionHeader
+            id="minRolls"
+            collapsed={builderCollapsed}
+            onCollapsedChange={setBuilderCollapsed}
+            labelSx={{ m: 0 }}
+            dataTourId="builder.min-rolls.label"
+          >
             <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
               <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
             </MarkdownTooltip>
@@ -4790,7 +4799,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       <>
         {/* Required substats caption exposes overflow through the shared label helper. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-          <BuilderSectionHeader id="requiredSubstats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.required.label">
+          <BuilderSectionHeader
+            id="requiredSubstats"
+            collapsed={builderCollapsed}
+            onCollapsedChange={setBuilderCollapsed}
+            labelSx={{ m: 0 }}
+            dataTourId="builder.required.label"
+          >
             <MarkdownTooltip
               ellipsisTitle={t('builderRequiredSubstats')}
               render={(
@@ -5032,7 +5047,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       >
         {/* Milestone Thresholds label also clamps to the 146px column width. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-          <BuilderSectionHeader id="milestoneThresholds" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }} dataTourId="builder.thresholds.label">
+          <BuilderSectionHeader
+            id="milestoneThresholds"
+            collapsed={builderCollapsed}
+            onCollapsedChange={setBuilderCollapsed}
+            labelSx={{ m: 0 }}
+            dataTourId="builder.thresholds.label"
+          >
             <MarkdownTooltip
               ellipsisTitle={t('builderMilestoneThresholds')}
               render={(
@@ -5900,7 +5921,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         })}>
           {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ mb: 0 }}>
+            <BuilderSectionHeader
+              id="action"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ mb: 0 }}
+            >
               <MarkdownTooltip
                 // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
                 // the OS tooltip without stacking another Markdown popper.
@@ -6371,7 +6397,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
+            <BuilderSectionHeader
+              id="rank"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+            >
               <MarkdownTooltip
                 ellipsisTitle={t('builderRank')}
                 render={(
@@ -6501,7 +6531,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
+            <BuilderSectionHeader
+              id="rarity"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+            >
               <MarkdownTooltip
                 ellipsisTitle={t('filterRarity')}
                 render={(
@@ -6813,6 +6847,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Box>
           <Collapse in={!builderCollapsed.level} timeout="auto" unmountOnExit>
           <Box sx={{ px: 1.5, position: 'relative' }}>
+            {/* Override badge on the level control; unmounts with the section when collapsed. */}
+            {levelOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              `${levelLabel(storedMinLevel)}–${levelLabel(storedMaxLevel)}`,
+              `${levelLabel(effectiveMinLevel)}–${levelLabel(effectiveMaxLevel)}`,
+            ))}
             <Slider
               size="small"
               min={0}
@@ -6846,10 +6885,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 '& .MuiSlider-thumb': { width: 16, height: 16 },
               }}
             />
-            {levelOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-              `${levelLabel(storedMinLevel)}–${levelLabel(storedMaxLevel)}`,
-              `${levelLabel(effectiveMinLevel)}–${levelLabel(effectiveMaxLevel)}`,
-            ))}
           </Box>
           </Collapse>
         </Box>
@@ -6878,17 +6913,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {mainStatClearButton}
           </Box>
-          <Box sx={{ position: 'relative' }}>
-            {mainStatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-              (recipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-              (effectiveRecipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-            ))}
-            <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Collapse in={!builderCollapsed.mainStat} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
+              {/* Override badge on the mainstat toggles; unmounts with the section when collapsed. */}
+              {mainStatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                (recipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+                (effectiveRecipe.mainStatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+              ))}
               {mainStatToggleRows}
             </Box>
-            </Collapse>
-          </Box>
+          </Collapse>
         </FormControl>
 
         {/* Substats — cols 3-4 */}
@@ -6922,17 +6956,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {substatsClearButton}
           </Box>
-          <Box sx={{ position: 'relative' }}>
-            {substatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-              (recipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-              (effectiveRecipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-            ))}
-            <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
+              {/* Override badge on the substat toggles; unmounts with the section when collapsed. */}
+              {substatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+                (recipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+                (effectiveRecipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+              ))}
               {substatsContent}
             </Box>
-            </Collapse>
-          </Box>
+          </Collapse>
         </FormControl>
 
         {/* Slots — cols 1-2, spans rows 4a + 4b so it sits flush alongside both right-column items */}
@@ -6960,16 +6993,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </BuilderSectionHeader>
             {slotsClearButton}
           </Box>
-          <Box sx={{ position: 'relative' }}>
-            {slotsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-              (recipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
-              (effectiveRecipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
-            ))}
           <Collapse in={!builderCollapsed.slots} timeout="auto" unmountOnExit>
           {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
           {/* SlotTintControlScope: glyphs in these toggle buttons use the button-scoped slot tint. */}
           <SlotTintControlScope>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5, position: 'relative' }}>
+            {/* Override badge on the slot grid; unmounts with the section when collapsed. */}
+            {slotsOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              (recipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
+              (effectiveRecipe.artifactTypes ?? []).map((id) => slotLabel(Number(id))).join(', ') || t('any'),
+            ))}
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const slotState = multiEditActive ? getSlotState(id) : (displayArtifactTypes.includes(id) ? 'all' : 'none')
               const selected = slotState === 'all' || (!multiEditActive && displayArtifactTypes.includes(id))
@@ -7086,7 +7119,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           </Box>
           </SlotTintControlScope>
           </Collapse>
-          </Box>{/* end slots override badge wrapper */}
         </FormControl>
 
         {/* Row 4a right: Min Rolls + Required Substats + Milestones — direct grid item at cols 3-4 */}
@@ -7161,7 +7193,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
-            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ mb: 0, mr: 1, flex: '0 1 auto' }}>
+            <BuilderSectionHeader
+              id="sets"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ mb: 0, mr: 1, flex: '0 1 auto' }}
+            >
               <MarkdownTooltip
                 ellipsisTitle={t('setsTitle')}
                 render={(

@@ -858,6 +858,10 @@ export default function SafeguardBuilderPanel({
     && JSON.stringify(_sortedNums(effectiveRule.combination.factions ?? []))
        !== JSON.stringify(_sortedNums(rule.combination.factions ?? []))
 
+  // Override badges live on their individual controls inside each section's <Collapse>, so they
+  // unmount when the section is collapsed. Collapsed sections intentionally show no override
+  // marker on the chevron — the detail is only relevant while the user has the section expanded.
+
   // Maps SafeguardRuleActivation to the short display label used in override badge tooltips.
   const activationLabel = React.useCallback((a: SafeguardRuleActivation): string => {
     return t(safeguardActivationShortLabelKey(a))
@@ -2231,7 +2235,12 @@ export default function SafeguardBuilderPanel({
         {/* Rank — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="rank" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            <BuilderSectionHeader
+              id="rank"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRankSelect onChange with an empty selection (same setRuleCombination path). */}
@@ -2239,6 +2248,7 @@ export default function SafeguardBuilderPanel({
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
+              {/* Expanded-state control badge for the rank FIELD (chevron aggregate shows only when collapsed). */}
               {rankOverrideActive && renderSafeguardOverrideBadge(
                 buildSafeguardOverrideBadgeTooltip(
                   formatRankList(rule.combination.ranks ?? []),
@@ -2272,7 +2282,12 @@ export default function SafeguardBuilderPanel({
         {/* Rarity — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="rarity" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            <BuilderSectionHeader
+              id="rarity"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRaritySelect onChange with an empty selection. */}
@@ -2280,6 +2295,7 @@ export default function SafeguardBuilderPanel({
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
+              {/* Expanded-state control badge for the rarity FIELD (chevron aggregate shows only when collapsed). */}
               {rarityOverrideActive && renderSafeguardOverrideBadge(
                 buildSafeguardOverrideBadgeTooltip(
                   formatRarityList(rule.combination.rarities ?? []),
@@ -2310,7 +2326,12 @@ export default function SafeguardBuilderPanel({
         {/* Faction — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            <BuilderSectionHeader
+              id="faction"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearFactionSelect onChange empty-selection paths (single + multi-edit). */}
@@ -2324,6 +2345,8 @@ export default function SafeguardBuilderPanel({
           </Box>
           <Collapse in={!builderCollapsed.faction} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
+              {/* Expanded-state control badge for the faction FIELD itself (the chevron aggregate
+                  badge only shows while collapsed, so the specific stored→effective badge lives here). */}
               {factionOverrideActive && renderSafeguardOverrideBadge(
                 buildSafeguardOverrideBadgeTooltip(
                   formatFactionList(rule.combination.factions ?? []),
@@ -2438,7 +2461,12 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            <BuilderSectionHeader
+              id="mainStat"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
             </BuilderSectionHeader>
             {mainStatSectionDirty
@@ -2581,8 +2609,14 @@ export default function SafeguardBuilderPanel({
           The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
-          <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
+            <BuilderSectionHeader
+              id="substats"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
             </BuilderSectionHeader>
             {hasSubstatSelection
@@ -2598,16 +2632,17 @@ export default function SafeguardBuilderPanel({
               )
               : <Box sx={CLEAR_BUTTON_STRUT_SX} />
             }
-            {/* Override badge: shown when a safeguard-overrides block changes the required substats. */}
-            {substatsOverrideActive && renderSafeguardOverrideBadge(
-              buildSafeguardOverrideBadgeTooltip(
-                substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
-                substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
-              ),
-            )}
           </Box>
           <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
+              {/* Expanded-state control badge for the substat SELECTION itself. The chevron aggregate
+                  badge only shows while collapsed; the specific stored→effective badge lives here. */}
+              {substatsOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
+                  substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
+                ),
+              )}
               {/* substatGroupProps and substatGroupSx are pre-computed before the return statement. */}
               <>
                 {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
@@ -2955,7 +2990,12 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            <BuilderSectionHeader
+              id="slots"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+            >
               <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
             </BuilderSectionHeader>
             {slotSectionDirty
@@ -3118,7 +3158,12 @@ export default function SafeguardBuilderPanel({
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl fullWidth>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <BuilderSectionHeader id="sets" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0, flex: '0 1 auto' }}>
+            <BuilderSectionHeader
+              id="sets"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0, flex: '0 1 auto' }}
+            >
               <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
             </BuilderSectionHeader>
             {/* Clear wipes both sets and metaSetNames, mirroring the GearSetsSelect onChange paths (single + multi). */}
