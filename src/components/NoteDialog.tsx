@@ -12,6 +12,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SendIcon from '@mui/icons-material/Send'
 import { AUTO_PUSH_BLINK_MS, autoPushBlink } from '../lib/pushFeedbackKeyframes'
+import { playGoExpertPanelDemo } from '../lib/goExpertDemo'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
@@ -341,6 +342,16 @@ function loadPanelSnap(): PanelSnapData | null {
 function savePanelSnap(data: PanelSnapData): void {
   try { localStorage.setItem(PANEL_SNAP_KEY, JSON.stringify(data)) } catch { /* storage unavailable */ }
 }
+
+// Session-scoped state for the "go-expert demo" slide (see lib/goExpertDemo.ts). Both are module-level
+// (not React refs) so they survive the NoteDialog remount that Go Expert triggers (simple Dialog →
+// floating Panel) and can be read from the panel's mount effect and its width initializer without a
+// render-time ref access. They reset on reload — the demo teaches the movable panel once per session,
+// not once ever, and not on every toggle.
+//   armed  — set the instant the user commits to Go Expert; consumed once by the floating panel mount.
+//   played — set once the demo has actually run, so it never re-arms for the rest of the session.
+let goExpertDemoArmed = false
+let goExpertDemoPlayedThisSession = false
 // The auto-push success pulse moved to lib/pushFeedbackKeyframes.ts — the account
 // switcher button plays the same animation for background push activity (SSOT).
 // One-shot highlight pulse for the overlay box flashed over an option's DSL when its preview
@@ -4288,11 +4299,18 @@ export default function NoteDialog({
   const goExpertNeedsConfirm = Boolean(simpleCustomAvailable && simplePresetMatch != null)
   // Controls the "Switch to Expert mode?" confirmation dialog.
   const [goExpertConfirmOpen, setGoExpertConfirmOpen] = useState(false)
+  // Arm the one-time go-expert demo slide (see lib/goExpertDemo.ts). Set the moment the user commits
+  // to going expert, so the freshly-mounted floating panel knows to play the teaching gesture and to
+  // open at default width. The module-level played flag prevents re-arming after it has played once.
+  const armGoExpertDemo = useCallback(() => {
+    if (!goExpertDemoPlayedThisSession) goExpertDemoArmed = true
+    onGoExpert?.()
+  }, [onGoExpert])
   // Route Go Expert through the confirm dialog when leaving would discard the custom SFC.
   const handleGoExpertClick = useCallback(() => {
     if (goExpertNeedsConfirm) setGoExpertConfirmOpen(true)
-    else onGoExpert?.()
-  }, [goExpertNeedsConfirm, onGoExpert])
+    else armGoExpertDemo()
+  }, [goExpertNeedsConfirm, armGoExpertDemo])
 
   // Express mode toggle value type: the two presets plus the restorable custom SFC.
   type SimpleToggleValue = 'beginner' | 'lategame' | 'custom'
@@ -5083,6 +5101,83 @@ export default function NoteDialog({
     }
   }, [])
 
+  // Reset the panel to default width on Go Expert, and PERSIST it. Going expert is a deliberate fresh
+  // start, so a stale narrow/wide width from a prior session is intentionally dropped: the panel opens
+  // at the default (builder-column) width and that default is saved, so it stays default from now on
+  // rather than snapping back to the user's old width the next time it opens.
+  //
+  // Why an effect, not the click handler or a useState initializer: NoteDialog does NOT remount on Go
+  // Expert — the same instance flips from the simple centered Dialog to the floating panel when
+  // `useFloatingPanel` turns true (App only passes drawerWidthPx once side-by-side layout exists). So
+  // the panelWidth useState initializer already ran (back at the simple mount, before the click) and
+  // can't see the arm; and at click time the floating panel/drawerWidthPx don't exist yet. The correct
+  // hook is this effect, which re-runs when `useFloatingPanel` flips and reads the live module arm flag
+  // (`goExpertDemoArmed`, set by the click) — the same mechanism the demo-slide effect below uses.
+  // The ref guard fires it EXACTLY ONCE: without it, a later drawerWidthPx change (splitter drag) would
+  // re-run and clobber a width the user set after going expert.
+  const goExpertWidthPersistedRef = useRef(false)
+  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect -- panelWidth is NOT derived state here: it is normally user-owned (drag/resize) and persisted; this is a one-shot imperative reset triggered by an external event (the Go Expert click, surfaced via the module arm flag) that only becomes observable once useFloatingPanel flips. It cannot be computed during render (no render input encodes "the user just clicked Go Expert"), and it must both setState and write localStorage, so it belongs in an effect. The ref guard makes it fire once. */
+  React.useEffect(() => {
+    if (!useFloatingPanel || !goExpertDemoArmed || goExpertWidthPersistedRef.current) return
+    goExpertWidthPersistedRef.current = true
+    const defaultWidth = drawerWidthPx ?? 400
+    // Reset the live width to default and persist it (keep whatever side the panel resolved to).
+    setPanelWidth(defaultWidth)
+    savePanelSnap({ side: panelSideRef.current, width: defaultWidth })
+  }, [useFloatingPanel, drawerWidthPx])
+  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect */
+
+  // One-time "go-expert demo" slide (see lib/goExpertDemo.ts). When the user leaves simple mode via
+  // Go Expert, the note dialog becomes this floating panel overlaying the just-revealed builders —
+  // some users didn't realise it was movable/closable and thought the builders were missing. Once the
+  // panel has mounted and the mount slide-in has settled, sweep it once to the opposite screen edge
+  // and back, trailing a dim Knight-Rider streak, so the eye registers that it moves.
+  const goExpertDemoAnimRef = useRef<Animation | null>(null)
+  React.useEffect(() => {
+    // Only on the floating panel, only when armed by a Go Expert click, only once per session.
+    if (!useFloatingPanel) return
+    if (!goExpertDemoArmed || goExpertDemoPlayedThisSession) return
+    goExpertDemoArmed = false
+    goExpertDemoPlayedThisSession = true
+    // Capture the mount-time node so neither the delayed start nor the cleanup re-reads panelRef
+    // during teardown (the ref may point elsewhere by then). The panel does not change identity for
+    // the lifetime of this floating mount, so the captured node is the correct target throughout.
+    const node = panelRef.current
+    if (!node) return
+    // Start after the mount slide-in's own transform transition has finished and cleared (its window
+    // is 300ms; wait a touch longer) so the two gestures never overlap or fight the inline transform.
+    const MOUNT_SLIDE_SETTLE_MS = 360
+    // Release the gesture guard so the panel returns to snap control; safe to call more than once.
+    const releaseGuard = () => { if (node.dataset['gesture'] === 'demo') delete node.dataset['gesture'] }
+    const startTid = window.setTimeout(() => {
+      // Travel distance to the opposite viewport edge, in the panel's own CSS-px space (position:fixed
+      // inside the #root CSS zoom, so divide the visual gap by zoom — same convention as the snap effect).
+      const zoom = getAppZoom()
+      const rect = node.getBoundingClientRect()
+      // Gap from the far viewport edge back to the panel, minus the app edge inset, is how far it can
+      // travel while still landing flush against the opposite edge. Sign picks the sweep direction.
+      const travelVisual = panelSideRef.current === 'left'
+        ? window.innerWidth - rect.right - APP_EDGE_GAP_PX * zoom  // sweep right
+        : -(rect.left - APP_EDGE_GAP_PX * zoom)                    // sweep left
+      const travelCss = travelVisual / zoom
+      // Guard the position layout effect (NoteDialog snap effect early-returns on this dataset flag)
+      // so it can't overwrite our transform mid-play; cleared when the animation finishes.
+      node.dataset['gesture'] = 'demo'
+      const animation = playGoExpertPanelDemo(node, travelCss)
+      goExpertDemoAnimRef.current = animation
+      if (!animation) { releaseGuard(); return }
+      // Release the guard once the sweep completes (or is cancelled), returning the panel to snap control.
+      const done = () => { releaseGuard(); goExpertDemoAnimRef.current = null }
+      animation.finished.then(done, done)
+    }, MOUNT_SLIDE_SETTLE_MS)
+    return () => {
+      window.clearTimeout(startTid)
+      // Cancel a running demo on unmount and drop the gesture guard so nothing is left latched.
+      if (goExpertDemoAnimRef.current) { goExpertDemoAnimRef.current.cancel(); goExpertDemoAnimRef.current = null }
+      releaseGuard()
+    }
+  }, [useFloatingPanel])
+
   // Re-snap and clamp panel width whenever the viewport or zoom changes.
   React.useEffect(() => {
     if (!useFloatingPanel) return
@@ -5502,7 +5597,7 @@ export default function NoteDialog({
         <DialogActions>
           {/* Uniform styling so color does not imply a preferred choice. */}
           <Button {...disableConfirmButtonProps} onClick={() => setGoExpertConfirmOpen(false)}>{t('cancel')}</Button>
-          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); onGoExpert?.() }}>
+          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); armGoExpertDemo() }}>
             {t('simpleModeGoExpertConfirmProceed')}
           </Button>
         </DialogActions>
