@@ -245,21 +245,9 @@ Three grouped controls sit above the tables, persisted to `localStorage`:
 | `simulateSold` (`boolean`) | `gearAnalytics.notEquippedSimulateSold` | When on, equipped pieces with `rowOutcome === 'sell'` are treated as missing |
 | `showFullyEquipped` (`boolean`) | `gearAnalytics.notEquippedShowFullyEquipped` | When on, champions with no missing slots are also listed |
 
-**Sort modes.** `'rank'` is the default and uses `champProfileRankComparator` (in `champAnalytics.ts`) to reproduce the in-game roster order. Hierarchy:
+**Sort modes.** `'rank'` is the default and uses `champProfileRankComparator` (in `champAnalytics.ts`) to reproduce the in-game roster order. Hierarchy (highest priority first): rarity desc → empowerment desc → blessing grade desc → affinity (Void > Force > Magic > Spirit) → ascension desc → star grade desc → XP level desc → baseHeroId desc → championId desc. The per-field source-column decoding (`EmpLvl`/`BGrade`/`Affinity` encodings etc.) is in [Gear DB Import](gear-db-import.md#champion-metadata).
 
-| # | Key | Direction | Source |
-|---|---|---|---|
-| 1 | rarity | desc (Mythical→Common) | `Rarity` |
-| 2 | empowerment | desc | `EmpLvl` ≡ WS `empower` |
-| 3 | blessing grade | desc | `BGrade` ≡ WS `doubleAscend.grade` (Double-Ascension / "Awakening", 0–6) |
-| 4 | affinity | Void > Force > Magic > Spirit | `Affinity` (1=Magic, 2=Force, 3=Spirit, 4=Void) |
-| 5 | ascension | desc | `HeroID − BaseHeroID` (0–6) |
-| 6 | star grade | desc | `Rang` ≡ WS `grade` (1–6) |
-| 7 | XP level | desc | `Lvl` ≡ WS `level` (1–60) |
-| 8 | baseHeroId | desc | empirical tail; tracks hero-release order |
-| 9 | championId | desc | same-hero duplicates (newer instance first) |
-
-`BaseHeroID` is intentionally not promoted to a primary key — it has no in-game-visible meaning on its own; step 8 is an empirical tail tiebreaker for unique-hero ties. Gear-level / average-gear-rank / ascentionCount are excluded — the in-game order does not depend on equipped gear. `Affinity` is not yet sent over WebSocket (planned, SQL encoding); WS-only imports lose that sub-sort until then.
+`BaseHeroID` is intentionally not promoted to a primary key — no in-game-visible meaning on its own; step 8 is an empirical tail tiebreaker. Gear-level / average-gear-rank / ascentionCount are excluded — in-game order does not depend on equipped gear. `Affinity` is not yet sent over WebSocket (planned, SQL encoding); WS-only imports lose that sub-sort until then.
 
 The remaining three modes (`'all'`, `'artifacts'`, `'accessories'`) sort by missing-count descending within their slot group (`SORT_SLOTS`: all 9 slots / 6 main artifact / 3 accessory), with `champProfileRankComparator` as the tail tiebreaker. Legacy `'off'` values in `localStorage` migrate to `'rank'`.
 

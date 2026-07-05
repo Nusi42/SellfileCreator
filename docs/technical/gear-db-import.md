@@ -32,17 +32,15 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 | `InboxArtifacts` | 358 | Pending drops in the inbox; same schema as `Artifacts` but `sum*` aggregates are zeroed until equipped. |
 | `Champs` | 1 688 | Champion roster, including equipped artifact IDs and faction codes. |
 | `LastUsedArtifacts` | varies | Stores `{ id, lastUse }` entries so we can show when a piece was last equipped (local timestamps). |
-| `AccRecords` | 218 | Arena/Clan Boss snapshot metadata. Older dumps embedded a `ChampOverviewImage` BLOB here (85 MB of hero renders); RSL Helper's current export omits it, and our fixtures strip it — see [Slimmed export format](#slimmed-export-format). The importer never reads this table. |
+| `AccRecords` | 218 | Arena/Clan Boss snapshot metadata. Carries a `ChampOverviewImage` BLOB our fixtures strip — see [Slimmed export format](#slimmed-export-format). The importer never reads this table. |
 | `CBLoot` | 146 | Clan Boss chest history. |
 | `ArtifactsBackup`, `LockedArtifacts`, `accessories`, `artifact_ids`, `accessory_ids`, `presets` | 0 | Present but empty in this dump. |
 
-Inspection output lives under `tmp/gear-db-inspection/` and is not committed. The raw fixture we ship for tests lives at `tests/data/sample.db` (renamed from `examples/um109288203_RSLHelper.1.db` so it sits beside the importer specs).
+Inspection output lives under `tmp/gear-db-inspection/` and is not committed. The raw fixture we ship for tests lives at `tests/data/sample.db`.
 
 ## Slimmed export format
 
-RSL Helper used to embed a `ChampOverviewImage` BLOB column in `AccRecords` — champion-overview screenshots that accounted for ~95 % of every database file (85 MB in the largest dump). The current export drops that column entirely; the four tables the importer reads (`Artifacts`, `InboxArtifacts`, `Champs`, `LastUsedArtifacts`) are unchanged, so the format is loss-free for us.
-
-To keep committed fixtures small we mirror that format: `scripts/test/strip-gear-db-blobs.mjs` drops `AccRecords.ChampOverviewImage` and `VACUUM`s each fixture (idempotent; run with no args to process the default set, or pass explicit paths). This took the repo's `.db` fixtures from ~300 MB to ~9 MB. The `examples/um109288203_RSLHelper.db` fixture is a genuine capture already in the slim format.
+The importer reads only four tables — `Artifacts`, `InboxArtifacts`, `Champs`, `LastUsedArtifacts` — and never touches the `AccRecords.ChampOverviewImage` BLOB. To keep committed fixtures small, `scripts/test/strip-gear-db-blobs.mjs` drops that BLOB and `VACUUM`s each fixture (idempotent; run with no args to process the default set, or pass explicit paths). The `examples/um109288203_RSLHelper.db` fixture is a genuine capture already in the slim format.
 
 ## Key Findings
 
@@ -198,10 +196,8 @@ Write down open questions as you go—especially when sample rows expose partial
 ## Next Steps
 
 1. Expand the sample extraction to cover edge cases (e.g., glyph-enhanced gear, locked items, ascended Mythical pieces).
-2. Define a normalization layer (likely a TypeScript helper under `scripts/` or `src/lib/importers/`) that converts the raw rows into our `RuleTesterItem` shape.
-3. Add integration tests that load a small fixture DB (redacted/synthetic) and assert the importer emits the same structures as our `.hsf` samples.
-4. Wire the normalizer into a DB reader (Python or Node bridge) so the Gear Inspector can ingest whole inventories without manual exports.
-5. Update this document—and `docs/TECHNICAL.md`’s index—whenever we uncover new fields or evolve the importer.
+2. Add integration tests that load a small fixture DB (redacted/synthetic) and assert the importer emits the same structures as our `.hsf` samples.
+3. Update this document—and `docs/TECHNICAL.md`’s index—whenever we uncover new fields or evolve the importer.
 ### Last-Used Tracking
 
 - RSL Helper now emits a `LastUsedArtifacts` table with two columns:

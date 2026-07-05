@@ -37,7 +37,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
 - `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
-- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog). For releases whose changed-line total exceeds `RELEASE_NOTES_SINGLE_PASS_LINES` (default 5000) the script switches from a single Claude run to a map-reduce flow: cheap workers (Haiku by default) review chunks of `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500) and emit bullet files plus maintainer-facing items into `PRE-RELEASE-CHECKLIST.md`, then a reducer (Sonnet by default) consolidates the bullets into `docs/HISTORY.txt`. Override the models with `RELEASE_NOTES_WORKER_MODEL` / `RELEASE_NOTES_REDUCER_MODEL` (set empty to inherit the CLI default), and the heading date with `RELEASE_NOTES_DATE=yyyy-mm-dd`.
+- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
 
 ### Scripts Layout
 
@@ -54,8 +54,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `src/lib/wasm/generated/rule_engine_bg.wasm` is intentionally gitignored and should be regenerated locally by the ensure/build scripts instead of committed.
 - `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM, and mirrors `src/lib/wasm/generated/` into `tmp/tsc/tests/` (SSOT for the mirror — tsc emits no `.wasm`, and without a refresh here the repro/bench harnesses silently ran whatever engine binary an earlier `test:unit` run had left behind).
 - **`npm run test:unit` WIPES `tmp/tsc/tests`** (run-tests.mjs cleans before recompiling). Never run it while a long-lived harness that executes out of `tmp/tsc` (repro scripts, ad-hoc benchmarks) is still running — the harness loses its compiled modules mid-flight.
-- **Before/after benchmarking pattern** (used for the 2026-07 pipeline round, 33 DBs × 4 override tiers, 132/132 output-identical, median 1.25× faster): create a `git worktree` of the baseline commit, symlink `node_modules`, build its WASM, compile its `tsconfig.tests.json`, and inject one shared harness `.mjs` into BOTH trees' `tmp/tsc/tests/tests/repro/` so serialization/hashing code is identical; the harness feature-detects post-change APIs (e.g. `configureMergedRulesFromComponents`) so each side runs its own worker sequence, records a `newApi` flag in its output (guards against running in the wrong tree — shell cwd persists between commands), fixes `now` for deterministic lastUse-windowed safeguards, and measures 3 runs per combo (discard the first, average the rest). Correctness = sha256 over `stableSerialize` of matches (incl. all per-recipe decisions), HSF export form, detection snapshot, baseline matches, and improvement-chance entries.
-- Fixture quirk: `account-b` exists in BOTH `examples/` and `examples/OtherAccounts/` with the same id but different content — scripts that key on the account id must disambiguate by directory or they silently drop one snapshot. (`account-c` had the same duplication until 2026-07-04; the newer OtherAccounts snapshot now lives in `examples/` and the older copy was removed.) All example DB filenames are unified to the `*_RSLHelper.db` capitalization.
+- **Before/after benchmarking pattern** (for validating a pipeline optimization is output-identical and faster): create a `git worktree` of the baseline commit, symlink `node_modules`, build its WASM, compile its `tsconfig.tests.json`, and inject one shared harness `.mjs` into BOTH trees' `tmp/tsc/tests/tests/repro/` so serialization/hashing code is identical; the harness feature-detects post-change APIs (e.g. `configureMergedRulesFromComponents`) so each side runs its own worker sequence, records a `newApi` flag in its output (guards against running in the wrong tree — shell cwd persists between commands), fixes `now` for deterministic lastUse-windowed safeguards, and measures 3 runs per combo (discard the first, average the rest). Correctness = sha256 over `stableSerialize` of matches (incl. all per-recipe decisions), HSF export form, detection snapshot, baseline matches, and improvement-chance entries.
+- Example DB fixtures live in `examples/` and `examples/OtherAccounts/`, all named `<accountId>_RSLHelper.db`. A script keying on account id must disambiguate by directory, since the same id can appear in both.
 - `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the SFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
 - `scripts/test/dump-tests-sfc.mjs` — extracts SFC‑readable recipes from compiled tests (`npm run tests:extract`).
 - `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated SFC cases.
@@ -95,6 +95,50 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
+### Playwright Harness
+
+- Fixtures live under `tests/playwright/`:
+  - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
+  - `app-warmup.ts` preloads the shell once to avoid cold Vite compile costs in perf specs.
+  - `fixture-paths.ts` is the single source of truth for Playwright fixture paths; import from it instead of hardcoding file locations.
+  - `tests/data/sample-small.sfc` (3 recipes, no Safeguards) is the fast SFC fixture for most UI coverage; `tests/data/sample.sfc` remains the large fixture for scroll/perf scenarios.
+  - `tests/data/sample-small-recipe-overrides-disabled.sfc` mirrors the small SFC fixture with recipe overrides disabled (used by note/recipe-override coverage).
+  - `tests/data/sample-small.db` is the slim Gear Inspector fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
+- Specs:
+  - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
+  - `tests/playwright/recipe-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfc`, performing copy/paste, and verifying row ordering.
+  - `tests/playwright/builder-recipe-switch-perf.spec.ts` seeds a tiny autosave payload (two recipes) to measure a single recipe switch without SFC import overhead.
+  - `tests/playwright/safeguard-disabled-clone-sell.spec.ts` seeds a tiny Gear Inspector autosave payload (no DB import) to verify recipe-duplicate behavior with recipe overrides disabled.
+- Default test runs:
+  - `npm run test:unit` executes the node:test suite and SFC fixture runner.
+  - **Two e2e tiers — pick the dev tier for the inner loop.** The dev tier is the fast default; the full tier is reserved for releases and pre-merge confidence.
+    - **dev** (`npm run test:e2e`, and the per-browser `test:e2e:chromium` / `test:e2e:firefox`): FHD-only viewport (`*-fhd` projects) and short iteration counts. This is what the CLAUDE.md handoff rule requires; use `test:e2e:chromium` while iterating on a single change.
+    - **full** (`npm run test:e2e:full`, and `test:e2e:chromium:full` / `test:e2e:firefox:full`): both viewports (1280×720 + FHD) and full leak/fragmentation iteration counts (`E2E_FULL`). Run before release; `release:win` runs this tier.
+  - `npm run test:e2e` / `test:e2e:full` run Chromium → Firefox sequentially via `scripts/test/run-e2e.mjs`; the run continues even if an earlier browser fails and exits non-zero if any browser failed.
+  - **Build is shared across browsers.** The orchestrator builds the prod-like bundle ONCE and starts a single `vite preview`, then runs every browser suite against it (`E2E_EXTERNAL_SERVER=1` → the Playwright config serves-and-reuses instead of build-and-start). Running a per-browser script standalone (e.g. `npm run test:e2e:chromium`, or `npx playwright test …`) still self-builds and serves, so single-spec debugging needs no orchestrator.
+  - Dev vs. release iteration counts live in `tests/playwright/iteration-counts.ts` (the single `E2E_FULL` toggle); specs import named counts from there. Lower a count there, never inline per-spec.
+  - `npm run test:e2e:all` aliases `test:e2e:full`; `npm test` runs `test:all` (unit + dev e2e tier); `npm run test:all:full` runs unit + full e2e tier.
+  - Keep e2e specs browser-agnostic; avoid per-browser `test.skip` unless a true platform limitation exists.
+- Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
+- Timeout policy:
+  - Timeouts are centralized in `tests/playwright/timeouts.ts`; adjust them there instead of hardcoding new values.
+  - `testDefault` is 3s and should cover most UI specs; only rule rebuild or matcher workflows may use `testLong` (15s).
+  - Expect/wait budgets follow the same split: `expectDefault` (3s) for general UI, `expectLong` (15s) only when a rule rebuild or matcher run is the explicit action under test.
+  - Initial app-shell mounts may use `appGoto` (15s) for the first visible control in perf/modal specs; the rest of the interactions must stick to the 3s defaults.
+  - Long timeouts are justified only for app-shell boot, SFC imports, recipe rebuilds, or Gear Inspector matching; everything else must stay on the 3s defaults.
+  - If a test needs more than 15s, shrink the fixture (use `sample-small.sfc` / `sample-small.db`) or split the scenario; do not increase timeouts.
+  - Do not add new timeout tiers or increase these values; if a test exceeds 15s, reduce the workload, improve readiness checks, or split the scenario.
+  - **Diagnose, never bump.** A longer timeout never makes a correct test pass faster and never fixes a broken one — it only makes the failure slower. When a spec is slow or flaky the cause is almost always a *wrong wait*, not a *short ceiling*. Find what is actually being waited on before touching any budget. The binary-endpoint specs once carried 10–20-minute ceilings purely to mask a `waitFor({ state: 'visible' })` that blocked its full timeout every time the spinner showed-and-hid before Playwright polled it; the fix was the wait, not the number.
+  - **Settle the preview pipeline via `settleWorkload()`** (`tests/playwright/workload-indicator.ts`) — the single definition of the visible-then-hidden wait. Never hand-roll the two `waitFor` calls inline. The visible wait is intentionally short (`expectDefault`): a missed spinner appearance is normal, and a long visible budget would block the full duration on every miss. Only the hidden wait carries the work budget; pass a centralized token for the rare heavier pipeline.
+  - **Two lint guards enforce this** (`no-restricted-syntax`, scoped to `tests/playwright/**` in `eslint.config.js`): (1) `test.setTimeout(...)` rejects raw numeric literals — every budget must be a named `PLAYWRIGHT_TIMEOUTS.*` token, added to `timeouts.ts` with derived `N × per-iteration` math in its comment; (2) a `waitFor({ state: 'visible' })` carrying a long token (`testXL`/`testHeavy`/`workloadIdle`/…) is rejected outright. Do not silence either with an `eslint-disable`; fix the wait.
+- Install behavior:
+  - `npm install` runs `npm run ensure:wasm-toolchain` first, auto-installing missing `wasm-bindgen-cli` + `wasm32-unknown-unknown` when Rust is already present, then triggers `npx playwright install` to fetch browser binaries pinned to the local `@playwright/test` version.
+- The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.
+- Some warm-cache aborts can emit `AbortError` in the console; the tests swallow them but keep an eye out for regressions.
+- Reports:
+  - Per-browser HTML reports live in `test-results/reports/<browser>/index.html`.
+  - `npm run test:e2e` writes a combined index at `test-results/reports/index.html` that links to each browser report.
+
 ### Build Variants (DEV / TEST / RELEASE)
 
 There are three build variants, distinguished by two **compile-time** flags so the gated code
@@ -126,10 +170,11 @@ release bundle, which previously still contained `capturePackets`/`logWasmHeap` 
 
 ### Runtime Launch Parameters
 
-- `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The `#endpoint=` hash alias also works as long as it points to a `ws://` or `wss://` URL.
-- When `pushEndpoint` is defined, “Export Sellfile” sends an `uploadSellfile` request over the active WebSocket. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
-- Incoming events are delivered over WebSocket notifications: `selectRule`, `gearDbFile`, `gearDbRawSnapshot`, and `gearDbRawDelta` (see the WebSocket protocol docs for exact payload shapes).
-- `scripts/watchers/run-db-watcher.ps1` demonstrates how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The script targets PowerShell 7 (`pwsh`), emits demo `selectRule` events via `[R]`, provides `[F]` to force a DB snapshot, and optionally watches `%APPDATA%\RslHelper\Config` for `.db` changes so the Gear Inspector refreshes without manual drag-and-drop.
+The launch URL params (`?endpoint=` + `#endpoint=` alias, `&simple`, `playerid`, `playerName`)
+and the export→`uploadSellfile` behavior are the SSOT of [WebSocket Protocol](websocket-jsonrpc.md#launch-url).
+The launch reads `endpoint` into `window.__APP_CONFIG__` (`pushEndpoint` for the session).
+
+- `scripts/watchers/run-db-watcher.ps1` demonstrates an external tool opening the packaged app via `Start-Process`, appending the encoded endpoint automatically, and hosting a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (default `exported-sellfile.hsf`, `-OutputPath` configurable). Targets PowerShell 7; `[R]` emits demo `selectRule` events, `[F]` forces a DB snapshot, and it can watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Gear Inspector refreshes without drag-and-drop.
 
 ### Single Source of Truth
 
@@ -223,102 +268,21 @@ compilation targets share the same parsing logic without duplication.
 
 ### WASM Linear Memory Management
 
-WASM linear memory is a flat address space managed by `WasmDynamicTalc` (vendored talc 5.0.3, see `wasm/vendor/talc/`) with `WasmGrowAndClaim` source. Pages grow on demand but never shrink; freed allocations return to talc's free list but the high-water mark only increases. On Windows, V8 commits WASM pages lazily from the virtual address space, and if the system cannot commit a new page (fragmented committed memory, heavy concurrent usage) `memory.grow` fails with a `STATUS_ACCESS_VIOLATION` that kills the renderer worker process. To mitigate this, `pre_grow_memory_value` is called at warmup time to pre-commit WASM pages in 16 MiB chunks up to 256 MiB, so the allocator rarely needs to call `memory.grow` during the pipeline hot path.
+WASM linear memory is a flat address space managed by `WasmDynamicTalc` (vendored talc 5.0.3, `wasm/vendor/talc/`). Pages grow on demand but never shrink; talc's free list recycles frees but the high-water mark only rises. On V8/Windows a failed page commit makes `memory.grow` reject with `STATUS_ACCESS_VIOLATION` and kill the renderer; on a fragmented heap the same failure hits any allocation needing a large contiguous block. The invariants below exist to avoid both. Repro harnesses: `npm run repro:incremental-growth` (Node leak-localizer) + the `endpoint-incremental-updates` / `binary-endpoint-fragmentation` / `binary-endpoint-memory` perf specs.
 
-**Engine-gated pre-grow (Gecko/Firefox skips it)** — the 256 MiB pre-grow is a *V8/Windows-specific* workaround for the lazy-commit `memory.grow` rejection described above. Gecko/SpiderMonkey honors the incremental grows dlmalloc issues on the hot path, so the pre-grow buys it nothing — and the eager 256 MiB commit is actively harmful there: multiplied across the rule-cache worker + main-thread WASM instances (and any transient sql.js import heap that peaks in the same window, e.g. during a burst of endpoint binary DB pushes), it pushes the Firefox content process past its memory ceiling and SIGSEGVs it. `preGrowTargetBytesForEngine()` in `src/lib/wasm/wasmRuleEngine.ts` detects Gecko via the UA (no `userAgentData` + a `Firefox` token) and returns `0` (skip pre-grow) there while keeping the full `PRE_GROW_TARGET_BYTES` on V8; both call sites (worker `initWasmRuleEngineFromModule` and main-thread `warmupWasmRuleEngine`) route through this single helper. The Firefox SIGSEGV was reproducible at ~2/4 runs of `binary-endpoint-memory.spec.ts` on `firefox-perf` before this change and 0/4 after.
+**Constraints a future dev must honor:**
 
-Because skipping the pre-grow means dlmalloc now grows on demand on Gecko, the risk it must NOT reintroduce is allocator **fragmentation** — mismatched free-list holes that only appear when allocation *sizes* vary run-to-run. The `binary-endpoint-memory` spec re-imports a single DB with a fixed rule set, so it never produces that variance. `binary-endpoint-fragmentation.spec.ts` is the dedicated guard: it runs 32 cases crossing the four real RSLHelper DB captures (≈708 KB → 1.4 MB, varying artifact-row buffers) with lategame.sfc's account-level + keep-toggle recipe overrides (varying rule-set buffers), pushing each over the WebSocket endpoint and asserting the page never crashes. The crash signal (`page 'crash'` / `pageerror`) is engine-agnostic, so it catches the Firefox content-process SIGSEGV directly rather than relying on the Chromium-only `performance.memory` heap assertion. It is registered in `PERF_SPECS` (serialized, `<browser>-perf` project). The shared override-toggle helpers live in `tests/playwright/note-overrides-helpers.ts`.
+- **Engine-gated pre-grow.** `pre_grow_memory_value` pre-commits pages to `PRE_GROW_TARGET_BYTES` (256 MiB) at warmup so V8/Windows rarely calls `memory.grow` on the hot path. This is V8-specific: on Gecko the eager commit (× worker + main-thread instances + transient sql.js import heap) pushes the content process past its ceiling and SIGSEGVs it, so `preGrowTargetBytesForEngine()` (`src/lib/wasm/wasmRuleEngine.ts`) returns 0 for Firefox. Both call sites (worker init + `warmupWasmRuleEngine`) route through that one helper — keep it the single decision point.
 
-**Incremental-update leak — cache invariant rule inputs WASM-side.** During RSL Helper
-farming the gear DB updates repeatedly on a *growing* inventory; the app used to crash after
-a few dozen updates. Root cause: every artifact push re-ran the final rule-merge WASM call
-(`compute_merged_rules_value`) with a ~34 MiB JSON payload = ~17 MiB base+custom rules + ~17
-MiB safeguard detection snapshot. The rules are **invariant across pushes within a session**
-(they derive from the fixed SFC), so re-sending them churned talc with repeated large
-same-size transients; talc never shrinks, so it periodically grabbed another permanent ~85
-MiB slab and the worker WASM heap stepped up unbounded (525→614→700→785 MB…) until the content
-process crashed. Reproduced and measured with `tests/repro/repro-incremental-growth.ts`
-(`npm run repro:incremental-growth`, a Node leak-localizer that samples
-`getWasmLinearMemoryBytes()` per pipeline phase over a growing artifact set) and the browser
-spec `tests/playwright/endpoint-incremental-updates.spec.ts`.
+- **Rules are session-invariant → cache them WASM-side.** Base/custom/final-sell rules derive from the fixed SFC and do not change across gear-DB pushes within a session; re-sending them each push churns talc with large same-size transients and steps the heap up unbounded. `EngineState` caches the invariant half (`cached_generated_rules` / `cached_safeguard_rules` / `cached_safeguard_enabled`, preserved across `configure_engine`); each push sends only the detection snapshot via `compute_merged_rules_cached_value` (self-heals on cache miss). `computeMergedRulesFromComponents` (`merge.ts`) is the single merge path for worker + main thread, gated on `rulesCacheKey`; the worker gates `configure_engine` on the same key. Do not reintroduce a per-push full rule re-send.
 
-Fix — cache the invariant merge inputs in `ENGINE_STATE` and send only the per-push detection
-snapshot:
-- `compute_merged_rules_core` splits into `build_generated_rules_core` (cacheable:
-  base+custom+final-sell rules after the omit/dedupe transforms) and
-  `finish_merge_with_generated` (per-push: safeguard injection + `line_idx`). The composition
-  stays byte-identical, and `rule_engine_native` still calls the unified core.
-- `EngineState` caches `cached_generated_rules` + `cached_safeguard_rules` +
-  `cached_safeguard_enabled` (both rule sets are session-invariant), preserved across
-  `configure_engine`. New exports `cache_generated_rules_value` (stores the invariant half) +
-  `compute_merged_rules_cached_value` (per-push: detection snapshot only). The old monolithic
-  `compute_merged_rules_value` export was removed.
-- `computeMergedRulesFromComponents` (`merge.ts`) is the single merge path for both the worker
-  and the main thread, gated by a caller-supplied `rulesCacheKey` (the worker passes
-  `computeRecipeKey`, which already hashes safeguard content; the main thread always-refreshes).
-  The cached wrapper self-heals on a cache miss (re-cache + retry) — no legacy fallback path.
-- The worker also gates the `configure_engine` call on the same key (a second per-push churn
-  site); the engine preserves its `BucketedRules` across pushes.
-- The per-pipeline `preWarmHeapWithLoadedWasm` calls were **removed** — measured to have zero
-  effect on heap stability once per-push allocation pressure was gone. (The 256 MiB
-  Gecko-gated warmup pre-grow is unchanged; it guards a different, V8/Windows-specific path.)
+- **talc TALC-PATCH.** talc 5.0.3 has a stale-`ABOVE_FREE` bug: a freed chunk reads a garbage gap size and traps "memory access out of bounds" after repeated large serde_json serializations. Fixed in the vendored copy (`wasm/vendor/talc/src/base/mod.rs`, grep `TALC-PATCH`): `talc_gap_looks_valid()` cross-checks the base-size vs end-size word before trusting the flag (mismatch → skip the coalesce, no data loss). Any talc re-vendor must re-apply this.
 
-Result: the worker WASM heap stays flat across 60+ growing-inventory rounds (Node ~485 MB
-plateau, Chromium ~582 MB, Firefox ~310 MB with zero growth) versus the old unbounded
-stepping; cached output is byte-identical to the legacy merge.
+- **Contiguous-alloc avoidance in `improvement_chance.rs`.** `HashMap`/`HashSet` need one contiguous backing array that reallocs on resize — the primary fragmentation crash site. Collections that scale with artifact/rule count use `BTreeMap`/`BTreeSet` (per-node allocation, never one large block) or a sorted `Vec` + `binary_search`; `StateKey` derives `Ord`. Bounded-small maps outside the hot path stay `HashMap`. `compute_probability` mutates substat state in place with an undo-redo pattern (no per-branch clone) and reuses stack buffers + a once-allocated `.clear()`'d memo. Keep new hot-path collections off `HashMap`.
 
-**talc 5.0.3 ABOVE_FREE bug and patch** — talc 5.0.3 has a bug where the `ABOVE_FREE` tag flag can become stale on an allocated chunk after the free gap above it is consumed. When that chunk is later freed, `deallocate()` reads `gap_base_to_size(chunk_end)` (now user data from the allocation that consumed the old gap), obtaining a huge garbage value; `chunk_end.add(garbage)` flies past WASM linear memory and traps with "memory access out of bounds". The bug manifests after repeated large serde_json serializations (each exponential `Vec<T>` doubling frees a block, leaving ~15 blocks of sizes 256→512→…→8 MiB in the free list for the next pipeline iteration to trigger the stale path). The fix is applied directly in the vendored copy (`wasm/vendor/talc/src/base/mod.rs`, grep `TALC-PATCH`): `talc_gap_looks_valid()` cross-checks the base-size word against the end-size word before trusting `ABOVE_FREE`. A real gap has both words equal; a stale flag produces a mismatch and the coalesce is silently skipped — no data loss, only a missed coalescing opportunity for that one free. The fix is confirmed by 10/10 harness passes with plain `WasmDynamicTalc` and no workaround shim.
+- **Minified JSON wire format.** Heavy WASM exports pass JSON strings via `serde_json`, not `JsValue` via `serde_wasm_bindgen` (which exhausted the externref table at 45k rules). Fields are minified via `#[serde(rename)]` in the wire structs — SSOT `wasm/rule_engine_core/src/wasm_merged_rules_wire_format.rs`, TS projections `src/lib/wasm/wireProjections.ts`. Non-finite f64 (NaN/Inf) filter to `None` (JSON can't represent them).
 
-**Supporting fixes** that reduce the probability of triggering the bug:
-
-1. **`Arc<str>` for `RuleRaw` string fields** (`rule_engine_core/src/lib.rs`) — `RecipeName`, `source`, `safeguard_rule_id`, `safeguard_hash`, and `Condition` (on `RuleSubRaw`). Cloning a `RuleRaw` now costs only atomic counter increments, eliminating the heap-allocation cascade that caused OOM in `finalize_generated_rules_core`'s obsolete-pruning path.
-
-2. **`prewarm_for_json_parse` + `serialize_json_prealloc`** — before every large `serde_json` de/serialization, a Vec<u8> of the payload size is allocated and immediately dropped. This gives talc a clean large free block so the first growth event reuses it rather than fragmenting the free-list. On the output side, the result Vec is pre-sized to ~500 bytes × item count so `serde_json::to_writer` needs 0–1 reallocs instead of ~17.
-
-**Minified JSON wire format** — The heavy-payload WASM exports (`compute_merged_rules_value`, `configure_value`, `store_artifact_rows_value`, `flatten_rule_batches_with_total_limit_value`, `finalize_generated_rules_value`) take and return JSON strings via `serde_json` instead of `JsValue` via `serde_wasm_bindgen`. For 45k-rule workloads the serde_wasm_bindgen path exhausted the externref table. Rule fields are minified using `#[serde(rename = "short")]` attrs in the Rust wire structs (SSOT: `wasm/rule_engine_core/src/wasm_merged_rules_wire_format.rs`; TS projection helpers: `src/lib/wasm/wireProjections.ts`). Non-finite f64 values (NaN, Infinity) are filtered to `None` in the wire conversion since JSON cannot represent them.
-
-**Rust-side structural fixes** (`rule_engine_core`)
-
-**1. Drop-before-allocate in `configure_engine`** (`lib.rs`)
-
-`configure_engine` rebuilds `BucketedRules` on every pipeline run. The old code built the new `BucketedRules` while the previous `EngineState` (containing the old rules) was still live, creating a double-allocation window. The fix extracts and drops the previous `EngineState` before calling `BucketedRules::from_rules`, so talc can recycle the freed blocks instead of growing the heap. The `stored_rows` payload is preserved across the drop and re-attached to the new `EngineState`.
-
-**2. Lazy merge in `BucketedRules`** (`matcher_evaluator.rs`)
-
-Rules partition into `shared` (no slot constraint) and `per_slot` (slot-specific) at configure time. Both groups are stored exactly once; `evaluate_item` merges them lazily via a zero-copy two-pointer sorted merge. This reduces `BucketedRules` peak memory from ~3–5× input to ~1× input. `per_slot` uses a `HashMap<i64, Vec<PreparedRule>>` with at most 9 entries (one per slot type) — too small to require contiguous-memory attention.
-
-**3. BTreeMap / BTreeSet throughout `improvement_chance.rs`**
-
-`HashMap` and `HashSet` use a single contiguous backing array that must be reallocated (doubled in place) on each resize. On a fragmented WASM heap, finding a multi-hundred-KB contiguous block for a resize fails with `STATUS_ACCESS_VIOLATION`. Every collection in the improvement-chance hot path that scales with artifact or rule count has been converted:
-
-| Old type | New type | Max size | Risk |
-|---|---|---|---|
-| `HashMap<StateKey, f64>` (memo) | `BTreeMap<StateKey, f64>` | per-artifact recursion depth | was primary crash site |
-| `HashMap<i64, i64>` (recursion state) | `BTreeMap<i64, i64>` | ≤4 entries | small, consistent |
-| `HashMap<i64, Vec<usize>>` (`idx_by_id`) | `BTreeMap<i64, Vec<usize>>` | up to 7 982 entries (~290 KB contiguous) | high |
-| `HashMap<i64, Vec<&UpgradeScenario>>` (`scenarios_by_id`) | `BTreeMap<i64, Vec<&…>>` | up to 7 982 entries | high |
-| `HashSet<i64>` (`applicable_ids`) | `Vec<i64>` (sorted, binary_search) | up to 7 982 entries, reused via clear+extend | medium |
-
-`BTreeMap`/`BTreeSet` allocate individual B-tree nodes (each a few hundred bytes), so growth never requires a single large contiguous block. `HashMap` entries that are bounded-small and outside the hot path (`weights`, `challengers_by_count_key`, `expected_gain`, `fallback_gain`) are left as `HashMap`.
-
-`StateKey` derives `Ord, PartialOrd` (arrays of `(i64,i64)` implement `Ord` automatically) to satisfy the `BTreeMap` key constraint.
-
-**4. Undo-redo in `compute_probability`** (`safeguards/improvement_chance.rs`)
-
-The old code cloned the `HashMap<i64,i64>` substat state before each recursive call. With millions of branches across all artifacts, this allocated and freed millions of small HashMap backing tables; fragmentation raised the heap high-water mark by 50–70 MiB per run. The fix mutates the live state in-place and restores the original value after each recursive call (undo-redo pattern). Additional micro-optimizations: `StateKey` is stack-allocated (zero heap per call); candidate/variant buffers are stack arrays `[0i64; 12]` / `[0i64; 4]`; the memo `BTreeMap` is allocated once before the artifact loop and `.clear()`'d (not re-allocated) between artifacts.
-
-**Worker-side mitigations** (`ruleCacheWorker.ts`, `useRuleCacheWorker.ts`)
-
-- **Heap prewarm before improvement-chance / eval-collect — REMOVED.** The worker previously
-  called `preWarmHeapWithLoadedWasm(N)` before those phases to force `memory.grow` outside the
-  critical path. With the incremental-update leak fix (cached rules, no per-push rule churn)
-  these prewarms measured zero heap-stability effect and were removed to cut per-push work.
-  The `preWarmHeapWithLoadedWasm` export remains for the repro harnesses only. (The Rust-side
-  `prewarm_for_json_parse` inside the WASM JSON exports is separate and stays.)
-- **clearStoredRows after eval-collect**: drops the 7 970-item `stored_rows` Vec (~16–20 MiB) before `computeMergedRulesFromComponents`, giving talc headroom for the contiguous rules Vec.
-- **Fatal trap recovery**: a caught `RuntimeError` matching `unreachable` (WASM OOM abort) or `out of bounds` (allocator metadata corruption) is detected by `isWasmFatalTrap()` in the worker catch block and by the `case 'error'` handler in `useRuleCacheWorker.ts`. The worker resets its WASM init flags; the main thread calls `replaceWorkerAfterRuntimeError()` so the next pipeline starts with a fresh heap.
-- **Proactive worker cycling**: `useRuleCacheWorker` tracks `completedPipelineCountRef` and `lastWasmLinearBytesRef`. When `completedCount >= PIPELINE_RESTART_INTERVAL` (5) or `heapBytes >= WASM_HEAP_RESTART_BYTES` (150 MiB), `cycleWorkerProactively()` terminates the old worker and spawns a fresh one. The counter increments even for JS-side aborted pipelines (the worker still ran them), preventing dirty heaps from carrying over on rapid-fire requests.
-- **Diagnostics**: `log_talc_counters(label)` WASM export logs a timestamped pipeline phase marker to the worker console (useful for correlating log output with repro-harness stages). `heap_integrity_check()` exercises the allocator with a 4 KiB canary alloc+verify+drop cycle.
+- **Worker heap hygiene** (`ruleCacheWorker.ts`, `useRuleCacheWorker.ts`): `clearStoredRows` drops the `stored_rows` Vec before the merge; `isWasmFatalTrap()` detects an OOM/`out of bounds` `RuntimeError` and `replaceWorkerAfterRuntimeError()` spawns a fresh worker; `cycleWorkerProactively()` recycles the worker at `PIPELINE_RESTART_INTERVAL` (5) completions or `WASM_HEAP_RESTART_BYTES` (150 MiB). Diagnostics: `log_talc_counters(label)`, `heap_integrity_check()`. `preWarmHeapWithLoadedWasm` is now repro-harness-only (the Rust `prewarm_for_json_parse` inside the JSON exports is separate and stays).
 
 **Warmup-promise hardening** (`wasmRuleEngine.ts`, `ruleCacheWorker.ts`, `dungeonSimulatorWorker.ts`)
 

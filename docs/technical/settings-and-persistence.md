@@ -88,11 +88,10 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | Dynamic-overrides presets | `sellfileCreator.dynamicOverridesPresets.v1` | `state/dynamicOverridesPresetsPreference.ts` |
 | **Normalized-overlay presets** (weights/variants library) | `sellfileCreator.gearInspector.grid.normalizedOverlay.presets.v1` | `state/gearInspectorGridNormalizedOverlayPreferences.ts` |
 
-> **Normalized overlay split.** Previously one key. Now two: the **presets** library above, and
-> the **applied selection** (`normalizedOverlay.applied.v1` — `useSortWeights`/`enabledPresetIds`/
-> `lastEnabledPresetIds`), both always-persisted. A one-time migration reads the legacy
-> `normalizedOverlay.v1` blob and splits it. The applied selection could later become
-> rememberable-view if wanted; for now behavior is unchanged (always-persisted).
+> **Normalized overlay: two keys.** The **presets** library above and the **applied selection**
+> (`normalizedOverlay.applied.v1` — `useSortWeights`/`enabledPresetIds`/`lastEnabledPresetIds`),
+> both always-persisted. Backward-compat: a one-time migration splits the legacy combined
+> `normalizedOverlay.v1` blob, so that key must stay tolerated.
 
 ### Export / behavior contracts
 | Setting | Key | Scope | File |
@@ -138,22 +137,6 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 
 See [Accounts](accounts.md) for how account-scoped keys resolve (`resolveAccountScopedKey` /
 `resolveAccountScopedKeyFor`, `ACCOUNT_SCOPED_BASE_KEYS`) and the per-tab account model.
-
----
-
-## Recommendations — candidates to move or revise
-
-- **Normalized-overlay applied selection** — now split into its own key; could become
-  rememberable-view (reset with the toggle) if users want the applied overlay to reset. Deferred;
-  currently always-persisted (unchanged behavior).
-- **Export defaults** (`dedup`/`omit`) — now per-account (done). Consistent with auto-push.
-- **Grid/table display toggles, preset libraries, theme, connection, seen-markers** — correctly
-  always-persisted / global. Do NOT move — resetting display prefs on reload would annoy, not help.
-
-### Removed (dead code cleaned up)
-The whole `safeguardsPreferences.ts` module (`safeguards.gridFilter.v1`, `safeguards.gridColumns.v1`)
-and its i18n keys (`safeguardsGridFilterModeAll/Selection`, `safeguardsGridFilterLabel`,
-`safeguardsGridFilterTooltip`, `safeguardsGridSelectedCount`) — vestigial, zero live consumers.
 
 ---
 

@@ -83,32 +83,32 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | English | it-IT (catalog) | Notes |
   | --- | --- | --- |
   | piece / pieces | pezzo / pezzi | |
-  | gear | equipaggiamento | translated, **not** the loanword "Gear". The *Gear Inspector* mode is **"Ispettore Equipaggiamento"** (both words capitalized, proper noun) — used everywhere; collapsed the prior mix of bare "Gear Inspector" and "Tester regole". |
+  | gear | equipaggiamento | translated, **not** the loanword "Gear". The *Gear Inspector* mode is **"Ispettore Equipaggiamento"** (both words capitalized, proper noun) — used everywhere. |
   | gear set / set | set | loanword (lowercase in prose, Title Case as a label/chip) |
   | stat (bare) | stat | loanword, feminine ("la stat", "le stat"); also "valore/valori" generically |
-  | substat(s) | sotto-stat | translated, **feminine** ("una sotto-stat", "le sotto-stat", "tutte le sotto-stat"). Collapsed the heavy catalog/README mix of "substat"/"Substat" → unified to "sotto-stat". TS keys (`statSubstat`, `safeguardsSubstat*`, `tabSubstatTargets`…) stay English. |
-  | main stat | stat principale | not "statistica principale" — collapsed that variant. Plural label "Stat principali". |
+  | substat(s) | sotto-stat | translated, **feminine** ("una sotto-stat", "le sotto-stat", "tutte le sotto-stat"). TS keys (`statSubstat`, `safeguardsSubstat*`, `tabSubstatTargets`…) stay English. |
+  | main stat | stat principale | not "statistica principale". Plural label "Stat principali". |
   | SPD (the stat) | SPD (`statSPD`) | loanword |
   | Speed (the set) | Speed (`setSpeed`) | set names stay English |
-  | rank | rango / Rango | not "grado" — collapsed the 4 "grado" slips (chart label, dungeon how-it-works, substat-target tooltips). Keep distinct from star count. |
+  | rank | rango / Rango | not "grado". Keep distinct from star count. |
   | rarity | rarità | |
   | level | livello | |
   | faction | fazione | |
   | slot | slot | loanword; slot **names** are translated (Arma / Elmo / Scudo / Guanti / Corazza / Stivali / Anello / Amuleto / Vessillo) |
   | artifacts / accessories | artefatti / accessori | |
   | keep / sell / protect | mantieni (tieni) / vendi / proteggi | |
-  | safeguards | Salvaguardie (`safeguardsTabLabel`) | English keeps "Safeguards"; it-IT translates. Collapsed the README heading/feature "Mantieni unici" → "Salvaguardie" / "Attiva Salvaguardie". |
+  | safeguards | Salvaguardie (`safeguardsTabLabel`) | English keeps "Safeguards"; it-IT translates ("Salvaguardie" / "Attiva Salvaguardie"). |
   | (dynamic) overrides | sostituzioni (dinamiche) | |
   | Chaos Ore | Chaos Ore | loanword (kept English); reroll states → "Rerollato" / "Mai rerollato" (matching `gearInspectorRerollLabel`) |
-  | Vault | Deposito | not "Vault"/"Forziere" — collapsed both (RSL's Italian game term is "Deposito"). |
-  | Inbox | Posta | unified `gearAnalyticsSourceInbox` to match `gearInspectorSourceInbox`. |
-  | Custom (source) | Personalizzato | unified `gearInspectorSourceManual` ("Manuale") → "Personalizzato". |
+  | Vault | Deposito | not "Vault"/"Forziere" (RSL's Italian game term is "Deposito"). |
+  | Inbox | Posta | `gearAnalyticsSourceInbox` matches `gearInspectorSourceInbox`. |
+  | Custom (source) | Personalizzato | `gearInspectorSourceManual`. |
   | sell file | Sellfile | one word |
   | rolls / drops | roll / drop | loanwords (used singular+plural invariant) |
   | rules (HSF) | regole | engine rules; the `Rules`/`Gear Inspector` preview toggle reads `Regole`/`Ispettore Equipaggiamento`. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Disattiva / Proteggi / Anticipa / Migliora (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
-  it-IT **intentional loanwords** (do NOT "correct" to Italian): Set, SPD, Slot, Roll(s), Drop(s), Chaos Ore, Sellfile, Metaset, Flex. **"Gear" is translated** to "equipaggiamento" (the *Gear Inspector* mode → "Ispettore Equipaggiamento"). The **substat** family is translated to **feminine "sotto-stat"**; "main stat" → "stat principale"; "stat" stays the loanword "stat". it-IT addresses the user informally (**tu**, not voi) — collapsed the few formal-voi slips ("Passate"/"vostre" → "Passa"/"tue").
+  it-IT **intentional loanwords** (do NOT "correct" to Italian): Set, SPD, Slot, Roll(s), Drop(s), Chaos Ore, Sellfile, Metaset, Flex. **"Gear" is translated** to "equipaggiamento" (the *Gear Inspector* mode → "Ispettore Equipaggiamento"). The **substat** family is translated to **feminine "sotto-stat"**; "main stat" → "stat principale"; "stat" stays the loanword "stat". it-IT addresses the user informally (**tu**, not voi).
 
 - **pt-BR reference glossary (derived from the catalog; extend, do not contradict):**
 
@@ -117,10 +117,10 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | piece / pieces | peça / peças | |
   | gear | equipamento | translated, **not** the loanword "gear"; mass/singular ("seu equipamento"). "gear DB" → "banco de dados de equipamento". The TS `gear*` keys and `[[stat:…]]` tokens stay English. |
   | gear set / set | conjunto | canonical full word; **"set" / "Sets"** is an accepted loanword for compact labels (analytics chart `gearAnalyticsChartSet`, the set/meta-set selector domain, `meta-set`). Keep the scope token (`safeguardsCountModeScopeSet`) and its chip (`Por conjunto`) on the SAME word — both "conjunto". |
-  | stat / substat / main stat | stat / substat / stat principal | whole family uses the **loanword "stat"** (masculine — "um stat", "esse substat"; collapsed the feminine "uma substat"/"essa stat" slips). **substat** → "substat/substats" (never "subatributo"/"sub-atributo"/"subestatística"). **main stat** → "stat principal" everywhere — catalog *and* README quota tables/chips (never "atributo principal"/"status principal"/"mainstat"/"estatística principal"). Plural chart/section labels use "Stats principais". |
+  | stat / substat / main stat | stat / substat / stat principal | whole family uses the **loanword "stat"** (masculine — "um stat", "esse substat"). **substat** → "substat/substats" (never "subatributo"/"sub-atributo"/"subestatística"). **main stat** → "stat principal" everywhere — catalog *and* README quota tables/chips (never "atributo principal"/"status principal"/"mainstat"/"estatística principal"). Plural chart/section labels use "Stats principais". |
   | SPD (the stat) | SPD (`statSPD`) | |
   | Speed (the set) | Velocidade (`setSpeed`) | |
-  | rank | rank | loanword; never "Grau". (`Rank` chart axis fixed from "Grau".) |
+  | rank | rank | loanword; never "Grau". |
   | rarity | Raridade | |
   | level | Nível | "Nv {level}" only as the compact badge (en "Lv"). Never "Level". |
   | faction | Facção | |
@@ -128,13 +128,13 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | slot names | Arma / Elmo / Escudo / Manoplas / Peitoral / Botas / Anel / Amuleto / Estandarte | from `slot*` keys. |
   | artifacts / accessories | Artefatos / Acessórios | |
   | keep / sell / protect | manter / vender / proteger | |
-  | safeguards | Salvaguardas (`safeguardsTabLabel`) | README heading + toggle unified to "Salvaguardas" / "Ativar Salvaguardas" (eliminated the invented "Manter únicos"). |
+  | safeguards | Salvaguardas (`safeguardsTabLabel`) | README heading + toggle use "Salvaguardas" / "Ativar Salvaguardas" (never "Manter únicos"). |
   | (dynamic) overrides | substituições (dinâmicas) | |
-  | Chaos Ore | Chaos Ore (`filterChaosOre`) | loanword kept; the verb is "rerrolado" / "Sem rerrolagem" (filter values translated from "Rerolled"/"Not rerolled"; `gearInspectorRerollLabel` normalized "Rerolado"→"Rerrolado"). |
+  | Chaos Ore | Chaos Ore (`filterChaosOre`) | loanword kept; the verb is "rerrolado" / "Sem rerrolagem" (filter values translated from "Rerolled"/"Not rerolled"; `gearInspectorRerollLabel` → "Rerrolado"). |
   | sell file | Sellfile | one word; the preview mode label is "Prévia Sellfile". |
-  | Gear Inspector | Inspetor de Equipamento | ONE rendering (collapsed the "Gear Inspector" loanword and "Teste de Regras"). Title Case, singular. |
-  | rolls / drops | rolagem(ns) / drop(s) | **rolls is TRANSLATED** to "rolagem/rolagens" (dominant; collapsed the stray "roll/rolls"/"quad-rolls" loanwords). **drop(s)** stays the loanword. |
-  | vault / inbox / custom | Cofre / Entrada / Personalizado | Gear-Analytics source labels unified to the Gear-Inspector source set (was "Vault"/"Inbox"; `gearInspectorSourceManual` "Manual"→"Personalizado" to match en "Custom"). |
+  | Gear Inspector | Inspetor de Equipamento | ONE rendering (never the "Gear Inspector" loanword or "Teste de Regras"). Title Case, singular. |
+  | rolls / drops | rolagem(ns) / drop(s) | **rolls is TRANSLATED** to "rolagem/rolagens" (never the "roll/rolls"/"quad-rolls" loanwords). **drop(s)** stays the loanword. |
+  | vault / inbox / custom | Cofre / Entrada / Personalizado | Gear-Analytics source labels match the Gear-Inspector source set; `gearInspectorSourceManual` → "Personalizado" to match en "Custom". |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Desativar / Proteger / Antecipar / Melhorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   pt-BR **intentional loanwords** (do NOT "correct" to Portuguese): set/Sets (alongside "conjunto"), SPD, Slot, stat/substat, Chaos Ore, Sellfile, Drops, Flex, RSL Helper. **"Gear" is translated** to "equipamento"; the *Gear Inspector* mode is "Inspetor de Equipamento". **"rolls" is translated** to "rolagem/rolagens" (unlike de-DE which keeps "Rolls"). pt-BR is a SEPARATE locale from pt-PT — keep them distinct.
@@ -145,14 +145,14 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | --- | --- | --- |
   | piece / pieces | pieza / piezas | |
   | gear | equipo | translated, **not** the loanword "gear". The *Gear Inspector* mode → "Inspector de Equipo"; *Gear Lens* → "Análisis de Equipo". |
-  | gear set / set | set / Sets | **loanword**, canonical for the game concept (collapsed the prior "conjunto/Conjuntos" mix). Generic "a set/pool of X" (override set, candidate pool, reference set) stays "conjunto". |
-  | stat / substat / main stat | stat / substat / stat principal | **loanwords** "stat"/"substat" (collapsed "estadística"/"subestadísticas"); "main stat" → "stat principal" (masculine; collapsed "estadística principal"/"mainstat"). |
-  | slot | ranura | translated, canonical (collapsed stray "slot"/"casilla"). Names: Arma / Yelmo / Escudo / Guantes / Peto / Botas / Anillo / Amuleto / Estandarte. |
+  | gear set / set | set / Sets | **loanword**, canonical for the game concept (not "conjunto/Conjuntos"). Generic "a set/pool of X" (override set, candidate pool, reference set) stays "conjunto". |
+  | stat / substat / main stat | stat / substat / stat principal | **loanwords** "stat"/"substat" (not "estadística"/"subestadísticas"); "main stat" → "stat principal" (masculine; not "estadística principal"/"mainstat"). |
+  | slot | ranura | translated, canonical (not "slot"/"casilla"). Names: Arma / Yelmo / Escudo / Guantes / Peto / Botas / Anillo / Amuleto / Estandarte. |
   | rank / rarity / level / faction | rango / rareza / nivel / facción | |
   | artifacts / accessories | artefactos / accesorios | |
-  | keep / sell / protect | conservar / vender / proteger | collapsed stray "retener"/"retención" → "conservar". |
+  | keep / sell / protect | conservar / vender / proteger | not "retener"/"retención". |
   | safeguards | Salvaguardas (`safeguardsTabLabel`) | translated. |
-  | (dynamic) overrides | anulaciones (dinámicas) | collapsed "sustituciones dinámicas"/"ajustes dinámicos". |
+  | (dynamic) overrides | anulaciones (dinámicas) | not "sustituciones dinámicas"/"ajustes dinámicos". |
   | Chaos Ore | Mena de Caos / Chaos | per `filterChaosOre`. |
   | sell file | Sellfile | one word, masculine ("el Sellfile"). |
   | rolls / drops | rolls / drops / tiradas | "tiradas" for the count; "rolls"/"drops" loanwords where idiomatic. |
@@ -166,9 +166,9 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | --- | --- | --- |
   | piece / pieces | pièce / pièces | |
   | gear | équipement | translated (mass noun). Compounds: « Inspecteur d'équipement », « base de données d'équipement », « set d'équipement ». |
-  | gear set / set | set | loanword (masculine, « le set »); collapsed stray « ensemble ». |
-  | stat / substat / main stat | stat / sous-stat / stat principale | **feminine** throughout (abbreviates *statistique*); eliminated English « substat » in prose. |
-  | slot | emplacement | translated, canonical (away from loanword « slot »); « Empl. » as column abbr. Names: Arme / Casque / Bouclier / Gantelets / Plastron / Bottes / Bague / Amulette / Bannière. |
+  | gear set / set | set | loanword (masculine, « le set »); not « ensemble ». |
+  | stat / substat / main stat | stat / sous-stat / stat principale | **feminine** throughout (abbreviates *statistique*); do not use English « substat » in prose. |
+  | slot | emplacement | translated, canonical (not the loanword « slot »); « Empl. » as column abbr. Names: Arme / Casque / Bouclier / Gantelets / Plastron / Bottes / Bague / Amulette / Bannière. |
   | rank / rarity / level / faction | rang / rareté / niveau / faction | |
   | artifacts / accessories | artefacts / accessoires | |
   | keep / sell / protect | garder (conserver) / vendre / protéger | |
@@ -187,12 +187,12 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | --- | --- | --- |
   | piece / pieces | peça / peças | |
   | gear | equipamento | translated, **not** "gear". |
-  | gear set / set | set / Sets | loanword (collapsed the "Conjunto" mix); generic *override answer set* stays "conjunto de substituições". |
-  | stat / substat / main stat | stat / substat(s) / stat principal | "substat" loanword (collapsed "subatributo"); main stat = "stat principal"; substat masculine ("o substat"). |
+  | gear set / set | set / Sets | loanword (not "Conjunto"); generic *override answer set* stays "conjunto de substituições". |
+  | stat / substat / main stat | stat / substat(s) / stat principal | "substat" loanword (not "subatributo"); main stat = "stat principal"; substat masculine ("o substat"). |
   | level | nível / Nível (Nv) | not "Level" except the fixed KPI badge "Level +16". |
-  | rank | Rank | loanword; killed lone "Grau". |
+  | rank | Rank | loanword; not "Grau". |
   | rarity / faction | raridade / facção | European spelling ("facção", not "fação"). |
-  | safeguards | Salvaguardas | translated; fixed README's "Manter únicos" → "Salvaguardas". |
+  | safeguards | Salvaguardas | translated; README uses "Salvaguardas", not "Manter únicos". |
   | (dynamic) overrides | substituições (dinâmicas) | |
   | accessories / artifacts | acessórios / artefactos | |
   | Chaos Ore | Chaos Ore | label English; states translated (Qualquer / Não relançado / Relançado). |
@@ -209,19 +209,19 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | English | ru-RU (catalog) | Notes |
   | --- | --- | --- |
   | piece / pieces | предмет / предметы | |
-  | gear | снаряжение | **canonical**; eliminated экипировка / шмот / вещь as gear synonyms (verb "экипирован" = *equipped* kept). |
+  | gear | снаряжение | **canonical**; do not use экипировка / шмот / вещь as gear synonyms (verb "экипирован" = *equipped* kept). |
   | gear set / set | сет | **canonical over "набор"** for the gear-set concept; "набор" kept only for non-set meanings (набор настроек, наборы переопределений). |
-  | stat / substat / main stat | стат / подстат / основной стат | substat = **подстат** (collapsed субстат/сабстат/подхарактеристика). |
+  | stat / substat / main stat | стат / подстат / основной стат | substat = **подстат** (not субстат/сабстат/подхарактеристика). |
   | rank / rarity / level / faction | ранг / редкость / уровень / фракция | |
   | slot | слот | names Оружие/Шлем/Щит/Перчатки/Нагрудник/Сапоги/Кольцо/Амулет/Знамя. |
   | artifacts / accessories | артефакты / аксессуары | |
   | keep / sell / protect | оставить / продать / защитить | |
-  | safeguards | Защиты | **canonical**; eliminated "Правило сохранения"/"Сохранение уникальных комбинаций" (feminine agreement: Защита добавлена/обновлена/удалена). |
-  | Gear Inspector | Инспектор снаряжения | **canonical**; eliminated "Тестер"/"Тестер правил". |
+  | safeguards | Защиты | **canonical**; not "Правило сохранения"/"Сохранение уникальных комбинаций" (feminine agreement: Защита добавлена/обновлена/удалена). |
+  | Gear Inspector | Инспектор снаряжения | **canonical**; not "Тестер"/"Тестер правил". |
   | (dynamic) overrides | переопределения | |
-  | Chaos Ore | Chaos Ore | loanword; reroll → Переброшено (was Перековано). Chip values keep English originals. |
+  | Chaos Ore | Chaos Ore | loanword; reroll → Переброшено. Chip values keep English originals. |
   | sell file | Sellfile | one word. |
-  | rolls / drops | ролл / дропы | **rolls canonicalized to "ролл"** (eliminated "роль"-style forms and "прок"). |
+  | rolls / drops | ролл / дропы | **rolls canonicalized to "ролл"** (not "роль"-style forms or "прок"). |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Выкл. / Хранить / Упреждать / Улучшать (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   ru-RU **intentional loanwords:** сет, Sellfile, ролл, дроп, SPD/ATK/DEF/HP/ACC/RES/CR/CDMG, Flex. **"Gear" → снаряжение**, **"substat" → подстат** (translated, not loanwords).
@@ -235,13 +235,13 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | gear set / set | set | loanword. |
   | stat / substat / main stat | stat / alt stat / ana stat | compound forms; bare loanword "stat" kept (idiomatic). |
   | level / rank / rarity | seviye / rütbe / nadirlik | star rank = "yıldız rütbesi". |
-  | faction | Fraksiyon | **canonical** (collapsed the "Faksiyon"/"Fraksiyon" split). |
-  | slot | Yuva / Yuvalar | **canonical** (collapsed the "Slot"/"Yuva" mix; scope chip "Yuva başına"). Names: Silah, Miğfer, Kalkan, Eldivenler, Zırh, Botlar, Yüzük, Tılsım, Sancak. |
-  | recipe | Reçete / Reçeteler | **canonical** (collapsed the "Tarif"/"Reçete" split); "kural" reserved for HSF rules. |
-  | safeguards | Korumalar | catalog canonical; fixed README's "Benzersizleri Koru" → "Korumalar". |
+  | faction | Fraksiyon | **canonical** (not "Faksiyon"). |
+  | slot | Yuva / Yuvalar | **canonical** (not "Slot"; scope chip "Yuva başına"). Names: Silah, Miğfer, Kalkan, Eldivenler, Zırh, Botlar, Yüzük, Tılsım, Sancak. |
+  | recipe | Reçete / Reçeteler | **canonical** (not "Tarif"); "kural" reserved for HSF rules. |
+  | safeguards | Korumalar | catalog canonical; README uses "Korumalar", not "Benzersizleri Koru". |
   | (dynamic) overrides | geçersiz kılmalar | |
   | accessories / artifacts | aksesuarlar / eserler | |
-  | Vault | Kasa | **canonical** (translated analytics "Vault" leftovers). |
+  | Vault | Kasa | **canonical** (also for analytics). |
   | Chaos Ore | Kaos Cevheri | translated `filterChaosOre*` + tooltip; reroll → "yeniden atma". (KPI "Chaos'd"/"Chaos Orb" kept.) |
   | sell file | Sellfile | one word. |
   | rolls / drops | rulo / düşüş | translated. |
@@ -254,19 +254,19 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | English | uk-UA (catalog) | Notes |
   | --- | --- | --- |
   | piece / pieces | предмет / предмети | |
-  | gear | спорядження | translated, **not** loanword (neuter). Collapsed *екіпіровка/екіпірування*; verb *екіпіровано* ("equipped") kept distinct. |
-  | gear set / set | сет / сети | **canonical** (collapsed *набір/набор/комплект* for the gear-set sense). "набір перевизначень" (batch of overrides) / "стандартний набір колонок" stay *набір*. |
-  | stat / substat / main stat | стат / підстат / основний стат | **substat = підстат** (collapsed сабстат/субстат/підхарактеристики and the wrong *статус*=status); main stat masculine *основний стат*. |
+  | gear | спорядження | translated, **not** loanword (neuter). Not *екіпіровка/екіпірування*; verb *екіпіровано* ("equipped") kept distinct. |
+  | gear set / set | сет / сети | **canonical** (not *набір/набор/комплект* for the gear-set sense). "набір перевизначень" (batch of overrides) / "стандартний набір колонок" stay *набір*. |
+  | stat / substat / main stat | стат / підстат / основний стат | **substat = підстат** (not сабстат/субстат/підхарактеристики, and not *статус*=status); main stat masculine *основний стат*. |
   | rank / rarity / level / faction | ранг / рідкість / рівень / фракція | |
   | slot | слот | names Зброя/Шолом/Щит/Рукавиці/Нагрудник/Черевики/Кільце/Амулет/Прапор. |
   | artifacts / accessories | артефакти / аксесуари | |
-  | keep / sell / protect | зберегти / продати / захистити | **Keep = зберегти** (collapsed the outcome rendering *залишити*); *залишок* = "remainder" (final sell) kept distinct. |
+  | keep / sell / protect | зберегти / продати / захистити | **Keep = зберегти** (not the outcome rendering *залишити*); *залишок* = "remainder" (final sell) kept distinct. |
   | safeguards | захисти | translated. |
   | (dynamic) overrides | перевизначення | |
   | Chaos Ore | Chaos Ore | kept English (KPI "Chaos'd"/"Glyphed" also English). |
-  | Vault | Сховище | canonicalized (collapsed *Vault*/*У Vault*). |
+  | Vault | Сховище | canonical (not *Vault*/*У Vault*). |
   | sell file | Sellfile | one word. |
-  | rolls / drops | роли / дропи | loanwords (collapsed *рулон* and *проки*). |
+  | rolls / drops | роли / дропи | loanwords (not *рулон*/*проки*). |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Вимкнути / Захистити / Передбачити / Покращення (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
 
   uk-UA **intentional loanwords:** Sellfile, SPD/ATK/DEF/HP/CR/CDMG/ACC/RES, роли (rolls), дропи (drops), сет (gear set), Chaos Ore, Chaos'd, Glyphed, Flex. **"gear" → спорядження**, **"substat" → підстат** (translated). Catalog strings use DOUBLE quotes (U+2019 apostrophe trap).
@@ -289,11 +289,11 @@ The bundled preset Notes (e.g. `presets/lategame.sfc`) are localized **inside th
   - **Exact** recipe/safeguard names (as they appear in the builder) → backtick chips, verbatim, **not** localized.
   - **Group / rule-family** names (conceptual; they span several recipes — e.g. *Any Set recipes*) → *italic*, and localizable. Verify against the recipe data whether a phrase is an exact recipe or a group: groups map to `SellfileVisibility: "Separator"` header rows, exact recipes to `"Active"` rows.
   - **Gear-set names** and other in-game terms → **bold**. Set names stay English even in translated prose (Stoneskin, Savage …), but the surrounding words localize.
-- **Translation-pass pitfalls (each one bit us at least once):**
-  - **Never let a German edit touch English text.** Operate per-region: only inside `<!-- lang:de -->…<!-- /lang -->` or a precisely-bounded `[[de]]` segment. A naive `[[de]]…`-to-next-`[[` capture **overruns** into the following field's English base or the trailing DSL `{ … }` block — re-check English bases after any scripted replace, and revert leaks (we corrupted English "Chaos Ore"/"Safeguards" values this way).
+- **Translation-pass pitfalls:**
+  - **Never let a German edit touch English text.** Operate per-region: only inside `<!-- lang:de -->…<!-- /lang -->` or a precisely-bounded `[[de]]` segment. A naive `[[de]]…`-to-next-`[[` capture **overruns** into the following field's English base or the trailing DSL `{ … }` block — re-check English bases after any scripted replace, and revert leaks.
   - **DSL code is not prose.** `slots=Weapon,Helmet,…`, `keep=early`, `rank=6`, `@tag=…` are engine tokens — leave them English regardless of language.
   - **Mind German gender/agreement when swapping a noun.** `Level` (neuter) → `Stufe` (feminine) breaks `jedem Stufe` → must become `jeder Stufe`. Re-scan article agreement after a term swap.
-  - **Verify, don't assume, factual claims.** Read the actual recipe defaults and the override that changes them before describing behavior (we had the Utility group's default level window backwards). Match the tone of the other override-aware paragraphs.
+  - **Verify, don't assume, factual claims.** Read the actual recipe defaults and the override that changes them before describing behavior. Match the tone of the other override-aware paragraphs.
   - **Markup parity:** EN and DE variants must carry the same count of `**bold**`, backtick chips, and `<span>` open/close tags. After edits, assert `(**count) % 2 === 0` and that override markers (`recipe-overrides`, `safeguard-overrides`, `dungeon-simulator`, `if-no-endpoint`) survive resolution unchanged in every language.
 
 ## Tooltips and Context Hints
@@ -314,7 +314,7 @@ The bundled preset Notes (e.g. `presets/lategame.sfc`) are localized **inside th
   2. Skip explicit `enterDelay`/`leaveDelay`; the wrapper centralizes timing and automatically picks the short vs. long delay.
   3. Prefer `placement="top"`/`"right"` only when alignment truly matters (e.g., builder export mode toggles). Otherwise let the default `top-start` stand.
 - Set descriptions (`WithSetTooltip`) and other shared helpers must also compose `MarkdownTooltip` so there is **one** place to adjust behavior (timing, width, disableInteractive). If you need a variant, extend `MarkdownTooltip` rather than wrapping MUI Tooltip again.
-- **Exception — content that can exceed the viewport must use a scrollable hover layer, not a tooltip.** Tooltips cannot scroll, so a tall body gets clipped off-screen. The saved dynamic-override sets (`DynamicOverridesPresetRow` in `src/components/NoteDynamicOverridesPresets.tsx`) hover-open a MUI **`Popper`** (NOT a `Popover`/Modal — a modal layered a second backdrop that swallowed the host menu's outside-click-to-dismiss, leaving Escape as the only close) with open/close grace delays so the pointer can travel into it. Its body is a self-identifying header (set name + saved date, bolder divider) over `<ClippedScrollBody overflowY="auto">` wrapping `DynamicOverridesPresetSummaryTable` — a two-column title|answers grid rendered in a single body font (titles non-bold by default; `parseInlineMarkdown(text, { plainCode: true })` keeps bold/italic but renders backtick tokens as plain text, not mono chips). `ClippedScrollBody` (`src/components/ClippedScrollBody.tsx`) has two modes: clip-only (`overflowY="hidden"`, default — a bottom fade + "…" cue, used by `GearDiffPreview`'s clip mode behind the gear-diff toast + history hover tooltip) and scroll (`overflowY="auto"` — an inner scroll box wrapped by a non-scrolling container carrying top+bottom "scroll shadow" fades that toggle on scroll position, plus a thin always-visible scrollbar).
+- **Exception — content that can exceed the viewport must use a scrollable hover layer, not a tooltip.** Tooltips cannot scroll, so a tall body gets clipped off-screen. The saved dynamic-override sets (`DynamicOverridesPresetRow` in `src/components/NoteDynamicOverridesPresets.tsx`) hover-open a MUI **`Popper`** (must be a `Popper`, not a `Popover`/Modal — a Modal's backdrop swallows the host menu's outside-click-to-dismiss, leaving Escape as the only close) with open/close grace delays so the pointer can travel into it. Its body is a self-identifying header (set name + saved date, bolder divider) over `<ClippedScrollBody overflowY="auto">` wrapping `DynamicOverridesPresetSummaryTable` — a two-column title|answers grid rendered in a single body font (titles non-bold by default; `parseInlineMarkdown(text, { plainCode: true })` keeps bold/italic but renders backtick tokens as plain text, not mono chips). `ClippedScrollBody` (`src/components/ClippedScrollBody.tsx`) has two modes: clip-only (`overflowY="hidden"`, default — a bottom fade + "…" cue, used by `GearDiffPreview`'s clip mode behind the gear-diff toast + history hover tooltip) and scroll (`overflowY="auto"` — an inner scroll box wrapped by a non-scrolling container carrying top+bottom "scroll shadow" fades that toggle on scroll position, plus a thin always-visible scrollbar).
 - Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook every eligible surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Existing surfaces include the builder history menu, rules-table headers/context menus, preview export/header menus, Gear Inspector grid menu + scroll hint, dialog filter sections, and the Gear Inspector intro copy-path button; mirror their patterns when adding new popovers. Do not hand-roll ad-hoc overlays—the shared helper already manages dismissal persistence. Two behaviors to know: **(a) revision-gated, not version-gated** — a hint shows once per surface *revision* (`CONTEXT_HINT_REVISIONS` in `contextMenuHintIds.ts`, marker `r<N>` in localStorage) and does NOT reset on app updates; bump a surface's revision only when its menu gains genuinely new capabilities (legacy `APP_VERSION` markers count as "seen revision 1"). **(b) hover-dwell** — the overlay only renders after the cursor lingers `HINT_DWELL_MS` (1s) on the trigger, so purposeful mouse travel never flashes it.
 - Any menu/popover that uses `ContextMenuPaper` must go through `useContextMenuPaperGuard` and pass the returned `contextMenuGuard` into `buildContextMenuPaperSlotProps`. This enforces the outside-click cleanup and prevents stuck backdrops (the “resize to recover” freeze).
 - When adding new tooltip copy:
@@ -541,7 +541,7 @@ http://localhost:XXXX/?endpoint=ws://localhost:8080/&simple
 - **Sticky group-header overlay**: ancestor headers pin to the top while their cards scroll, rendered as clones in a single `aria-hidden` overlay sibling (real nodes are hidden via `visibility: hidden`). The model is unified — one `stickyStack` memo computes each pinned header's on-screen `pinnedY`:
   - *Pin*: a header at depth `d` rests at `Y = d × headerHeight`. It becomes sticky the instant its natural top would rise above that slot, i.e. the moment it would otherwise scroll off the top **or** slip behind a shallower sticky header. So while any card of a group is visible, that group's header and every ancestor stay on screen, stacked in nesting order.
   - *Exit (sequential tuck)*: each header is pushed only by its *displacer* — the next header at depth ≤ its own (`headerDisplacerOffsetByKey`): a sibling/uncle subgroup, or the next root group. As the displacer approaches, the header slides up. The parent is painted **on top** (`zIndex` descends with depth), so an ending subgroup tucks *under* its parent and disappears; the parent lingers as the stable anchor until the next top-level group pushes it off. No flicker, child never crosses over parent.
-  - *Width alignment*: the overlay is a sibling spanning the scroll container's full border box, but the container reserves the scrollbar gutter internally (`scrollbar-gutter`). The overlay is sized to the container's live `clientWidth`, measured by `attachContainer` — a **callback ref** that re-measures (and re-attaches its ResizeObserver) on every container (re)mount. It used to be a mount-once effect, which missed late container remounts on app start and left the overlay at its fallback full width, so the pinned first group header overdrew the scrollbar until the first scroll; `handleScroll` still re-captures the width as a safety net. Each clone insets its right edge by `containerPaddingEndPx` (`right: Npx`, **not** `width: 100%`, which would ignore the overlay's own padding). This keeps pinned headers in the exact horizontal band of the real headers and clear of the gutter. Covered by `tests/playwright/gear-inspector-sticky-headers.spec.ts`.
+  - *Width alignment*: the overlay is a sibling spanning the scroll container's full border box, but the container reserves the scrollbar gutter internally (`scrollbar-gutter`). The overlay is sized to the container's live `clientWidth`, measured by `attachContainer` — a **callback ref** that re-measures (and re-attaches its ResizeObserver) on every container (re)mount. It must be a callback ref, not a mount-once effect, so it catches late container remounts on app start (otherwise the overlay stays at its fallback full width and the pinned first group header overdraws the scrollbar until the first scroll); `handleScroll` still re-captures the width as a safety net. Each clone insets its right edge by `containerPaddingEndPx` (`right: Npx`, **not** `width: 100%`, which would ignore the overlay's own padding). This keeps pinned headers in the exact horizontal band of the real headers and clear of the gutter. Covered by `tests/playwright/gear-inspector-sticky-headers.spec.ts`.
 - When adjusting Gear Inspector grid behavior:
   - Update the flattened builder (`buildFlattenedGridItems`) so the virtualizer stays authoritative.
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
@@ -754,7 +754,7 @@ Rendered in the builder column below the form panel, occupying the same scrollab
 - **Root scrollbar-flash hardening** (App.tsx `<GlobalStyles>` + theme `MuiTooltip`): transient viewport scrollbars used to flash on mouse move via compounding paths — a body-portaled tooltip momentarily past the viewport edge (Popper positions before its `--app-zoom` scaling settles) grew the document's scrollable overflow, and the full-bleed `100vw`/canvas header elements (which include the scrollbar gutter) then overflowed horizontally whenever a vertical scrollbar appeared, re-driving the auto-zoom evaluation via the changed `documentElement.clientWidth`. Rules that break the loop: `html { overflow-x: clip }` (unlike `hidden`, `clip` forbids horizontal scrolling without creating a scroll container; mirrored on `#root`), `html`/`body` `overflow-y: hidden` (vertical scroll lives on `#root`, so the document never grows a scrollbar), and the theme-level tooltip Popper `strategy: 'fixed'` (fixed-position poppers never extend document scrollable overflow, so tooltips can no longer conjure a scrollbar at all). **The stable gutter lives on `#root`, never on `html`** — see the app-edge-gap bullet above for why. The `.scrolling`/`.chips-dragging` tooltip-hiding classes (`useTooltipScrollGuard`) remain as the scroll-time guard; its scroll listener is capture-phase so it still fires for the `#root` scroller.
 - **Canvas width is dynamic (fills the viewport after zoom).** `resolveSideBySideZoom` also returns `canvasWidthPx = max(target, round(viewportWidth / zoom))`. The forced canvas, header span, and splitter fallback render at *that* width (threaded from the hook as `sideBySideCanvasWidthPx`), not a fixed constant. When **width** is the binding constraint it equals `SIDE_BY_SIDE_TARGET_WIDTH_PX`; when **height** drove the zoom (e.g. a wide-but-short viewport where `H/targetH < W/targetW`) the canvas widens (`viewportWidth / zoom > target`) so that `canvasWidthPx × zoom = viewportWidth` exactly — the scaled canvas fills the viewport with no side bars, and the panels absorb the spare width. `SIDE_BY_SIDE_BREAKPOINT_PX` is *defined as* the target width, so below it the canvas zooms and at/above it the native fluid path turns on. The native `@media` gate (`SIDE_BY_SIDE_NATIVE_MEDIA_QUERY`) requires width **AND** height ≥ target — the same `raw ≥ 1` condition — so a wide-but-short window stays in the zoom path instead of wrongly going 100vw; the flash-guard `@media` blocks and the `useBuilderPreviewLayout` matchMedia all use that one query so CSS and JS agree.
 - Targets (`SIDE_BY_SIDE_TARGET_WIDTH_PX` / `SIDE_BY_SIDE_TARGET_HEIGHT_PX`): the width is both the canvas width the papers render at native scale and the zoom divisor; the height is the companion vertical fit target. The width is *derived* — `SIDE_BY_SIDE_PANEL_WIDTH_PX * 2 + GRID_COLUMN_GAP_PX` (two panels plus the splitter gap) — so tuning the single-panel comfortable width (currently 1116 → 2248 canvas) keeps the canvas in sync. Lowering it makes the papers narrower at 1:1 but delays when zoom starts.
-- Preview table height: `HsfRulesTable` fills the paper's fixed height in side-by-side and caps its scroller at `960px` when stacked. This switch is driven by the `isSideBySide` prop (native fluid OR forced-zoom), **not** a viewport-width media query — a stale hardcoded `@media (min-width:2320px)` used to gate it, which stopped matching once the forced canvas width was decoupled from the breakpoint, leaving the table capped at 960px in side-by-side.
+- Preview table height: `HsfRulesTable` fills the paper's fixed height in side-by-side and caps its scroller at `960px` when stacked. This switch is driven by the `isSideBySide` prop (native fluid OR forced-zoom), **not** a viewport-width media query — a hardcoded `@media (min-width:2320px)` would stop matching once the forced canvas width is decoupled from the breakpoint, leaving the table wrongly capped at 960px in side-by-side.
 - User settings (theme flyout): `resolveSideBySideZoom` takes `{ enabled, minZoom }`. **Enable auto zoom** (`autoSideBySideZoomEnabled`, default on) is the master switch — when off the decision is always `{ forceSideBySide:false, zoom:1 }` and only the native fluid path (`SIDE_BY_SIDE_NATIVE_MEDIA_QUERY`) can show side-by-side. **Min zoom** (`autoSideBySideMinZoom`, default `AUTO_SIDE_BY_SIDE_MIN_ZOOM` = 0.3, slider range 30%–100%) is the force/stack cutoff. Both are persisted display preferences (`preferencesState.tsx`) and threaded into the hook through `sideBySideZoomSettingsRef`; changing either re-evaluates immediately via `reevaluate()`.
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
