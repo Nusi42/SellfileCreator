@@ -32,8 +32,6 @@ type RestoreAutosaveDialogProps = {
   storedGearSetsCount: number
   metasetsDiffer: boolean
   targetsDiffer: boolean
-  /** True when view/filter state or sort state differs from the current session. */
-  viewFilterDiffer: boolean
   onDismiss: () => void
   onRestore: (selection: RestoreSelection) => void
 }
@@ -78,7 +76,6 @@ export default function RestoreAutosaveDialog({
   storedGearSetsCount,
   metasetsDiffer,
   targetsDiffer,
-  viewFilterDiffer,
   onDismiss,
   onRestore,
 }: RestoreAutosaveDialogProps) {
@@ -110,15 +107,13 @@ export default function RestoreAutosaveDialog({
     if (hasTargets && targetsDiffer) next.targets = true
     if (hasNote) next.note = true
     if (hasSafeguards) next.safeguards = true
-    // viewFilterDiffer covers both view/filter and sort; show the combined row when either differs.
-    if (viewFilterDiffer) next.filters = true
     // Skip Gear Inspector if snapshot is empty — that equals the default state.
     // Also skip when disabled: the endpoint data has superseded the snapshot, so
     // offering its restore would be a no-op (the row stays visible but unchecked).
     if (hasGearInspectorContent && !gearInspectorDisabled) next.gearInspector = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled])
+  }, [recipesCount, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled])
 
   // Merge persisted and default selection during render when the dialog is open.
   // This replaces a useEffect to avoid an extra re-render cycle — the React-blessed
@@ -167,14 +162,6 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveSafeguardsHelper'),
       })
     }
-    // viewFilterDiffer covers both view/filter and sort state; one combined row.
-    if (viewFilterDiffer) {
-      rows.push({
-        key: 'filters',
-        label: t('restoreAutosaveFiltersLabel'),
-        helper: t('restoreAutosaveFiltersHelper'),
-      })
-    }
     // Only include the Gear Inspector row when the snapshot has actual content (count > 0).
     // An empty snapshot equals the factory default and would be a no-op restore.
     if (hasGearInspectorContent) {
@@ -201,7 +188,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, viewFilterDiffer, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
+  }, [draft?.Safeguards?.length, recipesCount, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.

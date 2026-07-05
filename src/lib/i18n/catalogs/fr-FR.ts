@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Restaure les garde-fous et leur état activé.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Les recettes exigent de restaurer les metasets de cette sauvegarde.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Les garde-fous exigent de restaurer les metasets de cette sauvegarde.",
-  restoreAutosaveFiltersLabel: "Vue, Filtres & Tri",
-  restoreAutosaveFiltersHelper: "Restaure l’état ouvert, la sélection et les sections réduites.",
   restoreAutosaveGearInspectorLabel: "Inspecteur d’équipement ({count})",
   restoreAutosaveGearInspectorHelper: "Charger l’équipement auto‑sauvegardé.",
   restoreAutosaveGearInspectorSupersededHelper: "Un équipement plus récent a été chargé depuis les données en direct ; la copie auto‑sauvegardée ne peut donc plus être restaurée.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Langue",
 
   // Theme settings flyout
-  themeSettings: "Apparence",
+  themeSettings: "Sellfile Creator & réglages d’apparence",
   themeMode: "Mode",
   themeDark: "Sombre",
   themeLight: "Clair",

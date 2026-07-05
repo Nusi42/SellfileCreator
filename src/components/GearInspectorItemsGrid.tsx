@@ -64,7 +64,6 @@ import {
   MENU_CONTROL_MIN_WIDTH_PX,
   MENU_RATING_ROW_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
-  type ColorBlindMode,
   type SafeguardRankMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
@@ -103,7 +102,6 @@ import {
 import { GearInspectorNormalizedPresetEditorMenu } from './GearInspectorNormalizedPresetEditorMenu'
 import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
-import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { makeSafeguardRankCycleOptions, safeguardRankCycleVariant, SAFEGUARD_RANK_TITLE_KEY_BY_MODE } from '../lib/safeguardRankCycleOptions'
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import {
@@ -158,13 +156,6 @@ type GearInspectorItemsGridProps = {
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
-  // Master colour toggle state (any colour group on) + setter that flips all groups on/off.
-  statColorsMasterOn?: boolean
-  onToggleStatColors: (next: boolean) => void
-  onOpenManageColors: () => void
-  colorBlindMode: ColorBlindMode
-  onChangeColorBlindMode: (mode: ColorBlindMode) => void
-  colorIconSrc: string
   recipeNames: Array<string | null>
   recipeFgColors?: Array<string | null>
   // Optional one-shot request to expand + scroll to a concrete artifact card.
@@ -328,12 +319,6 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
-    statColorsMasterOn = false,
-    onToggleStatColors,
-    onOpenManageColors,
-    colorBlindMode,
-    onChangeColorBlindMode,
-    colorIconSrc,
     recipeNames,
     recipeFgColors,
     focusArtifactRequest = null,
@@ -3016,36 +3001,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           <MenuToggleRow label={t('gearInspectorGridShowRuleTemplates')} checked={showRuleTemplates} onChange={() => setShowRuleTemplates(!showRuleTemplates)} />
         ) : null}
         <MenuToggleRow label={t('rulesMenuHighlightKeepSell')} checked={highlightKeepSell} onChange={() => setHighlightKeepSell(!highlightKeepSell)} />
-        <Divider sx={{ my: 0.75 }} />
-        {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
-        <MenuToggleRow
-          label={t('rulesMenuColorStatsSlotsRarity')}
-          checked={statColorsMasterOn}
-          onChange={() => onToggleStatColors(!statColorsMasterOn)}
-          trailing={
-            <MarkdownTooltip markdown={t('manageColors')}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="info"
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(event) => { event.stopPropagation(); onOpenManageColors() }}
-                  aria-label={t('manageColorsAria')}
-                >
-                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
-                </Button>
-              </span>
-            </MarkdownTooltip>
-          }
-        />
-        <MenuCycleRow
-          label={t('rulesMenuColorBlindPalette')}
-          options={makeColorBlindCycleOptions(t)}
-          value={colorBlindMode}
-          variant={colorBlindCycleVariant(colorBlindMode)}
-          onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
-        />
+        {/* The colour-scope toggle and colour-blind palette moved to the central options popout
+            (ThemeEditorMenu): they are app-wide settings, not gear-inspector-local. This menu
+            keeps only grid-local view toggles. */}
       </Menu>
       {/* Right-click safeguard-rank menu: pick which of the piece's candidate rules to jump to. */}
       <Menu

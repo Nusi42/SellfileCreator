@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Stellt Schutzregeln und Aktivstatus wieder her.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Rezepte erfordern das Wiederherstellen der Metasets aus diesem Autosave.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Schutzregeln erfordern das Wiederherstellen der Metasets aus diesem Autosave.",
-  restoreAutosaveFiltersLabel: "Anzeige, Filter & Sortierung",
-  restoreAutosaveFiltersHelper: "Stellt Öffnungsstatus, Auswahl und eingeklappte Bereiche wieder her.",
   restoreAutosaveGearInspectorLabel: "Ausrüstungsinspektor ({count})",
   restoreAutosaveGearInspectorHelper: "Autosave-Ausrüstung laden.",
   restoreAutosaveGearInspectorSupersededHelper: "Aus den Live-Daten wurde neuere Ausrüstung geladen, daher kann die Autosave-Kopie nicht mehr wiederhergestellt werden.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Sprache",
 
   // Theme settings flyout
-  themeSettings: "Darstellung",
+  themeSettings: "Sellfile Creator & Darstellung",
   themeMode: "Modus",
   themeDark: "Dunkel",
   themeLight: "Hell",

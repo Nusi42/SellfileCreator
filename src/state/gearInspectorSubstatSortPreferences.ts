@@ -225,11 +225,12 @@ const gearInspectorSubstatSortStore = createLocalStorageStore<GearInspectorSubst
   },
   // JSON keeps the schema flexible while still being human-debuggable in devtools.
   serialize: (value) => JSON.stringify(value),
-  // Document-view: the APPLIED substat sort is live working state, seeded at load and saved
-  // back (it rides the restore-dialog "filters" bundle). Two same-account tabs must not
-  // mirror each other's live sort. The reusable sort PRESETS library stays global/shared —
-  // only the current applied sort is per-tab-live. See loadOnce.
-  loadOnce: true,
+  // EPHEMERAL: the applied substat sort is a live view on the document's results — not
+  // persisted to localStorage or the .sfc file. sessionOnly keeps cross-component sharing
+  // (App + GearInspectorItemsGrid + sort popover) while dropping persistence; resets each
+  // load. The reusable sort PRESETS library stays persisted/global — only the APPLIED sort
+  // is ephemeral. Legacy .sfc `GearInspectorSort` is tolerated and ignored on load.
+  sessionOnly: true,
 })
 
 export function setGearInspectorSubstatSortState(next: GearInspectorSubstatSortState) {

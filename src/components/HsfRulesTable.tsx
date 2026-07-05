@@ -30,11 +30,9 @@ import MarkdownTooltip from './MarkdownTooltip'
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
   RULES_TABLE_WRAP_ROWS_KEY,
   type SelectionScrollRequest,
-  type ColorBlindMode,
   FONT_FAMILY_MONO,
 } from '../lib/constants'
-import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
-import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLOR_SCOPE } from '../lib/colorScope'
+import { useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
@@ -51,9 +49,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { CycleButton } from './CycleButton'
-import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
-import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -258,7 +254,7 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
+export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, substatColors, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
   recipeFgColors?: readonly (string | null | undefined)[]
@@ -275,11 +271,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   onRecipeAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   onConfigureFinalSell: () => void
-  onOpenManageColors: () => void
-  colorIconSrc: string
   substatColors: Record<number, { fg: string; bg: string }>
-  colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
-  onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   // Empty overlays should anchor to the top in stacked layout, but remain centered side-by-side.
   emptyStateVerticalAlign?: React.ComponentProps<typeof EmptyStateMessage>['verticalAlign']
   emptyDueToFilter?: boolean
@@ -305,18 +297,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   const previewSurfacePaper = resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))
   // Reuse the shared disabled opacity so rows dim consistently with chips.
   const disabledOpacity = resolveDisabledOpacity(theme)
-  const { showSlotIcons, showSetIcons, showFactionIcons, statColorScope, rarityColorScope, slotColorScope } = useDisplayPreferences()
+  // Icon toggles + stat scope still drive the table body; the colour-scope master toggle and
+  // colour-blind cycle moved to the central theme popout, so their setters live there now.
+  const { showSlotIcons, showSetIcons, showFactionIcons, statColorScope } = useDisplayPreferences()
   // Stat-text colouring (substat chips + rank/rarity & main-stat cells) is on when stat scope ≠ off.
   const colorStatTextsOn = scopeColorsText(statColorScope)
-  // Master colour toggle for the header menu: reflects any group on, flips all on/off.
-  const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
-  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()
-  // Restore each colour group to its factory default (master on) / off — drives the header-menu toggle.
-  const setAllColorScopes = useCallback((on: boolean) => {
-    setStatColorScope(on ? DEFAULT_STAT_COLOR_SCOPE : 'off')
-    setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
-    setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
-  }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
   // Track which rule rows are newly added so they can play an enter animation.
   // Because RecipeID is positional (re-stamped as array index + 1), inserting a recipe
   // shifts all subsequent keys making them look "new".  Suppress enter animation on
@@ -2210,39 +2195,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
         }}
       >
         <MenuToggleRow label={t('rulesMenuWrapRows')} checked={wrapRows} onChange={() => setWrapRows(!wrapRows)} labelSx={HEADER_MENU_LABEL_SX} />
-        <MenuToggleRow label={t('rulesMenuSlotsAsIcons')} checked={showSlotIcons} onChange={() => setShowSlotIcons(!showSlotIcons)} labelSx={HEADER_MENU_LABEL_SX} />
-        <MenuToggleRow label={t('rulesMenuFactionsAsIcons')} checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} labelSx={HEADER_MENU_LABEL_SX} />
-        <MenuToggleRow label={t('rulesMenuSetsAsIcons')} checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} labelSx={HEADER_MENU_LABEL_SX} />
-        <MenuToggleRow
-          label={t('rulesMenuColorStatsSlotsRarity')}
-          checked={anyColorScopeOn}
-          onChange={() => setAllColorScopes(!anyColorScopeOn)}
-          labelSx={HEADER_MENU_LABEL_SX}
-          trailing={
-            <MarkdownTooltip markdown={t('manageColors')}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="info"
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0, px: 0.25 }}
-                  onClick={(e) => { e.stopPropagation(); onOpenManageColors() }}
-                  aria-label={t('manageColorsAria')}
-                >
-                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
-                </Button>
-              </span>
-            </MarkdownTooltip>
-          }
-        />
-        <MenuCycleRow
-          label={t('rulesMenuColorBlindPalette')}
-          options={makeColorBlindCycleOptions(t)}
-          value={colorBlindMode}
-          variant={colorBlindCycleVariant(colorBlindMode)}
-          onChange={(v) => onChangeColorBlindMode(v as ColorBlindMode)}
-          labelSx={HEADER_MENU_LABEL_SX}
-        />
+        {/* Icon toggles (slots/factions/sets), the colour-scope toggle, and the colour-blind
+            palette moved to the central options popout (ThemeEditorMenu): their effect is
+            app-wide, not confined to this table. This menu keeps only table-local controls. */}
         <Divider />
         {/* Reset should sit above the column labels list */}
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>

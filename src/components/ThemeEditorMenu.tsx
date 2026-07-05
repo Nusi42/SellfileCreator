@@ -136,8 +136,8 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
 
   // Any field set (non-null) counts as customization — drives the reset button visibility.
   const hasCustomization = Object.values(draft).some(v => v != null)
-  const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom } = useDisplayPreferences()
-  const { setStatColorScope, setRarityColorScope, setSlotColorScope, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom } = useDisplayPreferenceActions()
+  const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom, showSlotIcons, showFactionIcons, showSetIcons } = useDisplayPreferences()
+  const { setStatColorScope, setRarityColorScope, setSlotColorScope, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom, setShowSlotIcons, setShowFactionIcons, setShowSetIcons } = useDisplayPreferenceActions()
   // Master colour toggle: on ⇒ restore each group to its factory default, off ⇒ all 'off'.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const setAllColorScopes = (on: boolean) => {
@@ -315,6 +315,13 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           variant={colorBlindCycleVariant(colorBlindMode)}
           onChange={(v) => setColorBlindMode?.(v as ColorBlindMode)}
         />
+        <Divider />
+        {/* Icon rendering toggles — app-wide: these swap slot/faction/set text for icons across
+            the rules table, gear inspector, analytics, safeguard panels, and chips. Consolidated
+            here (the central options popout) rather than the per-view rules-table header menu. */}
+        <MenuToggleRow label={t('rulesMenuSlotsAsIcons')} checked={showSlotIcons} onChange={() => setShowSlotIcons(!showSlotIcons)} />
+        <MenuToggleRow label={t('rulesMenuFactionsAsIcons')} checked={showFactionIcons} onChange={() => setShowFactionIcons(!showFactionIcons)} />
+        <MenuToggleRow label={t('rulesMenuSetsAsIcons')} checked={showSetIcons} onChange={() => setShowSetIcons(!showSetIcons)} />
         <Divider />
         {/* Stat-text colorization + slot glyph tints — same On/Off + manage-colors pattern as gear inspector */}
         <MenuToggleRow

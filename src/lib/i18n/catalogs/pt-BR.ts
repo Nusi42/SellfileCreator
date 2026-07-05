@@ -1413,8 +1413,6 @@ const catalog: Catalog = {
   restoreAutosaveSafeguardsHelper: "Restaura as salvaguardas e o estado ativado.",
   restoreAutosaveConstraintRecipesNeedMetasets: "As receitas exigem restaurar os metasets deste autosave.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "As salvaguardas exigem restaurar os metasets deste autosave.",
-  restoreAutosaveFiltersLabel: "Vista, Filtros & Ordenação",
-  restoreAutosaveFiltersHelper: "Restaura estado aberto, seleção e seções recolhidas.",
   restoreAutosaveGearInspectorLabel: "Inspetor de Equipamento ({count})",
   restoreAutosaveGearInspectorHelper: "Carrega o equipamento auto-salvo.",
   restoreAutosaveGearInspectorSupersededHelper: "Equipamento mais recente foi carregado dos dados ao vivo, então a cópia auto-salva não pode mais ser restaurada.",
@@ -1446,7 +1444,7 @@ const catalog: Catalog = {
   helpLanguage: "Idioma",
 
   // Theme settings flyout
-  themeSettings: "Aparência",
+  themeSettings: "Sellfile Creator e aparência",
   themeMode: "Modo",
   themeDark: "Escuro",
   themeLight: "Claro",

@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Відновлює захисти і стан увімкнення.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Для рецептів потрібно відновити метасети з цього автозбереження.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Для захистів потрібно відновити метасети з цього автозбереження.",
-  restoreAutosaveFiltersLabel: "Вигляд, Фільтр і Сортування",
-  restoreAutosaveFiltersHelper: "Відновлює стан відкриття, вибір та згортання секцій.",
   restoreAutosaveGearInspectorLabel: "Інспектор спорядження ({count})",
   restoreAutosaveGearInspectorHelper: "Завантажити автозбережене спорядження.",
   restoreAutosaveGearInspectorSupersededHelper: "З актуальних даних завантажено новіше спорядження, тож автозбережену копію більше не можна відновити.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Мова",
 
   // Theme settings flyout
-  themeSettings: "Оформлення",
+  themeSettings: "Sellfile Creator та оформлення",
   themeMode: "Режим",
   themeDark: "Темний",
   themeLight: "Світлий",

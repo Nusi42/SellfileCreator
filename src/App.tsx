@@ -163,7 +163,7 @@ import { isGearInspectorSyntheticSortKey, sortGearInspectorRows, GEAR_INSPECTOR_
 import { buildGearInspectorRuleTemplateRecipe } from './lib/gearInspectorRuleTemplates'
 import { buildGearInspectorOutcomeSummary, buildGearInspectorOutcomeSummaryPair } from './lib/gearInspectorOutcomeSummary'
 import { writeAccountStatsSnapshot } from './lib/accountSummaries'
-import { isDefaultGearInspectorSubstatSortState, setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
+import { setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreferences } from './state/gearInspectorSubstatSortPreferences'
 import { mergeSortState, subtractSortState, reapplySortScalars, sortStateContains, sortStateHasContribution } from './lib/gearInspectorSortMerge'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
@@ -210,11 +210,7 @@ import {
   useAutosaveRestore,
   metasetsEqualSession,
   substatTargetsSignature,
-  areAutosaveFiltersDefault,
-  areFilterContentsDefault,
-  type AutosaveFilterView,
 } from './hooks/useAutosaveRestore'
-import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 import { TINT } from './lib/colorTints'
 import { playAttentionPulse, attentionPulseIterationsForMs } from './lib/attentionPulse'
@@ -338,14 +334,7 @@ import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
-import {
-  useAutoApplyBuilderPreference,
-  useBuilderRecipeCollapsedPreference,
-  useBuilderSafeguardCollapsedPreference,
-  resetBuilderCollapsedPreferences,
-  setBuilderRecipeCollapsed,
-  setBuilderSafeguardCollapsed,
-} from './state/builderPreferences'
+import { useAutoApplyBuilderPreference } from './state/builderPreferences'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
@@ -419,7 +408,6 @@ import {
   useRulesFilterStatePreference,
   RULES_FILTER_PREVIEW_MODES,
   type RulesFilterPreviewMode,
-  resetRulesFilterPreferences,
   setRulesFilterOpenForMode,
   setRulesFilterStateForMode,
   setRulesFilterCollapsedForMode,
@@ -428,7 +416,6 @@ import {
   cloneDefaultRulesFilterState,
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
-import { useSafeguardsGridFilterMode, sanitizeSafeguardsGridFilterMode } from './state/safeguardsPreferences'
 import { getSellfileLastPushAtForAccount, hasExplicitSellfileAutoPushForAccount, markSellfileLastPushErrorForAccount, markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
 import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
@@ -639,7 +626,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardsEnabled,
     setRecipesEnabled,
   } = useAppActions()
-  const [safeguardsGridFilterMode, setSafeguardsGridFilterMode] = useSafeguardsGridFilterMode()
   // Best-effort GitHub release check — silent on failure, session-dismissible banner.
   const updateCheck = useUpdateCheck()
   const { runPipeline, flush: flushRuleCache, countRules, scoreCandidates: scoreSafeguardCandidatesViaWorker } = useRuleCacheWorker()
@@ -653,19 +639,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const colorStatTextsOn = scopeColorsText(statColorScope)
   const [autoApplySelectedRecipe] = useAutoApplyBuilderPreference()
   // Builder section collapse state — read here so the autosave memo can include it.
-  // Both panel hooks share the same underlying stores, so updates from the panels are
-  // immediately visible here and vice-versa (imperative reset/restore also updates the panels).
-  const [builderRecipeCollapsed] = useBuilderRecipeCollapsedPreference()
-  const [builderSafeguardCollapsed] = useBuilderSafeguardCollapsedPreference()
+  // Colour-scope setters are still wired to the central theme popout (see below); the old
+  // table-header master toggle that flipped all groups at once moved there too.
   const { setStatColorScope, setRarityColorScope, setSlotColorScope } = useDisplayPreferenceActions()
-  // Master colour toggle (theme menu / table header): on ⇒ restore each group to its factory default
-  // (reproduces v1.0.26's effective look), off ⇒ all 'off'.
-  const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
-  const setAllColorScopes = useCallback((on: boolean) => {
-    setStatColorScope(on ? DEFAULT_STAT_COLOR_SCOPE : 'off')
-    setRarityColorScope(on ? DEFAULT_RARITY_COLOR_SCOPE : 'off')
-    setSlotColorScope(on ? DEFAULT_SLOT_COLOR_SCOPE : 'off')
-  }, [setStatColorScope, setRarityColorScope, setSlotColorScope])
   // Full note-override derivation chain in ONE memo — the builder in
   // lib/documentOverrides.ts is the SSOT shared with the background account-push flow,
   // so App must not re-derive any step inline. Recomputing everything on any input
@@ -4389,28 +4365,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
 
 
-  // Keep filter and builder-layout persistence snapshot sharable across autosave restore and writes.
-  const autosaveFiltersState = useMemo(() => {
-    const views = RULES_FILTER_PREVIEW_MODES.reduce<Record<RulesFilterPreviewMode, AutosaveFilterView>>((acc, mode) => {
-      // Each preview mode tracks its own drawer state so autosave restores the exact surface the user left.
-      acc[mode] = {
-        open: Boolean(filterOpenByMode[mode]),
-        state: rulesFilterByMode[mode],
-        collapsed: filterCollapsedByMode[mode],
-      }
-      return acc
-    }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>)
-    return {
-      activeMode: previewMode,
-      views,
-      gearInspectorRecipeFilterMode,
-      // Builder section collapse is session state — autosave so the user's
-      // working layout is offered for restore alongside the filter panel state.
-      builderRecipeCollapsed,
-      builderSafeguardCollapsed,
-    }
-  }, [filterOpenByMode, rulesFilterByMode, filterCollapsedByMode, previewMode, gearInspectorRecipeFilterMode, builderRecipeCollapsed, builderSafeguardCollapsed])
-
   const {
     restoreDlgOpen: restoreDialogPending,
     restoreDraft,
@@ -4429,13 +4383,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteRecipeOverridesAnswers,
     noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
-    filters: autosaveFiltersState,
-    gearInspectorSort: gearInspectorSubstatSortPrefs.state,
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
     logicHubDialogTab,
-    safeguardsGridFilterMode,
     storedRuntimeGearSetCount,
   })
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
@@ -4447,33 +4398,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
-  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters && !areFilterContentsDefault(restoreDraft.Filters))
-  // Sort differs when the saved GearInspectorSort is present AND non-default — mirrors the Filters differ check.
-  const restoreSortDiffer = Boolean(restoreDraft?.GearInspectorSort && !isDefaultGearInspectorSubstatSortState(restoreDraft.GearInspectorSort))
-  const filtersResetRef = useRef(false)
-  useLayoutEffect(() => {
-    // Reset filter/sort state to a clean baseline when either has changed, so the user
-    // sees the default before deciding whether to restore the autosaved layout.
-    const hasFilterChange = restoreDialogPending && restoreDraft?.Filters && restoreFiltersDiffer
-    const hasSortChange = restoreDialogPending && restoreSortDiffer
-    if (!hasFilterChange && !hasSortChange) return
-    if (filtersResetRef.current) return
-    filtersResetRef.current = true
-    if (hasFilterChange) {
-      resetRulesFilterPreferences()
-      setGearInspectorRecipeFilterModeRef.current('off')
-      resetBuilderCollapsedPreferences()
-    }
-    if (hasSortChange) clearGearInspectorSubstatSort()
-  }, [clearGearInspectorSubstatSort, restoreDialogPending, restoreDraft, restoreFiltersDiffer, restoreSortDiffer])
-  // Clear the filters-reset guard when the restore dialog is dismissed.
+  // Filter/sort/collapse view state is ephemeral and no longer saved, so there is no
+  // "View, Filter & Sort" restore unit and no pre-dialog reset of it.
   const [prevRestoreDialogPending, setPrevRestoreDialogPending] = useState(restoreDialogPending)
   if (restoreDialogPending !== prevRestoreDialogPending) {
     setPrevRestoreDialogPending(restoreDialogPending)
   }
-  useLayoutEffect(() => {
-    if (!restoreDialogPending) filtersResetRef.current = false
-  }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   // Suppress in express simple mode — the preset SFC is the source of truth there.
   // When express was requested but expert was already on (isSimpleViewAtStart=false), restore normally.
@@ -5277,10 +5207,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardsEnabled,
       recipesEnabled,
     })
-    const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
-    const gearInspectorSortPayload = isDefaultGearInspectorSubstatSortState(gearInspectorSubstatSortPrefs.state)
-      ? null
-      : gearInspectorSubstatSortPrefs.state
+    // Filter/sort/collapse view state is EPHEMERAL — no longer written to the .sfc autosave
+    // (see the sessionOnly stores). Legacy files may still carry `Filters`/`GearInspectorSort`/
+    // `SafeguardsGridFilterMode`; the loader tolerates and ignores them.
     // Persist recipe overrides answers in autosave only when non-empty.
     const recipeOverridesPayload = Object.keys(noteRecipeOverridesAnswers).length > 0
       ? noteRecipeOverridesAnswers
@@ -5304,20 +5233,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Read back in preference to the standalone key, which the WebView host loses on kill.
       ...(simpleMode ? { [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expertMode } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
-      SafeguardsGridFilterMode: safeguardsGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(recipeOverridesPayload ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeOverridesPayload } : {}),
       ...(safeguardOverridesPayload ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: safeguardOverridesPayload } : {}),
       ...(overridesDisabledPayload ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
-      ...(filtersPayload ? { Filters: filtersPayload } : {}),
-      ...(gearInspectorSortPayload ? { GearInspectorSort: gearInspectorSortPayload } : {}),
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
       ...(typeof selectedSafeguardRuleIdx === 'number' ? { SelectedSafeguardRuleIdx: selectedSafeguardRuleIdx } : {}),
     }
   }, [
-    autosaveFiltersState,
     customRecipes,
     finalSellRemainder,
     logicHubDialogTab,
@@ -5328,9 +5253,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     recipesEnabled,
     safeguardsEnabled,
-    safeguardsGridFilterMode,
     substatTargets,
-    gearInspectorSubstatSortPrefs.state,
     trimmedSfcNote,
     selectedRecipeIdx,
     selectedSafeguardRuleIdx,
@@ -5347,19 +5270,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     note: trimmedSfcNote || null,
     safeguardRules,
     safeguardsEnabled,
-    filters: autosaveFiltersState,
     logicHubDialogTab,
-    safeguardsGridFilterMode,
     noteRecipeOverridesAnswers,
     noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
-    gearInspectorSort: gearInspectorSubstatSortPrefs.state,
+    // Filter/sort/grid-filter view state is ephemeral and not part of the saved payload, so
+    // it is deliberately absent from the change signal — toggling it must not trigger a write.
     // Toggling Go Expert / Go Simple must schedule a write so the durable autosave copy of
     // the flag is committed during the session (the WebView host kills the process without
     // unload events, so a teardown flush never runs).
     expertMode,
   }), [
-    autosaveFiltersState,
     customRecipes,
     finalSellRemainder,
     logicHubDialogTab,
@@ -5369,9 +5290,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteOverridesDisabled,
     safeguardRules,
     safeguardsEnabled,
-    safeguardsGridFilterMode,
     substatTargets,
-    gearInspectorSubstatSortPrefs.state,
     trimmedSfcNote,
     expertMode,
   ])
@@ -6358,7 +6277,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setRecipeHoverIndex(null)
     }
   }, [customRecipes.length])
-  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const visibleRecipeCount = useMemo(() => {
     if (visibleRecipeIndices) return visibleRecipeIndices.size
     return customRecipes.length
@@ -9230,13 +9148,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearGridSharedProps = useMemo(() => ({
     substatColors,
     useStatButtonColors: colorStatTextsOn,
-    // Master colour toggle in the grid header menu: reflects "any group on" and flips all on/off.
-    statColorsMasterOn: anyColorScopeOn,
-    onToggleStatColors: setAllColorScopes,
-    onOpenManageColors: openColors,
-    colorBlindMode,
-    onChangeColorBlindMode: setColorBlindMode,
-    colorIconSrc,
+    // Colour-scope master toggle + colour-blind cycle now live in the central theme popout,
+    // so the grid no longer receives those props here.
     recipeNames: gearInspectorRecipeNamesForGrid,
     recipeFgColors: gearInspectorRecipeFgColorsForGrid,
     onJumpToRule: handleGearInspectorRuleView,
@@ -9250,8 +9163,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     improvementChanceByArtifactId,
     safeguardRankByArtifactId,
   }), [
-    substatColors, colorStatTextsOn, anyColorScopeOn, setAllColorScopes, openColors, colorBlindMode,
-    setColorBlindMode, colorIconSrc, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
+    substatColors, colorStatTextsOn, gearInspectorRecipeNamesForGrid, gearInspectorRecipeFgColorsForGrid,
     handleGearInspectorRuleView, handleGearInspectorRecipeMatchJump, openLogicHubSafeguardRule, handleGearInspectorRuleTemplateCreate,
     gearInspectorSubstatSortPrefs.state, gearInspectorSubstatSortSpec, resolvedSafeguardRules,
     improvementChanceByArtifactId, safeguardRankByArtifactId,
@@ -9827,11 +9739,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 onRecipeAction={handleRulesTableRecipeAction}
                 onClearBase={handleRulesTableClearBase}
                 onConfigureFinalSell={handleRulesTableEditFinalSell}
-                onOpenManageColors={openColors}
-                colorIconSrc={colorIconSrc}
                 substatColors={substatColors}
-                colorBlindMode={colorBlindMode}
-                onChangeColorBlindMode={setColorBlindMode}
               />
             </Box>
           </Box>
@@ -10044,7 +9952,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
-          viewFilterDiffer={restoreFiltersDiffer || restoreSortDiffer}
           onDismiss={() => {
             dismissRestore()
             setGearInspectorRestoreDraft(null)
@@ -10112,35 +10019,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 )
                 setNoteOverridesDisabled(Boolean(draft.NoteRecipeOverridesDisabled))
               }
-              if (selection.filters) {
-                // Restore view/filter state when the draft has changed filter content.
-                if (restoreFiltersDiffer && draft.Filters) {
-                  try {
-                    const views = draft.Filters.views
-                    if (views && typeof views === 'object') {
-                      // Replay the saved view for every mode so toggling between Sellfile preview and Gear Inspector feels seamless.
-                      for (const mode of RULES_FILTER_PREVIEW_MODES) {
-                        const view = views[mode]
-                        if (!view) continue
-                        setRulesFilterOpenForMode(mode, Boolean(view.open))
-                        const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
-                        setRulesFilterStateForMode(mode, clonedState)
-                        const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
-                        setRulesFilterCollapsedForMode(mode, collapsed)
-                      }
-                    }
-                    setGearInspectorRecipeFilterMode(draft.Filters.gearInspectorRecipeFilterMode ?? 'off')
-                    if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'gearInspector') {
-                      setPreviewMode(draft.Filters.activeMode)
-                    }
-                    // Restore builder section collapse layout alongside the filter state.
-                    if (draft.Filters.builderRecipeCollapsed) setBuilderRecipeCollapsed(draft.Filters.builderRecipeCollapsed)
-                    if (draft.Filters.builderSafeguardCollapsed) setBuilderSafeguardCollapsed(draft.Filters.builderSafeguardCollapsed)
-                  } catch {}
-                }
-                // Sort (GearInspectorSort) is bundled with filters — restore it together.
-                if (restoreSortDiffer && draft.GearInspectorSort) setGearInspectorSubstatSortState(draft.GearInspectorSort)
-              }
+              // Filter/sort/collapse view state is ephemeral and no longer restored — the
+              // "View, Filter & Sort" restore unit was removed. Legacy drafts may still carry
+              // `Filters`/`GearInspectorSort`; they are simply ignored here.
               if (selection.gearSets) {
                 // User opted in: hydrate runtime sets from localStorage now.
                 // Why: recipes restored below may rely on these IDs.
@@ -10229,10 +10110,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
               setLogicHubDialogTab(normalizedTab)
             }
-            const savedSafeguardsGridFilterMode = draft?.SafeguardsGridFilterMode
-            if (savedSafeguardsGridFilterMode) {
-              setSafeguardsGridFilterMode(sanitizeSafeguardsGridFilterMode(savedSafeguardsGridFilterMode))
-            }
+            // SafeguardsGridFilterMode is ephemeral view state now — not restored (legacy
+            // drafts may still carry it; ignored).
             if (selection.safeguards) {
               if (Array.isArray(draft?.Safeguards)) setSafeguardRules(draft.Safeguards)
               if (typeof draft?.SafeguardsEnabled === 'boolean') setSafeguardsEnabled(Boolean(draft.SafeguardsEnabled))

@@ -24,15 +24,16 @@ type LocalStorageStoreOptions<T> = {
    *  (e.g. an empty presets array whose fallback equality isn't captured by Object.is). */
   serialize: (value: T) => string | null
   equals?: EqualityFn<T>
-  /** DOCUMENT-VIEW semantics: read localStorage ONCE at store creation, then serve the
-   *  in-memory value forever (getSnapshot never re-reads). Writes still persist through to
-   *  localStorage so the value survives a reload and a fresh tab boots from it — but a
-   *  second tab open on the same key does NOT adopt this tab's mid-session writes (and vice
-   *  versa). This is how the restore-dialog "filters" bundle (filter values, applied sort,
-   *  builder collapse) behaves: seeded at load, edited live per-tab, saved back, never
-   *  live-mirrored between tabs. Default false = the normal re-read-every-snapshot store
-   *  (correct for pure chrome/global toggles where cross-tab mirroring is harmless). */
-  loadOnce?: boolean
+  /** SESSION-ONLY (ephemeral) semantics: never read or write localStorage. The store seeds
+   *  from `fallback`, lives purely in memory, still shares across components and notifies
+   *  React like any other store — but the value is NOT persisted: it resets to the default
+   *  on every load/reload and is gone when the tab closes. Used for VIEW state that should
+   *  not be saved at all (filter values, applied sort, section collapse, grid view toggles):
+   *  keeping it in a store preserves the cross-component sharing those consumers rely on,
+   *  while dropping persistence. `key`/`parse`/`serialize` are ignored when set (the store
+   *  never touches storage), but stay required so a store can flip persistence on/off
+   *  without changing its call shape. Default false = the normal localStorage-backed store. */
+  sessionOnly?: boolean
 }
 
 type LocalStorageStore<T> = {
@@ -48,7 +49,7 @@ type LocalStorageStore<T> = {
 const isWindowDefined = (): boolean => typeof window !== 'undefined'
 
 export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>): LocalStorageStore<T> {
-  const { key, fallback, parse, serialize, equals, loadOnce = false } = options
+  const { key, fallback, parse, serialize, equals, sessionOnly = false } = options
   let current: T = fallback
   // Sentinel: undefined means "never read yet". Distinguishes the uninitialized state from a
   // missing localStorage key (which also returns null), so the first readFromStorage() call
@@ -59,6 +60,8 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
 
   const readFromStorage = (): T => {
+    // Session-only stores never touch storage — the in-memory `current` IS the value.
+    if (sessionOnly) return current
     if (!isWindowDefined()) return current
 
     let raw: string | null
@@ -90,11 +93,6 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   }
 
   current = readFromStorage()
-  // After the initial seed above, a loadOnce store never re-reads storage: it serves the
-  // in-memory `current` so a second tab's writes are not adopted mid-session (see loadOnce
-  // docs). readCurrent() is the SSOT the read paths (getSnapshot/set/update) go through so
-  // the load-once vs re-read choice lives in exactly one place.
-  const readCurrent = (): T => (loadOnce ? current : readFromStorage())
 
   const notify = () => {
     for (const listener of listeners) listener()
@@ -113,10 +111,15 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   const useValue = () => useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const set = (next: T) => {
-    const previous = readCurrent()
+    const previous = readFromStorage()
     if (equality(previous, next)) return
     const previousSerialized = currentSerialized
     current = next
+    // Session-only stores hold the value in memory only — skip all persistence.
+    if (sessionOnly) {
+      notify()
+      return
+    }
     if (isWindowDefined()) {
       try {
         if (equality(next, fallback)) {
@@ -143,7 +146,7 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   }
 
   const update = (updater: (prev: T) => T) => {
-    const next = updater(readCurrent())
+    const next = updater(readFromStorage())
     set(next)
   }
 
@@ -159,7 +162,7 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     notify()
   }
 
-  const getSnapshotValue = () => readCurrent()
+  const getSnapshotValue = () => readFromStorage()
 
   return {
     useValue,

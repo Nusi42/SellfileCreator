@@ -1413,8 +1413,6 @@ const enUS: Catalog = {
   restoreAutosaveSafeguardsHelper: "Restores safeguard rules and enabled state.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Recipes require restoring metasets from this autosave.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Safeguards require restoring metasets from this autosave.",
-  restoreAutosaveFiltersLabel: "View, Filter & Sort",
-  restoreAutosaveFiltersHelper: "Restores panel open state, selection, collapsed sections, and sort preferences.",
   restoreAutosaveGearInspectorLabel: "Gear Inspector ({count})",
   restoreAutosaveGearInspectorHelper: "Load autosaved gear.",
   restoreAutosaveGearInspectorSupersededHelper: "Newer gear was loaded from the live data, so the autosaved copy can no longer be restored.",
@@ -1446,7 +1444,7 @@ const enUS: Catalog = {
   helpLanguage: "Language",
 
   // Theme settings flyout
-  themeSettings: "Theme settings",
+  themeSettings: "Sellfile Creator & Theme Settings",
   themeMode: "Mode",
   themeDark: "Dark",
   themeLight: "Light",

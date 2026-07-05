@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Korumaları ve etkin durumunu geri yükler.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Reçeteler bu otomatik kayıttaki metasetleri geri yüklemeyi gerektirir.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Korumalar bu otomatik kayıttaki metasetleri geri yüklemeyi gerektirir.",
-  restoreAutosaveFiltersLabel: "Görünüm, Filtre & Sıralama",
-  restoreAutosaveFiltersHelper: "Açık durumu, seçimi ve daraltılmış bölüleri geri yükler.",
   restoreAutosaveGearInspectorLabel: "Ekipman Denetçisi ({count})",
   restoreAutosaveGearInspectorHelper: "Otomatik kaydedilen ekipmanı yükle.",
   restoreAutosaveGearInspectorSupersededHelper: "Canlı verilerden daha yeni ekipman yüklendi, bu yüzden otomatik kaydedilen kopya artık geri yüklenemez.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Dil",
 
   // Theme settings flyout
-  themeSettings: "Görünüm",
+  themeSettings: "Sellfile Creator ve Görünüm",
   themeMode: "Mod",
   themeDark: "Koyu",
   themeLight: "Açık",

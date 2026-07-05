@@ -19,6 +19,11 @@ import { createLocalStorageStore } from './localStorageStore'
 export type GearInspectorGridColumnMode = 'large' | 'medium' | 'small'
 export type GearInspectorGridPreferenceVariant = 'gearInspector' | 'safeguards'
 
+// EPHEMERAL view state: every Gear Inspector grid view toggle in this file is a live display
+// preference that is NOT persisted (no localStorage, no .sfc). `sessionOnly` keeps each
+// store's cross-component sharing (the grid, the preview header, and App's improvement-chance
+// pipeline flag all read these) while resetting to the fallback each load. Keys/parse remain
+// for documentation and legacy-tolerance but storage is never touched.
 const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridColumnMode>({
   key: GEAR_INSPECTOR_GRID_COLUMNS_KEY,
   // Default to large cards so new sessions land on the spacious Gear Inspector grid layout.
@@ -37,6 +42,7 @@ const gearInspectorGridColumnsStore = createLocalStorageStore<GearInspectorGridC
   },
   // Persist the mode name directly so future reads need no coercion.
   serialize: (value) => value,
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowFirstStore = createLocalStorageStore<boolean>({
@@ -44,6 +50,7 @@ const gearInspectorGridShowFirstStore = createLocalStorageStore<boolean>({
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
@@ -53,6 +60,7 @@ const gearInspectorGridShowMatchRecipeStore = createLocalStorageStore<boolean>({
   // Missing or malformed storage should stay aligned with the "off by default" intent.
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowMatchLineStore = createLocalStorageStore<boolean>({
@@ -60,6 +68,7 @@ const gearInspectorGridShowMatchLineStore = createLocalStorageStore<boolean>({
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowOtherStore = createLocalStorageStore<boolean>({
@@ -67,6 +76,7 @@ const gearInspectorGridShowOtherStore = createLocalStorageStore<boolean>({
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const safeguardsGridShowOtherStore = createLocalStorageStore<boolean>({
@@ -75,6 +85,7 @@ const safeguardsGridShowOtherStore = createLocalStorageStore<boolean>({
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowChampIconsStore = createLocalStorageStore<boolean>({
@@ -82,6 +93,7 @@ const gearInspectorGridShowChampIconsStore = createLocalStorageStore<boolean>({
   fallback: true,
   parse: (raw) => raw === 'false' ? false : true,
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
@@ -90,6 +102,7 @@ const gearInspectorGridShowRuleTemplatesStore = createLocalStorageStore<boolean>
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridHighlightKeepSellStore = createLocalStorageStore<boolean>({
@@ -98,6 +111,7 @@ const gearInspectorGridHighlightKeepSellStore = createLocalStorageStore<boolean>
   fallback: true,
   parse: (raw) => raw === null ? true : raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageStore<boolean>({
@@ -106,6 +120,7 @@ const gearInspectorGridShowSafeguardImprovementChanceStore = createLocalStorageS
   fallback: true,
   parse: (raw) => raw === null ? true : raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
+  sessionOnly: true,
 })
 
 // Safeguard-rank overlay MODE store (v2). Default off — the chip is opt-in so the
@@ -130,6 +145,7 @@ const gearInspectorGridSafeguardRankModeStore = createLocalStorageStore<Safeguar
   fallback: 'off',
   parse: parseSafeguardRankMode,
   serialize: (value) => value,
+  sessionOnly: true,
 })
 
 // Reactive read for callers that only need the rank mode without the full preference hook.

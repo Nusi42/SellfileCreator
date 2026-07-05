@@ -124,12 +124,19 @@ const serializeBooleanMap = (value: ModeScoped<boolean>): string | null => {
   }
 }
 
+// The rules-filter view (open/collapse, filter VALUES, and the sync toggle) is EPHEMERAL:
+// it is a live working view on the document, not saved to localStorage or the .sfc file.
+// `sessionOnly` keeps the store's cross-component sharing while dropping persistence — the
+// state resets to defaults each load and is gone on tab close. Keys are retained as
+// documentation but never touched. (Legacy .sfc files may still carry a `Filters` field; the
+// loader tolerates and ignores it — see useAutosaveRestore.ts.)
 const filterOpenStore = createLocalStorageStore<ModeScoped<boolean>>({
   key: RULES_FILTER_OPEN_STORAGE_KEY,
   fallback: cloneDefaultFilterOpenByMode(),
   parse: parseBooleanMap,
   serialize: serializeBooleanMap,
   equals: booleanMapEquals,
+  sessionOnly: true,
 })
 
 // Rules filter state can be large; treat malformed payloads as fresh clones so UI never crashes.
@@ -169,10 +176,7 @@ const filterStateStore = createLocalStorageStore<ModeScoped<RulesFilterState>>({
   fallback: cloneDefaultRulesFilterStateByMode(),
   parse: parseRulesFilterStateMap,
   serialize: serializeRulesFilterStateMap,
-  // Document-view: the applied filter VALUES are seeded at load, edited live per-tab, and
-  // saved back (also into the autosave document) — two same-account tabs must NOT mirror
-  // each other's live filter. Part of the restore-dialog "filters" bundle. See loadOnce.
-  loadOnce: true,
+  sessionOnly: true, // ephemeral filter values — not persisted (see filterOpenStore note)
 })
 
 // Collapsed sections are stored per mode; clamp unknown keys back to the default collapsed map.
@@ -223,6 +227,7 @@ const filterCollapsedStore = createLocalStorageStore<ModeScoped<CollapsedSection
   parse: parseCollapsedMap,
   serialize: serializeCollapsedMap,
   equals: modeScopedEquals(collapsedEquals),
+  sessionOnly: true, // ephemeral section-collapse — not persisted (see filterOpenStore note)
 })
 
 const useFilterOpenMap = createLocalStorageStateHook(filterOpenStore)
@@ -233,10 +238,7 @@ const filterSyncStore = createLocalStorageStore<boolean>({
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : null),
-  // The "sync filters across modes" toggle governs the per-tab filter VALUES, so it must be
-  // per-tab-live too (loadOnce) — otherwise a cross-tab-shared boolean would drive values
-  // that are no longer shared. Rides with filterStateStore in the restore "filters" bundle.
-  loadOnce: true,
+  sessionOnly: true, // ephemeral sync toggle — governs the ephemeral filter values (see above)
 })
 const useFilterSync = createLocalStorageStateHook(filterSyncStore)
 

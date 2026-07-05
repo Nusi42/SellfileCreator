@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Restaura salvaguardas e estado ativado.",
   restoreAutosaveConstraintRecipesNeedMetasets: "As receitas exigem restaurar os metasets desta gravação automática.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "As salvaguardas exigem restaurar os metasets desta gravação automática.",
-  restoreAutosaveFiltersLabel: "Vista, Filtros & Ordenação",
-  restoreAutosaveFiltersHelper: "Repõe estado aberto, seleção e secções recolhidas.",
   restoreAutosaveGearInspectorLabel: "Inspetor de Equipamento ({count})",
   restoreAutosaveGearInspectorHelper: "Carrega o equipamento auto‑guardado.",
   restoreAutosaveGearInspectorSupersededHelper: "Foi carregado equipamento mais recente a partir dos dados em direto, pelo que a cópia auto‑guardada já não pode ser restaurada.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Idioma",
 
   // Theme settings flyout
-  themeSettings: "Aparência",
+  themeSettings: "Sellfile Creator e aparência",
   themeMode: "Modo",
   themeDark: "Escuro",
   themeLight: "Claro",

@@ -1413,8 +1413,6 @@ const overrides: Catalog = {
   restoreAutosaveSafeguardsHelper: "Ripristina regole di salvaguardia e stato attivo.",
   restoreAutosaveConstraintRecipesNeedMetasets: "Le ricette richiedono di ripristinare i metaset da questo autosalvataggio.",
   restoreAutosaveConstraintSafeguardsNeedMetasets: "Le salvaguardie richiedono di ripristinare i metaset da questo autosalvataggio.",
-  restoreAutosaveFiltersLabel: "Vista, Filtri & Ordinamento",
-  restoreAutosaveFiltersHelper: "Ripristina stato di apertura, selezione e sezioni compresse.",
   restoreAutosaveGearInspectorLabel: "Ispettore Equipaggiamento ({count})",
   restoreAutosaveGearInspectorHelper: "Carica l'equipaggiamento autosalvato.",
   restoreAutosaveGearInspectorSupersededHelper: "È stato caricato equipaggiamento più recente dai dati live, quindi la copia autosalvata non può più essere ripristinata.",
@@ -1446,7 +1444,7 @@ const overrides: Catalog = {
   helpLanguage: "Lingua",
 
   // Theme settings flyout
-  themeSettings: "Aspetto",
+  themeSettings: "Sellfile Creator e aspetto",
   themeMode: "Modalità",
   themeDark: "Scuro",
   themeLight: "Chiaro",
