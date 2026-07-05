@@ -242,7 +242,7 @@
     ]
   },
   "accessoryNoSetId": -99,
-  "_comment_accessoryFactionAliases": "Accessory `requiredFraction`/`accset` codes resolve to a faction id. The mapping is identity for every real faction id below; these entries capture the ONLY non-identity codes (legacy DB aliases). Code 0 = Any/none. SSOT for ACCESSORY_FACTION_MAP in gearDbNormalizer.ts and resolve_accessory_faction in the native DLL.",
+  "_comment_accessoryFactionAliases": "Accessory `requiredFraction`/`accset` codes resolve to a faction id. The mapping is identity for every real faction id below (code N -> faction N); these entries capture the ONLY non-identity codes. Code 0 = Any/none. NOTE: code 4 does NOT appear in any current data (verified across all example DBs and captured JSON: champion Fraction + accessory requiredFraction use {1..3,5..17}; Barbarians=13, Sacred Order=3, and 4 is an unused slot). The 4->13 entry is kept as a defensive back-compat net for hypothetical legacy accounts that used 4 for Barbarians; without it, code 4 would resolve to 0/Any. SSOT for ACCESSORY_FACTION_MAP in gearDbNormalizer.ts and resolve_accessory_faction in the native DLL.",
   "accessoryFactionAliases": {
     "4": 13
   },

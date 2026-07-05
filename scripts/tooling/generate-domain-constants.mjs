@@ -565,6 +565,17 @@ tsLines.push(
   `export const ARTIFACT_SET_NAMES: Record<number, string> = { ${artifactSetNamesTsEntries.join(', ')} }`
 )
 
+// TS: ARTIFACT_SET_IDS — PascalCase enum name → set id, the SSOT for the ArtifactSet enum
+// in artifactSets.ts (which spreads this instead of hand-authoring ids). PascalCase key is
+// the spec camelCase key with its first letter capitalised (matches the ArtifactSet enum keys).
+const pascalCase = (key) => key.charAt(0).toUpperCase() + key.slice(1)
+const artifactSetIdEntries = artifactSetEntries.map(({ key, id }) => `${pascalCase(key)}: ${id}`)
+tsLines.push('')
+tsLines.push('// Artifact/accessory set name → numeric id (SSOT for the ArtifactSet enum).')
+tsLines.push(
+  `export const ARTIFACT_SET_IDS = { ${artifactSetIdEntries.join(', ')} } as const`
+)
+
 // ── TS: artifactTypeNames display map ────────────────────────────────────
 // Resolve token → numeric ID from artifactType then build ID → name map.
 const artifactTypeDisplayEntries = Object.entries(artifactTypeNamesSpec)
