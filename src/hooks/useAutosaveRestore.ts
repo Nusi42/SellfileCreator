@@ -101,19 +101,88 @@ export const metasetsSignature = (mets?: Metaset[] | null): string => {
 
 /**
  * True when two metaset lists are interchangeable from the session's perspective:
- * same content (name + sets + iconId via metasetsSignature) AND same IDs.
- * The ID check matters because recipes/safeguards reference metasets by ID —
- * if the saved IDs differ from the session's IDs the references are broken even
- * when the content is identical (e.g. after a default-metaset versioning bump).
+ * same content (name + sets + iconId via metasetsSignature). Name is the metaset
+ * primary key, so it is already part of the signature — a separate name-set check
+ * would be fully redundant. Reference-satisfaction (do restored recipes/safeguards
+ * still resolve their metaset names?) is a distinct concern handled by
+ * metasetRefsUnsatisfied, not by content equality.
  */
 export const metasetsEqualSession = (a: Metaset[] | null | undefined, b: Metaset[] | null | undefined): boolean => {
   // Treat missing/empty as equal to empty.
   const aList = a ?? []
   const bList = b ?? []
-  if (metasetsSignature(aList) !== metasetsSignature(bList)) return false
-  const aIds = new Set(aList.map((m) => m.name))
-  const bIds = new Set(bList.map((m) => m.name))
-  return aIds.size === bIds.size && [...aIds].every((id) => bIds.has(id))
+  // metasetsSignature is keyed on name+sets+iconId; equal signature ⇒ interchangeable.
+  return metasetsSignature(aList) === metasetsSignature(bList)
+}
+
+/**
+ * SSOT for "which metaset names do these recipes/safeguards reference?".
+ * Recipes reference metasets through `artifactMetaSets` (a list of metaset *names*,
+ * despite the legacy field name); safeguards through `combination.metaSetNames`.
+ * Both point at metasets by name since the name-as-primary-key migration.
+ */
+export const collectReferencedMetasetNames = (
+  recipes?: BuilderRecipe[] | null,
+  safeguards?: SafeguardRule[] | null,
+): Set<string> => {
+  const names = new Set<string>()
+  // Recipe metaset references: artifactMetaSets holds display names directly.
+  for (const recipe of recipes ?? []) {
+    for (const name of recipe.artifactMetaSets ?? []) names.add(name)
+  }
+  // Safeguard metaset references live under the rule's combination.
+  for (const rule of safeguards ?? []) {
+    for (const name of rule.combination?.metaSetNames ?? []) names.add(name)
+  }
+  return names
+}
+
+/**
+ * True when restoring recipes/safeguards would leave a metaset reference dangling —
+ * i.e. they name a metaset the current session's metaset list does not contain.
+ * This is the name-world successor to the old ID-mismatch trigger: metasets can be
+ * restored independently of recipes/safeguards, so a saved rule that references a
+ * name absent from the session would render a raw, unresolved metaset chip. Surfacing
+ * the Metasets row lets the user restore the referenced metasets and heal the chips.
+ */
+export const metasetRefsUnsatisfied = (
+  referenced: Set<string>,
+  sessionMetasets?: Metaset[] | null,
+): boolean => {
+  // No references ⇒ nothing can dangle.
+  if (referenced.size === 0) return false
+  // Index the session's metaset names for O(1) membership checks.
+  const present = new Set((sessionMetasets ?? []).map((m) => m.name))
+  // Any referenced name missing from the session is an unsatisfied reference.
+  for (const name of referenced) {
+    if (!present.has(name)) return true
+  }
+  return false
+}
+
+/**
+ * Decide whether the restore dialog's "Metasets" row should surface for a draft.
+ * SSOT for the row's visibility trigger — both App's live memo and the flow test
+ * call this so the composed rule has exactly one definition.
+ *
+ * True when either:
+ *  - the saved metaset list structurally differs from the session's content, OR
+ *  - the saved recipes/safeguards reference a metaset name the session lacks
+ *    (the name-world successor to the old ID-mismatch trigger; restoring metasets
+ *    heals those otherwise-dangling chips).
+ * A draft with no saved metaset slice never surfaces the row.
+ */
+export const restoreDraftMetasetsDiffer = (
+  draft: RestoreDraft | null | undefined,
+  sessionMetasets: Metaset[] | null | undefined,
+): boolean => {
+  // No saved metaset slice ⇒ nothing to restore, no row.
+  if (!draft?.Metasets) return false
+  // Content difference is reason enough on its own.
+  if (!metasetsEqualSession(draft.Metasets, sessionMetasets)) return true
+  // Content matches — surface the row only if a reference would dangle after restore.
+  const referenced = collectReferencedMetasetNames(draft.Recipes, draft.Safeguards)
+  return metasetRefsUnsatisfied(referenced, sessionMetasets)
 }
 
 

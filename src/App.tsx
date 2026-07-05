@@ -206,7 +206,7 @@ import type { GearAnalyticsDim, GearAnalyticsOutcome, GearAnalyticsSource } from
 import { EMPTY_GEAR_ANALYTICS_DIM, improvChanceBinsToRange, rangeToImprovChanceBins } from './lib/gearAnalytics'
 import {
   useAutosaveRestore,
-  metasetsEqualSession,
+  restoreDraftMetasetsDiffer,
   substatTargetsSignature,
 } from './hooks/useAutosaveRestore'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
@@ -4364,10 +4364,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     storedRuntimeGearSetCount,
   })
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
-  const restoreMetasetsDiffer = useMemo(() => {
-    if (!restoreDraft?.Metasets) return false
-    return !metasetsEqualSession(restoreDraft.Metasets, metasets)
-  }, [restoreDraft, metasets])
+  // SSOT for the "Metasets" restore-row trigger lives in restoreDraftMetasetsDiffer
+  // (content difference OR an unsatisfied metaset reference); see useAutosaveRestore.
+  const restoreMetasetsDiffer = useMemo(
+    () => restoreDraftMetasetsDiffer(restoreDraft, metasets),
+    [restoreDraft, metasets],
+  )
   const restoreTargetsDiffer = useMemo(() => {
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
