@@ -14,6 +14,25 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 type EqualityFn<T> = (a: T, b: T) => boolean
 
+// ─── Session-view persistence hooks (injected by rememberableViewPreference.ts) ──────────
+// REMEMBERABLE-VIEW stores (rememberableView: true) persist only while the "Remember last view" toggle
+// is ON. We can't import that toggle here (it builds its own store via this factory — a cycle),
+// so rememberableViewPreference.ts INJECTS a live predicate + collects each store's reset callback.
+// Until injected (e.g. isolated unit tests that never import the toggle), the default predicate
+// returns false → rememberable-view stores behave ephemerally, the safe pre-toggle default.
+let rememberableViewPersistGetter: () => boolean = () => false
+// Register the predicate. Called once by rememberableViewPreference.ts at load.
+export const setRememberableViewPersistGetter = (getter: () => boolean): void => { rememberableViewPersistGetter = getter }
+
+// Reset registry: every rememberable-view store registers a callback that clears its storage and
+// resets its in-memory value to fallback. runAll() is triggered when the toggle flips ON→OFF so
+// "start fresh" applies immediately, not just on the next reload.
+const rememberableViewResetCallbacks = new Set<() => void>()
+export const registerRememberableViewReset = {
+  add: (cb: () => void): void => { rememberableViewResetCallbacks.add(cb) },
+  runAll: (): void => { for (const cb of rememberableViewResetCallbacks) cb() },
+}
+
 type LocalStorageStoreOptions<T> = {
   key: string
   fallback: T
@@ -24,16 +43,17 @@ type LocalStorageStoreOptions<T> = {
    *  (e.g. an empty presets array whose fallback equality isn't captured by Object.is). */
   serialize: (value: T) => string | null
   equals?: EqualityFn<T>
-  /** SESSION-ONLY (ephemeral) semantics: never read or write localStorage. The store seeds
-   *  from `fallback`, lives purely in memory, still shares across components and notifies
-   *  React like any other store — but the value is NOT persisted: it resets to the default
-   *  on every load/reload and is gone when the tab closes. Used for VIEW state that should
-   *  not be saved at all (filter values, applied sort, section collapse, grid view toggles):
-   *  keeping it in a store preserves the cross-component sharing those consumers rely on,
-   *  while dropping persistence. `key`/`parse`/`serialize` are ignored when set (the store
-   *  never touches storage), but stay required so a store can flip persistence on/off
-   *  without changing its call shape. Default false = the normal localStorage-backed store. */
-  sessionOnly?: boolean
+  /** REMEMBERABLE-VIEW store: this is view-only "where was I / how was I looking" state (filter,
+   *  sort, section collapse, builder/preview mode, gear-analytics view). Its persistence is
+   *  governed at RUNTIME by the "Remember last view" toggle (state/rememberableViewPreference.ts):
+   *   - toggle ON  → behaves like a normal persisted store (resumes on reload),
+   *   - toggle OFF → behaves ephemerally (in-memory only, reset to defaults each load).
+   *  The store consults the injected predicate on every read/write, so flipping the toggle
+   *  changes behavior live without recreating the store. It also registers a reset callback so
+   *  the ON→OFF flip clears its storage + in-memory value immediately. `key`/`parse`/`serialize`
+   *  stay required (used whenever persistence is active). Default false = an always-persisted
+   *  store (theme, display prefs, presets) unaffected by the toggle. */
+  rememberableView?: boolean
 }
 
 type LocalStorageStore<T> = {
@@ -49,7 +69,10 @@ type LocalStorageStore<T> = {
 const isWindowDefined = (): boolean => typeof window !== 'undefined'
 
 export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>): LocalStorageStore<T> {
-  const { key, fallback, parse, serialize, equals, sessionOnly = false } = options
+  const { key, fallback, parse, serialize, equals, rememberableView = false } = options
+  // Does THIS store persist right now? Always for a normal store; for a rememberable-view store,
+  // only while the "Remember last view" toggle is ON (evaluated live on each access).
+  const persistsNow = (): boolean => !rememberableView || rememberableViewPersistGetter()
   let current: T = fallback
   // Sentinel: undefined means "never read yet". Distinguishes the uninitialized state from a
   // missing localStorage key (which also returns null), so the first readFromStorage() call
@@ -60,8 +83,9 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
 
   const readFromStorage = (): T => {
-    // Session-only stores never touch storage — the in-memory `current` IS the value.
-    if (sessionOnly) return current
+    // When persistence is off (a rememberable-view store with the toggle OFF) the in-memory
+    // `current` IS the value — never touch storage.
+    if (!persistsNow()) return current
     if (!isWindowDefined()) return current
 
     let raw: string | null
@@ -115,8 +139,8 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     if (equality(previous, next)) return
     const previousSerialized = currentSerialized
     current = next
-    // Session-only stores hold the value in memory only — skip all persistence.
-    if (sessionOnly) {
+    // When persistence is off (rememberable-view store, toggle OFF) hold the value in memory only.
+    if (!persistsNow()) {
       notify()
       return
     }
@@ -163,6 +187,19 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   }
 
   const getSnapshotValue = () => readFromStorage()
+
+  // Reset to the factory default: clear persisted storage (if any) and the in-memory value,
+  // then notify. Registered by rememberable-view stores so the "Remember last view" ON→OFF flip can
+  // wipe them live (see rememberableViewPreference.ts). Runs regardless of current persist state so
+  // it also clears a key left behind from when the toggle was ON.
+  const resetToDefault = (): void => {
+    if (isWindowDefined()) { try { window.localStorage.removeItem(key) } catch { /* storage unavailable */ } }
+    currentSerialized = null
+    if (equality(current, fallback)) return
+    current = fallback
+    notify()
+  }
+  if (rememberableView) registerRememberableViewReset.add(resetToDefault)
 
   return {
     useValue,

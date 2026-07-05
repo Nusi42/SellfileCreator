@@ -11,6 +11,12 @@
  */
 import React, { useMemo } from 'react'
 import ReactDOM from 'react-dom/client'
+// Side-effect import FIRST (before App and any store module): wires the rememberable-view
+// persistence predicate into the store factory (setRememberableViewPersistGetter) before any
+// rememberable-view store initializes. ES imports run in source order, so this MUST precede
+// `import App` — otherwise App's filter/sort/mode stores would seed with the default
+// predicate (persist=off) and boot ephemeral regardless of the "Remember last view" toggle.
+import './state/rememberableViewPreference'
 import App from './App'
 import { makeTheme } from './theme'
 import { CssBaseline, GlobalStyles, ThemeProvider } from '@mui/material'

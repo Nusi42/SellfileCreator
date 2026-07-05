@@ -26,9 +26,6 @@ import { getTabActiveAccountId, setTabActiveAccountId } from './activeAccountSes
 
 // The registry document: { activeAccountId, accounts: SfcAccount[] }.
 export const ACCOUNTS_REGISTRY_KEY = 'sellfileCreator.accounts.v1'
-// One-shot carry for the shift-switch merge flow: written just before the reload,
-// consumed (and removed) by the target account's session right after restore.
-export const ACCOUNT_MERGE_CARRY_KEY = 'sellfileCreator.accountMergeCarry.v1'
 
 // Every app key lives under this prefix; scoped keys are rewritten under the account prefix.
 const APP_KEY_PREFIX = 'sellfileCreator.'
@@ -42,17 +39,22 @@ const ACCOUNT_KEY_PREFIX = 'sellfileCreator.acc.'
  *  - restoreSelection refers to those autosaves,
  *  - builder user-defaults encode an account's gear strategy,
  *  - simple.variant (beginner/lategame/custom) tracks account progression,
- *  - rulesFilter state/sync hold filter *values* applied to the account's document
- *    (rulesFilter open/collapse are pure UI and stay global),
- *  - sellfile.autoPush is a per-game-account contract: each account decides whether
- *    its sellfile flows to RSL Helper automatically,
+ *  - sellfile.autoPush / dedupDefault / omitDisabled are per-game-account export contracts:
+ *    each account decides whether/how its sellfile flows to RSL Helper,
  *  - sellfile.lastPush records each account's last successful upload (menu summary).
+ * NOTE: the rules FILTER (state/sync) is NOT here — it is view state governed by the global
+ * "Remember last view" toggle (see state/rememberableViewPreference.ts), so it stays global.
  */
 // Base keys the background account-push flow rebases onto OTHER accounts — exported so
 // that flow never restates the literals (resolveAccountScopedKeyFor takes these).
 export const ACCOUNT_BASE_KEY_AUTOSAVE_SFC = 'sellfileCreator.autosave.sfc.v1'
 export const ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR = 'sellfileCreator.autosave.gearInspector.v1'
 export const ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH = 'sellfileCreator.sellfile.autoPush.v1'
+// Per-account export transforms: whether the built sellfile deduplicates rules and omits
+// disabled rows. Per account because both the foreground export (active) and the background
+// push (any account) must apply THAT account's chosen transforms.
+export const ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT = 'sellfileCreator.sellfile.dedupDefault.v1'
+export const ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED = 'sellfileCreator.sellfile.omitDisabled.v1'
 // Last SUCCESSFUL sellfile upload to RSL Helper (ISO timestamp) — per account because
 // both the foreground push (active account) and the background push (any account) write it.
 export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH = 'sellfileCreator.sellfile.lastPush.v1'
@@ -75,9 +77,9 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   'sellfileCreator.builder.userDefaults.v1',
   'sellfileCreator.safeguardBuilder.userDefaults.v1',
   'sellfileCreator.simple.variant.v1',
-  'sellfileCreator.rulesFilter.state.v3',
-  'sellfileCreator.rulesFilter.sync.v1',
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
+  ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
@@ -709,40 +711,6 @@ export const switchAccount = (id: string): void => {
   account.lastActiveAt = nowIso()
   persistRegistry()
   notify()
-}
-
-// ---------------------------------------------------------------------------
-// Shift-switch merge carry (one-shot, global key)
-// ---------------------------------------------------------------------------
-
-export type AccountMergeCarry = {
-  // Display name of the SOURCE account, used to label the import dialog.
-  fromDisplayName: string
-  // The source document serialized with the regular .sfc writer — the target session
-  // re-parses it with the regular reader, so both sides share the file-format SSOT.
-  sfcText: string
-}
-
-// Stage the carry just before switching; consumed exactly once after the reload.
-export const stageAccountMergeCarry = (carry: AccountMergeCarry): void => {
-  safeSetItem(ACCOUNT_MERGE_CARRY_KEY, JSON.stringify(carry))
-}
-
-// Read-and-clear the staged carry (null when none). Clearing first makes the flow
-// crash-safe: a failed import never replays on the next launch.
-export const takeAccountMergeCarry = (): AccountMergeCarry | null => {
-  const raw = safeGetItem(ACCOUNT_MERGE_CARRY_KEY)
-  if (!raw) return null
-  safeRemoveItem(ACCOUNT_MERGE_CARRY_KEY)
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed)) return null
-    const { fromDisplayName, sfcText } = parsed
-    if (typeof fromDisplayName !== 'string' || typeof sfcText !== 'string' || !sfcText) return null
-    return { fromDisplayName, sfcText }
-  } catch {
-    return null
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -53,17 +53,17 @@ const parseBuilderPanelCollapsed = (raw: string | null): BuilderPanelCollapsedSe
 const serializeBuilderPanelCollapsed = (value: BuilderPanelCollapsedSections): string =>
   JSON.stringify(value)
 
-// Builder section collapse is EPHEMERAL view state — not persisted to localStorage or the
-// .sfc file. sessionOnly keeps the store's cross-component sharing (App reads it for autosave;
-// RecipeBuilderPanel/SafeguardBuilderPanel write it) while dropping persistence; it resets to
-// defaults each load. Legacy .sfc `Filters.builder*Collapsed` is tolerated and ignored on load.
+// Builder section collapse is REMEMBERABLE-VIEW state, governed by the "Remember last view" toggle
+// (rememberableViewPreference.ts) — ON resumes on reload, OFF is ephemeral. Not saved to the .sfc
+// file either way. Keeps cross-component sharing (RecipeBuilderPanel/SafeguardBuilderPanel
+// write it). Legacy .sfc `Filters.builder*Collapsed` is tolerated and ignored on load.
 const builderRecipeCollapsedStore = createLocalStorageStore<BuilderPanelCollapsedSections>({
   key: BUILDER_RECIPE_COLLAPSED_KEY,
   fallback: { ...DEFAULT_BUILDER_PANEL_COLLAPSED },
   parse: parseBuilderPanelCollapsed,
   serialize: serializeBuilderPanelCollapsed,
   equals: builderPanelCollapsedEquals,
-  sessionOnly: true,
+  rememberableView: true,
 })
 
 const builderSafeguardCollapsedStore = createLocalStorageStore<BuilderPanelCollapsedSections>({
@@ -72,7 +72,7 @@ const builderSafeguardCollapsedStore = createLocalStorageStore<BuilderPanelColla
   parse: parseBuilderPanelCollapsed,
   serialize: serializeBuilderPanelCollapsed,
   equals: builderPanelCollapsedEquals,
-  sessionOnly: true,
+  rememberableView: true,
 })
 
 export const useBuilderRecipeCollapsedPreference = createLocalStorageStateHook(builderRecipeCollapsedStore)

@@ -14,14 +14,13 @@ import {
 } from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { resolveAccountScopedKey } from '../lib/accounts'
-
-// open/collapse are pure UI chrome and stay global; state/sync hold actual filter VALUES
-// applied to the active account's document, so they partition per account (lib/accounts.ts).
+// The whole rules-filter view (open/collapse chrome AND the filter VALUES + sync) is GLOBAL
+// rememberable-view state — persistence is governed by the "Remember last view" toggle
+// (state/rememberableViewPreference.ts), not by the active account. It is NOT account-scoped.
 export const RULES_FILTER_OPEN_STORAGE_KEY = 'sellfileCreator.rulesFilter.open.v2'
-export const RULES_FILTER_STATE_STORAGE_KEY = resolveAccountScopedKey('sellfileCreator.rulesFilter.state.v3')
+export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v3'
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
-const RULES_FILTER_SYNC_STORAGE_KEY = resolveAccountScopedKey('sellfileCreator.rulesFilter.sync.v1')
+const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 
 export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'gearInspector'] as const)
 export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]
@@ -124,19 +123,19 @@ const serializeBooleanMap = (value: ModeScoped<boolean>): string | null => {
   }
 }
 
-// The rules-filter view (open/collapse, filter VALUES, and the sync toggle) is EPHEMERAL:
-// it is a live working view on the document, not saved to localStorage or the .sfc file.
-// `sessionOnly` keeps the store's cross-component sharing while dropping persistence — the
-// state resets to defaults each load and is gone on tab close. Keys are retained as
-// documentation but never touched. (Legacy .sfc files may still carry a `Filters` field; the
-// loader tolerates and ignores it — see useAutosaveRestore.ts.)
+// The rules-filter view (open/collapse, filter VALUES, and the sync toggle) is REMEMBERABLE-VIEW
+// state: persistence is governed by the "Remember last view" toggle (rememberableViewPreference.ts).
+// Toggle ON → these resume on reload (global, not per account); OFF →
+// ephemeral, reset to defaults each load. Never saved to the .sfc file either way. (Legacy .sfc
+// files may still carry a `Filters` field; the loader tolerates and ignores it — see
+// useAutosaveRestore.ts.)
 const filterOpenStore = createLocalStorageStore<ModeScoped<boolean>>({
   key: RULES_FILTER_OPEN_STORAGE_KEY,
   fallback: cloneDefaultFilterOpenByMode(),
   parse: parseBooleanMap,
   serialize: serializeBooleanMap,
   equals: booleanMapEquals,
-  sessionOnly: true,
+  rememberableView: true,
 })
 
 // Rules filter state can be large; treat malformed payloads as fresh clones so UI never crashes.
@@ -176,7 +175,7 @@ const filterStateStore = createLocalStorageStore<ModeScoped<RulesFilterState>>({
   fallback: cloneDefaultRulesFilterStateByMode(),
   parse: parseRulesFilterStateMap,
   serialize: serializeRulesFilterStateMap,
-  sessionOnly: true, // ephemeral filter values — not persisted (see filterOpenStore note)
+  rememberableView: true, // rememberable-view filter values — toggle-governed persistence (see filterOpenStore note)
 })
 
 // Collapsed sections are stored per mode; clamp unknown keys back to the default collapsed map.
@@ -227,7 +226,7 @@ const filterCollapsedStore = createLocalStorageStore<ModeScoped<CollapsedSection
   parse: parseCollapsedMap,
   serialize: serializeCollapsedMap,
   equals: modeScopedEquals(collapsedEquals),
-  sessionOnly: true, // ephemeral section-collapse — not persisted (see filterOpenStore note)
+  rememberableView: true, // rememberable-view section-collapse — toggle-governed (see filterOpenStore note)
 })
 
 const useFilterOpenMap = createLocalStorageStateHook(filterOpenStore)
@@ -238,7 +237,7 @@ const filterSyncStore = createLocalStorageStore<boolean>({
   fallback: false,
   parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : null),
-  sessionOnly: true, // ephemeral sync toggle — governs the ephemeral filter values (see above)
+  rememberableView: true, // rememberable-view sync toggle — governs the rememberable-view filter values (see above)
 })
 const useFilterSync = createLocalStorageStateHook(filterSyncStore)
 

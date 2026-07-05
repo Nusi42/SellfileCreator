@@ -187,55 +187,29 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `autosave.restoreSelection.v1` | refers to the account's own autosaves |
 | `builder.userDefaults.v1`, `safeguardBuilder.userDefaults.v1` | encode the account's gear strategy |
 | `simple.variant.v1` | beginner/lategame tracks account progression |
-| `rulesFilter.state.v3`, `rulesFilter.sync.v1` | filter VALUES applied to the account's document |
 | `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper; tri-state raw value — '1' / '0' / absent — where "absent" means never configured: express simple mode defaults auto-push ON only then (`hasExplicitSellfileAutoPushForAccount`), so an explicit off survives simple starts and account switches |
+| `sellfile.dedupDefault.v1`, `sellfile.omitDisabled.v1` | per-account export transforms — the background push applies the TARGET account's dedup/omit (read via `getSellfileDedupForAccount`/`getSellfileOmitDisabledForAccount`), so they must partition per account like auto-push |
 | `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |
 | `sellfile.lastPushError.v1` | ISO timestamp of the last FAILED background push (toast-free feedback: rendered as the switcher row's error line; cleared by the next successful push) |
 | `accountStats.v1` | tiny snapshot of live pipeline RESULTS (generated-rule count + gear total/sold/kept/safeguarded) — written by the live session for its own account, since these are not derivable from autosaves at menu-open cost |
 | `gearDb.persistEndpointGear.v1` | whether the account's REAL endpoint gear persists into its gearInspector autosave (perf/sanity, default ON) — each account decides its own storage footprint |
 
-Everything else stays global — notably the whole theming system (also required: MUI reads
-its theme keys synchronously before account resolution could run), colour maps, UI
-toggles, preset stores (filter/sort/dynamic-overrides — generic reusable tools),
-`runtimeGearSets` (game-level catalog; also the largest key), connection settings
-(`rslHelper.port/connectEnabled`), seen-markers, and `simple.expertMode` (a property of
-the user, not the account).
+Everything else stays global — the theming system (also required: MUI reads its theme keys
+synchronously before account resolution could run), colour maps, display/UI toggles, preset
+libraries (filter/sort/dynamic-overrides), `runtimeGearSets` (game-level catalog; also the
+largest key), connection settings (`rslHelper.port/connectEnabled`), seen-markers, and
+`simple.expertMode`. Note the rules **filter** (`rulesFilter.state/sync`) is global, NOT
+per-account: it is view state governed by the "Remember last view" toggle, not the account.
 
-### Cross-tab behaviour of localStorage state (three buckets)
-
-localStorage is shared across all tabs of an origin, and the store layer deliberately does
-NOT broadcast (`state/localStorageStore.ts`). Every localStorage-backed value falls into one
-of three buckets by how it should behave when two tabs are open:
-
-1. **Chrome / global toggles — mirror is fine (default store).** Pure view/UI state whose
-   cross-tab drift is harmless: filter panel open/collapse (`rulesFilter.open/collapse`),
-   grid column toggles, the Gear Inspector/Analytics view toggles, splitter ratio,
-   builder/preview mode. These use the normal `createLocalStorageStore` (re-reads on every
-   snapshot), so a second tab adopts the last write. Which value loads next is unimportant —
-   we do not fix this and do not broadcast it.
-
-2. **Document-view — no live mirror (`loadOnce: true`).** State that is a working VIEW on the
-   account's document: the applied filter VALUES (`rulesFilter.state.v3`), the filter-sync
-   toggle (`rulesFilter.sync.v1`), the applied substat sort
-   (`gearInspector.sort.substats.v1`), and builder section collapse
-   (`builder.recipeCollapsed/safeguardCollapsed`). These are exactly the units the
-   restore-dialog **"filters"** bundle snapshots into the autosave and restores. The
-   `loadOnce` store option (`state/localStorageStore.ts`) reads storage ONCE at boot, then
-   serves the in-memory value — so two same-account tabs each keep their own live view and
-   never mirror mid-session, while writes still persist (a fresh tab/reload boots from the
-   last saved value; last-writer-wins for the persisted copy is accepted). The filter values
-   also ride the autosave document, so they round-trip through restore/load regardless.
-
-3. **Per-tab (`sessionStorage`, gone on tab close).** `activeAccount.session.v1` (the tab's
-   active account — see "Per-tab active account") and `tabId.session.v1` (stable per-tab id
-   for the auto-push single-owner gate).
-
-Preset/customization **libraries** (`sortPresets`, `filterPresets`, `dynamicOverridesPresets`,
-`recentColors`, `themeCustom`) stay shared/global — they are reusable tools, not a view of one
-document. The whole theming system is also required-global (MUI reads its theme keys
-synchronously before account resolution could run), along with `runtimeGearSets` (game-level
-catalog), connection settings (`rslHelper.port/connectEnabled`), seen-markers, and
-`simple.expertMode` (a property of the user, not the account).
+> **Whether a global key persists across reloads** (always, toggle-governed, or per-tab) is a
+> separate axis from account-scoping and lives in
+> [Settings & Persistence](settings-and-persistence.md) — that doc is the SSOT for the
+> persistence taxonomy (always-persisted / rememberable-view / per-tab) and the full
+> localStorage-key inventory. This section stays the SSOT for *which account owns a key*.
+> Cross-tab note: the store layer deliberately does NOT broadcast
+> (`state/localStorageStore.ts`), so a global key edited in one tab is simply what the next tab
+> reads. The only account state that is per-tab (`sessionStorage`) is `activeAccount.session.v1`
+> and `tabId.session.v1` (see "Per-tab active account").
 
 Key resolution flows through two exports only:
 - `resolveAccountScopedKey(baseKey)` — resolves for the ACTIVE account; safe at module

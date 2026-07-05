@@ -29,6 +29,7 @@ import { useThemeCustomization } from '../state/themeCustomization'
 import { RSLH_PRESET } from '../lib/rslhPreset'
 import { useRslhEnabled, setRslhEnabled } from '../state/themeModePreference'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
+import { useRememberLastViewPreference, setRememberLastView } from '../state/rememberableViewPreference'
 import { DEFAULT_STAT_COLOR_SCOPE, DEFAULT_RARITY_COLOR_SCOPE, DEFAULT_SLOT_COLOR_SCOPE } from '../lib/colorScope'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -138,6 +139,10 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
   const hasCustomization = Object.values(draft).some(v => v != null)
   const { statColorScope, rarityColorScope, slotColorScope, autoSideBySideZoomEnabled, autoSideBySideMinZoom, showSlotIcons, showFactionIcons, showSetIcons } = useDisplayPreferences()
   const { setStatColorScope, setRarityColorScope, setSlotColorScope, setAutoSideBySideZoomEnabled, setAutoSideBySideMinZoom, setShowSlotIcons, setShowFactionIcons, setShowSetIcons } = useDisplayPreferenceActions()
+  // "Remember last view" — governs whether rememberable-view state (filter, sort, section collapse,
+  // builder/preview mode, gear-analytics view) resumes on reload. setRememberLastView owns the
+  // ON→OFF clear+reset semantics (see rememberableViewPreference.ts).
+  const [rememberLastView] = useRememberLastViewPreference()
   // Master colour toggle: on ⇒ restore each group to its factory default, off ⇒ all 'off'.
   const anyColorScopeOn = statColorScope !== 'off' || rarityColorScope !== 'off' || slotColorScope !== 'off'
   const setAllColorScopes = (on: boolean) => {
@@ -344,6 +349,16 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
               </span>
             </MarkdownTooltip>
           }
+        />
+        <Divider />
+        {/* Remember last view — persist rememberable-view state (filter, sort, collapse, builder/
+            preview mode, gear-analytics view) so a reload resumes where the user left off.
+            OFF clears it and always starts at defaults. */}
+        <MenuToggleRow
+          label={t('themeRememberLastView')}
+          tooltip={t('themeRememberLastViewTooltip')}
+          checked={rememberLastView}
+          onChange={() => setRememberLastView(!rememberLastView)}
         />
         <Divider />
         {/* Auto side-by-side zoom — master switch. Off reverts to the native breakpoint layout. */}

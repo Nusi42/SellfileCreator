@@ -7,6 +7,8 @@ import { createLocalStorageStateHook, createLocalStorageStore } from './localSto
 import { SELLFILE_DEDUP_DEFAULT_KEY, SELLFILE_OMIT_DISABLED_KEY, SELLFILE_AUTO_PUSH_KEY } from '../lib/constants'
 import {
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
+  ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
   resolveAccountScopedKeyFor,
@@ -26,9 +28,12 @@ const sellfileDedupStore = createLocalStorageStore<boolean>({
 })
 
 export const useSellfileDedupPreference = createLocalStorageStateHook(sellfileDedupStore)
-// Non-React snapshot for the background account-push flow (dedupe is a GLOBAL pref, so
-// the store is the correct source even when building for another account).
+// Non-React snapshot of the ACTIVE account's dedupe (foreground export reads this).
 export const getSellfileDedupPreferenceSnapshot = (): boolean => sellfileDedupStore.getSnapshot()
+// Dedupe for an EXPLICIT account — the background push builds for a specific non-active
+// account and must apply THAT account's transform, not the active one's. SSOT for the raw key.
+export const getSellfileDedupForAccount = (accountId: string): boolean =>
+  parseExportPreferenceRaw(safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT)))
 
 const sellfileOmitDisabledStore = createLocalStorageStore<boolean>({
   key: SELLFILE_OMIT_DISABLED_KEY,
@@ -38,8 +43,11 @@ const sellfileOmitDisabledStore = createLocalStorageStore<boolean>({
 })
 
 export const useSellfileOmitDisabledPreference = createLocalStorageStateHook(sellfileOmitDisabledStore)
-// Non-React snapshot for the background account-push flow (omit-disabled is global, see above).
+// Non-React snapshot of the ACTIVE account's omit-disabled (foreground export reads this).
 export const getSellfileOmitDisabledPreferenceSnapshot = (): boolean => sellfileOmitDisabledStore.getSnapshot()
+// Omit-disabled for an EXPLICIT account — background push reads the TARGET account's value.
+export const getSellfileOmitDisabledForAccount = (accountId: string): boolean =>
+  parseExportPreferenceRaw(safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED)))
 
 // Auto-push: when enabled, automatically push the sellfile to the active endpoint on every dirty-state change.
 const sellfileAutoPushStore = createLocalStorageStore<boolean>({

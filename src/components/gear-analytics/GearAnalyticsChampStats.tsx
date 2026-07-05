@@ -8,7 +8,7 @@
  * when computing min / avg / max — matching the sort-panel's glyph opt-in.
  */
 import { scopeColorsText } from '../../lib/colorScope'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Box,
   Collapse,
@@ -33,10 +33,12 @@ import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { useRarityAccentColor } from '../../lib/rarityColorContext'
 import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
-  GEAR_ANALYTICS_CHAMP_LOCATION_KEY,
-  GEAR_ANALYTICS_CHAMP_FULLY_EQUIPPED_KEY,
-  GEAR_ANALYTICS_CHAMP_INCLUDE_GLYPHS_KEY,
 } from '../../lib/constants'
+import {
+  useGearAnalyticsChampLocationPreference,
+  useGearAnalyticsChampFullyEquippedPreference,
+  useGearAnalyticsChampIncludeGlyphsPreference,
+} from '../../state/gearAnalyticsPreferences'
 import { useI18n } from '../../lib/i18n'
 import { statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
@@ -283,34 +285,13 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-// ── localStorage persistence ───────────────────────────────────────────────────
-
-// Storage key strings live in the central registry (constants.ts); aliased here
-// for readability. SSOT: the string is defined once and imported.
-const LS_LOCATION         = GEAR_ANALYTICS_CHAMP_LOCATION_KEY
-const LS_FULLY_EQUIPPED   = GEAR_ANALYTICS_CHAMP_FULLY_EQUIPPED_KEY
-const LS_INCLUDE_GLYPHS   = GEAR_ANALYTICS_CHAMP_INCLUDE_GLYPHS_KEY
-
-// Factory defaults — used both on first load and when the parent resets to defaults.
+// ── View-state persistence ───────────────────────────────────────────────────
+// Location/fully-equipped/include-glyphs are rememberable-view stores (state/gearAnalyticsPreferences):
+// they persist while "Remember last view" is ON and reset to these defaults when OFF. The defaults
+// stay here so the parent's resetKey handler can restore them through the store setters.
 const DEFAULT_LOCATION: ChampAnalyticsLocation = 'collection'
 const DEFAULT_FULLY_EQUIPPED = true
 const DEFAULT_INCLUDE_GLYPHS = true
-
-function readLocation(): ChampAnalyticsLocation {
-  const v = localStorage.getItem(LS_LOCATION)
-  if (v === 'all' || v === 'collection' || v === 'vault') return v
-  return DEFAULT_LOCATION
-}
-
-function readFullyEquipped(): boolean {
-  const v = localStorage.getItem(LS_FULLY_EQUIPPED)
-  return v === null ? DEFAULT_FULLY_EQUIPPED : v === 'true'
-}
-
-function readIncludeGlyphs(): boolean {
-  const v = localStorage.getItem(LS_INCLUDE_GLYPHS)
-  return v === null ? DEFAULT_INCLUDE_GLYPHS : v === 'true'
-}
 
 export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCollapse }: Props) {
   const { t } = useI18n()
@@ -320,15 +301,11 @@ export function GearAnalyticsChampStats({ rows, resetKey, collapsed, onToggleCol
   // Contrast-correct stat range-row labels for the active scheme's surface.
   const adaptStatFg = useSubstatFgAdapter()
 
-  // Filter/display state: persisted to localStorage so the user's preference survives reloads.
-  const [location, setLocation] = useState<ChampAnalyticsLocation>(readLocation)
-  const [fullyEquippedOnly, setFullyEquippedOnly] = useState<boolean>(readFullyEquipped)
+  // Filter/display state: rememberable-view stores (persist while "Remember last view" is ON).
+  const [location, setLocation] = useGearAnalyticsChampLocationPreference()
+  const [fullyEquippedOnly, setFullyEquippedOnly] = useGearAnalyticsChampFullyEquippedPreference()
   // When true, adds each substat's glyphValue to totalValue in the chart calculations.
-  const [includeGlyphs, setIncludeGlyphs] = useState<boolean>(readIncludeGlyphs)
-
-  useEffect(() => { localStorage.setItem(LS_LOCATION, location) }, [location])
-  useEffect(() => { localStorage.setItem(LS_FULLY_EQUIPPED, String(fullyEquippedOnly)) }, [fullyEquippedOnly])
-  useEffect(() => { localStorage.setItem(LS_INCLUDE_GLYPHS, String(includeGlyphs)) }, [includeGlyphs])
+  const [includeGlyphs, setIncludeGlyphs] = useGearAnalyticsChampIncludeGlyphsPreference()
   // Restore factory defaults when the parent increments resetKey.
   // "Adjust state directly during render" pattern: all three setters are batched by React 18+.
   const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)

@@ -22,7 +22,7 @@
  * Hovering a filled cell shows the equipped gear piece via GearInspectorGridCard.
  */
 import { scopeColorsText } from '../../lib/colorScope'
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Box, Collapse, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material'
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
 import type { GearInspectorPreviewRow } from '../../types/gearInspectorPreview'
@@ -43,10 +43,13 @@ import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
   GEAR_DB_DIFF_TOAST_CARD_SCALE,
   CHAMPION_ICON_LARGE_THRESHOLD,
-  GEAR_ANALYTICS_SORT_MODE_KEY,
-  GEAR_ANALYTICS_SIMULATE_SOLD_KEY,
-  GEAR_ANALYTICS_SHOW_FULLY_EQUIPPED_KEY,
 } from '../../lib/constants'
+import {
+  useGearAnalyticsSortModePreference,
+  useGearAnalyticsSimulateSoldPreference,
+  useGearAnalyticsShowFullyEquippedPreference,
+  type GearAnalyticsSortMode,
+} from '../../state/gearAnalyticsPreferences'
 import { useI18n } from '../../lib/i18n'
 import { useSubstatColors } from '../../hooks/useSubstatColors'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -87,39 +90,15 @@ const EMPTY_SLOT_SET: ReadonlySet<number> = new Set()
 /** Controls champion sort order. 'rank' = in-game default roster order
  *  (used as the natural/default ordering); others = sort by missing count
  *  for that slot group (most missing first). */
-type SortMode = 'rank' | 'all' | 'artifacts' | 'accessories'
+// Local alias of the persisted union (the store owns the SSOT value list via
+// GearAnalyticsSortMode; this keeps the many local `SortMode` annotations unchanged).
+type SortMode = GearAnalyticsSortMode
 
-const LS_SORT_MODE = GEAR_ANALYTICS_SORT_MODE_KEY
+// Factory defaults — the rememberable-view stores own persistence/parse; these literals stay only so the
+// parent's resetKey handler below can restore defaults through the store setters.
 const DEFAULT_SORT_MODE: SortMode = 'rank'
-
-function readSortMode(): SortMode {
-  const v = localStorage.getItem(LS_SORT_MODE)
-  // Migration: legacy 'off' value falls through to the new default ('rank') —
-  // the old 'off' mode used a similar (but not identical) tiebreaker and is
-  // intentionally retired in favor of the more accurate 'rank' comparator.
-  if (v === 'rank' || v === 'all' || v === 'artifacts' || v === 'accessories') return v
-  return DEFAULT_SORT_MODE
-}
-
-// ── Simulate-sold toggle ──────────────────────────────────────────────────────
-
-/** Persisted on/off state for the "simulate sold gear" overlay. */
-const LS_SIMULATE_SOLD = GEAR_ANALYTICS_SIMULATE_SOLD_KEY
 const DEFAULT_SIMULATE_SOLD = false
-
-function readSimulateSold(): boolean {
-  return localStorage.getItem(LS_SIMULATE_SOLD) === '1'
-}
-
-// ── Show-fully-equipped toggle ────────────────────────────────────────────────
-
-/** Persisted on/off state for the "show fully equipped champions" expansion. */
-const LS_SHOW_FULLY_EQUIPPED = GEAR_ANALYTICS_SHOW_FULLY_EQUIPPED_KEY
 const DEFAULT_SHOW_FULLY_EQUIPPED = false
-
-function readShowFullyEquipped(): boolean {
-  return localStorage.getItem(LS_SHOW_FULLY_EQUIPPED) === '1'
-}
 
 /** Slot list used for sorting and the missing count badge per sort mode.
  *  'rank' has no slot-group constraint — it sorts by ascension/rarity tiebreakers. */
@@ -512,13 +491,10 @@ export function GearAnalyticsNotEquipped({ rows, resetKey, collapsed, onToggleCo
   const { statColorScope } = useDisplayPreferences()
   const colorStatTexts = scopeColorsText(statColorScope)
 
-  const [sortMode, setSortMode] = useState<SortMode>(readSortMode)
-  const [simulateSold, setSimulateSold] = useState<boolean>(readSimulateSold)
-  const [showFullyEquipped, setShowFullyEquipped] = useState<boolean>(readShowFullyEquipped)
-
-  useEffect(() => { localStorage.setItem(LS_SORT_MODE, sortMode) }, [sortMode])
-  useEffect(() => { localStorage.setItem(LS_SIMULATE_SOLD, simulateSold ? '1' : '0') }, [simulateSold])
-  useEffect(() => { localStorage.setItem(LS_SHOW_FULLY_EQUIPPED, showFullyEquipped ? '1' : '0') }, [showFullyEquipped])
+  // Session-view stores: persist while "Remember last view" is ON, ephemeral otherwise.
+  const [sortMode, setSortMode] = useGearAnalyticsSortModePreference()
+  const [simulateSold, setSimulateSold] = useGearAnalyticsSimulateSoldPreference()
+  const [showFullyEquipped, setShowFullyEquipped] = useGearAnalyticsShowFullyEquippedPreference()
   // Restore factory defaults when the parent increments resetKey.
   // "Adjust state directly during render" pattern avoids the one-render delay of useEffect.
   const [prevResetKey, setPrevResetKey] = useState<number | undefined>(resetKey)

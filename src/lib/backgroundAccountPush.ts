@@ -61,8 +61,8 @@ import { buildHsfFileFromMerged } from './hsfIO'
 import { sellfileFilename } from './filenames'
 import {
   getSellfileAutoPushForAccount,
-  getSellfileDedupPreferenceSnapshot,
-  getSellfileOmitDisabledPreferenceSnapshot,
+  getSellfileDedupForAccount,
+  getSellfileOmitDisabledForAccount,
   markSellfileLastPushForAccount,
 } from '../state/exportPreferences'
 import { getPersistEndpointGearForAccount } from '../state/gearDbPreferences'
@@ -201,9 +201,10 @@ export const createBackgroundAccountPushService = (
         hsf: null,
         ...(doc.finalSellRemainder ? { finalSellRemainder: doc.finalSellRemainder } : {}),
         safeguards: { enabled: safeguardsEnabled, rules: [...view.effectiveSafeguardRules], detection: null },
-        // The export transforms are GLOBAL preferences — same values the live export uses.
-        omitDisabledBeforeSafeguards: getSellfileOmitDisabledPreferenceSnapshot(),
-        dedupeBeforeSafeguards: getSellfileDedupPreferenceSnapshot(),
+        // The export transforms are per-account — read the TARGET account's dedup/omit so a
+        // background build for account X uses X's chosen transforms, not the active account's.
+        omitDisabledBeforeSafeguards: getSellfileOmitDisabledForAccount(account.id),
+        dedupeBeforeSafeguards: getSellfileDedupForAccount(account.id),
         recipeModes: view.recipeModes,
         artifacts,
         computeImprovementChance: false,

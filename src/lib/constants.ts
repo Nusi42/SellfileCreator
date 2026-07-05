@@ -13,6 +13,8 @@ import {
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
   ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
+  ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
+  ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
   resolveAccountScopedKey,
 } from './accounts'
 
@@ -124,10 +126,6 @@ export const COLOR_SCOPE_SLOT_KEY = 'sellfileCreator.colorScope.slot.v1'
 // at all, and the user-tunable cutoff below which it gives up and reverts to the native layout.
 export const AUTO_SIDE_BY_SIDE_ZOOM_ENABLED_KEY = 'sellfileCreator.autoSideBySideZoom.enabled.v1'
 export const AUTO_SIDE_BY_SIDE_MIN_ZOOM_KEY = 'sellfileCreator.autoSideBySideZoom.minZoom.v1'
-// Persisted safeguards grid filter toggle.
-export const SAFEGUARDS_GRID_FILTER_KEY = 'sellfileCreator.safeguards.gridFilter.v1'
-// Persisted safeguards grid column count.
-export const SAFEGUARDS_GRID_COLUMNS_KEY = 'sellfileCreator.safeguards.gridColumns.v1'
 // Persisted Dungeon Drops simulator selections (mode, stage, spotlight set).
 export const DUNGEON_SIM_PREFERENCES_KEY = 'sellfileCreator.dungeonDrops.v1'
 // Persisted Gear Inspector selection mode (single vs multi).
@@ -162,6 +160,13 @@ export type ThemeMode = 'dark' | 'light' | 'rslh'
 // ThemeCustomization (orange accent, flat surfaces, Segoe/Cascadia fonts — see rslhPreset.ts).
 // When this is on, MUI mode is 'dark' and the app applies the RSLH preset. See themeModePreference.
 export const RSLH_ENABLED_KEY = 'sellfileCreator.rslhEnabled.v1'
+
+// "Remember last view" master flag. When ON (default), every REMEMBERABLE-VIEW store (filter,
+// sort, section collapse, builder/preview mode, gear-analytics view) persists to localStorage
+// so a reload resumes the last view. When OFF, those stores are ephemeral (reset to defaults
+// each load). Always-persisted itself (like the theme flags) so the choice survives reloads.
+// See state/rememberableViewPreference.ts.
+export const REMEMBER_LAST_VIEW_KEY = 'sellfileCreator.rememberLastView.v1'
 
 // Persisted per-element theme overrides from the theme editor popover
 export const THEME_CUSTOM_KEY = 'sellfileCreator.themeCustom.v1'
@@ -691,12 +696,13 @@ export const BUILDER_RECIPE_COLLAPSED_KEY = 'sellfileCreator.builder.recipeColla
 // Builder: persisted collapsed state for the 7 per-group collapsible sections
 // in the safeguard builder panel.
 export const BUILDER_SAFEGUARD_COLLAPSED_KEY = 'sellfileCreator.builder.safeguardCollapsed.v1'
-// Sellfile export: when enabled, dedupe merged rules before exporting/pushing
-// the .hsf. Stored so users can persist their preference.
-export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault.v1'
-// Sellfile export: when enabled, omit rules with Use === false from export/push
-// outputs. Stored separately so skipping disabled rules persists across sessions.
-export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled.v1'
+// Sellfile export: when enabled, dedupe merged rules before exporting/pushing the .hsf.
+// Account-scoped (lib/accounts.ts): a per-game-account export contract — the background push
+// applies the TARGET account's transform, so it must partition per account like autoPush.
+export const SELLFILE_DEDUP_DEFAULT_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT)
+// Sellfile export: when enabled, omit rules with Use === false from export/push outputs.
+// Account-scoped for the same reason as dedupDefault above.
+export const SELLFILE_OMIT_DISABLED_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED)
 // Sellfile export: when enabled and an endpoint is active, automatically push the sellfile
 // whenever unsaved changes are detected (hsfDirty rising edge).
 // Account-scoped (lib/accounts.ts): auto-push is a per-game-account contract — each account
@@ -756,9 +762,18 @@ export const GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY = 'sellfileCreator.gear
 // Gear Inspector grid: substat sorting controls.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
 export const GEAR_INSPECTOR_SUBSTAT_SORT_KEY = 'sellfileCreator.gearInspector.sort.substats.v1'
-// Gear Inspector grid: normalized overlay presets + selection.
-// Why: Overlay is view-only, but users need the presets to persist across sessions.
+// Gear Inspector grid: normalized overlay — LEGACY combined key (presets + applied selection in one blob).
+// Retained only so the one-time migration in gearInspectorGridNormalizedOverlayPreferences.ts can read the
+// old value on first load and split it into the two keys below, then delete this key. Do not write to it.
 export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.gearInspector.grid.normalizedOverlay.v1'
+// Gear Inspector grid: normalized overlay — the reusable preset LIBRARY (fixed-count preset definitions:
+// iconId/variants/weights). Always-persisted like sort/filter presets: the definitions are a user asset,
+// independent of whether any preset is currently applied.
+export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_PRESETS_KEY = 'sellfileCreator.gearInspector.grid.normalizedOverlay.presets.v1'
+// Gear Inspector grid: normalized overlay — the APPLIED selection/flag (useSortWeights, enabledPresetIds,
+// lastEnabledPresetIds). Split out from the library so "which presets are shown right now" is a separate
+// concern from "what the presets are". Always-persisted (behavior identical to the pre-split combined key).
+export const GEAR_INSPECTOR_GRID_NORMALIZED_OVERLAY_APPLIED_KEY = 'sellfileCreator.gearInspector.grid.normalizedOverlay.applied.v1'
 
 // Gear Analytics dialog preferences. Centralized here so every persisted key
 // follows the same `sellfileCreator.<feature>.<item>.v<n>` convention and lives

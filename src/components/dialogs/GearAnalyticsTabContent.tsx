@@ -7,7 +7,7 @@
  * This is the BI-style Crossfilter pattern.
  */
 import { scopeColorsText } from '../../lib/colorScope'
-import { useState, useRef, useMemo, useCallback, useEffect, useLayoutEffect, startTransition, useDeferredValue } from 'react'
+import { useState, useRef, useMemo, useCallback, useLayoutEffect, startTransition, useDeferredValue } from 'react'
 import type { GearAnalyticsEggPeer } from '../../lib/easterEggAnimUtils'
 import { Box, Button, CircularProgress, Tooltip, Typography, useTheme } from '@mui/material'
 import { toPng } from 'html-to-image'
@@ -46,7 +46,8 @@ import {
   type GearAnalyticsOutcome,
   type GearAnalyticsSource,
 } from '../../lib/gearAnalytics'
-import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID, GEAR_ANALYTICS_COLLAPSED_KEY } from '../../lib/constants'
+import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS, ACCESSORY_NO_SET_ID } from '../../lib/constants'
+import { useGearAnalyticsCollapsedPreference } from '../../state/gearAnalyticsPreferences'
 import type { ArtifactSetId, ArtifactTypeId } from '../../lib/types'
 import { getAccessorySlotsCompatibleSetIds, getArtifactFixedSetIds, getArtifactVariableSetIds } from '../../lib/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
@@ -106,27 +107,20 @@ type Props = {
 const GEAR_ANALYTICS_SECTION_IDS = ['slot', 'rank', 'rarity', 'outcome', 'source', 'level', 'treemap', 'mainStat', 'improvChance', 'substats', 'heatmap', 'champStats', 'notEquipped'] as const
 type GearAnalyticsSectionId = (typeof GEAR_ANALYTICS_SECTION_IDS)[number]
 
-const COLLAPSED_STORAGE_KEY = GEAR_ANALYTICS_COLLAPSED_KEY
-
-/** Returns a fully-expanded default collapsed record (all false = expanded). */
+/** Returns a fully-expanded default collapsed record (all false = expanded). Used to fill in
+ *  sections the persisted partial map doesn't mention, and by "toggle all". */
 function defaultCollapsed(): Record<GearAnalyticsSectionId, boolean> {
   return Object.fromEntries(GEAR_ANALYTICS_SECTION_IDS.map((id) => [id, false])) as Record<GearAnalyticsSectionId, boolean>
 }
 
-/** Reads the persisted collapsed state from localStorage, falling back to all-expanded. */
-function readCollapsed(): Record<GearAnalyticsSectionId, boolean> {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY)
-    if (!raw) return defaultCollapsed()
-    const parsed = JSON.parse(raw) as Partial<Record<string, boolean>>
-    const result = defaultCollapsed()
-    for (const id of GEAR_ANALYTICS_SECTION_IDS) {
-      if (typeof parsed[id] === 'boolean') result[id] = parsed[id]!
-    }
-    return result
-  } catch {
-    return defaultCollapsed()
+/** Merge a persisted partial collapse map onto the all-expanded default, keeping only known
+ *  section IDs with boolean values — mirrors the old readCollapsed's typed-view construction. */
+function mergeCollapsed(partial: Record<string, boolean>): Record<GearAnalyticsSectionId, boolean> {
+  const result = defaultCollapsed()
+  for (const id of GEAR_ANALYTICS_SECTION_IDS) {
+    if (typeof partial[id] === 'boolean') result[id] = partial[id]!
   }
+  return result
 }
 
 /** Ordered outcome IDs and their i18n keys. */
@@ -294,20 +288,21 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
 
   // ── Section collapse state ─────────────────────────────────────────────────
   // All sections start expanded (false = expanded); state is persisted to localStorage.
-  const [collapsed, setCollapsed] = useState<Record<GearAnalyticsSectionId, boolean>>(readCollapsed)
-  useEffect(() => {
-    try { localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed)) } catch { /* storage unavailable */ }
-  }, [collapsed])
+  // Session-view store holds a partial map (only customized sections); merge onto the all-expanded
+  // default for the typed view downstream code reads (collapsed.slot, …). Persistence is governed
+  // by the "Remember last view" toggle.
+  const [storedCollapsed, setStoredCollapsed] = useGearAnalyticsCollapsedPreference()
+  const collapsed = useMemo(() => mergeCollapsed(storedCollapsed), [storedCollapsed])
   /** Toggle a single section or all sections at once (Ctrl/Cmd+click or right-click). */
   const toggleSection = useCallback((id: GearAnalyticsSectionId, applyToAll: boolean) => {
-    setCollapsed((prev) => {
+    setStoredCollapsed((prev) => {
       const nextValue = !prev[id]
       if (applyToAll) {
         return Object.fromEntries(GEAR_ANALYTICS_SECTION_IDS.map((k) => [k, nextValue])) as Record<GearAnalyticsSectionId, boolean>
       }
       return { ...prev, [id]: nextValue }
     })
-  }, [])
+  }, [setStoredCollapsed])
 
   // Cross-filter state: all dimensions start empty (= no filter).
   const [dim, setDim] = useState<GearAnalyticsDim>(EMPTY_GEAR_ANALYTICS_DIM)

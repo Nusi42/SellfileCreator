@@ -12,7 +12,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
-import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
+import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
 import { buildDocumentOverridesView } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
@@ -44,7 +44,7 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -60,8 +60,6 @@ import {
 import {
   AUTOSAVE_KEY,
   AUTOSAVE_GEAR_INSPECTOR_KEY,
-  PREVIEW_MODE_STORAGE_KEY,
-  BUILDER_MODE_STORAGE_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
   GRID_COLUMN_GAP_PX,
@@ -335,6 +333,7 @@ import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import { useAutoApplyBuilderPreference } from './state/builderPreferences'
+import { usePreviewModePreference, useBuilderModePreference } from './state/previewBuilderModePreferences'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/recipeDuplicates'
@@ -1239,38 +1238,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => recipeFgColorsForGrid.map((c) => (typeof c === 'string' && c.trim() ? c.trim() : null)),
     [recipeFgColorsForGrid],
   )
-  // Preview mode is still tracked for UI layout, but pipeline matching is always computed.
-  const [previewMode, setPreviewMode] = useState<'rules' | 'gearInspector'>(() => {
-    if (typeof window === 'undefined') return 'rules'
-    try {
-      // Validate stored mode; unrecognized values fall back to 'rules'.
-      const stored = localStorage.getItem(PREVIEW_MODE_STORAGE_KEY)
-      return stored === 'gearInspector' ? 'gearInspector' : 'rules'
-    } catch {
-      return 'rules'
-    }
-  })
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
-    } catch {}
-  }, [previewMode])
-  // Builder mode: 'recipe' | 'safeguard' — persisted to localStorage.
-  const [builderMode, setBuilderMode] = useState<'recipe' | 'safeguard'>(() => {
-    if (typeof window === 'undefined') return 'recipe'
-    try {
-      return localStorage.getItem(BUILDER_MODE_STORAGE_KEY) === 'safeguard' ? 'safeguard' : 'recipe'
-    } catch {
-      return 'recipe'
-    }
-  })
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem(BUILDER_MODE_STORAGE_KEY, builderMode)
-    } catch {}
-  }, [builderMode])
+  // Preview mode (Sellfile Preview vs Gear Inspector) and builder mode (Recipe vs Safeguard)
+  // are REMEMBERABLE-VIEW state — the "Remember last view" toggle governs whether they resume on
+  // reload (see state/previewBuilderModePreferences.ts). The hooks are useState-shaped so the
+  // downstream setters/readers below are unchanged. Preview mode is tracked for UI layout;
+  // pipeline matching is always computed regardless.
+  const [previewMode, setPreviewMode] = usePreviewModePreference()
+  const [builderMode, setBuilderMode] = useBuilderModePreference()
   // Re-measure the builder Paper min-height whenever the mode switches.
   // The recipe chips ResizeObserver only fires when the chips container itself resizes;
   // hiding it (switching to safeguard mode) does not trigger a resize, so the stale
@@ -2760,7 +2734,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!scaffolded) return
     setSafeguardBuilder(scaffolded)
     if (builderMode !== 'safeguard') setBuilderMode('safeguard')
-  }, [buildScaffoldedSafeguardFromRecipe, setSafeguardBuilder, builderMode])
+  }, [buildScaffoldedSafeguardFromRecipe, setSafeguardBuilder, builderMode, setBuilderMode])
 
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
@@ -4647,6 +4621,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     queueGearDbDiffToast,
     beginGearImport,
     endGearImport,
+    setPreviewMode,
   ])
 
   // Accepts the raw snapshot payload pushed by the helper and rewires the Gear Inspector queue.
@@ -8658,62 +8633,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     void handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
-  // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
-  // so the shift-switch merge carry round-trips through the regular parse/normalize path.
-  const getAccountMergeSfcText = useCallback(() => JSON.stringify(buildSfcPayload({
-    version: APP_VERSION,
-    metasets,
-    substatTargets,
-    recipes: customRecipes,
-    finalSellRemainder,
-    ...(sfcNote ? { note: sfcNote } : {}),
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-  }), null, 2), [
-    metasets,
-    substatTargets,
-    customRecipes,
-    finalSellRemainder,
-    sfcNote,
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-  ])
-
   // One switcher component, two mount points (header + simple Note dialog) so both entry
   // points share behavior; the compact variant only changes the button chrome.
-  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} />
-  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} compact />
-
-  // One-shot account-merge carry (shift-switch): taken from storage on mount — clearing it
-  // immediately makes the flow crash-safe (a failed import never replays on the next launch).
-  const [accountMergeCarry] = useState(takeAccountMergeCarry)
-  const accountMergeCarryConsumedRef = useRef(false)
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect -- the carry is EXTERNAL state (localStorage written by the previous account's session before the reload); it can only be surfaced after the restore flow settles, which is inherently an effect, and the consumed-ref guarantees a single fire. */
-  useEffect(() => {
-    // Wait until the startup restore flow settles so the import applies to the target
-    // account's restored document, then surface the carry through the existing
-    // shift-import options dialog (selection + merge modes + metaset conflicts).
-    if (!accountMergeCarry || accountMergeCarryConsumedRef.current || restoreDlgOpen) return
-    accountMergeCarryConsumedRef.current = true
-    // Failure-toast timer captured for cleanup; null when the carry parsed fine.
-    let failureToastTimer: number | null = null
-    try {
-      // Same parser the file-import path uses — the carry is a regular .sfc text.
-      const payload = parseSfcText(accountMergeCarry.sfcText, { metasets, substatTargets })
-      setPendingSfcShiftDialogImport({
-        fileName: t('accountMergeSourceLabel', { name: accountMergeCarry.fromDisplayName }),
-        payload,
-      })
-    } catch {
-      // Unreadable carry: report and continue — the target account is untouched. Deferred a
-      // tick so the toast state flips outside this effect's synchronous commit.
-      failureToastTimer = window.setTimeout(() => showToast(t('accountMergeCarryFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> }), 0)
-    }
-    return () => { if (failureToastTimer !== null) window.clearTimeout(failureToastTimer) }
-  }, [accountMergeCarry, restoreDlgOpen, metasets, substatTargets, setPendingSfcShiftDialogImport, showToast, t])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect */
+  const accountSwitcherElement = <AccountSwitcher flashSeq={accountPushFlashSeq} />
+  const accountSwitcherCompactElement = <AccountSwitcher flashSeq={accountPushFlashSeq} compact />
 
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (

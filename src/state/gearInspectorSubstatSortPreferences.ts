@@ -225,12 +225,13 @@ const gearInspectorSubstatSortStore = createLocalStorageStore<GearInspectorSubst
   },
   // JSON keeps the schema flexible while still being human-debuggable in devtools.
   serialize: (value) => JSON.stringify(value),
-  // EPHEMERAL: the applied substat sort is a live view on the document's results — not
-  // persisted to localStorage or the .sfc file. sessionOnly keeps cross-component sharing
-  // (App + GearInspectorItemsGrid + sort popover) while dropping persistence; resets each
-  // load. The reusable sort PRESETS library stays persisted/global — only the APPLIED sort
-  // is ephemeral. Legacy .sfc `GearInspectorSort` is tolerated and ignored on load.
-  sessionOnly: true,
+  // REMEMBERABLE-VIEW: the applied substat sort is a live view on the document's results, governed
+  // by the "Remember last view" toggle (rememberableViewPreference.ts) — ON resumes on reload, OFF
+  // is ephemeral. Not saved to the .sfc file either way. Keeps cross-component sharing (App +
+  // GearInspectorItemsGrid + sort popover). The reusable sort PRESETS library stays
+  // always-persisted — only the APPLIED sort is rememberable-view. Legacy .sfc `GearInspectorSort`
+  // is tolerated and ignored on load.
+  rememberableView: true,
 })
 
 export function setGearInspectorSubstatSortState(next: GearInspectorSubstatSortState) {

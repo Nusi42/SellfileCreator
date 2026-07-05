@@ -20,9 +20,7 @@ import {
   setUnstampedDefaultAccount,
   resolveAccountScopedKey,
   resolveAccountScopedKeyFor,
-  stageAccountMergeCarry,
   switchAccount,
-  takeAccountMergeCarry,
 } from '../../src/lib/accounts.js'
 import { __resetRuntimeConfigForTests, getSimpleMode, SIMPLE_MODE_SESSION_KEY } from '../../src/lib/runtimeConfig.js'
 import { ACTIVE_ACCOUNT_SESSION_KEY } from '../../src/lib/activeAccountSession.js'
@@ -237,17 +235,8 @@ test('bindHelperAccount moves an id between accounts instead of duplicating it',
 })
 
 // ---------------------------------------------------------------------------
-// Merge carry + protocol glue
+// RSL Helper protocol glue
 // ---------------------------------------------------------------------------
-
-test('merge carry is one-shot: staged once, taken once, gone after', () => {
-  freshWindow()
-  stageAccountMergeCarry({ fromDisplayName: 'Default', sfcText: '{"Version":"1"}' })
-  const carry = takeAccountMergeCarry()
-  assert.deepEqual(carry, { fromDisplayName: 'Default', sfcText: '{"Version":"1"}' })
-  // Read-and-clear: a second take (e.g. after a crash loop) must find nothing.
-  assert.equal(takeAccountMergeCarry(), null)
-})
 
 test('buildAccountRpcParams includes each identity only when present', () => {
   freshWindow()

@@ -5,11 +5,8 @@
  * One shared component, two mount points (app header + simple-mode Note dialog) so both
  * entry points stay in sync per the parallel-entry-points rule.
  *
- * Click the button → account menu. Plain click on an account switches (writes the
- * registry, then reloads — one document per session, see lib/accounts.ts). Shift+click
- * offers the merge flow: the current document is staged as a one-shot carry and offered
- * to the target session through the existing shift-import options dialog, so merging
- * reuses the regular selective-import logic instead of forking it. Each row shows the
+ * Click the button → account menu. Clicking an account switches (writes the registry,
+ * then reloads — one document per session, see lib/accounts.ts). Each row shows the
  * account's summary (saved-at, last successful push, recipe/safeguard/rule counts, and
  * the shared gear outcome chip) and carries a gear icon opening the account dialog for
  * THAT account. "New account…" opens the SAME dialog in create mode (staged fields,
@@ -44,7 +41,6 @@ import {
   setAccountAccent,
   setAccountNameEllipsis,
   setUnstampedDefaultAccount,
-  stageAccountMergeCarry,
   switchAccount,
   type SfcAccount,
 } from '../lib/accounts'
@@ -63,9 +59,6 @@ import {
 import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 
 export type AccountSwitcherProps = {
-  // Serializes the current document with the regular .sfc writer; staged as the
-  // merge carry when the user shift-picks a target account.
-  getMergeSfcText: () => string
   // Compact variant for the simple-mode Note dialog action strip: natural small-button
   // height so it matches the strip's other outlined controls (header variant is 34px).
   compact?: boolean
@@ -100,7 +93,7 @@ function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: 
   )
 }
 
-export default function AccountSwitcher({ getMergeSfcText, compact = false, flashSeq = 0 }: AccountSwitcherProps) {
+export default function AccountSwitcher({ compact = false, flashSeq = 0 }: AccountSwitcherProps) {
   const { t } = useI18n()
   const { accounts, activeAccount } = useAccounts()
   // The accent FILLS the switcher button, so the label is the active scheme's text
@@ -157,8 +150,6 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     }
   }
 
-  // Pending shift-merge target; non-null renders the confirmation dialog.
-  const [mergeTarget, setMergeTarget] = useState<SfcAccount | null>(null)
   // The unified account dialog (create or manage) + its staged/managed field drafts.
   const [accountDialog, setAccountDialog] = useState<AccountDialogState>(null)
   const managedAccount = accountDialog?.mode === 'manage'
@@ -175,7 +166,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const [accentDraft, setAccentDraft] = useState<string | undefined>(ACCOUNT_ACCENT_PALETTE[0]!)
   const [unstampedDraft, setUnstampedDraft] = useState(false)
   const [nameEllipsisDraft, setNameEllipsisDraft] = useState<'left' | 'right'>('left')
-  // Delete confirmation is its own dialog (over the manage dialog), like the merge flow.
+  // Delete confirmation is its own dialog, rendered over the manage dialog.
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   // Identity (name + Player ID) at manage-dialog open: the both-empty guard reverts to it.
   const manageOpenSnapshotRef = React.useRef<{ name: string; playerId: string }>({ name: '', playerId: '' })
@@ -209,27 +200,10 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     setAccountDialog({ mode: 'create' })
   }
 
-  // Plain click switches; shift+click opens the merge confirmation instead.
-  const handlePickAccount = (event: React.MouseEvent, account: SfcAccount) => {
+  // Clicking a non-active account switches to it (write the registry, then reload).
+  const handlePickAccount = (account: SfcAccount) => {
     if (account.id === activeAccount.id) { closeMenu(); return }
-    if (event.shiftKey) {
-      setMergeTarget(account)
-      closeMenu()
-      return
-    }
     switchAccount(account.id)
-    reload()
-  }
-
-  // Stage the carry, then switch — the target session offers the import dialog on boot.
-  const handleConfirmMerge = () => {
-    if (!mergeTarget) return
-    try {
-      stageAccountMergeCarry({ fromDisplayName: accountLabel(activeAccount), sfcText: getMergeSfcText() })
-    } catch {
-      // Serialization failure: fall back to a plain switch rather than blocking it.
-    }
-    switchAccount(mergeTarget.id)
     reload()
   }
 
@@ -296,7 +270,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   }
 
   // Bold state line + interaction help, mirroring the connect button's tooltip format.
-  const tooltipMd = `**${t('accountSwitcherTooltip', { name: accountLabel(activeAccount) })}**\n\n${t('accountMenuShiftHint')}`
+  const tooltipMd = `**${t('accountSwitcherTooltip', { name: accountLabel(activeAccount) })}**`
   const isCreate = accountDialog?.mode === 'create'
   // The dialog renders for create mode OR a still-existing managed account.
   const dialogOpen = accountDialog !== null && (isCreate || managedAccount !== null)
@@ -369,7 +343,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
             <MenuItem
               key={account.id}
               selected={account.id === activeAccount.id}
-              onClick={(e) => handlePickAccount(e, account)}
+              onClick={() => handlePickAccount(account)}
             >
               {/* Leading slot marks the ACTIVE account with a right arrow ("you are here"). */}
               <ListItemIcon>
@@ -439,28 +413,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
           {t('accountMenuNew')}
         </MenuItem>
-        {/* Advertise the shift-merge affordance where the user is already looking —
-            text.disabled matches the app's other purely-informative labels (filter header).
-            The colour must live in sx: the Typography color PROP does not resolve the
-            token here and the text inherits the menu's full-strength foreground. */}
-        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', px: 2, pt: 0.5, maxWidth: 260 }}>
-          {t('accountMenuShiftHint')}
-        </Typography>
       </Menu>
-
-      {/* Shift-merge confirmation — a content-changing action, so it names both sides. */}
-      <Dialog open={mergeTarget !== null} onClose={() => setMergeTarget(null)}>
-        <DialogTitle>{t('accountMergeTitle', { name: mergeTarget ? accountLabel(mergeTarget) : '' })}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {t('accountMergeBody', { source: accountLabel(activeAccount), target: mergeTarget ? accountLabel(mergeTarget) : '' })}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMergeTarget(null)}>{t('cancel')}</Button>
-          <Button variant="contained" onClick={handleConfirmMerge}>{t('accountMergeConfirm')}</Button>
-        </DialogActions>
-      </Dialog>
 
       {/* The unified account dialog: identical layout for create (staged) and manage (live). */}
       <Dialog open={dialogOpen} onClose={() => setAccountDialog(null)}>
